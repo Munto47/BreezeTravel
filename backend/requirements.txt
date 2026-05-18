@@ -15,7 +15,7 @@ langchain-openai>=0.2.0
 langchain-core>=0.3.13
 langgraph>=0.2.0
 
-# OpenAI SDK（RAG Embedding + ingest_notes）
+# OpenAI SDK（RAG Embedding + LLM 调用，兼容 DeepSeek / SiliconFlow）
 openai>=1.0.0
 langgraph-checkpoint-postgres>=2.0.0
 psycopg[binary]>=3.1.0
@@ -38,3 +38,18 @@ redis==5.1.1
 # 工具
 python-dotenv==1.0.1
 nanoid==2.0.0
+
+# ── Advanced RAG（Sprint 1 新增）────────────────────────────────────────────
+
+# BM25 中文分词（Sparse 检索 / tsvector 入库）
+jieba>=0.42.1
+
+# Cross-Encoder 重排序（bge-reranker-v2-m3）
+# 需要 GPU 推理，已有 torch 环境则自动使用 CUDA
+# 注意：FlagEmbedding 会自动安装 torch，Docker 镜像会因此增大约 2GB
+# 若需轻量部署，可注释掉并设置 RERANKER_ENABLED=false
+FlagEmbedding>=1.2.5
+
+# RAG 评估框架（RAGAS）
+ragas>=0.2.0
+datasets>=2.0.0
