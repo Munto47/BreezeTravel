@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     ft_router_enabled: bool = False
     ft_router_model_path: str = "models/router_lora"
 
+    # ── 阿里云短信服务 ────────────────────────────────────────────────
+    alibaba_cloud_access_key_id: str = ""
+    alibaba_cloud_access_key_secret: str = ""
+    alibaba_cloud_sms_sign_name: str = "BreezeTravel"
+    alibaba_cloud_sms_template_code: str = ""
+
+    # ── JWT 鉴权 ──────────────────────────────────────────────────────
+    jwt_secret_key: str = "change-me-in-production-please"
+
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
 

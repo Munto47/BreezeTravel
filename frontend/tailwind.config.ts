@@ -45,6 +45,7 @@ const config: Config = {
         'slide-in-left': 'slide-in-left 0.3s ease-out',
         'slide-in-right': 'slide-in-right 0.3s ease-out',
         'fade-in': 'fade-in 0.2s ease-out',
+        'fade-in-fast': 'fade-in 0.15s ease-out',
       },
       keyframes: {
         'pulse-dot': {

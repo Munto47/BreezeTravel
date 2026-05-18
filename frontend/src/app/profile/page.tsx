@@ -1,0 +1,202 @@
+'use client'
+
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { api } from '@/lib/api'
+
+interface UserProfile {
+  user_id: string
+  nickname: string
+  phone: string | null
+  avatar_url: string | null
+  birthday: string | null
+  created_at: string
+}
+
+export default function ProfilePage() {
+  const router = useRouter()
+  const { user, updateUser, isHydrated } = useAuthStore()
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [nickname, setNickname] = useState('')
+  const [birthday, setBirthday] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isHydrated && !user) router.replace('/login')
+  }, [isHydrated, user, router])
+
+  useEffect(() => {
+    if (!user) return
+    api.get<UserProfile>('/api/user/me').then(p => {
+      setProfile(p)
+      setNickname(p.nickname || '')
+      setBirthday(p.birthday || '')
+      setAvatarUrl(p.avatar_url || '')
+    }).catch(() => {})
+  }, [user])
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string
+      setAvatarUrl(dataUrl)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      await api.put('/api/user/profile', {
+        nickname: nickname.trim() || undefined,
+        birthday: birthday || undefined,
+        avatar_url: avatarUrl || undefined,
+      })
+      updateUser({ nickname: nickname.trim() || user!.nickname, avatarUrl: avatarUrl || undefined })
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : '保存失败')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!isHydrated || !user) return null
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30">
+      {/* 顶栏 */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+        <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
+          <ArrowLeft className="w-5 h-5 text-gray-600" />
+        </button>
+        <h1 className="font-semibold text-gray-800">个人信息</h1>
+      </div>
+
+      <div className="max-w-md mx-auto p-4 pt-6">
+        {/* 头像 */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center mb-8"
+        >
+          <div className="relative">
+            <div
+              className="w-24 h-24 rounded-full bg-coral-100 flex items-center justify-center overflow-hidden cursor-pointer ring-4 ring-white shadow-lg"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-3xl font-bold text-coral-400">
+                  {(nickname || user.nickname || '?')[0].toUpperCase()}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 w-8 h-8 bg-coral-500 rounded-full flex items-center justify-center shadow-md text-white hover:bg-coral-600 transition-colors"
+            >
+              <Camera className="w-4 h-4" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
+          <p className="text-xs text-gray-400 mt-2">点击更换头像</p>
+        </motion.div>
+
+        {/* 表单 */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass divide-y divide-gray-100"
+        >
+          {/* 昵称 */}
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-8 h-8 rounded-lg bg-coral-50 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-coral-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-400 mb-1">昵称</p>
+              <input
+                type="text"
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                placeholder="你的旅行代号"
+                maxLength={20}
+                className="w-full text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-300"
+              />
+            </div>
+          </div>
+
+          {/* 生日 */}
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <Calendar className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-400 mb-1">生日（选填）</p>
+              <input
+                type="date"
+                value={birthday}
+                onChange={e => setBirthday(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className="w-full text-sm text-gray-800 bg-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          {/* 手机号（只读） */}
+          <div className="flex items-center gap-3 px-4 py-4">
+            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+              <Phone className="w-4 h-4 text-gray-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-400 mb-1">手机号</p>
+              <p className="text-sm text-gray-500">{profile?.phone || '未绑定'}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* 保存按钮 */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-coral w-full py-3 mt-6 text-sm flex items-center justify-center gap-2"
+        >
+          {saved ? (
+            <><Check className="w-4 h-4" /> 已保存</>
+          ) : saving ? (
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <><Save className="w-4 h-4" /> 保存修改</>
+          )}
+        </motion.button>
+
+        {profile && (
+          <p className="text-center text-xs text-gray-300 mt-4">
+            注册于 {new Date(profile.created_at).toLocaleDateString('zh-CN')}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}

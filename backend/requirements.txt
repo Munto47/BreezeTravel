@@ -39,6 +39,10 @@ redis==5.1.1
 python-dotenv==1.0.1
 nanoid==2.0.0
 
+# ── Sprint 4：用户体系 / 短信 ────────────────────────────────────────────────
+alibabacloud-dysmsapi20170525>=2.0.0
+jinja2>=3.1.4
+
 # ── Advanced RAG（Sprint 1 新增）────────────────────────────────────────────
 
 # BM25 中文分词（Sparse 检索 / tsvector 入库）

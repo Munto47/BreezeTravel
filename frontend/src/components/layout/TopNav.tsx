@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import type { RoomMember } from '@/types/room'
+import { UserMenu } from '@/components/layout/UserMenu'
 
 interface TopNavProps {
   roomId: string
@@ -197,6 +198,12 @@ export default function TopNav({
             </>
           )}
         </button>
+
+        {/* 分割线 */}
+        <div className="w-px h-5 bg-gray-200/60" />
+
+        {/* 用户头像菜单 */}
+        <UserMenu />
       </div>
     </motion.header>
   )
