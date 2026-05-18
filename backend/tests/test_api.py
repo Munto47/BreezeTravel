@@ -46,9 +46,12 @@ def mock_db_pool():
 
 @pytest.fixture
 def mock_graph():
-    """Mock LangGraph 持久化图"""
+    """
+    Mock LangGraph 持久化图
+
+    chat.py 使用 graph.astream() 流式消费 → 需要 mock 成 async generator（非 coroutine）。
+    """
     from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
-    from app.schemas.itinerary import Itinerary
 
     mock_places = [
         Place(
@@ -63,17 +66,18 @@ def mock_graph():
         )
     ]
 
-    final_state = {
-        "messages": [],
-        "intent": "amap",
-        "amap_places": mock_places,
-        "rag_chunks": [],
-        "synthesized_places": mock_places,
-        "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
-    }
+    async def _fake_astream(input_state, config=None):
+        """模拟 LangGraph astream：依次 yield router → synthesizer chunk"""
+        yield {"router": {"react_iterations": 1}}
+        yield {
+            "synthesizer": {
+                "synthesized_places": mock_places,
+                "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
+            }
+        }
 
-    mock = AsyncMock()
-    mock.ainvoke = AsyncMock(return_value=final_state)
+    mock = MagicMock()
+    mock.astream = _fake_astream
     return mock
 
 
@@ -117,13 +121,14 @@ class TestRoomAPI:
         resp = client.post("/api/room", json={
             "thread_id": "test-thread-01",
         })
-        assert resp.status_code == 400
+        # FastAPI Pydantic 校验失败返回 422 Unprocessable Entity
+        assert resp.status_code == 422
 
     def test_create_room_missing_thread_id(self, client):
         resp = client.post("/api/room", json={
             "room_id": "test-room-01",
         })
-        assert resp.status_code == 400
+        assert resp.status_code == 422
 
     def test_get_room_state_not_found(self, client):
         resp = client.get("/api/room/nonexistent-room/state")

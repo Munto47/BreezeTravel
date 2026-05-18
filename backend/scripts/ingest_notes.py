@@ -1,5 +1,5 @@
 """
-游记入库脚本
+游记入库脚本（Advanced RAG 版本）
 
 用法：
   # 容器内（推荐）
@@ -8,13 +8,20 @@
   # 本地（需先设置环境变量）
   cd backend && python -m scripts.ingest_notes
 
+  # 只重建 BM25 索引（不重新生成游记）
+  cd backend && python -m scripts.ingest_notes --rebuild-tokens
+
 流程：
   1. 调用 LLM 批量生成游记（成都/北京/上海/厦门各 20 篇）
+     主 LLM：DeepSeek API（deepseek-chat）；备用：OpenAI gpt-4o-mini
   2. Entity Linking：地点名 → 高德 POI ID（AMAP_MOCK=true 时跳过）
-  3. 文本分块（chunk_size=500, overlap=50）+ text-embedding-3-small Embedding
+  3. 文本分块（chunk_size=500, overlap=50）
+     + jieba 中文分词 → content_tokens（供 BM25 使用）
+     + text-embedding-3-small Embedding（供 Dense 检索使用）
   4. 批量写入 pgvector（travel_notes + travel_notes_chunks 表）
 """
 
+import argparse
 import asyncio
 import json
 import re
@@ -23,6 +30,7 @@ from pathlib import Path
 
 import asyncpg
 import aiohttp
+import jieba
 from openai import AsyncOpenAI
 
 # 让脚本能 import app 模块
@@ -41,14 +49,51 @@ NOTES_PER_CITY = 20
 PERSONAS = ["亲子游", "情侣旅行", "带老人出行", "背包客独游", "闺蜜旅行"]
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
-EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_BATCH = 50   # 每批 Embedding 数量
+
+
+# ===== 工具函数 =====
+
+def _tokenize_chinese(text: str) -> str:
+    """
+    jieba 精确模式分词，返回空格分隔字符串。
+    示例："成都有哪些好吃的" → "成都 有 哪些 好吃 的"
+    用于 PostgreSQL tsvector BM25 检索。
+    """
+    tokens = jieba.cut(text, cut_all=False)
+    return " ".join(t for t in tokens if t.strip())
+
+
+def _make_llm_client() -> AsyncOpenAI:
+    """
+    构建 LLM 客户端：优先 DeepSeek，回退 OpenAI。
+    游记生成使用主 LLM（deepseek-chat），文风更自然。
+    """
+    if settings.deepseek_api_key:
+        print(f"[LLM] 使用 DeepSeek API（{settings.deepseek_api_url}）")
+        return AsyncOpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_api_url,
+        )
+    print(f"[LLM] 使用 OpenAI 兼容接口（{settings.openai_api_url}）")
+    return AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        base_url=settings.openai_api_url,
+    )
+
+
+def _make_embedding_client() -> AsyncOpenAI:
+    """构建 Embedding 客户端（独立于主 LLM 配置）"""
+    return AsyncOpenAI(
+        api_key=settings.effective_embedding_api_key,
+        base_url=settings.effective_embedding_api_url,
+    )
 
 
 # ===== Step 1：LLM 生成游记 =====
 
 GENERATE_PROMPT = """请生成一篇真实感强的{city}{days}日{persona}游记，严格要求：
-1. 包含 5-8 个具体的成都景点/餐厅/街道名称
+1. 包含 5-8 个具体的{city}景点/餐厅/街道名称
 2. 包含至少 4 条具体避坑经验（如"xx景点北门排队少，建议走北门入场"）
 3. 字数 800-1000 字，第一人称叙述，口语化风格
 
@@ -69,16 +114,19 @@ async def generate_one_note(
         city=city, days=days, persona=persona,
         city_en=city_en, idx=idx,
     )
+    # 根据可用 Key 选择模型
+    model = settings.llm_model_synthesizer  # deepseek-chat 或 gpt-4o-mini
+
     async with semaphore:
         try:
             resp = await client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1500,
                 temperature=0.8,
             )
             raw = resp.choices[0].message.content.strip()
-            # 提取 JSON
+            # 提取 JSON（兼容 LLM 输出前后有多余文字的情况）
             m = re.search(r"\{.*\}", raw, re.DOTALL)
             if m:
                 note = json.loads(m.group())
@@ -136,7 +184,7 @@ async def entity_linking(notes: list[dict], session: aiohttp.ClientSession) -> l
                 pass
             await asyncio.sleep(0.1)  # 高德 QPS 限制
         note["place_id_map"] = place_id_map
-    print(f"[Step 2] Entity Linking 完成")
+    print("[Step 2] Entity Linking 完成")
     return notes
 
 
@@ -145,7 +193,7 @@ async def entity_linking(notes: list[dict], session: aiohttp.ClientSession) -> l
 def split_into_chunks(text: str) -> list[dict]:
     """按段落优先切分，超长段落再按字数切分"""
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    chunks = []
+    chunks: list[str] = []
     current = ""
     for para in paragraphs:
         if len(current) + len(para) <= CHUNK_SIZE:
@@ -156,7 +204,7 @@ def split_into_chunks(text: str) -> list[dict]:
             # 超长单段落按字数切
             if len(para) > CHUNK_SIZE:
                 for start in range(0, len(para), CHUNK_SIZE - CHUNK_OVERLAP):
-                    chunks.append(para[start:start + CHUNK_SIZE])
+                    chunks.append(para[start : start + CHUNK_SIZE])
             else:
                 current = para
     if current:
@@ -168,21 +216,23 @@ def split_into_chunks(text: str) -> list[dict]:
 
 async def ingest_to_pgvector(
     notes: list[dict],
-    client: AsyncOpenAI,
+    emb_client: AsyncOpenAI,
     pool: asyncpg.Pool,
-):
-    print(f"\n[Step 3] Embedding + 写入 pgvector（共 {len(notes)} 篇）...")
+) -> None:
+    print(f"\n[Step 3] jieba 分词 + Embedding + 写入 pgvector（共 {len(notes)} 篇）...")
 
     # 预先收集所有 chunk（带 note 引用）
     all_items = []
     for note in notes:
         chunks = split_into_chunks(note["content"])
         for idx, chunk in enumerate(chunks):
+            content_tokens = _tokenize_chinese(chunk["text"])
             all_items.append({
                 "note_id": note["id"],
                 "chunk_idx": idx,
                 "city": note["city"],
                 "text": chunk["text"],
+                "content_tokens": content_tokens,       # jieba 分词结果（BM25 用）
                 "place_ids": [
                     note["place_id_map"].get(pname, "")
                     for pname in note.get("places_mentioned", [])
@@ -194,25 +244,25 @@ async def ingest_to_pgvector(
     print(f"  分块完成：{len(all_items)} 个 chunk，开始 Embedding...")
 
     # 按批 Embedding
-    embeddings = []
+    embeddings: list[list[float]] = []
     for i in range(0, len(all_items), EMBEDDING_BATCH):
-        batch = all_items[i:i + EMBEDDING_BATCH]
+        batch = all_items[i : i + EMBEDDING_BATCH]
         try:
-            resp = await client.embeddings.create(
-                model=EMBEDDING_MODEL,
+            resp = await emb_client.embeddings.create(
+                model=settings.embedding_model,
                 input=[item["text"] for item in batch],
             )
-            embeddings.extend([e.embedding for e in resp.data])
+            embeddings.extend(e.embedding for e in resp.data)
             print(f"  Embedding 批次 {i // EMBEDDING_BATCH + 1} 完成（{len(batch)} 条）")
         except Exception as e:
             print(f"  ✗ Embedding 失败（批次 {i // EMBEDDING_BATCH + 1}）：{e}")
-            # 用零向量占位，不中断整体流程
-            embeddings.extend([[0.0] * 1536] * len(batch))
+            dim = 1536  # text-embedding-3-small 维度
+            embeddings.extend([[0.0] * dim] * len(batch))
 
     # 写入数据库
     async with pool.acquire() as conn:
         # 先写 travel_notes 表
-        note_ids_written = set()
+        note_ids_written: set[str] = set()
         for item in all_items:
             note = item["note"]
             if note["id"] not in note_ids_written:
@@ -226,47 +276,82 @@ async def ingest_to_pgvector(
                 )
                 note_ids_written.add(note["id"])
 
-        # 再写 travel_notes_chunks 表（含 embedding）
+        # 再写 travel_notes_chunks 表（含 embedding + content_tokens）
         for item, embedding in zip(all_items, embeddings):
             await conn.execute(
                 """INSERT INTO travel_notes_chunks
-                   (note_id, chunk_idx, city, content, place_ids, embedding)
-                   VALUES ($1, $2, $3, $4, $5, $6::vector)
+                   (note_id, chunk_idx, city, content, content_tokens, place_ids, embedding)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7::vector)
                    ON CONFLICT DO NOTHING""",
                 item["note_id"], item["chunk_idx"], item["city"],
-                item["text"], item["place_ids"], embedding,
+                item["text"], item["content_tokens"],
+                item["place_ids"], embedding,
             )
 
     print(f"[Step 3] 写入完成：{len(note_ids_written)} 篇游记，{len(all_items)} 个 chunk")
 
 
+# ===== 重建 content_tokens（不重新生成游记）=====
+
+async def rebuild_tokens(pool: asyncpg.Pool) -> None:
+    """
+    对已入库但缺少 content_tokens 的 chunk 重新做 jieba 分词。
+    用于升级旧版本数据库时使用：
+      python -m scripts.ingest_notes --rebuild-tokens
+    """
+    print("\n[Rebuild] 重建 content_tokens（jieba 分词）...")
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, content FROM travel_notes_chunks WHERE content_tokens = '' OR content_tokens IS NULL"
+        )
+        print(f"  待处理：{len(rows)} 条 chunk")
+        for row in rows:
+            tokens = _tokenize_chinese(row["content"])
+            await conn.execute(
+                "UPDATE travel_notes_chunks SET content_tokens = $1 WHERE id = $2",
+                tokens, row["id"],
+            )
+    print("[Rebuild] content_tokens 重建完成")
+
+
 # ===== 主流程 =====
 
-async def main():
-    print("=== 游记入库脚本 ===")
-    print(f"目标：{list(CITIES.keys())} 各 {NOTES_PER_CITY} 篇，共 {len(CITIES) * NOTES_PER_CITY} 篇")
+async def main(rebuild_tokens_only: bool = False) -> None:
+    print("=== 游记入库脚本（Advanced RAG 版）===")
 
-    if not settings.openai_api_key:
-        print("错误：OPENAI_API_KEY 未配置，无法生成游记")
-        return
-
-    client = AsyncOpenAI(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_api_url,
-    )
-
-    # 初始化连接池（不用 register_vector，ingest 脚本直接传 list）
+    # 初始化数据库连接池
     dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
     pool = await asyncpg.create_pool(dsn, min_size=2, max_size=5)
 
     try:
+        # 仅重建 tokens 模式
+        if rebuild_tokens_only:
+            await rebuild_tokens(pool)
+            return
+
+        # ── 完整入库流程 ─────────────────────────────────────────────
+        has_llm_key = bool(settings.deepseek_api_key or settings.openai_api_key)
+        if not has_llm_key:
+            print("错误：DEEPSEEK_API_KEY 或 OPENAI_API_KEY 未配置，无法生成游记")
+            return
+
+        if not settings.effective_embedding_api_key:
+            print("错误：未配置 Embedding API Key，无法生成向量")
+            return
+
+        llm_client = _make_llm_client()
+        emb_client = _make_embedding_client()
+
+        print(f"目标城市：{list(CITIES.keys())} 各 {NOTES_PER_CITY} 篇，"
+              f"共 {len(CITIES) * NOTES_PER_CITY} 篇")
+
         async with aiohttp.ClientSession() as session:
-            notes = await generate_notes(client)
+            notes = await generate_notes(llm_client)
             if not notes:
                 print("没有生成任何游记，退出")
                 return
             notes = await entity_linking(notes, session)
-            await ingest_to_pgvector(notes, client, pool)
+            await ingest_to_pgvector(notes, emb_client, pool)
 
         # 打印统计
         async with pool.acquire() as conn:
@@ -276,6 +361,7 @@ async def main():
             print("\n=== 入库统计 ===")
             for row in rows:
                 print(f"  {row['city']}: {row['cnt']} 个 chunk")
+
     finally:
         await pool.close()
 
@@ -283,4 +369,11 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(description="游记入库脚本")
+    parser.add_argument(
+        "--rebuild-tokens",
+        action="store_true",
+        help="仅对已入库的 chunk 重建 content_tokens（jieba 分词），不重新生成游记",
+    )
+    args = parser.parse_args()
+    asyncio.run(main(rebuild_tokens_only=args.rebuild_tokens))

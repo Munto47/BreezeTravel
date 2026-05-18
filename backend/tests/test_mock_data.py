@@ -110,7 +110,8 @@ class TestAmapSearchMockLoad:
 
     def test_load_chengdu_places(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        places = _load_mock_places("成都", "景点")
+        # _load_mock_places 只接受 city 一个参数
+        places = _load_mock_places("成都")
         assert len(places) > 0, "成都 mock 数据加载失败"
         # 验证 Place 对象字段
         for p in places:
@@ -121,11 +122,11 @@ class TestAmapSearchMockLoad:
 
     def test_load_beijing_places(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        places = _load_mock_places("北京", "景点")
+        places = _load_mock_places("北京")
         assert len(places) > 0, "北京 mock 数据加载失败"
 
     def test_fallback_to_chengdu_for_unknown_city(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        # 未知城市应 fallback 到成都
-        places = _load_mock_places("拉萨", "景点")
-        assert len(places) >= 0  # 不崩溃即可（fixture 中没有拉萨数据则返回空）
+        # 未知城市应 fallback 到成都（fixture 中没有拉萨数据则返回空，不崩溃即可）
+        places = _load_mock_places("拉萨")
+        assert len(places) >= 0
