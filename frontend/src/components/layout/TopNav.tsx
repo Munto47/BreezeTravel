@@ -181,23 +181,30 @@ export default function TopNav({
         )}
 
         {/* 智能排线主按钮 */}
-        <button
-          onClick={onOptimize}
-          disabled={isOptimizing || selectedCount < 2}
-          className="btn-coral text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
-        >
-          {isOptimizing ? (
-            <>
-              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              排线中...
-            </>
-          ) : (
-            <>
-              <Route className="w-3.5 h-3.5" />
-              智能排线{selectedCount > 0 ? ` · ${selectedCount}` : ''}
-            </>
+        <div className="relative group flex flex-col items-center">
+          <button
+            onClick={onOptimize}
+            disabled={isOptimizing || selectedCount < 2}
+            className="btn-coral text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+          >
+            {isOptimizing ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                排线中...
+              </>
+            ) : (
+              <>
+                <Route className="w-3.5 h-3.5" />
+                智能排线{selectedCount > 0 ? ` · ${selectedCount}` : ''}
+              </>
+            )}
+          </button>
+          {!isOptimizing && selectedCount < 2 && (
+            <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] text-gray-400 bg-white/90 backdrop-blur-sm border border-gray-100 rounded-lg px-2.5 py-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {selectedCount === 0 ? '点击地点卡片心形 ♡ 选择要去的地点' : `再选 ${2 - selectedCount} 个地点即可排线`}
+            </div>
           )}
-        </button>
+        </div>
 
         {/* 分割线 */}
         <div className="w-px h-5 bg-gray-200/60" />

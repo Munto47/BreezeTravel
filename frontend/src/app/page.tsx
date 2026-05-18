@@ -9,6 +9,7 @@ import {
   Map, Route, History, LogOut, MapPin, Calendar,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -25,6 +26,7 @@ interface RoomRecord {
 export default function HomePage() {
   const router = useRouter()
   const { user, token, isHydrated, hydrate, logout } = useAuthStore()
+  const toast = useToastStore(s => s.toast)
 
   const [joinRoomId, setJoinRoomId] = useState('')
   const [city, setCity] = useState('成都')
@@ -103,7 +105,7 @@ export default function HomePage() {
   }
 
   const handleJoinRoom = async () => {
-    if (!joinRoomId.trim()) return alert('请输入房间号')
+    if (!joinRoomId.trim()) { toast('请输入 6 位房间号', 'warning'); return }
     setIsJoining(true)
     const trimmedRoomId = joinRoomId.trim()
     try {
@@ -116,7 +118,7 @@ export default function HomePage() {
         body: JSON.stringify({ user_id: user.userId, nickname: user.nickname }),
       })
       if (!res.ok && res.status === 404) {
-        alert(`房间 ${trimmedRoomId} 不存在，请检查房间号`)
+        toast(`房间 ${trimmedRoomId} 不存在，请检查房间号`, 'error')
         setIsJoining(false); return
       }
       const data = await res.json()
@@ -183,9 +185,9 @@ export default function HomePage() {
         {/* 特性标签 */}
         <div className="flex items-center gap-2 mb-6">
           {[
-            { icon: <Sparkles className="w-3 h-3" />, label: 'LangGraph Agent' },
-            { icon: <Users className="w-3 h-3" />, label: 'Yjs 实时协同' },
-            { icon: <Route className="w-3 h-3" />, label: 'K-Means TSP' },
+            { icon: <Sparkles className="w-3 h-3" />, label: 'AI 智能推荐' },
+            { icon: <Users className="w-3 h-3" />, label: '好友实时协同' },
+            { icon: <Route className="w-3 h-3" />, label: '最优路线规划' },
           ].map((f) => (
             <span
               key={f.label}

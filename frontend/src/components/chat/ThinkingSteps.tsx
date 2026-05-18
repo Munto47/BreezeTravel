@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
@@ -19,7 +19,11 @@ interface ThinkingStepsProps {
 }
 
 export default function ThinkingSteps({ steps, isStreaming }: ThinkingStepsProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    if (isStreaming) setIsExpanded(true)
+  }, [isStreaming])
 
   if (steps.length === 0 && !isStreaming) return null
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 
 interface UserProfile {
@@ -19,6 +20,7 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter()
   const { user, updateUser, isHydrated } = useAuthStore()
+  const toast = useToastStore(s => s.toast)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [nickname, setNickname] = useState('')
   const [birthday, setBirthday] = useState('')
@@ -64,13 +66,30 @@ export default function ProfilePage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : '保存失败')
+      toast(e instanceof Error ? e.message : '保存失败，请重试', 'error')
     } finally {
       setSaving(false)
     }
   }
 
-  if (!isHydrated || !user) return null
+  if (!isHydrated) return (
+    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex flex-col">
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gray-100 animate-pulse" />
+        <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+      </div>
+      <div className="max-w-md mx-auto w-full p-4 space-y-4 mt-4">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse" />
+          <div className="h-4 w-28 bg-gray-200 rounded animate-pulse" />
+        </div>
+        {[1, 2, 3].map(i => (
+          <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30">

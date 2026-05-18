@@ -10,6 +10,7 @@ import { useAIChat } from '@/hooks/useAIChat'
 import { useOptimize } from '@/hooks/useOptimize'
 import { useRoomStore } from '@/stores/roomStore'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 import TopNav from '@/components/layout/TopNav'
 import ChatPanel from '@/components/chat/ChatPanel'
@@ -59,6 +60,7 @@ export default function RoomPage() {
 
   // ── 认证 ──────────────────────────────────────────────────────────────
   const { user, token, isHydrated, hydrate } = useAuthStore()
+  const toast = useToastStore(s => s.toast)
   useEffect(() => { hydrate() }, [hydrate])
   useEffect(() => {
     if (isHydrated && !user) router.replace('/login')
@@ -259,7 +261,10 @@ export default function RoomPage() {
   // ── 排线 ───────────────────────────────────────────────────────────────
   const handleOptimize = async () => {
     const selectedPlaces = places.filter((p) => p.votedBy.length > 0)
-    if (selectedPlaces.length < 2) { alert('请至少心形选择 2 个地点再进行排线'); return }
+    if (selectedPlaces.length < 2) {
+      toast('请先在候选地点中点击心形，至少选择 2 个地点再排线', 'warning')
+      return
+    }
     const hasAttraction = selectedPlaces.some((p) => p.category === 'attraction')
     const hasFood = selectedPlaces.some((p) => p.category === 'food')
     const hasHotel = selectedPlaces.some((p) => p.category === 'hotel')
@@ -268,7 +273,7 @@ export default function RoomPage() {
     if (!hasFood) missing.push('餐饮（美食）')
     if (!hasHotel) missing.push('住宿（美梦）')
     if (missing.length > 0) {
-      alert(`排线需要确保每天有吃有住有玩，当前缺少：${missing.join('、')}\n请在右侧候选地点中心形选择对应类型的地点`)
+      toast(`行程缺少：${missing.join('、')}，请在候选地点中补充选择`, 'warning')
       return
     }
     setPhase('optimizing')
@@ -316,6 +321,7 @@ export default function RoomPage() {
                   messages={messages}
                   isStreaming={isStreaming}
                   weather={weather}
+                  tripCity={tripCity}
                   onSend={(text) =>
                     sendMessage(text, places.filter((p) => p.votedBy.length > 0).map((p) => p.placeId), tripCity)
                   }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Calendar, Route, Download, ArrowRight, Clock } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 
 interface RoomRecord {
@@ -30,6 +31,7 @@ type Tab = 'rooms' | 'itineraries'
 export default function HistoryPage() {
   const router = useRouter()
   const { user, isHydrated } = useAuthStore()
+  const toast = useToastStore(s => s.toast)
   const [tab, setTab] = useState<Tab>('rooms')
   const [rooms, setRooms] = useState<RoomRecord[]>([])
   const [itineraries, setItineraries] = useState<ItineraryRecord[]>([])
@@ -60,7 +62,7 @@ export default function HistoryPage() {
         `BreezeTravel_${item.city || '旅行'}_${item.trip_days}天路线.html`,
       )
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : '导出失败')
+      toast(e instanceof Error ? e.message : '导出失败，请重试', 'error')
     } finally {
       setExporting(null)
     }
@@ -76,7 +78,23 @@ export default function HistoryPage() {
     planned: '已排线',
   }
 
-  if (!isHydrated || !user) return null
+  if (!isHydrated) return (
+    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex flex-col">
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-gray-100 animate-pulse" />
+        <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+      </div>
+      <div className="max-w-md mx-auto w-full p-4 space-y-3 mt-2">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="rounded-2xl bg-white border border-gray-100 p-4 space-y-2 animate-pulse">
+            <div className="h-4 w-24 bg-gray-200 rounded" />
+            <div className="h-3 w-40 bg-gray-100 rounded" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30">

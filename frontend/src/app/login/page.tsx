@@ -69,6 +69,13 @@ export default function LoginPage() {
   }
 
   const handleCodeInput = (idx: number, val: string) => {
+    if (val.length === 6 && /^\d{6}$/.test(val)) {
+      const digits = val.split('')
+      setCode(digits)
+      codeRefs.current[5]?.focus()
+      verifyCode(val)
+      return
+    }
     if (!/^\d?$/.test(val)) return
     const next = [...code]
     next[idx] = val
@@ -76,6 +83,17 @@ export default function LoginPage() {
     if (val && idx < 5) codeRefs.current[idx + 1]?.focus()
     if (next.every(d => d !== '')) {
       verifyCode(next.join(''))
+    }
+  }
+
+  const handleCodePaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (pasted.length === 6) {
+      e.preventDefault()
+      const digits = pasted.split('')
+      setCode(digits)
+      codeRefs.current[5]?.focus()
+      verifyCode(pasted)
     }
   }
 
@@ -150,6 +168,21 @@ export default function LoginPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900">BreezeTravel</h1>
           <p className="text-gray-400 text-sm mt-1">AI 驱动 · 多人协同 · 智能排线</p>
+        </div>
+
+        {/* 步骤进度条 */}
+        <div className="flex items-center justify-center gap-2 mb-5">
+          {(['phone', 'code', 'nickname'] as const).map((s, i) => (
+            <div key={s} className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                s === step ? 'bg-coral-500 scale-125' :
+                (['phone', 'code', 'nickname'].indexOf(step) > i) ? 'bg-coral-300' : 'bg-gray-200'
+              }`} />
+              {i < 2 && <div className={`w-8 h-px transition-colors duration-300 ${
+                (['phone', 'code', 'nickname'].indexOf(step) > i) ? 'bg-coral-300' : 'bg-gray-200'
+              }`} />}
+            </div>
+          ))}
         </div>
 
         {/* 卡片 */}
@@ -229,6 +262,7 @@ export default function LoginPage() {
                       value={digit}
                       onChange={e => handleCodeInput(i, e.target.value)}
                       onKeyDown={e => handleCodeKeyDown(i, e)}
+                      onPaste={handleCodePaste}
                       className="w-10 h-12 text-center text-lg font-bold border-2 border-gray-200 rounded-xl focus:border-coral-400 focus:outline-none bg-white transition-colors"
                     />
                   ))}

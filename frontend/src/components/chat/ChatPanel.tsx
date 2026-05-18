@@ -26,15 +26,19 @@ interface ChatPanelProps {
   messages: ChatMessage[]
   isStreaming: boolean
   weather?: WeatherData | null
+  tripCity?: string
   onSend: (text: string) => void
 }
 
-const QUICK_PROMPTS = [
-  { text: '推荐适合拍照的景点', icon: '📸' },
-  { text: '有哪些必吃的美食？', icon: '🍜' },
-  { text: '适合带老人的地方', icon: '👴' },
-  { text: '文艺小众打卡地', icon: '🎨' },
-]
+function getQuickPrompts(city?: string) {
+  const c = city || '目的地'
+  return [
+    { text: `${c}有哪些适合拍照的景点？`, icon: '📸' },
+    { text: `${c}有哪些必吃的美食？`, icon: '🍜' },
+    { text: `${c}适合带老人的地方`, icon: '👴' },
+    { text: `${c}文艺小众打卡地`, icon: '🎨' },
+  ]
+}
 
 // 天气条：显示今日 + 明日（紧凑单行）
 function WeatherBar({ weather }: { weather: WeatherData }) {
@@ -83,7 +87,7 @@ function WeatherBar({ weather }: { weather: WeatherData }) {
   )
 }
 
-export default function ChatPanel({ messages, isStreaming, weather, onSend }: ChatPanelProps) {
+export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -140,7 +144,7 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
               <p className="text-center text-sm font-medium text-gray-500 mb-1">你好！我是你的旅行顾问</p>
               <p className="text-center text-xs text-gray-400 mb-5">试试下面这些问题开始探索</p>
               <div className="grid grid-cols-2 gap-2">
-                {QUICK_PROMPTS.map((q) => (
+                {getQuickPrompts(tripCity).map((q) => (
                   <button
                     key={q.text}
                     onClick={() => onSend(q.text)}
