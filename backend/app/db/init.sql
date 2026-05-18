@@ -81,3 +81,26 @@ CREATE TABLE IF NOT EXISTS room_members (
     joined_at  TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (room_id, user_id)
 );
+
+-- =============================================
+-- 用户长期偏好表（Long-term Memory，Sprint 2 新增）
+-- =============================================
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id    TEXT NOT NULL,              -- 对应 users.user_id
+    content    TEXT NOT NULL,              -- 偏好摘要文本（自然语言）
+    embedding  vector(1536),              -- text-embedding-3-small 向量（语义检索用）
+    category   TEXT DEFAULT 'general',    -- 偏好类别（城市名或 "general"）
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 按用户 ID 查询索引（加载用户偏好时使用）
+CREATE INDEX IF NOT EXISTS idx_user_prefs_user_id
+    ON user_preferences(user_id);
+
+-- pgvector 索引（语义相似偏好检索）
+-- lists=5：用户偏好记录较少，用较小的 lists 值
+CREATE INDEX IF NOT EXISTS idx_user_prefs_embedding
+    ON user_preferences USING ivfflat (embedding vector_cosine_ops)
+    WITH (lists = 5);

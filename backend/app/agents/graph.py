@@ -1,80 +1,104 @@
 """
-LangGraph 主图定义
+LangGraph 主图定义（Sprint 2 升级版）
 
-结构：
-  Router → (conditional) → AmapSearch → (conditional) → RAGRetrieval → Synthesizer
-                        → RAGRetrieval → Synthesizer
+ReAct 架构
+----------
+旧版（固定 DAG）：
+  Router → AmapSearch/RAGRetrieval → Synthesizer
 
-路由逻辑：
-- intent=amap  → router → amap_search → synthesizer
-- intent=rag   → router → rag_retrieval → synthesizer
-- intent=both  → router → amap_search → rag_retrieval → synthesizer
+新版（ReAct 循环）：
+  router ──→ tool_executor ──┐
+    ↑                        │  （循环，最多 MAX_REACT_ITERATIONS 次）
+    └────────────────────────┘
+    │ （无 tool_calls 或达到上限）
+    ↓
+  synthesizer → END
 
-Optimizer 不在此图中，通过 POST /api/optimize 独立触发。
+路由逻辑（_route_after_react）
+------------------------------
+- 最后一条 AI 消息有 tool_calls → tool_executor（继续 ReAct 循环）
+- 无 tool_calls → synthesizer（LLM 认为信息已足够）
+- react_iterations >= MAX_ITERATIONS → synthesizer（强制结束）
+
+节点说明
+--------
+- router        : ReAct Agent，LLM with bind_tools，输出 tool_calls 或结束
+- tool_executor : 并行执行工具调用，累积 amap_places + rag_chunks，返回 ToolMessages
+- synthesizer   : 合并所有工具数据，生成推荐 + 回复文本
+
+旧版兼容节点（仍保留，可通过 DEMO_MODE 或直接调用）
+-------------------------------------------------
+- amap_search   : 高德 POI 搜索（工具内部已调用，保留供独立测试）
+- rag_retrieval : RAG 检索（工具内部已调用，保留供独立测试）
 """
 
 from langgraph.graph import StateGraph, END
+from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
-from app.agents.nodes import router, amap_search, rag_retrieval, synthesizer
+from app.agents.nodes import router, tool_executor, amap_search, rag_retrieval, synthesizer
 from app.config import settings
 
-
-def _route_intent(state: AgentState) -> str:
-    """Router 节点后的条件路由：根据 intent 决定进入哪个检索节点"""
-    intent = state.get("intent", "amap")
-    if intent == "rag":
-        return "rag_retrieval"
-    # amap 和 both 都先走 amap_search
-    return "amap_search"
+MAX_REACT_ITERATIONS = 3  # 与 router.py 保持一致
 
 
-def _route_after_amap(state: AgentState) -> str:
-    """AmapSearch 节点后的条件路由：both 意图继续走 RAG，否则直接到 Synthesizer"""
-    intent = state.get("intent", "amap")
-    if intent == "both":
-        return "rag_retrieval"
+def _route_after_react(state: AgentState) -> str:
+    """
+    ReAct 路由函数：决定 router 节点之后走哪条边
+
+    条件：
+    1. 达到最大迭代次数 → synthesizer（强制结束循环）
+    2. 最后一条 AI 消息有 tool_calls → tool_executor（继续 ReAct）
+    3. 否则 → synthesizer（LLM 无需更多工具，直接合成）
+    """
+    iterations = state.get("react_iterations", 0)
+    if iterations > MAX_REACT_ITERATIONS:
+        return "synthesizer"
+
+    messages = state.get("messages", [])
+    if messages:
+        last = messages[-1]
+        if isinstance(last, AIMessage) and last.tool_calls:
+            return "tool_executor"
+
     return "synthesizer"
 
 
 def build_graph(checkpointer=None):
-    """构建并编译 LangGraph 图"""
+    """构建并编译 LangGraph ReAct 图"""
     g = StateGraph(AgentState)
 
-    # 注册节点
-    g.add_node("router", router.run)
+    # ── 注册节点 ──────────────────────────────────────────────────────
+    g.add_node("router", router.run)                  # ReAct Agent
+    g.add_node("tool_executor", tool_executor.run)    # 工具执行器
+    g.add_node("synthesizer", synthesizer.run)        # 合成节点
+
+    # 保留旧版节点供独立测试使用（不在主图路径中）
     g.add_node("amap_search", amap_search.run)
     g.add_node("rag_retrieval", rag_retrieval.run)
-    g.add_node("synthesizer", synthesizer.run)
 
-    # 入口
+    # ── 入口 ─────────────────────────────────────────────────────────
     g.set_entry_point("router")
 
-    # Router → AmapSearch / RAGRetrieval（amap/both 走 amap，rag 走 rag）
+    # ── ReAct 主路由：router → tool_executor 或 synthesizer ──────────
     g.add_conditional_edges(
         "router",
-        _route_intent,
+        _route_after_react,
         {
-            "amap_search": "amap_search",
-            "rag_retrieval": "rag_retrieval",
-        },
-    )
-
-    # AmapSearch → RAGRetrieval（both 意图）/ Synthesizer（amap 意图）
-    g.add_conditional_edges(
-        "amap_search",
-        _route_after_amap,
-        {
-            "rag_retrieval": "rag_retrieval",
+            "tool_executor": "tool_executor",
             "synthesizer": "synthesizer",
         },
     )
 
-    # RAGRetrieval → Synthesizer（rag 和 both 意图都从这里汇入）
-    g.add_edge("rag_retrieval", "synthesizer")
+    # ── ReAct 循环：tool_executor → router（Observe 后再次 Think）────
+    g.add_edge("tool_executor", "router")
 
-    # 结束
+    # ── 结束 ─────────────────────────────────────────────────────────
     g.add_edge("synthesizer", END)
+
+    # 旧版节点 → synthesizer（保留兼容性，不在主路径）
+    g.add_edge("amap_search", "synthesizer")
+    g.add_edge("rag_retrieval", "synthesizer")
 
     return g.compile(checkpointer=checkpointer)
 
@@ -83,31 +107,29 @@ def build_graph(checkpointer=None):
 simple_graph = build_graph()
 
 # ===== 持久化图单例 =====
-# from_conn_string() 返回 async context manager，__aenter__ 才给真正的 saver
-_cm = None           # 持有 context manager（for cleanup）
-_checkpointer = None # 真正的 AsyncPostgresSaver 实例
+_cm = None
+_checkpointer = None
 _persistent_graph = None
 
 
 async def init_persistent_graph():
     """
     在 FastAPI lifespan startup 中调用，初始化带 PostgreSQL Checkpointer 的图。
-    setup() 会自动建 langgraph_checkpoints / langgraph_writes 等表（幂等）。
+    setup() 会自动建 langgraph_checkpoints 等表（幂等）。
     """
     global _cm, _checkpointer, _persistent_graph
 
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
-        # AsyncPostgresSaver 需要纯 postgresql:// 格式（移除 SQLAlchemy driver 前缀）
         dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         _cm = AsyncPostgresSaver.from_conn_string(dsn)
-        _checkpointer = await _cm.__aenter__()  # 拿到真正的 saver 实例
-        await _checkpointer.setup()             # 建 langgraph_checkpoints 等表（幂等）
+        _checkpointer = await _cm.__aenter__()
+        await _checkpointer.setup()
         _persistent_graph = build_graph(_checkpointer)
         print("[Graph] PostgreSQL Checkpointer 初始化成功，会话历史将持久化")
-    except Exception as e:
-        print(f"[Graph] Checkpointer 初始化失败，回退到无持久化模式：{e}")
+    except Exception as exc:
+        print(f"[Graph] Checkpointer 初始化失败，回退到无持久化模式：{exc}")
         _persistent_graph = simple_graph
 
 
