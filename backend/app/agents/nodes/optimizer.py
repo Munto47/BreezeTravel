@@ -389,12 +389,12 @@ def _weather_suggestion(condition: str) -> str:
 async def _fetch_weather(
     session: aiohttp.ClientSession, lat: float, lng: float, day_offset: int
 ) -> Optional[WeatherInfo]:
-    if not settings.qweather_key or day_offset > 2:
+    if not settings.qweather_api_key or day_offset > 2:
         return None
     try:
         async with session.get(
             "https://devapi.qweather.com/v7/weather/3d",
-            params={"location": f"{lng},{lat}", "key": settings.qweather_key},
+            params={"location": f"{lng},{lat}", "key": settings.qweather_api_key},
             timeout=aiohttp.ClientTimeout(total=5),
         ) as resp:
             data = await resp.json()
@@ -451,7 +451,7 @@ async def run(
         center_lng = sum(p.coords.lng for p in activities) / len(activities)
 
         today = date.today()
-        weather_enabled = bool(settings.qweather_key) and start_date is not None
+        weather_enabled = bool(settings.qweather_api_key) and start_date is not None
 
         day_plans: list[DayPlan] = []
 

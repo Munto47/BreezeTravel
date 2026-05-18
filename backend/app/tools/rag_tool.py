@@ -1,30 +1,21 @@
 """
 游记攻略检索工具（RAG）
 
-封装了 rag_retrieval 节点的 Advanced RAG Pipeline 为 LangChain @tool。
-ReAct Agent 通过 LLM tool calling 调用此工具。
+封装为 LangChain @tool，供 ReAct Agent 通过 LLM tool calling 触发。
 
-工具输入：query（搜索内容）、city（城市）
-工具输出：JSON 字符串（游记片段摘要），供 LLM 读取推理；
-         同时缓存完整 chunk 对象，供 tool_executor 节点写入 AgentState.rag_chunks。
+设计说明
+--------
+@tool 函数只负责两件事：
+  1. 向 LLM 暴露清晰的函数签名，便于 LLM 决策何时调用
+  2. 返回人类可读的 JSON 字符串（LLM Observe 阶段读取推理）
+
+实际执行逻辑（获取完整 chunk 对象）由 tool_executor.py 直接调用 _run_rag_search()，
+不再经过 @tool 包装器，彻底避免了模块级缓存带来的并发竞态条件。
 """
 
-import json
 from typing import Annotated
 
 from langchain_core.tools import tool
-
-_rag_results_cache: list = []
-
-
-def get_cached_rag_results() -> list:
-    """获取最近一次 search_travel_notes 调用的完整 chunk 列表"""
-    return _rag_results_cache.copy()
-
-
-def clear_rag_cache():
-    """清空缓存"""
-    _rag_results_cache.clear()
 
 
 @tool
@@ -41,10 +32,29 @@ async def search_travel_notes(
     - 口碑和感受（值不值得去、好不好玩）
     时，调用此工具。
 
-    返回：相关游记片段，包含真实旅行者的体验和建议，JSON 格式。
+    返回相关游记片段，JSON 格式。
+    注意：完整检索结果由系统内部处理，此处返回摘要供 LLM 推理。
+    """
+    # 仅用于 LLM schema 暴露，实际数据由 tool_executor 调用 _run_rag_search() 获取
+    return f'{{"status": "ok", "query": "{query}", "city": "{city}"}}'
+
+
+async def _run_rag_search(query: str, city: str) -> list:
+    """
+    底层 RAG 检索执行函数（供 tool_executor 直接调用，无竞态风险）
+
+    执行完整 Advanced RAG Pipeline：
+    HyDE 扩展 → 混合检索（Dense+Sparse）→ RRF 融合 → Reranker 精排
+
+    Args:
+        query : 搜索内容
+        city  : 目的地城市
+
+    Returns:
+        chunk 字典列表
     """
     from app.agents.nodes import rag_retrieval as rag_node
-    from app.agents.state import AgentState
+    from app.agents.state import AgentState, default_working_context
     from langchain_core.messages import HumanMessage
 
     mock_state: AgentState = {
@@ -60,36 +70,14 @@ async def search_travel_notes(
         "final_response": None,
         "itinerary": None,
         "selected_place_ids": [],
-        "working_context": None,
+        "working_context": default_working_context(),
         "user_long_term_prefs": None,
         "react_iterations": 0,
     }
 
     try:
         result = await rag_node.run(mock_state)
-        chunks = result.get("rag_chunks", [])
-
-        # 缓存完整 chunk 对象
-        global _rag_results_cache
-        _rag_results_cache = chunks
-
-        if not chunks:
-            return json.dumps({"status": "no_results", "message": "暂无相关游记，建议直接用高德搜索"}, ensure_ascii=False)
-
-        # 返回给 LLM 的摘要（截取前 200 字）
-        snippets = [
-            {
-                "excerpt": c["content"][:200],
-                "relevance": round(c.get("similarity", 0), 3),
-                "sources": c.get("retrieval_sources", []),
-            }
-            for c in chunks[:5]
-        ]
-        return json.dumps(
-            {"status": "ok", "count": len(chunks), "snippets": snippets},
-            ensure_ascii=False, indent=2,
-        )
-
+        return result.get("rag_chunks", [])
     except Exception as exc:
-        _rag_results_cache = []
-        return json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False)
+        print(f"[RagTool] 检索失败：{exc}")
+        return []

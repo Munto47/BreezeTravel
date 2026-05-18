@@ -36,7 +36,8 @@ from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
-from app.agents.nodes import router, tool_executor, amap_search, rag_retrieval, synthesizer
+from app.agents.nodes import router, tool_executor, synthesizer
+# amap_search 和 rag_retrieval 由 tool_executor 内部直接调用，不注册为图节点
 from app.config import settings
 
 MAX_REACT_ITERATIONS = 3  # 与 router.py 保持一致
@@ -73,9 +74,8 @@ def build_graph(checkpointer=None):
     g.add_node("tool_executor", tool_executor.run)    # 工具执行器
     g.add_node("synthesizer", synthesizer.run)        # 合成节点
 
-    # 保留旧版节点供独立测试使用（不在主图路径中）
-    g.add_node("amap_search", amap_search.run)
-    g.add_node("rag_retrieval", rag_retrieval.run)
+    # amap_search 和 rag_retrieval 已移至 tool_executor 内部直接调用
+    # 不再作为图节点注册，避免产生无入口的孤立节点警告
 
     # ── 入口 ─────────────────────────────────────────────────────────
     g.set_entry_point("router")
@@ -95,10 +95,6 @@ def build_graph(checkpointer=None):
 
     # ── 结束 ─────────────────────────────────────────────────────────
     g.add_edge("synthesizer", END)
-
-    # 旧版节点 → synthesizer（保留兼容性，不在主路径）
-    g.add_edge("amap_search", "synthesizer")
-    g.add_edge("rag_retrieval", "synthesizer")
 
     return g.compile(checkpointer=checkpointer)
 

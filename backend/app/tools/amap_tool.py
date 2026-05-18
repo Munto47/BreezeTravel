@@ -1,33 +1,21 @@
 """
 高德地图 POI 搜索工具
 
-封装了 amap_search 节点的核心逻辑，暴露为 LangChain @tool。
-ReAct Agent 通过 LLM tool calling 调用此工具。
+封装为 LangChain @tool，供 ReAct Agent 通过 LLM tool calling 触发。
 
-工具输入：query（搜索关键词）、city（城市）、category（品类过滤）
-工具输出：JSON 字符串（地点列表摘要），供 LLM 读取推理；
-         同时通过 _amap_results_cache 缓存完整 Place 对象，
-         供 tool_executor 节点写入 AgentState.amap_places。
+设计说明
+--------
+@tool 函数只负责两件事：
+  1. 向 LLM 暴露清晰的函数签名（参数名、docstring），便于 LLM 决策何时调用
+  2. 返回人类可读的 JSON 字符串（LLM 在 Observe 阶段读取推理）
+
+实际执行逻辑（获取完整 Place 对象）由 tool_executor.py 直接调用底层节点函数，
+不再经过 @tool 包装器，彻底避免了模块级缓存带来的并发竞态条件。
 """
 
-import json
 from typing import Annotated
 
 from langchain_core.tools import tool
-
-# 跨节点数据传递缓存（tool 函数无法直接写入 AgentState）
-# tool_executor 节点会读取这里的数据写入状态
-_amap_results_cache: list = []
-
-
-def get_cached_amap_results() -> list:
-    """获取最近一次 search_places 调用的完整 Place 对象列表"""
-    return _amap_results_cache.copy()
-
-
-def clear_amap_cache():
-    """清空缓存"""
-    _amap_results_cache.clear()
 
 
 @tool
@@ -44,58 +32,52 @@ async def search_places(
     - 找具体类型地点（"附近有什么火锅""找个酒店"）
     时，调用此工具。
 
-    返回：找到的地点列表（名称、评分、地址、类型），JSON 格式。
+    返回找到的地点列表（名称、评分、地址、类型），JSON 格式。
+    注意：完整地点数据由系统内部处理，此处返回摘要供 LLM 推理。
+    """
+    # 仅用于 LLM schema 暴露，实际数据由 tool_executor 调用 _run_amap_search() 获取
+    return f'{{"status": "ok", "query": "{query}", "city": "{city}"}}'
+
+
+async def _run_amap_search(query: str, city: str, category: str = "") -> list:
+    """
+    底层高德搜索执行函数（供 tool_executor 直接调用，无竞态风险）
+
+    Args:
+        query    : 搜索关键词
+        city     : 目的地城市
+        category : 可选品类过滤
+
+    Returns:
+        Place 对象列表
     """
     from app.agents.nodes import amap_search as amap_node
-    from app.agents.state import AgentState
+    from app.agents.state import AgentState, default_working_context
     from langchain_core.messages import HumanMessage
 
-    # 构造最小化的 AgentState（amap_search.run 只需这几个字段）
+    search_query = f"{query} {category}".strip()
+
     mock_state: AgentState = {
-        "messages": [HumanMessage(content=query)],
+        "messages": [HumanMessage(content=search_query)],
         "thread_id": "tool-call",
         "user_id": "tool-call",
         "trip_city": city,
         "intent": "amap",
-        "query_rewrite": f"{query} {category}".strip(),
+        "query_rewrite": search_query,
         "amap_places": [],
         "rag_chunks": [],
         "synthesized_places": [],
         "final_response": None,
         "itinerary": None,
         "selected_place_ids": [],
-        "working_context": None,
+        "working_context": default_working_context(),
         "user_long_term_prefs": None,
         "react_iterations": 0,
     }
 
     try:
         result = await amap_node.run(mock_state)
-        places = result.get("amap_places", [])
-
-        # 缓存完整 Place 对象（tool_executor 会读取）
-        global _amap_results_cache
-        _amap_results_cache = places
-
-        # 返回给 LLM 的摘要（简洁可读）
-        if not places:
-            return json.dumps({"status": "no_results", "message": f"未找到相关地点：{query}"}, ensure_ascii=False)
-
-        summary = [
-            {
-                "name": p.name,
-                "category": p.category.value if p.category else "未知",
-                "rating": p.amap_rating,
-                "address": p.address,
-                "place_id": p.place_id,
-            }
-            for p in places[:8]
-        ]
-        return json.dumps(
-            {"status": "ok", "count": len(places), "places": summary},
-            ensure_ascii=False, indent=2,
-        )
-
+        return result.get("amap_places", [])
     except Exception as exc:
-        _amap_results_cache = []
-        return json.dumps({"status": "error", "message": str(exc)}, ensure_ascii=False)
+        print(f"[AmapTool] 搜索失败：{exc}")
+        return []

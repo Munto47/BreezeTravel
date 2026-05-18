@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # Reranker：bge-reranker-v2-m3 本地推理（需要 FlagEmbedding + GPU）
     reranker_enabled: bool = True
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
-    reranker_device: str = "cuda"       # "cuda" | "cpu"
+    reranker_device: str = "cpu"        # "cpu"（默认安全）| "cuda"（有 GPU 时显式配置）
 
     # ── 高德地图 ──────────────────────────────────────────────────────
     amap_api_key: str = ""

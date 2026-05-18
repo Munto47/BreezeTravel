@@ -27,7 +27,6 @@ Long-term Memory（长期记忆）
   - 新用户（无历史记录）：返回空字符串
 """
 
-import asyncio
 import json
 from typing import Optional
 
