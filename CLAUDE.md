@@ -143,20 +143,47 @@ Zustand store (`frontend/src/stores/`) 管理本地 UI 状态，Yjs 负责多人
 
 ## Sprint 进度
 
-### Sprint 1（RAG 升级）— 进行中
-- [ ] R1：混合检索（BM25 + pgvector + RRF）
-- [ ] R2：Re-ranking（bge-reranker-v2-m3 本地推理）
-- [ ] R3：HyDE 查询扩展
-- [ ] R6：RAGAS 自动化评估框架
+### Sprint 1（RAG 升级）— ✅ 已完成
+- [x] R1：混合检索（BM25 + pgvector + RRF）
+- [x] R2：Re-ranking（bge-reranker-v2-m3 本地推理）
+- [x] R3：HyDE 查询扩展
+- [x] R6：RAGAS 自动化评估框架
 
-### Sprint 2（Agent + Memory）— 待开始
-- [ ] T1：标准化 Tool 层（LangChain @tool 装饰器）
-- [ ] A1：Router ReAct 模式升级
-- [ ] M1：Working Memory（AgentState 结构化偏好）
-- [ ] M2：Long-term Memory（跨会话用户偏好）
+### Sprint 2（Agent + Memory）— ✅ 已完成
+- [x] T1：标准化 Tool 层（LangChain @tool 装饰器）
+- [x] A1：Router ReAct 模式升级
+- [x] M1：Working Memory（AgentState 结构化偏好）
+- [x] M2：Long-term Memory（跨会话用户偏好）
 
-### Sprint 3（微调）— 待开始
-- [ ] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
+### Sprint 3（微调）— 进行中
+- [x] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
+  - `scripts/generate_training_data.py` — DeepSeek 数据蒸馏（1500 条，4 类意图）
+  - `scripts/train_router.py` — SFTTrainer + LoRA（r=16, fp16，8GB VRAM）
+  - `app/agents/nodes/router_classifier.py` — 本地推理 fast path（含降级）
+  - `tests/test_router_ft.py` — 准确率 ≥ 80% + 延迟评估 + DeepSeek 基准对比
+  - 环境变量：`FT_ROUTER_ENABLED=true`，`FT_ROUTER_MODEL_PATH=models/router_lora`
+
+**训练流程：**
+```bash
+# Step 1：生成训练数据（需要 DEEPSEEK_API_KEY）
+cd backend
+python -m scripts.generate_training_data --samples 1500
+
+# Step 2：安装微调依赖（需要 CUDA PyTorch）
+pip install -r requirements_finetune.txt
+
+# Step 3：LoRA 微调（RTX 4060，约 30-60 分钟）
+python -m scripts.train_router --epochs 3
+
+# Step 4：评估
+python -m pytest tests/test_router_ft.py -v
+# 或完整报告
+python -m tests.test_router_ft --compare-deepseek
+
+# Step 5：启用
+echo "FT_ROUTER_ENABLED=true" >> .env
+echo "FT_ROUTER_MODEL_PATH=backend/models/router_lora" >> .env
+```
 
 ### Sprint 4（工程收尾）— 待开始
 - [ ] X1：真实 SSE 流式（graph.astream_events()）

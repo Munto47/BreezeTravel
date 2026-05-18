@@ -1,0 +1,29 @@
+# Sprint 3 — LoRA 微调专用依赖
+# 独立于 requirements.txt，只需本地训练机安装
+#
+# 安装：pip install -r requirements_finetune.txt
+# 硬件：RTX 4060 Laptop (8GB VRAM) + Python 3.10+
+# CUDA：需要 CUDA 11.8 或 12.x
+
+# PyTorch（先手动安装对应 CUDA 版本）
+# CUDA 12.1：pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# CUDA 11.8：pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+
+# HuggingFace 训练生态
+transformers>=4.45.0        # Qwen2.5 支持（需要 4.37+）
+accelerate>=0.34.0          # 分布式/混合精度训练
+datasets>=2.20.0            # 数据集加载（已在 requirements.txt 中）
+tokenizers>=0.20.0          # 快速 tokenizer
+
+# LoRA 微调
+peft>=0.13.0                # LoRA / QLoRA 实现
+trl>=0.11.0                 # SFTTrainer（Supervised Fine-Tuning）
+
+# 可选：4-bit QLoRA（进一步节省显存，1.5B 不必要）
+# bitsandbytes>=0.43.0      # 需要 Windows 特殊版本，默认不启用
+
+# 数据生成
+openai>=1.0.0               # DeepSeek API（兼容 OpenAI SDK）
+
+# 评估
+scikit-learn>=1.3.0         # accuracy_score、classification_report
