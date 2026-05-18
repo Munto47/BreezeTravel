@@ -131,7 +131,12 @@ export default function HistoryPage() {
         ) : tab === 'rooms' ? (
           <div className="space-y-3 pt-2">
             {rooms.length === 0 ? (
-              <EmptyState icon={<MapPin className="w-8 h-8 text-gray-300" />} text="还没有规划记录" />
+              <EmptyState
+                icon={<MapPin className="w-8 h-8 text-gray-300" />}
+                text="还没有规划记录"
+                actionLabel="开始第一次规划"
+                onAction={() => router.push('/')}
+              />
             ) : rooms.map((room, i) => (
               <motion.div
                 key={room.room_id}
@@ -187,7 +192,12 @@ export default function HistoryPage() {
         ) : (
           <div className="space-y-3 pt-2">
             {itineraries.length === 0 ? (
-              <EmptyState icon={<Route className="w-8 h-8 text-gray-300" />} text="还没有保存路线" />
+              <EmptyState
+                icon={<Route className="w-8 h-8 text-gray-300" />}
+                text="还没有保存路线"
+                actionLabel="去规划一段旅行"
+                onAction={() => router.push('/')}
+              />
             ) : itineraries.map((item, i) => (
               <motion.div
                 key={item.id}
@@ -232,11 +242,26 @@ export default function HistoryPage() {
   )
 }
 
-function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
+function EmptyState({
+  icon, text, actionLabel, onAction,
+}: {
+  icon: React.ReactNode
+  text: string
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
     <div className="flex flex-col items-center py-16 gap-3 text-gray-300">
       {icon}
       <p className="text-sm">{text}</p>
+      {actionLabel && onAction && (
+        <button
+          onClick={onAction}
+          className="mt-1 flex items-center gap-1.5 text-sm text-coral-500 font-medium hover:text-coral-600 transition-colors bg-coral-50 hover:bg-coral-100 px-4 py-2 rounded-xl"
+        >
+          {actionLabel} <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      )}
     </div>
   )
 }

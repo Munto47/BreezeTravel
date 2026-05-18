@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion } from 'framer-motion'
-import { Route, Heart, Layers, Mountain, UtensilsCrossed, BedDouble } from 'lucide-react'
+import { Route, Heart, Layers, Mountain, UtensilsCrossed, BedDouble, ArrowUpDown, Star } from 'lucide-react'
 import type { YjsPlace, RoomMember } from '@/types/room'
 import type { Itinerary } from '@/types/itinerary'
 import { useRoomStore, type RightPanelTab } from '@/stores/roomStore'
@@ -131,6 +131,14 @@ export default function PlaceList({
 }
 
 /* ─── 候选地点面板（含三大板块） ─── */
+type SortOrder = 'default' | 'rating' | 'votes'
+
+const SORT_OPTIONS: { key: SortOrder; label: string; icon: React.ReactNode }[] = [
+  { key: 'default', label: 'AI 推荐', icon: <ArrowUpDown className="w-3 h-3" /> },
+  { key: 'rating',  label: '评分最高', icon: <Star className="w-3 h-3" /> },
+  { key: 'votes',   label: '心愿最多', icon: <Heart className="w-3 h-3" /> },
+]
+
 function CandidatesPanel({
   places, currentUserId, members, myVoteCount, countByFilter, onToggleVote, onRemove,
 }: {
@@ -143,6 +151,7 @@ function CandidatesPanel({
   onRemove: (id: string) => void
 }) {
   const [categoryFilter, setCategoryFilter] = useRoomCategoryFilter()
+  const [sortOrder, setSortOrder] = useState<SortOrder>('default')
   const { selectedPlaceId, setHoveredPlaceId } = useRoomStore()
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -150,7 +159,13 @@ function CandidatesPanel({
   const filteredPlaces = places
     .filter((p) => currentTabConfig.categories.includes(p.category))
     .sort((a, b) => {
-      // 当前用户已心形的排前面
+      if (sortOrder === 'rating') {
+        return (b.amapRating ?? 0) - (a.amapRating ?? 0)
+      }
+      if (sortOrder === 'votes') {
+        return b.votedBy.length - a.votedBy.length
+      }
+      // default：当前用户已心形的排前面
       const aV = a.votedBy.includes(currentUserId) ? 1 : 0
       const bV = b.votedBy.includes(currentUserId) ? 1 : 0
       return bV - aV
@@ -177,14 +192,29 @@ function CandidatesPanel({
 
   return (
     <>
-      {/* 我的心愿统计 */}
+      {/* 我的心愿统计 + 排序控件 */}
       {places.length > 0 && (
-        <div className="px-4 py-2 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+        <div className="px-4 py-2 flex items-center justify-between flex-shrink-0 gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0">
             <Heart className="w-3 h-3 text-coral-400" />
-            <span>我的心愿 <span className="text-coral-500 font-semibold">{myVoteCount}</span> 个</span>
+            <span>心愿 <span className="text-coral-500 font-semibold">{myVoteCount}</span></span>
           </div>
-          <p className="text-[10px] text-gray-300">点击心形加入心愿单</p>
+          <div className="flex items-center gap-1">
+            {SORT_OPTIONS.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setSortOrder(opt.key)}
+                className={`flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all ${
+                  sortOrder === opt.key
+                    ? 'bg-coral-50 text-coral-500 font-semibold'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {opt.icon}
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

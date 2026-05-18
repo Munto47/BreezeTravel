@@ -188,23 +188,75 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
   )
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 export default function ItineraryPage() {
   const params = useParams()
   const router = useRouter()
   const roomId = params.roomId as string
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+
     const stored = localStorage.getItem(`itinerary_${roomId}`)
     if (stored) {
-      try { setItinerary(JSON.parse(stored)) }
-      catch (e) { console.error('[ItineraryPage] parse failed', e) }
+      try {
+        setItinerary(JSON.parse(stored))
+        setLoading(false)
+        return
+      } catch (e) {
+        console.error('[ItineraryPage] localStorage parse failed', e)
+      }
     }
+
+    // localStorage miss — 从 API 恢复（跨设备/清缓存场景）
+    const token = localStorage.getItem('authToken')
+    if (!token) { setLoading(false); return }
+
+    fetch(`${API_BASE}/api/room/${roomId}/itinerary`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => {
+        const itin = data.itinerary_data as Itinerary
+        setItinerary(itin)
+        // 回填 localStorage 供下次直接读取
+        localStorage.setItem(`itinerary_${roomId}`, JSON.stringify(itin))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [roomId])
 
   const totalPlaces = itinerary?.days.reduce((s, d) => s + d.slots.length, 0) ?? 0
   const totalDays = itinerary?.days.length ?? 0
+
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-sm">
+        <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+        <div className="w-px h-4 bg-gray-200" />
+        <div className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
+      </header>
+      <div className="max-w-2xl mx-auto w-full p-4 space-y-4 mt-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white rounded-2xl p-4 space-y-3 animate-pulse">
+            <div className="h-5 w-16 bg-gray-200 rounded" />
+            {[1, 2].map(j => (
+              <div key={j} className="flex gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 bg-gray-200 rounded" />
+                  <div className="h-3 w-48 bg-gray-100 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">

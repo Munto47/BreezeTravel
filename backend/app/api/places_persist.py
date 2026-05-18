@@ -4,6 +4,7 @@
 POST /api/room/{room_id}/places/sync      — Yjs 景点批量同步到 DB
 GET  /api/room/{room_id}/places           — 获取房间已持久化景点
 POST /api/room/{room_id}/itinerary        — 保存优化路线（需登录）
+GET  /api/room/{room_id}/itinerary        — 获取房间最新路线 JSON（需登录）
 GET  /api/itinerary/{itinerary_id}/export — 导出路线为 HTML（需登录）
 """
 
@@ -113,6 +114,33 @@ async def save_itinerary(room_id: str, body: SaveItineraryRequest, user_id: str 
             json.dumps(body.itinerary_data, ensure_ascii=False),
         )
     return {"ok": True, "itinerary_id": str(row["id"])}
+
+
+@router.get("/room/{room_id}/itinerary")
+async def get_room_itinerary(room_id: str, user_id: str = Depends(get_current_user)):
+    """返回该房间最新一条已保存路线的完整 JSON（用于跨设备恢复行程详情页）。"""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            SELECT id, city, trip_days, itinerary_data, created_at
+            FROM saved_itineraries
+            WHERE room_id = $1 AND user_id = $2
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            room_id,
+            user_id,
+        )
+    if not row:
+        raise HTTPException(status_code=404, detail="no itinerary found")
+    return {
+        "itinerary_id": str(row["id"]),
+        "city": row["city"],
+        "trip_days": row["trip_days"],
+        "itinerary_data": json.loads(row["itinerary_data"]),
+        "created_at": row["created_at"].isoformat(),
+    }
 
 
 # =============================================
