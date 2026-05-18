@@ -93,6 +93,21 @@ async def run(state: AgentState) -> dict:
     if settings.demo_mode:
         return {"intent": "amap", "query_rewrite": _get_last_human_query(messages)}
 
+    # Sprint 3 — 微调分类器 fast path
+    # 本地 LoRA 模型快速判断意图，命中则跳过 DeepSeek tool calling
+    # 降级：模型未加载 / 推理失败 → 继续走 ReAct 路径（透明 fallback）
+    if settings.ft_router_enabled and iterations == 0:
+        from app.agents.nodes.router_classifier import classify
+        last_query = _get_last_human_query(messages)
+        ft_result = classify(last_query, trip_city, settings.ft_router_model_path)
+        if ft_result is not None:
+            print(f"[ReActAgent] FT Router 命中: intent={ft_result['intent']}")
+            return {
+                "intent": ft_result["intent"],
+                "query_rewrite": ft_result["query_rewrite"] or last_query,
+                "react_iterations": iterations + 1,
+            }
+
     llm_with_tools = _get_llm_with_tools()
     if llm_with_tools is None:
         print("[ReActAgent] 无 API Key，回退到默认 amap 搜索")

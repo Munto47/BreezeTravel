@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/travel_agent"
     redis_url: str = "redis://localhost:6379"
 
+    # ── Sprint 3：微调 Router 分类器 ──────────────────────────────────
+    # 启用后：用户查询先经本地 Qwen2.5 LoRA 分类，再决定是否调 DeepSeek
+    # 需先运行 scripts/generate_training_data.py + scripts/train_router.py
+    ft_router_enabled: bool = False
+    ft_router_model_path: str = "models/router_lora"
+
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
 
