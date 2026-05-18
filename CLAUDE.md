@@ -185,6 +185,11 @@ echo "FT_ROUTER_ENABLED=true" >> .env
 echo "FT_ROUTER_MODEL_PATH=backend/models/router_lora" >> .env
 ```
 
-### Sprint 4（工程收尾）— 待开始
-- [ ] X1：真实 SSE 流式（graph.astream_events()）
-- [ ] 前后端打磨 + Demo 录制
+### Sprint 4（工程收尾）— ✅ 已完成
+- [x] X1：真实 SSE 流式（graph.astream_events() v2）
+  - `app/api/chat.py` 切换到 `astream_events(version="v2")`
+  - `on_chain_start` 实时推送节点启动 thinking 事件
+  - `on_chain_end` 提取节点输出，推送地点卡片 + 批量文字（12 字/帧）
+  - 区分首轮 Router vs. ReAct 循环第 N 轮，避免重复事件
+- [x] 前端 ThinkingSteps：新增 `tool_executor` 节点（🛠️ 工具执行）
+- [x] 文字推送优化：逐字 → 批量（12 字/帧），减少 SSE 帧数约 12×

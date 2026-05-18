@@ -137,16 +137,50 @@ async def _fetch_amap_poi(keywords: str, city: str) -> list[Place]:
             return [p for p in places if p is not None]
 
 
-def _load_mock_places(city: str) -> list[Place]:
-    """从本地 fixture 文件加载 Mock 数据"""
+_FOOD_KW    = {"美食", "吃", "餐", "火锅", "饭", "菜", "小吃", "饮食", "餐厅", "饭馆", "美味", "料理"}
+_HOTEL_KW   = {"酒店", "住宿", "民宿", "旅馆", "客栈", "住", "入住", "床位", "宾馆"}
+_ATTRACT_KW = {"景点", "景区", "参观", "游览", "打卡", "观光", "博物馆", "公园", "古迹", "名胜", "寺庙"}
+
+
+def _load_mock_places(city: str, query: str = "") -> list[Place]:
+    """从本地 fixture 文件加载 Mock 数据，按查询意图过滤品类后返回"""
     if not MOCK_DATA_PATH.exists():
         print(f"[AmapSearch] Mock 文件不存在：{MOCK_DATA_PATH}")
         return []
     with open(MOCK_DATA_PATH, "r", encoding="utf-8") as f:
         mock_data = json.load(f)
-    # 按城市查找，找不到就用成都
+
     city_places = mock_data.get(city, mock_data.get("成都", []))
-    return [Place(**p) for p in city_places[:8]]
+    all_places = [Place(**p) for p in city_places]
+
+    if not query:
+        return all_places
+
+    q = query
+    want_food    = any(kw in q for kw in _FOOD_KW)
+    want_hotel   = any(kw in q for kw in _HOTEL_KW)
+    want_attract = any(kw in q for kw in _ATTRACT_KW)
+
+    # 精确意图：只返回对应品类（不混入其他）
+    if want_food and not want_hotel and not want_attract:
+        matched = [p for p in all_places if p.category == PlaceCategory.FOOD]
+        return matched if matched else all_places
+
+    if want_hotel and not want_food and not want_attract:
+        matched = [p for p in all_places if p.category == PlaceCategory.HOTEL]
+        return matched if matched else all_places
+
+    if want_attract and not want_food and not want_hotel:
+        matched = [p for p in all_places if p.category == PlaceCategory.ATTRACTION]
+        return matched if matched else all_places
+
+    # 混合意图或无明确意图：按品类优先排序返回全部
+    priority = PlaceCategory.FOOD if want_food else (
+        PlaceCategory.HOTEL if want_hotel else PlaceCategory.ATTRACTION
+    )
+    prioritized = [p for p in all_places if p.category == priority]
+    others = [p for p in all_places if p.category != priority]
+    return prioritized + others
 
 
 async def run(state: AgentState) -> dict:
@@ -155,26 +189,26 @@ async def run(state: AgentState) -> dict:
     city = _extract_city(state)
 
     if settings.amap_mock or settings.demo_mode:
-        places = _load_mock_places(city)
-        print(f"[AmapSearch] Mock 模式，city={city}，返回 {len(places)} 个地点")
+        places = _load_mock_places(city, query)
+        print(f"[AmapSearch] Mock 模式，city={city}，query={query!r}，返回 {len(places)} 个地点")
         return {"amap_places": places}
 
     # 真实高德 API 模式
     if not settings.amap_api_key:
         print("[AmapSearch] 未配置 AMAP_API_KEY，降级到 Mock")
-        return {"amap_places": _load_mock_places(city)}
+        return {"amap_places": _load_mock_places(city, query)}
 
     try:
         places = await _fetch_amap_poi(query, city)
     except Exception as e:
         print(f"[AmapSearch] 高德 API 调用异常：{e}，降级到 Mock")
-        places = _load_mock_places(city)
+        places = _load_mock_places(city, query)
         return {"amap_places": places}
 
     # 真实 API 返回空结果时降级到 Mock（避免 query 不匹配导致空列表）
     if not places:
         print(f"[AmapSearch] 真实 API 返回空，降级到 Mock，city={city}, query={query}")
-        places = _load_mock_places(city)
+        places = _load_mock_places(city, query)
 
     print(f"[AmapSearch] city={city}, query={query}, 返回 {len(places)} 个地点")
     return {"amap_places": places}

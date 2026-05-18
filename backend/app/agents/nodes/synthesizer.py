@@ -79,7 +79,7 @@ async def run(state: AgentState) -> dict:
             raise RuntimeError("无可用 LLM")
 
         amap_json = json.dumps(
-            [p.model_dump(exclude={"rag_meta", "cluster_id", "visit_order"}) for p in amap_places[:8]],
+            [p.model_dump(exclude={"rag_meta", "cluster_id", "visit_order"}) for p in amap_places],
             ensure_ascii=False,
             indent=2,
         )

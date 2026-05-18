@@ -55,8 +55,10 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     let destroyed = false
     ;(async () => {
       try {
-        window._AMapSecurityConfig = {
-          securityJsCode: process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE ?? '',
+        // 仅在安全码非空时设置，避免空字符串触发 AMap 2.0 安全校验失败
+        const secCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE
+        if (secCode) {
+          window._AMapSecurityConfig = { securityJsCode: secCode }
         }
 
         const AMapLoader = (await import('@amap/amap-jsapi-loader')).default
@@ -89,8 +91,13 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
           offset: new AMap.Pixel(0, -30),
           closeWhenClickMap: true,
         })
-      } catch (e) {
-        console.error('[AMap] 初始化失败', e)
+      } catch (e: any) {
+        const msg = e?.message || String(e)
+        if (msg.includes('域名') || msg.includes('domain') || msg.includes('whitelist') || msg.includes('KEY')) {
+          console.error('[AMap] Key 或域名校验失败，请在高德控制台将 localhost:3000 加入 JS API key 的域名白名单。错误：', msg)
+        } else {
+          console.error('[AMap] 初始化失败', e)
+        }
       }
     })()
 

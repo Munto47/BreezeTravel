@@ -1,16 +1,17 @@
 """
 POST /api/chat — 对话接口（SSE 流式响应）
 
-Sprint 2 变更：
-- 对话开始前加载用户长期偏好（Long-term Memory），注入 initial state
-- 初始 state 新增 working_context / user_long_term_prefs / react_iterations
-- SSE 事件处理新增 tool_executor 节点（展示工具调用可视化）
+Sprint 4 变更（X1）：
+- 切换到 graph.astream_events(version="v2") 真实事件流
+  - on_chain_start  → 节点启动 thinking 事件（实时可见）
+  - on_chain_end    → 节点完成，提取输出数据
+  - synthesizer 完成后：先推送地点卡片，再批量推送文字（10 字/帧）
 
-SSE 事件格式（不变，向后兼容）：
+SSE 事件格式（向后兼容）：
   thinking: {node, summary, ms}
   place:    {place: Place}
   text:     {delta: str}
-  done:     {total_places, total_ms}
+  done:     {total_places, total_ms, react_rounds}
   error:    {message}
 """
 
@@ -28,9 +29,31 @@ from app.schemas.api import ChatRequest
 
 router = APIRouter()
 
+# 图内节点名集合（用于过滤 astream_events 中的无关事件）
+_GRAPH_NODES = {"router", "tool_executor", "synthesizer"}
+
+_TOOL_LABELS = {
+    "search_places": "高德地点搜索",
+    "search_travel_notes": "游记攻略检索",
+    "get_weather": "天气查询",
+}
+
+_NODE_START_SUMMARY = {
+    "router":        "意图分析中...",
+    "tool_executor": "正在执行工具调用...",
+    "synthesizer":   "整合数据，生成推荐...",
+}
+
+# 文字推送批大小（字符数），避免逐字 SSE 帧
+_TEXT_CHUNK_SIZE = 12
+
+
+def _thinking(node: str, summary: str, ms: int) -> str:
+    return f"data: {json.dumps({'event': 'thinking', 'data': {'node': node, 'summary': summary, 'ms': ms}}, ensure_ascii=False)}\n\n"
+
 
 async def _event_stream(request: ChatRequest):
-    """生成 SSE 事件流"""
+    """生成 SSE 事件流（使用 graph.astream_events v2）"""
     graph = await get_graph_with_persistence()
     config = {"configurable": {"thread_id": request.thread_id}}
     start_time = time.time()
@@ -42,10 +65,10 @@ async def _event_stream(request: ChatRequest):
         if request.user_id and request.user_id not in ("anonymous", ""):
             long_term_prefs = await asyncio.wait_for(
                 load_user_preferences(request.user_id),
-                timeout=2.0,  # 最多等 2 秒，不阻塞对话
+                timeout=2.0,
             )
     except Exception:
-        pass  # 加载失败静默跳过
+        pass
 
     # ── 构建初始状态 ──────────────────────────────────────────────────
     input_state = {
@@ -61,88 +84,95 @@ async def _event_stream(request: ChatRequest):
         "query_rewrite": None,
         "itinerary": None,
         "final_response": None,
-        # Sprint 2 新增
         "working_context": default_working_context(),
         "user_long_term_prefs": long_term_prefs or None,
         "react_iterations": 0,
     }
 
-    # ── 推送初始 thinking 事件 ────────────────────────────────────────
+    # ── 推送初始 thinking 事件（让用户立即看到响应）─────────────────
     mem_hint = "（已加载历史偏好）" if long_term_prefs else ""
     yield _thinking("router", f"正在分析需求{mem_hint}...", 0)
 
     places: list = []
-    response_text: str = ""
     react_round = 0
+    router_start_count = 0  # 区分首轮 vs. ReAct 循环中的第 N 轮
 
     try:
-        async for chunk in graph.astream(input_state, config=config):
+        async for event in graph.astream_events(input_state, config=config, version="v2"):
+            etype: str = event["event"]
+            ename: str = event.get("name", "")
+            edata: dict = event.get("data", {})
+
+            # 只处理图内节点事件，忽略 LangGraph 图级别事件和 LLM 内部事件
+            if ename not in _GRAPH_NODES:
+                continue
+
             elapsed = int((time.time() - start_time) * 1000)
 
-            # ── Router / ReAct Agent ──────────────────────────────────
-            if "router" in chunk:
-                router_state = chunk["router"]
-                messages = router_state.get("messages", [])
+            # ── 节点启动：立即推送 thinking 让前端显示进度 ─────────────
+            if etype == "on_chain_start":
+                if ename == "router":
+                    router_start_count += 1
+                    if router_start_count > 1:
+                        # 第 2+ 轮 ReAct 循环，表示工具结果已收到，Router 再次思考
+                        yield _thinking("router", "工具结果已获取，继续分析...", elapsed)
+                    # 首轮已在上面手动 emit，跳过避免重复
+                elif ename == "tool_executor":
+                    yield _thinking("tool_executor", _NODE_START_SUMMARY["tool_executor"], elapsed)
+                elif ename == "synthesizer":
+                    yield _thinking("synthesizer", _NODE_START_SUMMARY["synthesizer"], elapsed)
 
-                # 检查 LLM 是否输出了工具调用
-                tool_names = []
-                for m in messages:
-                    if isinstance(m, AIMessage) and m.tool_calls:
-                        tool_names = [tc["name"] for tc in m.tool_calls]
+            # ── 节点完成：提取输出，生成详情 thinking + 业务事件 ──────
+            elif etype == "on_chain_end":
+                output: dict = edata.get("output") or {}
 
-                if tool_names:
-                    react_round += 1
-                    tool_labels = {
-                        "search_places": "高德地点搜索",
-                        "search_travel_notes": "游记攻略检索",
-                        "get_weather": "天气查询",
-                    }
-                    names_cn = "、".join(tool_labels.get(n, n) for n in tool_names)
-                    yield _thinking("router", f"思考完成，调用工具：{names_cn}", elapsed)
-                else:
-                    iterations = router_state.get("react_iterations", 0)
-                    if iterations > 0:
+                if ename == "router":
+                    # 检查 LLM 是否要求调用工具
+                    messages = output.get("messages", [])
+                    tool_names: list[str] = []
+                    for m in messages:
+                        if isinstance(m, AIMessage) and getattr(m, "tool_calls", None):
+                            tool_names = [tc["name"] for tc in m.tool_calls]
+
+                    if tool_names:
+                        react_round += 1
+                        names_cn = "、".join(_TOOL_LABELS.get(n, n) for n in tool_names)
+                        yield _thinking("router", f"决策：调用工具 {names_cn}", elapsed)
+                    elif router_start_count > 1:
+                        # 非首轮且无 tool_calls，意味着信息已够，即将进入 synthesizer
                         yield _thinking("router", "信息收集完毕，准备生成推荐", elapsed)
 
-            # ── Tool Executor ─────────────────────────────────────────
-            elif "tool_executor" in chunk:
-                te_state = chunk["tool_executor"]
-                places_count = len(te_state.get("amap_places", []))
-                chunks_count = len(te_state.get("rag_chunks", []))
+                elif ename == "tool_executor":
+                    places_count = len(output.get("amap_places", []))
+                    chunks_count = len(output.get("rag_chunks", []))
+                    parts = []
+                    if places_count:
+                        parts.append(f"地点 {places_count} 个")
+                    if chunks_count:
+                        parts.append(f"游记 {chunks_count} 条")
+                    summary = "、".join(parts) if parts else "工具执行完成"
+                    yield _thinking("tool_executor", f"工具返回：{summary}", elapsed)
 
-                parts = []
-                if places_count:
-                    parts.append(f"地点 {places_count} 个")
-                if chunks_count:
-                    parts.append(f"游记 {chunks_count} 条")
-                summary = "、".join(parts) if parts else "工具执行完成"
+                elif ename == "synthesizer":
+                    places = output.get("synthesized_places", [])
+                    response_text: str = output.get("final_response", "") or ""
 
-                yield _thinking("tool_executor", f"工具返回：{summary}", elapsed)
+                    yield _thinking("synthesizer", f"推荐已生成：{len(places)} 个地点", elapsed)
 
-            # ── Synthesizer ───────────────────────────────────────────
-            elif "synthesizer" in chunk:
-                synth_state = chunk["synthesizer"]
-                places = synth_state.get("synthesized_places", [])
-                response_text = synth_state.get("final_response", "")
-                yield _thinking("synthesizer", f"整合完成，推荐 {len(places)} 个地点", elapsed)
+                    # 逐个推送地点卡片
+                    for place in places:
+                        yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
 
-                # 逐个推送地点卡片
-                for place in places:
-                    yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
-
-                # 逐字推送文字回复
-                for char in response_text:
-                    yield f"data: {json.dumps({'event': 'text', 'data': {'delta': char}}, ensure_ascii=False)}\n\n"
+                    # 批量推送文字（_TEXT_CHUNK_SIZE 字符/帧，减少 SSE 帧数量）
+                    for i in range(0, len(response_text), _TEXT_CHUNK_SIZE):
+                        chunk = response_text[i:i + _TEXT_CHUNK_SIZE]
+                        yield f"data: {json.dumps({'event': 'text', 'data': {'delta': chunk}}, ensure_ascii=False)}\n\n"
 
         total_ms = int((time.time() - start_time) * 1000)
         yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round}}, ensure_ascii=False)}\n\n"
 
     except Exception as exc:
         yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(exc)}}, ensure_ascii=False)}\n\n"
-
-
-def _thinking(node: str, summary: str, ms: int) -> str:
-    return f"data: {json.dumps({'event': 'thinking', 'data': {'node': node, 'summary': summary, 'ms': ms}}, ensure_ascii=False)}\n\n"
 
 
 @router.post("/chat")

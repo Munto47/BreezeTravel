@@ -49,7 +49,7 @@ def mock_graph():
     """
     Mock LangGraph 持久化图
 
-    chat.py 使用 graph.astream() 流式消费 → 需要 mock 成 async generator（非 coroutine）。
+    chat.py 使用 graph.astream_events(version="v2") → mock 模拟 on_chain_start/end 事件序列。
     """
     from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
 
@@ -66,18 +66,28 @@ def mock_graph():
         )
     ]
 
-    async def _fake_astream(input_state, config=None):
-        """模拟 LangGraph astream：依次 yield router → synthesizer chunk"""
-        yield {"router": {"react_iterations": 1}}
+    async def _fake_astream_events(input_state, config=None, version="v2"):
+        """模拟 LangGraph astream_events v2：依次 yield on_chain_start/end 事件"""
+        # Router 节点启动
+        yield {"event": "on_chain_start", "name": "router", "data": {}}
+        # Router 节点完成（无 tool_calls，直接进入 synthesizer）
+        yield {"event": "on_chain_end", "name": "router", "data": {"output": {"react_iterations": 1}}}
+        # Synthesizer 节点启动
+        yield {"event": "on_chain_start", "name": "synthesizer", "data": {}}
+        # Synthesizer 节点完成
         yield {
-            "synthesizer": {
-                "synthesized_places": mock_places,
-                "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
-            }
+            "event": "on_chain_end",
+            "name": "synthesizer",
+            "data": {
+                "output": {
+                    "synthesized_places": mock_places,
+                    "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
+                }
+            },
         }
 
     mock = MagicMock()
-    mock.astream = _fake_astream
+    mock.astream_events = _fake_astream_events
     return mock
 
 

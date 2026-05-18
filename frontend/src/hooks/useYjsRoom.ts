@@ -79,6 +79,7 @@ export function useYjsRoom(
     // 监听在线成员变化
     const updateMembers = () => {
       const states = Array.from(provider.awareness.getStates().entries())
+      const seenIds = new Set<string>()
       const onlineMembers: RoomMember[] = states
         .filter(([, state]) => state.user)
         .map(([, state]) => ({
@@ -87,6 +88,11 @@ export function useYjsRoom(
           color: (state.user as Record<string, string>).color,
           isOnline: true,
         }))
+        .filter((m) => {
+          if (seenIds.has(m.userId)) return false
+          seenIds.add(m.userId)
+          return true
+        })
       setMembers(onlineMembers)
     }
     provider.awareness.on('change', updateMembers)
