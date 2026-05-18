@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 async def send_code(phone: str, code: str) -> bool:
     """发送短信验证码，返回是否成功。"""
     if not settings.alibaba_cloud_access_key_id:
-        logger.warning(f"[SMS MOCK] 手机号 {phone} 验证码: {code}  (未配置阿里云 Key，Mock 模式)")
+        msg = f"[SMS MOCK] 手机号 {phone} 验证码: {code}  (Mock 模式)"
+        print(msg, flush=True)
+        logger.warning(msg)
         return True
 
     try:
