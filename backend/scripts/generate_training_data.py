@@ -26,6 +26,11 @@ import sys
 import time
 from pathlib import Path
 
+# 自动加载 .env（脚本从 backend/ 运行时读取 backend/../.env 或 backend/.env）
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env", override=False)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env", override=False)
+
 from openai import OpenAI
 
 CITIES = ["成都", "北京", "上海", "西安", "杭州", "重庆", "广州", "厦门", "大理", "丽江", "三亚", "青岛"]

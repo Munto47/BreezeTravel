@@ -28,6 +28,10 @@ import os
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env", override=False)
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env", override=False)
+
 import torch
 
 
@@ -75,33 +79,33 @@ def build_lora_config():
     )
 
 
-def build_training_args(output_dir: str, epochs: int, device: str):
-    from transformers import TrainingArguments
+def build_sft_config(output_dir: str, epochs: int, device: str, max_length: int):
+    from trl import SFTConfig
 
     use_fp16 = device == "cuda"
 
-    return TrainingArguments(
+    return SFTConfig(
         output_dir=output_dir,
         num_train_epochs=epochs,
-        per_device_train_batch_size=2,      # 8GB VRAM 下 batch=2 安全
-        gradient_accumulation_steps=8,      # 等效 batch_size=16
-        warmup_ratio=0.05,
+        per_device_train_batch_size=1,      # 降为 1，减少每步显存带宽 → 抑制热降频
+        gradient_accumulation_steps=16,     # 等效 batch_size=16，梯度不变
+        warmup_steps=10,
         learning_rate=2e-4,
         fp16=use_fp16,
-        bf16=False,                         # 4060 不支持 bf16
-        logging_steps=10,
+        bf16=False,
+        logging_steps=20,
         save_strategy="epoch",
         save_total_limit=2,
-        evaluation_strategy="no",           # 训练集小，不做 eval
-        report_to="none",                   # 不需要 wandb
+        eval_strategy="no",
+        report_to="none",
         dataloader_num_workers=0,           # Windows 兼容
         remove_unused_columns=False,
         optim="adamw_torch",
         lr_scheduler_type="cosine",
         weight_decay=0.01,
         max_grad_norm=1.0,
-        # 4060 不支持 flash-attention，关闭
-        # attn_implementation="flash_attention_2",
+        max_length=256,                     # 序列实际最长 193，256 足够且更快
+        gradient_checkpointing=True,        # 用重计算换显存，降低峰值功耗
     )
 
 
@@ -122,9 +126,9 @@ def main():
     device = check_gpu()
 
     # ── 导入（延迟到此处，避免无 GPU 时也强制加载 torch）─────────────────────
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
-    from peft import get_peft_model, prepare_model_for_kbit_training
-    from trl import SFTTrainer, SFTConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import get_peft_model
+    from trl import SFTTrainer
 
     print(f"\n加载基础模型: {args.base_model}")
     tokenizer = AutoTokenizer.from_pretrained(
@@ -153,16 +157,15 @@ def main():
     # ── 加载数据 ───────────────────────────────────────────────────────────────
     train_dataset = load_dataset_from_jsonl(args.train)
 
-    # ── 训练参数 ───────────────────────────────────────────────────────────────
-    training_args = build_training_args(args.output, args.epochs, device)
+    # ── 训练参数（TRL 1.x: SFTConfig 包含 max_seq_length）──────────────────────
+    sft_config = build_sft_config(args.output, args.epochs, device, args.max_length)
 
-    # ── SFTTrainer（自动处理 ChatML 格式化）────────────────────────────────────
+    # ── SFTTrainer（TRL 1.x: tokenizer → processing_class）────────────────────
     trainer = SFTTrainer(
         model=model,
-        args=training_args,
+        args=sft_config,
         train_dataset=train_dataset,
-        tokenizer=tokenizer,
-        max_seq_length=args.max_length,
+        processing_class=tokenizer,
     )
 
     # ── 开始训练 ───────────────────────────────────────────────────────────────
