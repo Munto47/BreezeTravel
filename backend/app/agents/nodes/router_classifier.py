@@ -2,7 +2,7 @@
 Sprint 3 — 微调 Router 本地推理模块
 
 职责：加载 Qwen2.5-1.5B LoRA 适配器，对用户查询做快速意图分类。
-作为 DeepSeek API 调用的 fast path：本地推理延迟 < 200ms，无网络开销。
+作为 DeepSeek API 调用的 fast path：本地推理延迟 ~2s（GPU），无网络往返开销。
 
 用法（已在 router.py 中自动集成，通过环境变量开关）：
   FT_ROUTER_ENABLED=true        启用本地分类器
@@ -29,7 +29,6 @@ _loaded = False
 _load_error: Optional[str] = None
 
 VALID_INTENTS = {"amap", "rag", "both", "weather"}
-DEFAULT_RESULT = {"intent": "amap", "query_rewrite": ""}
 
 _CLASSIFY_SYSTEM = (
     "你是一个旅行意图分类器。根据用户查询，输出 JSON：\n"
@@ -187,8 +186,7 @@ def classify(query: str, city: str, model_path: str) -> dict:
             output_ids = _model.generate(
                 **inputs,
                 max_new_tokens=80,
-                temperature=0.1,
-                do_sample=False,
+                do_sample=False,        # 贪婪解码，temperature 在此无效，不传
                 pad_token_id=_tokenizer.pad_token_id,
             )
 

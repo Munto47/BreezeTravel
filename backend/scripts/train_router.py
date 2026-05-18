@@ -104,7 +104,7 @@ def build_sft_config(output_dir: str, epochs: int, device: str, max_length: int)
         lr_scheduler_type="cosine",
         weight_decay=0.01,
         max_grad_norm=1.0,
-        max_length=256,                     # 序列实际最长 193，256 足够且更快
+        max_length=max_length,              # 由 --max-length 参数控制（默认 256）
         gradient_checkpointing=True,        # 用重计算换显存，降低峰值功耗
     )
 
@@ -115,7 +115,7 @@ def main():
     parser.add_argument("--output", default="models/router_lora", help="LoRA 适配器输出目录")
     parser.add_argument("--base-model", default="Qwen/Qwen2.5-1.5B-Instruct", help="基础模型（HF Hub 或本地路径）")
     parser.add_argument("--epochs", type=int, default=3, help="训练轮数")
-    parser.add_argument("--max-length", type=int, default=512, help="最大 token 长度")
+    parser.add_argument("--max-length", type=int, default=256, help="最大 token 长度（实际序列最长 ~193，256 足够）")
     args = parser.parse_args()
 
     if not Path(args.train).exists():
