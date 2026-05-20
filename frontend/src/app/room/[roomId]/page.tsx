@@ -214,7 +214,7 @@ export default function RoomPage() {
         const res = await fetch(`${API_BASE}/api/recommend`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city: tripCity, trip_days: storeDays || tripDays }),
+          body: JSON.stringify({ city: tripCity, trip_days: storeDays || tripDays, user_id: userId || undefined }),
         })
         if (!res.ok) throw new Error(`${res.status}`)
         const data = await res.json()

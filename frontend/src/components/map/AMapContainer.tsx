@@ -40,6 +40,9 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   const routePolylinesRef = useRef<any[]>([])
   const drivingRef      = useRef<any[]>([])
   const infoWindowRef   = useRef<any>(null)
+  // 记录上次渲染时的 place ID 集合，只有 ID 变化（新增/删除地点）才调 setFitView
+  // 投票只改 votedBy，不触发地图缩放
+  const prevPlaceIdsRef = useRef<Set<string>>(new Set())
 
   const { setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
 
@@ -137,6 +140,13 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     const map = mapRef.current
     if (!map) return
 
+    // 判断 place ID 集合是否变化（新增 / 删除地点），仅此时才调 setFitView
+    const currentIds = new Set(places.map((p) => p.placeId))
+    const idsChanged =
+      currentIds.size !== prevPlaceIdsRef.current.size ||
+      [...currentIds].some((id) => !prevPlaceIdsRef.current.has(id))
+    prevPlaceIdsRef.current = currentIds
+
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current.clear()
     if (!places.length) return
@@ -183,7 +193,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
       markersRef.current.set(place.placeId, marker)
     })
 
-    if (markersRef.current.size > 0) {
+    if (markersRef.current.size > 0 && idsChanged) {
       map.setFitView([...markersRef.current.values()], false, [60, 420, 60, 420])
     }
   }, [places, buildMarkerContent, setSelectedPlaceId, setHoveredPlaceId])

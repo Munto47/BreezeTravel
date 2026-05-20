@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
+import { POPULAR_CITIES, PROVINCES } from '@/data/cities'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -31,6 +32,9 @@ export default function HomePage() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [city, setCity] = useState('成都')
   const [days, setDays] = useState(3)
+  const [cityPickerOpen, setCityPickerOpen] = useState(false)
+  const [citySearch, setCitySearch] = useState('')
+  const [selectedProvince, setSelectedProvince] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [createdRoomInfo, setCreatedRoomInfo] = useState<{ roomId: string; threadId: string } | null>(null)
@@ -243,17 +247,102 @@ export default function HomePage() {
                   <div className="flex-1">
                     <label className="block text-[11px] font-medium text-gray-500 mb-1.5 uppercase tracking-wider">目的地</label>
                     <div className="relative">
-                      <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                      <select
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="input-glass pl-8 appearance-none"
+                      <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none z-10" />
+                      <button
+                        type="button"
+                        onClick={() => { setCityPickerOpen(true); setCitySearch(''); setSelectedProvince(null) }}
+                        className="input-glass pl-8 w-full text-left truncate"
                       >
-                        <option>成都</option>
-                        <option>北京</option>
-                        <option>上海</option>
-                        <option>厦门</option>
-                      </select>
+                        {city}
+                      </button>
+                      {/* 城市选择弹窗 */}
+                      {cityPickerOpen && (
+                        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setCityPickerOpen(false)}>
+                          <div
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm max-h-[80vh] flex flex-col overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {/* 搜索框 */}
+                            <div className="p-4 border-b border-gray-100">
+                              <div className="relative">
+                                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="搜索城市…"
+                                  value={citySearch}
+                                  onChange={(e) => { setCitySearch(e.target.value); setSelectedProvince(null) }}
+                                  className="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-coral-300"
+                                />
+                              </div>
+                            </div>
+                            <div className="overflow-y-auto flex-1 p-4 space-y-4">
+                              {/* 搜索结果 */}
+                              {citySearch ? (
+                                <div>
+                                  <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">搜索结果</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {PROVINCES.flatMap(p => p.cities)
+                                      .filter(c => c.includes(citySearch))
+                                      .slice(0, 20)
+                                      .map(c => (
+                                        <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
+                                          className={`px-3 py-1.5 text-sm rounded-xl border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
+                                          {c}
+                                        </button>
+                                      ))}
+                                  </div>
+                                  {PROVINCES.flatMap(p => p.cities).filter(c => c.includes(citySearch)).length === 0 && (
+                                    <p className="text-sm text-gray-400">未找到匹配城市</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <>
+                                  {/* 热门城市 */}
+                                  <div>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 热门旅游城市</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {POPULAR_CITIES.map(c => (
+                                        <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
+                                          className={`px-3 py-1.5 text-sm rounded-xl border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
+                                          {c}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  {/* 省份列表 */}
+                                  <div>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">按省份选择</p>
+                                    <div className="space-y-1">
+                                      {PROVINCES.map(prov => (
+                                        <div key={prov.name}>
+                                          <button
+                                            onClick={() => setSelectedProvince(selectedProvince === prov.name ? null : prov.name)}
+                                            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                          >
+                                            <span>{prov.name}</span>
+                                            <span className="text-[10px] text-gray-400">{prov.cities.length}个城市 {selectedProvince === prov.name ? '▲' : '▼'}</span>
+                                          </button>
+                                          {selectedProvince === prov.name && (
+                                            <div className="pl-3 pb-2 flex flex-wrap gap-1.5">
+                                              {prov.cities.map(c => (
+                                                <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
+                                                  className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-white text-gray-600 border-gray-100 hover:border-coral-300'}`}>
+                                                  {c}
+                                                </button>
+                                              ))}
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="w-24">
