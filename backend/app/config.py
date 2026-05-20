@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     hyde_model: str = "deepseek-chat"   # 生成假设文档所用模型
 
     # Reranker：bge-reranker-v2-m3 本地推理（需要 FlagEmbedding + GPU）
-    reranker_enabled: bool = True
+    # Docker 轻量部署默认关闭；本地有 FlagEmbedding 时可设 RERANKER_ENABLED=true
+    reranker_enabled: bool = False
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_device: str = "cpu"        # "cpu"（默认安全）| "cuda"（有 GPU 时显式配置）
 

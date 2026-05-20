@@ -44,7 +44,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11-alpine}
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11-slim}
     ports:
       - "127.0.0.1:8000:8000"
     env_file:
