@@ -30,7 +30,7 @@ export default function HomePage() {
   const toast = useToastStore(s => s.toast)
 
   const [joinRoomId, setJoinRoomId] = useState('')
-  const [city, setCity] = useState('成都')
+  const [city, setCity] = useState('北京')
   const [days, setDays] = useState(3)
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [citySearch, setCitySearch] = useState('')

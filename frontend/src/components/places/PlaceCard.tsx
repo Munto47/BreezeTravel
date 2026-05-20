@@ -12,6 +12,7 @@ interface PlaceCardProps {
   onToggleVote: (placeId: string) => void
   onRemove: (placeId: string) => void
   onHover?: (placeId: string | null) => void
+  onClickCard?: (placeId: string) => void  // 点击卡片主体 → 地图定位
 }
 
 const CATEGORY_CONFIG: Record<string, { label: string; icon: string; bg: string; text: string }> = {
@@ -39,6 +40,7 @@ export default function PlaceCard({
   onToggleVote,
   onRemove,
   onHover,
+  onClickCard,
 }: PlaceCardProps) {
   const isVoted = place.votedBy.includes(currentUserId)
   const voteCount = place.votedBy.length
@@ -62,7 +64,7 @@ export default function PlaceCard({
             ? 'ring-2 ring-coral-200 shadow-card-hover bg-white'
             : 'bg-white/80 border border-gray-100/80 hover:shadow-card hover:border-gray-200/80'
       }`}
-      onClick={() => onToggleVote(place.placeId)}
+      onClick={() => onClickCard?.(place.placeId)}
       onMouseEnter={() => onHover?.(place.placeId)}
       onMouseLeave={() => onHover?.(null)}
     >

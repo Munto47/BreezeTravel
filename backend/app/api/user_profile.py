@@ -89,26 +89,30 @@ async def get_user_rooms(user_id: str = Depends(get_current_user)):
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT r.room_id, r.trip_city, r.trip_days, r.phase, r.created_at,
+            SELECT r.room_id, r.thread_id, r.trip_city, r.trip_days, r.phase, r.created_at,
                    COUNT(DISTINCT rp.place_id) AS place_count,
                    COUNT(DISTINCT si.id)        AS itinerary_count
-            FROM room_members rm
-            JOIN rooms r ON r.room_id = rm.room_id
+            FROM rooms r
             LEFT JOIN room_places rp ON rp.room_id = r.room_id
-            LEFT JOIN saved_itineraries si ON si.room_id = r.room_id AND si.user_id = $1
-            WHERE rm.user_id = $1
+            LEFT JOIN saved_itineraries si ON si.room_id = r.room_id
+            WHERE r.room_id IN (
+                SELECT room_id FROM room_members WHERE user_id = $1
+                UNION
+                SELECT room_id FROM saved_itineraries WHERE user_id = $1
+            )
             GROUP BY r.room_id
             ORDER BY r.created_at DESC
-            LIMIT 20
+            LIMIT 30
             """,
             user_id,
         )
     return [
         {
             "room_id": r["room_id"],
-            "city": r["trip_city"],
-            "trip_days": r["trip_days"],
-            "phase": r["phase"],
+            "thread_id": r["thread_id"],
+            "city": r["trip_city"] or "未知目的地",
+            "trip_days": r["trip_days"] or 3,
+            "phase": r["phase"] or "exploring",
             "place_count": r["place_count"],
             "itinerary_count": r["itinerary_count"],
             "created_at": r["created_at"].isoformat(),

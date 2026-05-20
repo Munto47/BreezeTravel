@@ -41,11 +41,12 @@ app.add_middleware(
 
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(optimize.router, prefix="/api", tags=["optimize"])
+# user_profile 必须在 room 之前注册，否则 room.py 的 /user/{user_id} 会抢先匹配 /user/rooms 等具体路径
+app.include_router(user_profile.router, prefix="/api", tags=["user"])
 app.include_router(room.router, prefix="/api", tags=["room"])
 app.include_router(recommend.router, prefix="/api", tags=["recommend"])
 app.include_router(weather.router, prefix="/api", tags=["weather"])
 app.include_router(auth_api.router, prefix="/api", tags=["auth"])
-app.include_router(user_profile.router, prefix="/api", tags=["user"])
 app.include_router(places_persist.router, prefix="/api", tags=["places"])
 
 

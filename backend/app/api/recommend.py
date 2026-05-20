@@ -149,14 +149,14 @@ async def _recommend_smart(city: str, trip_days: int) -> list[Place]:
                 base_url=settings.deepseek_api_url,
             )
             prompt = (
-                f"你是专业旅行顾问，请为用户生成在【{city}】{trip_days}天旅行的高德地图POI搜索关键词。\n\n"
-                f"要求：\n"
-                f"- 景点：{n_attract}个关键词，优先5A/4A景区、城市地标、热门网红打卡地\n"
-                f"- 美食：{n_food}个关键词，优先当地知名连锁品牌、必吃老字号、网红餐厅\n"
-                f"- 住宿：{n_hotel}个关键词，优先四星/五星连锁品牌酒店\n\n"
-                f"每个关键词用于高德POI搜索，应简短精准（如"宽窄巷子"、"海底捞火锅"、"万豪酒店"）。\n"
-                f'仅返回JSON数组，格式：[{{"keyword":"...","type":"attraction"}},{{"keyword":"...","type":"food"}},{{"keyword":"...","type":"hotel"}}]'
-            )
+                "你是专业旅行顾问，请为用户生成在【%s】%d天旅行的高德地图POI搜索关键词。\n\n"
+                "要求：\n"
+                "- 景点：%d个关键词，优先5A/4A景区、城市地标、热门网红打卡地\n"
+                "- 美食：%d个关键词，优先当地知名连锁品牌、必吃老字号、网红餐厅\n"
+                "- 住宿：%d个关键词，优先四星/五星连锁品牌酒店\n\n"
+                "每个关键词用于高德POI搜索，应简短精准。\n"
+                '仅返回JSON数组，格式：[{"keyword":"...","type":"attraction"},{"keyword":"...","type":"food"},{"keyword":"...","type":"hotel"}]'
+            ) % (city, trip_days, n_attract, n_food, n_hotel)
             resp = await client.chat.completions.create(
                 model="deepseek-chat",
                 messages=[{"role": "user", "content": prompt}],

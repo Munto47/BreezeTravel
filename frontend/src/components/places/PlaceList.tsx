@@ -14,6 +14,7 @@ interface PlaceListProps {
   itinerary: Itinerary | null
   onToggleVote: (placeId: string) => void
   onRemove: (placeId: string) => void
+  onClickPlace?: (placeId: string) => void
 }
 
 const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
@@ -70,6 +71,7 @@ export default function PlaceList({
   itinerary,
   onToggleVote,
   onRemove,
+  onClickPlace,
 }: PlaceListProps) {
   const { rightTab, setRightTab } = useRoomStore()
 
@@ -119,6 +121,7 @@ export default function PlaceList({
           countByFilter={countByFilter}
           onToggleVote={onToggleVote}
           onRemove={onRemove}
+          onClickPlace={onClickPlace}
         />
       )}
 
@@ -140,7 +143,7 @@ const SORT_OPTIONS: { key: SortOrder; label: string; icon: React.ReactNode }[] =
 ]
 
 function CandidatesPanel({
-  places, currentUserId, members, myVoteCount, countByFilter, onToggleVote, onRemove,
+  places, currentUserId, members, myVoteCount, countByFilter, onToggleVote, onRemove, onClickPlace,
 }: {
   places: YjsPlace[]
   currentUserId: string
@@ -149,10 +152,11 @@ function CandidatesPanel({
   countByFilter: (f: CategoryFilter) => number
   onToggleVote: (id: string) => void
   onRemove: (id: string) => void
+  onClickPlace?: (id: string) => void
 }) {
   const [categoryFilter, setCategoryFilter] = useRoomCategoryFilter()
   const [sortOrder, setSortOrder] = useState<SortOrder>('default')
-  const { selectedPlaceId, setHoveredPlaceId } = useRoomStore()
+  const { selectedPlaceId, setSelectedPlaceId, setHoveredPlaceId } = useRoomStore()
   const listRef = useRef<HTMLDivElement>(null)
 
   const currentTabConfig = CATEGORY_TABS.find((t) => t.key === categoryFilter)!
@@ -299,6 +303,10 @@ function CandidatesPanel({
                   onToggleVote={onToggleVote}
                   onRemove={onRemove}
                   onHover={setHoveredPlaceId}
+                  onClickCard={(id) => {
+                    setSelectedPlaceId(id)
+                    onClickPlace?.(id)
+                  }}
                 />
               ))}
             </motion.div>

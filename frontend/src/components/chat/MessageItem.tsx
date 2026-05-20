@@ -6,6 +6,7 @@ import type { ChatMessage } from '@/types/chat'
 
 interface MessageItemProps {
   message: ChatMessage
+  onClickPlace?: (placeId: string) => void
 }
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -15,7 +16,7 @@ const CATEGORY_ICON: Record<string, string> = {
   transport: '🚉',
 }
 
-export default function MessageItem({ message }: MessageItemProps) {
+export default function MessageItem({ message, onClickPlace }: MessageItemProps) {
   const isUser = message.role === 'user'
 
   if (isUser) {
@@ -45,7 +46,8 @@ export default function MessageItem({ message }: MessageItemProps) {
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.06 }}
-                className="bg-white/70 rounded-xl border border-gray-100/80 p-3 hover:border-coral-200 hover:shadow-card transition-all duration-200"
+                onClick={() => onClickPlace?.(place.placeId)}
+                className="bg-white/70 rounded-xl border border-gray-100/80 p-3 hover:border-coral-200 hover:shadow-card transition-all duration-200 cursor-pointer active:scale-[0.98]"
               >
                 <div className="flex items-start gap-2.5">
                   <div className="w-9 h-9 rounded-lg bg-coral-50 flex items-center justify-center text-lg flex-shrink-0">

@@ -110,7 +110,7 @@ export default function RoomPage() {
   // ── 路线优化 ───────────────────────────────────────────────────────────
   const { itinerary, isOptimizing, optimize } = useOptimize(threadId, roomId)
 
-  const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab } = useRoomStore()
+  const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
 
   // ── 天气 ───────────────────────────────────────────────────────────────
   const [weather, setWeather] = useState<null | {
@@ -325,6 +325,7 @@ export default function RoomPage() {
                   onSend={(text) =>
                     sendMessage(text, places.filter((p) => p.votedBy.length > 0).map((p) => p.placeId), tripCity)
                   }
+                  onClickPlace={setSelectedPlaceId}
                 />
               </GlassPanel>
             )}
@@ -347,6 +348,7 @@ export default function RoomPage() {
               itinerary={itinerary}
               onToggleVote={toggleVote}
               onRemove={removePlace}
+              onClickPlace={setSelectedPlaceId}
             />
           </GlassPanel>
         </div>

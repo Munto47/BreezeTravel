@@ -44,7 +44,17 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   // 投票只改 votedBy，不触发地图缩放
   const prevPlaceIdsRef = useRef<Set<string>>(new Set())
 
-  const { setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
+  const { selectedPlaceId, setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
+
+  // ── selectedPlaceId 变化（卡片点击/AI推荐点击）→ 地图居中并弹出信息窗 ────
+  useEffect(() => {
+    if (!selectedPlaceId || !mapRef.current) return
+    const marker = markersRef.current.get(selectedPlaceId)
+    if (!marker) return
+    mapRef.current.panTo(marker.getPosition())
+    // 触发 marker 点击回调，复用已有信息窗逻辑
+    marker.emit('click')
+  }, [selectedPlaceId])
 
   // ── 初始化地图（仅运行一次）────────────────────────────────────
   useEffect(() => {

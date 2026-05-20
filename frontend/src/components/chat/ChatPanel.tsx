@@ -28,6 +28,7 @@ interface ChatPanelProps {
   weather?: WeatherData | null
   tripCity?: string
   onSend: (text: string) => void
+  onClickPlace?: (placeId: string) => void
 }
 
 function getQuickPrompts(city?: string) {
@@ -87,7 +88,7 @@ function WeatherBar({ weather }: { weather: WeatherData }) {
   )
 }
 
-export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend }: ChatPanelProps) {
+export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -176,7 +177,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             {msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0 && (
               <ThinkingSteps steps={msg.thinkingSteps} isStreaming={msg.status === 'streaming'} />
             )}
-            <MessageItem message={msg} />
+            <MessageItem message={msg} onClickPlace={onClickPlace} />
           </motion.div>
         ))}
         <div ref={bottomRef} />
