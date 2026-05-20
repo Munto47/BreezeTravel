@@ -1,8 +1,9 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass } from 'lucide-react'
+import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass, ArrowLeft } from 'lucide-react'
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { RoomMember } from '@/types/room'
 import { UserMenu } from '@/components/layout/UserMenu'
 
@@ -36,6 +37,7 @@ export default function TopNav({
   onViewItinerary,
 }: TopNavProps) {
   const [copyTip, setCopyTip] = useState(false)
+  const router = useRouter()
 
   const handleCopyLink = useCallback(async () => {
     // 复制纯 6 位房间号，方便口头分享
@@ -60,8 +62,21 @@ export default function TopNav({
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className="glass-panel overlay-interactive flex items-center gap-3 px-4 py-2.5 mx-4 mt-3 rounded-glass"
     >
-      {/* ===== 左区：Logo + 聊天切换 + 房间信息 ===== */}
+      {/* ===== 左区：返回 + Logo + 聊天切换 + 房间信息 ===== */}
       <div className="flex items-center gap-3 flex-shrink-0">
+        {/* 返回主界面按钮 */}
+        <button
+          onClick={() => router.push('/')}
+          title="返回主界面"
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-coral-500 hover:bg-coral-50 px-2 py-1.5 rounded-lg transition-all duration-200 border border-transparent hover:border-coral-100"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">主界面</span>
+        </button>
+
+        {/* 分割线 */}
+        <div className="w-px h-5 bg-gray-200/60" />
+
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-coral-500 flex items-center justify-center shadow-sm">

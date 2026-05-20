@@ -164,11 +164,15 @@ async def export_itinerary(itinerary_id: str, user_id: str = Depends(get_current
     itinerary = json.loads(row["itinerary_data"])
     html = _render_itinerary_html(itinerary, row["city"], row["trip_days"])
 
-    city_safe = (row["city"] or "旅行").replace(" ", "_")
-    filename = f"BreezeTravel_{city_safe}_{row['trip_days']}天路线.html"
+    # Content-Disposition 中文文件名必须 URL 编码（RFC 5987），否则 latin-1 编码报 500
+    from urllib.parse import quote
+    city_name = (row["city"] or "旅行").replace(" ", "_")
+    filename_raw = f"BreezeTravel_{city_name}_{row['trip_days']}天路线.html"
+    filename_encoded = quote(filename_raw, safe="")
+    disposition = f"attachment; filename=\"export.html\"; filename*=UTF-8''{filename_encoded}"
     return HTMLResponse(
         content=html,
-        headers={"Content-Disposition": f'attachment; filename*=UTF-8\'\'{filename}'},
+        headers={"Content-Disposition": disposition},
     )
 
 
@@ -226,6 +230,12 @@ def _render_itinerary_html(itinerary: dict, city: Optional[str], trip_days: Opti
                     {mode} · 约 {dur} 分钟 · {dist} km
                 </div>"""
 
+            tips = slot.get("tips", [])
+            tips_html = ""
+            if tips:
+                tips_items = "".join(f'<span class="tip-item">💡 {t}</span>' for t in tips[:3])
+                tips_html = f'<div class="tips">{tips_items}</div>'
+
             slots_html += f"""
             <div class="slot">
                 <div class="slot-time">{start} – {end}</div>
@@ -234,9 +244,10 @@ def _render_itinerary_html(itinerary: dict, city: Optional[str], trip_days: Opti
                     <div class="place-info">
                         <div class="place-name">{name}</div>
                         {f'<div class="place-address">📍 {address}</div>' if address else ''}
-                        {f'<div class="place-meta">⭐ {rating} &nbsp;&bull;&nbsp; 建议 {duration} 分钟</div>' if rating else ''}
+                        {f'<div class="place-meta">⭐ {rating} &nbsp;&bull;&nbsp; 建议游览 {duration} 分钟</div>' if rating else f'<div class="place-meta">建议游览 {duration} 分钟</div>' if duration else ''}
                     </div>
                 </div>
+                {tips_html}
                 {transport_html}
             </div>"""
 
@@ -263,54 +274,87 @@ def _render_itinerary_html(itinerary: dict, city: Optional[str], trip_days: Opti
   <title>BreezeTravel · {city_name} {days_count} 天路线</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    body {{ font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
             background: #f8f7f5; color: #333; padding: 16px; }}
-    .header {{ text-align: center; padding: 32px 16px 24px; }}
-    .logo {{ font-size: 28px; font-weight: 800; color: #FF5A5F; letter-spacing: -0.5px; }}
-    .subtitle {{ color: #888; font-size: 14px; margin-top: 6px; }}
-    .meta {{ display: inline-flex; gap: 16px; margin-top: 12px; font-size: 13px; color: #555; }}
+
+    /* ── 顶部操作栏 ── */
+    .toolbar {{ display: flex; justify-content: center; gap: 12px; margin-bottom: 8px; }}
+    .btn {{ display: inline-flex; align-items: center; gap: 6px; padding: 8px 20px;
+            border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer;
+            border: none; transition: opacity .15s; }}
+    .btn:hover {{ opacity: .85; }}
+    .btn-primary {{ background: #FF5A5F; color: #fff; }}
+    .btn-secondary {{ background: #fff; color: #555; border: 1px solid #ddd; }}
+
+    /* ── 页面主体 ── */
+    .header {{ text-align: center; padding: 28px 16px 20px; }}
+    .logo {{ font-size: 26px; font-weight: 800; color: #FF5A5F; letter-spacing: -0.5px; }}
+    .subtitle {{ color: #888; font-size: 13px; margin-top: 5px; }}
+    .meta {{ display: inline-flex; gap: 12px; margin-top: 12px; font-size: 13px; color: #555; flex-wrap: wrap; justify-content: center; }}
     .meta span {{ background: #fff; border: 1px solid #eee; border-radius: 20px;
-                  padding: 4px 12px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }}
-    .day-card {{ background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.06);
-                 margin: 16px auto; max-width: 680px; overflow: hidden; }}
-    .day-header {{ background: linear-gradient(135deg, #FF5A5F 0%, #ff8086 100%);
-                   color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px;
+                  padding: 4px 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }}
+    .day-card {{ background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.07);
+                 margin: 16px auto; max-width: 700px; overflow: hidden; page-break-inside: avoid; }}
+    .day-header {{ background: linear-gradient(135deg, #FF5A5F 0%, #ff8a8e 100%);
+                   color: #fff; padding: 14px 20px; display: flex; align-items: center; gap: 12px;
                    flex-wrap: wrap; }}
-    .day-badge {{ font-size: 18px; font-weight: 800; }}
+    .day-badge {{ font-size: 17px; font-weight: 800; }}
     .day-date {{ font-size: 13px; opacity: .85; }}
     .weather {{ font-size: 12px; opacity: .9; margin-left: auto; }}
-    .day-slots {{ padding: 8px 0; }}
-    .slot {{ padding: 16px 20px; border-bottom: 1px solid #f5f5f5; }}
+    .day-slots {{ padding: 4px 0; }}
+    .slot {{ padding: 14px 20px; border-bottom: 1px solid #f0f0f0; }}
     .slot:last-child {{ border-bottom: none; }}
-    .slot-time {{ font-size: 11px; color: #aaa; font-weight: 600; letter-spacing: .5px;
-                  margin-bottom: 8px; }}
+    .slot-time {{ font-size: 11px; color: #bbb; font-weight: 600; letter-spacing: .5px; margin-bottom: 6px; }}
     .slot-body {{ display: flex; gap: 14px; align-items: flex-start; }}
-    .place-icon {{ font-size: 24px; line-height: 1; flex-shrink: 0; margin-top: 2px; }}
-    .place-name {{ font-size: 15px; font-weight: 700; color: #222; }}
-    .place-address {{ font-size: 12px; color: #888; margin-top: 3px; }}
-    .place-meta {{ font-size: 12px; color: #999; margin-top: 3px; }}
-    .transport {{ margin: 10px 20px 0; padding: 8px 12px; background: #f9f9f9;
-                  border-radius: 8px; font-size: 12px; color: #777; text-align: center; }}
-    .footer {{ text-align: center; font-size: 12px; color: #ccc; margin: 32px 0 16px;
-               padding-top: 16px; border-top: 1px solid #eee; max-width: 680px; margin-inline: auto; }}
+    .place-icon {{ font-size: 22px; line-height: 1.2; flex-shrink: 0; }}
+    .place-name {{ font-size: 15px; font-weight: 700; color: #111; }}
+    .place-address {{ font-size: 12px; color: #999; margin-top: 2px; }}
+    .place-meta {{ font-size: 12px; color: #aaa; margin-top: 2px; }}
+    .tips {{ margin-top: 8px; }}
+    .tip-item {{ font-size: 11px; color: #b45309; background: #fef3c7;
+                 border-radius: 6px; padding: 4px 10px; margin-top: 4px; display: inline-block; }}
+    .transport {{ margin: 8px 20px 0; padding: 7px 12px; background: #f5f5f5;
+                  border-radius: 8px; font-size: 12px; color: #888; text-align: center; }}
+    .footer {{ text-align: center; font-size: 12px; color: #ccc; margin: 28px auto 16px;
+               padding-top: 14px; border-top: 1px solid #eee; max-width: 700px; }}
+
+    /* ── 打印 / PDF 样式 ── */
+    @media print {{
+      body {{ background: #fff; padding: 0; }}
+      .toolbar {{ display: none !important; }}
+      .day-card {{ box-shadow: none; border: 1px solid #e5e5e5; margin: 12px 0; border-radius: 10px; }}
+      .day-header {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+      .footer {{ margin-top: 20px; }}
+      @page {{ margin: 18mm 14mm; size: A4; }}
+    }}
     @media (max-width: 480px) {{
-      .day-header {{ padding: 12px 16px; }}
-      .slot {{ padding: 14px 16px; }}
+      .day-header {{ padding: 12px 14px; }}
+      .slot {{ padding: 12px 14px; }}
+      .toolbar {{ flex-direction: column; align-items: center; }}
     }}
   </style>
 </head>
 <body>
+  <!-- 操作工具栏（打印时自动隐藏） -->
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="window.print()">🖨️ 打印 / 保存为 PDF</button>
+    <button class="btn btn-secondary" onclick="window.close()">✕ 关闭</button>
+  </div>
+
   <div class="header">
-    <div class="logo">BreezeTravel</div>
+    <div class="logo">✈ BreezeTravel</div>
     <div class="subtitle">AI 智能旅行规划</div>
     <div class="meta">
       <span>📍 {city_name}</span>
       <span>📅 {days_count} 天</span>
+      <span>🗓 {generated_at}</span>
     </div>
   </div>
+
   {day_sections}
+
   <div class="footer">
-    由 BreezeTravel 生成 · {generated_at}
+    由 BreezeTravel AI 生成 · {generated_at} · 如需保存请点击「打印 / 保存为 PDF」
   </div>
 </body>
 </html>"""
