@@ -9,6 +9,8 @@ import time
 from fastapi import APIRouter
 
 from app.agents.nodes.optimizer import run as optimizer_run
+from app.agents.nodes.tips_generator import generate_tips
+from app.memory.working import format_for_prompt
 from app.schemas.api import OptimizeRequest, OptimizeResponse
 
 router = APIRouter()
@@ -20,6 +22,7 @@ async def optimize(request: OptimizeRequest):
     智能排线接口。
 
     算法：K-Means（按经纬度聚类为每日簇）+ 高德驾车距离矩阵 + TSP 最近邻启发式（簇内排序）
+    排线完成后调用 TipsGenerator，为每个地点注入温馨提示。
     """
     start = time.time()
 
@@ -34,7 +37,10 @@ async def optimize(request: OptimizeRequest):
         start_date=request.start_date,
     )
 
-    # 计算总距离（简单估算，Sprint 4 替换为高德真实数据）
+    # 注入温馨提示（TipsGenerator）
+    preferences_text = format_for_prompt(request.working_context) if request.working_context else ""
+    itinerary = await generate_tips(itinerary, preferences=preferences_text)
+
     total_distance = sum(
         slot.transport.distance_km
         for day in itinerary.days

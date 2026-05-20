@@ -13,6 +13,7 @@ Optimizer 节点：K-Means 聚类 + 高德驾车时间 + TSP 排线 + 和风天�
 
 import asyncio
 import math
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
@@ -34,6 +35,39 @@ DEFAULT_DURATION = {
     PlaceCategory.TRANSPORT: 15,
 }
 DEFAULT_TRANSPORT_MINS = 20
+
+# 细粒度时长规则（按关键词匹配 name+description+tags）
+# 格式：(category, 关键词正则) → 建议时长（分钟）
+# 优先级：从上到下，第一个命中的规则生效
+_DURATION_RULES: list[tuple[PlaceCategory, str, int]] = [
+    # ── 餐饮细分（优先于景点，因为足浴可能被归入 FOOD）──────────────────
+    (PlaceCategory.FOOD, r"足浴|按摩|SPA|spa|推拿|养生|汗蒸|温泉浴|桑拿", 240),
+    (PlaceCategory.FOOD, r"火锅|串串|烤肉|烧烤|自助餐|buffet", 90),
+    (PlaceCategory.FOOD, r"咖啡|奶茶|甜品|下午茶|冰淇淋", 40),
+    (PlaceCategory.FOOD, r"快餐|小吃|早餐|面馆|粉馆|包子|粥店", 30),
+    (PlaceCategory.FOOD, r"夜市|小吃街|美食街|打卡", 60),
+    # ── 景点细分 ──────────────────────────────────────────────────────────
+    (PlaceCategory.ATTRACTION, r"主题公园|乐园|迪士尼|环球|海洋馆|水上乐园", 420),
+    (PlaceCategory.ATTRACTION, r"5A|国家公园|世界遗产|故宫|颐和园|圆明园", 240),
+    (PlaceCategory.ATTRACTION, r"4A|大熊猫|动物园|植物园|自然保护区", 180),
+    (PlaceCategory.ATTRACTION, r"博物馆|美术馆|展览馆|纪念馆|科技馆", 150),
+    (PlaceCategory.ATTRACTION, r"古镇|古街|历史街区|老街|特色街", 120),
+    (PlaceCategory.ATTRACTION, r"寺庙|教堂|清真寺|道观|佛寺", 60),
+    (PlaceCategory.ATTRACTION, r"公园|广场|绿道|步道|观景台|打卡|网红", 75),
+    (PlaceCategory.ATTRACTION, r"购物中心|商场|市集|夜市", 90),
+    # ── 酒店 ──────────────────────────────────────────────────────────────
+    (PlaceCategory.HOTEL, r".*", 40),
+]
+
+# 夜间营业关键词（触发时将地点自动排到 20:00 以后）
+_NIGHTLIFE_KEYWORDS = r"酒吧|夜市|夜场|KTV|ktv|清吧|Live House|livehouse|夜生活|夜总会|酒馆|酒肆"
+
+# 用餐时间窗口（分钟数）
+_MEAL_WINDOWS = {
+    "lunch": (11 * 60 + 30, 13 * 60 + 30),   # 11:30–13:30
+    "dinner": (18 * 60,     20 * 60 + 30),    # 18:00–20:30
+}
+_MEAL_BUFFER_MINS = 60  # 自由用餐占位时长
 
 WEATHER_SUGGESTIONS = {
     "晴": "天气晴好，建议带防晒霜和水",
@@ -303,6 +337,42 @@ def _match_hotel(last_activity: Place, available_hotels: list[Place]) -> Optiona
     return hotel
 
 
+# ===== 智能时长估算 =====
+
+def _smart_duration(place: Place) -> tuple[int, str]:
+    """根据细粒度规则推断建议游览时长，返回 (分钟数, 来源)。
+    优先级：用户/LLM 预填 > 细粒度规则 > 旧默认值。
+    """
+    # 用户或 LLM 已预填
+    if place.estimated_duration and place.duration_basis in ("user", "llm"):
+        return place.estimated_duration, place.duration_basis
+
+    # 拼接可匹配的文本字段（名称 + 描述 + 标签）
+    text = " ".join(filter(None, [
+        place.name,
+        place.description or "",
+        " ".join(place.tags or []),
+    ]))
+
+    for cat, pattern, mins in _DURATION_RULES:
+        if place.category == cat and re.search(pattern, text, re.IGNORECASE):
+            return mins, "rule"
+
+    # 兜底
+    return DEFAULT_DURATION.get(place.category, 90), "default"
+
+
+def _is_nightlife(place: Place) -> bool:
+    """判断地点是否属于夜间活动（应排到 20:00 以后）"""
+    text = " ".join(filter(None, [
+        place.name,
+        place.description or "",
+        " ".join(place.tags or []),
+        place.opening_hours or "",
+    ]))
+    return bool(re.search(_NIGHTLIFE_KEYWORDS, text, re.IGNORECASE))
+
+
 # ===== TSP =====
 
 def _nearest_neighbor_tsp(
@@ -337,31 +407,149 @@ def _nearest_neighbor_tsp(
 
 # ===== 时间表生成 =====
 
+def _calc_start_time(places: list[Place], prev_day_last_slot_end: Optional[str] = None) -> int:
+    """计算当天出发时间（分钟）。
+    - 前一天有夜间活动（结束 >= 22:00）→ 09:30
+    - 含大熊猫基地等早起推荐景点 → 08:00
+    - 默认 09:00
+    """
+    if prev_day_last_slot_end:
+        try:
+            h, m = prev_day_last_slot_end.split(":")
+            if int(h) >= 22:
+                return 9 * 60 + 30
+        except Exception:
+            pass
+
+    early_keywords = r"大熊猫|熊猫基地|早市|早餐市场|日出|晨练|早鸟"
+    for p in places:
+        text = " ".join(filter(None, [p.name, " ".join(p.tags or [])]))
+        if re.search(early_keywords, text):
+            return 8 * 60
+
+    return 9 * 60
+
+
 def _generate_time_slots(
     places: list[Place],
     time_matrix: dict[tuple[str, str], tuple[int, float]],
+    prev_day_last_slot_end: Optional[str] = None,
 ) -> list[TimeSlot]:
-    slots = []
-    current_mins = 9 * 60  # 09:00
-
+    """生成时间表，支持：
+    - 智能起床时间
+    - 细粒度时长估算（_smart_duration）
+    - 夜间活动自动后移到 20:00+
+    - 用餐时间窗口自动插入「自由用餐」占位块
+    """
+    # 分离普通地点与夜间活动
     sorted_places = sorted(places, key=lambda p: p.visit_order or 0)
+    daytime = [p for p in sorted_places if not _is_nightlife(p)]
+    nightlife = [p for p in sorted_places if _is_nightlife(p)]
 
-    for i, place in enumerate(sorted_places):
-        duration = place.estimated_duration or DEFAULT_DURATION.get(place.category, 90)
+    current_mins = _calc_start_time(sorted_places, prev_day_last_slot_end)
+    slots: list[TimeSlot] = []
+    has_food_in_window: dict[str, bool] = {"lunch": False, "dinner": False}
+
+    def _add_meal_slot(meal_name: str, window_start: int) -> None:
+        slots.append(TimeSlot(
+            place_id=f"__meal_{meal_name}__",
+            place={
+                "place_id": f"__meal_{meal_name}__",
+                "name": "午餐（自由安排）" if meal_name == "lunch" else "晚餐（自由安排）",
+                "category": "food",
+                "address": "",
+                "coords": {"lng": 0.0, "lat": 0.0},
+                "city": "",
+                "tags": ["用餐"],
+                "tips": ["根据当天所在位置自由选择餐厅"],
+            },
+            start_time=f"{window_start // 60:02d}:{window_start % 60:02d}",
+            end_time=f"{(window_start + _MEAL_BUFFER_MINS) // 60:02d}:{(window_start + _MEAL_BUFFER_MINS) % 60:02d}",
+            transport=None,
+        ))
+
+    def _check_and_insert_meal(current: int) -> int:
+        """若当前时间进入用餐窗且该顿饭未安排，插入占位块并返回推迟后的时间。"""
+        nonlocal has_food_in_window
+        for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
+            if not has_food_in_window[meal] and win_start <= current < win_end:
+                _add_meal_slot(meal, current)
+                has_food_in_window[meal] = True
+                return current + _MEAL_BUFFER_MINS
+        return current
+
+    # 检查地点是否属于某用餐时间窗内的餐厅
+    for p in sorted_places:
+        if p.category == PlaceCategory.FOOD:
+            dur, _ = _smart_duration(p)
+            for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
+                # 粗估：若该餐厅所在顺序的预期开始时间落入窗口
+                pass
+    # 简化：只要当天有餐厅就标记对应时间窗已有安排
+    for p in sorted_places:
+        if p.category == PlaceCategory.FOOD:
+            dur, _ = _smart_duration(p)
+            # 餐厅默认 12:00~13:00 → 标记午餐；18:00+ → 标记晚餐（粗估）
+            idx = sorted_places.index(p)
+            approx_start = current_mins + sum(
+                _smart_duration(sorted_places[j])[0] for j in range(idx)
+            )
+            for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
+                if win_start <= approx_start <= win_end:
+                    has_food_in_window[meal] = True
+
+    # ── 排入白天地点 ──────────────────────────────────────────────
+    for i, place in enumerate(daytime):
+        current_mins = _check_and_insert_meal(current_mins)
+
+        duration, basis = _smart_duration(place)
+        # 写回 duration_basis（不可变 model，先 copy）
+        if not place.duration_basis or place.duration_basis == "default":
+            place = place.model_copy(update={"estimated_duration": duration, "duration_basis": basis})
+
         start_str = f"{current_mins // 60:02d}:{current_mins % 60:02d}"
         end_mins = current_mins + duration
         end_str = f"{end_mins // 60:02d}:{end_mins % 60:02d}"
 
         transport = None
-        if i < len(sorted_places) - 1:
-            next_place = sorted_places[i + 1]
+        # 下一个地点（跳过占位）
+        remaining_day = daytime[i + 1:]
+        if remaining_day or nightlife:
+            next_place = remaining_day[0] if remaining_day else nightlife[0]
             key = (place.place_id, next_place.place_id)
             dur_mins, dist_km = time_matrix.get(key, _estimate_driving(place, next_place))
-            transport = TransportLeg(
-                mode="driving",
-                duration_mins=dur_mins,
-                distance_km=dist_km,
-            )
+            transport = TransportLeg(mode="driving", duration_mins=dur_mins, distance_km=dist_km)
+            current_mins = end_mins + dur_mins
+        else:
+            current_mins = end_mins
+
+        slots.append(TimeSlot(
+            place_id=place.place_id,
+            place=place.model_dump(),
+            start_time=start_str,
+            end_time=end_str,
+            transport=transport,
+        ))
+
+    # ── 排入夜间活动（不早于 20:00）────────────────────────────────
+    for i, place in enumerate(nightlife):
+        current_mins = max(current_mins, 20 * 60)
+        current_mins = _check_and_insert_meal(current_mins)
+
+        duration, basis = _smart_duration(place)
+        if not place.duration_basis or place.duration_basis == "default":
+            place = place.model_copy(update={"estimated_duration": duration, "duration_basis": basis})
+
+        start_str = f"{current_mins // 60:02d}:{current_mins % 60:02d}"
+        end_mins = current_mins + duration
+        end_str = f"{end_mins // 60:02d}:{end_mins % 60:02d}"
+
+        transport = None
+        if i < len(nightlife) - 1:
+            next_place = nightlife[i + 1]
+            key = (place.place_id, next_place.place_id)
+            dur_mins, dist_km = time_matrix.get(key, _estimate_driving(place, next_place))
+            transport = TransportLeg(mode="driving", duration_mins=dur_mins, distance_km=dist_km)
             current_mins = end_mins + dur_mins
         else:
             current_mins = end_mins
@@ -464,7 +652,8 @@ async def run(
             ordered = _nearest_neighbor_tsp(cluster_places, time_matrix)
 
             # ── 3c. 生成游玩点时间表 ────────────────────────────────────────
-            slots = _generate_time_slots(ordered, time_matrix)
+            prev_end = day_plans[-1].slots[-1].end_time if day_plans and day_plans[-1].slots else None
+            slots = _generate_time_slots(ordered, time_matrix, prev_day_last_slot_end=prev_end)
 
             # ── 3d. 酒店挂载（Anchor Matching）─────────────────────────────
             if slots:

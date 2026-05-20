@@ -15,6 +15,7 @@ class WorkingContext(TypedDict, total=False):
 
     total=False 表示所有字段可选，避免初始化时必须填写所有字段。
     """
+    # ── 原有字段 ──────────────────────────────────────────────────────
     preferred_categories: list[str]   # 偏好品类，如 ["美食", "文化景点", "自然"]
     excluded_keywords: list[str]      # 排除关键词，如 ["商业区", "太贵", "人多"]
     budget_level: Optional[str]       # 预算档次："高" | "中" | "低"
@@ -22,6 +23,15 @@ class WorkingContext(TypedDict, total=False):
     party_size: Optional[int]         # 出行人数
     special_needs: list[str]          # 特殊需求，如 ["无障碍", "儿童友好", "宠物友好"]
     confirmed_place_ids: list[str]    # 用户已表示感兴趣的地点 IDs
+    # ── 深层偏好（R1 新增）───────────────────────────────────────────
+    dietary: Optional[str]            # 饮食限制："素食" | "清真" | "无辣" | "海鲜过敏" | "纯素"
+    nationality: Optional[str]        # 国籍/文化背景："韩国" | "日本" | "穆斯林" | "西方"
+    cuisine_pref: list[str]           # 偏好菜系，如 ["韩国料理", "火锅", "本地特色"]
+    pace: Optional[str]               # 旅行节奏："慢节奏" | "打卡党" | "深度游" | "高效游"
+    physical_level: Optional[str]     # 体力水平："老人小孩" | "一般" | "户外达人"
+    prefer_chain: bool                # 是否偏好连锁/品牌餐厅（稳定保障）
+    prefer_trending: bool             # 是否偏好网红/热门当下流行地点
+    avoid: list[str]                  # 明确回避的场所类型（与 excluded_keywords 语义对齐）
 
 
 def default_working_context() -> WorkingContext:
@@ -34,6 +44,14 @@ def default_working_context() -> WorkingContext:
         party_size=None,
         special_needs=[],
         confirmed_place_ids=[],
+        dietary=None,
+        nationality=None,
+        cuisine_pref=[],
+        pace=None,
+        physical_level=None,
+        prefer_chain=False,
+        prefer_trending=False,
+        avoid=[],
     )
 
 

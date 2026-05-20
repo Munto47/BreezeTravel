@@ -21,6 +21,7 @@ class TimeSlot(BaseModel):
     start_time: str     # "09:00"
     end_time: str       # "11:30"
     transport: Optional[TransportLeg] = None  # 与下一地点的交通（最后一个为 None）
+    tips: list[str] = []  # 温馨提示（TipsGenerator 写入）
 
 
 class DayPlan(BaseModel):

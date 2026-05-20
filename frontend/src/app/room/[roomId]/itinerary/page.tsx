@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
 
@@ -113,6 +113,18 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
                 <div className="mt-2.5 flex gap-1.5 items-start bg-amber-50/80 rounded-lg px-2.5 py-2 border border-amber-100/60">
                   <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
                   <p className="text-[11px] text-amber-700/80 leading-relaxed">{slot.place.ragMeta.tipSnippets[0]}</p>
+                </div>
+              )}
+
+              {/* 温馨提示（TipsGenerator 生成） */}
+              {slot.tips && slot.tips.length > 0 && (
+                <div className="mt-2.5 space-y-1.5">
+                  {slot.tips.map((tip: string, i: number) => (
+                    <div key={i} className="flex gap-1.5 items-start bg-blue-50/80 rounded-lg px-2.5 py-2 border border-blue-100/60">
+                      <Lightbulb className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-blue-700/80 leading-relaxed">{tip}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

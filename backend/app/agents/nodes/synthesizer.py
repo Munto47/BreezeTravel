@@ -30,11 +30,19 @@ SYNTHESIZER_PROMPT = """根据以下地点数据和游记摘录，生成个性�
 {working_memory}
 
 任务：
-1. 为每个 POI 生成 description（一句话特点描述，20-40字）和 tags（2-4个标签，如"亲子""情侣约会""拍照打卡""本地人推荐"）
+1. 为每个 POI 生成 description（一句话特点描述，20-40字）和 tags（2-4个标签，如"亲子""情侣约会""拍照打卡""本地人推荐""连锁品牌""网红打卡"）
 2. 如果有游记数据，为相关 POI 提取 1-3 条避坑/推荐语
-3. 结合用户偏好（如果有），生成个性化推荐说明（150字以内，友好亲切）
-4. 必须返回合法 JSON：
-   {{"response_text": "...", "place_updates": [{{"place_id": "...", "description": "...", "tags": ["..."], "tip_snippets": [...], "sentiment_score": 0.8}}]}}
+3. 推断每个地点合理的建议游览时长（estimated_duration，单位分钟），参考：
+   - 足浴/按摩/SPA → 180-240；大型主题公园/5A景区 → 300-420；博物馆 → 120-180
+   - 古镇/历史街区 → 90-150；普通景点/公园 → 60-90；快餐/咖啡 → 30-45；正餐/火锅 → 60-90
+   - 根据地点名称和描述综合判断，不确定时返回 null
+4. 结合用户偏好（如果有）：
+   - 若用户是素食/清真/特定饮食需求 → 在 response_text 中特别说明推荐原因
+   - 若用户国籍/偏好特定菜系 → 优先描述对应菜系的地点
+   - 若用户偏好连锁品牌 → 标注"连锁品牌"标签
+5. 生成个性化推荐说明（150字以内，友好亲切）
+6. 必须返回合法 JSON（不加 markdown 代码块）：
+   {{"response_text": "...", "place_updates": [{{"place_id": "...", "description": "...", "tags": ["..."], "tip_snippets": [...], "sentiment_score": 0.8, "estimated_duration": 120}}]}}
 不要包含任何其他文字。"""
 
 
@@ -128,6 +136,10 @@ async def run(state: AgentState) -> dict:
                         update_fields["description"] = u["description"]
                     if u.get("tags"):
                         update_fields["tags"] = u["tags"][:4]
+                    dur = u.get("estimated_duration")
+                    if isinstance(dur, (int, float)) and 15 <= dur <= 600:
+                        update_fields["estimated_duration"] = int(dur)
+                        update_fields["duration_basis"] = "llm"
                     if update_fields:
                         place = place.model_copy(update=update_fields)
                 enriched.append(place)

@@ -24,6 +24,8 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/.next ./.next
+# public/ 可以是空目录，RUN mkdir 防止目录不存在时 COPY 报错
+RUN mkdir -p ./public
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json

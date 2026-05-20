@@ -116,7 +116,11 @@ def _extract_city(state: AgentState) -> str:
     return "成都"  # 默认城市
 
 
-async def _fetch_amap_poi(keywords: str, city: str) -> list[Place]:
+async def _fetch_amap_poi(
+    keywords: str, city: str,
+    prefer_trending: bool = False,
+    prefer_chain: bool = False,
+) -> list[Place]:
     """调用高德 POI 搜索 API"""
     url = "https://restapi.amap.com/v3/place/text"
     params = {
@@ -127,6 +131,10 @@ async def _fetch_amap_poi(keywords: str, city: str) -> list[Place]:
         "extensions": "all",
         "offset": 10,
     }
+    # 热门排序：高德 sortrule=weight 按综合热度（评分+评论量）排序
+    if prefer_trending:
+        params["sortrule"] = "weight"
+
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=8)) as resp:
             data = await resp.json()
@@ -187,9 +195,18 @@ async def run(state: AgentState) -> dict:
     """AmapSearch 节点入口函数"""
     query = state.get("query_rewrite") or ""
     city = _extract_city(state)
+    ctx = state.get("working_context") or {}
+    prefer_trending: bool = bool(ctx.get("prefer_trending", False))
+    prefer_chain: bool = bool(ctx.get("prefer_chain", False))
+
+    # 若偏好连锁品牌且关键词中未含"连锁"，追加修饰词
+    if prefer_chain and "连锁" not in query:
+        query = f"{query} 连锁".strip()
 
     if settings.amap_mock or settings.demo_mode:
         places = _load_mock_places(city, query)
+        if prefer_trending:
+            places = sorted(places, key=lambda p: p.amap_rating or 0, reverse=True)
         print(f"[AmapSearch] Mock 模式，city={city}，query={query!r}，返回 {len(places)} 个地点")
         return {"amap_places": places}
 
@@ -199,7 +216,7 @@ async def run(state: AgentState) -> dict:
         return {"amap_places": _load_mock_places(city, query)}
 
     try:
-        places = await _fetch_amap_poi(query, city)
+        places = await _fetch_amap_poi(query, city, prefer_trending=prefer_trending, prefer_chain=prefer_chain)
     except Exception as e:
         print(f"[AmapSearch] 高德 API 调用异常：{e}，降级到 Mock")
         places = _load_mock_places(city, query)
@@ -210,5 +227,5 @@ async def run(state: AgentState) -> dict:
         print(f"[AmapSearch] 真实 API 返回空，降级到 Mock，city={city}, query={query}")
         places = _load_mock_places(city, query)
 
-    print(f"[AmapSearch] city={city}, query={query}, 返回 {len(places)} 个地点")
+    print(f"[AmapSearch] city={city}, query={query}, prefer_trending={prefer_trending}, 返回 {len(places)} 个地点")
     return {"amap_places": places}

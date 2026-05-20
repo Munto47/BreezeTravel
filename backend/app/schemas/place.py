@@ -56,3 +56,7 @@ class Place(BaseModel):
     cluster_id: Optional[int] = Field(None, description="K-Means 分配的日期簇 ID")
     visit_order: Optional[int] = Field(None, description="簇内 TSP 排序序号")
     estimated_duration: Optional[int] = Field(None, description="建议游览时长（分钟）")
+    duration_basis: Optional[str] = Field(None, description="时长来源：llm/rule/user")
+
+    # 温馨提示（TipsGenerator 写入）
+    tips: list[str] = Field(default_factory=list, description="出行温馨提示，如取号/招牌菜/天气")

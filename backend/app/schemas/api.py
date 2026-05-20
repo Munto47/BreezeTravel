@@ -29,6 +29,7 @@ class OptimizeRequest(BaseModel):
     places: list[Place]
     trip_days: int
     start_date: Optional[str] = None    # ISO 8601
+    working_context: Optional[dict] = None  # 会话偏好，用于 TipsGenerator 个性化提示
 
 
 class OptimizeResponse(BaseModel):

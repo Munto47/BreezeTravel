@@ -120,6 +120,8 @@ async def _execute_tool_call(
             query=args.get("query", ""),
             city=args["city"],
             category=args.get("category", ""),
+            prefer_trending=bool(args.get("prefer_trending", False)),
+            prefer_chain=bool(args.get("prefer_chain", False)),
         )
 
         if places:
