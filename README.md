@@ -92,15 +92,20 @@ Query ──→ HyDE（DeepSeek 生成假设文档） ──→ Embedding
 > 评估 LLM：deepseek-chat，Embedding：BAAI/bge-m3（SiliconFlow）  
 > 语料：80 篇合成游记，209 个 chunk，4 城市（成都/北京/上海/厦门），测试集 5 个旅行问题
 
-### LoRA 微调评估（Qwen2.5-1.5B，训练中）
+### LoRA 微调评估（Qwen2.5-1.5B Router 分类器，2026-05-21）
 
 | 指标 | 数值 |
 |------|------|
-| 训练数据 | 1200 条（DeepSeek 数据蒸馏，4 类意图均衡分布） |
-| 基础模型 | Qwen2.5-1.5B-Instruct |
-| LoRA 配置 | r=16, alpha=32, fp16，RTX 4060 8GB |
-| 训练时 token accuracy | epoch 1.6 → 94.8%（收敛中） |
-| 准确率 / 延迟 | ⏳ 待训练完成后更新 |
+| **总体分类准确率** | **91.0%**（273/300 测试集，目标 ≥80% ✅） |
+| amap 意图准确率 | 97.6%（81/83） |
+| weather 意图准确率 | 98.2%（54/55） |
+| both 意图准确率 | 86.1%（74/86） |
+| rag 意图准确率 | 84.2%（64/76） |
+| 平均推理延迟 | ~1964 ms（本地 CUDA 推理） |
+| 训练数据 | 1200 条（DeepSeek 数据蒸馏，4 类意图） |
+| 基础模型 | Qwen2.5-1.5B-Instruct + LoRA（r=16, alpha=32, fp16） |
+| 训练时长 | 30 分钟（RTX 4060 8GB，225 steps × 3 epochs） |
+| 最终 train loss | 0.1784，token accuracy 95.0% |
 
 ---
 

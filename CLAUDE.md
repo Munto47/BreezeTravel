@@ -187,12 +187,13 @@ Zustand store (`frontend/src/stores/`) 管理本地 UI 状态，Yjs 负责多人
 - [x] E1：/health + /metrics 监控端点
 - [x] CI：GitHub Actions 自动化测试流水线
 
-### Sprint 3（微调）— 训练脚本就绪，待 GPU 环境执行
-- [ ] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
-  - ✅ 训练数据生成脚本（1500 条，4 类意图）
-  - ✅ SFTTrainer + LoRA 训练脚本（r=16, fp16，8GB VRAM）
-  - ✅ 本地推理 fast path + 准确率回归测试脚本
-  - ⏳ 待执行：生成数据 → 训练 → 评估准确率（目标 ≥80%）
+### Sprint 3（微调）— ✅ 已完成
+- [x] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
+  - ✅ 训练数据：1200 条（DeepSeek 数据蒸馏，4 类意图均衡）
+  - ✅ 训练完成：RTX 4060 8GB，30 分钟，3 epochs，最终 loss 0.178
+  - ✅ 分类准确率：**91.0%**（目标 ≥80% ✅），各意图均 >84%
+  - ✅ 推理延迟：~1964ms（CUDA），FT_ROUTER_ENABLED=true 已启用
+  - 评估结果：`backend/results/lora_{eval,scores}.{txt,json}`
   - `scripts/generate_training_data.py` — DeepSeek 数据蒸馏（1500 条，4 类意图）
   - `scripts/train_router.py` — SFTTrainer + LoRA（r=16, fp16，8GB VRAM）
   - `app/agents/nodes/router_classifier.py` — 本地推理 fast path（含降级）
