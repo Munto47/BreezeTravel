@@ -97,3 +97,8 @@ class AgentState(TypedDict):
 
     # ── 前端上下文 ────────────────────────────────────────────────────────
     selected_place_ids: list[str]      # 已选地点 ID（影响推荐质量）
+
+    # ── Critic 反思节点（Sprint 5 新增） ──────────────────────────────────
+    critic_retry: bool                 # Critic 是否触发重检索
+    critic_reason: Optional[str]       # 重试原因（供 SSE thinking 事件展示）
+    critic_iterations: int             # Critic 重试次数（上限 MAX_CRITIC_RETRIES=1）

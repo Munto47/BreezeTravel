@@ -10,12 +10,14 @@
 
 | 技术方向 | 实现内容 |
 |----------|---------|
-| **Advanced RAG** | 混合检索（BM25 + pgvector RRF 融合）+ Cross-Encoder Re-ranking + HyDE 查询扩展 + RAGAS 自动化评估 |
-| **ReAct Agent** | LangGraph 有状态 DAG + LLM native tool calling + Think→Act→Observe 循环 + 反思/Critic 节点 |
-| **Memory 系统** | Working Memory（会话内结构化偏好）+ Long-term Memory（跨会话 pgvector 持久化）+ 会话摘要压缩 |
-| **LoRA 微调** | Qwen2.5-1.5B 意图分类微调：DeepSeek 合成训练数据 → LoRA 训练 → 评估对比 → 替换部署 |
+| **Advanced RAG** | 混合检索（BM25 + pgvector RRF 融合）+ Cross-Encoder Re-ranking + HyDE 查询扩展 + RAGAS 评估脚手架（Faithfulness/Relevancy/Recall 三项指标，入库后可一键执行） |
+| **ReAct + Critic** | LangGraph 有状态图 + LLM native tool calling + Think→Act→Observe 循环 + **Critic 反思节点**（规则驱动质量检查，低质结果触发重检索） |
+| **Memory 系统** | Working Memory（会话内规则提取，无 LLM 开销）+ Long-term Memory（跨会话 pgvector 持久化）|
+| **MCP Server** | 三个核心工具（地点搜索/游记检索/天气查询）暴露为标准 **MCP Server**，可被 Claude Desktop / Cursor 直接调用 |
+| **可观测性** | LangSmith 全链路追踪（节点耗时/Token 消耗/工具调用频次）+ /metrics 端点 + GitHub Actions CI |
+| **LoRA 微调** | Qwen2.5-1.5B 意图分类：DeepSeek 数据蒸馏 1500 条 + SFTTrainer LoRA 训练脚本 + 准确率回归测试脚本（待 GPU 环境执行训练） |
 | **实时协同** | Yjs CRDT 无锁同步，多标签页 500ms 内完成投票/备注/状态同步 |
-| **路径优化** | K-Means 宏观聚类分天 + 高德真实驾车距离矩阵 + 最近邻 TSP 微观排序 |
+| **路径优化** | K-Means 宏观聚类分天 + 高德真实驾车距离矩阵（Redis 缓存 TTL 24h）+ 最近邻 TSP 微观排序 |
 
 ---
 
@@ -48,10 +50,16 @@
 ```
 用户消息
   └── Router（ReAct：Think → Tool Select → Act → Observe）
-        ├── tool=amap_search  → AmapSearch → Synthesizer
-        ├── tool=rag_search   → RAGRetrieval → Synthesizer  ← 混合检索+重排序
-        └── tool=both         → AmapSearch → RAGRetrieval → Synthesizer
-                                                  └── [可选 Critic 反思，低质量触发重检索]
+        └── tool_executor（并发执行工具调用，最多循环 3 次）
+              ├── search_places       → 高德 POI 搜索
+              ├── search_travel_notes → RAG 混合检索 + 重排序
+              └── get_weather         → 和风天气 API
+                    ↓（无 tool_calls 或达到上限）
+              Synthesizer（DeepSeek 合并数据，生成推荐）
+                    ↓
+              Critic（规则驱动质量反思）
+                    ├── 质量不足 → 回到 Router 重试（最多 1 次）
+                    └── 质量通过 → END
 ```
 
 ### RAG Pipeline
@@ -174,9 +182,29 @@ AITravel/
 cd backend
 pip install -r requirements.txt
 
-python -m pytest tests/ -v
-python -m pytest tests/test_optimizer.py -v   # 排线算法
-python -m pytest tests/test_rag.py -v         # RAG RAGAS 评估
+# 纯单元测试（无需 API Key / 数据库）
+python -m pytest tests/test_optimizer.py tests/test_mock_data.py tests/test_router_ft_unit.py -v
+
+# RAG 单元测试（离线）
+python -m pytest tests/test_rag.py -v -k "not evaluate_rag_pipeline"
+
+# RAGAS 集成评估（需要 API Key + 已入库游记数据）
+python -m scripts.ingest_notes                                    # 先入库
+python -m pytest tests/test_rag.py::evaluate_rag_pipeline -v -s  # 再评估
+```
+
+## MCP 接入（Claude Desktop / Cursor）
+
+```bash
+# 启动 MCP Server（默认端口 8001）
+cd backend && python -m app.mcp_server
+
+# 在 claude_desktop_config.json 中添加：
+# {
+#   "mcpServers": {
+#     "breezetravel": { "url": "http://localhost:8001/mcp" }
+#   }
+# }
 ```
 
 ---

@@ -1,42 +1,45 @@
 """
-LangGraph 主图定义（Sprint 2 升级版）
+LangGraph 主图定义（Sprint 5 升级版）
 
-ReAct 架构
+完整图拓扑
 ----------
-旧版（固定 DAG）：
-  Router → AmapSearch/RAGRetrieval → Synthesizer
-
-新版（ReAct 循环）：
   router ──→ tool_executor ──┐
-    ↑                        │  （循环，最多 MAX_REACT_ITERATIONS 次）
+    ↑                        │  （ReAct 循环，最多 MAX_REACT_ITERATIONS 次）
     └────────────────────────┘
     │ （无 tool_calls 或达到上限）
     ↓
-  synthesizer → END
+  synthesizer
+    ↓
+  critic（质量反思）
+    ├── critic_retry=True  → router（重新搜索，最多 MAX_CRITIC_RETRIES 次）
+    └── critic_retry=False → END
 
-路由逻辑（_route_after_react）
-------------------------------
-- 最后一条 AI 消息有 tool_calls → tool_executor（继续 ReAct 循环）
-- 无 tool_calls → synthesizer（LLM 认为信息已足够）
-- react_iterations >= MAX_ITERATIONS → synthesizer（强制结束）
+路由函数
+--------
+_route_after_react  : router 之后的路由
+  - tool_calls 存在  → tool_executor
+  - 其他             → synthesizer
+
+_route_after_critic : critic 之后的路由
+  - critic_retry     → router（重试）
+  - 其他             → END
 
 节点说明
 --------
-- router        : ReAct Agent，LLM with bind_tools，输出 tool_calls 或结束
-- tool_executor : 并行执行工具调用，累积 amap_places + rag_chunks，返回 ToolMessages
-- synthesizer   : 合并所有工具数据，生成推荐 + 回复文本
+- router        : ReAct Agent，LLM native tool calling，选工具或结束
+- tool_executor : 并发执行工具调用，累积 amap_places + rag_chunks
+- synthesizer   : DeepSeek 合并数据，生成推荐文本 + Place 列表
+- critic        : 规则驱动质量检查，低质结果触发重检索（最多 1 次）
 
-旧版兼容节点（仍保留，可通过 DEMO_MODE 或直接调用）
--------------------------------------------------
-- amap_search   : 高德 POI 搜索（工具内部已调用，保留供独立测试）
-- rag_retrieval : RAG 检索（工具内部已调用，保留供独立测试）
+旧版兼容节点（保留供独立测试，不注册为图节点）
+- amap_search / rag_retrieval
 """
 
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
 
 from app.agents.state import AgentState
-from app.agents.nodes import router, tool_executor, synthesizer
+from app.agents.nodes import router, tool_executor, synthesizer, critic
 # amap_search 和 rag_retrieval 由 tool_executor 内部直接调用，不注册为图节点
 from app.config import settings
 
@@ -65,17 +68,28 @@ def _route_after_react(state: AgentState) -> str:
     return "synthesizer"
 
 
+def _route_after_critic(state: AgentState) -> str:
+    """
+    Critic 路由函数：决定 critic 节点之后走哪条边
+
+    条件：
+    - critic_retry=True  → router（重新发起检索）
+    - critic_retry=False → END（质量通过或已达重试上限）
+    """
+    if state.get("critic_retry"):
+        return "router"
+    return END
+
+
 def build_graph(checkpointer=None):
-    """构建并编译 LangGraph ReAct 图"""
+    """构建并编译 LangGraph ReAct + Critic 图"""
     g = StateGraph(AgentState)
 
     # ── 注册节点 ──────────────────────────────────────────────────────
     g.add_node("router", router.run)                  # ReAct Agent
     g.add_node("tool_executor", tool_executor.run)    # 工具执行器
     g.add_node("synthesizer", synthesizer.run)        # 合成节点
-
-    # amap_search 和 rag_retrieval 已移至 tool_executor 内部直接调用
-    # 不再作为图节点注册，避免产生无入口的孤立节点警告
+    g.add_node("critic", critic.run)                  # Critic 反思节点
 
     # ── 入口 ─────────────────────────────────────────────────────────
     g.set_entry_point("router")
@@ -93,8 +107,18 @@ def build_graph(checkpointer=None):
     # ── ReAct 循环：tool_executor → router（Observe 后再次 Think）────
     g.add_edge("tool_executor", "router")
 
-    # ── 结束 ─────────────────────────────────────────────────────────
-    g.add_edge("synthesizer", END)
+    # ── synthesizer 完成后进入 Critic 反思 ───────────────────────────
+    g.add_edge("synthesizer", "critic")
+
+    # ── Critic 路由：质量通过 → END，不足 → router 重试 ──────────────
+    g.add_conditional_edges(
+        "critic",
+        _route_after_critic,
+        {
+            "router": "router",
+            END: END,
+        },
+    )
 
     return g.compile(checkpointer=checkpointer)
 

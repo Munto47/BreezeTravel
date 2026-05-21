@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
 
+    # ── LangSmith 可观测性（Sprint 5 新增）────────────────────────────
+    # 配置后所有 LangChain / LangGraph 调用自动上报追踪数据
+    # 控制台：https://smith.langchain.com/
+    langsmith_api_key: str = ""
+    langsmith_project: str = "BreezeTravel"
+
     # ── CORS ──────────────────────────────────────────────────────────
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
 

@@ -1,0 +1,127 @@
+name: BreezeTravel CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 1：单元测试（纯离线，无需 API Key / 数据库 / GPU）
+  # 覆盖：排线算法 / Mock 数据 / LoRA 分类器单元 / RAG 逻辑单元
+  # ─────────────────────────────────────────────────────────────────────────
+  unit-tests:
+    name: Unit Tests (offline)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        working-directory: backend
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          # jieba 需要提前初始化词典（首次运行会下载）
+          python -c "import jieba; jieba.initialize()"
+
+      - name: Run optimizer unit tests
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_optimizer.py -v --tb=short
+        # K-Means + TSP 排线算法，纯 numpy/scikit-learn，无外部依赖
+
+      - name: Run mock data tests
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_mock_data.py -v --tb=short
+        # 验证 4 城市 fixture 数据完整性和 Place 模型解析
+
+      - name: Run LoRA classifier unit tests
+        working-directory: backend
+        run: |
+          python -m pytest tests/test_router_ft_unit.py -v --tb=short
+        # 测试分类器降级逻辑、输出解析、意图校验（不加载真实模型）
+
+      - name: Run RAG unit tests (offline only)
+        working-directory: backend
+        run: |
+          # 仅运行不需要 API Key 和数据库的单元测试
+          # evaluate_rag_pipeline 需要真实数据库，跳过（本地手动执行）
+          python -m pytest tests/test_rag.py -v --tb=short \
+            -k "not evaluate_rag_pipeline"
+        # 覆盖：jieba 分词 / RRF 融合逻辑 / reranker 降级 / HyDE fallback
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 2：代码风格检查
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Run ruff lint
+        working-directory: backend
+        run: |
+          # E: pycodestyle errors, W: warnings, F: pyflakes
+          # 忽略 E501（行长度），项目中有长注释是有意为之
+          ruff check app/ --select E,W,F --ignore E501 --output-format github
+        continue-on-error: true
+        # continue-on-error: 风格问题不阻断 CI，但会在 PR 中显示警告
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # Job 3：前端构建检查
+  # ─────────────────────────────────────────────────────────────────────────
+  frontend-build:
+    name: Frontend Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check & lint
+        working-directory: frontend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        working-directory: frontend
+        env:
+          # 构建时提供占位符，避免 NEXT_PUBLIC_* 缺失导致构建失败
+          NEXT_PUBLIC_API_URL: "http://localhost:8000"
+          NEXT_PUBLIC_Y_WEBSOCKET_URL: "ws://localhost:1234"
+          NEXT_PUBLIC_AMAP_JS_KEY: "placeholder"
+          NEXT_PUBLIC_AMAP_SECURITY_CODE: "placeholder"
+        run: npm run build

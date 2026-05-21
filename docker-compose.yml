@@ -63,6 +63,34 @@ services:
       redis:
         condition: service_healthy
 
+  mcp-server:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11-slim}
+    ports:
+      - "127.0.0.1:8001:8001"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+      REDIS_URL: redis://redis:6379
+      AMAP_MOCK: "true"      # MCP Server 默认使用 Mock，保护配额
+    volumes:
+      - ./backend:/app
+    command: python -m app.mcp_server 8001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   frontend:
     build:
       context: ./frontend

@@ -52,3 +52,7 @@ jieba>=0.42.1
 
 # RAG 评估（仅开发环境，非运行时依赖）
 # pip install ragas datasets
+
+# MCP Server（Sprint 5 新增）
+# Anthropic Model Context Protocol，将工具暴露为标准 MCP Server
+mcp>=1.0.0

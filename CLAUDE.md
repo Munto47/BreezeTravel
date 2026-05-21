@@ -7,10 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **BreezeTravel** — AI 智能旅行协同规划系统，面向 AI 应用开发岗位的技术演示项目。
 
 核心技术展示（已完成 + 升级中）：
-- **LangGraph 多 Agent 编排**：ReAct 模式 Router → Tool Use → RAG/AmapSearch → Synthesizer
-- **Advanced RAG**：混合检索（BM25 + pgvector） + Cross-Encoder Re-ranking + HyDE 查询扩展
-- **Memory 系统**：短期工作记忆 + 长期用户偏好（pgvector 持久化） + 会话摘要压缩
-- **微调**：Qwen2.5-1.5B LoRA 意图分类微调（DeepSeek 合成训练数据）
+- **LangGraph 多 Agent 编排**：ReAct 循环 + Critic 反思节点 + Tool 并发执行
+- **Advanced RAG**：混合检索（BM25 + pgvector RRF）+ Cross-Encoder Re-ranking + HyDE 查询扩展
+- **Memory 系统**：Working Memory（会话内规则提取）+ Long-term Memory（pgvector 持久化）
+- **MCP Server**：三个核心工具暴露为标准 MCP Server，可被 Claude Desktop 直接调用
+- **可观测性**：LangSmith 全链路追踪 + /health /metrics 端点 + GitHub Actions CI
+- **微调**：Qwen2.5-1.5B LoRA 意图分类（DeepSeek 数据蒸馏，训练脚本就绪待执行）
 - **Yjs CRDT 实时协同**：多人 500ms 内同步
 - **K-Means + TSP 混合排线**：K-Means 宏观聚类 + 最近邻 TSP 微观排线
 
@@ -56,8 +58,23 @@ python -m scripts.ingest_notes    # 生成合成游记并入库 pgvector
 ```bash
 cd backend
 python -m pytest tests/ -v
-python -m pytest tests/test_optimizer.py -v   # 排线算法
-python -m pytest tests/test_rag.py -v         # RAG 检索评估（Sprint 1 新增）
+python -m pytest tests/test_optimizer.py -v          # 排线算法（无需外部服务）
+python -m pytest tests/test_rag.py -v                # RAG 单元测试（离线）
+python -m pytest tests/test_rag.py::evaluate_rag_pipeline -v -s  # RAGAS 集成评估（需 API Key）
+python -m pytest tests/test_router_ft_unit.py -v     # LoRA 分类器单元测试
+```
+
+### MCP Server 启动
+```bash
+cd backend
+python -m app.mcp_server        # 启动 MCP Server（端口 8001）
+# 或随 docker-compose 一起启动：docker-compose up -d
+```
+
+### LangSmith 追踪（可选）
+```bash
+# .env 中填写 LANGSMITH_API_KEY 后，所有 Agent 调用自动上报
+# 控制台：https://smith.langchain.com/projects/BreezeTravel
 ```
 
 ## 环境变量配置
@@ -86,19 +103,24 @@ python -m pytest tests/test_rag.py -v         # RAG 检索评估（Sprint 1 新�
 ```
 用户消息
   └── Router（ReAct 模式：Think → Tool Select → Act → Observe）
-        ├── tool=amap_search  → AmapSearch → Synthesizer
-        ├── tool=rag_search   → RAGRetrieval → Synthesizer
-        ├── tool=both         → AmapSearch → RAGRetrieval → Synthesizer
-        └── tool=web_search   → WebSearch → Synthesizer
-                                       └── [Critic 反思节点，可触发重检索]
+        ├── tool=amap_search       → tool_executor → (循环，最多 3 轮)
+        ├── tool=rag_search        → tool_executor → (循环，最多 3 轮)
+        └── tool=both/weather      → tool_executor → (循环，最多 3 轮)
+                                          ↓ (无 tool_calls 或达到上限)
+                                      Synthesizer
+                                          ↓
+                                      Critic（质量反思）
+                                          ├── 质量不足 → 回到 Router 重试（最多 1 次）
+                                          └── 质量通过 → END
 ```
 
 **各节点职责：**
 - **Router** (`nodes/router.py`): ReAct Agent，LLM tool calling 选择工具，意图分类 + 查询改写
-- **AmapSearch** (`nodes/amap_search.py`): 高德 POI 搜索；`AMAP_MOCK=true` 时从 `tests/fixtures/amap_mock_places.json` 读取
-- **RAGRetrieval** (`nodes/rag_retrieval.py`): 混合检索（BM25 + pgvector RRF 融合）+ bge-reranker 精排 + HyDE 扩展
+- **tool_executor** (`nodes/tool_executor.py`): 并行执行工具调用，累积 amap_places + rag_chunks
 - **Synthesizer** (`nodes/synthesizer.py`): DeepSeek 合并数据，生成 Place 列表和回复文本
+- **Critic** (`nodes/critic.py`): 规则驱动的质量反思节点；结果不足或品类漂移时触发重检索（最多 1 次）
 - **Optimizer** (`nodes/optimizer.py`): **独立节点**，通过 `POST /api/optimize` 触发；K-Means + TSP 生成 Itinerary
+- **AmapSearch / RAGRetrieval**: 保留供独立测试，主图由 tool_executor 内部调用
 
 `/api/chat` 通过 SSE 流式推送 `thinking → place → text → done` 事件（`graph.astream_events()` 真实流式）。
 
@@ -119,7 +141,10 @@ python -m pytest tests/test_rag.py -v         # RAG 检索评估（Sprint 1 新�
      → top-5 传入 Synthesizer
 ```
 
-评估：RAGAS 框架（Faithfulness + Answer Relevancy + Context Recall）
+评估脚手架：RAGAS 框架（Faithfulness + Answer Relevancy + Context Recall），运行 `python -m scripts.ingest_notes` 入库后可执行：
+```bash
+python -m pytest tests/test_rag.py::evaluate_rag_pipeline -v -s
+```
 
 ### 全局数据模型（"货币"）
 
@@ -155,8 +180,19 @@ Zustand store (`frontend/src/stores/`) 管理本地 UI 状态，Yjs 负责多人
 - [x] M1：Working Memory（AgentState 结构化偏好）
 - [x] M2：Long-term Memory（跨会话用户偏好）
 
-### Sprint 3（微调）— 进行中
-- [x] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
+### Sprint 5（工程升级）— ✅ 已完成
+- [x] C1：Critic 反思节点（规则驱动质量检查，低质结果触发重检索）
+- [x] O1：LangSmith 全链路追踪（Agent 调用链路 + Token 消耗可视化）
+- [x] M1：MCP Server（三工具标准 MCP 接口，支持 Claude Desktop 调用）
+- [x] E1：/health + /metrics 监控端点
+- [x] CI：GitHub Actions 自动化测试流水线
+
+### Sprint 3（微调）— 训练脚本就绪，待 GPU 环境执行
+- [ ] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）
+  - ✅ 训练数据生成脚本（1500 条，4 类意图）
+  - ✅ SFTTrainer + LoRA 训练脚本（r=16, fp16，8GB VRAM）
+  - ✅ 本地推理 fast path + 准确率回归测试脚本
+  - ⏳ 待执行：生成数据 → 训练 → 评估准确率（目标 ≥80%）
   - `scripts/generate_training_data.py` — DeepSeek 数据蒸馏（1500 条，4 类意图）
   - `scripts/train_router.py` — SFTTrainer + LoRA（r=16, fp16，8GB VRAM）
   - `app/agents/nodes/router_classifier.py` — 本地推理 fast path（含降级）

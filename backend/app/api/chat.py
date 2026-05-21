@@ -30,7 +30,7 @@ from app.schemas.api import ChatRequest
 router = APIRouter()
 
 # 图内节点名集合（用于过滤 astream_events 中的无关事件）
-_GRAPH_NODES = {"router", "tool_executor", "synthesizer"}
+_GRAPH_NODES = {"router", "tool_executor", "synthesizer", "critic"}
 
 _TOOL_LABELS = {
     "search_places": "高德地点搜索",
@@ -42,6 +42,7 @@ _NODE_START_SUMMARY = {
     "router":        "意图分析中...",
     "tool_executor": "正在执行工具调用...",
     "synthesizer":   "整合数据，生成推荐...",
+    "critic":        "质量检查中...",
 }
 
 # 文字推送批大小（字符数），避免逐字 SSE 帧
@@ -87,6 +88,10 @@ async def _event_stream(request: ChatRequest):
         "working_context": default_working_context(),
         "user_long_term_prefs": long_term_prefs or None,
         "react_iterations": 0,
+        # Critic 反思节点初始状态
+        "critic_retry": False,
+        "critic_reason": None,
+        "critic_iterations": 0,
     }
 
     # ── 推送初始 thinking 事件（让用户立即看到响应）─────────────────
@@ -167,6 +172,15 @@ async def _event_stream(request: ChatRequest):
                     for i in range(0, len(response_text), _TEXT_CHUNK_SIZE):
                         chunk = response_text[i:i + _TEXT_CHUNK_SIZE]
                         yield f"data: {json.dumps({'event': 'text', 'data': {'delta': chunk}}, ensure_ascii=False)}\n\n"
+
+                elif ename == "critic":
+                    retry = output.get("critic_retry", False)
+                    reason = output.get("critic_reason", "")
+                    if retry:
+                        # 告知用户正在重新搜索
+                        yield _thinking("critic", f"结果待优化（{reason}），正在重新搜索...", elapsed)
+                    else:
+                        yield _thinking("critic", "质量检查通过", elapsed)
 
         total_ms = int((time.time() - start_time) * 1000)
         yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round}}, ensure_ascii=False)}\n\n"
