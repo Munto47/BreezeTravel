@@ -256,7 +256,7 @@ async def ingest_to_pgvector(
             print(f"  Embedding 批次 {i // EMBEDDING_BATCH + 1} 完成（{len(batch)} 条）")
         except Exception as e:
             print(f"  ✗ Embedding 失败（批次 {i // EMBEDDING_BATCH + 1}）：{e}")
-            dim = 1536  # text-embedding-3-small 维度
+            dim = 1024  # BAAI/bge-m3 维度（SiliconFlow）
             embeddings.extend([[0.0] * dim] * len(batch))
 
     # 写入数据库
@@ -285,7 +285,7 @@ async def ingest_to_pgvector(
                    ON CONFLICT DO NOTHING""",
                 item["note_id"], item["chunk_idx"], item["city"],
                 item["text"], item["content_tokens"],
-                item["place_ids"], embedding,
+                item["place_ids"], str(embedding),  # pgvector::vector 需要字符串格式 "[v1,v2,...]"
             )
 
     print(f"[Step 3] 写入完成：{len(note_ids_written)} 篇游记，{len(all_items)} 个 chunk")

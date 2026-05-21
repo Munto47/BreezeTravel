@@ -2,14 +2,14 @@
 Embedding 模块：将文本转化为稠密向量
 
 支持任何 OpenAI 兼容接口：
-  - OpenAI text-embedding-3-small（默认）
-  - SiliconFlow BAAI/bge-m3
-  - 其他兼容服务
+  - SiliconFlow BAAI/bge-m3（当前配置，1024 维）
+  - OpenAI text-embedding-3-small（3072/1536 维）
+  - 其他 OpenAI 兼容服务
 
 配置（.env）：
   EMBEDDING_API_KEY=...   留空则复用 OPENAI_API_KEY
   EMBEDDING_API_URL=...   留空则复用 OPENAI_API_URL
-  EMBEDDING_MODEL=text-embedding-3-small
+  EMBEDDING_MODEL=BAAI/bge-m3   （当前使用 SiliconFlow）
 """
 
 from openai import AsyncOpenAI
@@ -75,6 +75,8 @@ def _infer_dim() -> int:
     model = settings.embedding_model
     if "3-large" in model:
         return 3072
-    if "ada-002" in model or "bge-m3" in model:
+    if "bge-m3" in model:
+        return 1024   # BAAI/bge-m3：1024 维
+    if "ada-002" in model:
         return 1536
     return 1536  # 默认 text-embedding-3-small

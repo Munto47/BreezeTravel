@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # 留空时自动复用 openai_api_key / openai_api_url
     embedding_api_key: str = ""
     embedding_api_url: str = ""
-    embedding_model: str = "text-embedding-3-small"
+    embedding_model: str = "BAAI/bge-m3"          # SiliconFlow 可用的中文 embedding 模型（1024 维）
 
     # ── Advanced RAG 配置 ─────────────────────────────────────────────
     # HyDE：用 LLM 生成假设文档再做 embedding，提升稀疏查询召回率

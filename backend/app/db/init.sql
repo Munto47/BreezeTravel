@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS travel_notes_chunks (
                         to_tsvector('simple', COALESCE(content_tokens, ''))
                     ) STORED,
     place_ids       TEXT[]   DEFAULT '{}',      -- 关联的高德 POI IDs（Entity Linking 结果）
-    embedding       vector(1536),               -- text-embedding-3-small 向量（1536 维）
+    embedding       vector(1024),               -- BAAI/bge-m3 向量（SiliconFlow，1024 维）
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS user_preferences (
     id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id    TEXT NOT NULL,              -- 对应 users.user_id
     content    TEXT NOT NULL,              -- 偏好摘要文本（自然语言）
-    embedding  vector(1536),              -- text-embedding-3-small 向量（语义检索用）
+    embedding  vector(1024),              -- BAAI/bge-m3 向量（语义检索用）
     category   TEXT DEFAULT 'general',    -- 偏好类别（城市名或 "general"）
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()

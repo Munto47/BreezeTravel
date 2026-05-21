@@ -212,7 +212,8 @@ async def _embed_preference(text: str) -> list[float]:
         from app.rag.embedder import embed_text
         return await embed_text(text)
     except Exception:
-        return [0.0] * 1536
+        from app.rag.embedder import _infer_dim
+        return [0.0] * _infer_dim()  # 维度随配置的 embedding 模型自动适配
 
 
 async def _upsert_preference(
@@ -231,6 +232,6 @@ async def _upsert_preference(
             """,
             user_id,
             content,
-            embedding,
+            str(embedding),  # pgvector::vector 需要字符串格式
             trip_city or "general",
         )
