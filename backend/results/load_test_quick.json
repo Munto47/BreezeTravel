@@ -1,0 +1,23 @@
+{
+  "/health": {
+    "p50_ms": 1,
+    "p95_ms": 2,
+    "p99_ms": 2,
+    "max_ms": 2,
+    "samples": 30
+  },
+  "/metrics": {
+    "p50_ms": 1,
+    "p95_ms": 2,
+    "p99_ms": 2,
+    "max_ms": 2,
+    "samples": 30
+  },
+  "/api/optimize": {
+    "p50_ms": 1753,
+    "p95_ms": 2342,
+    "p99_ms": 3933,
+    "max_ms": 3933,
+    "samples": 30
+  }
+}
