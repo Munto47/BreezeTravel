@@ -34,10 +34,29 @@ from tests.test_rag import _EVAL_DATASET
 # Step 1: RAG 检索 + Synthesizer 生成答案
 # ═══════════════════════════════════════════════════════════════════
 
+_RAG_ANSWER_PROMPT = """你是一位专业的旅行顾问。根据以下游记摘录，回答用户的旅行问题。
+
+【用户问题】
+{question}
+
+【参考游记摘录】
+{contexts}
+
+请根据游记内容简洁回答，100-200字，不要超出游记提供的信息范围。"""
+
+
 async def run_rag_queries(dataset: list[dict]) -> list[dict]:
-    from app.agents.nodes import rag_retrieval, synthesizer
+    """RAG 检索 + 直接 LLM 生成答案（不依赖 Synthesizer，避免 amap_places=[] 导致报错）"""
+    from app.agents.nodes import rag_retrieval
     from app.agents.state import default_working_context
+    from app.config import settings
     from langchain_core.messages import HumanMessage
+    from openai import AsyncOpenAI
+
+    llm = AsyncOpenAI(
+        api_key=settings.effective_llm_api_key,
+        base_url=settings.effective_llm_api_url,
+    )
 
     results = []
     for item in dataset:
@@ -57,10 +76,24 @@ async def run_rag_queries(dataset: list[dict]) -> list[dict]:
         }
         rag_result = await rag_retrieval.run(state)
         state.update(rag_result)
-        synth_result = await synthesizer.run(state)
 
-        answer = synth_result.get("final_response", "") or ""
         contexts = [c["content"] for c in state.get("rag_chunks", [])]
+        ctx_text = "\n\n---\n\n".join(contexts[:5]) if contexts else "无相关游记"
+
+        # 直接用 LLM 基于检索上下文生成答案（绕过 Synthesizer 对 amap_places 的依赖）
+        try:
+            resp = await llm.chat.completions.create(
+                model=settings.llm_model_synthesizer,
+                messages=[{"role": "user", "content": _RAG_ANSWER_PROMPT.format(
+                    question=question, contexts=ctx_text
+                )}],
+                max_tokens=300,
+                temperature=0.3,
+            )
+            answer = resp.choices[0].message.content.strip()
+        except Exception as e:
+            answer = f"（生成失败：{e}）"
+
         results.append({
             "question": question,
             "answer": answer,
