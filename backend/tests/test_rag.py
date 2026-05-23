@@ -504,9 +504,30 @@ async def test_evaluate_rag_pipeline():
         embeddings=ragas_embeddings,
     )
 
-    faithfulness_val = score["faithfulness"]
-    relevancy_val = score["answer_relevancy"]
-    recall_val = score["context_recall"]
+    # RAGAS ≥0.2 返回 EvaluationResult，score[metric] 可能是 list/Series 而非标量
+    # 统一用 pandas DataFrame 提取均值，兼容新旧版本
+    import statistics
+
+    def _extract_score(score_obj, key: str) -> float:
+        """从 RAGAS EvaluationResult 中提取指标均值，兼容新旧 API"""
+        val = score_obj[key]
+        if isinstance(val, (int, float)):
+            return float(val)
+        if hasattr(val, "mean"):          # pandas Series / numpy array
+            return float(val.mean())
+        if isinstance(val, (list, tuple)):
+            valid = [v for v in val if v is not None and not (isinstance(v, float) and v != v)]
+            return statistics.mean(valid) if valid else 0.0
+        # EvaluationResult — 尝试 to_pandas()
+        try:
+            df = score_obj.to_pandas()
+            return float(df[key].mean())
+        except Exception:
+            return float(val)
+
+    faithfulness_val = _extract_score(score, "faithfulness")
+    relevancy_val    = _extract_score(score, "answer_relevancy")
+    recall_val       = _extract_score(score, "context_recall")
     avg = (faithfulness_val + relevancy_val + recall_val) / 3
 
     print("\n=== RAGAS 综合评估结果 ===")
@@ -515,7 +536,7 @@ async def test_evaluate_rag_pipeline():
     print(f"  Context Recall    : {recall_val:.4f}  （目标 ≥ 0.65）{'✅' if recall_val >= 0.65 else '❌'}")
     print(f"  综合平均          : {avg:.4f}")
 
-    # 按城市/意图维度分组打印（方便定位弱项）
+    # 按意图类型分布
     print("\n=== 按意图类型分布 ===")
     intent_groups: dict[str, list] = {}
     for r in results_advanced:
@@ -523,6 +544,22 @@ async def test_evaluate_rag_pipeline():
         intent_groups.setdefault(intent, []).append(r["question"])
     for intent, qs in intent_groups.items():
         print(f"  {intent}: {len(qs)} 条")
+
+    # 保存结果到 JSON
+    import json
+    from pathlib import Path
+    results_path = Path(__file__).parent.parent / "results" / "ragas_eval.json"
+    results_path.parent.mkdir(exist_ok=True)
+    with open(results_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "faithfulness": round(faithfulness_val, 4),
+            "answer_relevancy": round(relevancy_val, 4),
+            "context_recall": round(recall_val, 4),
+            "avg": round(avg, 4),
+            "dataset_size": len(results_advanced),
+            "cities": 7,
+        }, f, ensure_ascii=False, indent=2)
+    print(f"\n结果已保存：{results_path}")
 
     # 基础断言
     assert faithfulness_val > 0.5, f"Faithfulness 过低：{faithfulness_val}"
