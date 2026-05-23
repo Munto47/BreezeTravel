@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Sparkles, MessageSquare, ChevronRight } from 'lucide-react'
+import { Send, Sparkles, MessageSquare, Brain } from 'lucide-react'
 
 import type { ChatMessage } from '@/types/chat'
 import MessageItem from './MessageItem'
@@ -88,9 +88,23 @@ function WeatherBar({ weather }: { weather: WeatherData }) {
   )
 }
 
+/** 从消息的 thinkingSteps 中检测是否加载了长期偏好记忆 */
+function useMemoryActive(messages: ChatMessage[]): boolean {
+  return useMemo(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      for (const step of msg.thinkingSteps ?? []) {
+        if (step.summary?.includes('历史偏好')) return true
+      }
+    }
+    return false
+  }, [messages])
+}
+
 export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const memoryActive = useMemoryActive(messages)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -122,6 +136,24 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             <h2 className="text-sm font-bold text-gray-900">AI 旅行顾问</h2>
             <p className="text-[11px] text-gray-400 leading-tight">描述需求，AI 推荐适合的地点</p>
           </div>
+
+          {/* Memory 活跃徽章：检测到历史偏好加载时显示 */}
+          <AnimatePresence>
+            {memoryActive && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: 8 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.25 }}
+                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full
+                           bg-violet-50 border border-violet-200/70 text-violet-600"
+                title="已加载您的历史偏好，推荐将个性化匹配"
+              >
+                <Brain className="w-3 h-3" />
+                <span className="text-[10px] font-medium">记住你了</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 

@@ -1436,5 +1436,351 @@
         "情侣首选"
       ]
     }
+  ],
+  "广州": [
+    {
+      "place_id": "B0FFGZ0001", "name": "陈家祠", "category": "attraction",
+      "address": "荔湾区中山七路恩龙里34号",
+      "coords": {"lng": 113.2524, "lat": 23.1286},
+      "city": "广州", "district": "荔湾区", "source": "amap_poi",
+      "amap_rating": 4.7, "amap_price": 10, "opening_hours": "08:30-17:30",
+      "estimated_duration": 120,
+      "description": "清代岭南建筑精华，砖雕木刻彩塑三雕两塑汇聚于此，门票仅10元超值",
+      "tags": ["历史文化", "岭南建筑", "亲子研学", "性价比"]
+    },
+    {
+      "place_id": "B0FFGZ0002", "name": "广州塔（小蛮腰）", "category": "attraction",
+      "address": "海珠区阅江西路222号",
+      "coords": {"lng": 113.3238, "lat": 23.1061},
+      "city": "广州", "district": "海珠区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": 149, "opening_hours": "10:00-22:00",
+      "estimated_duration": 150,
+      "description": "全球最高的电视塔之一，夜晚灯光秀与珠江夜景相互辉映",
+      "tags": ["地标", "夜景", "拍照打卡", "情侣约会"]
+    },
+    {
+      "place_id": "B0FFGZ0003", "name": "沙面岛", "category": "attraction",
+      "address": "荔湾区沙面大街",
+      "coords": {"lng": 113.2369, "lat": 23.1028},
+      "city": "广州", "district": "荔湾区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": null, "opening_hours": "全天",
+      "estimated_duration": 90,
+      "description": "欧陆风情租界建筑群，百年洋楼掩映绿荫，咖啡馆与婚纱摄影胜地",
+      "tags": ["欧式风情", "拍照打卡", "情侣约会", "免费"]
+    },
+    {
+      "place_id": "B0FFGZ0004", "name": "越秀公园（五羊雕像）", "category": "attraction",
+      "address": "越秀区解放北路988号",
+      "coords": {"lng": 113.2659, "lat": 23.1381},
+      "city": "广州", "district": "越秀区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": null, "opening_hours": "06:00-21:00",
+      "estimated_duration": 90,
+      "description": "广州城市标志五羊雕像所在地，市民晨练胜地，登山可俯瞰全城",
+      "tags": ["免费", "地标", "晨练", "老少皆宜"]
+    },
+    {
+      "place_id": "B0FFGZ0005", "name": "北京路步行街", "category": "attraction",
+      "address": "越秀区北京路",
+      "coords": {"lng": 113.2705, "lat": 23.1266},
+      "city": "广州", "district": "越秀区", "source": "amap_poi",
+      "amap_rating": 4.3, "amap_price": null, "opening_hours": "09:00-22:00",
+      "estimated_duration": 90,
+      "description": "千年商业轴线，地下考古遗址可见历代城市肌理，小吃与购物兼备",
+      "tags": ["购物", "历史文化", "小吃", "拍照打卡"]
+    },
+    {
+      "place_id": "B0FFGZ0006", "name": "白云山风景区", "category": "attraction",
+      "address": "白云区白云山风景区",
+      "coords": {"lng": 113.3003, "lat": 23.1779},
+      "city": "广州", "district": "白云区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": 5, "opening_hours": "06:00-18:00",
+      "estimated_duration": 180,
+      "description": "羊城第一秀，摩星岭顶可远眺珠三角，春季满山杜鹃别有韵味",
+      "tags": ["登山", "户外", "亲子", "性价比"]
+    },
+    {
+      "place_id": "B0FFGZ0007", "name": "陶陶居（荔湾旗舰店）", "category": "food",
+      "address": "荔湾区第十甫路20号",
+      "coords": {"lng": 113.2455, "lat": 23.1254},
+      "city": "广州", "district": "荔湾区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": 80, "opening_hours": "07:00-22:00",
+      "estimated_duration": 90,
+      "description": "百年老字号茶楼，虾饺皮薄透亮，叉烧包酥皮流心，早茶首选",
+      "tags": ["早茶", "老字号", "必吃", "本地人推荐"]
+    },
+    {
+      "place_id": "B0FFGZ0008", "name": "莲香楼", "category": "food",
+      "address": "荔湾区第十甫路67号",
+      "coords": {"lng": 113.244, "lat": 23.1249},
+      "city": "广州", "district": "荔湾区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 60, "opening_hours": "07:30-21:00",
+      "estimated_duration": 75,
+      "description": "广州传统茶楼，月饼和莲蓉点心名扬四海，早茶品类丰富实惠",
+      "tags": ["早茶", "老字号", "平价", "外地游客"]
+    },
+    {
+      "place_id": "B0FFGZ0009", "name": "炳胜品味（体育东路店）", "category": "food",
+      "address": "天河区体育东路122号",
+      "coords": {"lng": 113.3302, "lat": 23.1268},
+      "city": "广州", "district": "天河区", "source": "amap_poi",
+      "amap_rating": 4.7, "amap_price": 200, "opening_hours": "11:00-22:00",
+      "estimated_duration": 90,
+      "description": "广式创意粤菜名店，白切鸡皮脆肉滑，清蒸鱼火候精准，需提前订座",
+      "tags": ["粤菜", "精品", "家庭聚餐", "提前预约"]
+    },
+    {
+      "place_id": "B0FFGZ0010", "name": "广州富力君悦酒店", "category": "hotel",
+      "address": "天河区天河路富力中心",
+      "coords": {"lng": 113.3257, "lat": 23.1215},
+      "city": "广州", "district": "天河区", "source": "amap_poi",
+      "amap_rating": 4.7, "amap_price": 950, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "天河CBD五星商务酒店，紧邻地铁天河城站，出行极便利",
+      "tags": ["五星级", "CBD", "商务出行", "交通便利"]
+    },
+    {
+      "place_id": "B0FFGZ0011", "name": "如家酒店（北京路店）", "category": "hotel",
+      "address": "越秀区北京路188号",
+      "coords": {"lng": 113.2715, "lat": 23.1277},
+      "city": "广州", "district": "越秀区", "source": "amap_poi",
+      "amap_rating": 4.2, "amap_price": 200, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "北京路步行街旁经济型酒店，步行可达陈家祠、上下九，性价比高",
+      "tags": ["经济型", "市中心", "性价比", "交通便利"]
+    }
+  ],
+  "深圳": [
+    {
+      "place_id": "B0FFSZ0001", "name": "大鹏所城（鹏城古址）", "category": "attraction",
+      "address": "大鹏新区鹏城村",
+      "coords": {"lng": 114.4838, "lat": 22.5968},
+      "city": "深圳", "district": "大鹏新区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": null, "opening_hours": "08:00-18:00",
+      "estimated_duration": 120,
+      "description": "600年明代卫所古城，保存最完整的历史城堡，免费开放人少安静",
+      "tags": ["历史文化", "免费", "小众安静", "拍照打卡"]
+    },
+    {
+      "place_id": "B0FFSZ0002", "name": "东门老街", "category": "attraction",
+      "address": "罗湖区东门步行街",
+      "coords": {"lng": 114.1184, "lat": 22.5484},
+      "city": "深圳", "district": "罗湖区", "source": "amap_poi",
+      "amap_rating": 4.2, "amap_price": null, "opening_hours": "09:00-22:00",
+      "estimated_duration": 90,
+      "description": "深圳最热闹的商业街区，港式小吃与地摊文化并存，夜市氛围浓烈",
+      "tags": ["购物", "小吃", "夜市", "年轻人"]
+    },
+    {
+      "place_id": "B0FFSZ0003", "name": "世界之窗", "category": "attraction",
+      "address": "南山区深南大道9037号",
+      "coords": {"lng": 113.9736, "lat": 22.5335},
+      "city": "深圳", "district": "南山区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 200, "opening_hours": "09:30-22:00",
+      "estimated_duration": 240,
+      "description": "浓缩全球130处世界奇观，晚上还有精彩演艺秀，适合亲子整天游",
+      "tags": ["主题公园", "亲子首选", "整天行程", "演出"]
+    },
+    {
+      "place_id": "B0FFSZ0004", "name": "深圳湾公园", "category": "attraction",
+      "address": "南山区滨海大道深圳湾公园",
+      "coords": {"lng": 113.9922, "lat": 22.5147},
+      "city": "深圳", "district": "南山区", "source": "amap_poi",
+      "amap_rating": 4.7, "amap_price": null, "opening_hours": "06:00-23:00",
+      "estimated_duration": 120,
+      "description": "深圳最美滨海步道，清晨可见大批候鸟，夜晚香港灯火尽收眼底",
+      "tags": ["骑行", "夜景", "免费", "情侣约会"]
+    },
+    {
+      "place_id": "B0FFSZ0005", "name": "南头古城", "category": "attraction",
+      "address": "南山区南头街道南头城内",
+      "coords": {"lng": 113.9257, "lat": 22.5469},
+      "city": "深圳", "district": "南山区", "source": "amap_poi",
+      "amap_rating": 4.3, "amap_price": null, "opening_hours": "全天",
+      "estimated_duration": 90,
+      "description": "深圳最老的城区，新旧交融的城中村改造，街头艺术与市井生活并存",
+      "tags": ["文艺青年", "市井文化", "拍照打卡", "免费"]
+    },
+    {
+      "place_id": "B0FFSZ0006", "name": "华强北商圈", "category": "attraction",
+      "address": "福田区华强北路",
+      "coords": {"lng": 114.0878, "lat": 22.5444},
+      "city": "深圳", "district": "福田区", "source": "amap_poi",
+      "amap_rating": 4.1, "amap_price": null, "opening_hours": "09:00-21:00",
+      "estimated_duration": 90,
+      "description": "全球最大电子产品集散地，数码产品应有尽有，淘货爱好者天堂",
+      "tags": ["购物", "数码", "寻宝", "年轻人"]
+    },
+    {
+      "place_id": "B0FFSZ0007", "name": "沙井生蚝（老渔村）", "category": "food",
+      "address": "宝安区沙井街道沙井村",
+      "coords": {"lng": 113.8124, "lat": 22.7214},
+      "city": "深圳", "district": "宝安区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": 80, "opening_hours": "10:00-22:00",
+      "estimated_duration": 90,
+      "description": "千年蚝乡新鲜直取，炭烤蒜蓉蚝肥美多汁，蚝油炒饭也是一绝",
+      "tags": ["海鲜", "必吃", "本地人推荐", "性价比"]
+    },
+    {
+      "place_id": "B0FFSZ0008", "name": "潮汕牛肉火锅（莲花路店）", "category": "food",
+      "address": "福田区莲花路56号",
+      "coords": {"lng": 114.0556, "lat": 22.5471},
+      "city": "深圳", "district": "福田区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": 150, "opening_hours": "11:00-02:00",
+      "estimated_duration": 90,
+      "description": "现宰现切潮汕牛肉，秒涮即食锁住原汁原味，深夜也座无虚席",
+      "tags": ["火锅", "夜宵", "必吃", "朋友聚餐"]
+    },
+    {
+      "place_id": "B0FFSZ0009", "name": "深圳万象城茂业美食街", "category": "food",
+      "address": "罗湖区宝安南路1881号华润中心",
+      "coords": {"lng": 114.1132, "lat": 22.5499},
+      "city": "深圳", "district": "罗湖区", "source": "amap_poi",
+      "amap_rating": 4.3, "amap_price": 120, "opening_hours": "10:00-22:00",
+      "estimated_duration": 60,
+      "description": "深圳最综合的美食聚集地，粤菜、潮汕、日料、港式一站搞定",
+      "tags": ["美食广场", "购物", "方便快捷", "多样选择"]
+    },
+    {
+      "place_id": "B0FFSZ0010", "name": "深圳湾万豪酒店", "category": "hotel",
+      "address": "南山区科技南十二路1号",
+      "coords": {"lng": 114.0062, "lat": 22.5114},
+      "city": "深圳", "district": "南山区", "source": "amap_poi",
+      "amap_rating": 4.8, "amap_price": 1200, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "深圳湾畔五星级酒店，客房直面香港来波香，科技园商务首选",
+      "tags": ["五星级", "海景", "商务出行", "南山科技区"]
+    },
+    {
+      "place_id": "B0FFSZ0011", "name": "全季酒店（华强北店）", "category": "hotel",
+      "address": "福田区华强北路1023号",
+      "coords": {"lng": 114.088, "lat": 22.5439},
+      "city": "深圳", "district": "福田区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 320, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "华强北核心位置，地铁一站可达深南大道，商旅出行性价比优选",
+      "tags": ["交通便利", "性价比", "商务出行", "市中心"]
+    }
+  ],
+  "杭州": [
+    {
+      "place_id": "B0FFHZ0001", "name": "西湖风景名胜区", "category": "attraction",
+      "address": "西湖区龙井路1号",
+      "coords": {"lng": 120.1551, "lat": 30.2523},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.8, "amap_price": null, "opening_hours": "全天",
+      "estimated_duration": 240,
+      "description": "中国十大风景名胜之首，断桥残雪、苏堤春晓等十景皆为免费，步行或骑行绕湖一圈",
+      "tags": ["世界遗产", "免费", "必去", "拍照打卡"]
+    },
+    {
+      "place_id": "B0FFHZ0002", "name": "灵隐寺", "category": "attraction",
+      "address": "西湖区灵隐路法云弄1号",
+      "coords": {"lng": 120.1011, "lat": 30.2422},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": 30, "opening_hours": "07:00-18:30",
+      "estimated_duration": 150,
+      "description": "江南禅宗名刹，飞来峰石窟造像精美，寺院素斋也是一大体验",
+      "tags": ["历史文化", "禅意", "亲子研学", "长辈推荐"]
+    },
+    {
+      "place_id": "B0FFHZ0003", "name": "雷峰塔", "category": "attraction",
+      "address": "西湖区南山路15号",
+      "coords": {"lng": 120.1488, "lat": 30.2316},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 40, "opening_hours": "08:00-18:30",
+      "estimated_duration": 90,
+      "description": "白娘子传说发生地，塔内有遗址展，登顶可俯瞰西湖全景",
+      "tags": ["历史传说", "西湖景观", "文化体验", "爬塔"]
+    },
+    {
+      "place_id": "B0FFHZ0004", "name": "西溪湿地国家公园", "category": "attraction",
+      "address": "余杭区天目山路518号",
+      "coords": {"lng": 120.0779, "lat": 30.2626},
+      "city": "杭州", "district": "余杭区", "source": "amap_poi",
+      "amap_rating": 4.6, "amap_price": 80, "opening_hours": "08:00-17:30",
+      "estimated_duration": 180,
+      "description": "国内唯一城市中心湿地公园，摇橹船穿行芦苇荡，鸟类观测胜地",
+      "tags": ["生态", "亲子", "摄影", "慢节奏"]
+    },
+    {
+      "place_id": "B0FFHZ0005", "name": "河坊街·清河坊", "category": "attraction",
+      "address": "上城区河坊街",
+      "coords": {"lng": 120.1623, "lat": 30.2392},
+      "city": "杭州", "district": "上城区", "source": "amap_poi",
+      "amap_rating": 4.3, "amap_price": null, "opening_hours": "09:00-22:00",
+      "estimated_duration": 90,
+      "description": "南宋御街遗址旁的仿古商业街，胡庆余堂老药铺与旅游纪念品聚集",
+      "tags": ["历史文化", "小吃", "伴手礼", "免费"]
+    },
+    {
+      "place_id": "B0FFHZ0006", "name": "龙井村（茶园）", "category": "attraction",
+      "address": "西湖区龙井村1号",
+      "coords": {"lng": 120.1128, "lat": 30.235},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": null, "opening_hours": "全天",
+      "estimated_duration": 120,
+      "description": "西湖龙井原产地，农家乐品新茶配龙井虾仁，四月采茶季最美",
+      "tags": ["茶文化", "农家乐", "春季必去", "户外"]
+    },
+    {
+      "place_id": "B0FFHZ0007", "name": "楼外楼（孤山路店）", "category": "food",
+      "address": "西湖区孤山路30号",
+      "coords": {"lng": 120.146, "lat": 30.257},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.3, "amap_price": 150, "opening_hours": "11:00-14:00, 17:00-21:00",
+      "estimated_duration": 90,
+      "description": "百年杭帮菜老字号，西湖醋鱼、东坡肉为招牌，餐厅就在西湖边",
+      "tags": ["杭帮菜", "老字号", "必吃", "西湖景观"]
+    },
+    {
+      "place_id": "B0FFHZ0008", "name": "知味观（仁和店）", "category": "food",
+      "address": "上城区仁和路83号",
+      "coords": {"lng": 120.158, "lat": 30.2538},
+      "city": "杭州", "district": "上城区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": 80, "opening_hours": "07:00-21:00",
+      "estimated_duration": 60,
+      "description": "杭州传统小吃一条街，小笼包皮薄汤多，虾肉烧麦鲜美，早餐首选",
+      "tags": ["小笼包", "老字号", "早餐", "必吃"]
+    },
+    {
+      "place_id": "B0FFHZ0009", "name": "外婆家（延安路店）", "category": "food",
+      "address": "上城区延安路187号",
+      "coords": {"lng": 120.1616, "lat": 30.2491},
+      "city": "杭州", "district": "上城区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 60, "opening_hours": "11:00-21:30",
+      "estimated_duration": 75,
+      "description": "杭州人气最高的平价餐厅，东坡肉和葱爆鲫鱼价格亲民，高峰排队1小时",
+      "tags": ["杭帮菜", "性价比", "必排队", "本地人推荐"]
+    },
+    {
+      "place_id": "B0FFHZ0010", "name": "杭州开元名都大酒店", "category": "hotel",
+      "address": "拱墅区环城北路57号",
+      "coords": {"lng": 120.1638, "lat": 30.274},
+      "city": "杭州", "district": "拱墅区", "source": "amap_poi",
+      "amap_rating": 4.7, "amap_price": 850, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "杭州五星级旗舰酒店，毗邻武林广场，购物出行地铁双便利",
+      "tags": ["五星级", "交通便利", "商务出行", "市中心"]
+    },
+    {
+      "place_id": "B0FFHZ0011", "name": "杭州西湖文化广场维景国际", "category": "hotel",
+      "address": "拱墅区武林路1号",
+      "coords": {"lng": 120.1545, "lat": 30.274},
+      "city": "杭州", "district": "拱墅区", "source": "amap_poi",
+      "amap_rating": 4.5, "amap_price": 500, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "紧邻西湖文化广场，步行至武林广场购物，性价比四星选择",
+      "tags": ["四星级", "性价比", "交通便利", "西湖距离适中"]
+    },
+    {
+      "place_id": "B0FFHZ0012", "name": "泊车旅社（西湖边）", "category": "hotel",
+      "address": "西湖区南山路156号",
+      "coords": {"lng": 120.155, "lat": 30.237},
+      "city": "杭州", "district": "西湖区", "source": "amap_poi",
+      "amap_rating": 4.4, "amap_price": 280, "opening_hours": "全天",
+      "estimated_duration": 30,
+      "description": "西湖步行5分钟的精品民宿风酒店，清晨可散步至断桥看日出",
+      "tags": ["西湖周边", "性价比", "文艺青年", "地理绝佳"]
+    }
   ]
 }

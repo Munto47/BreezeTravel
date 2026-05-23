@@ -74,11 +74,11 @@ async def run(state: AgentState) -> dict:
             "final_response": "抱歉，暂时没有找到相关地点，请换个描述方式试试。",
         }
 
-    # Demo 模式
+    # Demo 模式：返回丰富的个性化文案
     if settings.demo_mode:
         return {
             "synthesized_places": amap_places,
-            "final_response": f"为您找到了 {len(amap_places)} 个{trip_city}相关地点，请查看右侧地点列表。",
+            "final_response": _build_demo_response(amap_places, trip_city, working_ctx),
         }
 
     try:
@@ -161,6 +161,57 @@ async def run(state: AgentState) -> dict:
         "synthesized_places": amap_places,
         "final_response": f"为您找到了 {len(amap_places)} 个{trip_city}地点，请查看地点列表。",
     }
+
+
+def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> str:
+    """
+    Demo 模式下生成个性化推荐文案。
+
+    根据地点品类分布、用户偏好（working_context）动态组织语言，
+    避免面试演示时看到空洞的"为您找到了X个地点"。
+    """
+    from app.schemas.place import PlaceCategory
+
+    attractions = [p for p in places if p.category == PlaceCategory.ATTRACTION]
+    foods = [p for p in places if p.category == PlaceCategory.FOOD]
+    hotels = [p for p in places if p.category == PlaceCategory.HOTEL]
+
+    # 构建推荐亮点列表
+    highlights = []
+    if attractions:
+        top = attractions[0]
+        rating_str = f"（评分 {top.amap_rating}⭐）" if top.amap_rating else ""
+        highlights.append(f"**{top.name}**{rating_str}{' — ' + top.description[:20] if top.description else ''}")
+    if foods:
+        top = foods[0]
+        price_str = f"人均 {int(top.amap_price)} 元" if top.amap_price else "平价"
+        highlights.append(f"**{top.name}**（{price_str}）")
+    if hotels:
+        top = hotels[0]
+        highlights.append(f"住宿推荐 **{top.name}**")
+
+    parts = ["✨ 已为您精选出以下推荐：\n"]
+    for h in highlights:
+        parts.append(f"• {h}")
+
+    # 偏好个性化提示
+    style = working_ctx.get("travel_style") if working_ctx else None
+    budget = working_ctx.get("budget_level") if working_ctx else None
+    if style:
+        parts.append(f"\n（已根据「{style}」旅行风格优化推荐顺序）")
+    if budget == "低":
+        cheap = [p for p in foods if p.amap_price and p.amap_price < 50]
+        if cheap:
+            parts.append(f"💰 经济之选：{cheap[0].name}，{int(cheap[0].amap_price)} 元以内")
+
+    total_cats = (len(attractions), len(foods), len(hotels))
+    cat_desc = "、".join(f for f, c in zip(
+        [f"{total_cats[0]}个景点", f"{total_cats[1]}道美食", f"{total_cats[2]}处住宿"],
+        total_cats
+    ) if c > 0)
+    parts.append(f"\n共找到 **{len(places)}** 个{city}地点（{cat_desc}），点击卡片可加入行程 →")
+
+    return "\n".join(parts)
 
 
 def _schedule_preference_extraction(state: AgentState) -> None:
