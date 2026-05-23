@@ -53,7 +53,14 @@ _RERANK_TOP_K = 5
 
 
 def _extract_city(state: AgentState) -> str:
-    """从对话历史中提取城市名（逆序扫描最近消息）"""
+    """
+    城市提取优先级：
+    1. state.trip_city（从 ChatRequest 或 eval 直接传入，最可靠）
+    2. 逆序扫描消息文本（用于会话历史推断）
+    3. 默认成都
+    """
+    if trip_city := state.get("trip_city"):
+        return trip_city
     for msg in reversed(state["messages"]):
         content = str(msg.content)
         for city in _KNOWN_CITIES:

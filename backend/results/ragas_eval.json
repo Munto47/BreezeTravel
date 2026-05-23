@@ -1,0 +1,193 @@
+{
+  "timestamp": "2026-05-23 11:05:29",
+  "eval_method": "llm_judge_deepseek_n1",
+  "scores": {
+    "faithfulness": 0.8762,
+    "answer_relevancy": 0.9119,
+    "context_recall": 0.4119,
+    "n_samples": 21,
+    "n_valid": {
+      "faithfulness": 21,
+      "answer_relevancy": 21,
+      "context_recall": 21
+    },
+    "per_sample": [
+      {
+        "question": "成都宽窄巷子适合哪些旅行者？有什么体验推荐？",
+        "city": "成都",
+        "intent": "scenic",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.2
+      },
+      {
+        "question": "成都有哪些值得打卡的特色火锅餐厅？",
+        "city": "成都",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.0
+      },
+      {
+        "question": "从成都市区去都江堰怎么最方便？",
+        "city": "成都",
+        "intent": "transport",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.6
+      },
+      {
+        "question": "北京颐和园游览需要多长时间？有什么参观建议？",
+        "city": "北京",
+        "intent": "scenic",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.65
+      },
+      {
+        "question": "北京初次旅游住在哪个区交通最方便？",
+        "city": "北京",
+        "intent": "hotel",
+        "faithfulness": 0.85,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.3
+      },
+      {
+        "question": "去北京旅游最需要注意哪些避坑事项？",
+        "city": "北京",
+        "intent": "tips",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.6
+      },
+      {
+        "question": "上海豫园周边有哪些地道小吃值得尝？",
+        "city": "上海",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.8
+      },
+      {
+        "question": "上海外滩附近住哪里比较方便？有哪些推荐？",
+        "city": "上海",
+        "intent": "hotel",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.35
+      },
+      {
+        "question": "从上海虹桥火车站去浦东机场最快怎么走？",
+        "city": "上海",
+        "intent": "transport",
+        "faithfulness": 0.6,
+        "answer_relevancy": 0.7,
+        "context_recall": 0.3
+      },
+      {
+        "question": "厦门鼓浪屿有哪些不能错过的景点？",
+        "city": "厦门",
+        "intent": "scenic",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.6
+      },
+      {
+        "question": "厦门哪里可以吃到最正宗的沙茶面和海蛎煎？",
+        "city": "厦门",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.3
+      },
+      {
+        "question": "去鼓浪屿旅游有哪些必须知道的注意事项？",
+        "city": "厦门",
+        "intent": "tips",
+        "faithfulness": 0.0,
+        "answer_relevancy": 0.15,
+        "context_recall": 0.0
+      },
+      {
+        "question": "广州哪里可以喝到最正宗的早茶？有哪些推荐？",
+        "city": "广州",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.3
+      },
+      {
+        "question": "广州有哪些值得游览的历史文化景点？",
+        "city": "广州",
+        "intent": "scenic",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.75
+      },
+      {
+        "question": "从广州白云机场去市区最方便的交通方式是什么？",
+        "city": "广州",
+        "intent": "transport",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.75
+      },
+      {
+        "question": "深圳大鹏半岛适合什么类型的旅行者？怎么安排行程？",
+        "city": "深圳",
+        "intent": "scenic",
+        "faithfulness": 0.95,
+        "answer_relevancy": 0.85,
+        "context_recall": 0.6
+      },
+      {
+        "question": "深圳有哪些必吃的特色美食和值得去的夜市？",
+        "city": "深圳",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.75
+      },
+      {
+        "question": "深圳哪个区域住宿性价比最高？适合什么类型的游客？",
+        "city": "深圳",
+        "intent": "hotel",
+        "faithfulness": 0.9,
+        "answer_relevancy": 0.95,
+        "context_recall": 0.0
+      },
+      {
+        "question": "杭州西湖有哪些值得游览的免费景点？",
+        "city": "杭州",
+        "intent": "scenic",
+        "faithfulness": 0.85,
+        "answer_relevancy": 0.85,
+        "context_recall": 0.4
+      },
+      {
+        "question": "杭州特色美食除了东坡肉还有哪些必尝？",
+        "city": "杭州",
+        "intent": "food",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.0
+      },
+      {
+        "question": "杭州旅游有哪些容易踩坑的注意事项？",
+        "city": "杭州",
+        "intent": "tips",
+        "faithfulness": 0.95,
+        "answer_relevancy": 1.0,
+        "context_recall": 0.4
+      }
+    ]
+  },
+  "avg": 0.7333,
+  "config": {
+    "retrieval": "HyDE + BM25+pgvector RRF",
+    "embedding_model": "BAAI/bge-m3",
+    "eval_llm": "deepseek-chat (n=1)",
+    "corpus": "347篇合成游记，2075 chunk，7城市",
+    "dataset_size": 21
+  }
+}
