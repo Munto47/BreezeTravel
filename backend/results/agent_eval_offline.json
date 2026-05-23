@@ -1,0 +1,380 @@
+{
+  "mode": "offline",
+  "total": 50,
+  "correct": 44,
+  "accuracy": 0.88,
+  "intent_breakdown": {
+    "amap": {
+      "accuracy": 1.0,
+      "total": 20,
+      "correct": 20
+    },
+    "rag": {
+      "accuracy": 0.8667,
+      "total": 15,
+      "correct": 13
+    },
+    "both": {
+      "accuracy": 0.6,
+      "total": 10,
+      "correct": 6
+    },
+    "weather": {
+      "accuracy": 1.0,
+      "total": 5,
+      "correct": 5
+    }
+  },
+  "cases": [
+    {
+      "id": "a01",
+      "query": "成都有哪些好吃的火锅店推荐",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a02",
+      "query": "北京故宫附近哪里可以停车",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a03",
+      "query": "上海外滩附近有哪些酒店",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a04",
+      "query": "厦门鼓浪屿附近的餐厅有哪些",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a05",
+      "query": "广州哪里可以喝到正宗早茶",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a06",
+      "query": "深圳有哪些好玩的主题公园",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a07",
+      "query": "杭州西湖附近的民宿推荐",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a08",
+      "query": "成都宽窄巷子附近有什么咖啡馆",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a09",
+      "query": "北京三里屯周边有哪些酒吧",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a10",
+      "query": "上海静安寺附近的购物中心",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a11",
+      "query": "厦门中山路有哪些特产店",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a12",
+      "query": "广州陈家祠附近的粤菜餐厅",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a13",
+      "query": "深圳大鹏半岛哪里可以露营",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a14",
+      "query": "杭州西溪湿地附近有什么景点",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a15",
+      "query": "成都都江堰景区周边住宿推荐",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a16",
+      "query": "北京798艺术区附近的咖啡馆",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a17",
+      "query": "上海朱家角古镇有哪些景点",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a18",
+      "query": "厦门南普陀寺附近的景点",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a19",
+      "query": "广州白云山景区在哪里，怎么进入",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "a20",
+      "query": "深圳世界之窗景区在哪里",
+      "expected": "amap",
+      "predicted": "amap",
+      "correct": true
+    },
+    {
+      "id": "r01",
+      "query": "成都锦里古街旅游有哪些避坑经验",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r02",
+      "query": "北京故宫参观攻略和注意事项",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r03",
+      "query": "上海外滩旅游踩坑注意事项",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r04",
+      "query": "厦门鼓浪屿一日游攻略分享",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r05",
+      "query": "广州早茶哪家最好吃的经验推荐",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r06",
+      "query": "深圳大鹏半岛徒步经验和路线分享",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r07",
+      "query": "杭州西湖游览建议和实用攻略",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r08",
+      "query": "成都适合亲子游的景区真实体验如何",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r09",
+      "query": "北京第一次旅游有什么必须注意的",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r10",
+      "query": "上海豫园值得去吗，游客体验怎么样",
+      "expected": "rag",
+      "predicted": "both",
+      "correct": false
+    },
+    {
+      "id": "r11",
+      "query": "厦门五天旅游路线怎么安排合适",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r12",
+      "query": "广州美食攻略最值得去哪些地方",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r13",
+      "query": "深圳一日游最好的路线安排经验",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r14",
+      "query": "杭州最不值得去的景点踩坑记录",
+      "expected": "rag",
+      "predicted": "rag",
+      "correct": true
+    },
+    {
+      "id": "r15",
+      "query": "成都旅游费用大概需要多少预算",
+      "expected": "rag",
+      "predicted": "weather",
+      "correct": false
+    },
+    {
+      "id": "b01",
+      "query": "成都最好吃且口碑好的火锅推荐",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b02",
+      "query": "北京颐和园值得去吗，怎么参观最好",
+      "expected": "both",
+      "predicted": "rag",
+      "correct": false
+    },
+    {
+      "id": "b03",
+      "query": "上海有哪些值得打卡的网红景点",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b04",
+      "query": "厦门鼓浪屿哪些景点最值得游玩",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b05",
+      "query": "广州哪里旅游最好玩综合推荐",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b06",
+      "query": "深圳适合摄影爱好者的地方推荐",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b07",
+      "query": "杭州西湖周边最值得去的地方排行",
+      "expected": "both",
+      "predicted": "rag",
+      "correct": false
+    },
+    {
+      "id": "b08",
+      "query": "成都九寨沟值得专门去一次吗",
+      "expected": "both",
+      "predicted": "rag",
+      "correct": false
+    },
+    {
+      "id": "b09",
+      "query": "北京最受游客欢迎的景点综合推荐",
+      "expected": "both",
+      "predicted": "both",
+      "correct": true
+    },
+    {
+      "id": "b10",
+      "query": "杭州三天旅游行程综合推荐",
+      "expected": "both",
+      "predicted": "rag",
+      "correct": false
+    },
+    {
+      "id": "w01",
+      "query": "成都最近天气怎么样，适合去旅行吗",
+      "expected": "weather",
+      "predicted": "weather",
+      "correct": true
+    },
+    {
+      "id": "w02",
+      "query": "北京春天天气如何，几月份去最合适",
+      "expected": "weather",
+      "predicted": "weather",
+      "correct": true
+    },
+    {
+      "id": "w03",
+      "query": "上海梅雨季节什么时候，会影响旅游吗",
+      "expected": "weather",
+      "predicted": "weather",
+      "correct": true
+    },
+    {
+      "id": "w04",
+      "query": "深圳冬天需要带厚衣服吗，温度大概多少",
+      "expected": "weather",
+      "predicted": "weather",
+      "correct": true
+    },
+    {
+      "id": "w05",
+      "query": "杭州几月份去旅游天气最好",
+      "expected": "weather",
+      "predicted": "weather",
+      "correct": true
+    }
+  ]
+}
