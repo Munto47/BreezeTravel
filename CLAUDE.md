@@ -230,3 +230,114 @@ echo "FT_ROUTER_MODEL_PATH=backend/models/router_lora" >> .env
   - 区分首轮 Router vs. ReAct 循环第 N 轮，避免重复事件
 - [x] 前端 ThinkingSteps：新增 `tool_executor` 节点（🛠️ 工具执行）
 - [x] 文字推送优化：逐字 → 批量（12 字/帧），减少 SSE 帧数约 12×
+
+---
+
+## 岗位优化 Sprint（2026-05 面试准备）
+
+### Phase 1 — RAG 质量提升 ✅
+- [x] 城市数据扩容：4 城市 → **7 城市**（新增广州 / 深圳 / 杭州）
+- [x] 游记数量扩容：每城 20 篇 → **50 篇**，总量 80 → **347 篇 / 2075 chunk**（10× 增幅）
+- [x] Persona 扩展：5 种 → 10 种，生成 Prompt 加入城市特色地标引导词
+- [x] RAGAS 评估集：5 条 → **21 条**（7 城市 × 3 意图类型：景点/美食/交通住宿避坑）
+- [x] HyDE 查询路由：短查询（<12字）或精确地标名直接跳过 HyDE，减少语义漂移
+- [x] 修复 `rag_retrieval._extract_city` bug：优先使用 `state.trip_city`，避免无城市名查询回退错误城市
+
+入库命令（从项目根执行）：
+```bash
+$env:PYTHONPATH="backend"
+python backend/scripts/ingest_notes.py
+```
+
+### Phase 2 — Agent 评测体系 ✅
+- [x] `backend/scripts/eval_agent.py`：50 条 eval 数据集（7 城市 × 4 意图）
+  - 离线模式：`python backend/scripts/eval_agent.py --mode offline`（FT Router 准确率，无需 API）
+  - 集成模式：`python backend/scripts/eval_agent.py --mode full --n 10`（完整 pipeline，需 API+DB）
+- [x] `backend/tests/test_agent_eval.py`：26 个离线单元测试，全部通过
+  - 评估集结构验证（城市/意图覆盖度）
+  - 工具选择判定逻辑（amap/rag/both/weather 边界）
+  - Synthesizer 输出有效性判定
+- [x] `/metrics` 端点升级：新增 Agent 级实时指标
+  - `agent_success_rate`：有效地点输出率
+  - `critic_trigger_rate`：Critic 反思触发率
+  - `avg_react_iterations`：平均 ReAct 循环次数
+  - `tool_call_distribution`：各工具调用次数分布
+- [x] `backend/app/metrics.py`：独立指标模块（避免 main↔chat 循环导入）
+
+**FT Router 离线评估结果**（50 条 eval 集）：
+```
+整体准确率：88.0%（目标 ≥70%）✅
+  amap    : 20/20 = 100.0%
+  rag     : 13/15 = 86.7%
+  both    :  6/10 = 60.0%  ← 主要弱项，both 类边界模糊
+  weather :  5/5  = 100.0%
+```
+评估结果存储：`backend/results/agent_eval_offline.json`
+
+### Phase 3 — 压测与性能基准 ✅
+- [x] `backend/scripts/load_test.py`：Locust 压测脚本 + `--quick` 独立基准模式
+  - `ChatUser`：SSE 流式对话压测（DEMO_MODE=true，无 LLM 费用）
+  - `OptimizeUser`：K-Means+TSP 排线算法压测
+  - `HealthUser`：/health /metrics 基线对照
+
+**实测延迟数据**（Docker localhost，keep-alive 连接，n=30）：
+| 接口 | P50 | P95 | P99 |
+|------|-----|-----|-----|
+| `/health` | 1ms | 2ms | 2ms |
+| `/metrics` | 1ms | 2ms | 2ms |
+| `/api/optimize` | 1753ms | 2342ms | 3933ms |
+
+完整并发压测：
+```bash
+pip install locust
+locust -f backend/scripts/load_test.py --headless -u 50 -r 10 \
+       --run-time 60s --host http://localhost:8000 \
+       --csv backend/results/load_test
+```
+
+### Phase 5 — Demo 体验 + 可观测性 ✅
+- [x] Mock fixture 补全：广州 / 深圳 / 杭州 三城市地点数据（共 34 条 Place 记录）
+  - 文件：`backend/tests/fixtures/amap_mock_places.json`
+  - Demo 模式下 7 城市全覆盖，不再回退成都数据
+- [x] Demo 响应文案动态化（`synthesizer._build_demo_response`）：
+  - 按品类分布（景点/美食/住宿）组织推荐亮点
+  - 读取 `working_context` 偏好（旅行风格/预算）生成个性化提示
+- [x] 前端 Memory 活跃徽章（`ChatPanel.tsx`）：
+  - `useMemoryActive()` Hook 从 thinkingSteps 检测"历史偏好"信号
+  - 检测到长期偏好加载时，标题栏右侧显示紫色「🧠 记住你了」标签
+  - AnimatePresence 动画渐入，前端编译零错误
+
+## RAGAS 评估结果（2026-05，LLM-Judge 方式）
+
+### 评估配置
+- 数据集：21 条（7 城市 × 3 意图类型）
+- 游记语料：**347 篇 / 2075 chunk / 7 城市**
+- 检索配置：HyDE + BM25+pgvector RRF
+- 评估 LLM：DeepSeek deepseek-chat（n=1，自定义 Judge Prompt，规避 RAGAS n=3 与 DeepSeek 的兼容问题）
+
+### 指标结果
+| 指标 | 分数 | 目标 | 状态 |
+|------|------|------|------|
+| Faithfulness | **0.8762** | ≥ 0.75 | ✅ |
+| Answer Relevancy | **0.9119** | ≥ 0.75 | ✅ |
+| Context Recall | **0.4119** | ≥ 0.65 | ❌ |
+| 综合平均 | **0.7333** | — | — |
+
+### Context Recall 按意图类型
+| 意图 | Recall | 说明 |
+|------|--------|------|
+| transport | 0.55 | 交通路线信息覆盖尚可 |
+| scenic | 0.53 | 景点信息覆盖尚可 |
+| food | 0.36 | 游记提餐厅但品牌名表述不精确 |
+| tips | 0.33 | 避坑经验较分散 |
+| hotel | 0.22 | 游记较少记录具体酒店名 |
+
+Context Recall 偏低的根本原因：评估 ground_truth 包含极具体的品牌名/路线/价格（如"巴奴毛肚火锅"、"地铁2号线到犀浦换乘城际约40分钟"），而游记以口语化主观体验为主，精确词汇命中率自然偏低。Faithfulness 和 Answer Relevancy 均已超标，说明 RAG **生成质量优秀**，召回多样性是下一步改善重点。
+
+评估脚本：`backend/scripts/run_ragas_eval.py`（自定义 LLM-Judge，兼容 DeepSeek）
+评估结果：`backend/results/ragas_eval.{json,txt}`
+
+### 待完成（下一步）
+- [ ] Phase 4：PlannerAgent 多智能体升级（Optimizer → 独立 LangGraph 子图，A2A 调度）
+- [ ] Phase 6：生产部署（Railway backend + Vercel frontend + Supabase PostgreSQL）
+- [ ] Context Recall 改善：增加 hotel/tips 类型游记密度，改进 ground_truth 评估集设计
