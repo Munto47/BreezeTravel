@@ -25,6 +25,44 @@ from openai import AsyncOpenAI
 
 from app.config import settings
 
+# 已知地标名（精确匹配时，查询本身已足够具体，HyDE 引入语义漂移风险大于收益）
+_KNOWN_LANDMARKS = {
+    # 成都
+    "宽窄巷子", "锦里", "都江堰", "九寨沟", "熊猫基地", "青城山", "太古里", "春熙路",
+    # 北京
+    "故宫", "长城", "颐和园", "天坛", "南锣鼓巷", "798", "三里屯", "圆明园",
+    # 上海
+    "外滩", "豫园", "田子坊", "新天地", "朱家角", "陆家嘴", "南京路",
+    # 厦门
+    "鼓浪屿", "曾厝垵", "南普陀", "集美", "中山路",
+    # 广州
+    "陈家祠", "越秀公园", "广州塔", "沙面", "北京路",
+    # 深圳
+    "大鹏半岛", "东门老街", "华强北", "世界之窗", "深圳湾",
+    # 杭州
+    "西湖", "灵隐寺", "乌镇", "雷峰塔", "西溪湿地", "南宋御街", "河坊街",
+}
+
+
+def _should_skip_hyde(query: str) -> bool:
+    """
+    判断是否跳过 HyDE 生成。
+
+    跳过条件（任一满足）：
+    1. 查询长度 < 12 字：通常是直接输入景点名，语义已足够精确
+    2. 查询去除城市名/标点后恰好是一个已知地标名：直接查更准
+
+    保留 HyDE 的场景：长句描述性查询（"成都适合亲子的自然景区有哪些"）。
+    """
+    stripped = query.strip()
+    if len(stripped) < 12:
+        return True
+    for landmark in _KNOWN_LANDMARKS:
+        if stripped == landmark or stripped.endswith(landmark) and len(stripped) - len(landmark) <= 4:
+            return True
+    return False
+
+
 _client: AsyncOpenAI | None = None
 
 # ── Prompt ────────────────────────────────────────────────────────────────────
@@ -63,6 +101,10 @@ async def generate_hypothetical_doc(query: str, city: str = "") -> str:
         假设性游记文本；若生成失败则回退返回原始查询
     """
     if not settings.hyde_enabled:
+        return query
+
+    if _should_skip_hyde(query):
+        print(f"[HyDE] 查询简短/精确地名，跳过假设文档生成：{query!r}")
         return query
 
     has_key = bool(settings.effective_llm_api_key)

@@ -12,7 +12,7 @@
   cd backend && python -m scripts.ingest_notes --rebuild-tokens
 
 流程：
-  1. 调用 LLM 批量生成游记（成都/北京/上海/厦门各 20 篇）
+  1. 调用 LLM 批量生成游记（成都/北京/上海/厦门/广州/深圳/杭州各 50 篇，共 350 篇）
      主 LLM：DeepSeek API（deepseek-chat）；备用：OpenAI gpt-4o-mini
   2. Entity Linking：地点名 → 高德 POI ID（AMAP_MOCK=true 时跳过）
   3. 文本分块（chunk_size=500, overlap=50）
@@ -44,9 +44,15 @@ CITIES = {
     "北京": "bj",
     "上海": "sh",
     "厦门": "xm",
+    "广州": "gz",
+    "深圳": "sz",
+    "杭州": "hz",
 }
-NOTES_PER_CITY = 20
-PERSONAS = ["亲子游", "情侣旅行", "带老人出行", "背包客独游", "闺蜜旅行"]
+NOTES_PER_CITY = 50
+PERSONAS = [
+    "亲子游", "情侣旅行", "带老人出行", "背包客独游", "闺蜜旅行",
+    "商务差旅", "学生党穷游", "摄影爱好者", "美食达人", "历史文化爱好者",
+]
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 EMBEDDING_BATCH = 50   # 每批 Embedding 数量
@@ -92,10 +98,22 @@ def _make_embedding_client() -> AsyncOpenAI:
 
 # ===== Step 1：LLM 生成游记 =====
 
+# 各城市的特色引导关键词，帮助 LLM 生成有辨识度的本地化内容
+_CITY_HIGHLIGHTS = {
+    "成都": "宽窄巷子、锦里、都江堰、九寨沟、火锅、串串香、熊猫基地、青城山、太古里、玉林路",
+    "北京": "故宫、长城、颐和园、南锣鼓巷、798艺术区、胡同、烤鸭、簋街、三里屯、天坛",
+    "上海": "外滩、豫园、田子坊、新天地、朱家角、南京路、陆家嘴、小笼包、生煎、夜生活",
+    "厦门": "鼓浪屿、曾厝垵、南普陀、集美、中山路、沙茶面、海蛎煎、土笋冻、海上花园、闽南文化",
+    "广州": "陈家祠、越秀公园、广州塔、沙面、北京路、早茶、肠粉、烧腊、老字号、岭南建筑",
+    "深圳": "大鹏半岛、东门老街、华强北、世界之窗、沙井蚝、罗湖口岸、深圳湾、科技园、西涌、户外徒步",
+    "杭州": "西湖、灵隐寺、乌镇、雷峰塔、龙井茶、东坡肉、西溪湿地、南宋御街、河坊街、钱塘江",
+}
+
 GENERATE_PROMPT = """请生成一篇真实感强的{city}{days}日{persona}游记，严格要求：
-1. 包含 5-8 个具体的{city}景点/餐厅/街道名称
+1. 包含 5-8 个具体的{city}景点/餐厅/街道名称（优先从以下特色地点中选取：{city_highlights}）
 2. 包含至少 4 条具体避坑经验（如"xx景点北门排队少，建议走北门入场"）
-3. 字数 800-1000 字，第一人称叙述，口语化风格
+3. 包含至少 2 条交通建议（地铁/公交线路、打车费用参考）
+4. 字数 800-1000 字，第一人称叙述，口语化风格，每篇内容差异化
 
 必须返回合法 JSON，格式（不要有其他文字）：
 {{"id": "note-{city_en}-{idx:03d}", "title": "标题", "city": "{city}", "content": "游记正文...", "tags": ["标签1","标签2"], "places_mentioned": ["地点1","地点2","..."]}}"""
@@ -110,9 +128,11 @@ async def generate_one_note(
 ) -> dict | None:
     persona = PERSONAS[idx % len(PERSONAS)]
     days = [2, 3, 3, 4, 5][idx % 5]
+    city_highlights = _CITY_HIGHLIGHTS.get(city, city)
     prompt = GENERATE_PROMPT.format(
         city=city, days=days, persona=persona,
         city_en=city_en, idx=idx,
+        city_highlights=city_highlights,
     )
     # 根据可用 Key 选择模型
     model = settings.llm_model_synthesizer  # deepseek-chat 或 gpt-4o-mini
