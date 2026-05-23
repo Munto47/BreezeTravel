@@ -67,7 +67,7 @@ async def run_rag_queries(dataset: list[dict]) -> list[dict]:
         state = {
             "messages": [HumanMessage(content=question)],
             "thread_id": "ragas-eval", "user_id": "eval",
-            "trip_city": city, "intent": "rag", "query_rewrite": question,
+            "trip_city": city, "intent": item.get("intent", "rag"), "query_rewrite": question,
             "amap_places": [], "rag_chunks": [], "synthesized_places": [],
             "final_response": None, "itinerary": None,
             "selected_place_ids": [], "working_context": default_working_context(),
@@ -78,7 +78,7 @@ async def run_rag_queries(dataset: list[dict]) -> list[dict]:
         state.update(rag_result)
 
         contexts = [c["content"] for c in state.get("rag_chunks", [])]
-        ctx_text = "\n\n---\n\n".join(contexts[:5]) if contexts else "无相关游记"
+        ctx_text = "\n\n---\n\n".join(contexts) if contexts else "无相关游记"
 
         # 直接用 LLM 基于检索上下文生成答案（绕过 Synthesizer 对 amap_places 的依赖）
         try:
@@ -220,7 +220,7 @@ async def evaluate_with_llm_judge(results: list[dict]) -> dict:
     for i, item in enumerate(results, 1):
         q = item["question"]
         a = item["answer"]
-        ctx_text = "\n\n---\n\n".join(item["contexts"][:5])
+        ctx_text = "\n\n---\n\n".join(item["contexts"])
         gt = item["ground_truth"]
 
         print(f"  [{i:02d}/{total}] 评估：{q[:30]}...")

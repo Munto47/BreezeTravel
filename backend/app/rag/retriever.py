@@ -40,6 +40,19 @@ from app.db.connection import get_pool
 _RRF_K = 60
 
 
+# ── 中文停词表（高频虚词，对 BM25 检索无区分度）──────────────────────────────
+_CHINESE_STOPWORDS = frozenset({
+    "的", "了", "在", "是", "我", "有", "和", "就", "不", "人", "都", "一",
+    "一个", "上", "也", "很", "到", "说", "要", "去", "你", "会", "着",
+    "没有", "看", "好", "自己", "这", "他", "她", "它", "们", "那",
+    "什么", "哪些", "哪里", "怎么", "如何", "可以", "能", "吗", "呢", "吧",
+    "还", "最", "又", "被", "把", "让", "用", "对", "为", "从",
+    "但", "而", "或", "与", "及", "等", "给", "做", "比", "跟",
+    "这个", "那个", "什么样", "多少", "几", "啊", "嗯", "哦",
+    "适合", "值得", "推荐", "需要", "注意", "应该", "比较",
+})
+
+
 # ── 工具函数 ─────────────────────────────────────────────────────────────────
 
 def tokenize_chinese(text: str) -> str:
@@ -48,9 +61,28 @@ def tokenize_chinese(text: str) -> str:
     示例："成都有哪些好吃的" → "成都 有 哪些 好吃 的"
 
     空格分隔格式可被 PostgreSQL plainto_tsquery('simple', ...) 直接使用。
+    注意：入库时仍使用此函数（不去停词），以保持 tsvector 完整性。
     """
     tokens = jieba.cut(text, cut_all=False)
     return " ".join(t for t in tokens if t.strip())
+
+
+def tokenize_for_query(text: str) -> str:
+    """
+    jieba 分词 + 停词过滤，用于 BM25 查询构建。
+
+    与 tokenize_chinese 的区别：
+    - 过滤中文停词（的/了/有/哪些/什么 等高频虚词）
+    - 过滤单字符词（信息量低，匹配噪音大）
+    - 返回结果用于构建 OR 逻辑的 tsquery
+
+    示例："成都有哪些好吃的火锅" → "成都 好吃 火锅"
+    """
+    tokens = jieba.cut(text, cut_all=False)
+    return " ".join(
+        t for t in tokens
+        if t.strip() and len(t.strip()) > 1 and t.strip() not in _CHINESE_STOPWORDS
+    )
 
 
 # ── Dense 检索（pgvector） ────────────────────────────────────────────────────
@@ -102,21 +134,35 @@ async def sparse_search(
     top_k: int = 20,
 ) -> list[dict]:
     """
-    PostgreSQL tsvector + ts_rank_cd BM25-like 检索
+    PostgreSQL tsvector + ts_rank_cd BM25-like 检索（OR 逻辑）
 
     实现原理：
     - 入库时用 jieba 分词后存入 content_tokens 列
     - content_tsv 是从 content_tokens GENERATED 的 tsvector（GIN 索引）
-    - 查询时对 query 做同样的 jieba 分词，再用 plainto_tsquery 匹配
-    - ts_rank_cd 计算 BM25-style 分数（考虑词频和文档长度）
+    - 查询时用 jieba 分词 + 停词过滤，构建 OR 逻辑的 tsquery
+    - ts_rank_cd 按词频+文档长度排序（匹配更多关键词 → 分数更高）
+
+    为何用 OR 而非 AND
+    -----------------
+    plainto_tsquery('simple', '成都 火锅 餐厅 值得 打卡') 使用 AND 逻辑，
+    要求所有词同时出现在同一个 chunk 中。对于自然语言长查询（7+ 词），
+    AND 逻辑几乎总是返回 0 结果。OR 逻辑让 BM25 匹配任意关键词，
+    然后 ts_rank_cd 排序自然把匹配更多词的 chunk 排在前面。
 
     Returns:
-        按 BM25 分数降序的文档列表，score 为 ts_rank_cd 得分（0~1）
+        按 BM25 分数降序的文档列表
         如果 content_tsv 列不存在（旧数据库），返回空列表
     """
-    tokenized = tokenize_chinese(query)
-    if not tokenized.strip():
-        return []
+    filtered = tokenize_for_query(query)
+    if not filtered.strip():
+        # 停词过滤后为空，回退到原始分词（不过滤）
+        filtered = tokenize_chinese(query)
+        if not filtered.strip():
+            return []
+
+    # 构建 OR 逻辑的 tsquery：'火锅' | '餐厅' | '成都'
+    tokens = filtered.split()
+    or_tsquery = " | ".join(f"'{t}'" for t in tokens)
 
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -124,14 +170,14 @@ async def sparse_search(
             rows = await conn.fetch(
                 """
                 SELECT content, place_ids, note_id, chunk_idx,
-                       ts_rank_cd(content_tsv, plainto_tsquery('simple', $1)) AS score
+                       ts_rank_cd(content_tsv, to_tsquery('simple', $1)) AS score
                 FROM travel_notes_chunks
                 WHERE city = $2
-                  AND content_tsv @@ plainto_tsquery('simple', $1)
+                  AND content_tsv @@ to_tsquery('simple', $1)
                 ORDER BY score DESC
                 LIMIT $3
                 """,
-                tokenized,
+                or_tsquery,
                 city,
                 top_k,
             )

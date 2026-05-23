@@ -2,20 +2,20 @@
 =================================================================
 RAGAS 评估结果（LLM-Judge 方式）— BreezeTravel Advanced RAG
 =================================================================
-时间：2026-05-23 11:05:29
-评估集：21 条（7 城市 × 3 意图类型）
+时间：2026-05-23 22:15:20
+评估集：27 条（7 城市 × 3 意图类型）
 评估 LLM：deepseek-chat（n=1，自定义 Judge Prompt）
 检索配置：HyDE + BM25+pgvector RRF + bge-reranker 精排
 游记语料：347 篇 / 2075 chunk / 7 城市
 
-  Faithfulness      : 0.8762  ✅  （目标 ≥ 0.75，n=21）
-  Answer Relevancy  : 0.9119  ✅  （目标 ≥ 0.75，n=21）
-  Context Recall    : 0.4119  ❌  （目标 ≥ 0.65，n=21）
-  综合平均          : 0.7333
+  Faithfulness      : 0.9389  ✅  （目标 ≥ 0.75，n=27）
+  Answer Relevancy  : 0.9889  ✅  （目标 ≥ 0.75，n=27）
+  Context Recall    : 0.6944  ✅  （目标 ≥ 0.65，n=27）
+  综合平均          : 0.8741
 
   按意图类型 Context Recall：
-    ⚠️ scenic    : 0.5333  (6 条)
-    ⚠️ food      : 0.3583  (6 条)
-    ⚠️ transport : 0.5500  (3 条)
-    ⚠️ hotel     : 0.2167  (3 条)
-    ⚠️ tips      : 0.3333  (3 条)
+    ⚠️ scenic    : 0.5667  (6 条)
+    ✅ food      : 0.8167  (6 条)
+    ✅ transport : 0.7167  (3 条)
+    ✅ hotel     : 0.6500  (6 条)
+    ✅ tips      : 0.7333  (6 条)

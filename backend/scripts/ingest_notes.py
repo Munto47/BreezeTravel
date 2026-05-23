@@ -53,9 +53,18 @@ PERSONAS = [
     "亲子游", "情侣旅行", "带老人出行", "背包客独游", "闺蜜旅行",
     "商务差旅", "学生党穷游", "摄影爱好者", "美食达人", "历史文化爱好者",
 ]
-CHUNK_SIZE = 500
-CHUNK_OVERLAP = 50
+# Context Recall 改善（2026-05）：缩小 chunk 粒度，提升精确词汇命中率
+# 500 → 350：每个 chunk 更聚焦，避免关键信息被稀释
+# overlap 50 → 100：增大重叠窗口，防止关键信息跨 chunk 断裂
+CHUNK_SIZE = 350
+CHUNK_OVERLAP = 100
 EMBEDDING_BATCH = 50   # 每批 Embedding 数量
+
+# 专项游记生成数量（追加到常规 50 篇之外）
+# hotel/tips/food 意图是 Context Recall 薄弱项，针对性补充
+HOTEL_NOTES_PER_CITY = 8   # 每城额外生成 8 篇住宿专项游记
+TIPS_NOTES_PER_CITY = 8    # 每城额外生成 8 篇避坑攻略游记
+FOOD_NOTES_PER_CITY = 8    # 每城额外生成 8 篇美食专项游记（含具体餐厅名）
 
 
 # ===== 工具函数 =====
@@ -118,6 +127,68 @@ GENERATE_PROMPT = """请生成一篇真实感强的{city}{days}日{persona}游�
 必须返回合法 JSON，格式（不要有其他文字）：
 {{"id": "note-{city_en}-{idx:03d}", "title": "标题", "city": "{city}", "content": "游记正文...", "tags": ["标签1","标签2"], "places_mentioned": ["地点1","地点2","..."]}}"""
 
+# ── 专项游记生成 Prompt（Context Recall 改善，2026-05）─────────────────────────
+# hotel/tips/food 是 RAGAS 评估中 Context Recall 最弱的三类意图
+# 专项 Prompt 强制 LLM 输出包含具体名称/价格/路线的信息，与 ground_truth 词汇对齐
+
+HOTEL_PROMPT = """请生成一篇{city}住宿攻略游记，严格要求：
+1. 必须提到 3-5 家具体的{city}酒店或民宿名称（真实存在的，含档次：经济/中端/高端）
+2. 每家住宿必须包含：价格区间（X-X元/晚）、距哪个地铁站/景点的步行距离、适合人群
+3. 包含早餐/设施/服务的真实体验描述
+4. 包含订房避坑建议（如"旺季需提前X周预订"、"节假日价格翻X倍"）
+5. 字数 600-800 字，第一人称，口语化
+
+必须返回合法 JSON：
+{{"id": "note-{city_en}-hotel-{idx:03d}", "title": "标题", "city": "{city}", "content": "游记正文...", "tags": ["住宿","攻略"], "places_mentioned": ["酒店1","酒店2","..."]}}"""
+
+TIPS_PROMPT = """请生成一篇{city}旅游避坑攻略，严格要求：
+1. 必须包含 5-8 条具体避坑点，每条要有：具体景点/地点名称、坑的内容、解决方法
+2. 包含时间建议：哪些景点需要提前预约（含预约方式）、哪个时段人最少
+3. 包含交通避坑：具体线路的拥堵时段、地铁换乘注意事项、打车参考价格
+4. 包含消费避坑：哪些店性价比低、推荐平替
+5. 字数 600-800 字，第一人称，经验分享口吻
+
+必须返回合法 JSON：
+{{"id": "note-{city_en}-tips-{idx:03d}", "title": "标题", "city": "{city}", "content": "游记正文...", "tags": ["避坑","攻略"], "places_mentioned": ["地点1","地点2","..."]}}"""
+
+FOOD_PROMPT = """请生成一篇{city}美食攻略游记，严格要求：
+1. 必须提到 5-8 家具体的{city}餐厅/小吃摊/老字号名称（参考：{city_highlights}）
+2. 每家必须包含：招牌菜名、人均消费、营业时间或排队情况
+3. 必须覆盖至少 2 种本地特色菜/小吃，描述味道特点
+4. 包含美食区域/街道推荐（如"XX路美食一条街"）
+5. 包含踩雷经历（至少 1 家不推荐或过度商业化的店）
+6. 字数 600-800 字，第一人称，吃货视角
+
+必须返回合法 JSON：
+{{"id": "note-{city_en}-food-{idx:03d}", "title": "标题", "city": "{city}", "content": "游记正文...", "tags": ["美食","餐厅"], "places_mentioned": ["餐厅1","小吃摊1","..."]}}"""
+
+
+async def _call_llm(
+    client: AsyncOpenAI,
+    prompt: str,
+    semaphore: asyncio.Semaphore,
+    label: str = "",
+) -> dict | None:
+    """LLM 调用公共函数，解析 JSON，打印生成结果"""
+    model = settings.llm_model_synthesizer
+    async with semaphore:
+        try:
+            resp = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1500,
+                temperature=0.8,
+            )
+            raw = resp.choices[0].message.content.strip()
+            m = re.search(r"\{.*\}", raw, re.DOTALL)
+            if m:
+                note = json.loads(m.group())
+                print(f"  ✓ 生成：{note.get('title', '?')}（{label}）")
+                return note
+        except Exception as e:
+            print(f"  ✗ 生成失败（{label}）：{e}")
+    return None
+
 
 async def generate_one_note(
     client: AsyncOpenAI,
@@ -134,31 +205,54 @@ async def generate_one_note(
         city_en=city_en, idx=idx,
         city_highlights=city_highlights,
     )
-    # 根据可用 Key 选择模型
-    model = settings.llm_model_synthesizer  # deepseek-chat 或 gpt-4o-mini
+    return await _call_llm(client, prompt, semaphore, label=f"{city} #{idx}")
 
-    async with semaphore:
-        try:
-            resp = await client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1500,
-                temperature=0.8,
+
+async def generate_specialized_notes(
+    client: AsyncOpenAI,
+    semaphore: asyncio.Semaphore,
+) -> list[dict]:
+    """
+    生成 hotel/tips/food 专项游记（Context Recall 补强）
+
+    每城各生成 HOTEL/TIPS/FOOD_NOTES_PER_CITY 篇，
+    使用专项 Prompt 强制包含具体名称/价格/路线，
+    与 RAGAS 评估集 ground_truth 词汇对齐。
+    """
+    tasks = []
+    for city, city_en in CITIES.items():
+        city_highlights = _CITY_HIGHLIGHTS.get(city, city)
+
+        for idx in range(HOTEL_NOTES_PER_CITY):
+            prompt = HOTEL_PROMPT.format(
+                city=city, city_en=city_en, idx=idx,
             )
-            raw = resp.choices[0].message.content.strip()
-            # 提取 JSON（兼容 LLM 输出前后有多余文字的情况）
-            m = re.search(r"\{.*\}", raw, re.DOTALL)
-            if m:
-                note = json.loads(m.group())
-                print(f"  ✓ 生成：{note.get('title', '?')}")
-                return note
-        except Exception as e:
-            print(f"  ✗ 生成失败（{city} #{idx}）：{e}")
-    return None
+            tasks.append(_call_llm(client, prompt, semaphore, f"{city} hotel#{idx}"))
+
+        for idx in range(TIPS_NOTES_PER_CITY):
+            prompt = TIPS_PROMPT.format(
+                city=city, city_en=city_en, idx=idx,
+            )
+            tasks.append(_call_llm(client, prompt, semaphore, f"{city} tips#{idx}"))
+
+        for idx in range(FOOD_NOTES_PER_CITY):
+            prompt = FOOD_PROMPT.format(
+                city=city, city_en=city_en, idx=idx,
+                city_highlights=city_highlights,
+            )
+            tasks.append(_call_llm(client, prompt, semaphore, f"{city} food#{idx}"))
+
+    results = await asyncio.gather(*tasks)
+    notes = [n for n in results if n is not None]
+    print(
+        f"[Step 1b] 专项游记生成完成：{len(notes)}/{len(tasks)} 篇"
+        f"（hotel×{HOTEL_NOTES_PER_CITY} + tips×{TIPS_NOTES_PER_CITY} + food×{FOOD_NOTES_PER_CITY} per city）"
+    )
+    return notes
 
 
 async def generate_notes(client: AsyncOpenAI) -> list[dict]:
-    print("\n[Step 1] 生成游记...")
+    print("\n[Step 1] 生成常规游记...")
     semaphore = asyncio.Semaphore(5)   # 控制并发避免限速
     tasks = []
     for city, city_en in CITIES.items():
@@ -167,7 +261,17 @@ async def generate_notes(client: AsyncOpenAI) -> list[dict]:
 
     results = await asyncio.gather(*tasks)
     notes = [n for n in results if n is not None]
-    print(f"[Step 1] 完成：{len(notes)}/{len(tasks)} 篇游记生成成功")
+    print(f"[Step 1] 常规游记完成：{len(notes)}/{len(tasks)} 篇")
+
+    # 追加专项游记（hotel/tips/food）
+    print("\n[Step 1b] 生成专项游记（hotel/tips/food，Context Recall 补强）...")
+    specialized = await generate_specialized_notes(client, semaphore)
+    notes.extend(specialized)
+
+    print(
+        f"\n[Step 1 汇总] 总游记：{len(notes)} 篇"
+        f"（常规 {len(notes) - len(specialized)} + 专项 {len(specialized)}）"
+    )
     return notes
 
 

@@ -200,14 +200,18 @@ class TestToChatMessages:
 class TestFtRouterConfig:
     """ft_router 配置项默认值与类型测试"""
 
-    def test_ft_router_enabled_default_false(self):
+    def test_ft_router_enabled_default_false(self, monkeypatch):
+        # .env 中可能已设置 FT_ROUTER_ENABLED=true，需清除后测默认值
+        monkeypatch.delenv("FT_ROUTER_ENABLED", raising=False)
         from app.config import Settings
-        s = Settings()
+        s = Settings(_env_file=None)   # 跳过 .env 加载，只测代码默认值
         assert s.ft_router_enabled is False
 
-    def test_ft_router_model_path_default(self):
+    def test_ft_router_model_path_default(self, monkeypatch):
+        # .env 中可能已设置 FT_ROUTER_MODEL_PATH，需清除后测默认值
+        monkeypatch.delenv("FT_ROUTER_MODEL_PATH", raising=False)
         from app.config import Settings
-        s = Settings()
+        s = Settings(_env_file=None)   # 跳过 .env 加载，只测代码默认值
         assert s.ft_router_model_path == "models/router_lora"
 
     def test_ft_router_enabled_from_env(self, monkeypatch):
@@ -264,6 +268,7 @@ class TestClassifyWithoutModel:
 # ─────────────────────────────────────────────────────────────
 # VALID_INTENTS 常量测试
 # ─────────────────────────────────────────────────────────────
+
 
 def test_valid_intents_set():
     from app.agents.nodes.router_classifier import VALID_INTENTS

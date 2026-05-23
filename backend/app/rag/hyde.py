@@ -65,13 +65,56 @@ def _should_skip_hyde(query: str) -> bool:
 
 _client: AsyncOpenAI | None = None
 
-# ── Prompt ────────────────────────────────────────────────────────────────────
-_HYDE_SYSTEM = (
+# ── Intent-aware 系统 Prompt ──────────────────────────────────────────────────
+# 不同意图类型的假设文档侧重点不同：
+#   hotel  → 必须含具体酒店名、价格区间、位置描述
+#   food   → 必须含具体餐厅名、招牌菜、价格、排队情况
+#   tips   → 必须含具体避坑点、时间建议、注意事项
+#   transport → 必须含具体线路、时长、票价
+#   scenic/默认 → 体验描述 + 推荐理由
+_HYDE_SYSTEM_DEFAULT = (
     "你是一位经验丰富的旅行作家，擅长用生动的第一人称写游记。"
     "请根据用户的旅行查询，写一段真实感强的游记片段，"
     "包含具体地点体验、实用避坑建议、推荐理由等细节。"
     "直接输出游记内容，不要有任何前缀或解释。"
 )
+
+_HYDE_SYSTEM_HOTEL = (
+    "你是一位经验丰富的旅行作家，专注于住宿攻略。"
+    "请写一段第一人称的住宿推荐游记片段，必须包含：具体酒店/民宿名称、"
+    "价格区间（元/晚）、地理位置优势（距哪个景点/地铁站多远）、"
+    "房间体验、早餐评价等实用信息。直接输出游记内容，不加任何前缀。"
+)
+
+_HYDE_SYSTEM_FOOD = (
+    "你是一位美食达人旅行作家，专注于餐饮攻略。"
+    "请写一段第一人称的美食游记片段，必须包含：具体餐厅/小吃摊名称、"
+    "招牌菜品名、人均价格、营业时间/排队情况、口味特点等实用细节。"
+    "直接输出游记内容，不加任何前缀。"
+)
+
+_HYDE_SYSTEM_TIPS = (
+    "你是一位经验丰富的旅行博主，专注于避坑攻略。"
+    "请写一段第一人称的旅行避坑游记，必须包含：具体注意事项（预约/排队/天气）、"
+    "常见坑点、最佳游览时间/季节建议、省钱技巧等实用信息。"
+    "直接输出游记内容，不加任何前缀。"
+)
+
+_HYDE_SYSTEM_TRANSPORT = (
+    "你是一位精通城市交通的旅行作家。"
+    "请写一段第一人称的交通攻略游记，必须包含：具体交通方式（地铁线路号/高铁/打车）、"
+    "起终站名称、所需时长、票价费用、换乘注意事项等精确信息。"
+    "直接输出游记内容，不加任何前缀。"
+)
+
+# intent → system prompt 映射
+_INTENT_SYSTEM_MAP: dict[str, str] = {
+    "hotel":     _HYDE_SYSTEM_HOTEL,
+    "food":      _HYDE_SYSTEM_FOOD,
+    "tips":      _HYDE_SYSTEM_TIPS,
+    "transport": _HYDE_SYSTEM_TRANSPORT,
+    "scenic":    _HYDE_SYSTEM_DEFAULT,
+}
 
 _HYDE_USER = """查询：{query}
 目的地：{city}
@@ -89,13 +132,20 @@ def _get_client() -> AsyncOpenAI:
     return _client
 
 
-async def generate_hypothetical_doc(query: str, city: str = "") -> str:
+async def generate_hypothetical_doc(
+    query: str,
+    city: str = "",
+    intent: str = "",
+) -> str:
     """
     生成假设性游记文档（HyDE）
 
     Args:
-        query : 用户的原始查询或改写后的查询
-        city  : 目的地城市（用于给 LLM 提供上下文）
+        query  : 用户的原始查询或改写后的查询
+        city   : 目的地城市（用于给 LLM 提供上下文）
+        intent : 意图类型（hotel/food/tips/transport/scenic），
+                 用于选择意图感知的 System Prompt，提升特定类型的 Context Recall。
+                 不传或传 "" 时使用默认 prompt。
 
     Returns:
         假设性游记文本；若生成失败则回退返回原始查询
@@ -111,12 +161,16 @@ async def generate_hypothetical_doc(query: str, city: str = "") -> str:
     if not has_key:
         return query
 
+    # 选择意图感知的 system prompt
+    system_prompt = _INTENT_SYSTEM_MAP.get(intent, _HYDE_SYSTEM_DEFAULT)
+    intent_label = intent or "default"
+
     try:
         client = _get_client()
         resp = await client.chat.completions.create(
             model=settings.hyde_model,
             messages=[
-                {"role": "system", "content": _HYDE_SYSTEM},
+                {"role": "system", "content": system_prompt},
                 {
                     "role": "user",
                     "content": _HYDE_USER.format(
@@ -129,7 +183,7 @@ async def generate_hypothetical_doc(query: str, city: str = "") -> str:
             temperature=0.7,
         )
         hyp_doc = resp.choices[0].message.content.strip()
-        print(f"[HyDE] 假设文档生成成功（{len(hyp_doc)} 字）：{hyp_doc[:40]}...")
+        print(f"[HyDE] 假设文档生成成功（intent={intent_label}，{len(hyp_doc)} 字）：{hyp_doc[:40]}...")
         return hyp_doc
 
     except Exception as exc:
