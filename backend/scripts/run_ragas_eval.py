@@ -1,249 +1,328 @@
 """
-RAGAS 独立评估脚本（解耦 pytest skip，直接用 DeepSeek 作为评估 LLM）
+自定义 RAG 评估脚本（LLM-Judge 方式，兼容 DeepSeek n=1 限制）
+
+不依赖 RAGAS 库的内部批处理（避免 n>1 BadRequestError），
+直接用 DeepSeek 作为评估 LLM，逐条打分三项核心指标：
+
+  Faithfulness      : 回答中每个声明是否能在检索上下文中找到支撑
+  Answer Relevancy  : 回答与用户问题的相关度
+  Context Recall    : 参考答案中的关键信息在检索结果中的覆盖率
 
 用法：
-  cd backend
-  DEEPSEEK_API_KEY=sk-xxx OPENAI_API_KEY=sk-siliconflow... \\
-    OPENAI_API_URL=https://api.siliconflow.cn/v1 EMBEDDING_MODEL=BAAI/bge-m3 \\
-    DATABASE_URL=postgresql+asyncpg://... python -m scripts.run_ragas_eval
+  cd D:\\munto\\code\\claudeProject\\agentTravel
+  $env:PYTHONPATH="backend"
+  python backend/scripts/run_ragas_eval.py
 
 输出：
-  results/ragas_eval.txt  —— 详细评估结果
-  results/ragas_scores.json —— 机器可读的分数 JSON
+  backend/results/ragas_eval.json   ── JSON 格式分数
+  backend/results/ragas_eval.txt    ── 可读报告
 """
 
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# ── 评估数据集（10 个代表性旅行问题 + 参考答案）──────────────────────────
-EVAL_DATASET = [
-    {
-        "question": "成都锦里古街有什么好吃的小吃？",
-        "ground_truth": "锦里古街有三大炮、冰粉、叶儿粑、糖油果子等传统成都小吃，建议晚上去人少一些。",
-    },
-    {
-        "question": "北京故宫参观需要注意什么？",
-        "ground_truth": "故宫需要提前网上预约门票，不能自带食物入内，旺季人多建议早到，游览时间至少3小时。",
-    },
-    {
-        "question": "上海外滩附近住哪里比较方便？",
-        "ground_truth": "外滩附近有和平饭店、浦东香格里拉等高端酒店，南京东路步行街周边也有较多中端选择。",
-    },
-    {
-        "question": "厦门鼓浪屿一日游怎么安排？",
-        "ground_truth": "建议早上坐轮渡上岛避开高峰，先游日光岩，再逛龙头路小吃街，下午去菽庄花园，傍晚返回。",
-    },
-    {
-        "question": "成都都江堰景区怎么去最方便？",
-        "ground_truth": "从成都市区坐地铁2号线到犀浦，换乘城际铁路约30分钟可达都江堰，票价约15元。",
-    },
-]
+# ── 使用扩展后的 21 条评估集（来自 test_rag.py）──────────────────────────────
+from tests.test_rag import _EVAL_DATASET
 
 
-def _infer_city(question: str) -> str:
-    for city in ["成都", "北京", "上海", "厦门"]:
-        if city in question:
-            return city
-    return "成都"
+# ═══════════════════════════════════════════════════════════════════
+# Step 1: RAG 检索 + Synthesizer 生成答案
+# ═══════════════════════════════════════════════════════════════════
 
-
-async def run_rag_queries() -> list[dict]:
-    """对评估数据集跑 RAG 检索 + Synthesizer，收集 (question, answer, contexts, ground_truth)"""
+async def run_rag_queries(dataset: list[dict]) -> list[dict]:
     from app.agents.nodes import rag_retrieval, synthesizer
     from app.agents.state import default_working_context
     from langchain_core.messages import HumanMessage
 
     results = []
-    for item in EVAL_DATASET:
+    for item in dataset:
         question = item["question"]
-        city = _infer_city(question)
-        print(f"  检索中：{question[:30]}...")
+        city = item.get("city", _infer_city(question))
+        print(f"  [{len(results)+1:02d}/{len(dataset)}] 检索：{question[:35]}...")
 
         state = {
             "messages": [HumanMessage(content=question)],
-            "thread_id": "ragas-eval",
-            "user_id": "eval",
-            "trip_city": city,
-            "intent": "rag",
-            "query_rewrite": question,
-            "amap_places": [],
-            "rag_chunks": [],
-            "synthesized_places": [],
-            "final_response": None,
-            "itinerary": None,
-            "selected_place_ids": [],
-            "working_context": default_working_context(),
-            "user_long_term_prefs": None,
-            "react_iterations": 0,
-            "critic_retry": False,
-            "critic_reason": None,
-            "critic_iterations": 0,
+            "thread_id": "ragas-eval", "user_id": "eval",
+            "trip_city": city, "intent": "rag", "query_rewrite": question,
+            "amap_places": [], "rag_chunks": [], "synthesized_places": [],
+            "final_response": None, "itinerary": None,
+            "selected_place_ids": [], "working_context": default_working_context(),
+            "user_long_term_prefs": None, "react_iterations": 0,
+            "critic_retry": False, "critic_reason": None, "critic_iterations": 0,
         }
-
-        # RAG 检索
         rag_result = await rag_retrieval.run(state)
         state.update(rag_result)
-
-        # Synthesizer 生成答案
         synth_result = await synthesizer.run(state)
+
         answer = synth_result.get("final_response", "") or ""
         contexts = [c["content"] for c in state.get("rag_chunks", [])]
-
         results.append({
             "question": question,
             "answer": answer,
             "contexts": contexts if contexts else ["无相关上下文"],
             "ground_truth": item["ground_truth"],
+            "city": city,
+            "intent": item.get("intent", ""),
         })
-        print(f"    ✓ 答案 {len(answer)} 字，上下文 {len(contexts)} 段")
-
+        print(f"       ✓ 答案 {len(answer)} 字，上下文 {len(contexts)} 段")
     return results
 
 
-def compute_ragas_scores(results: list[dict]) -> dict:
-    """用 DeepSeek 作为评估 LLM，计算 RAGAS 三项指标（适配 RAGAS 0.4.3）"""
-    from datasets import Dataset
-    from ragas import evaluate
-    # RAGAS 0.4.3 新导入路径
+def _infer_city(question: str) -> str:
+    for city in ["成都", "北京", "上海", "厦门", "广州", "深圳", "杭州"]:
+        if city in question:
+            return city
+    return "成都"
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Step 2: LLM-Judge 评估（不依赖 RAGAS 内部 n>1 机制）
+# ═══════════════════════════════════════════════════════════════════
+
+_FAITHFULNESS_PROMPT = """你是一个严格的 RAG 系统评估专家。
+
+【用户问题】
+{question}
+
+【检索到的上下文】
+{contexts}
+
+【系统回答】
+{answer}
+
+任务：评估系统回答的"忠实度"（Faithfulness）。
+忠实度 = 回答中所有声明都能在上下文中找到支撑，没有凭空捏造的信息。
+
+请给出 0.0~1.0 的分数：
+- 1.0：回答完全基于上下文，无任何幻觉
+- 0.7~0.9：大部分基于上下文，有少量推断
+- 0.4~0.6：约一半内容有上下文支撑
+- 0~0.3：大量内容无上下文支撑或有明显幻觉
+
+只输出一个数字（如 0.85），不要输出其他内容。"""
+
+_RELEVANCY_PROMPT = """你是一个严格的 RAG 系统评估专家。
+
+【用户问题】
+{question}
+
+【系统回答】
+{answer}
+
+任务：评估回答与问题的"相关度"（Answer Relevancy）。
+相关度 = 回答是否直接回应了用户的问题，没有跑题或答非所问。
+
+请给出 0.0~1.0 的分数：
+- 1.0：完全切题，直接回答了问题
+- 0.7~0.9：基本切题，有少量跑题
+- 0.4~0.6：部分回答了问题
+- 0~0.3：基本没有回答问题或完全跑题
+
+只输出一个数字（如 0.85），不要输出其他内容。"""
+
+_RECALL_PROMPT = """你是一个严格的 RAG 系统评估专家。
+
+【用户问题】
+{question}
+
+【检索到的上下文】
+{contexts}
+
+【参考答案（人工标注的正确答案）】
+{ground_truth}
+
+任务：评估"上下文召回率"（Context Recall）。
+召回率 = 参考答案中的关键信息有多少能在检索到的上下文中找到。
+
+请给出 0.0~1.0 的分数：
+- 1.0：参考答案的所有关键信息都在上下文中
+- 0.7~0.9：大部分关键信息在上下文中
+- 0.4~0.6：约一半关键信息在上下文中
+- 0~0.3：上下文几乎不包含参考答案的关键信息
+
+只输出一个数字（如 0.65），不要输出其他内容。"""
+
+
+async def llm_judge_one(client, prompt: str) -> float:
+    """调用 DeepSeek 获取单条评分（n=1，无批处理）"""
     try:
-        from ragas.metrics.collections import faithfulness, answer_relevancy, context_recall
-    except ImportError:
-        from ragas.metrics import faithfulness, answer_relevancy, context_recall
+        resp = await client.chat.completions.create(
+            model="deepseek-chat",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=10,
+            temperature=0,
+        )
+        text = resp.choices[0].message.content.strip()
+        # 提取第一个浮点数
+        import re
+        m = re.search(r"([\d.]+)", text)
+        val = float(m.group(1)) if m else 0.0
+        return max(0.0, min(1.0, val))
+    except Exception as e:
+        print(f"       [LLM-Judge] 评分失败：{e}")
+        return float("nan")
 
-    deepseek_key = os.environ.get("DEEPSEEK_API_KEY", "")
-    sf_key = os.environ.get("OPENAI_API_KEY", "")
-    sf_url = os.environ.get("OPENAI_API_URL", "https://api.siliconflow.cn/v1")
 
-    if not deepseek_key:
-        raise ValueError("DEEPSEEK_API_KEY 未设置")
+async def evaluate_with_llm_judge(results: list[dict]) -> dict:
+    """对所有样本逐条调用 LLM-Judge，计算三项指标均值"""
+    from openai import AsyncOpenAI
+    from app.config import settings
 
-    # ── RAGAS 0.4.3 API ──────────────────────────────────────────────────
-    import warnings
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-    from openai import OpenAI
-    from ragas.llms import llm_factory
-    from langchain_openai import OpenAIEmbeddings
-    from ragas.embeddings import LangchainEmbeddingsWrapper
-
-    # DeepSeek 作为评估 LLM（llm_factory 是 0.4.3 推荐用法）
-    ds_client = OpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com/v1")
-    eval_llm = llm_factory("deepseek-chat", client=ds_client)
-
-    # SiliconFlow BAAI/bge-m3 作为评估 Embedding（LangchainEmbeddingsWrapper 仍支持）
-    eval_emb = LangchainEmbeddingsWrapper(OpenAIEmbeddings(
-        model="BAAI/bge-m3",
-        api_key=sf_key,
-        base_url=sf_url,
-    ))
-
-    print("  RAGAS 已配置：LLM=deepseek-chat，Embedding=BAAI/bge-m3")
-
-    dataset = Dataset.from_list(results)
-
-    print("  开始 RAGAS 评估（每项指标调用 LLM，约需 2-5 分钟）...")
-    result = evaluate(
-        dataset=dataset,
-        metrics=[faithfulness, answer_relevancy, context_recall],
-        llm=eval_llm,
-        embeddings=eval_emb,
-        raise_exceptions=False,   # 允许部分失败，不中断
-        show_progress=True,
+    client = AsyncOpenAI(
+        api_key=settings.effective_llm_api_key,
+        base_url=settings.effective_llm_api_url,
     )
 
-    # EvaluationResult.to_pandas() → DataFrame，列名 = 指标名
-    df = result.to_pandas()
-    print(f"\n  原始评估 DataFrame 列: {list(df.columns)}")
+    faithfulness_scores = []
+    relevancy_scores = []
+    recall_scores = []
+    per_sample = []
 
-    def _col_mean(col_name: str) -> float:
-        if col_name not in df.columns:
-            return 0.0
-        valid = df[col_name].dropna()
-        return round(float(valid.mean()), 4) if len(valid) > 0 else 0.0
+    total = len(results)
+    for i, item in enumerate(results, 1):
+        q = item["question"]
+        a = item["answer"]
+        ctx_text = "\n\n---\n\n".join(item["contexts"][:5])
+        gt = item["ground_truth"]
+
+        print(f"  [{i:02d}/{total}] 评估：{q[:30]}...")
+
+        # 三项指标并发评估（各自 n=1）
+        f_score, r_score, c_score = await asyncio.gather(
+            llm_judge_one(client, _FAITHFULNESS_PROMPT.format(
+                question=q, contexts=ctx_text, answer=a)),
+            llm_judge_one(client, _RELEVANCY_PROMPT.format(
+                question=q, answer=a)),
+            llm_judge_one(client, _RECALL_PROMPT.format(
+                question=q, contexts=ctx_text, ground_truth=gt)),
+        )
+
+        import math
+        f_ok = not math.isnan(f_score)
+        r_ok = not math.isnan(r_score)
+        c_ok = not math.isnan(c_score)
+
+        if f_ok: faithfulness_scores.append(f_score)
+        if r_ok: relevancy_scores.append(r_score)
+        if c_ok: recall_scores.append(c_score)
+
+        print(f"       F={f_score:.2f}  R={r_score:.2f}  C={c_score:.2f}")
+        per_sample.append({
+            "question": q[:50], "city": item.get("city"), "intent": item.get("intent"),
+            "faithfulness": round(f_score, 4) if f_ok else None,
+            "answer_relevancy": round(r_score, 4) if r_ok else None,
+            "context_recall": round(c_score, 4) if c_ok else None,
+        })
+
+    def _mean(lst):
+        valid = [x for x in lst if not (x != x)]  # filter NaN
+        return round(sum(valid) / len(valid), 4) if valid else 0.0
 
     return {
-        "faithfulness":     _col_mean("faithfulness"),
-        "answer_relevancy": _col_mean("answer_relevancy"),
-        "context_recall":   _col_mean("context_recall"),
-        "n_samples": len(df),
-        "per_sample": df[
-            [c for c in ["question", "faithfulness", "answer_relevancy", "context_recall"]
-             if c in df.columns]
-        ].to_dict(orient="records"),
+        "faithfulness":     _mean(faithfulness_scores),
+        "answer_relevancy": _mean(relevancy_scores),
+        "context_recall":   _mean(recall_scores),
+        "n_samples": total,
+        "n_valid": {
+            "faithfulness": len(faithfulness_scores),
+            "answer_relevancy": len(relevancy_scores),
+            "context_recall": len(recall_scores),
+        },
+        "per_sample": per_sample,
     }
 
 
+# ═══════════════════════════════════════════════════════════════════
+# 主流程
+# ═══════════════════════════════════════════════════════════════════
+
 async def main():
-    Path("results").mkdir(exist_ok=True)
+    results_dir = Path(__file__).parent.parent / "results"
+    results_dir.mkdir(exist_ok=True)
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    print("=" * 60)
-    print("BreezeTravel RAGAS 评估")
+    print("=" * 65)
+    print("BreezeTravel Advanced RAG 评估（LLM-Judge，DeepSeek n=1）")
     print(f"时间：{ts}")
-    print("配置：HyDE + 混合检索(BM25+pgvector RRF) + bge-reranker 精排")
-    print("=" * 60)
+    print(f"评估集：{len(_EVAL_DATASET)} 条（7 城市 × 3 意图类型）")
+    print("=" * 65)
 
-    # Step 1: 跑 RAG 查询
-    print("\n[Step 1] 对 5 个旅行问题执行 Advanced RAG 检索...")
-    results = await run_rag_queries()
+    print(f"\n[Step 1] RAG 检索 + Synthesizer 生成答案...")
+    results = await run_rag_queries(_EVAL_DATASET)
     print(f"  完成：{len(results)} 条问答对")
 
-    # Step 2: 计算 RAGAS 指标
-    print("\n[Step 2] 计算 RAGAS 三项指标（使用 DeepSeek 评估 LLM）...")
-    scores = compute_ragas_scores(results)
+    print(f"\n[Step 2] LLM-Judge 逐条评估三项指标...")
+    scores = await evaluate_with_llm_judge(results)
 
-    avg = round((scores["faithfulness"] + scores["answer_relevancy"] + scores["context_recall"]) / 3, 4)
+    avg = (scores["faithfulness"] + scores["answer_relevancy"] + scores["context_recall"]) / 3
 
-    # Step 3: 打印结果
-    report = f"""
-{'=' * 60}
-RAGAS 评估结果 — BreezeTravel Advanced RAG
-{'=' * 60}
-时间：{ts}
-数据集：{len(EVAL_DATASET)} 个旅行问题（成都/北京/上海/厦门）
-检索配置：HyDE查询扩展 + BM25+pgvector混合检索 + bge-reranker精排
+    # 按意图类型分组分析
+    intent_groups: dict[str, list] = {}
+    for s in scores["per_sample"]:
+        intent = s.get("intent", "unknown")
+        intent_groups.setdefault(intent, []).append(s)
 
-┌──────────────────────┬────────┐
-│ 指标                 │  分数  │
-├──────────────────────┼────────┤
-│ Faithfulness         │ {scores['faithfulness']:.4f} │  回答忠实于检索上下文（不幻觉）
-│ Answer Relevancy     │ {scores['answer_relevancy']:.4f} │  回答与用户问题的相关度
-│ Context Recall       │ {scores['context_recall']:.4f} │  检索结果覆盖参考答案关键信息
-├──────────────────────┼────────┤
-│ 综合平均             │ {avg:.4f} │
-└──────────────────────┴────────┘
+    report_lines = [
+        "",
+        "=" * 65,
+        "RAGAS 评估结果（LLM-Judge 方式）— BreezeTravel Advanced RAG",
+        "=" * 65,
+        f"时间：{ts}",
+        f"评估集：{scores['n_samples']} 条（7 城市 × 3 意图类型）",
+        f"评估 LLM：deepseek-chat（n=1，自定义 Judge Prompt）",
+        f"检索配置：HyDE + BM25+pgvector RRF + bge-reranker 精排",
+        f"游记语料：347 篇 / 2075 chunk / 7 城市",
+        "",
+        f"  Faithfulness      : {scores['faithfulness']:.4f}  "
+        f"{'✅' if scores['faithfulness'] >= 0.75 else '❌'}  （目标 ≥ 0.75，n={scores['n_valid']['faithfulness']}）",
+        f"  Answer Relevancy  : {scores['answer_relevancy']:.4f}  "
+        f"{'✅' if scores['answer_relevancy'] >= 0.75 else '❌'}  （目标 ≥ 0.75，n={scores['n_valid']['answer_relevancy']}）",
+        f"  Context Recall    : {scores['context_recall']:.4f}  "
+        f"{'✅' if scores['context_recall'] >= 0.65 else '❌'}  （目标 ≥ 0.65，n={scores['n_valid']['context_recall']}）",
+        f"  综合平均          : {avg:.4f}",
+        "",
+    ]
 
-Embedding 模型：BAAI/bge-m3（SiliconFlow，1024维）
-评估 LLM：deepseek-chat
-游记语料：80篇合成游记，209个chunk，4城市
-"""
+    # 按意图类型分布
+    report_lines.append("  按意图类型 Context Recall：")
+    for intent, samples in intent_groups.items():
+        recalls = [s["context_recall"] for s in samples if s["context_recall"] is not None]
+        avg_recall = sum(recalls) / len(recalls) if recalls else 0.0
+        flag = "✅" if avg_recall >= 0.65 else "⚠️"
+        report_lines.append(f"    {flag} {intent:<10}: {avg_recall:.4f}  ({len(samples)} 条)")
+
+    report = "\n".join(report_lines)
     print(report)
 
-    # Step 4: 保存结果
-    with open("results/ragas_eval.txt", "w", encoding="utf-8") as f:
+    # 保存结果
+    txt_path = results_dir / "ragas_eval.txt"
+    json_path = results_dir / "ragas_eval.json"
+
+    with open(txt_path, "w", encoding="utf-8") as f:
         f.write(report)
 
     json_result = {
         "timestamp": ts,
+        "eval_method": "llm_judge_deepseek_n1",
         "scores": scores,
-        "avg": avg,
+        "avg": round(avg, 4),
         "config": {
-            "retrieval": "HyDE + BM25+pgvector RRF + bge-reranker",
+            "retrieval": "HyDE + BM25+pgvector RRF",
             "embedding_model": "BAAI/bge-m3",
-            "eval_llm": "deepseek-chat",
-            "corpus": "80篇合成游记，209个chunk，4城市",
-        }
+            "eval_llm": "deepseek-chat (n=1)",
+            "corpus": "347篇合成游记，2075 chunk，7城市",
+            "dataset_size": len(_EVAL_DATASET),
+        },
     }
-    with open("results/ragas_scores.json", "w", encoding="utf-8") as f:
+    with open(json_path, "w", encoding="utf-8") as f:
         json.dump(json_result, f, ensure_ascii=False, indent=2)
 
-    print(f"结果已保存：results/ragas_eval.txt  results/ragas_scores.json")
+    print(f"\n结果已保存：\n  {txt_path}\n  {json_path}")
     return scores
 
 
