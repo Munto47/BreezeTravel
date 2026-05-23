@@ -26,6 +26,7 @@ from langchain_core.messages import HumanMessage, AIMessage
 from app.agents.graph import get_graph_with_persistence
 from app.agents.state import default_working_context
 from app.schemas.api import ChatRequest
+from app import metrics as _m
 
 router = APIRouter()
 
@@ -101,6 +102,8 @@ async def _event_stream(request: ChatRequest):
     places: list = []
     react_round = 0
     router_start_count = 0  # 区分首轮 vs. ReAct 循环中的第 N 轮
+    _tool_call_counts: dict[str, int] = {}   # 本次请求内各工具调用次数
+    _critic_fired = False
 
     try:
         async for event in graph.astream_events(input_state, config=config, version="v2"):
@@ -143,6 +146,8 @@ async def _event_stream(request: ChatRequest):
                         react_round += 1
                         names_cn = "、".join(_TOOL_LABELS.get(n, n) for n in tool_names)
                         yield _thinking("router", f"决策：调用工具 {names_cn}", elapsed)
+                        for tn in tool_names:
+                            _tool_call_counts[tn] = _tool_call_counts.get(tn, 0) + 1
                     elif router_start_count > 1:
                         # 非首轮且无 tool_calls，意味着信息已够，即将进入 synthesizer
                         yield _thinking("router", "信息收集完毕，准备生成推荐", elapsed)
@@ -177,7 +182,7 @@ async def _event_stream(request: ChatRequest):
                     retry = output.get("critic_retry", False)
                     reason = output.get("critic_reason", "")
                     if retry:
-                        # 告知用户正在重新搜索
+                        _critic_fired = True
                         yield _thinking("critic", f"结果待优化（{reason}），正在重新搜索...", elapsed)
                     else:
                         yield _thinking("critic", "质量检查通过", elapsed)
@@ -185,7 +190,25 @@ async def _event_stream(request: ChatRequest):
         total_ms = int((time.time() - start_time) * 1000)
         yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round}}, ensure_ascii=False)}\n\n"
 
+        # ── 写入 Agent 级指标 ──────────────────────────────────────
+        if places:
+            _m.inc("agent_success_count")
+        else:
+            _m.inc("agent_failure_count")
+        if _critic_fired:
+            _m.inc("critic_trigger_count")
+        _m.inc("total_react_iterations", react_round)
+        for tool_name, cnt in _tool_call_counts.items():
+            _m.inc("tool_calls_total", cnt)
+            if tool_name == "search_places":
+                _m.inc("tool_calls_amap", cnt)
+            elif tool_name == "search_travel_notes":
+                _m.inc("tool_calls_rag", cnt)
+            elif tool_name == "get_weather":
+                _m.inc("tool_calls_weather", cnt)
+
     except Exception as exc:
+        _m.inc("agent_failure_count")
         yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(exc)}}, ensure_ascii=False)}\n\n"
 
 

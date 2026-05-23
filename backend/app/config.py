@@ -105,6 +105,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"   # 忽略 NEXT_PUBLIC_* 等前端变量，避免从根 .env 读取时报错
 
 
 @lru_cache

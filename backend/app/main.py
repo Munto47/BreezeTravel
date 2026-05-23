@@ -12,6 +12,7 @@ from app.api import places_persist
 from app.config import settings
 from app.db.connection import get_pool, close_pool, run_migrations
 from app.agents import graph as agent_graph
+from app import metrics as _m
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -25,18 +26,13 @@ else:
     # 未配置时确保不意外开启追踪（避免环境变量污染）
     os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
 
-# ── 全局指标计数器（/metrics 端点用）────────────────────────────────────────
-_metrics: dict = {
-    "total_chat_requests": 0,
-    "total_optimize_requests": 0,
-    "startup_time": None,
-}
+# 指标存储统一在 app.metrics 模块管理，此处仅保留 startup_time 写入
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── startup ──────────────────────────────────────────────────────────
-    _metrics["startup_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    _m.set_val("startup_time", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     await get_pool()                          # 预热 asyncpg 连接池
     await run_migrations()                    # 自动执行待执行的迁移文件
     await agent_graph.init_persistent_graph() # 初始化持久化图（建 checkpoint 表）
@@ -97,20 +93,48 @@ async def metrics():
     """
     业务指标端点（轻量版，可对接 Prometheus 抓取）
 
-    指标说明：
-    - total_chat_requests    : 累计 /api/chat 请求次数
-    - total_optimize_requests: 累计 /api/optimize 请求次数
-    - langsmith_enabled      : LangSmith 追踪是否已启用
-    - startup_time           : 服务启动时间（UTC）
+    请求级指标：
+    - total_chat_requests     : 累计 /api/chat 请求次数
+    - total_optimize_requests : 累计 /api/optimize 请求次数
+
+    Agent 级指标（Phase 2 新增，面试可展示）：
+    - agent_success_rate      : 有效地点输出率（synthesized_places ≥ 1）
+    - critic_trigger_rate     : Critic 反思触发率（低质结果重检索比例）
+    - avg_react_iterations    : 平均 ReAct 循环次数
+    - tool_call_distribution  : 各工具调用次数分布
     """
+    m = _m.snapshot()
+    total_agent = m["agent_success_count"] + m["agent_failure_count"]
+
     return {
-        "total_chat_requests": _metrics["total_chat_requests"],
-        "total_optimize_requests": _metrics["total_optimize_requests"],
+        # ── 请求级 ────────────────────────────────────────────────
+        "total_chat_requests": m["total_chat_requests"],
+        "total_optimize_requests": m["total_optimize_requests"],
+        # ── Agent 级 ──────────────────────────────────────────────
+        "agent_success_count": m["agent_success_count"],
+        "agent_failure_count": m["agent_failure_count"],
+        "agent_success_rate": round(
+            m["agent_success_count"] / total_agent, 4
+        ) if total_agent else None,
+        "critic_trigger_count": m["critic_trigger_count"],
+        "critic_trigger_rate": round(
+            m["critic_trigger_count"] / total_agent, 4
+        ) if total_agent else None,
+        "avg_react_iterations": round(
+            m["total_react_iterations"] / total_agent, 2
+        ) if total_agent else None,
+        "tool_call_distribution": {
+            "total": m["tool_calls_total"],
+            "search_places": m["tool_calls_amap"],
+            "search_travel_notes": m["tool_calls_rag"],
+            "get_weather": m["tool_calls_weather"],
+        },
+        # ── 系统信息 ──────────────────────────────────────────────
         "langsmith_enabled": bool(settings.langsmith_api_key),
         "langsmith_project": settings.langsmith_project if settings.langsmith_api_key else None,
         "demo_mode": settings.demo_mode,
         "amap_mock": settings.amap_mock,
-        "startup_time": _metrics["startup_time"],
+        "startup_time": m["startup_time"],
         "version": app.version,
     }
 
@@ -122,7 +146,7 @@ async def count_requests(request, call_next):
     response = await call_next(request)
     path = request.url.path
     if path == "/api/chat":
-        _metrics["total_chat_requests"] += 1
+        _m.inc("total_chat_requests")
     elif path == "/api/optimize":
-        _metrics["total_optimize_requests"] += 1
+        _m.inc("total_optimize_requests")
     return response
