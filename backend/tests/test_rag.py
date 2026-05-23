@@ -477,10 +477,31 @@ async def test_evaluate_rag_pipeline():
     ]
     dataset = Dataset.from_list(ragas_records)
 
+    # 配置 RAGAS 使用 DeepSeek（OpenAI 兼容接口），避免默认 OpenAI() 实例化失败
+    from app.config import settings as app_settings
+    from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.embeddings import LangchainEmbeddingsWrapper
+
+    ragas_llm = LangchainLLMWrapper(ChatOpenAI(
+        model=app_settings.llm_model_synthesizer,
+        api_key=app_settings.effective_llm_api_key,
+        base_url=app_settings.effective_llm_api_url,
+        temperature=0,
+    ))
+    ragas_embeddings = LangchainEmbeddingsWrapper(OpenAIEmbeddings(
+        model=app_settings.embedding_model,
+        api_key=app_settings.effective_embedding_api_key,
+        base_url=app_settings.effective_embedding_api_url,
+    ))
+
     print("\n\n=== RAGAS 评估开始（21 条 × 7 城市）===")
+    print(f"  LLM: {app_settings.llm_model_synthesizer} @ {app_settings.effective_llm_api_url}")
     score = evaluate(
         dataset=dataset,
         metrics=[faithfulness, answer_relevancy, context_recall],
+        llm=ragas_llm,
+        embeddings=ragas_embeddings,
     )
 
     faithfulness_val = score["faithfulness"]
