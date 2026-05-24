@@ -4,9 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-**BreezeTravel** — AI 智能旅行协同规划系统，面向 AI 应用开发岗位的技术演示项目。
+**BreezeTravel** — 面向小团体出行的 AI 智能旅行协同规划产品。
 
-核心技术展示（已完成 + 升级中）：
+多人在同一房间实时投票/备注/调整地点，AI 助手基于游记知识库 + 实时 POI 数据给出推荐，并自动按天聚类排好路线、挂载酒店、注入贴心提示。目标是让出行规划从"群聊吵半天"变成"一个画板上即时协同看见结果"。
+
+核心模块（已完成）：
 - **LangGraph 多 Agent 编排**：ReAct 循环 + Critic 反思节点 + Tool 并发执行
 - **Advanced RAG**：混合检索（BM25 + pgvector RRF）+ Cross-Encoder Re-ranking + HyDE 查询扩展
 - **Memory 系统**：Working Memory（会话内规则提取）+ Long-term Memory（pgvector 持久化）
@@ -85,7 +87,7 @@ python -m app.mcp_server        # 启动 MCP Server（端口 8001）
 - `AMAP_API_KEY` — 后端高德 REST API Key（Web 服务类型）
 - `AMAP_JS_KEY` — 前端高德 JS SDK Key（Web 端 JS API 类型，两个 key 不同）
 - `AMAP_MOCK=true` — 默认开启，使用本地 fixture 数据保护 API 配额
-- `DEMO_MODE=true` — 跳过所有 LLM 调用，返回预设数据（面试演示用）
+- `DEMO_MODE=true` — 跳过所有 LLM 调用，返回预设数据（零成本演示 / 离线本地开发）
 
 ## 架构说明
 
@@ -233,7 +235,7 @@ echo "FT_ROUTER_MODEL_PATH=backend/models/router_lora" >> .env
 
 ---
 
-## 岗位优化 Sprint（2026-05 面试准备）
+## 质量优化 Sprint（2026-05）
 
 ### Phase 1 — RAG 质量提升 ✅
 - [x] 城市数据扩容：4 城市 → **7 城市**（新增广州 / 深圳 / 杭州）

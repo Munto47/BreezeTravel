@@ -97,7 +97,7 @@ async def metrics():
     - total_chat_requests     : 累计 /api/chat 请求次数
     - total_optimize_requests : 累计 /api/optimize 请求次数
 
-    Agent 级指标（Phase 2 新增，面试可展示）：
+    Agent 级指标（Phase 2 新增）：
     - agent_success_rate      : 有效地点输出率（synthesized_places ≥ 1）
     - critic_trigger_rate     : Critic 反思触发率（低质结果重检索比例）
     - avg_react_iterations    : 平均 ReAct 循环次数

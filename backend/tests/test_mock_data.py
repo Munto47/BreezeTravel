@@ -90,7 +90,7 @@ class TestFixtureStructure:
                 assert 3 <= lat <= 54, f"{city}/{place['name']} lat={lat} 超出中国范围"
 
     def test_chengdu_has_panda_base(self):
-        """成都必须有熊猫基地（面试 Demo 核心地点）"""
+        """成都 Demo fixture 必须包含熊猫基地（最具代表性的地点）"""
         data = load_fixture()
         chengdu = data["成都"]
         names = [p["name"] for p in chengdu]

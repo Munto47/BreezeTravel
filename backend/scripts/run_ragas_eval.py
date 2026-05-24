@@ -8,8 +8,7 @@
   Answer Relevancy  : 回答与用户问题的相关度
   Context Recall    : 参考答案中的关键信息在检索结果中的覆盖率
 
-用法：
-  cd D:\\munto\\code\\claudeProject\\agentTravel
+用法（从项目根目录执行）：
   $env:PYTHONPATH="backend"
   python backend/scripts/run_ragas_eval.py
 

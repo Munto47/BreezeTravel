@@ -73,7 +73,7 @@ yjs-data/
 backend/models/
 
 # 临时文件
-agentTravel.tar.gz
+*.tar.gz
 .playwright-mcp/
 backend/data/test_mini.jsonl
 

@@ -244,7 +244,7 @@ def rrf_fusion(
         doc["retrieval_sources"] = sorted(sources[key])  # e.g. ["dense", "sparse"]
         results.append(doc)
 
-    # 统计双路命中情况（面试时可展示）
+    # 统计双路命中情况（用于可观测性 / 检索质量分析）
     both_hit = sum(1 for k in sorted_keys[:top_k] if len(sources[k]) == 2)
     print(
         f"[Retriever] RRF 融合完成：dense={len(dense_results)}, "

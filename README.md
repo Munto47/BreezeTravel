@@ -1,12 +1,12 @@
 # BreezeTravel — AI 智能旅行协同规划系统
 
-> 多人实时协同 × LangGraph ReAct Agent × Advanced RAG × Memory 系统 × LoRA 微调
+> 多人实时协同 × 智能体编排 × 个性化推荐 × 自动路径规划
 
-一个面向 AI 应用开发岗位技术演示的旅行规划工具，完整覆盖当下主流 AI 工程技术栈：从 RAG 数据构建、混合检索、重排序，到 ReAct Agent 编排、跨会话 Memory 系统，再到 LoRA 微调全链路。
+BreezeTravel 是一款帮助小团体共同规划出游的产品：多人在同一房间实时投票、备注、调整地点，AI 助手基于游记知识库和实时 POI 数据给出推荐，并自动按天聚类排好路线、挂载酒店、注入贴心提示，让出行规划从"群里发链接互相吵"变成"一个画板上即时看见结果"。
 
 ---
 
-## AI 技术亮点
+## 核心特性
 
 | 技术方向 | 实现内容 |
 |----------|---------|
@@ -114,8 +114,8 @@ Query ──→ HyDE（DeepSeek 生成假设文档） ──→ Embedding
 ### 方式一：Docker 一键启动（推荐）
 
 ```bash
-git clone https://github.com/Munto47/AITravel.git
-cd AITravel
+git clone https://github.com/Munto47/BreezeTravel.git breezetravel
+cd breezetravel
 
 cp .env.example .env
 cp frontend/.env.local.example frontend/.env.local
@@ -167,7 +167,7 @@ NEXT_PUBLIC_AMAP_SECURITY_CODE=your-code
 ## 项目结构
 
 ```
-AITravel/
+breezetravel/
 ├── backend/
 │   ├── app/
 │   │   ├── agents/

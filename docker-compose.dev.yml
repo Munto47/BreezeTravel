@@ -1,0 +1,36 @@
+# 开发环境覆盖文件（仅本地用，服务器上不挂这个）
+#
+# 用法：
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# 效果：
+#   - backend  : uvicorn --reload，改 *.py 自动重启（500ms 内）
+#   - frontend : 挂源码 volume + npm run dev，HMR 改完保存即生效
+#   - mcp      : 同样开启 --reload
+#
+# 注意：服务器上不要用此文件，生产用根 docker-compose.yml 即可
+
+services:
+  backend:
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app/app
+    environment:
+      DEMO_MODE: "true"     # 本地默认开 Demo，避免烧 LLM 费用
+      AMAP_MOCK: "true"     # 本地默认 Mock 高德
+    # volumes 已在根 compose 中挂载 ./backend:/app，这里继承即可
+
+  mcp-server:
+    command: sh -c "pip install watchfiles && python -m app.mcp_server 8001"
+    environment:
+      DEMO_MODE: "true"
+
+  frontend:
+    # 覆盖 production build → 改为 dev 模式（HMR）
+    build:
+      target: deps   # 只构建到 deps 阶段，拿到 node_modules
+    command: sh -c "npm run dev"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules    # 匿名卷防止本地 node_modules 覆盖容器内的
+      - /app/.next
+    environment:
+      NODE_ENV: development

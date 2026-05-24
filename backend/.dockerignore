@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# 测试 / 评估产物（生产镜像不需要）
+tests/
+results/
+htmlcov/
+.coverage
+.coverage.*
+
+# 大模型权重（LoRA 训练产物，几百 MB，按需挂载而非 COPY 进镜像）
+models/
+
+# 数据 / 缓存
+*.sqlite
+*.db
+data/
+cache/
+
+# 配置
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.swp
+
+# 文档
+*.md
+README*
+docs/

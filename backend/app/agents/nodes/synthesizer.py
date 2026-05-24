@@ -168,7 +168,7 @@ def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> s
     Demo 模式下生成个性化推荐文案。
 
     根据地点品类分布、用户偏好（working_context）动态组织语言，
-    避免面试演示时看到空洞的"为您找到了X个地点"。
+    避免出现空洞的"为您找到了X个地点"这类无信息量回复。
     """
     from app.schemas.place import PlaceCategory
 

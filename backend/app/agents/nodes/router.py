@@ -17,7 +17,7 @@ ReAct Agent 节点（原 Router 升级版）
 1. 不再依赖硬编码路由规则，LLM 自主推理
 2. 支持多工具串联调用（先搜景点 + 再查天气 + 再查游记攻略）
 3. ReAct 链路在前端 ThinkingSteps 可视化展示
-4. 面试展示 LLM native function calling 能力
+4. 充分利用 LLM 原生 function calling 能力，无需自实现路由层
 
 防无限循环
 ----------
