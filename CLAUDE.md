@@ -342,12 +342,19 @@ python backend/scripts/run_ragas_eval.py
   - `OptimizeUser`：K-Means+TSP 排线算法压测
   - `HealthUser`：/health /metrics 基线对照
 
-**实测延迟数据**（Docker localhost，keep-alive 连接，n=30）：
-| 接口 | P50 | P95 | P99 |
-|------|-----|-----|-----|
-| `/health` | 1ms | 2ms | 2ms |
-| `/metrics` | 1ms | 2ms | 2ms |
-| `/api/optimize` | 1753ms | 2342ms | 3933ms |
+**实测延迟数据**（Docker localhost，keep-alive 连接，n=50，2026-05-24 重测两轮一致）：
+| 接口 | P50 | P95 | P99 | 最大 | 样本 |
+|------|-----|-----|-----|------|------|
+| `/health` | **1ms** | 2ms | 2ms | 2ms | 50 |
+| `/metrics` | **1ms** | 2ms | 2ms | 2ms | 50 |
+| `/api/optimize` | **1756ms** | 2312ms | 2507ms | 2507ms | 50 |
+| `/api/optimize`（第二轮） | 1673ms | 2221ms | 2692ms | 2692ms | 50 |
+
+测试条件：DEMO_MODE=false、AMAP_MOCK=false（即真实 Amap 驾车 API 链路 + K-Means+TSP + TipsGenerator LLM 调用）。
+
+结果文件：`backend/results/load_test_quick.json` + `load_test_quick_run2.json`
+
+**历史脏数据修复记录**：早期一份 `/health` P50=2036ms 的异常数据，根因是采样时后端 lifespan 尚未完成（asyncpg 池/迁移/Checkpointer 初始化阻塞），请求被 TCP backlog 接住后约 2s 才被 uvicorn 处理；`run_quick_benchmark` 的预热请求也命中同一空窗。**修复**：先 `until curl /health == 200` 阻塞等待 lifespan 就绪再开始采样，两轮 P50 差异 ≤5%，可靠性达标。
 
 完整并发压测：
 ```bash
@@ -405,7 +412,32 @@ locust -f backend/scripts/load_test.py --headless -u 50 -r 10 \
 评估结果：`backend/results/ragas_eval.{json,txt}`
 游记语料：**508 篇 / 4034 chunk / 7 城市**（常规 346 + 专项 162）
 
+### Phase 4 — PlannerAgent 多智能体升级 ✅（2026-05-24）
+将原单体 `optimizer.run` 拆为独立 LangGraph 子图，5 个专职子 Agent 通过共享 `PlannerState` 协作（A2A 调度）：
+
+```
+clusterer → distance → sequencer → scheduler → tips → END
+```
+
+| 子 Agent | 文件 | 职责 |
+|----------|------|------|
+| ClustererAgent | `app/agents/planner/nodes/clusterer.py` | 分离 hotels/activities，K-Means 聚类，算全局质心 |
+| DistanceAgent | `app/agents/planner/nodes/distance.py` | 并发拉取每个簇的高德驾车时间矩阵 |
+| SequencerAgent | `app/agents/planner/nodes/sequencer.py` | 簇内最近邻 TSP 排序 |
+| SchedulerAgent | `app/agents/planner/nodes/scheduler.py` | 时间槽生成 + 酒店挂载 + 和风天气富集 |
+| TipsAgent | `app/agents/planner/nodes/tips_agent.py` | 装配 Itinerary + 调用 TipsGenerator 注入贴心提示 |
+
+- `app/agents/planner/state.py`：PlannerState 定义（A2A 共享数据主干）
+- `app/agents/planner/graph.py`：StateGraph 拓扑 + `run_planner` 入口（与 `optimizer.run` 签名兼容）
+- `app/api/optimize.py`：`/api/optimize` 已切换为调用 `run_planner`
+- `tests/test_planner_graph.py`：9 个测试覆盖子图编译、各子节点、端到端、trace 可观测性 ✅
+- 回归：`tests/test_optimizer.py` 22/22 通过，无破坏性变更
+
+亮点：
+1. **真·多 Agent 编排**：每个子 Agent 只读写 PlannerState 中自己的字段，节点间零直接调用
+2. **可观测性内建**：每个子 Agent 写 `trace` 字段，LangSmith 自动追踪每个节点的输入/输出
+3. **天然可扩展**：未来新增 BudgetAgent / SafetyAgent 只需注册节点 + 加边，不改其他 Agent
+
 ### 待完成（下一步）
-- [ ] **Phase 4**：PlannerAgent 多智能体升级（Optimizer → 独立 LangGraph 子图，A2A 调度）
 - [ ] **Phase 6**：生产部署（Railway backend + Vercel frontend + Supabase PostgreSQL）
 - [ ] **scenic Context Recall 进阶**（当前 0.57，可选）：Parent-Document Retriever（小 chunk 检索 + 大 chunk 返回）
