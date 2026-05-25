@@ -9,6 +9,7 @@ from app.api import chat, optimize, room, recommend, weather
 from app.api import auth as auth_api
 from app.api import user_profile
 from app.api import places_persist
+from app.api import cities
 from app.config import settings
 from app.db.connection import get_pool, close_pool, run_migrations
 from app.agents import graph as agent_graph
@@ -70,6 +71,7 @@ app.include_router(recommend.router, prefix="/api", tags=["recommend"])
 app.include_router(weather.router, prefix="/api", tags=["weather"])
 app.include_router(auth_api.router, prefix="/api", tags=["auth"])
 app.include_router(places_persist.router, prefix="/api", tags=["places"])
+app.include_router(cities.router, prefix="/api", tags=["cities"])
 
 
 # ── 运维端点 ──────────────────────────────────────────────────────────────

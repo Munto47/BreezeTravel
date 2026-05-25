@@ -40,6 +40,24 @@ export default function HomePage() {
   const [createdRoomInfo, setCreatedRoomInfo] = useState<{ roomId: string; threadId: string } | null>(null)
   const [copyTip, setCopyTip] = useState(false)
   const [recentRooms, setRecentRooms] = useState<RoomRecord[]>([])
+  // 有 RAG 游记语料的"深度推荐"城市，前端给角标 + 选择非支持城市时提示
+  const [supportedCities, setSupportedCities] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/cities/supported`)
+      .then(r => r.ok ? r.json() : { cities: [] })
+      .then(d => setSupportedCities(new Set((d.cities || []).map((c: { city: string }) => c.city))))
+      .catch(() => {})
+  }, [])
+
+  // 选城市统一入口：非支持城市给一次温和提示，但不阻塞
+  const pickCity = (c: string) => {
+    setCity(c)
+    setCityPickerOpen(false)
+    if (supportedCities.size && !supportedCities.has(c)) {
+      toast(`${c} 暂无深度游记，AI 推荐将仅依赖高德 POI 兜底（仍可用）`, 'info')
+    }
+  }
 
   // 恢复 auth 状态
   useEffect(() => { hydrate() }, [hydrate])
@@ -276,6 +294,19 @@ export default function HomePage() {
                                 />
                               </div>
                             </div>
+                            {/* 角标图例 */}
+                            {supportedCities.size > 0 && (
+                              <div className="px-3 py-2 border-b border-gray-100 bg-amber-50/40 text-[11px] text-gray-500 flex items-center gap-3 flex-wrap">
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                  🧠 深度推荐（{supportedCities.size} 个）
+                                </span>
+                                <span className="inline-flex items-center gap-1">
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-gray-300" />
+                                  🗺️ 仅基础推荐
+                                </span>
+                              </div>
+                            )}
                             <div className="overflow-y-auto flex-1 p-4 space-y-4">
                               {/* 搜索结果 */}
                               {citySearch ? (
@@ -285,12 +316,17 @@ export default function HomePage() {
                                     {PROVINCES.flatMap(p => p.cities)
                                       .filter(c => c.includes(citySearch))
                                       .slice(0, 20)
-                                      .map(c => (
-                                        <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
-                                          className={`px-3 py-1.5 text-sm rounded-xl border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
-                                          {c}
-                                        </button>
-                                      ))}
+                                      .map(c => {
+                                        const supported = supportedCities.has(c)
+                                        return (
+                                          <button key={c} onClick={() => pickCity(c)}
+                                            title={supported ? '深度推荐：含游记知识库' : '仅高德 POI 兜底，无游记数据'}
+                                            className={`px-3 py-1.5 text-sm rounded-xl border transition-colors inline-flex items-center gap-1 ${city === c ? 'bg-coral-500 text-white border-coral-500' : supported ? 'bg-emerald-50 text-gray-800 border-emerald-200 hover:border-coral-300' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
+                                            <span>{c}</span>
+                                            <span className="text-[10px] opacity-80">{supported ? '🧠' : '🗺️'}</span>
+                                          </button>
+                                        )
+                                      })}
                                   </div>
                                   {PROVINCES.flatMap(p => p.cities).filter(c => c.includes(citySearch)).length === 0 && (
                                     <p className="text-sm text-gray-400">未找到匹配城市</p>
@@ -302,39 +338,55 @@ export default function HomePage() {
                                   <div>
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">🔥 热门旅游城市</p>
                                     <div className="flex flex-wrap gap-2">
-                                      {POPULAR_CITIES.map(c => (
-                                        <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
-                                          className={`px-3 py-1.5 text-sm rounded-xl border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
-                                          {c}
-                                        </button>
-                                      ))}
+                                      {POPULAR_CITIES.map(c => {
+                                        const supported = supportedCities.has(c)
+                                        return (
+                                          <button key={c} onClick={() => pickCity(c)}
+                                            title={supported ? '深度推荐：含游记知识库' : '仅高德 POI 兜底，无游记数据'}
+                                            className={`px-3 py-1.5 text-sm rounded-xl border transition-colors inline-flex items-center gap-1 ${city === c ? 'bg-coral-500 text-white border-coral-500' : supported ? 'bg-emerald-50 text-gray-800 border-emerald-200 hover:border-coral-300' : 'bg-gray-50 text-gray-700 border-gray-100 hover:border-coral-300'}`}>
+                                            <span>{c}</span>
+                                            <span className="text-[10px] opacity-80">{supported ? '🧠' : '🗺️'}</span>
+                                          </button>
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                   {/* 省份列表 */}
                                   <div>
                                     <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">按省份选择</p>
                                     <div className="space-y-1">
-                                      {PROVINCES.map(prov => (
-                                        <div key={prov.name}>
-                                          <button
-                                            onClick={() => setSelectedProvince(selectedProvince === prov.name ? null : prov.name)}
-                                            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
-                                          >
-                                            <span>{prov.name}</span>
-                                            <span className="text-[10px] text-gray-400">{prov.cities.length}个城市 {selectedProvince === prov.name ? '▲' : '▼'}</span>
-                                          </button>
-                                          {selectedProvince === prov.name && (
-                                            <div className="pl-3 pb-2 flex flex-wrap gap-1.5">
-                                              {prov.cities.map(c => (
-                                                <button key={c} onClick={() => { setCity(c); setCityPickerOpen(false) }}
-                                                  className={`px-2.5 py-1 text-xs rounded-lg border transition-colors ${city === c ? 'bg-coral-500 text-white border-coral-500' : 'bg-white text-gray-600 border-gray-100 hover:border-coral-300'}`}>
-                                                  {c}
-                                                </button>
-                                              ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      ))}
+                                      {PROVINCES.map(prov => {
+                                        const provSupportedCount = prov.cities.filter(c => supportedCities.has(c)).length
+                                        return (
+                                          <div key={prov.name}>
+                                            <button
+                                              onClick={() => setSelectedProvince(selectedProvince === prov.name ? null : prov.name)}
+                                              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-xl transition-colors"
+                                            >
+                                              <span className="flex items-center gap-1.5">
+                                                {prov.name}
+                                                {provSupportedCount > 0 && <span className="text-[10px] text-emerald-600">🧠 {provSupportedCount}</span>}
+                                              </span>
+                                              <span className="text-[10px] text-gray-400">{prov.cities.length}个城市 {selectedProvince === prov.name ? '▲' : '▼'}</span>
+                                            </button>
+                                            {selectedProvince === prov.name && (
+                                              <div className="pl-3 pb-2 flex flex-wrap gap-1.5">
+                                                {prov.cities.map(c => {
+                                                  const supported = supportedCities.has(c)
+                                                  return (
+                                                    <button key={c} onClick={() => pickCity(c)}
+                                                      title={supported ? '深度推荐' : '仅基础推荐'}
+                                                      className={`px-2.5 py-1 text-xs rounded-lg border transition-colors inline-flex items-center gap-1 ${city === c ? 'bg-coral-500 text-white border-coral-500' : supported ? 'bg-emerald-50 text-gray-700 border-emerald-200 hover:border-coral-300' : 'bg-white text-gray-600 border-gray-100 hover:border-coral-300'}`}>
+                                                      <span>{c}</span>
+                                                      {supported && <span className="text-[9px]">🧠</span>}
+                                                    </button>
+                                                  )
+                                                })}
+                                              </div>
+                                            )}
+                                          </div>
+                                        )
+                                      })}
                                     </div>
                                   </div>
                                 </>
