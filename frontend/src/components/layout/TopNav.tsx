@@ -40,12 +40,35 @@ export default function TopNav({
   const router = useRouter()
 
   const handleCopyLink = useCallback(async () => {
-    // 复制纯 6 位房间号，方便口头分享
+    // 复制完整邀请链接（含城市/天数），好友点开即跳转
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const params = new URLSearchParams()
+    if (tripCity) params.set('city', tripCity)
+    if (tripDays) params.set('days', String(tripDays))
+    const url = `${origin}/room/${roomId}${params.toString() ? `?${params}` : ''}`
+    const shareText = `邀请你一起规划${tripCity || ''}${tripDays ? ` ${tripDays} 天` : ''}行程：${url}\n房间号：${roomId}`
+
+    // 优先调用系统原生分享（移动端微信/iMessage 可直接转发）
+    const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : null
     try {
-      await navigator.clipboard.writeText(roomId)
+      if (nav?.share) {
+        await nav.share({
+          title: 'BreezeTravel 协同规划邀请',
+          text: shareText,
+          url,
+        })
+        setCopyTip(true)
+        setTimeout(() => setCopyTip(false), 2000)
+        return
+      }
+      if (nav?.clipboard) {
+        await nav.clipboard.writeText(shareText)
+      } else {
+        throw new Error('no clipboard')
+      }
     } catch {
-      const input = document.createElement('input')
-      input.value = roomId
+      const input = document.createElement('textarea')
+      input.value = shareText
       document.body.appendChild(input)
       input.select()
       document.execCommand('copy')
@@ -53,7 +76,7 @@ export default function TopNav({
     }
     setCopyTip(true)
     setTimeout(() => setCopyTip(false), 2000)
-  }, [roomId])
+  }, [roomId, tripCity, tripDays])
 
   return (
     <motion.header
@@ -138,7 +161,7 @@ export default function TopNav({
                 className="flex items-center gap-0.5 text-emerald-500"
               >
                 <Check className="w-3 h-3" />
-                已复制
+                已复制邀请
               </motion.span>
             ) : (
               <motion.span
@@ -149,7 +172,7 @@ export default function TopNav({
                 className="flex items-center gap-0.5"
               >
                 <Copy className="w-3 h-3" />
-                复制号码
+                复制邀请
               </motion.span>
             )}
           </AnimatePresence>

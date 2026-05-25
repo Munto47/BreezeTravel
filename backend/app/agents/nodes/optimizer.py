@@ -63,10 +63,13 @@ _DURATION_RULES: list[tuple[PlaceCategory, str, int]] = [
 _NIGHTLIFE_KEYWORDS = r"酒吧|夜市|夜场|KTV|ktv|清吧|Live House|livehouse|夜生活|夜总会|酒馆|酒肆"
 
 # 用餐时间窗口（分钟数）
+# 放宽窗口：11:00 吃午饭、17:30 吃晚饭也算正常，覆盖真实餐厅 slot 的偏移
 _MEAL_WINDOWS = {
-    "lunch": (11 * 60 + 30, 13 * 60 + 30),   # 11:30–13:30
-    "dinner": (18 * 60,     20 * 60 + 30),    # 18:00–20:30
+    "lunch": (11 * 60,      14 * 60),         # 11:00–14:00
+    "dinner": (17 * 60 + 30, 20 * 60 + 30),    # 17:30–20:30
 }
+# 自由用餐占位插入时间（窗口中段，避免和真实餐厅冲突）
+_MEAL_INSERT_AT = {"lunch": 12 * 60 + 30, "dinner": 18 * 60 + 30}
 _MEAL_BUFFER_MINS = 60  # 自由用餐占位时长
 
 WEATHER_SUGGESTIONS = {
@@ -375,9 +378,27 @@ def _is_nightlife(place: Place) -> bool:
 
 # ===== TSP =====
 
+def _matrix_get(matrix: dict, a_id: str, b_id: str, default):
+    """从时间矩阵中取 (a→b) 数据。兼容 tuple key 和扁平 'a__b' string key。
+
+    Planner 子图把 tuple key 压平为 string key 以便 LangSmith 序列化，本函数把两种 key 形式统一。
+    """
+    if not matrix:
+        return default
+    # 优先字符串 key（新格式）
+    val = matrix.get(f"{a_id}__{b_id}")
+    if val is not None:
+        return tuple(val) if isinstance(val, list) else val
+    # 兼容老的 tuple key 格式（直接调用 _build_time_matrix 时仍是 tuple）
+    val = matrix.get((a_id, b_id))
+    if val is not None:
+        return val
+    return default
+
+
 def _nearest_neighbor_tsp(
     places: list[Place],
-    time_matrix: dict[tuple[str, str], tuple[int, float]],
+    time_matrix: dict,
 ) -> list[Place]:
     if len(places) <= 1:
         return [p.model_copy(update={"visit_order": i}) for i, p in enumerate(places)]
@@ -391,8 +412,10 @@ def _nearest_neighbor_tsp(
         last = path[-1]
         nearest = min(
             (i for i in range(n) if not visited[i]),
-            key=lambda i: time_matrix.get(
-                (places[last].place_id, places[i].place_id),
+            key=lambda i: _matrix_get(
+                time_matrix,
+                places[last].place_id,
+                places[i].place_id,
                 (DEFAULT_TRANSPORT_MINS, 10.0),
             )[0],
         )
@@ -448,10 +471,21 @@ def _generate_time_slots(
 
     current_mins = _calc_start_time(sorted_places, prev_day_last_slot_end)
     slots: list[TimeSlot] = []
-    has_food_in_window: dict[str, bool] = {"lunch": False, "dinner": False}
 
-    def _add_meal_slot(meal_name: str, window_start: int) -> None:
-        slots.append(TimeSlot(
+    def _time_str_to_int(t: str) -> int:
+        h, m = t.split(":")
+        return int(h) * 60 + int(m)
+
+    def _slot_overlaps_window(slot: TimeSlot, win: tuple[int, int]) -> bool:
+        try:
+            s = _time_str_to_int(slot.start_time)
+            e = _time_str_to_int(slot.end_time)
+        except Exception:
+            return False
+        return s < win[1] and e > win[0]
+
+    def _build_meal_slot(meal_name: str, start_mins: int) -> TimeSlot:
+        return TimeSlot(
             place_id=f"__meal_{meal_name}__",
             place={
                 "place_id": f"__meal_{meal_name}__",
@@ -461,47 +495,15 @@ def _generate_time_slots(
                 "coords": {"lng": 0.0, "lat": 0.0},
                 "city": "",
                 "tags": ["用餐"],
-                "tips": ["根据当天所在位置自由选择餐厅"],
+                "tips": ["附近随机选一家小馆，或回到主行程附近的餐厅"],
             },
-            start_time=f"{window_start // 60:02d}:{window_start % 60:02d}",
-            end_time=f"{(window_start + _MEAL_BUFFER_MINS) // 60:02d}:{(window_start + _MEAL_BUFFER_MINS) % 60:02d}",
+            start_time=f"{start_mins // 60:02d}:{start_mins % 60:02d}",
+            end_time=f"{(start_mins + _MEAL_BUFFER_MINS) // 60:02d}:{(start_mins + _MEAL_BUFFER_MINS) % 60:02d}",
             transport=None,
-        ))
-
-    def _check_and_insert_meal(current: int) -> int:
-        """若当前时间进入用餐窗且该顿饭未安排，插入占位块并返回推迟后的时间。"""
-        nonlocal has_food_in_window
-        for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
-            if not has_food_in_window[meal] and win_start <= current < win_end:
-                _add_meal_slot(meal, current)
-                has_food_in_window[meal] = True
-                return current + _MEAL_BUFFER_MINS
-        return current
-
-    # 检查地点是否属于某用餐时间窗内的餐厅
-    for p in sorted_places:
-        if p.category == PlaceCategory.FOOD:
-            dur, _ = _smart_duration(p)
-            for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
-                # 粗估：若该餐厅所在顺序的预期开始时间落入窗口
-                pass
-    # 简化：只要当天有餐厅就标记对应时间窗已有安排
-    for p in sorted_places:
-        if p.category == PlaceCategory.FOOD:
-            dur, _ = _smart_duration(p)
-            # 餐厅默认 12:00~13:00 → 标记午餐；18:00+ → 标记晚餐（粗估）
-            idx = sorted_places.index(p)
-            approx_start = current_mins + sum(
-                _smart_duration(sorted_places[j])[0] for j in range(idx)
-            )
-            for meal, (win_start, win_end) in _MEAL_WINDOWS.items():
-                if win_start <= approx_start <= win_end:
-                    has_food_in_window[meal] = True
+        )
 
     # ── 排入白天地点 ──────────────────────────────────────────────
     for i, place in enumerate(daytime):
-        current_mins = _check_and_insert_meal(current_mins)
-
         duration, basis = _smart_duration(place)
         # 写回 duration_basis（不可变 model，先 copy）
         if not place.duration_basis or place.duration_basis == "default":
@@ -516,8 +518,9 @@ def _generate_time_slots(
         remaining_day = daytime[i + 1:]
         if remaining_day or nightlife:
             next_place = remaining_day[0] if remaining_day else nightlife[0]
-            key = (place.place_id, next_place.place_id)
-            dur_mins, dist_km = time_matrix.get(key, _estimate_driving(place, next_place))
+            dur_mins, dist_km = _matrix_get(
+                time_matrix, place.place_id, next_place.place_id, _estimate_driving(place, next_place)
+            )
             transport = TransportLeg(mode="driving", duration_mins=dur_mins, distance_km=dist_km)
             current_mins = end_mins + dur_mins
         else:
@@ -531,11 +534,12 @@ def _generate_time_slots(
             transport=transport,
         ))
 
+    # ── 夜间活动开始前，确保已经安排了晚饭 ─────────────────────────
+    if nightlife:
+        current_mins = max(current_mins, 20 * 60)
+
     # ── 排入夜间活动（不早于 20:00）────────────────────────────────
     for i, place in enumerate(nightlife):
-        current_mins = max(current_mins, 20 * 60)
-        current_mins = _check_and_insert_meal(current_mins)
-
         duration, basis = _smart_duration(place)
         if not place.duration_basis or place.duration_basis == "default":
             place = place.model_copy(update={"estimated_duration": duration, "duration_basis": basis})
@@ -547,8 +551,9 @@ def _generate_time_slots(
         transport = None
         if i < len(nightlife) - 1:
             next_place = nightlife[i + 1]
-            key = (place.place_id, next_place.place_id)
-            dur_mins, dist_km = time_matrix.get(key, _estimate_driving(place, next_place))
+            dur_mins, dist_km = _matrix_get(
+                time_matrix, place.place_id, next_place.place_id, _estimate_driving(place, next_place)
+            )
             transport = TransportLeg(mode="driving", duration_mins=dur_mins, distance_km=dist_km)
             current_mins = end_mins + dur_mins
         else:
@@ -561,6 +566,33 @@ def _generate_time_slots(
             end_time=end_str,
             transport=transport,
         ))
+
+    # ── 用餐 Post-Scan：任一窗口内没真实餐厅 slot → 插入自由用餐占位 ──
+    # 比 pre-scan 准确：基于已生成的实际时间表判断，且不会和真实餐厅打架
+    for meal_name, win in _MEAL_WINDOWS.items():
+        has_real_food = any(
+            (s.place.category == PlaceCategory.FOOD if hasattr(s.place, "category") else (s.place or {}).get("category") == "food")
+            and not str(s.place_id).startswith("__meal_")
+            and _slot_overlaps_window(s, win)
+            for s in slots
+        )
+        if has_real_food:
+            continue
+        # 当天没有真实餐厅覆盖这顿饭 → 在窗口中段插入自由用餐
+        insert_at = _MEAL_INSERT_AT[meal_name]
+        meal_slot = _build_meal_slot(meal_name, insert_at)
+        # 按 start_time 插入到正确位置
+        inserted = False
+        for idx, s in enumerate(slots):
+            try:
+                if _time_str_to_int(s.start_time) > insert_at:
+                    slots.insert(idx, meal_slot)
+                    inserted = True
+                    break
+            except Exception:
+                continue
+        if not inserted:
+            slots.append(meal_slot)
 
     return slots
 

@@ -173,6 +173,10 @@ async def _event_stream(request: ChatRequest):
                     for place in places:
                         yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
 
+                    # 文本重置帧：Critic 触发重检索时 synthesizer 会再跑一次，
+                    # 此时清空前一轮文本，避免前端追加导致重复段落
+                    yield f"data: {json.dumps({'event': 'text_reset', 'data': {}}, ensure_ascii=False)}\n\n"
+
                     # 批量推送文字（_TEXT_CHUNK_SIZE 字符/帧，减少 SSE 帧数量）
                     for i in range(0, len(response_text), _TEXT_CHUNK_SIZE):
                         chunk = response_text[i:i + _TEXT_CHUNK_SIZE]

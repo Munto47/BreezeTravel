@@ -15,7 +15,59 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.state import AgentState
 from app.config import settings
 from app.memory.working import format_for_prompt
-from app.schemas.place import Place, PlaceRAGMeta
+from app.schemas.place import Place, PlaceCategory, PlaceRAGMeta
+
+
+# 用户硬约束品类关键词 → 必须出现在 place.name 或 place.tags 里
+# 用于过滤 RAG/Amap 因相关词扩散召回的不相关品类（"火锅" 查询返回"网红快餐"等）
+_CUISINE_HARD_KEYWORDS = {
+    "火锅": ["火锅"],
+    "串串": ["串串", "串"],
+    "烤肉": ["烤肉", "烧烤", "烤"],
+    "烧烤": ["烧烤", "烤肉"],
+    "日料": ["日料", "日本", "寿司", "刺身", "拉面"],
+    "韩餐": ["韩餐", "韩国", "烤肉", "石锅"],
+    "西餐": ["西餐", "牛排"],
+    "意大利": ["意大利", "披萨", "意面"],
+    "披萨": ["披萨", "比萨"],
+    "咖啡": ["咖啡", "café", "Café", "Coffee", "coffee"],
+    "茶馆": ["茶馆", "茶社", "茶舍"],
+    "粤菜": ["粤菜", "广式", "茶餐厅"],
+    "川菜": ["川菜"],
+    "湘菜": ["湘菜"],
+}
+
+
+def _extract_user_cuisine_constraint(user_msg: str) -> list[str]:
+    """从用户消息中提取硬性菜系/品类约束关键词。"""
+    if not user_msg:
+        return []
+    hits: list[str] = []
+    for trigger, kw_list in _CUISINE_HARD_KEYWORDS.items():
+        if trigger in user_msg:
+            hits.extend(kw_list)
+    # 去重保序
+    seen, out = set(), []
+    for k in hits:
+        if k not in seen:
+            seen.add(k)
+            out.append(k)
+    return out
+
+
+def _filter_food_by_cuisine(places: list[Place], cuisine_keywords: list[str]) -> list[Place]:
+    """按用户明确菜系过滤 FOOD 类地点；非 FOOD 类保留。"""
+    if not cuisine_keywords:
+        return places
+    kept: list[Place] = []
+    for p in places:
+        if p.category != PlaceCategory.FOOD:
+            kept.append(p)
+            continue
+        haystack = f"{p.name} {' '.join(p.tags or [])} {p.description or ''}"
+        if any(kw in haystack for kw in cuisine_keywords):
+            kept.append(p)
+    return kept
 
 SYNTHESIZER_SYSTEM = "你是旅行规划助手，返回格式严格的 JSON，不要加 markdown 代码块。"
 
@@ -67,6 +119,20 @@ async def run(state: AgentState) -> dict:
     rag_chunks: list[dict] = state.get("rag_chunks", [])
     trip_city: str = state.get("trip_city") or "该城市"
     working_ctx = state.get("working_context")
+
+    # 用户硬约束品类过滤（"火锅" 查询不应返回"网红快餐/炒饭/烤肉"等不相关品类）
+    msgs = state.get("messages", []) or []
+    last_user_msg = ""
+    for m in reversed(msgs):
+        if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
+            last_user_msg = str(m.content)
+            break
+    cuisine_kws = _extract_user_cuisine_constraint(last_user_msg)
+    if cuisine_kws:
+        before = len(amap_places)
+        amap_places = _filter_food_by_cuisine(amap_places, cuisine_kws)
+        if len(amap_places) != before:
+            print(f"[Synthesizer] 品类硬约束 {cuisine_kws}：{before} → {len(amap_places)} 个地点")
 
     if not amap_places:
         return {

@@ -46,6 +46,50 @@ _QUEUE_KEYWORDS = r"大熊猫|故宫|颐和园|西湖|鸟巢|兵马俑|黄山|�
 _RAINY_KEYWORDS = r"雨|雷|阵雨|暴雨"
 
 
+# 触发去重的"意图关键短语"。任两条 tip 共享同一关键短语 → 视为同意图重复
+_TIP_INTENT_PHRASES = (
+    "建议提前", "提前到", "提前出发", "尽早", "早到", "避开高峰", "高峰期", "避免拥挤",
+    "穿舒适", "平底鞋", "舒适鞋", "多带水", "多补水", "携带饮用水", "防晒",
+    "带伞", "雨具", "防滑", "保暖",
+    "排队", "取号", "预约", "微信小程序",
+)
+
+
+def _dedup_tips_fuzzy(tips: list[str], threshold: float = 0.5) -> list[str]:
+    """近似去重：
+    ① 字符集 jaccard ≥ threshold 视为重复
+    ② 共享同一"意图关键短语"视为重复（覆盖"建议提前到"和"建议提前出发"等近义提示）
+    保留前一条（信息密度通常更高，常是 LLM 输出）。
+    """
+    if not tips:
+        return tips
+    kept: list[str] = []
+    kept_sets: list[set[str]] = []
+    kept_intents: list[set[str]] = []
+    for t in tips:
+        if not t:
+            continue
+        cur_set = set(t)
+        cur_intents = {ph for ph in _TIP_INTENT_PHRASES if ph in t}
+        is_dup = False
+        for prev_set, prev_intents in zip(kept_sets, kept_intents):
+            # 意图短语重叠 → 重复
+            if cur_intents and (cur_intents & prev_intents):
+                is_dup = True
+                break
+            # jaccard 重叠
+            inter = len(cur_set & prev_set)
+            union = len(cur_set | prev_set)
+            if union and (inter / union) >= threshold:
+                is_dup = True
+                break
+        if not is_dup:
+            kept.append(t)
+            kept_sets.append(cur_set)
+            kept_intents.append(cur_intents)
+    return kept
+
+
 def _rule_based_tips(slot: TimeSlot, weather_condition: Optional[str]) -> list[str]:
     """不依赖 LLM 的快速规则提示（兜底）"""
     tips: list[str] = []
@@ -68,13 +112,14 @@ def _rule_based_tips(slot: TimeSlot, weather_condition: Optional[str]) -> list[s
     if re.search(_QUEUE_KEYWORDS, name):
         tips.append("热门景区，建议提前出发，避开节假日高峰排队")
 
-    # 夜间活动
-    try:
-        h = int(slot.start_time.split(":")[0])
-        if h >= 20:
-            tips.append(f"夜间场所，通常营业至深夜，注意回程交通安排")
-    except Exception:
-        pass
+    # 夜间活动（仅限景点/餐饮，酒店 check-in 时间常 ≥20 不应误判）
+    if category in ("attraction", "food"):
+        try:
+            h = int(slot.start_time.split(":")[0])
+            if h >= 20:
+                tips.append(f"夜间场所，通常营业至深夜，注意回程交通安排")
+        except Exception:
+            pass
 
     return tips[:2]
 
@@ -180,9 +225,10 @@ async def _llm_generate_tips(itinerary: Itinerary, preferences: str) -> Itinerar
                 updated_slots.append(slot)
                 continue
             llm_tips = tips_map.get(slot.place_id, [])
-            # 合并规则提示（去重）
+            # 合并规则提示，先 exact 去重再 fuzzy 去重（避免"建议穿舒适平底鞋"类相似提示重复）
             rule_tips = _rule_based_tips(slot, weather_cond)
-            merged = list(dict.fromkeys(llm_tips + [t for t in rule_tips if t not in llm_tips]))[:3]
+            raw_merged = list(dict.fromkeys(llm_tips + [t for t in rule_tips if t not in llm_tips]))
+            merged = _dedup_tips_fuzzy(raw_merged)[:3]
             updated_slots.append(slot.model_copy(update={"tips": merged}))
         updated_days.append(day.model_copy(update={"slots": updated_slots}))
 

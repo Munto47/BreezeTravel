@@ -20,7 +20,14 @@ async def run(state: PlannerState) -> dict:
 
         results = await asyncio.gather(*[_one(cid, ps) for cid, ps in clusters.items()])
 
-    time_matrices = {cid: matrix for cid, matrix in results}
+    # tuple-key 的矩阵无法被 LangSmith 序列化（JSON keys 必须是 str/数字）
+    # → 在写入 state 时压平为 "a__b" 字符串 key；下游通过 lookup_matrix 取回
+    time_matrices: dict[int, dict] = {}
+    for cid, matrix in results:
+        flat: dict[str, list] = {}
+        for (a_id, b_id), val in matrix.items():
+            flat[f"{a_id}__{b_id}"] = list(val) if isinstance(val, tuple) else val
+        time_matrices[cid] = flat
 
     trace = state.get("trace", []) + [
         f"[Distance] 构建 {len(time_matrices)} 个簇的时间矩阵"

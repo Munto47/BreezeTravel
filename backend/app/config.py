@@ -70,6 +70,19 @@ class Settings(BaseSettings):
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
 
+    # ── 开发/演示登录旁路 ─────────────────────────────────────────────
+    # 启用后，/api/auth/send-code 不真发短信，验证码固定为 dev_login_code
+    # 用于本地开发、CI、演示环境，避免吃真实 SMS 配额
+    dev_login_bypass: bool = False
+    dev_login_code: str = "888888"
+
+    # 同号码每日发送上限（命中后返回 429，避免触发运营商日级流控）
+    sms_daily_limit_per_phone: int = 5
+
+    # 测试账号一键登录（仅在 dev_login_bypass=true 时启用）
+    test_account_phone: str = "10000000000"
+    test_account_nickname: str = "测试旅行者"
+
     # ── LangSmith 可观测性（Sprint 5 新增）────────────────────────────
     # 配置后所有 LangChain / LangGraph 调用自动上报追踪数据
     # 控制台：https://smith.langchain.com/

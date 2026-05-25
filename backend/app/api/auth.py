@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
+from app.config import settings
 from app.db.connection import get_pool
 from app.utils.sms import send_code
 from app.utils.auth import create_token
@@ -21,6 +22,8 @@ router = APIRouter()
 
 
 def _gen_code(length: int = 6) -> str:
+    if settings.dev_login_bypass:
+        return settings.dev_login_code
     return "".join(random.choices(string.digits, k=length))
 
 
@@ -54,6 +57,21 @@ async def send_verification_code(body: SendCodeRequest):
         if recent:
             raise HTTPException(status_code=429, detail="发送过于频繁，请 60 秒后重试")
 
+        # 日级配额自查，避免触发运营商日级流控
+        if not settings.dev_login_bypass:
+            daily = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM sms_verifications
+                WHERE phone = $1 AND created_at > NOW() - INTERVAL '24 hours'
+                """,
+                phone,
+            )
+            if daily and daily >= settings.sms_daily_limit_per_phone:
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"今日已发送 {daily} 次，已达 {settings.sms_daily_limit_per_phone} 次上限，请明日再试",
+                )
+
         code = _gen_code()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
         await conn.execute(
@@ -66,11 +84,61 @@ async def send_verification_code(body: SendCodeRequest):
             expires_at,
         )
 
+    if settings.dev_login_bypass:
+        print(f"[Auth DEV BYPASS] {phone} -> code={code}", flush=True)
+        return {"ok": True, "dev_bypass": True}
+
     ok = await send_code(phone, code)
     if not ok:
         raise HTTPException(status_code=502, detail="短信发送失败，请稍后重试")
 
     return {"ok": True}
+
+
+@router.post("/auth/test-login")
+async def test_login():
+    """测试账号一键登录。仅在 settings.dev_login_bypass=true 时启用。
+
+    生产环境强制返回 403，避免泄露。本地/演示环境用于快速进入主流程，无需验证码。
+    """
+    if not settings.dev_login_bypass:
+        raise HTTPException(status_code=403, detail="测试账号仅在开发模式下可用")
+
+    import uuid
+    phone = settings.test_account_phone
+    nickname = settings.test_account_nickname
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT user_id, nickname FROM users WHERE phone = $1",
+            phone,
+        )
+        is_new_user = user is None
+        if is_new_user:
+            user_id = str(uuid.uuid4())
+            await conn.execute(
+                """
+                INSERT INTO users (user_id, nickname, phone, updated_at)
+                VALUES ($1, $2, $3, NOW())
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+                nickname,
+                phone,
+            )
+        else:
+            user_id = user["user_id"]
+            nickname = user["nickname"]
+
+    token = create_token(user_id)
+    return {
+        "token": token,
+        "user_id": user_id,
+        "nickname": nickname,
+        "is_new_user": is_new_user,
+        "phone": phone,
+    }
 
 
 @router.post("/auth/verify")

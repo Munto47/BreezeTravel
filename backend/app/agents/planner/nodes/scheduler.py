@@ -50,7 +50,7 @@ async def run(state: PlannerState) -> dict:
             )
             slots = _generate_time_slots(ordered, matrix, prev_day_last_slot_end=prev_end)
 
-            # ── 酒店挂载 ───────────────────────────────────────────────
+            # ── 酒店挂载（作为"今晚住宿"day-end marker，非游览 slot）─────
             if slots:
                 sorted_ordered = sorted(ordered, key=lambda p: p.visit_order or 0)
                 last_activity = sorted_ordered[-1]
@@ -64,17 +64,23 @@ async def run(state: PlannerState) -> dict:
                             distance_km=dist_km,
                         )
                     })
-                    hotel_start = _time_str_to_mins(slots[-1].end_time) + dur_mins
-                    hotel_end = hotel_start + DEFAULT_DURATION[PlaceCategory.HOTEL]
+                    # check-in 时间：上一活动结束后 + 车程；但不早于 21:00（一天结束）
+                    hotel_start = max(
+                        _time_str_to_mins(slots[-1].end_time) + dur_mins,
+                        21 * 60,
+                    )
+                    # check-out 次日 12:00（跨日，表示"今晚住宿到第二天上午"）
+                    hotel_end_mins = 24 * 60 + 12 * 60
                     hotel = hotel.model_copy(update={
                         "cluster_id": day_index,
                         "visit_order": len(slots),
+                        "tags": list(hotel.tags or []) + ["今晚住宿"],
                     })
                     slots.append(TimeSlot(
                         place_id=hotel.place_id,
                         place=hotel.model_dump(),
                         start_time=f"{hotel_start // 60:02d}:{hotel_start % 60:02d}",
-                        end_time=f"{hotel_end // 60:02d}:{hotel_end % 60:02d}",
+                        end_time="次日 12:00",
                         transport=None,
                     ))
 

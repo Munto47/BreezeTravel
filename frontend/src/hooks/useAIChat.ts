@@ -124,6 +124,14 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
                 ]
               }
 
+              if (event === 'text_reset') {
+                // Critic 触发重检索时 synthesizer 会再跑一次，清空前一轮文本避免段落重复
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: '' },
+                ]
+              }
+
               if (event === 'done') {
                 return [
                   ...prev.slice(0, -1),

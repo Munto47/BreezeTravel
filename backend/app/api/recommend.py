@@ -8,6 +8,7 @@ POST /api/recommend - 城市候选地点推荐接口
 """
 
 import json
+import re
 import asyncio
 from typing import Optional
 
@@ -19,6 +20,124 @@ from pydantic import BaseModel
 from app.config import settings
 from app.db.connection import get_pool
 from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
+
+
+# ── 同景点多入口 / 同品牌多分店去重正则 ────────────────────────────────
+# 去掉「(xxx店)」「(xxx馆)」「(xxx中心)」「-xxx号」等后缀后视为同一品牌
+_BRAND_SUFFIX_RE = re.compile(
+    r"[\(\（].*?[\)\）]|"        # (南门店) / （旗舰店）
+    r"[\[\【].*?[\]\】]|"        # [总店] / 【新店】
+    r"[\-—–]\s*\S+店$|"          # -xxx 店
+    r"(?:总店|分店|旗舰店|新店|本店|店)$"
+)
+
+
+def _normalize_brand(name: str) -> str:
+    """提取品牌主名用于去重：'陈麻婆豆腐(南门店)' → '陈麻婆豆腐'"""
+    n = (name or "").strip()
+    while True:
+        new_n = _BRAND_SUFFIX_RE.sub("", n).strip()
+        if new_n == n:
+            break
+        n = new_n
+    return n or name
+
+
+# 常见城市前缀，用于剥离生成 stem
+_CITY_PREFIXES = (
+    "北京", "上海", "成都", "广州", "深圳", "杭州", "西安", "重庆", "厦门", "三亚",
+    "丽江", "桂林", "苏州", "南京", "武汉", "长沙", "天津", "青岛", "大连", "昆明",
+)
+
+# 常见景点/品牌尾缀，去掉后做主体名比较
+_VENUE_TAIL_RE = re.compile(
+    r"(?:景区|景点|风景区|风景名胜区|博物馆|纪念馆|展览馆|大剧院|剧场|动物园|植物园|"
+    r"公园|广场|商业街|步行街|古镇|古城|遗址|寺|寺庙|宫|塔|楼|湖|山|岛|海滩|"
+    r"游客中心|服务中心|办公楼|售票处|入口|出入口|出口|大门|东门|西门|南门|北门|"
+    r"东广场|西广场|南广场|北广场|东区|西区|南区|北区|[A-Z]区|"
+    r"店|总店|分店|旗舰店|新店|本店)$"
+)
+
+# 括号 / 中文括号 / 方括号注释（含分店标识）
+_PAREN_RE = re.compile(r"[\(\（\[\【].*?[\)\）\]\】]")
+
+# 分隔符 + 描述性尾段（- 观光车站、· 宽厂、- 竹道 等）
+_SEPARATOR_TAIL_RE = re.compile(r"[·\-—–]\s*\S+$")
+
+
+def _venue_stem(name: str) -> str:
+    """提取景点/品牌的主体名词，用于跨条目去重。
+
+    流程：① 去括号注释 ② 剥离城市前缀 ③ 去分隔符尾段 ④ 多轮去尾缀
+    例：
+      '成都大熊猫繁育研究基地小熊猫1号活动场' → '大熊猫繁育研究基地小熊猫1号'
+      '宽窄巷子·宽厂' → '宽窄巷子'
+      '武侯祠锦里中心' → '武侯祠锦里'
+      '小龙坎火锅(春熙太古里店)' → '小龙坎火锅'
+    """
+    n = (name or "").strip()
+    # ① 去括号注释
+    n = _PAREN_RE.sub("", n).strip()
+    # ② 剥离城市前缀
+    for c in _CITY_PREFIXES:
+        if n.startswith(c):
+            n = n[len(c):].strip()
+            break
+    # ③ 去分隔符 + 描述尾段（如 -竹道 / ·宽厂）
+    n = _SEPARATOR_TAIL_RE.sub("", n).strip()
+    # ④ 多轮去通用尾缀
+    while True:
+        new_n = _VENUE_TAIL_RE.sub("", n).strip()
+        if new_n == n or not new_n:
+            break
+        n = new_n
+    return n or name
+
+
+def _strip_city_and_parens(name: str) -> str:
+    """去掉 city 前缀和括号注释，保留主体用于公共前缀比较"""
+    n = (name or "").strip()
+    n = _PAREN_RE.sub("", n).strip()
+    for c in _CITY_PREFIXES:
+        if n.startswith(c):
+            n = n[len(c):].strip()
+            break
+    return n
+
+
+def _is_same_venue_branch(name_a: str, name_b: str) -> bool:
+    """判断 a / b 是否同一景点的不同 POI 或同一品牌的不同分店。
+
+    判定标准（满足任一即视为重复）：
+      ① stem 互为子串
+      ② 剥离 city/括号后的公共起始前缀 ≥ 3 字（覆盖"金沙遗址博物馆乌木林""小龙坎老火锅"等）
+    """
+    if not name_a or not name_b or name_a == name_b:
+        return False
+    stem_a, stem_b = _venue_stem(name_a), _venue_stem(name_b)
+    if stem_a and stem_b:
+        short, long = (stem_a, stem_b) if len(stem_a) <= len(stem_b) else (stem_b, stem_a)
+        if len(short) >= 3 and short in long:
+            return True
+    # 公共前缀检查
+    core_a, core_b = _strip_city_and_parens(name_a), _strip_city_and_parens(name_b)
+    n = min(len(core_a), len(core_b))
+    i = 0
+    while i < n and core_a[i] == core_b[i]:
+        i += 1
+    return i >= 3
+
+
+_HOTEL_KW_IN_NAME = ("酒店", "宾馆", "客栈", "民宿", "旅馆", "公寓", "山庄", "度假村")
+
+
+def _hint_category_from_name(name: str) -> Optional[PlaceCategory]:
+    """名称里有酒店/宾馆等关键词时强制归类 HOTEL，纠正 Amap 类型误判"""
+    if not name:
+        return None
+    if any(kw in name for kw in _HOTEL_KW_IN_NAME):
+        return PlaceCategory.HOTEL
+    return None
 
 router = APIRouter()
 
@@ -75,6 +194,10 @@ def _parse_amap_place(raw: dict, city: str) -> Optional[Place]:
         if raw.get("photos"):
             photos = [p.get("url", "") for p in raw["photos"][:3] if p.get("url")]
         category = _parse_amap_type(raw.get("type", ""))
+        # 名称含「酒店/宾馆/客栈/民宿…」时强制归 HOTEL，纠正 Amap 类型误判
+        name_hint = _hint_category_from_name(raw.get("name", ""))
+        if name_hint:
+            category = name_hint
         return Place(
             place_id=raw.get("id", ""),
             name=raw.get("name", ""),
@@ -150,11 +273,12 @@ async def _recommend_smart(city: str, trip_days: int) -> list[Place]:
             )
             prompt = (
                 "你是专业旅行顾问，请为用户生成在【%s】%d天旅行的高德地图POI搜索关键词。\n\n"
-                "要求：\n"
-                "- 景点：%d个关键词，优先5A/4A景区、城市地标、热门网红打卡地\n"
-                "- 美食：%d个关键词，优先当地知名连锁品牌、必吃老字号、网红餐厅\n"
-                "- 住宿：%d个关键词，优先四星/五星连锁品牌酒店\n\n"
-                "每个关键词用于高德POI搜索，应简短精准。\n"
+                "硬性要求：\n"
+                "- 景点：%d个，**每个必须指向不同的具体景点**（5A景区/地标/博物馆/公园/历史街区/网红打卡地），禁止用"
+                "「热门景点」「必游景区」之类的泛指词，要直接给景点名（如「武侯祠」「锦里」「青城山」）。\n"
+                "- 美食：%d个，**每个必须指向不同的菜系或品牌**（火锅/串串/小吃/茶馆/老字号），禁止两个关键词指向同一品牌的不同分店。\n"
+                "- 住宿：%d个，给具体品牌（如「成都太古里东方文华」「成都金牛宾馆」），禁止用「四星酒店」泛指。\n\n"
+                "再次强调：关键词之间必须互不重复、互不归属同一商家/景点。\n"
                 '仅返回JSON数组，格式：[{"keyword":"...","type":"attraction"},{"keyword":"...","type":"food"},{"keyword":"...","type":"hotel"}]'
             ) % (city, trip_days, n_attract, n_food, n_hotel)
             resp = await client.chat.completions.create(
@@ -186,27 +310,50 @@ async def _recommend_smart(city: str, trip_days: int) -> list[Place]:
     type_count: dict[str, int] = {"attraction": 0, "food": 0, "hotel": 0}
     all_places: list[Place] = []
     seen_ids: set[str] = set()
+    seen_brands: set[tuple[str, str]] = set()   # (ptype, normalized_brand) → 同品牌只保留 1 家
+
+    # 子类型 → 校验函数：避免酒店被当美食/餐厅被当景点
+    _ptype_to_cat = {
+        "attraction": PlaceCategory.ATTRACTION,
+        "food": PlaceCategory.FOOD,
+        "hotel": PlaceCategory.HOTEL,
+    }
 
     async def fetch_one(kw: str, ptype: str, delay: float) -> list[Place]:
         await asyncio.sleep(delay)
-        remaining = type_limit.get(ptype, 3) - type_count.get(ptype, 0)
-        if remaining <= 0:
-            return []
-        results = await _fetch_amap_poi(kw, city, limit=remaining + 1)
+        # 抓更宽松的池（remaining + 4）以便后续去重/品类过滤后仍有冗余
+        results = await _fetch_amap_poi(kw, city, limit=type_limit.get(ptype, 3) + 4)
         return results
 
     tasks = [fetch_one(q["keyword"], q.get("type", "attraction"), i * 0.3)
              for i, q in enumerate(queries)]
     results = await asyncio.gather(*tasks)
 
+    kept_names_by_type: dict[str, list[str]] = {"attraction": [], "food": [], "hotel": []}
+
     for batch, q in zip(results, queries):
         ptype = q.get("type", "attraction")
-        for place in batch:
+        expected_cat = _ptype_to_cat.get(ptype)
+        # batch 内按评分降序，确保同景点多入口时保留评分最高的那个
+        batch_sorted = sorted(batch, key=lambda p: (p.amap_rating or 0), reverse=True)
+        for place in batch_sorted:
             if place.place_id in seen_ids:
+                continue
+            # ① 类目校验：keyword 标注是 food 但返回酒店 → 跳过
+            if expected_cat is not None and place.category != expected_cat:
+                continue
+            # ② 品牌/景点主名去重：陈麻婆豆腐(南门店/总店/旗舰店) 只保留评分最高
+            brand_key = (ptype, _normalize_brand(place.name))
+            if brand_key in seen_brands:
+                continue
+            # ③ 同景点多入口/分馆去重：跨 batch 比对，"基地" vs "基地游客中心/办公楼/山月馆" 视为同一处
+            if any(_is_same_venue_branch(kept, place.name) for kept in kept_names_by_type[ptype]):
                 continue
             if type_count.get(ptype, 0) >= type_limit.get(ptype, 3):
                 continue
             seen_ids.add(place.place_id)
+            seen_brands.add(brand_key)
+            kept_names_by_type[ptype].append(place.name)
             all_places.append(place)
             type_count[ptype] = type_count.get(ptype, 0) + 1
 

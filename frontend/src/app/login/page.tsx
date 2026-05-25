@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Compass, Phone, Shield, ArrowRight, Check } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/stores/toastStore'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -13,6 +14,7 @@ type Step = 'phone' | 'code' | 'nickname'
 export default function LoginPage() {
   const router = useRouter()
   const { user, login, updateUser } = useAuthStore()
+  const toast = useToastStore(s => s.toast)
   const [step, setStep] = useState<Step>('phone')
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState(['', '', '', '', '', ''])
@@ -20,6 +22,7 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [devBypass, setDevBypass] = useState(false)
   const codeRefs = useRef<(HTMLInputElement | null)[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -45,7 +48,9 @@ export default function LoginPage() {
   const handleSendCode = async () => {
     const trimmed = phone.trim()
     if (!/^1[3-9]\d{9}$/.test(trimmed)) {
-      setError('请输入正确的 11 位手机号')
+      const msg = '请输入正确的 11 位手机号'
+      setError(msg)
+      toast(msg, 'warning')
       return
     }
     setError('')
@@ -60,9 +65,17 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.detail || '发送失败')
       startCountdown()
       setStep('code')
+      if (data.dev_bypass) {
+        setDevBypass(true)
+        toast('开发模式：验证码固定为 888888', 'info')
+      } else {
+        toast('验证码已发送', 'success')
+      }
       setTimeout(() => codeRefs.current[0]?.focus(), 100)
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '发送失败，请重试')
+      const msg = e instanceof Error ? e.message : '发送失败，请重试'
+      setError(msg)
+      toast(msg, 'error')
     } finally {
       setLoading(false)
     }
@@ -124,9 +137,30 @@ export default function LoginPage() {
         router.replace('/')
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '验证失败')
+      const msg = e instanceof Error ? e.message : '验证失败'
+      setError(msg)
+      toast(msg, 'error')
       setCode(['', '', '', '', '', ''])
       setTimeout(() => codeRefs.current[0]?.focus(), 50)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTestLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/test-login`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || '测试账号登录失败')
+      login(data.token, { userId: data.user_id, nickname: data.nickname })
+      toast(`已用测试账号登录（${data.nickname}）`, 'success')
+      router.replace('/')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '测试账号登录失败'
+      setError(msg)
+      toast(msg, 'error')
     } finally {
       setLoading(false)
     }
@@ -230,6 +264,17 @@ export default function LoginPage() {
                     <>获取验证码 <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
+
+                {/* 开发/演示环境：测试账号一键登录（生产环境后端会返回 403，按钮会自动隐藏） */}
+                <div className="mt-3 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={handleTestLogin}
+                    disabled={loading}
+                    className="w-full py-2.5 text-xs text-gray-500 hover:text-coral-600 bg-gray-50 hover:bg-coral-50 border border-gray-200 hover:border-coral-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                  >
+                    🚀 使用测试账号一键登录（演示用）
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -246,9 +291,14 @@ export default function LoginPage() {
                   <Shield className="w-4 h-4 text-coral-500" />
                   <span className="text-sm font-semibold text-gray-700">输入验证码</span>
                 </div>
-                <p className="text-xs text-gray-400 mb-5">
+                <p className="text-xs text-gray-400 mb-2">
                   已发送至 +86 {phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')}
                 </p>
+                {devBypass && (
+                  <div className="mb-4 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                    🛠 开发模式：固定验证码 <span className="font-mono font-bold">888888</span>
+                  </div>
+                )}
 
                 {/* 6 格验证码输入 */}
                 <div className="flex gap-2 mb-4 justify-center">
