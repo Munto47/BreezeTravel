@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Compass, ArrowLeft, Building2, Globe, Server, Mail,
-  Sparkles, Users, Route, Github, ShieldCheck, Cpu, Database,
+  Sparkles, Users, Route, MessageSquare, ShieldCheck, Cpu, Database,
   MapPin, Calendar,
 } from 'lucide-react'
 
@@ -164,7 +164,7 @@ export default function AboutPage() {
             <InfoRow icon={<Mail className="w-4 h-4 text-coral-500" />} label="商务合作">
               <span className="text-gray-700">通过官网联系表单提交</span>
             </InfoRow>
-            <InfoRow icon={<Github className="w-4 h-4 text-gray-700" />} label="技术反馈">
+            <InfoRow icon={<MessageSquare className="w-4 h-4 text-gray-700" />} label="技术反馈">
               <span className="text-gray-700">访问 www.breezetravel.cn 留言</span>
             </InfoRow>
           </div>
