@@ -112,7 +112,9 @@ REDIS_URL=redis://localhost:6379
 DEMO_MODE=false
 
 # ===== 前端构建变量（NEXT_PUBLIC_* 是 build 时 bake，必须用生产 URL）=====
-NEXT_PUBLIC_API_URL=https://www.breezetravel.cn/api
+# 注意：URL 末尾**不要**加 /api，前端代码内部 fetch 路径已经带 /api/ 前缀，
+# 多加会导致 https://www.breezetravel.cn/api/api/... 双前缀 502。
+NEXT_PUBLIC_API_URL=https://www.breezetravel.cn
 NEXT_PUBLIC_Y_WEBSOCKET_URL=wss://www.breezetravel.cn/yjs
 NEXT_PUBLIC_AMAP_JS_KEY=...
 NEXT_PUBLIC_AMAP_SECURITY_CODE=...
