@@ -440,9 +440,27 @@ export default function HomePage() {
           </motion.div>
         )}
 
-        <p className="text-center text-[11px] text-gray-300 mt-6">
-          BreezeTravel · AI 旅行协同规划
-        </p>
+        <div className="text-center mt-6 space-y-1">
+          <p className="text-[11px] text-gray-300">
+            BreezeTravel · AI 旅行协同规划
+          </p>
+          <button
+            onClick={() => router.push('/about')}
+            className="text-[11px] text-gray-400 hover:text-coral-500 transition-colors underline-offset-2 hover:underline"
+          >
+            关于我们 · 开发主体与备案信息
+          </button>
+          <p className="text-[11px] text-gray-300 pt-1">
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-coral-500 hover:underline"
+            >
+              赣ICP备2026008973号-2
+            </a>
+          </p>
+        </div>
       </motion.div>
     </div>
   )
