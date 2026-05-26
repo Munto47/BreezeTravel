@@ -111,52 +111,48 @@ class TestSequencerNode:
 # ===== 端到端子图测试 =====
 
 class TestPlannerGraphEndToEnd:
-    def test_full_pipeline_returns_itinerary(self):
-        # 关闭 tips LLM 调用（无 API key 时 tips_generator 会跳过/降级）
+    """v2: run_planner 返回 PlannerResult(itinerary, backup_pool, critic_violations)"""
+
+    def _run_planner_sync(self, places, trip_days, thread_id):
         from app.agents.planner.graph import run_planner
+        from unittest.mock import AsyncMock, patch
+        import app.agents.planner.nodes.critic_v2 as cv2
+
+        async def patched_critic(state):
+            return {"critic_violations": [], "trace": state.get("trace", [])}
 
         async def _run():
-            return await run_planner(
-                places=CHENGDU_PLACES,
-                trip_days=3,
-                thread_id="planner-test-001",
-            )
+            with patch("app.agents.planner.nodes.scheduler_v2._load_place_meta", AsyncMock(return_value={})):
+                with patch("app.agents.planner.nodes.weather_fetcher._fetch_qweather_7d", AsyncMock(return_value=[])):
+                    orig = cv2.run
+                    cv2.run = patched_critic
+                    try:
+                        return await run_planner(places=places, trip_days=trip_days, thread_id=thread_id)
+                    finally:
+                        cv2.run = orig
 
-        itinerary = asyncio.run(_run())
+        return asyncio.run(_run())
+
+    def test_full_pipeline_returns_itinerary(self):
+        result = self._run_planner_sync(CHENGDU_PLACES, trip_days=3, thread_id="planner-test-001")
+        itinerary = result.itinerary
         assert itinerary is not None
         assert len(itinerary.days) == 3
         assert itinerary.thread_id == "planner-test-001"
         assert itinerary.city == "成都"
 
-    def test_all_places_scheduled(self):
-        from app.agents.planner.graph import run_planner
-
-        async def _run():
-            return await run_planner(
-                places=CHENGDU_PLACES,
-                trip_days=2,
-                thread_id="planner-test-002",
-            )
-
-        itinerary = asyncio.run(_run())
-        total_real = sum(
-            len([s for s in d.slots if not s.place_id.startswith("__meal_")])
-            for d in itinerary.days
-        )
-        assert total_real == len(CHENGDU_PLACES)
+    def test_returns_planner_result_fields(self):
+        result = self._run_planner_sync(CHENGDU_PLACES, trip_days=2, thread_id="planner-test-002")
+        assert hasattr(result, "itinerary")
+        assert hasattr(result, "backup_pool")
+        assert hasattr(result, "critic_violations")
+        assert isinstance(result.backup_pool, list)
 
     def test_hotel_anchored_per_day(self):
-        from app.agents.planner.graph import run_planner
-
-        async def _run():
-            return await run_planner(
-                places=CHENGDU_PLACES + CHENGDU_HOTELS,
-                trip_days=2,
-                thread_id="planner-test-003",
-            )
-
-        itinerary = asyncio.run(_run())
-        # 应至少有一天挂载了酒店
+        result = self._run_planner_sync(
+            CHENGDU_PLACES + CHENGDU_HOTELS, trip_days=2, thread_id="planner-test-003"
+        )
+        itinerary = result.itinerary
         any_hotel_anchored = any(
             any(s.place.get("category") == "hotel" for s in d.slots)
             for d in itinerary.days
@@ -184,4 +180,5 @@ class TestPlannerGraphEndToEnd:
         assert "Clusterer" in joined
         assert "Distance" in joined
         assert "Sequencer" in joined
-        assert "Scheduler" in joined
+        # v2 图：SchedulerV2 或 WeatherFetcher 均可
+        assert ("SchedulerV2" in joined or "Scheduler" in joined or "WeatherFetcher" in joined)

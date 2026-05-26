@@ -15,6 +15,7 @@ import { api } from '@/lib/api'
 import TopNav from '@/components/layout/TopNav'
 import ChatPanel from '@/components/chat/ChatPanel'
 import PlaceList from '@/components/places/PlaceList'
+import BackupDrawer from '@/components/places/BackupDrawer'
 import GlassPanel from '@/components/ui/GlassPanel'
 import type { YjsPlace } from '@/types/room'
 import { parsePlaceFromAPI } from '@/types/place'
@@ -108,7 +109,8 @@ export default function RoomPage() {
   const { messages, isStreaming, sendMessage } = useAIChat(threadId, userId)
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
-  const { itinerary, isOptimizing, optimize } = useOptimize(threadId, roomId)
+  const { itinerary, isOptimizing, backupPool, criticViolations, optimize } = useOptimize(threadId, roomId)
+  const [isBackupOpen, setIsBackupOpen] = useState(false)
 
   const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
 
@@ -204,49 +206,27 @@ export default function RoomPage() {
     if (itinerary) setRightTab('itinerary')
   }, [itinerary]) // eslint-disable-line
 
-  // ── 推荐景点初始加载 ───────────────────────────────────────────────────
-  const [recommendLoaded, setRecommendLoaded] = useState(false)
+  // ── 首次进入房间：自动唤起 AI 旅行顾问发送初始化「美景/美食/美梦」请求 ──
+  // 取代过去的 /api/recommend 兜底（结果太单调），改用完整 AI 链路（RAG + 高德 + LLM 增强）
+  // 触发条件：房间元数据已加载 / Yjs 已连接 / 没有任何已有地点（防止他人加入时重放）/ 当前会话还没消息
+  const [autoInitFired, setAutoInitFired] = useState(false)
   useEffect(() => {
-    if (!roomData.loaded || recommendLoaded || places.length > 0) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/recommend`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ city: tripCity, trip_days: storeDays || tripDays, user_id: userId || undefined }),
-        })
-        if (!res.ok) throw new Error(`${res.status}`)
-        const data = await res.json()
-        if (cancelled || !data.places?.length) return
-        isSyncingFromDB.current = true
-        data.places.forEach((raw: Record<string, unknown>) => {
-          const place = {
-            placeId: raw.place_id as string,
-            name: raw.name as string,
-            category: raw.category as string,
-            address: raw.address as string,
-            coords: raw.coords as { lng: number; lat: number },
-            city: raw.city as string,
-            district: raw.district as string | undefined,
-            source: raw.source as string,
-            amapRating: raw.amap_rating as number | undefined,
-            amapPrice: raw.amap_price as number | undefined,
-            openingHours: raw.opening_hours as string | undefined,
-            phone: raw.phone as string | undefined,
-            amapPhotos: (raw.amap_photos as string[]) || [],
-            description: raw.description as string | undefined,
-            tags: (raw.tags as string[]) || [],
-            estimatedDuration: raw.estimated_duration as number | undefined,
-          }
-          if (!places.find((p) => p.placeId === place.placeId)) addPlace(place as any)
-        })
-        setTimeout(() => { isSyncingFromDB.current = false }, 500)
-        setRecommendLoaded(true)
-      } catch (e) { console.warn('[RoomPage] 推荐加载失败', e) }
-    })()
-    return () => { cancelled = true }
-  }, [roomData.loaded, recommendLoaded, tripCity, tripDays]) // eslint-disable-line
+    if (!roomData.loaded || autoInitFired) return
+    if (!isConnected) return
+    if (places.length > 0 || messages.length > 0 || isStreaming) return
+    if (!tripCity || !threadId) return
+    setAutoInitFired(true)
+    const days = storeDays || tripDays
+    const prompt = `你好！欢迎来到 ${tripCity} ${days} 天行程的协同规划房间 ✨
+
+请帮我搭建初版推荐清单，**总数控制在 15 个以内**（无论我几天几人），三类各约 5 个，宁缺毋滥：
+🏞 美景：约 5 个必去地标（覆盖核心片区即可，不要堆数量）
+🍜 美食：约 5 家代表性餐厅（本地老字号 / 高分性价比为主，不要重复分店）
+🏨 美梦：约 5 家不同价位的酒店或民宿（标注大致价位与所在片区）
+
+每个地点一句话特色描述。优先高评分、知名度高的，剩余可在用户追问时再补充。`
+    sendMessage(prompt, [], tripCity)
+  }, [roomData.loaded, autoInitFired, isConnected, places.length, messages.length, isStreaming, tripCity, threadId, tripDays, storeDays, sendMessage])
 
   // AI 推荐地点自动加入工作台
   useEffect(() => {
@@ -279,6 +259,11 @@ export default function RoomPage() {
     setPhase('optimizing')
     await optimize(selectedPlaces, storeDays || tripDays)
     setPhase('planned')
+    // 备选池提示（A7）
+    if (backupPool.length > 0) {
+      toast(`${backupPool.length} 个地点因时间限制未能排入，已放入「备选」`, 'info')
+      setIsBackupOpen(true)
+    }
   }
 
   const selectedCount = places.filter((p) => p.votedBy.includes(userId)).length
@@ -288,6 +273,17 @@ export default function RoomPage() {
   return (
     <div className="h-screen w-screen overflow-hidden relative">
       <AMapContainer places={places} itinerary={itinerary} tripCity={tripCity} />
+
+      {/* 备选抽屉（A7） */}
+      <BackupDrawer
+        places={backupPool}
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        onAddToTrip={(place) => {
+          addPlace({ ...place, votedBy: [userId], note: '' } as any)
+          setIsBackupOpen(false)
+        }}
+      />
 
       <div className="overlay-layer">
         <TopNav

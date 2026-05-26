@@ -4,7 +4,7 @@
 通过共享 PlannerState（A2A 调度）协作完成路线规划。
 """
 
-from app.agents.planner.graph import build_planner_graph, run_planner
+from app.agents.planner.graph import build_planner_graph, run_planner, PlannerResult
 from app.agents.planner.state import PlannerState
 
-__all__ = ["build_planner_graph", "run_planner", "PlannerState"]
+__all__ = ["build_planner_graph", "run_planner", "PlannerResult", "PlannerState"]

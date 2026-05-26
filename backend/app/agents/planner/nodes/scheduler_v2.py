@@ -1,0 +1,518 @@
+"""SchedulerAgent v2：鱼骨模板驱动的排线引擎（SPEC §3.3）
+
+升级要点（相比 scheduler.py v1）：
+1. 按鱼骨模板选槽位，而非简单地按 TSP 顺序堆叠时间
+2. 候选筛选：闭馆时段 / 天气不合适的户外地点会被过滤
+3. 用餐时段强制：12:00–13:30 / 18:00–20:00 必须有餐厅 slot
+4. 体力曲线：上午 1.0 / 下午 0.7 / 晚间 0.4，重头景点排上午
+5. 同一天相邻槽位不能是相同 category_l2
+6. 排不下的地点进 backup_pool（A7）
+7. 生成 DayPlannerState（day_states 字段）供 Critic 消费
+
+place_meta 查询：
+  - 有数据库时异步批量查，缺字段按品类默认值补（conf=low）
+  - DEMO_MODE / 无 DB 时全走品类默认值
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import date, timedelta
+from typing import Optional
+
+import aiohttp
+
+from app.agents.nodes.optimizer import (
+    _estimate_driving,
+    _fetch_weather,
+    _match_hotel,
+    _time_str_to_mins,
+)
+from app.agents.planner.state import DayPlannerState, PlannerState, Slot
+from app.agents.planner.templates import RhythmTemplate, TemplateSlot, select_template
+from app.config import settings
+from app.schemas.itinerary import DayPlan, TimeSlot, TransportLeg, WeatherInfo
+from app.schemas.place import Place, PlaceCategory
+from app.schemas.preferences import GroupPreferences, WeatherDay
+
+# ─── 品类默认 dwell 时间（SPEC §2.1 low 置信度默认值） ─────────────────────────
+_CATEGORY_L2_DWELL: dict[str, int] = {
+    "博物馆": 120, "历史遗址": 120, "纪念馆": 90, "展览馆": 90,
+    "景区": 120, "5A景区": 240, "古迹": 120,
+    "主题乐园": 360, "主题公园": 360, "动物园": 180, "科技馆": 120,
+    "街区": 90, "古镇": 90, "老街": 90, "艺术区": 75,
+    "公园": 75, "广场": 45, "观景台": 45, "夜景": 60,
+    "咖啡馆": 60, "茶馆": 60, "甜品": 45,
+    "餐厅": 75, "地方菜": 75, "早午餐": 60,
+    "火锅": 90, "烧烤": 90, "串串": 90,
+    "面馆": 45, "快餐": 30, "小吃": 30,
+    "酒吧": 120, "清吧": 90, "夜市": 90,
+    "酒店": 30,
+}
+
+_CATEGORY_L1_DWELL: dict[str, int] = {
+    "景点": 120,
+    "餐饮": 60,
+    "夜生活": 90,
+    "住宿": 30,
+}
+
+# ─── 户外判断：category_l2 是否倾向户外 ───────────────────────────────────────
+_OUTDOOR_L2 = {
+    "景区", "古迹", "街区", "古镇", "老街", "公园", "广场", "观景台",
+    "夜景", "滨江", "湖畔", "步道", "绿道",
+}
+
+
+def _is_outdoor(place: Place) -> bool:
+    tags_text = " ".join(place.tags or [])
+    return any(kw in (place.name + tags_text) for kw in ["户外", "景区", "公园", "广场", "街区"])
+
+
+# ─── 天气过滤 ──────────────────────────────────────────────────────────────────
+
+def _weather_blocks_outdoor(weather: Optional[WeatherDay], prefs: Optional[GroupPreferences]) -> bool:
+    """雨天 precip > 5mm 时户外槽应该被换成室内"""
+    if weather is None:
+        return False
+    if weather.precip_mm > 5:
+        return True
+    avoid_heat = prefs.avoid_outdoor_heat if prefs else True
+    return False
+
+
+def _heat_window(time_mins: int) -> bool:
+    """夏季 11:30–14:00 户外体力消耗过大"""
+    return 11 * 60 + 30 <= time_mins < 14 * 60
+
+
+# ─── 从 place_meta 或品类默认值获取 dwell ─────────────────────────────────────
+
+def _dwell_minutes(place: Place, meta_cache: dict[str, dict]) -> int:
+    """优先用 place_meta，没有则 estimated_duration，再用品类默认"""
+    if place.place_id in meta_cache:
+        m = meta_cache[place.place_id]
+        if m.get("dwell_minutes"):
+            return int(m["dwell_minutes"])
+    if place.estimated_duration:
+        return place.estimated_duration
+    # 从 tags/name 猜 category_l2
+    tags_text = " ".join(place.tags or []) + (place.name or "")
+    for l2, mins in _CATEGORY_L2_DWELL.items():
+        if l2 in tags_text:
+            return mins
+    cat_map = {
+        PlaceCategory.ATTRACTION: 120,
+        PlaceCategory.FOOD: 60,
+        PlaceCategory.HOTEL: 30,
+    }
+    return cat_map.get(place.category, 75)
+
+
+def _open_hours(place: Place, meta_cache: dict[str, dict], day_of_week: int) -> Optional[tuple[int, int]]:
+    """返回 (open_min, close_min)；None 表示全天开放或无数据"""
+    if place.place_id not in meta_cache:
+        return None
+    m = meta_cache[place.place_id]
+    hours_json: Optional[dict] = m.get("open_hours_json")
+    if not hours_json:
+        return None
+    day_key = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][day_of_week % 7]
+    windows = hours_json.get(day_key)
+    if not windows:
+        return None  # 该天休息（闭馆）表示为 null → 也应被过滤，这里先返回 None 交由调用方处理
+    # 取第一个窗口
+    w = windows[0]
+    return (int(w[0]) * 60, int(w[1]) * 60)
+
+
+def _is_closed(place: Place, meta_cache: dict[str, dict], day_of_week: int) -> bool:
+    """place_meta 中 open_hours_json[day_key] == null → 闭馆"""
+    if place.place_id not in meta_cache:
+        return False
+    m = meta_cache[place.place_id]
+    hours_json = m.get("open_hours_json")
+    if not hours_json:
+        return False
+    day_key = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][day_of_week % 7]
+    return hours_json.get(day_key) is None
+
+
+# ─── 体力曲线 ──────────────────────────────────────────────────────────────────
+
+def _stamina(time_mins: int) -> float:
+    """上午 1.0 / 下午 0.7 / 晚间 0.4"""
+    if time_mins < 12 * 60:
+        return 1.0
+    if time_mins < 18 * 60:
+        return 0.7
+    return 0.4
+
+
+def _place_hardness(place: Place) -> float:
+    """地点"体力消耗"值（0–1），博物馆/景区较高，咖啡/餐厅较低"""
+    if place.category == PlaceCategory.FOOD:
+        return 0.2
+    text = " ".join(place.tags or []) + place.name
+    if any(k in text for k in ["主题乐园", "景区", "5A", "博物馆", "古镇"]):
+        return 0.9
+    if any(k in text for k in ["公园", "街区", "广场"]):
+        return 0.5
+    return 0.6
+
+
+# ─── 槽位分配：候选地点是否适合填入该模板槽 ─────────────────────────────────
+
+def _slot_match_score(place: Place, t_slot: TemplateSlot) -> float:
+    """候选地点与模板槽位的匹配分，≤0 表示不适合"""
+    tags_text = " ".join(place.tags or []) + " " + place.name
+
+    # category_l1 快速过滤
+    l1_map = {
+        "景点": PlaceCategory.ATTRACTION,
+        "餐饮": PlaceCategory.FOOD,
+        "住宿": PlaceCategory.HOTEL,
+        "夜生活": PlaceCategory.FOOD,  # 酒吧等归在 FOOD
+    }
+    expected_l1_cat = l1_map.get(t_slot.category_l1)
+    if expected_l1_cat and place.category != expected_l1_cat:
+        return 0.0
+
+    # category_l2 关键词匹配
+    score = 0.0
+    for l2 in t_slot.category_l2_candidates:
+        if l2 in tags_text:
+            score += 10.0
+            break
+    if score == 0.0 and expected_l1_cat == place.category:
+        score = 1.0  # 同 l1 弱匹配
+
+    return score
+
+
+# ─── 主调度器 ──────────────────────────────────────────────────────────────────
+
+async def _load_place_meta(place_ids: list[str]) -> dict[str, dict]:
+    """从 DB 批量读取 place_meta；无 DB 时返回空 dict"""
+    if not place_ids:
+        return {}
+    try:
+        from app.db.connection import get_db_pool
+        pool = await get_db_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT * FROM place_meta WHERE place_id = ANY($1::text[])",
+                place_ids,
+            )
+        return {r["place_id"]: dict(r) for r in rows}
+    except Exception as e:
+        print(f"[SchedulerV2] place_meta 查询失败（降级到品类默认）：{e}")
+        return {}
+
+
+async def run(state: PlannerState) -> dict:
+    orderings: dict[int, list[Place]] = state.get("orderings", {})
+    hotels_pool: list[Place] = list(state.get("hotels_pool", []))
+    start_date: Optional[str] = state.get("start_date")
+    user_prefs: Optional[GroupPreferences] = state.get("user_prefs")
+    weather_forecast: dict[int, WeatherDay] = state.get("weather_forecast", {})
+    trip_days: int = state.get("trip_days", len(orderings))
+    time_matrices: dict[int, dict] = state.get("time_matrices", {})
+
+    # 加载所有地点的 place_meta
+    all_places = [p for places in orderings.values() for p in places]
+    meta_cache = await _load_place_meta([p.place_id for p in all_places])
+
+    # 确定出发日期（用于星期几判断）
+    trip_start_date: Optional[date] = None
+    if start_date:
+        try:
+            trip_start_date = date.fromisoformat(start_date)
+        except Exception:
+            pass
+
+    today = date.today()
+    weather_enabled = bool(settings.qweather_api_key) and start_date is not None
+
+    day_plans: list[DayPlan] = []
+    day_states: dict[int, DayPlannerState] = {}
+    backup_pool: list[Place] = list(state.get("backup_pool", []))
+    used_place_ids: set[str] = set()
+
+    async with aiohttp.ClientSession() as http_session:
+        for cluster_id, candidates in sorted(orderings.items()):
+            day_index = cluster_id
+            day_weather = weather_forecast.get(day_index)
+
+            # 当天是星期几（0=周一）
+            dow = 0
+            day_date: Optional[date] = None
+            if trip_start_date:
+                day_date = trip_start_date + timedelta(days=day_index)
+                dow = day_date.weekday()
+
+            # 选模板
+            template = select_template(day_index, trip_days, user_prefs)
+
+            # 过滤候选：闭馆 / 天气不合适
+            rain_block = day_weather and day_weather.precip_mm > 5
+            valid_candidates = [
+                p for p in candidates
+                if p.place_id not in used_place_ids
+                and not _is_closed(p, meta_cache, dow)
+            ]
+
+            # 按模板槽位分配地点（贪心）
+            day_slots: list[Slot] = []
+            available = list(valid_candidates)
+            prev_l2: Optional[str] = None
+            cursor_mins = 9 * 60  # 当天起步时间 09:00
+
+            for t_slot in template.slots:
+                if not available and not t_slot.is_required:
+                    continue
+
+                # 按匹配分排序候选
+                scored = sorted(
+                    available,
+                    key=lambda p: _slot_match_score(p, t_slot),
+                    reverse=True,
+                )
+
+                chosen: Optional[Place] = None
+                for cand in scored:
+                    if _slot_match_score(cand, t_slot) <= 0:
+                        break  # 后面都不匹配
+
+                    # 天气+体力约束：雨天/热窗口时户外槽换室内
+                    if rain_block and _is_outdoor(cand) and not t_slot.is_required:
+                        continue
+
+                    # 相邻 category_l2 去重
+                    cand_l2 = _guess_l2(cand)
+                    if cand_l2 and cand_l2 == prev_l2:
+                        continue
+
+                    # 体力曲线：晚间不排高体力景点
+                    if _stamina(cursor_mins) < 0.5 and _place_hardness(cand) > 0.8:
+                        continue
+
+                    chosen = cand
+                    break
+
+                if chosen is None:
+                    if t_slot.is_required:
+                        # 必须槽但没有合适候选，创建"空位占位"
+                        day_slots.append(_make_empty_slot(t_slot, cursor_mins, day_index, len(day_slots)))
+                    cursor_mins += t_slot.duration_minutes
+                    continue
+
+                dwell = _dwell_minutes(chosen, meta_cache)
+                end_mins = cursor_mins + dwell + t_slot.buffer_minutes
+
+                slot: Slot = {
+                    "slot_index": len(day_slots),
+                    "template_slot_id": t_slot.slot_id,
+                    "place_id": chosen.place_id,
+                    "place": chosen.model_dump(),
+                    "start_time": _mins_to_str(cursor_mins),
+                    "end_time": _mins_to_str(end_mins),
+                    "category_l1": t_slot.category_l1,
+                    "category_l2": _guess_l2(chosen) or t_slot.category_l2_candidates[0],
+                    "is_required": t_slot.is_required,
+                }
+                day_slots.append(slot)
+                available.remove(chosen)
+                used_place_ids.add(chosen.place_id)
+                prev_l2 = _guess_l2(chosen)
+                cursor_mins = end_mins + 15  # 15 min 通勤 buffer
+
+            # 剩余排不下的候选进备选池
+            backup_pool.extend(p for p in available if p.place_id not in used_place_ids)
+            for p in available:
+                used_place_ids.add(p.place_id)
+
+            # 确保用餐时段有餐厅（R_MEAL_SLOT_FILLED 硬规则）
+            day_slots = _ensure_meal_slots(day_slots, cursor_mins)
+
+            # 酒店挂载
+            day_slots = _attach_hotel(day_slots, hotels_pool)
+
+            # 天气信息
+            weather_summary: Optional[WeatherInfo] = None
+            day_date_str: Optional[str] = None
+            if day_date:
+                day_date_str = day_date.isoformat()
+                if weather_enabled:
+                    offset = (day_date - today).days
+                    if 0 <= offset <= 2:
+                        try:
+                            center_lat = state.get("center_lat", 0.0)
+                            center_lng = state.get("center_lng", 0.0)
+                            weather_summary = await _fetch_weather(
+                                http_session, center_lat, center_lng, offset
+                            )
+                        except Exception as e:
+                            print(f"[SchedulerV2] 天气查询失败：{e}")
+
+            # 转换为 DayPlan（兼容旧结构）
+            time_slots = _slots_to_timeslots(day_slots)
+            day_plan = DayPlan(
+                day_index=day_index,
+                date=day_date_str,
+                cluster_id=cluster_id,
+                slots=time_slots,
+                weather_summary=weather_summary,
+            )
+            day_plans.append(day_plan)
+
+            # DayPlannerState（供 Critic 消费）
+            day_states[day_index] = DayPlannerState(
+                day_index=day_index,
+                template_id=template.template_id,
+                slots=day_slots,
+                locked=False,
+                rationale=f"使用模板 {template.name}，排入 {len([s for s in day_slots if s.get('place_id')])} 个地点",
+                overflow_places=[p.place_id for p in backup_pool],
+            )
+
+    day_plans.sort(key=lambda d: d.day_index)
+
+    trace = state.get("trace", []) + [
+        f"[SchedulerV2] {len(day_plans)} 天，backup_pool={len(backup_pool)} 个备选"
+    ]
+
+    return {
+        "day_plans": day_plans,
+        "day_states": day_states,
+        "hotels_pool": hotels_pool,
+        "backup_pool": backup_pool,
+        "trace": trace,
+    }
+
+
+# ─── 辅助函数 ──────────────────────────────────────────────────────────────────
+
+def _mins_to_str(mins: int) -> str:
+    h = (mins % (24 * 60)) // 60
+    m = mins % 60
+    return f"{h:02d}:{m:02d}"
+
+
+def _guess_l2(place: Place) -> Optional[str]:
+    """从 tags/name 猜 category_l2"""
+    text = " ".join(place.tags or []) + " " + (place.name or "")
+    for l2 in _CATEGORY_L2_DWELL:
+        if l2 in text:
+            return l2
+    return None
+
+
+def _make_empty_slot(t_slot: TemplateSlot, cursor_mins: int, day_index: int, idx: int) -> Slot:
+    end_mins = cursor_mins + t_slot.duration_minutes
+    return {
+        "slot_index": idx,
+        "template_slot_id": t_slot.slot_id,
+        "place_id": None,
+        "place": None,
+        "start_time": _mins_to_str(cursor_mins),
+        "end_time": _mins_to_str(end_mins),
+        "category_l1": t_slot.category_l1,
+        "category_l2": t_slot.category_l2_candidates[0] if t_slot.category_l2_candidates else "",
+        "is_required": t_slot.is_required,
+    }
+
+
+def _has_meal_in_window(slots: list[Slot], window_start: int, window_end: int) -> bool:
+    for s in slots:
+        if not s.get("place_id"):
+            continue
+        if s.get("category_l1") != "餐饮":
+            continue
+        start = _time_str_to_mins(s["start_time"])
+        if window_start <= start < window_end:
+            return True
+    return False
+
+
+def _ensure_meal_slots(slots: list[Slot], cursor_mins: int) -> list[Slot]:
+    """检查午餐 / 晚餐窗口，缺则插入空占位槽"""
+    LUNCH_START, LUNCH_END = 12 * 60, 13 * 60 + 30
+    DINNER_START, DINNER_END = 18 * 60, 20 * 60
+
+    result = list(slots)
+    if not _has_meal_in_window(result, LUNCH_START, LUNCH_END):
+        result.append({
+            "slot_index": len(result),
+            "template_slot_id": "lunch_fallback",
+            "place_id": None,
+            "place": None,
+            "start_time": "12:30",
+            "end_time": "13:30",
+            "category_l1": "餐饮",
+            "category_l2": "餐厅",
+            "is_required": True,
+        })
+    if not _has_meal_in_window(result, DINNER_START, DINNER_END):
+        result.append({
+            "slot_index": len(result),
+            "template_slot_id": "dinner_fallback",
+            "place_id": None,
+            "place": None,
+            "start_time": "18:30",
+            "end_time": "19:45",
+            "category_l1": "餐饮",
+            "category_l2": "餐厅",
+            "is_required": True,
+        })
+    return result
+
+
+def _attach_hotel(slots: list[Slot], hotels_pool: list[Place]) -> list[Slot]:
+    """从最后一个有地点的 slot 的 Place 找最近酒店，附加 check-in slot"""
+    last_place: Optional[Place] = None
+    for s in reversed(slots):
+        if s.get("place"):
+            from app.schemas.place import Place as PlaceModel
+            last_place = PlaceModel(**s["place"])
+            break
+
+    if last_place is None or not hotels_pool:
+        return slots
+
+    hotel = _match_hotel(last_place, hotels_pool)
+    if hotel is None:
+        return slots
+
+    dur_mins, dist_km = _estimate_driving(last_place, hotel)
+    last_end = _time_str_to_mins(slots[-1]["end_time"]) if slots else 21 * 60
+    hotel_start = max(last_end + dur_mins, 21 * 60)
+
+    slots.append({
+        "slot_index": len(slots),
+        "template_slot_id": "hotel_checkin",
+        "place_id": hotel.place_id,
+        "place": hotel.model_copy(update={"tags": list(hotel.tags or []) + ["今晚住宿"]}).model_dump(),
+        "start_time": _mins_to_str(hotel_start),
+        "end_time": "次日12:00",
+        "category_l1": "住宿",
+        "category_l2": "酒店",
+        "is_required": True,
+    })
+    return slots
+
+
+def _slots_to_timeslots(slots: list[Slot]) -> list[TimeSlot]:
+    """将 Slot 列表转换为 TimeSlot（兼容旧 itinerary 结构）"""
+    result = []
+    for s in slots:
+        if not s.get("place_id") or not s.get("place"):
+            continue  # 跳过空占位槽
+        result.append(TimeSlot(
+            place_id=s["place_id"],
+            place=s["place"],
+            start_time=s["start_time"],
+            end_time=s["end_time"],
+            transport=None,
+        ))
+    return result

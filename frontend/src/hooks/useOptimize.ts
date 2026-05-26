@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 import type { Itinerary } from '@/types/itinerary'
 import { parseItineraryFromAPI } from '@/types/itinerary'
 import type { Place } from '@/types/place'
+import { parsePlaceFromAPI } from '@/types/place'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -12,6 +13,8 @@ interface UseOptimizeReturn {
   itinerary: Itinerary | null
   isOptimizing: boolean
   totalDistanceKm: number
+  backupPool: Place[]           // 备选池（A7）
+  criticViolations: object[]    // Critic 违规摘要
   optimize: (places: Place[], tripDays: number, startDate?: string) => Promise<void>
 }
 
@@ -19,6 +22,8 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [isOptimizing, setIsOptimizing] = useState(false)
   const [totalDistanceKm, setTotalDistanceKm] = useState(0)
+  const [backupPool, setBackupPool] = useState<Place[]>([])
+  const [criticViolations, setCriticViolations] = useState<object[]>([])
 
   const optimize = useCallback(
     async (places: Place[], tripDays: number, startDate?: string) => {
@@ -56,9 +61,15 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
         const data = await response.json()
         const parsed = parseItineraryFromAPI(data.itinerary)
         setItinerary(parsed)
-        setTotalDistanceKm(data.total_distance_km)
+        setTotalDistanceKm(data.total_distance_km ?? 0)
 
-        // 持久化到 localStorage，供行程详情页读取
+        // 解析备选池（A7）
+        const rawBackup: unknown[] = data.backup_pool ?? []
+        setBackupPool(rawBackup.map((r) => parsePlaceFromAPI(r as Record<string, unknown>)))
+
+        // Critic 违规摘要
+        setCriticViolations(data.critic_violations ?? [])
+
         if (roomId && typeof window !== 'undefined') {
           localStorage.setItem(`itinerary_${roomId}`, JSON.stringify(parsed))
         }
@@ -71,5 +82,5 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
     [threadId, roomId, isOptimizing],
   )
 
-  return { itinerary, isOptimizing, totalDistanceKm, optimize }
+  return { itinerary, isOptimizing, totalDistanceKm, backupPool, criticViolations, optimize }
 }

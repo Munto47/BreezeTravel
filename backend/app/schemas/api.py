@@ -37,6 +37,8 @@ class OptimizeResponse(BaseModel):
     total_distance_km: float
     optimization_method: str = "kmeans_tsp"
     duration_ms: int
+    backup_pool: list[Place] = []        # 因时间/体力不足被移出行程的备选地点（A7）
+    critic_violations: list[dict] = []   # Critic 硬规则违规摘要（供前端展示警告）
 
 
 # ===== GET /api/room/{room_id}/state =====
