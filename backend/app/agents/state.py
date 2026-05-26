@@ -4,6 +4,7 @@ from langgraph.graph.message import add_messages
 
 from app.schemas.place import Place
 from app.schemas.itinerary import Itinerary
+from app.schemas.recommendation import PlaceRecommendation
 
 
 class WorkingContext(TypedDict, total=False):
@@ -91,6 +92,7 @@ class AgentState(TypedDict):
     # ── Synthesizer 输出 ──────────────────────────────────────────────────
     synthesized_places: list[Place]
     final_response: Optional[str]
+    recommendations: list[PlaceRecommendation]  # Phase B：结构化推荐（reason/alternatives）
 
     # ── Optimizer 输出（独立 /api/optimize 触发） ─────────────────────────
     itinerary: Optional[Itinerary]
