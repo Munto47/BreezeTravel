@@ -193,7 +193,7 @@ server {
 
     # 后端 FastAPI（SSE 长连接 + 普通 REST）
     location /api/ {
-        proxy_pass http://127.0.0.1:8000/;
+        proxy_pass http://127.0.0.1:8000;   # ⚠️ 末尾不能有斜杠！有斜杠会剥离 /api 前缀导致全部 404
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -245,11 +245,11 @@ sudo nginx -t && sudo systemctl reload nginx
 
 | 公网 URL | nginx 转发到 | 容器服务 |
 |---------|------------|---------|
-| `https://www.breezetravel.cn/` | `127.0.0.1:3000` | frontend (Next.js) |
-| `https://www.breezetravel.cn/api/*` | `127.0.0.1:8000/*` | backend (FastAPI) |
-| `wss://www.breezetravel.cn/yjs/*` | `127.0.0.1:1234/*` | y-websocket (Yjs) |
+| `https://www.breezetravel.cn/` | `127.0.0.1:3000/` | frontend (Next.js) |
+| `https://www.breezetravel.cn/api/*` | `127.0.0.1:8000/api/*` | backend (FastAPI) |
+| `wss://www.breezetravel.cn/yjs/*` | `127.0.0.1:1234/yjs/*` | y-websocket (Yjs) |
 
-> `/api/` location 的 `proxy_pass` 末尾**有斜杠**，nginx 会自动去掉路径前的 `/api`，等价于前端写 `fetch('/api/chat')` → nginx 转成 `http://127.0.0.1:8000/chat`。
+> **重要**：`/api/` 的 `proxy_pass` **不加末尾斜杠**（`http://127.0.0.1:8000`），nginx 才会把完整路径 `/api/chat` 原样转给 FastAPI。FastAPI 的路由前缀本身就是 `/api`（`main.py` 里 `include_router(..., prefix="/api")`），加了斜杠会剥离 `/api` 导致全部端点 404。
 
 ---
 
@@ -399,6 +399,57 @@ docker compose logs backend | tail -50
 ### RAG 检索 0 命中
 - 检查是否入库：`docker compose exec postgres psql -U postgres travel_agent -c "SELECT COUNT(*) FROM travel_chunks;"`
 - 若为 0，重跑 `docker compose exec backend python -m scripts.ingest_notes`
+
+### `/api/*` 所有端点 404（含 auth、chat、cities）
+
+根因：nginx `/api/` 的 `proxy_pass` 末尾多了斜杠（`http://127.0.0.1:8000/`），导致路径前缀被剥离，FastAPI 收到的是 `/auth/email-register` 而非 `/api/auth/email-register`。
+
+诊断：
+```bash
+# 直连后端（绕过 nginx）— 应该 200
+curl -s -X POST http://localhost:8000/api/auth/email-register \
+  -H "Content-Type: application/json" -d '{"email":"x@x.com","password":"Test1234"}'
+
+# 经 nginx — 看日志里路径有没有 /api 前缀
+docker compose logs backend --tail 20 | grep "POST\|GET"
+```
+
+修复：
+```bash
+sed -i 's|proxy_pass http://127.0.0.1:8000/;|proxy_pass http://127.0.0.1:8000;|' \
+    /etc/nginx/sites-available/breezetravel.cn
+nginx -t && systemctl reload nginx
+```
+
+### docker-compose 1.29.2 报 `KeyError: 'ContainerConfig'`
+
+原因：旧版 Python 版 docker-compose（1.29.2）不兼容新版 Docker 构建出的镜像格式（缺少 `ContainerConfig` 字段）。
+
+```bash
+# 临时解决：删旧容器再重建
+docker-compose rm -f backend
+docker-compose up -d --no-deps backend
+```
+
+根本解决：升级到 Docker Compose V2（`docker compose`，Go 实现）：
+```bash
+mkdir -p ~/.docker/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.27.0/docker-compose-linux-x86_64 \
+    -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
+docker compose version   # 验证
+```
+
+### `docker compose build` 耗时数小时 / pip 依赖解析卡住
+
+原因：`requirements.txt` 里 `mcp>=1.0.0` 等松散约束触发 pip resolver 遍历 20+ 版本；国内 ECS 直连 PyPI 下载速度 20-35 kB/s。
+
+`backend/Dockerfile` 已修复，pip install 行加了阿里云镜像：
+```dockerfile
+RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r requirements.txt
+```
+
+`requirements.txt` 所有依赖已固定为精确版本，消除 resolver backtracking。重新 build 约 2-4 分钟。
 
 ---
 
