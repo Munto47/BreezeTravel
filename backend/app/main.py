@@ -11,6 +11,7 @@ from app.api import user_profile
 from app.api import places_persist
 from app.api import cities
 from app.api import themes
+from app.api import edit as edit_api
 from app.config import settings
 from app.db.connection import get_pool, close_pool, run_migrations
 from app.agents import graph as agent_graph
@@ -66,6 +67,7 @@ app.add_middleware(
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(optimize.router, prefix="/api", tags=["optimize"])
 app.include_router(themes.router, prefix="/api", tags=["themes"])
+app.include_router(edit_api.router, prefix="/api", tags=["edit"])
 # user_profile 必须在 room 之前注册，否则 /user/{user_id} 会抢先匹配 /user/rooms 等路径
 app.include_router(user_profile.router, prefix="/api", tags=["user"])
 app.include_router(room.router, prefix="/api", tags=["room"])
