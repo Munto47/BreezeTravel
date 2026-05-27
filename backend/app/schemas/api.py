@@ -30,6 +30,8 @@ class OptimizeRequest(BaseModel):
     trip_days: int
     start_date: Optional[str] = None    # ISO 8601
     working_context: Optional[dict] = None  # 会话偏好，用于 TipsGenerator 个性化提示
+    user_prefs: Optional[dict] = None   # GroupPreferences（含 must_have/no_go/style）
+    vote_counts: dict[str, int] = {}    # D24：place_id → 票数（Yjs votedBy 长度）
 
 
 class OptimizeResponse(BaseModel):

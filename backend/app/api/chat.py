@@ -5,14 +5,20 @@ Sprint 4 变更（X1）：
 - 切换到 graph.astream_events(version="v2") 真实事件流
   - on_chain_start  → 节点启动 thinking 事件（实时可见）
   - on_chain_end    → 节点完成，提取输出数据
-  - synthesizer 完成后：先推送地点卡片，再批量推送文字（10 字/帧）
+
+P1-12（2026-05）真流式：
+  - tool_executor 完成后立即推送地点预览卡（Amap 原始数据），用户 ~5s 内可见
+  - synthesizer 完成后推送 place_update 增量事件（LLM 增强：description/tags/tips/duration）
+  - 文字仍批量推送（_TEXT_CHUNK_SIZE 字/帧）
 
 SSE 事件格式（向后兼容）：
-  thinking: {node, summary, ms}
-  place:    {place: Place}
-  text:     {delta: str}
-  done:     {total_places, total_ms, react_rounds}
-  error:    {message}
+  thinking:     {node, summary, ms}
+  place:        {place: Place}             # 首次推送的卡片
+  place_update: {place_id, fields: {...}}  # LLM 增强后的字段增量
+  text:         {delta: str}
+  text_reset:   {}
+  done:         {total_places, total_ms, react_rounds}
+  error:        {message}
 """
 
 import json
@@ -104,6 +110,15 @@ async def _event_stream(request: ChatRequest):
     router_start_count = 0  # 区分首轮 vs. ReAct 循环中的第 N 轮
     _tool_call_counts: dict[str, int] = {}   # 本次请求内各工具调用次数
     _critic_fired = False
+    _previewed_ids: set[str] = set()         # 已作为预览卡推送过的 place_id（P1-12）
+    _preview_per_cat: dict[str, int] = {}    # 已预览的各类目计数（首批硬上限用）
+
+    # LLM 增强后可能新增的字段（增量推送用）
+    _ENRICH_FIELDS = ("description", "tags", "rag_meta", "estimated_duration", "duration_basis")
+
+    # 首批预览硬上限：每类 5 个，总 15 个（与 synthesizer 同步）
+    _PREVIEW_PER_CAT = 5
+    _PREVIEW_TOTAL = 15
 
     try:
         async for event in graph.astream_events(input_state, config=config, version="v2"):
@@ -153,15 +168,34 @@ async def _event_stream(request: ChatRequest):
                         yield _thinking("router", "信息收集完毕，准备生成推荐", elapsed)
 
                 elif ename == "tool_executor":
-                    places_count = len(output.get("amap_places", []))
+                    amap_raw = output.get("amap_places", []) or []
                     chunks_count = len(output.get("rag_chunks", []))
                     parts = []
-                    if places_count:
-                        parts.append(f"地点 {places_count} 个")
+                    if amap_raw:
+                        parts.append(f"地点 {len(amap_raw)} 个")
                     if chunks_count:
                         parts.append(f"游记 {chunks_count} 条")
                     summary = "、".join(parts) if parts else "工具执行完成"
                     yield _thinking("tool_executor", f"工具返回：{summary}", elapsed)
+
+                    # P1-12 真流式：立即推送预览卡，不等 Synthesizer 完成
+                    # 受首批上限约束（每类 5、总 15），按 amap_rating 降序优先推送
+                    sorted_raw = sorted(
+                        amap_raw,
+                        key=lambda p: (p.amap_rating if p.amap_rating is not None else 0.0),
+                        reverse=True,
+                    )
+                    for place in sorted_raw:
+                        if place.place_id in _previewed_ids:
+                            continue
+                        if len(_previewed_ids) >= _PREVIEW_TOTAL:
+                            break
+                        cat_key = place.category.value if place.category else "unknown"
+                        if _preview_per_cat.get(cat_key, 0) >= _PREVIEW_PER_CAT:
+                            continue
+                        _previewed_ids.add(place.place_id)
+                        _preview_per_cat[cat_key] = _preview_per_cat.get(cat_key, 0) + 1
+                        yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
 
                 elif ename == "synthesizer":
                     places = output.get("synthesized_places", [])
@@ -169,9 +203,24 @@ async def _event_stream(request: ChatRequest):
 
                     yield _thinking("synthesizer", f"推荐已生成：{len(places)} 个地点", elapsed)
 
-                    # 逐个推送地点卡片
+                    final_ids = {p.place_id for p in places}
+                    # 预览过但被 Synthesizer 过滤掉的（如菜系硬约束剔除） → 通知前端移除
+                    dropped = _previewed_ids - final_ids
+                    for pid in dropped:
+                        yield f"data: {json.dumps({'event': 'place_remove', 'data': {'place_id': pid}}, ensure_ascii=False)}\n\n"
+                        _previewed_ids.discard(pid)
+
+                    # 已预览的 place 走 place_update 增量；新增 place 走 place
                     for place in places:
-                        yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
+                        if place.place_id in _previewed_ids:
+                            dumped = place.model_dump()
+                            fields = {k: dumped.get(k) for k in _ENRICH_FIELDS if dumped.get(k) is not None}
+                            if not fields:
+                                continue
+                            yield f"data: {json.dumps({'event': 'place_update', 'data': {'place_id': place.place_id, 'fields': fields}}, ensure_ascii=False)}\n\n"
+                        else:
+                            _previewed_ids.add(place.place_id)
+                            yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
 
                     # 文本重置帧：Critic 触发重检索时 synthesizer 会再跑一次，
                     # 此时清空前一轮文本，避免前端追加导致重复段落

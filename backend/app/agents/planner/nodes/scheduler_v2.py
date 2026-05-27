@@ -57,6 +57,70 @@ _CATEGORY_L1_DWELL: dict[str, int] = {
     "住宿": 30,
 }
 
+# ─── D24 取舍评分公式（SPEC §3.5） ────────────────────────────────────────────
+
+def _pref_score(
+    place: Place,
+    prefs: Optional[GroupPreferences],
+    used_l2_today: set[str],
+    vote_counts: dict[str, int],
+) -> float:
+    """
+    score(place) =
+      +100  if name/tags match must_have
+      -∞    if name/tags match no_go  （返回 -inf 表示硬剔除）
+      +votes * 10                      投票主导
+      +amap_rating * 3                 RAG 人气分近似（高德评分）
+      +diversity_bonus * 5             当天品类多样性奖励（当前 l2 未用过）
+    """
+    if prefs is None:
+        return 0.0
+
+    text = f"{place.name} {' '.join(place.tags or [])}"
+
+    # no_go → 硬剔除
+    for no in prefs.no_go:
+        if no and no in text:
+            return float("-inf")
+
+    score = 0.0
+
+    # must_have → 锁定优先
+    for mh in prefs.must_have:
+        if mh and mh in text:
+            score += 100.0
+            break
+
+    # nice_to_have 加分
+    for nth in prefs.nice_to_have:
+        if nth and nth in text:
+            score += 5.0
+            break
+
+    # 投票权重（votes * 10）
+    votes = vote_counts.get(place.place_id, 0)
+    score += votes * 10.0
+
+    # RAG 人气分近似（高德评分 * 3，满分 5 → 最多 +15）
+    if place.amap_rating and place.amap_rating > 0:
+        score += place.amap_rating * 3.0
+
+    # 品类多样性奖励（当天未出现过该 l2 → +5）
+    l2 = _guess_l2(place)
+    if l2 and l2 not in used_l2_today:
+        score += 5.0
+
+    return score
+
+
+def _is_no_go(place: Place, prefs: Optional[GroupPreferences]) -> bool:
+    """快速判断地点是否在 no_go 列表中"""
+    if not prefs or not prefs.no_go:
+        return False
+    text = f"{place.name} {' '.join(place.tags or [])}"
+    return any(ng and ng in text for ng in prefs.no_go)
+
+
 # ─── 户外判断：category_l2 是否倾向户外 ───────────────────────────────────────
 _OUTDOOR_L2 = {
     "景区", "古迹", "街区", "古镇", "老街", "公园", "广场", "观景台",
@@ -218,6 +282,8 @@ async def run(state: PlannerState) -> dict:
     weather_forecast: dict[int, WeatherDay] = state.get("weather_forecast", {})
     trip_days: int = state.get("trip_days", len(orderings))
     time_matrices: dict[int, dict] = state.get("time_matrices", {})
+    # D24：投票计数（place_id → 票数），由前端通过 OptimizeRequest 传入
+    vote_counts: dict[str, int] = state.get("vote_counts", {})
 
     # 加载所有地点的 place_meta
     all_places = [p for places in orderings.values() for p in places]
@@ -254,12 +320,14 @@ async def run(state: PlannerState) -> dict:
             # 选模板
             template = select_template(day_index, trip_days, user_prefs)
 
-            # 过滤候选：闭馆 / 天气不合适
+            # 过滤候选：闭馆 / 天气不合适 / D24 no_go 硬剔除
             rain_block = day_weather and day_weather.precip_mm > 5
+            used_l2_today: set[str] = set()
             valid_candidates = [
                 p for p in candidates
                 if p.place_id not in used_place_ids
                 and not _is_closed(p, meta_cache, dow)
+                and not _is_no_go(p, user_prefs)   # D24：no_go 硬剔除
             ]
 
             # 按模板槽位分配地点（贪心）
@@ -272,15 +340,22 @@ async def run(state: PlannerState) -> dict:
                 if not available and not t_slot.is_required:
                     continue
 
-                # 按匹配分排序候选
-                scored = sorted(
-                    available,
-                    key=lambda p: _slot_match_score(p, t_slot),
-                    reverse=True,
-                )
+                # D24 + 模板匹配联合评分：slot_match * 10 + pref_score
+                def _combined_score(p: Place, _slot=t_slot) -> float:
+                    slot_s = _slot_match_score(p, _slot)
+                    if slot_s <= 0:
+                        return slot_s  # 不匹配则保持负数，排在后面
+                    pref_s = _pref_score(p, user_prefs, used_l2_today, vote_counts)
+                    if pref_s == float("-inf"):
+                        return float("-inf")
+                    return slot_s * 10 + pref_s
+
+                scored = sorted(available, key=_combined_score, reverse=True)
 
                 chosen: Optional[Place] = None
                 for cand in scored:
+                    if _combined_score(cand) == float("-inf"):
+                        continue  # no_go
                     if _slot_match_score(cand, t_slot) <= 0:
                         break  # 后面都不匹配
 
@@ -324,7 +399,10 @@ async def run(state: PlannerState) -> dict:
                 day_slots.append(slot)
                 available.remove(chosen)
                 used_place_ids.add(chosen.place_id)
-                prev_l2 = _guess_l2(chosen)
+                l2_chosen = _guess_l2(chosen)
+                prev_l2 = l2_chosen
+                if l2_chosen:
+                    used_l2_today.add(l2_chosen)   # D24 diversity_bonus 追踪
                 cursor_mins = end_mins + 15  # 15 min 通勤 buffer
 
             # 剩余排不下的候选进备选池

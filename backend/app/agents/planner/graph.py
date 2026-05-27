@@ -70,6 +70,7 @@ async def run_planner(
     start_date: Optional[str] = None,
     preferences_text: str = "",
     user_prefs: Optional[GroupPreferences] = None,
+    vote_counts: Optional[dict[str, int]] = None,
 ) -> PlannerResult:
     """PlannerGraph v2 入口。返回 PlannerResult(itinerary, backup_pool, critic_violations)。"""
     initial: PlannerState = {
@@ -80,6 +81,7 @@ async def run_planner(
         "preferences_text": preferences_text,
         "user_prefs": user_prefs,
         "weather_forecast": {},
+        "vote_counts": vote_counts or {},
         "backup_pool": [],
         "critic_violations": [],
         "trace": [],

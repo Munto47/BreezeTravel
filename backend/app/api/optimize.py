@@ -30,12 +30,23 @@ async def optimize(request: OptimizeRequest):
         format_for_prompt(request.working_context) if request.working_context else ""
     )
 
+    # D24：解析 GroupPreferences
+    from app.schemas.preferences import GroupPreferences
+    user_prefs: GroupPreferences | None = None
+    if request.user_prefs:
+        try:
+            user_prefs = GroupPreferences(**request.user_prefs)
+        except Exception as e:
+            print(f"[Optimize] user_prefs 解析失败（跳过）：{e}")
+
     result = await run_planner(
         places=request.places,
         trip_days=request.trip_days,
         thread_id=request.thread_id,
         start_date=request.start_date,
         preferences_text=preferences_text,
+        user_prefs=user_prefs,
+        vote_counts=request.vote_counts,
     )
 
     itinerary = result.itinerary

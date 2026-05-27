@@ -57,6 +57,7 @@ class PlannerState(TypedDict, total=False):
     # v2 新增输入
     user_prefs: Optional[GroupPreferences]
     weather_forecast: dict[int, WeatherDay]   # day_index → 天气
+    vote_counts: dict[str, int]               # D24：place_id → 票数（前端 Yjs 传入）
 
     # ── ClustererAgent 输出 ─────────────────────────────────────────
     activities: list[Place]
