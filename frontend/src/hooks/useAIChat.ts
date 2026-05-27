@@ -111,9 +111,47 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
 
               if (event === 'place') {
                 const place = parsePlaceFromAPI(data.place)
+                const existing = last.placesGenerated || []
+                // 已有同 id 卡片则跳过追加（P1-12 真流式：预览 + synthesizer 二段去重）
+                if (existing.some((p) => p.placeId === place.placeId)) return prev
                 return [
                   ...prev.slice(0, -1),
-                  { ...last, placesGenerated: [...(last.placesGenerated || []), place] },
+                  { ...last, placesGenerated: [...existing, place] },
+                ]
+              }
+
+              if (event === 'place_update') {
+                // LLM 增强字段增量合并：description/tags/ragMeta/estimatedDuration
+                const pid: string = data.place_id
+                const fields = (data.fields || {}) as Record<string, unknown>
+                const merged = (last.placesGenerated || []).map((p) => {
+                  if (p.placeId !== pid) return p
+                  const patched: Partial<Place> = {}
+                  if (typeof fields.description === 'string') patched.description = fields.description
+                  if (Array.isArray(fields.tags)) patched.tags = fields.tags as string[]
+                  if (fields.rag_meta && typeof fields.rag_meta === 'object') {
+                    const rm = fields.rag_meta as Record<string, unknown>
+                    patched.ragMeta = {
+                      tipSnippets: (rm.tip_snippets as string[]) || [],
+                      sentimentScore: (rm.sentiment_score as number) || 0,
+                      sourceNoteIds: (rm.source_note_ids as string[]) || [],
+                    }
+                  }
+                  if (typeof fields.estimated_duration === 'number') patched.estimatedDuration = fields.estimated_duration
+                  return { ...p, ...patched }
+                })
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, placesGenerated: merged },
+                ]
+              }
+
+              if (event === 'place_remove') {
+                const pid: string = data.place_id
+                const filtered = (last.placesGenerated || []).filter((p) => p.placeId !== pid)
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, placesGenerated: filtered },
                 ]
               }
 

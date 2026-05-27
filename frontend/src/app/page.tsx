@@ -15,6 +15,18 @@ import { POPULAR_CITIES, PROVINCES } from '@/data/cities'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
+// P0-6：7 个深度推荐城市的视觉卡片元数据
+// 顺序与 backend/app/api/cities.py 兜底列表一致；缺图但有 emoji+渐变+标语，零外部依赖
+const DEEP_CITY_CARDS: { city: string; emoji: string; gradient: string; tagline: string }[] = [
+  { city: '成都', emoji: '🐼', gradient: 'from-emerald-400 via-teal-400 to-cyan-500', tagline: '熊猫 · 火锅 · 闲适' },
+  { city: '北京', emoji: '🏛️', gradient: 'from-amber-400 via-orange-400 to-rose-500',  tagline: '故宫 · 胡同 · 烤鸭' },
+  { city: '上海', emoji: '🌃', gradient: 'from-sky-400 via-indigo-400 to-violet-500',  tagline: '外滩 · 梧桐 · 小资' },
+  { city: '广州', emoji: '🍜', gradient: 'from-rose-400 via-pink-400 to-fuchsia-500',  tagline: '早茶 · 骑楼 · 烟火气' },
+  { city: '深圳', emoji: '🌆', gradient: 'from-violet-400 via-purple-400 to-indigo-500', tagline: '海岸 · 摩天 · 新潮' },
+  { city: '杭州', emoji: '🌊', gradient: 'from-cyan-400 via-blue-400 to-indigo-500',   tagline: '西湖 · 宋韵 · 茶香' },
+  { city: '厦门', emoji: '🏖️', gradient: 'from-yellow-300 via-amber-400 to-orange-400', tagline: '鼓浪屿 · 海风 · 闽南' },
+]
+
 interface RoomRecord {
   room_id: string
   city: string
@@ -213,12 +225,50 @@ export default function HomePage() {
           ].map((f) => (
             <span
               key={f.label}
-              className="inline-flex items-center gap-1 text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"
+              className="pointer-events-none inline-flex items-center gap-1 text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"
             >
               {f.icon}{f.label}
             </span>
           ))}
         </div>
+
+        {/* P0-6 深度推荐城市图卡（无需外部图片资源，emoji + 渐变） */}
+        {!createdRoomInfo && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2 px-1">
+              <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-coral-400" /> 深度推荐城市
+              </p>
+              <span className="text-[10px] text-gray-400">点击直接出发 →</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {DEEP_CITY_CARDS.map((c) => {
+                const selected = city === c.city
+                return (
+                  <button
+                    key={c.city}
+                    type="button"
+                    onClick={() => pickCity(c.city)}
+                    title={`${c.city} · 深度推荐：含游记知识库`}
+                    className={`group relative aspect-square rounded-xl overflow-hidden text-left bg-gradient-to-br ${c.gradient} shadow-glass transition-transform hover:scale-[1.03] active:scale-[0.97] ${selected ? 'ring-2 ring-coral-500 ring-offset-1' : ''}`}
+                  >
+                    {/* 内层蒙层增加文字对比 */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0" />
+                    {/* 深度推荐角标 */}
+                    <span className="absolute top-1.5 right-1.5 text-[9px] bg-white/85 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium leading-none">🧠</span>
+                    {/* emoji */}
+                    <span className="absolute top-1/4 left-1/2 -translate-x-1/2 text-3xl select-none drop-shadow-sm">{c.emoji}</span>
+                    {/* 文字 */}
+                    <div className="absolute bottom-0 inset-x-0 p-2">
+                      <p className="text-white text-sm font-semibold leading-tight drop-shadow">{c.city}</p>
+                      <p className="text-white/85 text-[10px] leading-tight drop-shadow truncate">{c.tagline}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 主卡片 */}
         <div className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass mb-4">
