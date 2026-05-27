@@ -90,16 +90,16 @@ export default function RoomPage() {
         if (!res.ok) throw new Error(`${res.status}`)
         const data = await res.json()
         if (cancelled) return
-        setRoomData({ threadId: data.thread_id || roomId, tripCity: data.trip_city || '成都', tripDays: data.trip_days || 3, loaded: true })
+        setRoomData({ threadId: data.thread_id || roomId, tripCity: data.trip_city || '', tripDays: data.trip_days || 3, loaded: true })
       } catch {
-        if (!cancelled) setRoomData({ threadId: roomId, tripCity: '成都', tripDays: 3, loaded: true })
+        if (!cancelled) setRoomData({ threadId: roomId, tripCity: '', tripDays: 3, loaded: true })
       }
     })()
     return () => { cancelled = true }
   }, [roomId, roomData.loaded, API_BASE])
 
   const threadId = roomData.threadId || roomId
-  const tripCity = roomData.tripCity || '成都'
+  const tripCity = roomData.tripCity || ''
   const tripDays = roomData.tripDays || 3
 
   // ── Yjs 协同 ───────────────────────────────────────────────────────────

@@ -129,12 +129,25 @@ def extract_from_messages(
                 break
 
     # ── 出行人数 ──────────────────────────────────────────────────────
+    # 只匹配真正表示"团队人数"的短语，避免误匹配地点数量/天数/控制数字等
+    # 正例："我们15人" "一行8个人" "共5位" "10名旅客" "6个人同行"
+    # 反例："总数15个以内" "各约5个" "3天行程" "前5个景点" "15个地点"
     if not ctx.get("party_size"):
-        m = re.search(r"(\d+)\s*[个人名位口]", full_text)
-        if m:
-            n = int(m.group(1))
-            if 1 <= n <= 20:
-                ctx["party_size"] = n
+        _PARTY_PATTERNS = [
+            # 需要显式主语前缀（我们/一行/共/一共/总共）+ 数字 + 人/名/位
+            r"(?:我们?|一行|共有?|一共|总共|来了?|带了?)\s*(\d+)\s*[人名位口]",
+            # 数字 + 多字词组明确指代人数
+            r"(\d+)\s*(?:个人|名旅客|名游客|个小伙伴|人一起|人同行|人出行|名朋友|人的团队|人团)",
+        ]
+        for pat in _PARTY_PATTERNS:
+            m = re.search(pat, full_text)
+            if m:
+                n_match = re.search(r"\d+", m.group())
+                if n_match:
+                    n = int(n_match.group())
+                    if 1 <= n <= 50:
+                        ctx["party_size"] = n
+                        break
 
     # ── 偏好品类（累积） ──────────────────────────────────────────────
     existing_cats = set(ctx.get("preferred_categories", []))
@@ -270,4 +283,7 @@ def format_for_prompt(ctx: Optional[WorkingContext]) -> str:
     if not lines:
         return ""
 
-    return "用户本次对话偏好：\n" + "\n".join(f"  - {line}" for line in lines)
+    return (
+        "用户背景偏好（仅供内部排序参考，不得在 response_text 中直接提及）：\n"
+        + "\n".join(f"  - {line}" for line in lines)
+    )

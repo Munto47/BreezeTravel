@@ -105,6 +105,12 @@ def _run_quality_rules(
 
 
 def _make_retry(iterations: int, reason: str) -> dict:
+    # 注入引导消息：告知 Router 上次失败原因，强制下一轮调用 search_places
+    from langchain_core.messages import SystemMessage
+    hint = SystemMessage(
+        content=f"[系统反思] 上一轮未返回地点数据（原因：{reason}）。"
+                "本轮必须调用 search_places 工具以获取结构化 POI 数据，否则用户仍将看到空列表。"
+    )
     return {
         "critic_retry": True,
         "critic_reason": reason,
@@ -115,4 +121,5 @@ def _make_retry(iterations: int, reason: str) -> dict:
         "synthesized_places": [],
         "final_response": None,
         "recommendations": [],
+        "messages": [hint],  # add_messages 注解会追加而非覆盖
     }

@@ -149,9 +149,26 @@ _FOOD_KW    = {"美食", "吃", "餐", "火锅", "饭", "菜", "小吃", "饮食
 _HOTEL_KW   = {"酒店", "住宿", "民宿", "旅馆", "客栈", "住", "入住", "床位", "宾馆"}
 _ATTRACT_KW = {"景点", "景区", "参观", "游览", "打卡", "观光", "博物馆", "公园", "古迹", "名胜", "寺庙"}
 
+# Mock 数据没有的类目：酒吧/娱乐/购物等。查询这些时返回空，
+# 宁可让上层兜底搜索真实 API，也不能返回驴唇不对马嘴的数据。
+_ENTERTAIN_KW = {
+    "酒吧", "酒馆", "小酒馆", "夜店", "夜生活", "夜酒",
+    "精酿", "酒精", "清吧", "livehouse", "live house", "live bar",
+    "ktv", "KTV", "卡拉ok", "卡拉OK",
+    "酒吧推荐", "蹦迪", "夜场",
+    "购物", "商场", "超市", "买",
+    "spa", "SPA", "按摩", "足疗",
+}
+
 
 def _load_mock_places(city: str, query: str = "") -> list[Place]:
-    """从本地 fixture 文件加载 Mock 数据，按查询意图过滤品类后返回"""
+    """从本地 fixture 文件加载 Mock 数据，按查询意图过滤品类后返回。
+
+    重要：Mock 数据只包含 attraction / food / hotel 三类。
+    如果查询明确指向 Mock 数据不存在的类目（酒吧/娱乐/购物等），
+    直接返回空列表，让调用方走真实 API 或给出明确提示，
+    避免把不相关的地点（如早餐店）当作酒吧返回。
+    """
     if not MOCK_DATA_PATH.exists():
         print(f"[AmapSearch] Mock 文件不存在：{MOCK_DATA_PATH}")
         return []
@@ -164,7 +181,13 @@ def _load_mock_places(city: str, query: str = "") -> list[Place]:
     if not query:
         return all_places
 
-    q = query
+    q = query.lower()
+
+    # 娱乐/酒吧等 Mock 数据不存在的类目 → 直接返回空，拒绝返回无关数据
+    if any(kw in q for kw in _ENTERTAIN_KW):
+        print(f"[AmapSearch] Mock 不含娱乐/酒吧类目，返回空（query={query[:40]}）")
+        return []
+
     want_food    = any(kw in q for kw in _FOOD_KW)
     want_hotel   = any(kw in q for kw in _HOTEL_KW)
     want_attract = any(kw in q for kw in _ATTRACT_KW)

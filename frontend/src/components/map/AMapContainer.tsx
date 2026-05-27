@@ -90,16 +90,6 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         })
         mapRef.current = map
 
-        // 通过高德 Geocoder 动态解析城市名 → 经纬度，支持全国任意城市
-        if (tripCity) {
-          const geocoder = new AMap.Geocoder({ city: tripCity })
-          geocoder.getLocation(tripCity, (status: string, result: any) => {
-            if (status === 'complete' && result.geocodes?.length > 0) {
-              map.setCenter(result.geocodes[0].location)
-            }
-          })
-        }
-
         infoWindowRef.current = new AMap.InfoWindow({
           offset: new AMap.Pixel(0, -30),
           closeWhenClickMap: true,
@@ -122,6 +112,19 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── tripCity 变化时重新定位地图中心（解决异步加载城市时地图停在默认城市的问题）──
+  useEffect(() => {
+    if (!mapRef.current || !tripCity) return
+    const AMap = (window as any).AMap
+    if (!AMap?.Geocoder) return
+    const geocoder = new AMap.Geocoder({ city: tripCity })
+    geocoder.getLocation(tripCity, (status: string, result: any) => {
+      if (status === 'complete' && result.geocodes?.length > 0) {
+        mapRef.current?.setCenter(result.geocodes[0].location)
+      }
+    })
+  }, [tripCity])
 
   // ── 构建 Marker HTML（抽成辅助函数，hover 时复用） ───────────────
   const buildMarkerContent = useCallback((

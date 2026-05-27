@@ -16,6 +16,46 @@ from app.agents.state import AgentState
 from app.config import settings
 from app.memory.working import format_for_prompt
 from app.schemas.place import Place, PlaceCategory, PlaceRAGMeta
+from app.schemas.recommendation import Alternative, PlaceRecommendation
+
+
+# 首批结果硬上限：每类 5 个，总计 15 个
+# 防止多轮 ReAct + 多查询累积导致 LLM 输入膨胀、响应变慢、前端卡片过多
+_PER_CATEGORY_CAP = 5
+_TOTAL_CAP = 15
+
+
+def _cap_places(places: list[Place]) -> list[Place]:
+    """按类目分桶 → 每类按 amap_rating 降序保留 top-N → 总数封顶。
+
+    保持类目多样性（attraction/food/hotel 均有覆盖），评分相同时保持输入顺序稳定。
+    """
+    if not places:
+        return places
+    buckets: dict[str, list[Place]] = {}
+    order: list[str] = []
+    for p in places:
+        key = p.category.value if p.category else "unknown"
+        if key not in buckets:
+            buckets[key] = []
+            order.append(key)
+        buckets[key].append(p)
+    capped: list[Place] = []
+    for key in order:
+        items = sorted(
+            buckets[key],
+            key=lambda x: (x.amap_rating if x.amap_rating is not None else 0.0),
+            reverse=True,
+        )
+        capped.extend(items[:_PER_CATEGORY_CAP])
+    # 总数封顶时优先保留高评分项
+    if len(capped) <= _TOTAL_CAP:
+        return capped
+    capped.sort(
+        key=lambda x: (x.amap_rating if x.amap_rating is not None else 0.0),
+        reverse=True,
+    )
+    return capped[:_TOTAL_CAP]
 
 
 # 用户硬约束品类关键词 → 必须出现在 place.name 或 place.tags 里
@@ -69,14 +109,22 @@ def _filter_food_by_cuisine(places: list[Place], cuisine_keywords: list[str]) ->
             kept.append(p)
     return kept
 
-SYNTHESIZER_SYSTEM = "你是旅行规划助手，返回格式严格的 JSON，不要加 markdown 代码块。"
+SYNTHESIZER_SYSTEM = (
+    "你是旅行规划助手，返回格式严格的 JSON，不要加 markdown 代码块。"
+    "严格遵守：只回答用户明确询问的品类/范围；不要主动安利或对比用户没问的其他类目"
+    "（例如用户只问火锅就不要推荐景点/小吃，用户只问景点就不要主动推荐餐厅）；"
+    "不要在 response_text 结尾用'顺便/不如/建议你也试试/对了'等口吻新增议题。"
+    "【关键约束】response_text 只能反映用户本次消息中明确出现的信息。"
+    "用户本次消息未提及的内容（人数、预算、饮食限制、旅行风格等）"
+    "绝对不得在 response_text 中提及或推断，历史偏好仅用于内部排序参考。"
+)
 
 SYNTHESIZER_PROMPT = """根据以下地点数据和游记摘录，生成个性化的旅行推荐。
 
 高德 POI 数据（客观）：
 {amap_places_json}
 
-游记经验摘录（主观，可能为空）：
+游记经验摘录（主观，可能为空，每条前缀为 chunk_id）：
 {rag_chunks_text}
 
 {working_memory}
@@ -92,9 +140,21 @@ SYNTHESIZER_PROMPT = """根据以下地点数据和游记摘录，生成个性�
    - 若用户是素食/清真/特定饮食需求 → 在 response_text 中特别说明推荐原因
    - 若用户国籍/偏好特定菜系 → 优先描述对应菜系的地点
    - 若用户偏好连锁品牌 → 标注"连锁品牌"标签
-5. 生成个性化推荐说明（150字以内，友好亲切）
-6. 必须返回合法 JSON（不加 markdown 代码块）：
-   {{"response_text": "...", "place_updates": [{{"place_id": "...", "description": "...", "tags": ["..."], "tip_snippets": [...], "sentiment_score": 0.8, "estimated_duration": 120}}]}}
+5. 生成推荐说明（150字以内，友好亲切）：
+   - 只围绕用户本次消息中明确出现的品类/诉求展开
+   - 【禁止】在 response_text 中出现：人数（"X人""X位"）、预算（"低预算""性价比"）、
+     旅行风格、饮食限制等——除非用户本次消息中原文提及
+   - 历史偏好（working_memory）仅影响地点排序权重，不得出现在文本回复中
+6. 【Phase B 推荐质量】对每个 POI 生成结构化推荐信息（recommendations 数组）：
+   - reason：为什么推荐（必须引自游记摘录，标注使用的 chunk_id；若游记无命中则不填此字段）
+   - suitable_for：适合人群列表，如 ["情侣","摄影","深度文化"]
+   - avoid_tips：避坑提示列表（必须引自游记摘录，标注 chunk_id；无命中则省略）
+   - source_chunk_ids：本条推荐引用的 chunk_id 列表（必须是上方游记中出现的 chunk_id）
+   - alternatives：若有同类替代地点，最多 2 个，格式 {{"place_id":"...","name":"...","why_alternative":"..."}}
+   - confidence：高德API数据→"high"；有游记支撑→"medium"；仅默认推断→"low"
+   【引用规则】reason 和 avoid_tips 中的内容必须来自游记摘录；无游记支撑时宁可不填，不要编造。
+7. 必须返回合法 JSON（不加 markdown 代码块）：
+   {{"response_text": "...", "place_updates": [{{"place_id": "...", "description": "...", "tags": ["..."], "tip_snippets": [...], "sentiment_score": 0.8, "estimated_duration": 120}}], "recommendations": [{{"place_id": "...", "reason": "...", "suitable_for": [...], "avoid_tips": [...], "source_chunk_ids": [...], "alternatives": [], "confidence": "medium"}}]}}
 不要包含任何其他文字。"""
 
 
@@ -134,10 +194,34 @@ async def run(state: AgentState) -> dict:
         if len(amap_places) != before:
             print(f"[Synthesizer] 品类硬约束 {cuisine_kws}：{before} → {len(amap_places)} 个地点")
 
+    # 兜底：amap_places 为空时自动补充地点数据（Router 未调 search_places / Critic 重置后二次进入）
+    if not amap_places:
+        if settings.demo_mode or settings.amap_mock:
+            # 开发/演示模式：从本地 fixture 按意图过滤加载
+            from app.agents.nodes.amap_search import _load_mock_places
+            amap_places = _load_mock_places(trip_city, last_user_msg)
+            print(f"[Synthesizer] 兜底 Mock：{trip_city}，{len(amap_places)} 个地点")
+        elif settings.amap_api_key:
+            # 生产模式：兜底调用真实高德 API
+            try:
+                from app.tools.amap_tool import _run_amap_search
+                amap_places = await _run_amap_search(last_user_msg[:60], trip_city)
+                print(f"[Synthesizer] 兜底 AMAP 搜索：{trip_city}，{len(amap_places)} 个地点")
+            except Exception as _exc:
+                print(f"[Synthesizer] 兜底搜索失败：{_exc}")
+
+    # 首批结果硬上限（每类 5 个，总 15 个）
+    # 关键：在 LLM 调用前 cap，能同时减少 LLM 输入 tokens / 响应延迟 / 前端卡片堆积
+    before_cap = len(amap_places)
+    amap_places = _cap_places(amap_places)
+    if len(amap_places) != before_cap:
+        print(f"[Synthesizer] 类目封顶：{before_cap} → {len(amap_places)} 个地点（每类≤{_PER_CATEGORY_CAP}，总≤{_TOTAL_CAP}）")
+
     if not amap_places:
         return {
             "synthesized_places": [],
             "final_response": "抱歉，暂时没有找到相关地点，请换个描述方式试试。",
+            "recommendations": [],
         }
 
     # Demo 模式：返回丰富的个性化文案
@@ -145,44 +229,91 @@ async def run(state: AgentState) -> dict:
         return {
             "synthesized_places": amap_places,
             "final_response": _build_demo_response(amap_places, trip_city, working_ctx),
+            "recommendations": [],
         }
+
+    # D25：预构建 prompt 变量（retry 循环外，避免重复计算）
+    amap_json = json.dumps(
+        [p.model_dump(exclude={"rag_meta", "cluster_id", "visit_order"}) for p in amap_places],
+        ensure_ascii=False,
+        indent=2,
+    )
+    # Phase B：在 RAG 上下文中暴露 chunk_id，供 LLM 引用（SPEC §5.2）
+    if rag_chunks:
+        rag_parts = []
+        for i, c in enumerate(rag_chunks[:8]):
+            cid = c.get("chunk_id") or c.get("note_id") or f"chunk_{i}"
+            rag_parts.append(f"[{cid}] {c['content']}")
+        rag_text = "\n\n".join(rag_parts)
+        valid_chunk_ids: set[str] = {
+            c.get("chunk_id") or c.get("note_id") or f"chunk_{i}"
+            for i, c in enumerate(rag_chunks[:8])
+        }
+    else:
+        rag_text = "（无游记数据）"
+        valid_chunk_ids = set()
+
+    working_mem_section = ""
+    if working_ctx:
+        wm_text = format_for_prompt(working_ctx)
+        if wm_text:
+            working_mem_section = f"\n{wm_text}\n"
+
+    _MAX_RETRIES = 2  # SPEC D25：Pydantic 校验失败 → 重试 2 次
+    _last_exc: Exception | None = None
 
     try:
         llm = _get_llm()
         if llm is None:
             raise RuntimeError("无可用 LLM")
 
-        amap_json = json.dumps(
-            [p.model_dump(exclude={"rag_meta", "cluster_id", "visit_order"}) for p in amap_places],
-            ensure_ascii=False,
-            indent=2,
-        )
-        rag_text = "\n\n".join(c["content"] for c in rag_chunks[:5]) if rag_chunks else "（无游记数据）"
+        result: dict | None = None
 
-        # 注入工作记忆
-        working_mem_section = ""
-        if working_ctx:
-            wm_text = format_for_prompt(working_ctx)
-            if wm_text:
-                working_mem_section = f"\n{wm_text}\n"
+        for attempt in range(1, _MAX_RETRIES + 2):  # 1 次正常 + 2 次重试
+            extra_instruction = (
+                "" if attempt == 1
+                else f"\n\n【注意】第 {attempt} 次调用，上次输出 JSON 格式有误，请严格按要求格式返回，不加任何多余文字。"
+            )
+            messages = [
+                SystemMessage(content=SYNTHESIZER_SYSTEM),
+                HumanMessage(content=SYNTHESIZER_PROMPT.format(
+                    amap_places_json=amap_json,
+                    rag_chunks_text=rag_text,
+                    working_memory=working_mem_section,
+                ) + extra_instruction),
+            ]
 
-        response = await llm.ainvoke([
-            SystemMessage(content=SYNTHESIZER_SYSTEM),
-            HumanMessage(content=SYNTHESIZER_PROMPT.format(
-                amap_places_json=amap_json,
-                rag_chunks_text=rag_text,
-                working_memory=working_mem_section,
-            )),
-        ])
+            try:
+                response = await llm.ainvoke(messages)
+                raw = response.content.strip()
+                raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
+                raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
+                raw = raw.strip()
 
-        raw = response.content.strip()
-        raw = re.sub(r'^```(?:json)?\s*', '', raw, flags=re.MULTILINE)
-        raw = re.sub(r'\s*```$', '', raw, flags=re.MULTILINE)
-        raw = raw.strip()
+                json_match = re.search(r'\{.*\}', raw, re.DOTALL)
+                if not json_match:
+                    raise ValueError("LLM 输出中未找到合法 JSON 对象")
 
-        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group())
+                parsed = json.loads(json_match.group())
+                # 基础结构校验
+                if "place_updates" not in parsed and "response_text" not in parsed:
+                    raise ValueError("JSON 缺少必要字段 place_updates / response_text")
+                result = parsed
+                if attempt > 1:
+                    print(f"[Synthesizer] 第 {attempt} 次重试成功")
+                break  # 成功，退出 retry 循环
+
+            except (json.JSONDecodeError, ValueError) as parse_err:
+                _last_exc = parse_err
+                print(f"[Synthesizer] attempt {attempt} JSON 解析失败：{parse_err}，"
+                      f"{'重试' if attempt <= _MAX_RETRIES else '放弃'}")
+                if attempt > _MAX_RETRIES:
+                    raise  # 超出重试次数，抛给外层 except
+
+        if result is None:
+            raise RuntimeError("LLM 返回为空")
+
+        if True:  # 保持缩进结构不变（result 已赋值）
             updates = {u["place_id"]: u for u in result.get("place_updates", [])}
             enriched = []
             for place in amap_places:
@@ -210,6 +341,12 @@ async def run(state: AgentState) -> dict:
                         place = place.model_copy(update=update_fields)
                 enriched.append(place)
 
+            # Phase B：解析 recommendations，验证 source_chunk_ids（SPEC §5.2）
+            recommendations = _parse_recommendations(
+                result.get("recommendations", []),
+                valid_chunk_ids,
+            )
+
             response_text = result.get("response_text", f"为您找到了 {len(enriched)} 个相关地点。")
 
             # 后台触发长期偏好提取（不等待，不阻塞响应）
@@ -218,6 +355,7 @@ async def run(state: AgentState) -> dict:
             return {
                 "synthesized_places": enriched,
                 "final_response": response_text,
+                "recommendations": recommendations,
             }
 
     except Exception as exc:
@@ -226,7 +364,62 @@ async def run(state: AgentState) -> dict:
     return {
         "synthesized_places": amap_places,
         "final_response": f"为您找到了 {len(amap_places)} 个{trip_city}地点，请查看地点列表。",
+        "recommendations": [],
     }
+
+
+def _parse_recommendations(
+    raw_list: list[dict],
+    valid_chunk_ids: set[str],
+) -> list[PlaceRecommendation]:
+    """解析 LLM 输出的 recommendations，剥离无效 source_chunk_ids（SPEC §5.2）。
+
+    - source_chunk_ids 中不在 valid_chunk_ids 内的 ID 被剔除
+    - 若 source_chunk_ids 清空后 reason 无从佐证，将 reason 置空（宁缺勿编）
+    - alternatives 做最多 2 条截断
+    """
+    out: list[PlaceRecommendation] = []
+    for item in raw_list:
+        if not isinstance(item, dict) or not item.get("place_id"):
+            continue
+        # 验证并过滤 chunk_ids
+        raw_ids = item.get("source_chunk_ids") or []
+        verified_ids = [cid for cid in raw_ids if cid in valid_chunk_ids]
+
+        # 无游记支撑时剥离 reason / avoid_tips（SPEC §5.2 引用强制）
+        reason = item.get("reason", "")
+        avoid_tips = item.get("avoid_tips") or []
+        if raw_ids and not verified_ids:
+            reason = ""
+            avoid_tips = []
+
+        # alternatives 截断到最多 2 条
+        alts_raw = item.get("alternatives") or []
+        alternatives = []
+        for a in alts_raw[:2]:
+            if isinstance(a, dict) and a.get("place_id") and a.get("name"):
+                alternatives.append(Alternative(
+                    place_id=a["place_id"],
+                    name=a["name"],
+                    why_alternative=a.get("why_alternative", ""),
+                ))
+
+        confidence_raw = item.get("confidence", "low")
+        confidence = confidence_raw if confidence_raw in ("high", "medium", "low") else "low"
+
+        out.append(PlaceRecommendation(
+            place_id=item["place_id"],
+            name=item.get("name", ""),
+            category_l1=item.get("category_l1", ""),
+            category_l2=item.get("category_l2", ""),
+            reason=reason,
+            suitable_for=item.get("suitable_for") or [],
+            avoid_tips=avoid_tips,
+            source_chunk_ids=verified_ids,
+            alternatives=alternatives,
+            confidence=confidence,
+        ))
+    return out
 
 
 def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> str:

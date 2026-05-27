@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Compass, Phone, Shield, ArrowRight, Check } from 'lucide-react'
+import { Compass, Phone, Shield, ArrowRight, Check, Mail, Lock } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 
@@ -23,6 +23,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [devBypass, setDevBypass] = useState(false)
+  // P1-3：短信兜底通道，邮箱+密码登录/注册
+  const [authMode, setAuthMode] = useState<'phone' | 'email'>('phone')
+  const [emailMode, setEmailMode] = useState<'login' | 'register'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [emailNickname, setEmailNickname] = useState('')
   const codeRefs = useRef<(HTMLInputElement | null)[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -166,6 +172,44 @@ export default function LoginPage() {
     }
   }
 
+  const handleEmailSubmit = async () => {
+    const e = email.trim().toLowerCase()
+    if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(e)) {
+      const msg = '请输入正确的邮箱'
+      setError(msg); toast(msg, 'warning'); return
+    }
+    if (!password) {
+      const msg = '请输入密码'
+      setError(msg); toast(msg, 'warning'); return
+    }
+    if (emailMode === 'register' && !/^(?=.*[A-Za-z])(?=.*\d).{8,64}$/.test(password)) {
+      const msg = '密码至少 8 位，且包含字母 + 数字'
+      setError(msg); toast(msg, 'warning'); return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      const endpoint = emailMode === 'register' ? '/api/auth/email-register' : '/api/auth/email-login'
+      const body: Record<string, unknown> = { email: e, password }
+      if (emailMode === 'register') body.nickname = emailNickname.trim() || undefined
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || (emailMode === 'register' ? '注册失败' : '登录失败'))
+      login(data.token, { userId: data.user_id, nickname: data.nickname })
+      toast(emailMode === 'register' ? `已注册，欢迎 ${data.nickname}` : `欢迎回来，${data.nickname}`, 'success')
+      router.replace('/')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '请求失败'
+      setError(msg); toast(msg, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleSetNickname = async () => {
     const name = nickname.trim() || '旅行者'
     try {
@@ -223,7 +267,7 @@ export default function LoginPage() {
         <div className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass">
           <AnimatePresence mode="wait">
 
-            {/* Step 1: 手机号 */}
+            {/* Step 1: 手机号 / 邮箱 */}
             {step === 'phone' && (
               <motion.div
                 key="phone"
@@ -232,10 +276,87 @@ export default function LoginPage() {
                 exit={{ opacity: 0, x: -20 }}
                 className="p-6"
               >
-                <div className="flex items-center gap-2 mb-5">
-                  <Phone className="w-4 h-4 text-coral-500" />
-                  <span className="text-sm font-semibold text-gray-700">手机号登录</span>
+                {/* 登录方式 Tab */}
+                <div className="flex bg-gray-100 rounded-xl p-1 mb-5">
+                  {([
+                    { v: 'phone', label: '手机号', icon: <Phone className="w-3.5 h-3.5" /> },
+                    { v: 'email', label: '邮箱', icon: <Mail className="w-3.5 h-3.5" /> },
+                  ] as const).map((t) => (
+                    <button
+                      key={t.v}
+                      onClick={() => { setAuthMode(t.v); setError('') }}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${authMode === t.v ? 'bg-white text-coral-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    >
+                      {t.icon}{t.label}
+                    </button>
+                  ))}
                 </div>
+
+                {authMode === 'email' ? (
+                  <>
+                    <div className="flex items-center gap-2 mb-4">
+                      <button
+                        onClick={() => { setEmailMode('login'); setError('') }}
+                        className={`text-xs font-medium px-2 py-1 rounded-lg ${emailMode === 'login' ? 'bg-coral-50 text-coral-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        登录
+                      </button>
+                      <button
+                        onClick={() => { setEmailMode('register'); setError('') }}
+                        className={`text-xs font-medium px-2 py-1 rounded-lg ${emailMode === 'register' ? 'bg-coral-50 text-coral-600' : 'text-gray-500 hover:text-gray-700'}`}
+                      >
+                        注册
+                      </button>
+                      <span className="ml-auto text-[10px] text-gray-400">短信故障时的兜底通道</span>
+                    </div>
+                    <div className="relative mb-3">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="邮箱地址"
+                        autoComplete="email"
+                        className="input-glass pl-9 w-full"
+                      />
+                    </div>
+                    <div className="relative mb-3">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleEmailSubmit()}
+                        placeholder={emailMode === 'register' ? '至少 8 位，含字母+数字' : '密码'}
+                        autoComplete={emailMode === 'register' ? 'new-password' : 'current-password'}
+                        className="input-glass pl-9 w-full"
+                      />
+                    </div>
+                    {emailMode === 'register' && (
+                      <input
+                        type="text"
+                        value={emailNickname}
+                        onChange={(e) => setEmailNickname(e.target.value)}
+                        placeholder="昵称（可选，默认用邮箱前缀）"
+                        maxLength={20}
+                        className="input-glass mb-3 w-full"
+                      />
+                    )}
+                    {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+                    <button
+                      onClick={handleEmailSubmit}
+                      disabled={loading}
+                      className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>{emailMode === 'register' ? '注册并登录' : '邮箱登录'} <ArrowRight className="w-4 h-4" /></>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                <>
                 <p className="text-xs text-gray-400 mb-4">未注册手机号将自动创建账号</p>
                 <div className="flex gap-2 mb-4">
                   <div className="flex items-center px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-500 font-medium">
@@ -265,16 +386,20 @@ export default function LoginPage() {
                   )}
                 </button>
 
-                {/* 开发/演示环境：测试账号一键登录（生产环境后端会返回 403，按钮会自动隐藏） */}
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <button
-                    onClick={handleTestLogin}
-                    disabled={loading}
-                    className="w-full py-2.5 text-xs text-gray-500 hover:text-coral-600 bg-gray-50 hover:bg-coral-50 border border-gray-200 hover:border-coral-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
-                  >
-                    🚀 使用测试账号一键登录（演示用）
-                  </button>
-                </div>
+                {/* 测试入口：仅在本地开发时通过 NEXT_PUBLIC_SHOW_TEST_LOGIN=true 显式启用 */}
+                {process.env.NEXT_PUBLIC_SHOW_TEST_LOGIN === 'true' && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={handleTestLogin}
+                      disabled={loading}
+                      className="w-full py-2.5 text-xs text-gray-500 hover:text-coral-600 bg-gray-50 hover:bg-coral-50 border border-gray-200 hover:border-coral-200 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    >
+                      🚀 使用测试账号一键登录（演示用）
+                    </button>
+                  </div>
+                )}
+                </>
+                )}
               </motion.div>
             )}
 

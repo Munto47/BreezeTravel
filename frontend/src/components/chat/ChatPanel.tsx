@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Sparkles, MessageSquare, Brain } from 'lucide-react'
 
@@ -103,17 +103,37 @@ function useMemoryActive(messages: ChatMessage[]): boolean {
 
 export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
   const [input, setInput] = useState('')
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  // true once the user manually scrolls up — suppresses auto-scroll until they send again
+  const userScrolledUpRef = useRef(false)
   const memoryActive = useMemoryActive(messages)
 
+  // Detect when user scrolls away from the bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    userScrolledUpRef.current = distanceFromBottom > 80
+  }, [])
+
+  // Smart auto-scroll: respect user position during streaming
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (userScrolledUpRef.current) return
+    const el = scrollContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  // Send a message and always scroll to bottom to show the response
+  const sendText = useCallback((text: string) => {
+    userScrolledUpRef.current = false
+    onSend(text)
+  }, [onSend])
 
   const handleSend = () => {
     const text = input.trim()
     if (!text || isStreaming) return
-    onSend(text)
+    sendText(text)
     setInput('')
   }
 
@@ -161,7 +181,11 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
       {weather && weather.days.length > 0 && <WeatherBar weather={weather} />}
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin"
+      >
         {/* 空状态：快捷提问 */}
         <AnimatePresence>
           {messages.length === 0 && (
@@ -180,7 +204,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
                 {getQuickPrompts(tripCity).map((q) => (
                   <button
                     key={q.text}
-                    onClick={() => onSend(q.text)}
+                    onClick={() => sendText(q.text)}
                     className="text-left text-xs text-gray-600 hover:text-coral-600
                              px-3 py-2.5 rounded-lg
                              bg-white/60 hover:bg-coral-50/80
