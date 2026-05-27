@@ -6,6 +6,7 @@ POST /api/auth/verify     — 验证码验证 + 登录/注册，返回 JWT
 """
 
 import random
+import re
 import string
 from datetime import datetime, timedelta, timezone
 
@@ -17,8 +18,28 @@ from app.config import settings
 from app.db.connection import get_pool
 from app.utils.sms import send_code
 from app.utils.auth import create_token
+from app.utils.password import hash_password, verify_password
 
 router = APIRouter()
+
+# 邮箱兜底登录密码强度：≥8 位，含字母 + 数字（不强制特殊字符以降低注册阻力）
+_PASSWORD_RE = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{8,64}$")
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+
+def _validate_password(pw: str) -> None:
+    if not _PASSWORD_RE.match(pw or ""):
+        raise HTTPException(
+            status_code=400,
+            detail="密码需要 8-64 位，且至少包含 1 个字母和 1 个数字",
+        )
+
+
+def _normalize_email(email: str) -> str:
+    e = (email or "").strip().lower()
+    if not _EMAIL_RE.match(e):
+        raise HTTPException(status_code=400, detail="邮箱格式不正确")
+    return e
 
 
 def _gen_code(length: int = 6) -> str:
@@ -138,6 +159,83 @@ async def test_login():
         "nickname": nickname,
         "is_new_user": is_new_user,
         "phone": phone,
+    }
+
+
+class EmailRegisterRequest(BaseModel):
+    email: str
+    password: str
+    nickname: Optional[str] = None
+
+
+class EmailLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+@router.post("/auth/email-register")
+async def email_register(body: EmailRegisterRequest):
+    """邮箱+密码注册。作为短信兜底通道：运营商故障或日级流控触顶时仍可创建账号。"""
+    email = _normalize_email(body.email)
+    _validate_password(body.password)
+    nickname = (body.nickname or "").strip() or email.split("@")[0]
+    password_hash = hash_password(body.password)
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchval("SELECT 1 FROM users WHERE email = $1", email)
+        if existing:
+            raise HTTPException(status_code=409, detail="该邮箱已注册，请直接登录")
+
+        import uuid
+        user_id = str(uuid.uuid4())
+        await conn.execute(
+            """
+            INSERT INTO users (user_id, nickname, email, password_hash, updated_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            """,
+            user_id,
+            nickname,
+            email,
+            password_hash,
+        )
+
+    token = create_token(user_id)
+    return {
+        "token": token,
+        "user_id": user_id,
+        "nickname": nickname,
+        "is_new_user": True,
+        "email": email,
+    }
+
+
+@router.post("/auth/email-login")
+async def email_login(body: EmailLoginRequest):
+    """邮箱+密码登录。失败统一返回 401 + 模糊文案，避免邮箱枚举。"""
+    email = _normalize_email(body.email)
+    if not body.password:
+        raise HTTPException(status_code=400, detail="密码不能为空")
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        user = await conn.fetchrow(
+            "SELECT user_id, nickname, password_hash FROM users WHERE email = $1",
+            email,
+        )
+
+    if not user or not user["password_hash"]:
+        raise HTTPException(status_code=401, detail="邮箱或密码错误")
+    if not verify_password(body.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="邮箱或密码错误")
+
+    token = create_token(user["user_id"])
+    return {
+        "token": token,
+        "user_id": user["user_id"],
+        "nickname": user["nickname"],
+        "is_new_user": False,
+        "email": email,
     }
 
 
