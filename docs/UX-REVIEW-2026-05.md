@@ -13,8 +13,10 @@
 |---|---|---|---|---|
 | 首轮（B1–B5） | 14 | 14 | 0 | 100% |
 | 第二轮（P0-4） | 1 | 1 | 0 | 100% |
-| **合计** | **15** | **15** | **0** | **100%** |
-| 待修复（搁置） | 5 | 0 | 5 | — |
+| 第三轮（P0-5 / P1-13） | 2 | 2 | 0 | 100% |
+| 第四轮（P1-12 / P0-6 / P1-3） | 3 | 3 | 0 | 100% |
+| **合计** | **20** | **20** | **0** | **100%** |
+| 待修复（搁置） | 0 | 0 | 0 | — |
 
 提交记录：
 - `d0795c4` fix(ux): UX 审查首轮修复 — 登录/分享/初始推荐/AI/排线
@@ -68,19 +70,26 @@
 |---|---|---|---|---|---|---|
 | P0-4 | P0 | 城市列表 300+ 个，RAG 游记语料只覆盖 7 个城市，其余城市无视觉区分，用户选完看不出 AI 推荐质量为何差 | 城市选择器原状 | ① 后端加 `GET /api/cities/supported`：查 travel_notes DISTINCT city，DB 失败回退兜底列表<br>② 前端首屏 fetch 到 `supportedCities: Set<string>`<br>③ 三处城市按钮（搜索/热门/省份）全加 🧠/🗺️ 角标 + title 解释<br>④ 弹窗顶部图例栏；省份按钮加"🧠 N"显示该省支持数<br>⑤ `pickCity(c)` 统一入口：非支持城市 toast 提示（非阻塞） | `backend/app/api/cities.py` (新) `backend/app/main.py` `frontend/src/app/page.tsx` | API 返回 7 城（成都/北京/上海/广州/深圳/杭州/厦门，72-74 篇/城）；前端 bundle 含 supportedCities 状态 + 文案 + emoji 角标 |
 
+### 🟢 第三轮（2026-05-26）
+
+| ID | 优先级 | 问题 | 复现/证据 | 修复方案 | 涉及文件 | 验证 |
+|---|---|---|---|---|---|---|
+| P0-5 | P0 | 主页特性 chip（AI 智能推荐 / 好友实时协同 / 最优路线规划）拦截下方城市选择按钮的点击事件，Playwright 必须 `evaluate` 才能点中，真人鼠标也会失手 | Playwright 报错 `<span class="...text-[10px] text-gray-400 bg-gray-50..."> intercepts pointer events` | 三个特性 chip 是纯装饰展示，直接加 `pointer-events-none`，让点击事件穿透到下方城市按钮 | `frontend/src/app/page.tsx:216` | 代码审计；前端 bundle 含 `pointer-events-none inline-flex` |
+| P1-13 | P1 | AI 主动加戏：用户只问火锅，回复结尾自己安利"宽窄巷子的小吃别买，不如去井巷子拍照" | 实测 chat panel | ① `SYNTHESIZER_SYSTEM` 加硬约束："只回答用户明确询问的品类，不要主动安利/对比用户没问的其他类目，不要用'顺便/不如/建议你也试试/对了'口吻引入新议题"<br>② `SYNTHESIZER_PROMPT` 第 5 条补"只围绕用户消息中明确出现的品类/诉求展开，不要节外生枝" | `backend/app/agents/nodes/synthesizer.py:72` `:95` | 代码审计：System + Human Prompt 双层约束 |
+
+### 🟢 第四轮（2026-05-26）
+
+| ID | 优先级 | 问题 | 复现/证据 | 修复方案 | 涉及文件 | 验证 |
+|---|---|---|---|---|---|---|
+| P1-12 | P1 | AI 回复延迟 ~37s 才出现首批地点卡，整段思考链跑完用户才看到结果，等待感强 | 实测 chat panel SSE trace | **两段流式**：① `tool_executor` `on_chain_end` 时立即推送 Amap 原始地点卡（`place` 事件，~5s 内可见）<br>② `synthesizer` `on_chain_end` 时推送 `place_update` 增量事件（description/tags/rag_meta/estimated_duration）合并到已渲染卡片<br>③ 新增 `place_remove` 事件：synthesizer 因菜系硬约束剔除的预览卡，前端同步移除<br>④ 前端 `useAIChat` 增加 `place_update`/`place_remove` handler，按 placeId 合并字段，预防重复追加 | `backend/app/api/chat.py` `frontend/src/hooks/useAIChat.ts` | 前端 tsc 0 error；流程：tool_executor 完成（~5s）→ 卡片立现 → synthesizer 完成（~20s+）→ description/tips 补齐 |
+| P0-6 | P0 | 主页缺地图视觉，原需求"通过地图列表找到旅游城市"无对应 UI，纯文本 chip 列表无吸引力 | 主页截图 `03-home.png` | 新增 `DEEP_CITY_CARDS` 常量：7 城市（成都/北京/上海/广州/深圳/杭州/厦门）各自的 emoji+渐变+标语，无需外部图片资源；主页"创建房间"卡片上方加 4×2 网格图卡，aspect-square + Tailwind 渐变 + 大 emoji + 城市名 + 标语 + 🧠 角标；点击直接 `pickCity(city)` 走原创建流 | `frontend/src/app/page.tsx:19` `:225-263` | 前端 tsc 0 error；7 张图卡渲染，选中态用 coral ring；零外部资源依赖（不需要 Amap 静态地图 key） |
+| P1-3 | P1 | 100% 依赖短信，运营商日级流控（40/天）或故障时全站无法注册 / 登录 | 后端日志 `[SMS] 发送失败` + 502 | **邮箱+密码兜底**（微信 OAuth 留待外部 AppID 后做）：<br>① migration `004_email_auth.sql`：users 表加 `email UNIQUE` + `password_hash` + 索引<br>② `app/utils/password.py`：PBKDF2-HMAC-SHA256 / 260k 迭代 / 16B 盐 / Django 兼容格式，纯 stdlib 不引入新依赖<br>③ `POST /api/auth/email-register` + `POST /api/auth/email-login`：邮箱正则校验 + 密码强度（≥8 位含字母+数字）+ 失败统一 401 防邮箱枚举<br>④ 登录页加"手机号 / 邮箱"Tab，邮箱内再切"登录 / 注册"，复用原 `login()` + `router.replace('/')` | `backend/app/db/migrations/004_email_auth.sql` (新) `backend/app/utils/password.py` (新) `backend/app/api/auth.py` `frontend/src/app/login/page.tsx` | 后端 Python 语法 OK；前端 tsc 0 error；migration 走 `run_migrations()` 自动应用 |
+
 ---
 
-## 三、已观察但**未修复**问题清单（5 项 + 1 个 false alarm）
+## 三、已观察但**未修复**问题清单（0 项 + 1 个 false alarm）
 
-### 🟡 已搁置到下一轮
-
-| ID | 优先级 | 问题 | 现状 | 待办方案（建议） | 估时 |
-|---|---|---|---|---|---|
-| **P0-5** | P0 | 城市选择弹窗中"成都"等热门按钮被顶部 chip 遮挡，Playwright 必须用 `evaluate` 才能点中，真实用户鼠标也会点不中 | Playwright 报错 `<span class="...inline-flex items-center gap-1 text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"> intercepts pointer events` | 找到 chip（在 `frontend/src/app/page.tsx` 城市弹窗顶部 chip 行）加 `pointer-events-none`，或重新调整 z-index/层级 | 30 min |
-| **P0-6** | P0 | 主页缺"地图视觉/城市图片"，与原需求"通过地图列表找到旅游城市"不符 | 当前是纯文本 chip 列表，没有任何缩略图/封面 | 7 个深度城市改成 4×4 图卡（用 Amap 静态地图 API 或本地封面图），点击直接进创建流；其他城市保留 chip | 1-2 day（含图片素材） |
-| **P1-3** | P1 | 100% 依赖短信，缺微信 OAuth / 邮箱兜底，运营商一故障全站不可用 | 当前只有手机+短信验证码（开发模式 888888） | 加微信扫码 OAuth 或邮箱+密码登录 | 2-3 day |
-| **P1-12** | P1 | AI 回复延迟 ~37 秒（26 步思考链），用户等待感强 | 实测 chat panel 流式 trace | Synthesizer 改纯 streaming：首批 4-5 个地点卡 10s 内可见，剩余慢慢补；考虑用 deepseek-chat-fast 或缓存中间结果 | 1 day |
-| **P1-13** | P1 | AI 主动加戏：用户只问火锅，结尾自己安利"宽窄巷子的小吃别买，不如去井巷子拍照" | 实测 chat panel | Synthesizer prompt 加"仅回答用户明确询问的品类，不主动推荐其他类目" | 1 hour |
+> 第四轮（2026-05-26）后所有 P0/P1 已修复，下面只保留 false alarm 备忘。剩余仅微信 OAuth（外部 AppID 依赖）日后接入即可。
 
 ### 🔵 已观察但已 close
 
@@ -148,11 +157,7 @@ docs/
 
 ## 六、后续建议优先级
 
-立即可做（≤ 2 小时）：
-1. **P1-13**：Synthesizer prompt 加约束句，避免 AI 加戏
-2. **P0-5**：城市弹窗 chip pointer-events 修复
-
-下个 Sprint：
-3. **P1-12**：Synthesizer 真流式（用户体感最重要）
-4. **P0-6**：城市卡片化 + 封面图（视觉吸引力）
-5. **P1-3**：登录兜底通道
+UX 审查清单已 100% 收口。下阶段建议聚焦：
+1. **微信 OAuth 接入**：等 AppID/AppSecret 到位即可接入 `/api/auth/wechat-callback`，可与现有 email/phone 同表（user_id 共用），约 1 天
+2. **CLAUDE.md Phase 6 — 生产部署**：Railway backend + Vercel frontend + Supabase PostgreSQL
+3. **scenic Context Recall 进阶**（0.57 → 0.65+）：Parent-Document Retriever（小 chunk 检索 + 大 chunk 返回）
