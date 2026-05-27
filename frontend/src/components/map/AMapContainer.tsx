@@ -22,7 +22,19 @@ const CATEGORY_ICON: Record<string, string> = {
   hotel: '🏨',
   transport: '🚉',
 }
-const DEFAULT_CENTER: [number, number] = [104.066, 30.659]
+const DEFAULT_CENTER: [number, number] = [116.407, 39.904] // 无城市时默认北京
+
+// 7 个支持城市的地图中心坐标（高德 WGS-84 偏移后的 GCJ-02）
+const CITY_CENTERS: Record<string, [number, number]> = {
+  '北京': [116.407, 39.904],
+  '上海': [121.474, 31.231],
+  '成都': [104.066, 30.659],
+  '杭州': [120.153, 30.287],
+  '西安': [108.948, 34.264],
+  '厦门': [118.089, 24.479],
+  '广州': [113.264, 23.129],
+  '深圳': [114.057, 22.543],
+}
 
 declare global {
   interface Window {
@@ -43,6 +55,9 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   // 记录上次渲染时的 place ID 集合，只有 ID 变化（新增/删除地点）才调 setFitView
   // 投票只改 votedBy，不触发地图缩放
   const prevPlaceIdsRef = useRef<Set<string>>(new Set())
+  // ref 透传给异步 init effect，避免闭包捕获初始空值
+  const tripCityRef     = useRef<string | undefined>(tripCity)
+  useEffect(() => { tripCityRef.current = tripCity }, [tripCity])
 
   const { selectedPlaceId, setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
 
@@ -82,13 +97,27 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         })
         if (destroyed || !containerRef.current) return
 
+        const city = tripCityRef.current
+        const initialCenter: [number, number] =
+          (city && CITY_CENTERS[city]) ? CITY_CENTERS[city] : DEFAULT_CENTER
+
         const map = new AMap.Map(containerRef.current, {
           zoom: 13,
-          center: DEFAULT_CENTER,
+          center: initialCenter,
           mapStyle: 'amap://styles/macaron',
           viewMode: '3D',
         })
         mapRef.current = map
+
+        // 城市不在预置表里时，用 Geocoder 定位（如用户自定义城市名）
+        if (city && !CITY_CENTERS[city]) {
+          const geocoder = new AMap.Geocoder({ city })
+          geocoder.getLocation(city, (status: string, result: any) => {
+            if (status === 'complete' && result.geocodes?.length > 0) {
+              map.setCenter(result.geocodes[0].location)
+            }
+          })
+        }
 
         infoWindowRef.current = new AMap.InfoWindow({
           offset: new AMap.Pixel(0, -30),
@@ -113,9 +142,15 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── tripCity 变化时重新定位地图中心（解决异步加载城市时地图停在默认城市的问题）──
+  // ── tripCity 变化时重新定位地图中心 ────────────────────────────────
   useEffect(() => {
     if (!mapRef.current || !tripCity) return
+    // 优先用预置坐标（即时，无网络请求）
+    if (CITY_CENTERS[tripCity]) {
+      mapRef.current.setCenter(CITY_CENTERS[tripCity])
+      return
+    }
+    // 不在预置表里的城市，走 Geocoder 降级
     const AMap = (window as any).AMap
     if (!AMap?.Geocoder) return
     const geocoder = new AMap.Geocoder({ city: tripCity })
