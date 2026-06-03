@@ -552,16 +552,25 @@ export default function HomePage() {
           >
             关于我们 · 开发主体与备案信息
           </button>
-          <p className="text-[11px] text-gray-300 pt-1">
+          <div className="pt-1 flex flex-col items-center gap-1">
+            <a
+              href="https://beian.mps.gov.cn/#/query/webSearch?code=36010802001383"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-gray-300 hover:text-coral-500 hover:underline"
+            >
+              <img src="/beian-icon.png" alt="公安备案" className="w-4 h-4 flex-shrink-0" />
+              赣公网安备36010802001383号
+            </a>
             <a
               href="https://beian.miit.gov.cn/"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-coral-500 hover:underline"
+              className="text-[11px] text-gray-300 hover:text-coral-500 hover:underline"
             >
               赣ICP备2026008973号-2
             </a>
-          </p>
+          </div>
         </div>
       </motion.div>
     </div>
