@@ -18,14 +18,12 @@ ENV NEXT_PUBLIC_Y_WEBSOCKET_URL=$NEXT_PUBLIC_Y_WEBSOCKET_URL
 ENV NEXT_PUBLIC_AMAP_JS_KEY=$NEXT_PUBLIC_AMAP_JS_KEY
 ENV NEXT_PUBLIC_AMAP_SECURITY_CODE=$NEXT_PUBLIC_AMAP_SECURITY_CODE
 
-RUN npm run build
+RUN npm run build && npm prune --production
 
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/.next ./.next
-# public/ 可以是空目录，RUN mkdir 防止目录不存在时 COPY 报错
-RUN mkdir -p ./public
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
