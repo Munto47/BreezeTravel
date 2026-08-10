@@ -24,11 +24,14 @@
 import time
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.schemas.itinerary import Itinerary
 from app.schemas.patch import ItineraryPatch
+from app.config import get_settings
+from app.services.room_access import require_room_member
+from app.utils.auth import get_optional_user
 
 router = APIRouter()
 
@@ -37,6 +40,7 @@ _FAST_PATH_OPS = {"remove_place", "swap_days"}
 
 class EditRequest(BaseModel):
     thread_id: str
+    room_id: Optional[str] = None
     user_msg: Optional[str] = None         # 自然语言编辑意图（EditorAgent 路径）
     itinerary: Itinerary                   # 当前行程
     patch: Optional[ItineraryPatch] = None # 直接传 patch（绕过 LLM 解析）
@@ -51,7 +55,13 @@ class EditResponse(BaseModel):
 
 
 @router.post("/edit", response_model=EditResponse)
-async def edit_itinerary(request: EditRequest):
+async def edit_itinerary(request: EditRequest, current_user: str | None = Depends(get_optional_user)):
+    if request.room_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="请先登录")
+        await require_room_member(request.room_id, current_user, thread_id=request.thread_id)
+    elif not get_settings().demo_mode:
+        raise HTTPException(status_code=400, detail="room_id 必填")
     start = time.time()
 
     patch: Optional[ItineraryPatch] = request.patch

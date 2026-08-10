@@ -284,6 +284,7 @@ export default function LoginPage() {
                   ] as const).map((t) => (
                     <button
                       key={t.v}
+                      data-testid={t.v === 'email' ? 'auth-email-tab' : 'auth-phone-tab'}
                       onClick={() => { setAuthMode(t.v); setError('') }}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${authMode === t.v ? 'bg-white text-coral-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
                     >
@@ -312,6 +313,7 @@ export default function LoginPage() {
                     <div className="relative mb-3">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
+                        data-testid="auth-email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -323,6 +325,7 @@ export default function LoginPage() {
                     <div className="relative mb-3">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                       <input
+                        data-testid="auth-password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -334,6 +337,7 @@ export default function LoginPage() {
                     </div>
                     {emailMode === 'register' && (
                       <input
+                        data-testid="auth-nickname"
                         type="text"
                         value={emailNickname}
                         onChange={(e) => setEmailNickname(e.target.value)}
@@ -344,6 +348,7 @@ export default function LoginPage() {
                     )}
                     {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
                     <button
+                      data-testid="auth-email-submit"
                       onClick={handleEmailSubmit}
                       disabled={loading}
                       className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"

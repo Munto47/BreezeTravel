@@ -257,7 +257,7 @@ def run_offline_eval(cases: list[dict]) -> dict:
 
     print(f"\n{'='*60}")
     print(f"FT Router 准确率：{correct}/{total} = {accuracy:.1%}")
-    print(f"\n按意图类型分布：")
+    print("\n按意图类型分布：")
     for intent, stat in intent_stats.items():
         acc = stat["correct"] / stat["total"] if stat["total"] else 0
         flag = "✅" if acc >= 0.8 else "⚠️"
@@ -292,7 +292,7 @@ async def run_full_eval(cases: list[dict], n: Optional[int] = None) -> dict:
 
     subset = cases[:n] if n else cases
     print(f"\n{'='*60}")
-    print(f"集成评估模式：完整 LangGraph Pipeline")
+    print("集成评估模式：完整 LangGraph Pipeline")
     print(f"评估样本：{len(subset)}/{len(cases)} 条")
     print(f"{'='*60}\n")
 
@@ -417,7 +417,8 @@ async def run_full_eval(cases: list[dict], n: Optional[int] = None) -> dict:
     print(f"\n{'='*60}")
     print("Agent 评估结果汇总")
     print(f"{'='*60}")
-    _flag = lambda v, t: "✅" if v >= t else "❌"
+    def _flag(value, threshold):
+        return "✅" if value >= threshold else "❌"
     print(f"  Router 工具选择准确率  : {summary['router_accuracy']:.1%}  "
           f"{_flag(summary['router_accuracy'], 0.75)}  （目标 ≥75%）")
     print(f"  Synthesizer 输出有效率 : {summary['synthesizer_validity']:.1%}  "

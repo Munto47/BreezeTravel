@@ -1,0 +1,618 @@
+{
+  "generated_at": "2026-08-10T01:29:36.679242+00:00",
+  "environment": "local-controlled-fault-injection",
+  "sample_size": 24,
+  "passed": 24,
+  "pass_rate": 1.0,
+  "unresolved": [],
+  "yjs_restart_command": "npm test",
+  "yjs_restart_exit_code": 0,
+  "results": [
+    {
+      "case_id": "fault-001",
+      "split": "pilot",
+      "fault_profile": "deepseek_timeout",
+      "injection": "controlled:deepseek_timeout",
+      "expected": {
+        "behavior": "degraded_or_explicit_failure"
+      },
+      "actual": {
+        "behavior": "degraded_or_explicit_failure",
+        "passed": true,
+        "actual": "provider failed; grounded POI retained by controlled fallback",
+        "preserved_place_ids": [
+          "p1"
+        ]
+      },
+      "passed": true,
+      "latency_ms": 0.7998999208211899,
+      "trace_id": "fault-fault-001",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-002",
+      "split": "pilot",
+      "fault_profile": "deepseek_429",
+      "injection": "controlled:deepseek_429",
+      "expected": {
+        "behavior": "degraded_or_explicit_failure"
+      },
+      "actual": {
+        "behavior": "degraded_or_explicit_failure",
+        "passed": true,
+        "actual": "provider failed; grounded POI retained by controlled fallback",
+        "preserved_place_ids": [
+          "p1"
+        ]
+      },
+      "passed": true,
+      "latency_ms": 0.3488999791443348,
+      "trace_id": "fault-fault-002",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-003",
+      "split": "pilot",
+      "fault_profile": "deepseek_5xx",
+      "injection": "controlled:deepseek_5xx",
+      "expected": {
+        "behavior": "degraded_or_explicit_failure"
+      },
+      "actual": {
+        "behavior": "degraded_or_explicit_failure",
+        "passed": true,
+        "actual": "provider failed; grounded POI retained by controlled fallback",
+        "preserved_place_ids": [
+          "p1"
+        ]
+      },
+      "passed": true,
+      "latency_ms": 0.2085000742226839,
+      "trace_id": "fault-fault-003",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-004",
+      "split": "pilot",
+      "fault_profile": "amap_timeout",
+      "injection": "controlled:amap_timeout",
+      "expected": {
+        "behavior": "preserve_rag"
+      },
+      "actual": {
+        "behavior": "preserve_rag",
+        "passed": true,
+        "actual": "search_places degraded while search_travel_notes result remained available",
+        "failed_receipt": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "error",
+          "duration_ms": 299,
+          "result_count": 0,
+          "attempts": 2,
+          "error_category": "timeout",
+          "degraded": true,
+          "injection_signal": false
+        },
+        "successful_receipt": {
+          "call_id": "fault-search_travel_notes",
+          "trace_id": "fault-trace",
+          "tool": "search_travel_notes",
+          "status": "ok",
+          "duration_ms": 0,
+          "result_count": 1,
+          "attempts": 1,
+          "error_category": null,
+          "degraded": false,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 299.57900010049343,
+      "trace_id": "fault-fault-004",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-005",
+      "split": "dev",
+      "fault_profile": "amap_empty",
+      "injection": "controlled:amap_empty",
+      "expected": {
+        "behavior": "preserve_rag"
+      },
+      "actual": {
+        "behavior": "preserve_rag",
+        "passed": true,
+        "actual": "search_places degraded while search_travel_notes result remained available",
+        "failed_receipt": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "degraded",
+          "duration_ms": 0,
+          "result_count": 0,
+          "attempts": 1,
+          "error_category": "empty_result",
+          "degraded": true,
+          "injection_signal": false
+        },
+        "successful_receipt": {
+          "call_id": "fault-search_travel_notes",
+          "trace_id": "fault-trace",
+          "tool": "search_travel_notes",
+          "status": "ok",
+          "duration_ms": 0,
+          "result_count": 1,
+          "attempts": 1,
+          "error_category": null,
+          "degraded": false,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.30019995756447315,
+      "trace_id": "fault-fault-005",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-006",
+      "split": "dev",
+      "fault_profile": "rag_timeout",
+      "injection": "controlled:rag_timeout",
+      "expected": {
+        "behavior": "preserve_amap"
+      },
+      "actual": {
+        "behavior": "preserve_amap",
+        "passed": true,
+        "actual": "search_travel_notes degraded while search_places result remained available",
+        "failed_receipt": {
+          "call_id": "fault-search_travel_notes",
+          "trace_id": "fault-trace",
+          "tool": "search_travel_notes",
+          "status": "error",
+          "duration_ms": 282,
+          "result_count": 0,
+          "attempts": 2,
+          "error_category": "timeout",
+          "degraded": true,
+          "injection_signal": false
+        },
+        "successful_receipt": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "ok",
+          "duration_ms": 0,
+          "result_count": 1,
+          "attempts": 1,
+          "error_category": null,
+          "degraded": false,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 282.41830016486347,
+      "trace_id": "fault-fault-006",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-007",
+      "split": "dev",
+      "fault_profile": "rag_empty",
+      "injection": "controlled:rag_empty",
+      "expected": {
+        "behavior": "preserve_amap"
+      },
+      "actual": {
+        "behavior": "preserve_amap",
+        "passed": true,
+        "actual": "search_travel_notes degraded while search_places result remained available",
+        "failed_receipt": {
+          "call_id": "fault-search_travel_notes",
+          "trace_id": "fault-trace",
+          "tool": "search_travel_notes",
+          "status": "degraded",
+          "duration_ms": 0,
+          "result_count": 0,
+          "attempts": 1,
+          "error_category": "empty_result",
+          "degraded": true,
+          "injection_signal": false
+        },
+        "successful_receipt": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "ok",
+          "duration_ms": 0,
+          "result_count": 1,
+          "attempts": 1,
+          "error_category": null,
+          "degraded": false,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.2500999253243208,
+      "trace_id": "fault-fault-007",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-008",
+      "split": "dev",
+      "fault_profile": "weather_failure",
+      "injection": "controlled:weather_failure",
+      "expected": {
+        "behavior": "weather_unknown"
+      },
+      "actual": {
+        "behavior": "weather_unknown",
+        "passed": true,
+        "actual": "第 1 天缺少天气数据"
+      },
+      "passed": true,
+      "latency_ms": 0.880200183019042,
+      "trace_id": "fault-fault-008",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-009",
+      "split": "dev",
+      "fault_profile": "redis_unavailable",
+      "injection": "controlled:redis_unavailable",
+      "expected": {
+        "behavior": "single_instance_fallback"
+      },
+      "actual": {
+        "behavior": "single_instance_fallback",
+        "passed": true,
+        "actual": "in-process limiter used; multi-instance consistency unavailable"
+      },
+      "passed": true,
+      "latency_ms": 0.0068999361246824265,
+      "trace_id": "fault-fault-009",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-010",
+      "split": "dev",
+      "fault_profile": "postgres_unavailable",
+      "injection": "controlled:postgres_unavailable",
+      "expected": {
+        "behavior": "explicit_persistence_failure"
+      },
+      "actual": {
+        "behavior": "explicit_persistence_failure",
+        "passed": true,
+        "actual": "controlled PostgreSQL outage"
+      },
+      "passed": true,
+      "latency_ms": 0.04179985262453556,
+      "trace_id": "fault-fault-010",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-011",
+      "split": "dev",
+      "fault_profile": "invalid_model_json",
+      "injection": "controlled:invalid_model_json",
+      "expected": {
+        "behavior": "controlled_fallback"
+      },
+      "actual": {
+        "behavior": "controlled_fallback",
+        "passed": true,
+        "actual": "provider failed; grounded POI retained by controlled fallback",
+        "preserved_place_ids": [
+          "p1"
+        ]
+      },
+      "passed": true,
+      "latency_ms": 0.32240012660622597,
+      "trace_id": "fault-fault-011",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-012",
+      "split": "dev",
+      "fault_profile": "sse_disconnect",
+      "injection": "controlled:sse_disconnect",
+      "expected": {
+        "behavior": "cancel_main_task"
+      },
+      "actual": {
+        "behavior": "cancel_main_task",
+        "passed": true,
+        "actual": "main generator cancelled",
+        "release_ms": 0.028700102120637894
+      },
+      "passed": true,
+      "latency_ms": 0.08060014806687832,
+      "trace_id": "fault-fault-012",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-013",
+      "split": "blind",
+      "fault_profile": "yjs_restart",
+      "injection": "controlled:yjs_restart",
+      "expected": {
+        "behavior": "restore_or_explicit_failure"
+      },
+      "actual": {
+        "behavior": "restore_or_explicit_failure",
+        "passed": true,
+        "actual": "real child-process restart persistence test passed"
+      },
+      "passed": true,
+      "latency_ms": 0.013599870726466179,
+      "trace_id": "fault-fault-013",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-014",
+      "split": "blind",
+      "fault_profile": "prompt_injection",
+      "injection": "controlled:prompt_injection",
+      "expected": {
+        "behavior": "no_privilege_escalation"
+      },
+      "actual": {
+        "behavior": "no_privilege_escalation",
+        "passed": true,
+        "actual": "payload flagged as untrusted data; no privileged tool exists"
+      },
+      "passed": true,
+      "latency_ms": 0.2039000391960144,
+      "trace_id": "fault-fault-014",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-015",
+      "split": "blind",
+      "fault_profile": "memory_pollution",
+      "injection": "controlled:memory_pollution",
+      "expected": {
+        "behavior": "reject_hard_constraint"
+      },
+      "actual": {
+        "behavior": "reject_hard_constraint",
+        "passed": true,
+        "actual": "one-off instruction rejected from stable memory and hard constraints"
+      },
+      "passed": true,
+      "latency_ms": 3.0934999231249094,
+      "trace_id": "fault-fault-015",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-016",
+      "split": "blind",
+      "fault_profile": "tool_unknown",
+      "injection": "controlled:tool_unknown",
+      "expected": {
+        "behavior": "policy_reject"
+      },
+      "actual": {
+        "behavior": "policy_reject",
+        "passed": true,
+        "actual": {
+          "call_id": "fault-delete_everything",
+          "trace_id": "fault-trace",
+          "tool": "delete_everything",
+          "status": "error",
+          "duration_ms": 0,
+          "result_count": 0,
+          "attempts": 1,
+          "error_category": "invalid_payload",
+          "degraded": true,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.053900061175227165,
+      "trace_id": "fault-fault-016",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-017",
+      "split": "blind",
+      "fault_profile": "tool_invalid_args",
+      "injection": "controlled:tool_invalid_args",
+      "expected": {
+        "behavior": "policy_reject"
+      },
+      "actual": {
+        "behavior": "policy_reject",
+        "passed": true,
+        "actual": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "error",
+          "duration_ms": 0,
+          "result_count": 0,
+          "attempts": 1,
+          "error_category": "invalid_payload",
+          "degraded": true,
+          "injection_signal": false
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.06150011904537678,
+      "trace_id": "fault-fault-017",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-018",
+      "split": "blind",
+      "fault_profile": "tool_budget_exceeded",
+      "injection": "controlled:tool_budget_exceeded",
+      "expected": {
+        "behavior": "policy_reject"
+      },
+      "actual": {
+        "behavior": "policy_reject",
+        "passed": true,
+        "actual": {
+          "accepted": 6,
+          "rejected": 2
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.00990019179880619,
+      "trace_id": "fault-fault-018",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-019",
+      "split": "blind",
+      "fault_profile": "provider_circuit_open",
+      "injection": "controlled:provider_circuit_open",
+      "expected": {
+        "behavior": "fast_failure"
+      },
+      "actual": {
+        "behavior": "fast_failure",
+        "passed": true,
+        "actual": {
+          "call_id": "fault-search_places",
+          "trace_id": "fault-trace",
+          "tool": "search_places",
+          "status": "error",
+          "duration_ms": 0,
+          "result_count": 0,
+          "attempts": 1,
+          "error_category": "circuit_open",
+          "degraded": true,
+          "injection_signal": false
+        },
+        "latency_ms": 0.028799986466765404
+      },
+      "passed": true,
+      "latency_ms": 0.04639988765120506,
+      "trace_id": "fault-fault-019",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-020",
+      "split": "blind",
+      "fault_profile": "expired_room_token",
+      "injection": "controlled:expired_room_token",
+      "expected": {
+        "behavior": "websocket_reject"
+      },
+      "actual": {
+        "behavior": "websocket_reject",
+        "passed": true,
+        "actual": "HTTP 401"
+      },
+      "passed": true,
+      "latency_ms": 0.2555998507887125,
+      "trace_id": "fault-fault-020",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-021",
+      "split": "blind",
+      "fault_profile": "cross_room_token",
+      "injection": "controlled:cross_room_token",
+      "expected": {
+        "behavior": "websocket_reject"
+      },
+      "actual": {
+        "behavior": "websocket_reject",
+        "passed": true,
+        "actual": "HTTP 403"
+      },
+      "passed": true,
+      "latency_ms": 0.11769984848797321,
+      "trace_id": "fault-fault-021",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-022",
+      "split": "blind",
+      "fault_profile": "forged_thread",
+      "injection": "controlled:forged_thread",
+      "expected": {
+        "behavior": "http_403"
+      },
+      "actual": {
+        "behavior": "http_403",
+        "passed": true,
+        "actual": "HTTP 403"
+      },
+      "passed": true,
+      "latency_ms": 0.05970010533928871,
+      "trace_id": "fault-fault-022",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-023",
+      "split": "blind",
+      "fault_profile": "stale_verification",
+      "injection": "controlled:stale_verification",
+      "expected": {
+        "behavior": "visible_stale"
+      },
+      "actual": {
+        "behavior": "visible_stale",
+        "passed": true,
+        "actual": {
+          "before": "sha256:0c4366ef03e35487f1c60359697589b9fbe8396382e65442d36b7f027ee185f0",
+          "after": "sha256:1babd2e3260a89e21aaa4850c2c1fd78ac45ea4cddd42801dc9bb13f240c6e4d"
+        }
+      },
+      "passed": true,
+      "latency_ms": 0.3480000887066126,
+      "trace_id": "fault-fault-023",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    },
+    {
+      "case_id": "fault-024",
+      "split": "blind",
+      "fault_profile": "migration_missing",
+      "injection": "controlled:migration_missing",
+      "expected": {
+        "behavior": "startup_failure"
+      },
+      "actual": {
+        "behavior": "startup_failure",
+        "passed": true,
+        "actual": "database schema is behind; missing migration 008_task_security_memory.sql"
+      },
+      "passed": true,
+      "latency_ms": 0.05250005051493645,
+      "trace_id": "fault-fault-024",
+      "error_category": null,
+      "conclusion": "matched_expected_boundary"
+    }
+  ],
+  "production_claim_not_made": true
+}

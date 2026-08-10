@@ -113,7 +113,7 @@ async def generate_sub_queries(
             temperature=0.5,
         )
         raw = resp.choices[0].message.content.strip()
-        lines = [l.strip() for l in raw.splitlines() if l.strip()]
+        lines = [line.strip() for line in raw.splitlines() if line.strip()]
 
         # 去重，保留原始查询（顺序：原始在前）
         seen: set[str] = {query}

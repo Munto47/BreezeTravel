@@ -74,7 +74,7 @@ async def update_profile(body: ProfileUpdateRequest, user_id: str = Depends(get_
         if not updates:
             return {"ok": True}
 
-        updates.append(f"updated_at = NOW()")
+        updates.append("updated_at = NOW()")
         params.append(user_id)
         await conn.execute(
             f"UPDATE users SET {', '.join(updates)} WHERE user_id = ${idx}",

@@ -25,9 +25,18 @@ Tool Executor 节点（ReAct Observe 步骤）
 
 import asyncio
 import json
+import time
 from langchain_core.messages import ToolMessage, AIMessage
 
 from app.agents.state import AgentState
+from app.config import settings
+from app.tools.runtime import (
+    TOOL_SCOPES, ToolCallEnvelope, ToolRuntimeError, enforce_tool_budget,
+    get_provider_runtime,
+)
+from app import metrics as _metrics
+from app.observability.metrics import metrics as _prom_metrics
+from app.memory.governance import contains_injection_signal
 
 
 async def run(state: AgentState) -> dict:
@@ -43,24 +52,54 @@ async def run(state: AgentState) -> dict:
     print(f"[ToolExecutor] 执行 {len(tool_calls)} 个工具：{[tc['name'] for tc in tool_calls]}")
 
     # ── 并行执行所有工具调用 ──────────────────────────────────────────
-    tasks = [_execute_tool_call(tc, state) for tc in tool_calls]
+    # A request has a finite work budget even when the model emits duplicate
+    # calls.  The graph retains successful siblings if one tool times out.
+    tool_calls, rejected_calls = enforce_tool_budget(tool_calls, settings.chat_max_tool_calls)
+    tasks = [_execute_with_runtime(tc, state) for tc in tool_calls]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # ── 整合结果 ────────────────────────────────────────────────────
     tool_messages: list[ToolMessage] = []
     amap_places_new: list = []
     rag_chunks_new: list = []
+    citations_new: list[dict] = []
+    failures_new: list[dict] = []
+    receipts_new: list[dict] = []
+
+    for rejected in rejected_calls:
+        failures_new.append({"tool": rejected.get("name", "unknown"), "reason": "tool_budget_exceeded"})
+        _prom_metrics.inc(
+            "agent_tool_failure_total",
+            tool=rejected.get("name", "unknown"),
+            error_category="tool_budget_exceeded",
+        )
 
     for tc, result in zip(tool_calls, results):
         if isinstance(result, Exception):
             tool_output = json.dumps(
-                {"status": "error", "message": str(result)}, ensure_ascii=False
+                {"status": "error", "message": "工具暂时不可用，请基于已获取信息继续回答"}, ensure_ascii=False
             )
             print(f"[ToolExecutor] 工具 {tc['name']} 执行异常：{result}")
+            if isinstance(result, ToolRuntimeError):
+                receipts_new.append(result.receipt.model_dump(mode="json"))
+                reason = result.receipt.error_category.value if result.receipt.error_category else "tool_exception"
+                _prom_metrics.inc("agent_tool_failure_total", tool=tc["name"], error_category=reason)
+                _prom_metrics.observe("agent_tool_duration_seconds", result.receipt.duration_ms / 1000, tool=tc["name"], status="error")
+            else:
+                reason = "tool_timeout" if isinstance(result, TimeoutError) else "tool_exception"
+            failures_new.append({"tool": tc["name"], "reason": reason})
+            _metrics.observe("tool_outcomes", f"{tc['name']}:{reason}")
+            _metrics.observe("error_categories", reason)
         else:
-            tool_output, extra_places, extra_chunks = result
+            (tool_output, extra_places, extra_chunks), receipt = result
+            if any(contains_injection_signal(str(chunk.get("content", ""))) for chunk in extra_chunks):
+                receipt.injection_signal = True
+            receipts_new.append(receipt.model_dump(mode="json"))
+            _prom_metrics.observe("agent_tool_duration_seconds", receipt.duration_ms / 1000, tool=tc["name"], status=receipt.status)
             amap_places_new.extend(extra_places)
             rag_chunks_new.extend(extra_chunks)
+            citations_new.extend(_citations_from_chunks(extra_chunks))
+            _metrics.observe("tool_outcomes", f"{tc['name']}:ok")
 
         tool_messages.append(ToolMessage(
             content=tool_output,
@@ -71,6 +110,9 @@ async def run(state: AgentState) -> dict:
     # ── 累积状态（去重合并，不覆盖历史结果） ─────────────────────────
     existing_places = list(state.get("amap_places", []))
     existing_chunks = list(state.get("rag_chunks", []))
+    existing_citations = list(state.get("citations", []))
+    existing_failures = list(state.get("tool_failures", []))
+    existing_receipts = list(state.get("tool_receipts", []))
 
     existing_place_ids = {p.place_id for p in existing_places}
     merged_places = existing_places + [
@@ -82,6 +124,10 @@ async def run(state: AgentState) -> dict:
         c for c in rag_chunks_new
         if (c["note_id"], c.get("chunk_idx", 0)) not in existing_chunk_keys
     ]
+    existing_source_ids = {c["source_id"] for c in existing_citations}
+    merged_citations = existing_citations + [
+        c for c in citations_new if c["source_id"] not in existing_source_ids
+    ]
 
     print(
         f"[ToolExecutor] 完成：+{len(amap_places_new)} 地点, +{len(rag_chunks_new)} chunks | "
@@ -92,7 +138,59 @@ async def run(state: AgentState) -> dict:
         "messages": tool_messages,
         "amap_places": merged_places,
         "rag_chunks": merged_chunks,
+        "citations": merged_citations,
+        "tool_failures": existing_failures + failures_new,
+        "tool_receipts": existing_receipts + receipts_new,
     }
+
+
+async def _execute_with_runtime(tool_call: dict, state: AgentState):
+    name = tool_call.get("name", "")
+    if name not in TOOL_SCOPES:
+        raise ValueError(f"未知工具：{name}")
+    args = dict(tool_call.get("args", {}))
+    if not args.get("city"):
+        args["city"] = state.get("trip_city") or "成都"
+    deadline = min(
+        state.get("deadline_monotonic") or (time.monotonic() + settings.tool_timeout_seconds),
+        time.monotonic() + settings.tool_timeout_seconds,
+    )
+    envelope = ToolCallEnvelope(
+        call_id=str(tool_call.get("id") or ""),
+        trace_id=state.get("trace_id") or "untraced",
+        room_id=state.get("room_id"),
+        actor_user_id=state.get("user_id") or "anonymous",
+        tool=name,
+        arguments=args,
+        authorization_scope=TOOL_SCOPES[name],
+        deadline_monotonic=deadline,
+        idempotency_key=f"{state.get('trace_id', 'untraced')}:{tool_call.get('id', '')}",
+    )
+    return await get_provider_runtime().execute(
+        envelope,
+        lambda validated_args: _execute_tool_call({**tool_call, "args": validated_args}, state),
+    )
+
+
+def _citations_from_chunks(chunks: list[dict]) -> list[dict]:
+    """Keep source metadata out of prompts, but make it available to the UI."""
+    return [
+        {
+            "source_id": f"{chunk['note_id']}:{chunk.get('chunk_idx', 0)}",
+            "title": chunk.get("title") or chunk["note_id"],
+            "url": chunk.get("source_url"),
+            "excerpt": (chunk.get("content") or "")[:320],
+            "score": float(chunk.get("rerank_score") or chunk.get("rrf_score") or 0.0),
+            "retrieval_sources": chunk.get("retrieval_sources", ["dense"]),
+            "published_at": chunk.get("source_published_at"),
+            "retrieved_at": chunk.get("source_retrieved_at"),
+            "license": chunk.get("source_license"),
+            "revision": chunk.get("source_revision"),
+            "attribution": chunk.get("source_attribution"),
+            "corpus_kind": chunk.get("corpus_kind") or "synthetic",
+        }
+        for chunk in chunks
+    ]
 
 
 async def _execute_tool_call(

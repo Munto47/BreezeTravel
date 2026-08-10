@@ -239,9 +239,12 @@ async def evaluate_with_llm_judge(results: list[dict]) -> dict:
         r_ok = not math.isnan(r_score)
         c_ok = not math.isnan(c_score)
 
-        if f_ok: faithfulness_scores.append(f_score)
-        if r_ok: relevancy_scores.append(r_score)
-        if c_ok: recall_scores.append(c_score)
+        if f_ok:
+            faithfulness_scores.append(f_score)
+        if r_ok:
+            relevancy_scores.append(r_score)
+        if c_ok:
+            recall_scores.append(c_score)
 
         print(f"       F={f_score:.2f}  R={r_score:.2f}  C={c_score:.2f}")
         per_sample.append({
@@ -284,11 +287,11 @@ async def main():
     print(f"评估集：{len(_EVAL_DATASET)} 条（7 城市 × 3 意图类型）")
     print("=" * 65)
 
-    print(f"\n[Step 1] RAG 检索 + Synthesizer 生成答案...")
+    print("\n[Step 1] RAG 检索 + Synthesizer 生成答案...")
     results = await run_rag_queries(_EVAL_DATASET)
     print(f"  完成：{len(results)} 条问答对")
 
-    print(f"\n[Step 2] LLM-Judge 逐条评估三项指标...")
+    print("\n[Step 2] LLM-Judge 逐条评估三项指标...")
     scores = await evaluate_with_llm_judge(results)
 
     avg = (scores["faithfulness"] + scores["answer_relevancy"] + scores["context_recall"]) / 3
@@ -306,9 +309,9 @@ async def main():
         "=" * 65,
         f"时间：{ts}",
         f"评估集：{scores['n_samples']} 条（7 城市 × 3 意图类型）",
-        f"评估 LLM：deepseek-chat（n=1，自定义 Judge Prompt）",
-        f"检索配置：HyDE + BM25+pgvector RRF + bge-reranker 精排",
-        f"游记语料：347 篇 / 2075 chunk / 7 城市",
+        "评估 LLM：deepseek-chat（n=1，自定义 Judge Prompt）",
+        "检索配置：HyDE + BM25+pgvector RRF + bge-reranker 精排",
+        "游记语料：347 篇 / 2075 chunk / 7 城市",
         "",
         f"  Faithfulness      : {scores['faithfulness']:.4f}  "
         f"{'✅' if scores['faithfulness'] >= 0.75 else '❌'}  （目标 ≥ 0.75，n={scores['n_valid']['faithfulness']}）",

@@ -11,7 +11,6 @@ Prompt 约束（SPEC §5.2）：
    如 RAG 未命中则不出该字段，宁缺勿瞎编"
 """
 
-import asyncio
 import json
 import re
 from typing import Optional
@@ -21,7 +20,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.agents.state import AgentState
 from app.config import settings
 from app.memory.working import format_for_prompt
-from app.schemas.place import Place, PlaceCategory, PlaceRAGMeta
+from app.schemas.place import Place, PlaceRAGMeta
 from app.schemas.recommendation import Alternative, PlaceRecommendation
 
 # ─── Prompt（v2，强制 chunk_id 引用） ─────────────────────────────────────────
@@ -236,7 +235,6 @@ def _build_demo_response_v2(
 
     # Demo 模式生成简单 PlaceRecommendation（无 chunk 引用）
     recs: list[PlaceRecommendation] = []
-    chunk_set = {c["chunk_id"] for c in rag_chunks}
     for p in places:
         matched = [c for c in rag_chunks if p.place_id in c.get("place_ids", [])]
         if matched:

@@ -304,7 +304,7 @@ export default function HomePage() {
                   <p className="text-xs text-gray-400 mb-4 text-center">
                     {city} · {days} 天 · 分享房间号邀请朋友
                   </p>
-                  <button onClick={handleEnterRoom} className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2">
+                  <button data-testid="enter-created-room" onClick={handleEnterRoom} className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2">
                     进入规划房间 <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -455,6 +455,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <button
+                  data-testid="create-room"
                   onClick={handleCreateRoom}
                   disabled={isCreating}
                   className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"

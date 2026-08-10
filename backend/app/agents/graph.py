@@ -35,8 +35,9 @@ _route_after_critic : critic 之后的路由
 - amap_search / rag_retrieval
 """
 
-from langgraph.graph import StateGraph, END
 from langchain_core.messages import AIMessage
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
+from langgraph.graph import StateGraph, END
 
 from app.agents.state import AgentState
 from app.agents.nodes import router, tool_executor, synthesizer, critic
@@ -135,7 +136,7 @@ _persistent_graph = None
 async def init_persistent_graph():
     """
     在 FastAPI lifespan startup 中调用，初始化带 PostgreSQL Checkpointer 的图。
-    setup() 会自动建 langgraph_checkpoints 等表（幂等）。
+    表结构由 ``python -m scripts.migrate`` 建立；应用启动只连接。
     """
     global _cm, _checkpointer, _persistent_graph
 
@@ -143,13 +144,23 @@ async def init_persistent_graph():
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
         dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
-        _cm = AsyncPostgresSaver.from_conn_string(dsn)
+        serde = JsonPlusSerializer(
+            allowed_msgpack_modules=[
+                ("app.schemas.place", "Coordinates"),
+                ("app.schemas.place", "Place"),
+                ("app.schemas.place", "PlaceCategory"),
+                ("app.schemas.place", "PlaceRAGMeta"),
+                ("app.schemas.place", "PlaceSource"),
+            ]
+        )
+        _cm = AsyncPostgresSaver.from_conn_string(dsn, serde=serde)
         _checkpointer = await _cm.__aenter__()
-        await _checkpointer.setup()
         _persistent_graph = build_graph(_checkpointer)
         print("[Graph] PostgreSQL Checkpointer 初始化成功，会话历史将持久化")
     except Exception as exc:
-        print(f"[Graph] Checkpointer 初始化失败，回退到无持久化模式：{exc}")
+        if settings.runtime_profile not in {"demo", "test"} and not settings.demo_mode:
+            raise RuntimeError("PostgreSQL Checkpointer 不可用，拒绝伪造持久化成功") from exc
+        print(f"[Graph] 测试/演示模式 Checkpointer 不可用，显式使用无持久化图：{exc}")
         _persistent_graph = simple_graph
 
 

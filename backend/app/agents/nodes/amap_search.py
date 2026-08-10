@@ -13,7 +13,6 @@ Mock 模式（AMAP_MOCK=true）：
 """
 
 import json
-import re
 from pathlib import Path
 from typing import Optional
 

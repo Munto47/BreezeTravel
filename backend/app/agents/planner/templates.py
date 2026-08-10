@@ -6,7 +6,7 @@
 """
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Optional
 
 from app.schemas.preferences import GroupPreferences
 

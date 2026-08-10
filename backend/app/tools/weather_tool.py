@@ -73,7 +73,7 @@ async def get_weather(
             ensure_ascii=False, indent=2,
         )
 
-    except Exception as exc:
+    except Exception:
         return json.dumps(_mock_weather(city, days), ensure_ascii=False)
 
 

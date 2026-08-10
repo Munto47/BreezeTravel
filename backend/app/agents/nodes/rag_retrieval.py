@@ -50,6 +50,25 @@ from app.rag.hyde import generate_hypothetical_doc
 from app.rag.retriever import hybrid_search
 from app.rag.reranker import rerank
 from app.rag.multi_query import multi_query_search
+from app.rag.execution_policy import select_rag_policy
+
+
+def _citation_from_chunk(doc: dict) -> dict:
+    """Return only the provenance safe to expose in an SSE response."""
+    return {
+        "source_id": f"{doc['note_id']}:{doc.get('chunk_idx', 0)}",
+        "title": doc.get("title") or doc["note_id"],
+        "url": doc.get("source_url"),
+        "excerpt": (doc.get("content") or "")[:320],
+        "score": float(doc.get("rerank_score") or doc.get("rrf_score") or 0.0),
+        "retrieval_sources": doc.get("retrieval_sources", ["dense"]),
+        "published_at": doc.get("source_published_at"),
+        "retrieved_at": doc.get("source_retrieved_at"),
+        "license": doc.get("source_license"),
+        "revision": doc.get("source_revision"),
+        "attribution": doc.get("source_attribution"),
+        "corpus_kind": doc.get("corpus_kind") or "synthetic",
+    }
 
 # 已知城市列表（与 amap_search.py 保持一致）
 _KNOWN_CITIES = [
@@ -97,28 +116,26 @@ async def run(state: AgentState) -> dict:
     city = _extract_city(state)
 
     if not query:
-        return {"rag_chunks": []}
+        return {"rag_chunks": [], "citations": []}
 
     # Demo 模式：跳过所有外部调用
     if settings.demo_mode:
         print("[RAGRetrieval] Demo 模式，返回空 chunks")
-        return {"rag_chunks": []}
+        return {"rag_chunks": [], "citations": []}
 
     # 无 API Key：优雅降级
     has_key = bool(settings.effective_embedding_api_key)
     if not has_key:
         print("[RAGRetrieval] 未配置 Embedding API Key，跳过 RAG 检索")
-        return {"rag_chunks": []}
+        return {"rag_chunks": [], "citations": []}
 
     # 从 state 中提取意图（Router 节点设置的 intent 字段）
     intent = state.get("intent") or ""
 
     try:
         # ── 路径选择：Multi-Query vs 单路检索 ───────────────────────────
-        use_multi_query = (
-            intent in _MULTI_QUERY_INTENTS
-            or getattr(settings, "multi_query_enabled", False)
-        )
+        initial_policy = select_rag_policy(query, intent, 0, settings)
+        use_multi_query = initial_policy.use_multi_query
 
         if use_multi_query:
             # ── Multi-Query 路径 ─────────────────────────────────────────
@@ -138,7 +155,7 @@ async def run(state: AgentState) -> dict:
         else:
             # ── 单路检索路径（scenic / transport / 默认）─────────────────
             # Step 1：Intent-aware HyDE 查询扩展
-            embed_input = await generate_hypothetical_doc(query, city, intent)
+            embed_input = await generate_hypothetical_doc(query, city, intent) if initial_policy.use_hyde else query
 
             # Step 2：生成查询向量
             query_vector = await embed_text(embed_input)
@@ -155,11 +172,12 @@ async def run(state: AgentState) -> dict:
 
         if not fused:
             print(f"[RAGRetrieval] city={city} 无命中结果")
-            return {"rag_chunks": []}
+            return {"rag_chunks": [], "citations": []}
 
         # ── Step 4：Cross-Encoder 重排序 ─────────────────────────────────
         # reranker_enabled=False 或 FlagEmbedding 未安装时自动跳过
-        if settings.reranker_enabled:
+        final_policy = select_rag_policy(query, intent, len(fused), settings)
+        if final_policy.use_reranker:
             final = rerank(
                 query=query,
                 candidates=fused,
@@ -181,6 +199,14 @@ async def run(state: AgentState) -> dict:
                 "rrf_score": doc.get("rrf_score", 0.0),
                 "rerank_score": doc.get("rerank_score"),
                 "retrieval_sources": doc.get("retrieval_sources", ["dense"]),
+                "title": doc.get("title"),
+                "source_url": doc.get("source_url"),
+                "source_published_at": doc.get("source_published_at"),
+                "source_retrieved_at": doc.get("source_retrieved_at"),
+                "source_license": doc.get("source_license"),
+                "source_revision": doc.get("source_revision"),
+                "source_attribution": doc.get("source_attribution"),
+                "corpus_kind": doc.get("corpus_kind") or "synthetic",
             }
             for doc in final
         ]
@@ -189,8 +215,8 @@ async def run(state: AgentState) -> dict:
             f"[RAGRetrieval] 完成：city={city}, query={query[:30]}..., "
             f"返回 {len(chunks)} 条 chunks"
         )
-        return {"rag_chunks": chunks}
+        return {"rag_chunks": chunks, "citations": [_citation_from_chunk(doc) for doc in final]}
 
     except Exception as exc:
         print(f"[RAGRetrieval] 检索失败，返回空 chunks：{exc}")
-        return {"rag_chunks": []}
+        return {"rag_chunks": [], "citations": []}

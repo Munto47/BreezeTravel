@@ -4,8 +4,6 @@
 无需数据库 / 外部 API，全部离线运行。
 """
 
-import asyncio
-import pytest
 
 from app.agents.planner.nodes.critic_v2 import (
     _check_no_backtoback_l2,

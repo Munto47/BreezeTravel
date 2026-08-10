@@ -7,6 +7,7 @@ import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check } from 'lucide-re
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
+import MemorySettingsPanel from '@/components/profile/MemorySettingsPanel'
 
 interface UserProfile {
   user_id: string
@@ -191,6 +192,8 @@ export default function ProfilePage() {
             </div>
           </div>
         </motion.div>
+
+        <MemorySettingsPanel />
 
         {/* 保存按钮 */}
         <motion.button

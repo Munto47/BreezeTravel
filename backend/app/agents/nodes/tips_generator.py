@@ -95,7 +95,6 @@ def _rule_based_tips(slot: TimeSlot, weather_condition: Optional[str]) -> list[s
     tips: list[str] = []
     place = slot.place
     name = place.get("name", "")
-    tags = place.get("tags", [])
     category = place.get("category", "")
     duration = place.get("estimated_duration") or 0
 
@@ -117,7 +116,7 @@ def _rule_based_tips(slot: TimeSlot, weather_condition: Optional[str]) -> list[s
         try:
             h = int(slot.start_time.split(":")[0])
             if h >= 20:
-                tips.append(f"夜间场所，通常营业至深夜，注意回程交通安排")
+                tips.append("夜间场所，通常营业至深夜，注意回程交通安排")
         except Exception:
             pass
 

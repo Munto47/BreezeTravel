@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -115,7 +114,7 @@ class TestPlannerGraphEndToEnd:
 
     def _run_planner_sync(self, places, trip_days, thread_id):
         from app.agents.planner.graph import run_planner
-        from unittest.mock import AsyncMock, patch
+        from unittest.mock import AsyncMock
         import app.agents.planner.nodes.critic_v2 as cv2
 
         async def patched_critic(state):

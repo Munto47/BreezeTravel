@@ -1,8 +1,19 @@
+from typing import Literal
+
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
 class Settings(BaseSettings):
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        protected_namespaces=("settings_",),
+    )
+
+    runtime_profile: Literal["demo", "test", "local_real", "public"] = "local_real"
     # ── 主 LLM：DeepSeek API ──────────────────────────────────────────
     # deepseek-chat   : 通用对话，适合 Router / Synthesizer
     # deepseek-reasoner: 深度推理（R1），适合复杂规划任务
@@ -28,6 +39,10 @@ class Settings(BaseSettings):
     # HyDE：用 LLM 生成假设文档再做 embedding，提升稀疏查询召回率
     hyde_enabled: bool = True
     hyde_model: str = "deepseek-chat"   # 生成假设文档所用模型
+    multi_query_enabled: bool = False
+    deterministic_routing_enabled: bool = True
+    reranker_min_candidates: int = 8
+    place_meta_lookup_enabled: bool = True
 
     # Reranker：bge-reranker-v2-m3 本地推理（需要 FlagEmbedding + GPU）
     # Docker 轻量部署默认关闭；本地有 FlagEmbedding 时可设 RERANKER_ENABLED=true
@@ -69,6 +84,38 @@ class Settings(BaseSettings):
 
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
+    # Public demo guard.  It is disabled locally by default; use an edge/WAF or
+    # Redis limiter when horizontally scaling beyond this single-instance guard.
+    public_demo_mode: bool = False
+    public_demo_chat_requests_per_minute: int = 12
+    trust_proxy_headers: bool = False
+    tool_timeout_seconds: float = 12.0
+    tool_max_concurrency: int = 3
+    chat_max_tool_calls: int = 6
+    e2e_cleanup_secret: str = ""
+    router_input_cost_per_million: float = 0.0
+    router_output_cost_per_million: float = 0.0
+    model_pricing_version: str = "unconfigured"
+    chat_deadline_seconds: float = 30.0
+    llm_max_concurrency: int = 4
+    amap_max_concurrency: int = 8
+    weather_max_concurrency: int = 4
+    embedding_max_concurrency: int = 4
+    provider_failure_threshold: int = 5
+    provider_circuit_open_seconds: float = 30.0
+    auto_migrate: bool = False
+    require_schema_check: bool = True
+    checkpoint_bootstrap_on_start: bool = True
+    required_migration: str = "008_task_security_memory.sql"
+    memory_enabled_default: bool = True
+    memory_min_confidence: float = 0.65
+    memory_ttl_days: int = 180
+    memory_max_items: int = 5
+    memory_max_text_length: int = 500
+    yjs_max_payload_bytes: int = 262144
+    yjs_max_connections_per_ip: int = 20
+    otel_enabled: bool = False
+    otel_service_name: str = "breezetravel-backend"
 
     # ── 开发/演示登录旁路 ─────────────────────────────────────────────
     # 启用后，/api/auth/send-code 不真发短信，验证码固定为 dev_login_code
@@ -115,15 +162,14 @@ class Settings(BaseSettings):
         """Embedding URL：优先独立配置，回退 openai_api_url"""
         return self.embedding_api_url or self.openai_api_url
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        extra = "ignore"   # 忽略 NEXT_PUBLIC_* 等前端变量，避免从根 .env 读取时报错
-
-
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def clear_settings_cache() -> None:
+    """Explicit test hook; avoids import-order dependent Settings state."""
+    get_settings.cache_clear()
 
 
 settings = get_settings()

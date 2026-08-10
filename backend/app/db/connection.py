@@ -5,9 +5,8 @@ asyncpg 连接池初始化，含 pgvector 自动注册 + 迁移自动执行。
 import asyncpg
 import logging
 import os
-import re
 from pgvector.asyncpg import register_vector
-from app.config import settings
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +18,7 @@ async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
         # asyncpg 使用 postgresql:// 格式（不带 +asyncpg）
+        settings = get_settings()
         dsn = settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         # init=register_vector 使所有连接自动支持 pgvector 类型，无需每次手动注册
         _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=10, init=register_vector)
@@ -71,5 +71,22 @@ async def run_migrations():
                     "INSERT INTO applied_migrations (filename) VALUES ($1)", filename
                 )
                 logger.info(f"[Migration] Applied: {filename}")
-            except Exception as e:
-                logger.error(f"[Migration] Failed to apply {filename}: {e}")
+            except Exception:
+                logger.exception("[Migration] Failed to apply %s", filename)
+                raise
+
+
+async def check_schema_version(required_migration: str | None = None) -> None:
+    """Fail startup when the independently-managed schema is behind."""
+    required = required_migration or get_settings().required_migration
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        exists = await conn.fetchval("SELECT to_regclass('public.applied_migrations') IS NOT NULL")
+        if not exists:
+            raise RuntimeError("database schema is uninitialised; run python -m scripts.migrate")
+        applied = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM applied_migrations WHERE filename = $1)",
+            required,
+        )
+    if not applied:
+        raise RuntimeError(f"database schema is behind; missing migration {required}")

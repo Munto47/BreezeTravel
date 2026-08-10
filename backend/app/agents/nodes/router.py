@@ -30,6 +30,8 @@ from app.agents.state import AgentState
 from app.config import settings
 from app.memory.working import extract_from_messages, format_for_prompt
 from app.tools import ALL_TOOLS
+from app.agents.routing_policy import plan_simple_tools, plan_tools
+from app import metrics as _metrics
 
 MAX_REACT_ITERATIONS = 3  # 最多 3 轮工具调用（防止无限循环）
 
@@ -94,15 +96,52 @@ async def run(state: AgentState) -> dict:
     if settings.demo_mode:
         return {"intent": "amap", "query_rewrite": _get_last_human_query(messages)}
 
+    # P0 mixed-intent guard.  Make the minimum complete tool plan explicit
+    # before the optional local classifier or LLM gets a chance to omit one.
+    last_query = _get_last_human_query(messages)
+    forced_plan = plan_tools(last_query) if iterations == 0 else None
+    if forced_plan is None and iterations == 0 and settings.deterministic_routing_enabled:
+        forced_plan = plan_simple_tools(last_query)
+    if forced_plan:
+        tool_calls = [
+            {"name": name, "args": {"query": last_query, "city": trip_city}, "id": f"policy-{index}"}
+            for index, name in enumerate(forced_plan.tools, start=1)
+        ]
+        print(f"[ReActAgent] deterministic tool policy: {forced_plan.signals}")
+        return {
+            "messages": [AIMessage(content="", tool_calls=tool_calls)], "intent": forced_plan.intent,
+            "query_rewrite": last_query, "routing_signals": list(forced_plan.signals),
+            "react_iterations": iterations + 1,
+        }
+
     # Sprint 3 — 微调分类器 fast path
     # 本地 LoRA 模型快速判断意图，命中则跳过 DeepSeek tool calling
     # 降级：模型未加载 / 推理失败 → 继续走 ReAct 路径（透明 fallback）
     if settings.ft_router_enabled and iterations == 0:
         from app.agents.nodes.router_classifier import classify
-        last_query = _get_last_human_query(messages)
         ft_result = classify(last_query, trip_city, settings.ft_router_model_path)
         if ft_result is not None:
             print(f"[ReActAgent] FT Router 命中: intent={ft_result['intent']}")
+            intent_tools = {
+                "amap": ("search_places",),
+                "rag": ("search_travel_notes",),
+                "both": ("search_places", "search_travel_notes"),
+                "weather": ("get_weather",),
+            }
+            tools = intent_tools.get(ft_result["intent"])
+            if tools:
+                # The graph routes by actual tool_calls.  Returning an intent
+                # alone used to skip tool_executor entirely for the local FT
+                # fast path, producing plausible but ungrounded answers.
+                return {
+                    "messages": [AIMessage(content="", tool_calls=[
+                        {"name": name, "args": {"query": last_query, "city": trip_city}, "id": f"ft-{index}"}
+                        for index, name in enumerate(tools, start=1)
+                    ])],
+                    "intent": ft_result["intent"],
+                    "query_rewrite": ft_result["query_rewrite"] or last_query,
+                    "react_iterations": iterations + 1,
+                }
             return {
                 "intent": ft_result["intent"],
                 "query_rewrite": ft_result["query_rewrite"] or last_query,
@@ -141,6 +180,13 @@ async def run(state: AgentState) -> dict:
         ]
 
         response: AIMessage = await llm_with_tools.ainvoke(invoke_messages)
+        usage = getattr(response, "usage_metadata", None) or {}
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        _metrics.observe("model_usage", f"{settings.llm_model_router}:input_tokens", input_tokens)
+        _metrics.observe("model_usage", f"{settings.llm_model_router}:output_tokens", output_tokens)
+        estimated = (input_tokens * settings.router_input_cost_per_million + output_tokens * settings.router_output_cost_per_million) / 1_000_000
+        _metrics.inc("estimated_llm_cost_usd", estimated)
 
         tool_names = [tc["name"] for tc in (response.tool_calls or [])]
         if tool_names:

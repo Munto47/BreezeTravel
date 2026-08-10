@@ -15,11 +15,11 @@
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource, PlaceRAGMeta
+from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
 
 
 # ─── 共用 fixture ──────────────────────────────────────────────────────────────
@@ -514,7 +514,8 @@ class TestAgentStateV2:
     def test_synthesizer_v2_module_exists(self):
         """synthesizer_v2.py 应存在"""
         try:
-            import app.agents.nodes.synthesizer_v2
+            import importlib.util
+            assert importlib.util.find_spec("app.agents.nodes.synthesizer_v2") is not None
         except ImportError as e:
             pytest.fail(f"synthesizer_v2 模块不存在或导入失败: {e}")
 

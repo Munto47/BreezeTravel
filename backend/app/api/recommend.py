@@ -439,7 +439,7 @@ async def recommend(request: RecommendRequest):
     city = request.city.strip() or "成都"
 
     if not settings.amap_api_key or settings.demo_mode:
-        print(f"[Recommend] 未配置 AMAP_API_KEY 或 Demo 模式，返回空列表")
+        print("[Recommend] 未配置 AMAP_API_KEY 或 Demo 模式，返回空列表")
         return RecommendResponse(city=city, places=[])
 
     # ① 有历史数据时优先走历史推荐

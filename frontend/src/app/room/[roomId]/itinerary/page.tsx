@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
+import type { VerificationReport } from '@/types/verification'
+import ConstraintPanel from '@/components/itinerary/ConstraintPanel'
 
 const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
 
@@ -208,11 +210,18 @@ export default function ItineraryPage() {
   const roomId = params.roomId as string
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [verification, setVerification] = useState<VerificationReport | null>(null)
+  const [verificationStale, setVerificationStale] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const stored = localStorage.getItem(`itinerary_${roomId}`)
+    const storedVerification = localStorage.getItem(`verification_${roomId}`)
+    if (storedVerification) {
+      try { setVerification(JSON.parse(storedVerification) as VerificationReport) } catch {}
+    }
+    setVerificationStale(localStorage.getItem(`verification_stale_${roomId}`) === 'true')
     if (stored) {
       try {
         setItinerary(JSON.parse(stored))
@@ -354,6 +363,7 @@ export default function ItineraryPage() {
             </motion.div>
 
             {/* 每日行程 */}
+            <ConstraintPanel report={verification} stale={verificationStale} />
             {itinerary.days.map((day, i) => (
               <DaySection key={day.dayIndex} day={day} index={i} />
             ))}

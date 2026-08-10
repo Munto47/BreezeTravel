@@ -24,15 +24,21 @@ SSE 事件格式（向后兼容）：
 import json
 import time
 import asyncio
+from uuid import uuid4
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage
 
 from app.agents.graph import get_graph_with_persistence
 from app.agents.state import default_working_context
 from app.schemas.api import ChatRequest
+from app.config import get_settings
+from app.services.room_access import reject_claimed_identity, require_room_member
+from app.utils.auth import get_optional_user
+from app.observability.metrics import metrics as _prom_metrics
 from app import metrics as _m
+from app.api.rate_limit import check_public_chat_limit
 
 router = APIRouter()
 
@@ -60,11 +66,33 @@ def _thinking(node: str, summary: str, ms: int) -> str:
     return f"data: {json.dumps({'event': 'thinking', 'data': {'node': node, 'summary': summary, 'ms': ms}}, ensure_ascii=False)}\n\n"
 
 
-async def _event_stream(request: ChatRequest):
+async def _events_until_deadline(events, deadline_monotonic: float):
+    """Await each graph event within the one request-level deadline."""
+    iterator = events.__aiter__()
+    try:
+        while True:
+            remaining = deadline_monotonic - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("chat request deadline exhausted")
+            try:
+                yield await asyncio.wait_for(iterator.__anext__(), timeout=remaining)
+            except StopAsyncIteration:
+                break
+    finally:
+        close = getattr(iterator, "aclose", None)
+        if close:
+            await close()
+
+
+async def _event_stream(request: ChatRequest, trace_id: str, http_request: Request):
     """生成 SSE 事件流（使用 graph.astream_events v2）"""
     graph = await get_graph_with_persistence()
-    config = {"configurable": {"thread_id": request.thread_id}}
+    config = {
+        "configurable": {"thread_id": request.thread_id},
+        "metadata": {"trace_id": trace_id, "room_id": request.room_id},
+    }
     start_time = time.time()
+    _prom_metrics.inc("agent_request_total", profile=get_settings().runtime_profile)
 
     # ── 加载用户长期偏好（Long-term Memory）────────────────────────────
     long_term_prefs = ""
@@ -83,13 +111,20 @@ async def _event_stream(request: ChatRequest):
         "messages": [HumanMessage(content=request.message)],
         "thread_id": request.thread_id,
         "user_id": request.user_id,
+        "room_id": request.room_id,
+        "trace_id": trace_id,
+        "deadline_monotonic": time.monotonic() + get_settings().chat_deadline_seconds,
         "trip_city": request.trip_city,
         "amap_places": [],
         "rag_chunks": [],
+        "citations": [],
+        "tool_failures": [],
+        "tool_receipts": [],
         "synthesized_places": [],
         "selected_place_ids": request.selected_place_ids,
         "intent": None,
         "query_rewrite": None,
+        "routing_signals": [],
         "itinerary": None,
         "final_response": None,
         "working_context": default_working_context(),
@@ -121,7 +156,14 @@ async def _event_stream(request: ChatRequest):
     _PREVIEW_TOTAL = 15
 
     try:
-        async for event in graph.astream_events(input_state, config=config, version="v2"):
+        async for event in _events_until_deadline(
+            graph.astream_events(input_state, config=config, version="v2"),
+            input_state["deadline_monotonic"],
+        ):
+            if await http_request.is_disconnected():
+                # Cancelling the generator propagates to LangGraph/tool awaits;
+                # do not keep paying for a response the browser abandoned.
+                raise asyncio.CancelledError("SSE client disconnected")
             etype: str = event["event"]
             ename: str = event.get("name", "")
             edata: dict = event.get("data", {})
@@ -178,6 +220,18 @@ async def _event_stream(request: ChatRequest):
                     summary = "、".join(parts) if parts else "工具执行完成"
                     yield _thinking("tool_executor", f"工具返回：{summary}", elapsed)
 
+                    citations = output.get("citations", []) or []
+                    if citations:
+                        yield f"data: {json.dumps({'event': 'citations', 'data': {'citations': citations}}, ensure_ascii=False, default=str)}\n\n"
+                    elif chunks_count:
+                        _m.inc("rag_empty_count")
+                    failures = output.get("tool_failures", []) or []
+                    for failure in failures:
+                        _m.inc("tool_error_count")
+                        _m.inc("agent_degraded_count")
+                        label = _TOOL_LABELS.get(failure.get("tool", ""), "外部工具")
+                        yield _thinking("tool_executor", f"{label}暂时不可用，已保留其他结果", elapsed)
+
                     # P1-12 真流式：立即推送预览卡，不等 Synthesizer 完成
                     # 受首批上限约束（每类 5、总 15），按 amap_rating 降序优先推送
                     sorted_raw = sorted(
@@ -196,6 +250,8 @@ async def _event_stream(request: ChatRequest):
                         _previewed_ids.add(place.place_id)
                         _preview_per_cat[cat_key] = _preview_per_cat.get(cat_key, 0) + 1
                         yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
+                        if len(_previewed_ids) == 1:
+                            _prom_metrics.observe("agent_time_to_first_meaningful_place_seconds", time.time() - start_time, status="ok")
 
                 elif ename == "synthesizer":
                     places = output.get("synthesized_places", [])
@@ -241,7 +297,10 @@ async def _event_stream(request: ChatRequest):
                         yield _thinking("critic", "质量检查通过", elapsed)
 
         total_ms = int((time.time() - start_time) * 1000)
-        yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round}}, ensure_ascii=False)}\n\n"
+        _prom_metrics.observe("agent_duration_seconds", total_ms / 1000, status="ok" if places else "degraded")
+        _prom_metrics.inc("agent_task_completed_total", status="ok" if places else "degraded")
+        _prom_metrics.observe("agent_react_iterations", react_round, status="ok")
+        yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round, 'trace_id': trace_id}}, ensure_ascii=False)}\n\n"
 
         # ── 写入 Agent 级指标 ──────────────────────────────────────
         if places:
@@ -260,13 +319,33 @@ async def _event_stream(request: ChatRequest):
             elif tool_name == "get_weather":
                 _m.inc("tool_calls_weather", cnt)
 
-    except Exception as exc:
+    except asyncio.CancelledError:
+        _m.inc("sse_disconnect_count")
+        _prom_metrics.inc("sse_disconnect_total", reason="cancelled_by_client")
+        raise
+    except TimeoutError:
         _m.inc("agent_failure_count")
-        yield f"data: {json.dumps({'event': 'error', 'data': {'message': str(exc)}}, ensure_ascii=False)}\n\n"
+        _m.inc("agent_degraded_count")
+        _prom_metrics.inc("agent_degraded_total", error_category="deadline_exceeded")
+        yield f"data: {json.dumps({'event': 'error', 'data': {'message': '请求已超过总时限，未完成的模型和工具任务已取消。', 'trace_id': trace_id, 'error_category': 'deadline_exceeded'}}, ensure_ascii=False)}\n\n"
+    except Exception:
+        _m.inc("agent_failure_count")
+        _m.inc("agent_degraded_count")
+        _m.inc("tool_error_count")
+        yield f"data: {json.dumps({'event': 'error', 'data': {'message': '服务暂时不可用，已记录追踪信息，请稍后重试。', 'trace_id': trace_id}}, ensure_ascii=False)}\n\n"
 
 
 @router.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, http_request: Request, current_user: str | None = Depends(get_optional_user)):
+    cfg = get_settings()
+    if request.room_id:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="请先登录")
+        reject_claimed_identity(request.user_id, current_user)
+        await require_room_member(request.room_id, current_user, thread_id=request.thread_id)
+        request.user_id = current_user
+    elif not cfg.demo_mode:
+        raise HTTPException(status_code=400, detail="room_id 必填")
     """
     AI 对话接口，返回 SSE 流式响应。
 
@@ -277,11 +356,14 @@ async def chat(request: ChatRequest):
     - done:     {total_places: int, total_ms: int, react_rounds: int}
     - error:    {message: str}
     """
+    await check_public_chat_limit(http_request)
+    trace_id = uuid4().hex
     return StreamingResponse(
-        _event_stream(request),
+        _event_stream(request, trace_id, http_request),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
             "X-Accel-Buffering": "no",
+            "X-Trace-Id": trace_id,
         },
     )

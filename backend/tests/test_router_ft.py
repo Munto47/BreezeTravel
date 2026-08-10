@@ -19,11 +19,9 @@ Sprint 3 — F1：Router 微调模型评估
 
 import json
 import os
-import sys
 import time
 import argparse
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -224,9 +222,9 @@ def run_full_evaluation(model_path: str, test_data_path: str, compare_deepseek: 
         y_pred.append(result["intent"] if result else "amap")
 
     print(f"\n准确率: {accuracy_score(y_true, y_pred):.1%}")
-    print(f"\n分类报告:")
+    print("\n分类报告:")
     print(classification_report(y_true, y_pred, target_names=["amap", "both", "rag", "weather"]))
-    print(f"\n推理延迟（ms）:")
+    print("\n推理延迟（ms）:")
     print(f"  平均: {sum(latencies)/len(latencies):.1f}")
     print(f"  P50:  {sorted(latencies)[len(latencies)//2]:.1f}")
     print(f"  P95:  {sorted(latencies)[int(len(latencies)*0.95)]:.1f}")

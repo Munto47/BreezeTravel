@@ -294,7 +294,7 @@ def main():
     # 统计
     from collections import Counter
     label_counts = Counter(s["label"] for s in all_samples)
-    print(f"\n数据生成完成:")
+    print("\n数据生成完成:")
     print(f"  总计: {len(all_samples)} 条")
     print(f"  训练: {len(train_samples)} 条 → {args.out}")
     print(f"  测试: {len(test_samples)} 条 → {args.test_out}")

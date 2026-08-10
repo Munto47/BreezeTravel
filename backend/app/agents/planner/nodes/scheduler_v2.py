@@ -16,7 +16,6 @@ place_meta 查询：
 
 from __future__ import annotations
 
-import re
 from datetime import date, timedelta
 from typing import Optional
 
@@ -29,9 +28,9 @@ from app.agents.nodes.optimizer import (
     _time_str_to_mins,
 )
 from app.agents.planner.state import DayPlannerState, PlannerState, Slot
-from app.agents.planner.templates import RhythmTemplate, TemplateSlot, select_template
+from app.agents.planner.templates import TemplateSlot, select_template
 from app.config import settings
-from app.schemas.itinerary import DayPlan, TimeSlot, TransportLeg, WeatherInfo
+from app.schemas.itinerary import DayPlan, TimeSlot, WeatherInfo
 from app.schemas.place import Place, PlaceCategory
 from app.schemas.preferences import GroupPreferences, WeatherDay
 
@@ -141,7 +140,6 @@ def _weather_blocks_outdoor(weather: Optional[WeatherDay], prefs: Optional[Group
         return False
     if weather.precip_mm > 5:
         return True
-    avoid_heat = prefs.avoid_outdoor_heat if prefs else True
     return False
 
 
@@ -258,11 +256,12 @@ def _slot_match_score(place: Place, t_slot: TemplateSlot) -> float:
 
 async def _load_place_meta(place_ids: list[str]) -> dict[str, dict]:
     """从 DB 批量读取 place_meta；无 DB 时返回空 dict"""
-    if not place_ids:
+    from app.config import get_settings
+    if not place_ids or not get_settings().place_meta_lookup_enabled:
         return {}
     try:
-        from app.db.connection import get_db_pool
-        pool = await get_db_pool()
+        from app.db.connection import get_pool
+        pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT * FROM place_meta WHERE place_id = ANY($1::text[])",
@@ -281,7 +280,6 @@ async def run(state: PlannerState) -> dict:
     user_prefs: Optional[GroupPreferences] = state.get("user_prefs")
     weather_forecast: dict[int, WeatherDay] = state.get("weather_forecast", {})
     trip_days: int = state.get("trip_days", len(orderings))
-    time_matrices: dict[int, dict] = state.get("time_matrices", {})
     # D24：投票计数（place_id → 票数），由前端通过 OptimizeRequest 传入
     vote_counts: dict[str, int] = state.get("vote_counts", {})
 

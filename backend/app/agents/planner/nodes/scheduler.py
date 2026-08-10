@@ -12,7 +12,6 @@ from typing import Optional
 import aiohttp
 
 from app.agents.nodes.optimizer import (
-    DEFAULT_DURATION,
     _estimate_driving,
     _fetch_weather,
     _generate_time_slots,
@@ -22,7 +21,6 @@ from app.agents.nodes.optimizer import (
 from app.agents.planner.state import PlannerState
 from app.config import settings
 from app.schemas.itinerary import DayPlan, TimeSlot, TransportLeg, WeatherInfo
-from app.schemas.place import PlaceCategory
 
 
 async def run(state: PlannerState) -> dict:
@@ -69,8 +67,6 @@ async def run(state: PlannerState) -> dict:
                         _time_str_to_mins(slots[-1].end_time) + dur_mins,
                         21 * 60,
                     )
-                    # check-out 次日 12:00（跨日，表示"今晚住宿到第二天上午"）
-                    hotel_end_mins = 24 * 60 + 12 * 60
                     hotel = hotel.model_copy(update={
                         "cluster_id": day_index,
                         "visit_order": len(slots),

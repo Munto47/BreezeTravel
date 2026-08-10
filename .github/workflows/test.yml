@@ -2,126 +2,203 @@ name: BreezeTravel CI
 
 on:
   push:
-    branches: ["main", "develop"]
+    branches: [main, develop]
   pull_request:
-    branches: ["main"]
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+env:
+  PYTHONUTF8: "1"
+  RUNTIME_PROFILE: test
+  DEMO_MODE: "true"
+  AMAP_MOCK: "true"
+  FT_ROUTER_ENABLED: "false"
+  RERANKER_ENABLED: "false"
+  PLACE_META_LOOKUP_ENABLED: "false"
+  REQUIRE_SCHEMA_CHECK: "false"
 
 jobs:
-  # ─────────────────────────────────────────────────────────────────────────
-  # Job 1：单元测试（纯离线，无需 API Key / 数据库 / GPU）
-  # 覆盖：排线算法 / Mock 数据 / LoRA 分类器单元 / RAG 逻辑单元
-  # ─────────────────────────────────────────────────────────────────────────
-  unit-tests:
-    name: Unit Tests (offline)
+  backend-lint:
+    name: Backend lint gate
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: backend/requirements.txt
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - working-directory: backend
+        run: python -m ruff check app evals scripts tests
+      - run: git diff --check
 
-      - name: Install dependencies
-        working-directory: backend
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          # jieba 需要提前初始化词典（首次运行会下载）
-          python -c "import jieba; jieba.initialize()"
-
-      - name: Run optimizer unit tests
-        working-directory: backend
-        run: |
-          python -m pytest tests/test_optimizer.py -v --tb=short
-        # K-Means + TSP 排线算法，纯 numpy/scikit-learn，无外部依赖
-
-      - name: Run mock data tests
-        working-directory: backend
-        run: |
-          python -m pytest tests/test_mock_data.py -v --tb=short
-        # 验证 4 城市 fixture 数据完整性和 Place 模型解析
-
-      - name: Run LoRA classifier unit tests
-        working-directory: backend
-        run: |
-          python -m pytest tests/test_router_ft_unit.py -v --tb=short
-        # 测试分类器降级逻辑、输出解析、意图校验（不加载真实模型）
-
-      - name: Run RAG unit tests (offline only)
-        working-directory: backend
-        run: |
-          # 仅运行不需要 API Key 和数据库的单元测试
-          # evaluate_rag_pipeline 需要真实数据库，跳过（本地手动执行）
-          python -m pytest tests/test_rag.py -v --tb=short \
-            -k "not evaluate_rag_pipeline"
-        # 覆盖：jieba 分词 / RRF 融合逻辑 / reranker 降级 / HyDE fallback
-
-  # ─────────────────────────────────────────────────────────────────────────
-  # Job 2：代码风格检查
-  # ─────────────────────────────────────────────────────────────────────────
-  lint:
-    name: Lint (ruff)
+  backend-unit:
+    name: Backend unit seed ${{ matrix.seed }}
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        seed: [17, 42, 91]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - working-directory: backend
+        run: python -m pytest -m "not external and not integration and not local_e2e" --randomly-seed=${{ matrix.seed }} --tb=short
 
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Run ruff lint
-        working-directory: backend
-        run: |
-          # E: pycodestyle errors, W: warnings, F: pyflakes
-          # 忽略 E501（行长度），项目中有长注释是有意为之
-          ruff check app/ --select E,W,F --ignore E501 --output-format github
-        continue-on-error: true
-        # continue-on-error: 风格问题不阻断 CI，但会在 PR 中显示警告
-
-  # ─────────────────────────────────────────────────────────────────────────
-  # Job 3：前端构建检查
-  # ─────────────────────────────────────────────────────────────────────────
-  frontend-build:
-    name: Frontend Build Check
+  service-integration:
+    name: PostgreSQL and Redis integration
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: frontend
-        run: npm ci
-
-      - name: Type check & lint
-        working-directory: frontend
-        run: npm run lint
-        continue-on-error: true
-
-      - name: Build
-        working-directory: frontend
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg16
         env:
-          # 构建时提供占位符，避免 NEXT_PUBLIC_* 缺失导致构建失败
-          NEXT_PUBLIC_API_URL: "http://localhost:8000"
-          NEXT_PUBLIC_Y_WEBSOCKET_URL: "ws://localhost:1234"
-          NEXT_PUBLIC_AMAP_JS_KEY: "placeholder"
-          NEXT_PUBLIC_AMAP_SECURITY_CODE: "placeholder"
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7.4.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      RUN_SERVICE_INTEGRATION: "1"
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - working-directory: backend
+        run: python -m pytest -m integration -v --tb=short
+
+  frontend:
+    name: Frontend type build and controlled browser E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.3"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx tsc --noEmit
+      - working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:8999
+          NEXT_PUBLIC_Y_WEBSOCKET_URL: ws://127.0.0.1:8998
+          NEXT_PUBLIC_AMAP_JS_KEY: placeholder
+          NEXT_PUBLIC_AMAP_SECURITY_CODE: placeholder
         run: npm run build
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        run: npm run test:e2e:local
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: local-playwright-${{ github.run_id }}
+          path: |
+            frontend/playwright-report/local
+            frontend/test-results
+          if-no-files-found: ignore
+
+  yjs:
+    name: Yjs auth and real restart persistence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.3"
+          cache: npm
+          cache-dependency-path: y-websocket/package-lock.json
+      - working-directory: y-websocket
+        run: npm ci
+      - working-directory: y-websocket
+        run: npm test
+
+  evidence-release:
+    name: Frozen eval fault and release evidence
+    needs: [backend-lint, backend-unit, service-integration, frontend, yjs]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.3"
+          cache: npm
+          cache-dependency-path: y-websocket/package-lock.json
+      - working-directory: backend
+        run: pip install -r requirements-dev.txt
+      - working-directory: y-websocket
+        run: npm ci
+      - working-directory: backend
+        run: |
+          python -m scripts.build_eval_datasets
+          git diff --exit-code -- eval_data
+          python -m scripts.run_local_eval_suite
+          python -m scripts.run_fault_injection
+          python -m scripts.run_local_experiments
+          python -m scripts.build_release_manifest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.sha }}
+          path: backend/evidence
+
+  public-e2e:
+    name: Public E2E smoke (user-owned deployment)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.18.3"
+      - working-directory: frontend
+        run: npm ci
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
+          E2E_CLEANUP_SECRET: ${{ secrets.E2E_CLEANUP_SECRET }}
+          E2E_RELEASE_SHA: ${{ github.sha }}
+          E2E_ACTIONS_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: npm run test:e2e:public
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-playwright-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            frontend/playwright-report
+            frontend/test-results
+          if-no-files-found: ignore

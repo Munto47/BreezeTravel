@@ -32,6 +32,15 @@ from typing import Optional
 
 from app.config import settings
 from app.db.connection import get_pool
+from app.memory.governance import (
+    content_hash,
+    contains_injection_signal,
+    default_expiry,
+    infer_category,
+    is_stable_preference,
+    memory_enabled,
+)
+from app.observability.metrics import metrics as _prom_metrics
 
 # 每次加载的最大偏好条数
 _MAX_PREFS_TO_LOAD = 5
@@ -77,14 +86,21 @@ async def load_user_preferences(user_id: str) -> str:
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 """
-                SELECT content, created_at
-                FROM user_preferences
-                WHERE user_id = $1
+                SELECT p.content, p.created_at
+                FROM user_preferences p
+                LEFT JOIN user_memory_settings s ON s.user_id = p.user_id
+                WHERE p.user_id = $1
+                  AND p.active = TRUE
+                  AND p.confidence >= $3
+                  AND (p.expires_at IS NULL OR p.expires_at > NOW())
+                  AND COALESCE(s.enabled, $4) = TRUE
                 ORDER BY created_at DESC
                 LIMIT $2
                 """,
                 user_id,
                 _MAX_PREFS_TO_LOAD,
+                settings.memory_min_confidence,
+                settings.memory_enabled_default,
             )
 
         if not rows:
@@ -126,16 +142,31 @@ async def save_conversation_preferences(
         return
 
     try:
+        pool = await get_pool()
+        if not await memory_enabled(user_id, pool):
+            _prom_metrics.inc("memory_write_rejected_total", reason="disabled")
+            return
+
         # 提取偏好摘要
         summary = await _extract_preferences(messages, trip_city)
-        if not summary:
+        if not summary or not is_stable_preference(summary) or contains_injection_signal(summary):
+            _prom_metrics.inc("memory_write_rejected_total", reason="unstable_or_injection")
             return
 
         # 生成向量
         embedding = await _embed_preference(summary)
+        if not embedding or not any(abs(float(value)) > 1e-12 for value in embedding):
+            _prom_metrics.inc("memory_write_rejected_total", reason="embedding_failed")
+            return
 
         # 写入数据库
-        await _upsert_preference(user_id, summary, embedding, trip_city)
+        source_ids = [
+            str(getattr(message, "id", ""))
+            for message in messages[-10:]
+            if getattr(message, "id", None)
+        ]
+        await _upsert_preference(user_id, summary, embedding, source_ids)
+        _prom_metrics.inc("memory_write_total", status="stored")
         print(f"[LongTermMemory] 用户 {user_id[:8]}... 偏好已更新")
 
     except Exception as exc:
@@ -147,15 +178,15 @@ async def save_conversation_preferences(
 async def _extract_preferences(messages: list, trip_city: Optional[str]) -> str:
     """用 LLM 从对话中提取偏好，返回摘要文本"""
     from openai import AsyncOpenAI
-    from langchain_core.messages import HumanMessage, AIMessage
+    from langchain_core.messages import HumanMessage
 
     # 构建对话文本（只用 human/ai 消息，忽略 tool 消息）
     convo_lines = []
     for m in messages[-10:]:  # 只取最近 10 条
         if isinstance(m, HumanMessage):
             convo_lines.append(f"用户：{str(m.content)[:100]}")
-        elif isinstance(m, AIMessage) and m.content:
-            convo_lines.append(f"助手：{str(m.content)[:100]}")
+        # Assistant/tool/RAG text is deliberately excluded: retrieved document
+        # instructions and generated claims are not user preferences.
 
     if not convo_lines:
         return ""
@@ -212,26 +243,59 @@ async def _embed_preference(text: str) -> list[float]:
         from app.rag.embedder import embed_text
         return await embed_text(text)
     except Exception:
-        from app.rag.embedder import _infer_dim
-        return [0.0] * _infer_dim()  # 维度随配置的 embedding 模型自动适配
+        return []
 
 
 async def _upsert_preference(
     user_id: str,
     content: str,
     embedding: list[float],
-    trip_city: Optional[str],
+    source_message_ids: list[str],
 ) -> None:
-    """插入新的偏好记录（每次对话生成一条，不删除旧记录）"""
+    """Deduplicate and version stable preferences with an explicit TTL."""
     pool = await get_pool()
+    category = infer_category(content)
+    digest = content_hash(content)
     async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id FROM user_preferences WHERE user_id = $1 AND content_hash = $2 AND active = TRUE",
+            user_id,
+            digest,
+        )
+        if existing:
+            await conn.execute(
+                "UPDATE user_preferences SET confidence = GREATEST(confidence, 0.75), expires_at = $3, updated_at = NOW() WHERE user_id = $1 AND id = $2",
+                user_id,
+                existing["id"],
+                default_expiry(),
+            )
+            return
+        superseded = None
+        if category != "general":
+            superseded = await conn.fetchrow(
+                "SELECT id FROM user_preferences WHERE user_id = $1 AND category = $2 AND active = TRUE ORDER BY updated_at DESC LIMIT 1",
+                user_id,
+                category,
+            )
+            if superseded:
+                await conn.execute(
+                    "UPDATE user_preferences SET active = FALSE, updated_at = NOW() WHERE id = $1",
+                    superseded["id"],
+                )
         await conn.execute(
             """
-            INSERT INTO user_preferences (user_id, content, embedding, category)
-            VALUES ($1, $2, $3::vector, $4)
+            INSERT INTO user_preferences (
+                user_id, content, embedding, category, confidence,
+                source_message_ids, expires_at, active, content_hash, supersedes_id
+            )
+            VALUES ($1, $2, $3::vector, $4, 0.75, $5, $6, TRUE, $7, $8)
             """,
             user_id,
             content,
             str(embedding),  # pgvector::vector 需要字符串格式
-            trip_city or "general",
+            category,
+            source_message_ids,
+            default_expiry(),
+            digest,
+            superseded["id"] if superseded else None,
         )

@@ -28,7 +28,7 @@ Context Recall    : 检索结果是否包含回答所需的关键信息
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -474,8 +474,6 @@ async def test_evaluate_rag_pipeline():
     from langchain_core.messages import HumanMessage
 
     results_advanced: list[dict] = []
-    city_stats: dict[str, list[float]] = {}  # 按城市统计 Context Recall
-
     for item in _EVAL_DATASET:
         question = item["question"]
         # 优先从评估集字段取城市，回退到文本推断

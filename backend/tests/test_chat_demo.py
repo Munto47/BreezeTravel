@@ -16,7 +16,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -61,8 +61,12 @@ def real_graph():
 
 @pytest.fixture(scope="module")
 def client(mock_db, real_graph):
+    # Patch the symbol used by the endpoint, not its provider.  This keeps the
+    # fixture isolated even when test_api imported the endpoint first.
+    from app.api import chat as _chat_api  # noqa: F401
+
     with patch("app.db.connection.get_pool", AsyncMock(return_value=mock_db)), \
-         patch("app.agents.graph.get_graph_with_persistence", AsyncMock(return_value=real_graph)), \
+         patch("app.api.chat.get_graph_with_persistence", AsyncMock(return_value=real_graph)), \
          patch("app.agents.graph.init_persistent_graph", AsyncMock()), \
          patch("app.agents.graph.close_checkpointer", AsyncMock()):
         from fastapi.testclient import TestClient

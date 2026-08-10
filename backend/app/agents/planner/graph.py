@@ -27,6 +27,10 @@ from app.agents.planner.state import PlannerState
 from app.schemas.itinerary import Itinerary
 from app.schemas.place import Place
 from app.schemas.preferences import GroupPreferences
+from app.schemas.task_spec import TripTaskSpec
+from app.schemas.verification import ConstraintStatus, VerificationReport
+from app.constraints.verifier import ItineraryVerifier
+from app.agents.planner.repair_controller import TargetedRepairController
 
 # 完整 planner 输出（itinerary + 备选池 + 违规报告）
 from typing import NamedTuple
@@ -35,6 +39,57 @@ class PlannerResult(NamedTuple):
     itinerary: Itinerary
     backup_pool: list[Place]
     critic_violations: list[dict]
+    verification_report: Optional[VerificationReport] = None
+
+
+async def _verify(state: PlannerState) -> dict:
+    task_spec = state.get("task_spec")
+    itinerary = state.get("itinerary")
+    if task_spec is None or itinerary is None:
+        return {"verification_report": None, "trace": state.get("trace", []) + ["[Verifier] 无 TaskSpec，兼容模式跳过"]}
+    verifier = ItineraryVerifier()
+    report = verifier.verify(
+        task_spec,
+        itinerary,
+        places=state.get("places", []),
+        planning_input_hash=state.get("planning_input_hash") or None,
+        repair_rounds=state.get("repair_rounds", 0),
+        unresolved_reasons=state.get("unresolved_repair_reasons", []),
+    )
+    return {
+        "verification_report": report,
+        "trace": state.get("trace", []) + [f"[Verifier] {report.overall_status.value} checks={len(report.checks)}"],
+    }
+
+
+def _verification_route(state: PlannerState) -> str:
+    report = state.get("verification_report")
+    if report is None:
+        return "done"
+    repairable = [item for item in report.checks if item.status == ConstraintStatus.VIOLATED and item.repairable]
+    if not repairable or state.get("repair_rounds", 0) >= TargetedRepairController.max_rounds:
+        return "done"
+    signature = TargetedRepairController.signature(repairable)
+    if signature in state.get("repair_signatures", []):
+        return "done"
+    return "repair"
+
+
+async def _repair(state: PlannerState) -> dict:
+    report = state.get("verification_report")
+    itinerary = state.get("itinerary")
+    task_spec = state.get("task_spec")
+    if report is None or itinerary is None or task_spec is None:
+        return {}
+    controller = TargetedRepairController()
+    repaired, plan = controller.repair_once(itinerary, task_spec, report.checks, state.get("places", []))
+    return {
+        "itinerary": repaired,
+        "repair_rounds": state.get("repair_rounds", 0) + 1,
+        "repair_signatures": state.get("repair_signatures", []) + [plan.violation_signature],
+        "unresolved_repair_reasons": state.get("unresolved_repair_reasons", []) + plan.unresolved,
+        "trace": state.get("trace", []) + [f"[Repair] actions={len(plan.actions)} unresolved={len(plan.unresolved)}"],
+    }
 
 
 def build_planner_graph():
@@ -47,6 +102,8 @@ def build_planner_graph():
     g.add_node("scheduler_v2",    scheduler_v2.run)
     g.add_node("critic_v2",       critic_v2.run)
     g.add_node("tips",            tips_agent.run)
+    g.add_node("verifier",        _verify)
+    g.add_node("repair",          _repair)
 
     g.set_entry_point("clusterer")
     g.add_edge("clusterer",       "distance")
@@ -55,7 +112,9 @@ def build_planner_graph():
     g.add_edge("weather_fetcher", "scheduler_v2")
     g.add_edge("scheduler_v2",    "critic_v2")
     g.add_edge("critic_v2",       "tips")
-    g.add_edge("tips",            END)
+    g.add_edge("tips",            "verifier")
+    g.add_conditional_edges("verifier", _verification_route, {"repair": "repair", "done": END})
+    g.add_edge("repair",          "verifier")
 
     return g.compile()
 
@@ -71,8 +130,30 @@ async def run_planner(
     preferences_text: str = "",
     user_prefs: Optional[GroupPreferences] = None,
     vote_counts: Optional[dict[str, int]] = None,
+    task_spec: Optional[TripTaskSpec] = None,
+    planning_input_hash: str = "",
 ) -> PlannerResult:
     """PlannerGraph v2 入口。返回 PlannerResult(itinerary, backup_pool, critic_violations)。"""
+    if task_spec:
+        excluded_terms = ["".join(item.value.lower().split()) for item in task_spec.exclude]
+        filtered_places = []
+        for place in places:
+            searchable = "".join(f"{place.name}{place.address}{place.tags}{place.category.value}".lower().split())
+            if not any(term and term in searchable for term in excluded_terms):
+                filtered_places.append(place)
+        places = filtered_places
+
+        # The existing scheduler already prioritises vote_counts. Give explicit
+        # must-include candidates a deterministic priority without introducing
+        # another probabilistic planner step.
+        boosted_votes = dict(vote_counts or {})
+        must_terms = ["".join(item.value.lower().split()) for item in task_spec.must_include]
+        for place in places:
+            searchable = "".join(f"{place.name}{place.tags}".lower().split())
+            if any(term and term in searchable for term in must_terms):
+                boosted_votes[place.place_id] = max(boosted_votes.get(place.place_id, 0), 1000)
+        vote_counts = boosted_votes
+
     initial: PlannerState = {
         "places": places,
         "trip_days": trip_days,
@@ -82,8 +163,14 @@ async def run_planner(
         "user_prefs": user_prefs,
         "weather_forecast": {},
         "vote_counts": vote_counts or {},
+        "task_spec": task_spec,
+        "planning_input_hash": planning_input_hash,
         "backup_pool": [],
         "critic_violations": [],
+        "verification_report": None,
+        "repair_rounds": 0,
+        "repair_signatures": [],
+        "unresolved_repair_reasons": [],
         "trace": [],
     }
 
@@ -105,4 +192,5 @@ async def run_planner(
         itinerary=itinerary,
         backup_pool=final_state.get("backup_pool", []),
         critic_violations=violations,
+        verification_report=final_state.get("verification_report"),
     )

@@ -5,7 +5,6 @@ API 集成测试（使用 FastAPI TestClient）
 数据库连接用 monkeypatch 替换为 mock，可在 CI/无 Docker 环境运行。
 """
 
-import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -94,8 +93,15 @@ def mock_graph():
 @pytest.fixture
 def client(mock_db_pool, mock_graph):
     """构建带 mock 的 TestClient"""
+    # Import the consumer before patching.  Patching the provider while
+    # app.api.chat is imported can permanently bind the mock to the consumer
+    # module and make the result depend on pytest's module order.
+    from app.api import chat as _chat_api  # noqa: F401
+    from app.api import room as _room_api  # noqa: F401
+
     with patch("app.db.connection.get_pool", AsyncMock(return_value=mock_db_pool)), \
-         patch("app.agents.graph.get_graph_with_persistence", AsyncMock(return_value=mock_graph)), \
+         patch("app.api.room.get_pool", AsyncMock(return_value=mock_db_pool)), \
+         patch("app.api.chat.get_graph_with_persistence", AsyncMock(return_value=mock_graph)), \
          patch("app.agents.graph.init_persistent_graph", AsyncMock()), \
          patch("app.agents.graph.close_checkpointer", AsyncMock()):
 

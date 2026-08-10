@@ -19,6 +19,16 @@ _store: dict = {
     "tool_calls_rag": 0,
     "tool_calls_weather": 0,
     "total_react_iterations": 0,
+    # Reliability / degradation signals.  These deliberately count events, not
+    # requests, so a dashboard can distinguish a successful degraded answer.
+    "agent_degraded_count": 0,
+    "rag_empty_count": 0,
+    "tool_error_count": 0,
+    "sse_disconnect_count": 0,
+    "estimated_llm_cost_usd": 0.0,
+}
+_labelled: dict[str, dict[str, int | float]] = {
+    "tool_outcomes": {}, "model_usage": {}, "error_categories": {},
 }
 
 
@@ -33,4 +43,10 @@ def set_val(key: str, value) -> None:
 
 def snapshot() -> dict:
     """返回当前指标快照（浅拷贝）"""
-    return dict(_store)
+    return {**_store, "labelled": {name: dict(values) for name, values in _labelled.items()}}
+
+
+def observe(label_set: str, label: str, amount: int | float = 1) -> None:
+    """Bounded internal labels; callers use fixed names, never user text."""
+    bucket = _labelled.setdefault(label_set, {})
+    bucket[label] = bucket.get(label, 0) + amount

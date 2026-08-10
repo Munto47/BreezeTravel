@@ -11,7 +11,7 @@ Alternative — 替代方案：
   · why_alternative  为何推荐这个替代（比 A 更便宜 / 排队少 / 更适合带娃）
 """
 
-from typing import Literal, Optional
+from typing import Literal
 from pydantic import BaseModel, Field
 
 

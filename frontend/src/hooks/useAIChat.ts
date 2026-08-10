@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 
-import type { ChatMessage, ThinkingStep } from '@/types/chat'
+import type { ChatMessage, ThinkingStep, Citation } from '@/types/chat'
 import type { Place } from '@/types/place'
 import { parsePlaceFromAPI } from '@/types/place'
 
@@ -16,7 +16,7 @@ interface UseAIChatReturn {
   clearMessages: () => void
 }
 
-export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
+export function useAIChat(threadId: string, userId: string, roomId?: string): UseAIChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -56,10 +56,16 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
     try {
       const response = await fetch(`${API_BASE}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(typeof window !== 'undefined' && localStorage.getItem('authToken')
+            ? { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            : {}),
+        },
         body: JSON.stringify({
           thread_id: threadId,
           user_id: userId,
+          room_id: roomId || null,
           message: text,
           selected_place_ids: selectedPlaceIds,
           trip_city: tripCity || null,
@@ -162,6 +168,25 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
                 ]
               }
 
+              if (event === 'citations') {
+                const citations: Citation[] = (data.citations || []).map((item: Record<string, unknown>) => ({
+                  sourceId: String(item.source_id),
+                  title: String(item.title),
+                  url: typeof item.url === 'string' ? item.url : undefined,
+                  excerpt: String(item.excerpt || ''),
+                  score: Number(item.score || 0),
+                  retrievalSources: Array.isArray(item.retrieval_sources) ? item.retrieval_sources as string[] : [],
+                  publishedAt: typeof item.published_at === 'string' ? item.published_at : undefined,
+                  retrievedAt: typeof item.retrieved_at === 'string' ? item.retrieved_at : undefined,
+                  license: typeof item.license === 'string' ? item.license : undefined,
+                  revision: typeof item.revision === 'string' ? item.revision : undefined,
+                  attribution: typeof item.attribution === 'string' ? item.attribution : undefined,
+                  corpusKind: String(item.corpus_kind || 'synthetic'),
+                }))
+                const known = new Set((last.citations || []).map((citation) => citation.sourceId))
+                return [...prev.slice(0, -1), { ...last, citations: [...(last.citations || []), ...citations.filter((citation) => !known.has(citation.sourceId))] }]
+              }
+
               if (event === 'text_reset') {
                 // Critic 触发重检索时 synthesizer 会再跑一次，清空前一轮文本避免段落重复
                 return [
@@ -173,7 +198,7 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
               if (event === 'done') {
                 return [
                   ...prev.slice(0, -1),
-                  { ...last, status: 'done' },
+                  { ...last, status: 'done', traceId: data.trace_id },
                 ]
               }
 
@@ -211,7 +236,7 @@ export function useAIChat(threadId: string, userId: string): UseAIChatReturn {
       setIsStreaming(false)
       abortRef.current = null
     }
-  }, [threadId, userId, isStreaming])
+  }, [threadId, userId, roomId, isStreaming])
 
   const clearMessages = useCallback(() => setMessages([]), [])
 

@@ -9,7 +9,6 @@ GET  /api/itinerary/{itinerary_id}/export — 导出路线为 HTML（需登录�
 """
 
 import json
-import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,6 +17,8 @@ from pydantic import BaseModel
 
 from app.db.connection import get_pool
 from app.utils.auth import get_current_user, get_optional_user
+from app.services.room_access import require_room_member
+from app.config import get_settings
 
 router = APIRouter()
 
@@ -32,12 +33,16 @@ class PlaceSyncRequest(BaseModel):
 
 
 @router.post("/room/{room_id}/places/sync")
-async def sync_places(room_id: str, body: PlaceSyncRequest, _: Optional[str] = Depends(get_optional_user)):
-    """把 Yjs 内存景点批量 UPSERT 到 DB（无需鉴权，房间内任意成员均可调用）。"""
+async def sync_places(room_id: str, body: PlaceSyncRequest, user_id: Optional[str] = Depends(get_optional_user)):
+    """把 Yjs 内存景点批量 UPSERT 到 DB（仅房间成员）。"""
     if not body.places:
         return {"ok": True, "synced": 0}
 
     pool = await get_pool()
+    if not get_settings().demo_mode:
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="请先登录")
+        await require_room_member(room_id, user_id, pool=pool)
     async with pool.acquire() as conn:
         synced = 0
         for place in body.places:
@@ -64,9 +69,13 @@ async def sync_places(room_id: str, body: PlaceSyncRequest, _: Optional[str] = D
 
 
 @router.get("/room/{room_id}/places")
-async def get_room_places(room_id: str):
+async def get_room_places(room_id: str, user_id: Optional[str] = Depends(get_optional_user)):
     """返回房间持久化景点列表（进入房间时用于恢复状态）。"""
     pool = await get_pool()
+    if not get_settings().demo_mode:
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="请先登录")
+        await require_room_member(room_id, user_id, pool=pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
@@ -100,6 +109,7 @@ class SaveItineraryRequest(BaseModel):
 async def save_itinerary(room_id: str, body: SaveItineraryRequest, user_id: str = Depends(get_current_user)):
     """将优化后路线保存到 DB，返回 itinerary_id。"""
     pool = await get_pool()
+    await require_room_member(room_id, user_id, pool=pool)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """
@@ -120,6 +130,7 @@ async def save_itinerary(room_id: str, body: SaveItineraryRequest, user_id: str 
 async def get_room_itinerary(room_id: str, user_id: str = Depends(get_current_user)):
     """返回该房间最新一条已保存路线的完整 JSON（用于跨设备恢复行程详情页）。"""
     pool = await get_pool()
+    await require_room_member(room_id, user_id, pool=pool)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """

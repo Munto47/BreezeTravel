@@ -102,11 +102,14 @@ async def dense_search(
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT content, place_ids, note_id, chunk_idx,
+            SELECT c.content, c.place_ids, c.note_id, c.chunk_idx,
+                   n.title, n.source_url, n.source_published_at, n.source_retrieved_at,
+                   n.source_license, n.source_revision, n.source_attribution, n.corpus_kind,
                    1 - (embedding <=> $1::vector) AS score
-            FROM travel_notes_chunks
-            WHERE city = $2
-            ORDER BY embedding <=> $1::vector
+            FROM travel_notes_chunks c
+            LEFT JOIN travel_notes n ON n.id = c.note_id
+            WHERE c.city = $2
+            ORDER BY c.embedding <=> $1::vector
             LIMIT $3
             """,
             query_vector,
@@ -121,6 +124,13 @@ async def dense_search(
             "chunk_idx": r["chunk_idx"],
             "score": float(r["score"]),
             "retrieval_source": "dense",
+            "title": r["title"], "source_url": r["source_url"],
+            "source_published_at": r["source_published_at"],
+            "source_retrieved_at": r["source_retrieved_at"],
+            "source_license": r["source_license"],
+            "source_revision": r["source_revision"],
+            "source_attribution": r["source_attribution"],
+            "corpus_kind": r["corpus_kind"] or "synthetic",
         }
         for r in rows
     ]
@@ -169,11 +179,14 @@ async def sparse_search(
         try:
             rows = await conn.fetch(
                 """
-                SELECT content, place_ids, note_id, chunk_idx,
-                       ts_rank_cd(content_tsv, to_tsquery('simple', $1)) AS score
-                FROM travel_notes_chunks
-                WHERE city = $2
-                  AND content_tsv @@ to_tsquery('simple', $1)
+                SELECT c.content, c.place_ids, c.note_id, c.chunk_idx,
+                       n.title, n.source_url, n.source_published_at, n.source_retrieved_at,
+                       n.source_license, n.source_revision, n.source_attribution, n.corpus_kind,
+                       ts_rank_cd(c.content_tsv, to_tsquery('simple', $1)) AS score
+                FROM travel_notes_chunks c
+                LEFT JOIN travel_notes n ON n.id = c.note_id
+                WHERE c.city = $2
+                  AND c.content_tsv @@ to_tsquery('simple', $1)
                 ORDER BY score DESC
                 LIMIT $3
                 """,
@@ -194,6 +207,13 @@ async def sparse_search(
             "chunk_idx": r["chunk_idx"],
             "score": float(r["score"]),
             "retrieval_source": "sparse",
+            "title": r["title"], "source_url": r["source_url"],
+            "source_published_at": r["source_published_at"],
+            "source_retrieved_at": r["source_retrieved_at"],
+            "source_license": r["source_license"],
+            "source_revision": r["source_revision"],
+            "source_attribution": r["source_attribution"],
+            "corpus_kind": r["corpus_kind"] or "synthetic",
         }
         for r in rows
     ]

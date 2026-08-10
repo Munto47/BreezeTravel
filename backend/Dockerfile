@@ -1,5 +1,5 @@
 # python:3.11-slim（Debian-based）有预编译 wheel，避免 Alpine musl 编译失败
-ARG PYTHON_BASE_IMAGE=python:3.11-slim
+ARG PYTHON_BASE_IMAGE=python:3.11.11-slim-bookworm
 FROM ${PYTHON_BASE_IMAGE}
 
 WORKDIR /app

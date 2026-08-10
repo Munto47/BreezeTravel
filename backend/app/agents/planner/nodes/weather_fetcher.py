@@ -20,7 +20,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import date, timedelta
 from typing import Optional
 

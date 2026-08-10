@@ -60,24 +60,12 @@ export function useYjsRoom(
     const placesMap = doc.getMap<YjsPlace>('places')
     const roomMeta = doc.getMap<unknown>('room')
 
-    // 连接 y-websocket
-    const provider = new WebsocketProvider(Y_WEBSOCKET_URL, roomId, doc)
-    providerRef.current = provider
+    let provider: WebsocketProvider | null = null
+    let cancelled = false
 
     // 连接状态监听
-    provider.on('status', ({ status }: { status: string }) => {
-      setIsConnected(status === 'connected')
-    })
-
-    // Awareness：设置本地用户信息
-    provider.awareness.setLocalStateField('user', {
-      userId,
-      nickname,
-      color: userColor,
-    })
-
-    // 监听在线成员变化
     const updateMembers = () => {
+      if (!provider) return
       const states = Array.from(provider.awareness.getStates().entries())
       const seenIds = new Set<string>()
       const onlineMembers: RoomMember[] = states
@@ -95,8 +83,28 @@ export function useYjsRoom(
         })
       setMembers(onlineMembers)
     }
-    provider.awareness.on('change', updateMembers)
-    updateMembers()
+    const connect = async () => {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const authToken = localStorage.getItem('authToken')
+      if (!authToken) return
+      const response = await fetch(`${apiBase}/api/room/${encodeURIComponent(roomId)}/ws-token`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+      if (!response.ok || cancelled) return
+      const body = await response.json() as { token: string }
+      provider = new WebsocketProvider(Y_WEBSOCKET_URL, roomId, doc, {
+        params: { token: body.token },
+      })
+      providerRef.current = provider
+      provider.on('status', ({ status }: { status: string }) => {
+        setIsConnected(status === 'connected')
+      })
+      provider.awareness.setLocalStateField('user', { userId, nickname, color: userColor })
+      provider.awareness.on('change', updateMembers)
+      updateMembers()
+    }
+    void connect()
 
     // 监听地点 Map 变化
     const updatePlaces = () => {
@@ -115,10 +123,11 @@ export function useYjsRoom(
     updatePhase()
 
     return () => {
-      provider.awareness.off('change', updateMembers)
+      cancelled = true
+      provider?.awareness.off('change', updateMembers)
       placesMap.unobserve(updatePlaces)
       roomMeta.unobserve(updatePhase)
-      provider.destroy()
+      provider?.destroy()
       doc.destroy()
       docRef.current = null
       providerRef.current = null

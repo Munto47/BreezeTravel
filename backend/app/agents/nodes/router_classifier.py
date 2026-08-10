@@ -52,7 +52,7 @@ def _try_load(model_path: str) -> tuple[bool, Optional[str]]:
 
     meta_path = path / "adapter_meta.json"
     if not meta_path.exists():
-        return False, f"缺少 adapter_meta.json，请先运行 train_router.py"
+        return False, "缺少 adapter_meta.json，请先运行 train_router.py"
 
     try:
         import torch

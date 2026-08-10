@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:0.8.1-pg16}
     environment:
       POSTGRES_DB: travel_agent
       POSTGRES_USER: postgres
@@ -17,7 +17,7 @@ services:
       retries: 10
 
   redis:
-    image: ${REDIS_IMAGE:-redis:7-alpine}
+    image: ${REDIS_IMAGE:-redis:7.4.2-alpine}
     ports:
       - "127.0.0.1:6379:6379"
     healthcheck:
@@ -36,6 +36,9 @@ services:
       - HOST=0.0.0.0
       - PORT=1234
       - YPERSISTENCE=/data
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - YJS_MAX_PAYLOAD_BYTES=${YJS_MAX_PAYLOAD_BYTES:-262144}
+      - YJS_MAX_CONNECTIONS_PER_IP=${YJS_MAX_CONNECTIONS_PER_IP:-20}
     volumes:
       - yjs-data:/data
 
@@ -44,7 +47,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11-slim}
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
     ports:
       - "127.0.0.1:8000:8000"
     env_file:
@@ -54,21 +57,49 @@ services:
       REDIS_URL: redis://redis:6379
       DEMO_MODE: "false"
       AMAP_MOCK: "false"
+      # The container workdir is /app (the backend source root), whereas the
+      # repository-level .env uses backend/models/... for host execution.
+      FT_ROUTER_MODEL_PATH: models/router_lora
+      # This CPU image intentionally does not bundle PyTorch/model weights.
+      # Enable the FT route only in a GPU deployment image that includes them.
+      FT_ROUTER_ENABLED: "false"
+      AUTO_MIGRATE: "false"
+      REQUIRE_SCHEMA_CHECK: "true"
     volumes:
       - ./backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+    volumes:
+      - ./backend:/app
+    command: python -m scripts.migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
   mcp-server:
     build:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11-slim}
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
     ports:
       - "127.0.0.1:8001:8001"
     env_file:

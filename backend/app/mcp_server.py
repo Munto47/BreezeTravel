@@ -45,14 +45,11 @@ MCP Server 层只做"工具适配"，不持有状态：
 """
 
 import json
-import asyncio
-from typing import Optional
 
 # FastMCP：Anthropic 官方 MCP Server 框架（pip install mcp）
 from mcp.server.fastmcp import FastMCP
 
 # 加载项目配置（复用 .env）
-from app.config import settings
 
 mcp = FastMCP(
     name="BreezeTravel",
@@ -236,7 +233,7 @@ if __name__ == "__main__":
 
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8001
     print(f"[MCP] BreezeTravel MCP Server 启动中，端口 {port}")
-    print(f"[MCP] 工具：search_places / search_travel_notes / get_weather")
+    print("[MCP] 工具：search_places / search_travel_notes / get_weather")
     print(f"[MCP] Claude Desktop 接入：http://localhost:{port}/mcp")
 
     mcp.run(transport="streamable-http", host="0.0.0.0", port=port)

@@ -1,0 +1,875 @@
+{
+  "run_id": "d337be7b-c7b6-47a4-a677-ca04b4dc3f81",
+  "kind": "router",
+  "split": "dev",
+  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "dataset_hash": "9a46c1abcfb7d5358ab07f33270f90ed68153f3dd3bf3e6b72d5df71f93cb670",
+  "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
+  "config_hash": "2ee91edad291d6ff6967bb988268796a5bf967aca878466b5c7f8e84d1fb8538",
+  "model": null,
+  "prompt_version": "task-parser-v1",
+  "environment": "local-controlled-mock-providers",
+  "seed": 42,
+  "started_at": "2026-08-10T01:29:23.540539Z",
+  "metrics": {
+    "pass_rate": {
+      "mean": 1.0,
+      "low": 1.0,
+      "high": 1.0,
+      "n": 32
+    },
+    "sample_size": 32
+  },
+  "buckets": {
+    "city": {
+      "上海": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "北京": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "广州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 8
+      },
+      "成都": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "杭州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "深圳": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 8
+      }
+    },
+    "error_category": {
+      "None": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 32
+      }
+    }
+  },
+  "raw_results": [
+    {
+      "case_id": "router-017",
+      "city": "广州",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.011999858543276787,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-017"
+      },
+      "passed": true,
+      "latency_ms": 0.011999858543276787,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-017"
+    },
+    {
+      "case_id": "router-018",
+      "city": "广州",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.0034999102354049683,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-018"
+      },
+      "passed": true,
+      "latency_ms": 0.0034999102354049683,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-018"
+    },
+    {
+      "case_id": "router-019",
+      "city": "广州",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.00300002284348011,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-019"
+      },
+      "passed": true,
+      "latency_ms": 0.00300002284348011,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-019"
+    },
+    {
+      "case_id": "router-020",
+      "city": "广州",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.002600019797682762,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-020"
+      },
+      "passed": true,
+      "latency_ms": 0.002600019797682762,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-020"
+    },
+    {
+      "case_id": "router-021",
+      "city": "深圳",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-021"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-021"
+    },
+    {
+      "case_id": "router-022",
+      "city": "深圳",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.002500135451555252,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-022"
+      },
+      "passed": true,
+      "latency_ms": 0.002500135451555252,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-022"
+    },
+    {
+      "case_id": "router-023",
+      "city": "深圳",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.002200016751885414,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-023"
+      },
+      "passed": true,
+      "latency_ms": 0.002200016751885414,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-023"
+    },
+    {
+      "case_id": "router-024",
+      "city": "深圳",
+      "tags": [
+        "amap"
+      ],
+      "expected": {
+        "intent": "amap",
+        "tool_set": [
+          "search_places"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_places"
+        ],
+        "latency_ms": 0.002200016751885414,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-024"
+      },
+      "passed": true,
+      "latency_ms": 0.002200016751885414,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-024"
+    },
+    {
+      "case_id": "router-025",
+      "city": "北京",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.004899920895695686,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-025"
+      },
+      "passed": true,
+      "latency_ms": 0.004899920895695686,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-025"
+    },
+    {
+      "case_id": "router-026",
+      "city": "北京",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.003100140020251274,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-026"
+      },
+      "passed": true,
+      "latency_ms": 0.003100140020251274,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-026"
+    },
+    {
+      "case_id": "router-027",
+      "city": "北京",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002800021320581436,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-027"
+      },
+      "passed": true,
+      "latency_ms": 0.002800021320581436,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-027"
+    },
+    {
+      "case_id": "router-028",
+      "city": "北京",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002500135451555252,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-028"
+      },
+      "passed": true,
+      "latency_ms": 0.002500135451555252,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-028"
+    },
+    {
+      "case_id": "router-029",
+      "city": "上海",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-029"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-029"
+    },
+    {
+      "case_id": "router-030",
+      "city": "上海",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002500135451555252,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-030"
+      },
+      "passed": true,
+      "latency_ms": 0.002500135451555252,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-030"
+    },
+    {
+      "case_id": "router-031",
+      "city": "上海",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-031"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-031"
+    },
+    {
+      "case_id": "router-032",
+      "city": "上海",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-032"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-032"
+    },
+    {
+      "case_id": "router-033",
+      "city": "杭州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-033"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-033"
+    },
+    {
+      "case_id": "router-034",
+      "city": "杭州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002200016751885414,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-034"
+      },
+      "passed": true,
+      "latency_ms": 0.002200016751885414,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-034"
+    },
+    {
+      "case_id": "router-035",
+      "city": "杭州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-035"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-035"
+    },
+    {
+      "case_id": "router-036",
+      "city": "杭州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002300133928656578,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-036"
+      },
+      "passed": true,
+      "latency_ms": 0.002300133928656578,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-036"
+    },
+    {
+      "case_id": "router-037",
+      "city": "成都",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-037"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-037"
+    },
+    {
+      "case_id": "router-038",
+      "city": "成都",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002200016751885414,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-038"
+      },
+      "passed": true,
+      "latency_ms": 0.002200016751885414,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-038"
+    },
+    {
+      "case_id": "router-039",
+      "city": "成都",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002299901098012924,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-039"
+      },
+      "passed": true,
+      "latency_ms": 0.002299901098012924,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-039"
+    },
+    {
+      "case_id": "router-040",
+      "city": "成都",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002300133928656578,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-040"
+      },
+      "passed": true,
+      "latency_ms": 0.002300133928656578,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-040"
+    },
+    {
+      "case_id": "router-041",
+      "city": "广州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-041"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-041"
+    },
+    {
+      "case_id": "router-042",
+      "city": "广州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002600019797682762,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-042"
+      },
+      "passed": true,
+      "latency_ms": 0.002600019797682762,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-042"
+    },
+    {
+      "case_id": "router-043",
+      "city": "广州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-043"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-043"
+    },
+    {
+      "case_id": "router-044",
+      "city": "广州",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-044"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-044"
+    },
+    {
+      "case_id": "router-045",
+      "city": "深圳",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-045"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-045"
+    },
+    {
+      "case_id": "router-046",
+      "city": "深圳",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002499902620911598,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-046"
+      },
+      "passed": true,
+      "latency_ms": 0.002499902620911598,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-046"
+    },
+    {
+      "case_id": "router-047",
+      "city": "深圳",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-047"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-047"
+    },
+    {
+      "case_id": "router-048",
+      "city": "深圳",
+      "tags": [
+        "rag"
+      ],
+      "expected": {
+        "intent": "rag",
+        "tool_set": [
+          "search_travel_notes"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "tool_set": [
+          "search_travel_notes"
+        ],
+        "latency_ms": 0.002400018274784088,
+        "reproduce": "python -m scripts.run_local_eval_suite --case router-048"
+      },
+      "passed": true,
+      "latency_ms": 0.002400018274784088,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case router-048"
+    }
+  ],
+  "bad_cases": [],
+  "production_claim_not_made": true
+}

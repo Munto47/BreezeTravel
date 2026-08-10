@@ -243,6 +243,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
       <div className="p-3 border-t border-gray-100/60 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <textarea
+            data-testid="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -251,6 +252,7 @@ export default function ChatPanel({ messages, isStreaming, weather, tripCity, on
             className="input-glass flex-1 resize-none text-sm"
           />
           <button
+            data-testid="chat-send"
             onClick={handleSend}
             disabled={isStreaming || !input.trim()}
             className="btn-coral p-2.5 rounded-lg flex-shrink-0"

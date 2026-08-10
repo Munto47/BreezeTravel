@@ -1,0 +1,535 @@
+{
+  "run_id": "df46392f-c4a0-40b4-a977-f57ab380f321",
+  "kind": "verifier",
+  "split": "pilot",
+  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "dataset_hash": "453bb11da0a5c9724a497ce6b07dd5608174f2d63d7d430527b09de2b39a5340",
+  "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
+  "config_hash": "3800ddfc0a471f4c4f2ddb539746d2ba49281f2612f8f133d6a780d2aba57800",
+  "model": null,
+  "prompt_version": "task-parser-v1",
+  "environment": "local-controlled-mock-providers",
+  "seed": 42,
+  "started_at": "2026-08-10T01:29:24.120225Z",
+  "metrics": {
+    "pass_rate": {
+      "mean": 1.0,
+      "low": 1.0,
+      "high": 1.0,
+      "n": 20
+    },
+    "sample_size": 20
+  },
+  "buckets": {
+    "city": {
+      "上海": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "北京": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 4
+      },
+      "广州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 3
+      },
+      "成都": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 3
+      },
+      "杭州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 3
+      },
+      "深圳": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 3
+      }
+    },
+    "error_category": {
+      "None": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 20
+      }
+    }
+  },
+  "raw_results": [
+    {
+      "case_id": "verifier-001",
+      "city": "北京",
+      "tags": [
+        "satisfied",
+        "satisfied"
+      ],
+      "expected": {
+        "status": "SATISFIED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "SATISFIED",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.7021001074463129,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-001"
+      },
+      "passed": true,
+      "latency_ms": 0.7021001074463129,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-001"
+    },
+    {
+      "case_id": "verifier-002",
+      "city": "上海",
+      "tags": [
+        "missing_price",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.28380006551742554,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-002"
+      },
+      "passed": true,
+      "latency_ms": 0.28380006551742554,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-002"
+    },
+    {
+      "case_id": "verifier-003",
+      "city": "杭州",
+      "tags": [
+        "missing_hours",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.23600016720592976,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-003"
+      },
+      "passed": true,
+      "latency_ms": 0.23600016720592976,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-003"
+    },
+    {
+      "case_id": "verifier-004",
+      "city": "成都",
+      "tags": [
+        "duplicate",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.224200077354908,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-004"
+      },
+      "passed": true,
+      "latency_ms": 0.224200077354908,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-004"
+    },
+    {
+      "case_id": "verifier-005",
+      "city": "广州",
+      "tags": [
+        "excluded",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.1916999462991953,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-005"
+      },
+      "passed": true,
+      "latency_ms": 0.1916999462991953,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-005"
+    },
+    {
+      "case_id": "verifier-006",
+      "city": "深圳",
+      "tags": [
+        "capacity",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.2031000331044197,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-006"
+      },
+      "passed": true,
+      "latency_ms": 0.2031000331044197,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-006"
+    },
+    {
+      "case_id": "verifier-007",
+      "city": "北京",
+      "tags": [
+        "time_overlap",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.17850007861852646,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-007"
+      },
+      "passed": true,
+      "latency_ms": 0.17850007861852646,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-007"
+    },
+    {
+      "case_id": "verifier-008",
+      "city": "上海",
+      "tags": [
+        "travel_missing",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.18409988842904568,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-008"
+      },
+      "passed": true,
+      "latency_ms": 0.18409988842904568,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-008"
+    },
+    {
+      "case_id": "verifier-009",
+      "city": "杭州",
+      "tags": [
+        "travel_exceeded",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.18420000560581684,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-009"
+      },
+      "passed": true,
+      "latency_ms": 0.18420000560581684,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-009"
+    },
+    {
+      "case_id": "verifier-010",
+      "city": "成都",
+      "tags": [
+        "rain_unknown",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.17090002074837685,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-010"
+      },
+      "passed": true,
+      "latency_ms": 0.17090002074837685,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-010"
+    },
+    {
+      "case_id": "verifier-011",
+      "city": "广州",
+      "tags": [
+        "rain_outdoor",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.1788001973181963,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-011"
+      },
+      "passed": true,
+      "latency_ms": 0.1788001973181963,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-011"
+    },
+    {
+      "case_id": "verifier-012",
+      "city": "深圳",
+      "tags": [
+        "budget_ok",
+        "satisfied"
+      ],
+      "expected": {
+        "status": "SATISFIED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "SATISFIED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.17680018208920956,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-012"
+      },
+      "passed": true,
+      "latency_ms": 0.17680018208920956,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-012"
+    },
+    {
+      "case_id": "verifier-013",
+      "city": "北京",
+      "tags": [
+        "satisfied",
+        "satisfied"
+      ],
+      "expected": {
+        "status": "SATISFIED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "SATISFIED",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.15449989587068558,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-013"
+      },
+      "passed": true,
+      "latency_ms": 0.15449989587068558,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-013"
+    },
+    {
+      "case_id": "verifier-014",
+      "city": "上海",
+      "tags": [
+        "missing_price",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.16359984874725342,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-014"
+      },
+      "passed": true,
+      "latency_ms": 0.16359984874725342,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-014"
+    },
+    {
+      "case_id": "verifier-015",
+      "city": "杭州",
+      "tags": [
+        "missing_hours",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.15149987302720547,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-015"
+      },
+      "passed": true,
+      "latency_ms": 0.15149987302720547,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-015"
+    },
+    {
+      "case_id": "verifier-016",
+      "city": "成都",
+      "tags": [
+        "duplicate",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.18729991279542446,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-016"
+      },
+      "passed": true,
+      "latency_ms": 0.18729991279542446,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-016"
+    },
+    {
+      "case_id": "verifier-017",
+      "city": "广州",
+      "tags": [
+        "excluded",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.17799995839595795,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-017"
+      },
+      "passed": true,
+      "latency_ms": 0.17799995839595795,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-017"
+    },
+    {
+      "case_id": "verifier-018",
+      "city": "深圳",
+      "tags": [
+        "capacity",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.16930000856518745,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-018"
+      },
+      "passed": true,
+      "latency_ms": 0.16930000856518745,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-018"
+    },
+    {
+      "case_id": "verifier-019",
+      "city": "北京",
+      "tags": [
+        "time_overlap",
+        "violated"
+      ],
+      "expected": {
+        "status": "VIOLATED"
+      },
+      "actual": {
+        "passed": true,
+        "status": "VIOLATED",
+        "checks": 7,
+        "unknown_honesty": true,
+        "latency_ms": 0.1604999415576458,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-019"
+      },
+      "passed": true,
+      "latency_ms": 0.1604999415576458,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-019"
+    },
+    {
+      "case_id": "verifier-020",
+      "city": "上海",
+      "tags": [
+        "travel_missing",
+        "unknown"
+      ],
+      "expected": {
+        "status": "UNKNOWN"
+      },
+      "actual": {
+        "passed": true,
+        "status": "UNKNOWN",
+        "checks": 8,
+        "unknown_honesty": true,
+        "latency_ms": 0.1737999264150858,
+        "reproduce": "python -m scripts.run_local_eval_suite --case verifier-020"
+      },
+      "passed": true,
+      "latency_ms": 0.1737999264150858,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case verifier-020"
+    }
+  ],
+  "bad_cases": [],
+  "production_claim_not_made": true
+}

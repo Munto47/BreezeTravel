@@ -15,16 +15,13 @@ import asyncio
 import json
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from copy import deepcopy
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.schemas.patch import ItineraryPatch, PatchResult
+from app.schemas.patch import ItineraryPatch
 from app.schemas.itinerary import DayPlan, Itinerary, TimeSlot
-from app.schemas.place import Coordinates, Place, PlaceCategory, PlaceSource
 
 
 # ─── 辅助构造 ─────────────────────────────────────────────────────────────────

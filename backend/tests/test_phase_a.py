@@ -313,7 +313,7 @@ class TestWeatherFetcher:
     def test_parses_mock_api_response(self):
         """模拟和风 API 返回，验证 WeatherDay 解析正确"""
         from datetime import date, timedelta
-        from unittest.mock import AsyncMock, patch, MagicMock
+        from unittest.mock import patch
 
         today = date.today()
         trip_start = today + timedelta(days=1)  # 明天出发，在 7 日范围内
@@ -560,7 +560,6 @@ class TestPlannerGraphV2:
 class TestAPISchema:
     def test_optimize_response_has_backup_pool(self):
         from app.schemas.api import OptimizeResponse
-        import inspect
         fields = OptimizeResponse.model_fields
         assert "backup_pool" in fields, "OptimizeResponse 缺少 backup_pool 字段"
         assert "critic_violations" in fields, "OptimizeResponse 缺少 critic_violations 字段"

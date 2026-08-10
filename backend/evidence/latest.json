@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "status": "historical_baseline_pending_rerun",
+  "published_at": "2026-07-29T00:00:00Z",
+  "disclosure": "This manifest records historical baselines committed with the repository. It is not a current release claim; rerun the commands below against the public corpus before publishing resume metrics.",
+  "datasets": {
+    "agent_router": {"split": "offline fixed set", "samples": 50, "source": "backend/results/agent_eval_offline.json"},
+    "rag": {"split": "evaluation set", "samples": 27, "source": "backend/results/ragas_eval.json", "corpus_disclosure": "historical synthetic corpus"},
+    "optimizer": {"samples": 50, "source": "backend/results/load_test_quick_run2.json"}
+  },
+  "metrics": {
+    "router_accuracy": 0.88,
+    "router_both_accuracy": 0.6,
+    "rag_faithfulness": 0.9389,
+    "rag_answer_relevancy": 0.9889,
+    "rag_context_recall": 0.6944,
+    "optimize_p95_ms": 2221
+  },
+  "rerun_commands": [
+    "cd backend && python -m scripts.eval_agent --mode offline",
+    "python backend/scripts/run_ragas_eval.py",
+    "python backend/scripts/load_test.py --quick"
+  ],
+  "known_gaps": [
+    "both intent routing is the weakest historical class and must be reevaluated on a held-out set.",
+    "The committed RAG baseline used synthetic material; public-source results are required before public performance claims."
+  ]
+}

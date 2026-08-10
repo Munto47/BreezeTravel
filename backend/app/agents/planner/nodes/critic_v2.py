@@ -20,8 +20,6 @@ from typing import Optional
 
 from app.agents.planner.nodes.scheduler_v2 import (
     _is_outdoor,
-    _guess_l2,
-    _mins_to_str,
 )
 from app.agents.planner.state import DayPlannerState, PlannerState, Slot
 from app.agents.nodes.optimizer import _time_str_to_mins
@@ -218,9 +216,12 @@ async def run(state: PlannerState) -> dict:
         for s in ds.get("slots", [])
         if s.get("place_id")
     ]
+    from app.config import get_settings
     try:
-        from app.db.connection import get_db_pool
-        pool = await get_db_pool()
+        if not get_settings().place_meta_lookup_enabled:
+            raise LookupError("place_meta lookup disabled for controlled test profile")
+        from app.db.connection import get_pool
+        pool = await get_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT * FROM place_meta WHERE place_id = ANY($1::text[])",
@@ -228,7 +229,8 @@ async def run(state: PlannerState) -> dict:
             )
         meta_cache = {r["place_id"]: dict(r) for r in rows}
     except Exception as e:
-        print(f"[CriticV2] place_meta 查询失败：{e}")
+        if get_settings().place_meta_lookup_enabled:
+            print(f"[CriticV2] place_meta 查询失败：{e}")
         meta_cache = {}
 
     all_violations: list[Violation] = []

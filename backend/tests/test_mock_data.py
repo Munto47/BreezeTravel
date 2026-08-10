@@ -12,7 +12,6 @@ from pathlib import Path
 # 确保 backend 目录在 sys.path 中
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import pytest
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "amap_mock_places.json"
 REQUIRED_CITIES = ["成都", "北京", "上海", "厦门"]

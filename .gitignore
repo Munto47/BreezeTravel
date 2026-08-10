@@ -65,6 +65,8 @@ Thumbs.db
 .env
 .env.local
 .env.production
+.claude/settings.local.json
+.local-artifacts/
 
 # Yjs 数据（避免提交用户协同数据）
 yjs-data/
@@ -75,7 +77,11 @@ backend/models/
 # 临时文件
 *.tar.gz
 .playwright-mcp/
+frontend/playwright-report/
+frontend/test-results/
 backend/data/test_mini.jsonl
 
 # TypeScript 构建缓存
 frontend/tsconfig.tsbuildinfo
+backend/data/generated/
+backend/evidence/corpus/

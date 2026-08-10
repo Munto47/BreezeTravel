@@ -199,6 +199,7 @@ class TestSynthesizerValidityLogic:
 # 4. FT Router 离线准确率（需要本地模型，无需 API/DB）
 # ═══════════════════════════════════════════════════════════════════
 
+@pytest.mark.external
 class TestFTRouterOnEvalSet:
     """FT Router 在 50 条 eval 集上的离线分类准确率"""
 

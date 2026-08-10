@@ -3,19 +3,22 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, optimize, room, recommend, weather
+from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
 from app.api import auth as auth_api
+from app.api import e2e as e2e_api
 from app.api import user_profile
 from app.api import places_persist
 from app.api import cities
 from app.api import themes
 from app.api import edit as edit_api
-from app.config import settings
-from app.db.connection import get_pool, close_pool, run_migrations
+from app.config import get_settings, settings
+from app.db import connection as db_connection
 from app.agents import graph as agent_graph
 from app import metrics as _m
+from app.observability.metrics import metrics as prometheus_metrics
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -36,13 +39,20 @@ else:
 async def lifespan(app: FastAPI):
     # ── startup ──────────────────────────────────────────────────────────
     _m.set_val("startup_time", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-    await get_pool()                          # 预热 asyncpg 连接池
-    await run_migrations()                    # 自动执行待执行的迁移文件
-    await agent_graph.init_persistent_graph() # 初始化持久化图（建 checkpoint 表）
+    cfg = get_settings()
+    await db_connection.get_pool()
+    if cfg.auto_migrate:
+        await db_connection.run_migrations()
+    elif cfg.require_schema_check and not (cfg.demo_mode or cfg.runtime_profile == "test"):
+        await db_connection.check_schema_version()
+    if cfg.checkpoint_bootstrap_on_start:
+        await agent_graph.init_persistent_graph()
     yield
     # ── shutdown ─────────────────────────────────────────────────────────
+    from app.services.background_tasks import shutdown as shutdown_background_tasks
+    await shutdown_background_tasks()
     await agent_graph.close_checkpointer()
-    await close_pool()
+    await db_connection.close_pool()
 
 
 app = FastAPI(
@@ -76,6 +86,10 @@ app.include_router(weather.router, prefix="/api", tags=["weather"])
 app.include_router(auth_api.router, prefix="/api", tags=["auth"])
 app.include_router(places_persist.router, prefix="/api", tags=["places"])
 app.include_router(cities.router, prefix="/api", tags=["cities"])
+app.include_router(evidence.router, prefix="/api", tags=["evidence"])
+app.include_router(e2e_api.router, prefix="/api", tags=["e2e"])
+app.include_router(tasks.router, prefix="/api", tags=["tasks"])
+app.include_router(memories.router, prefix="/api", tags=["memory"])
 
 
 # ── 运维端点 ──────────────────────────────────────────────────────────────
@@ -91,6 +105,7 @@ async def health_check():
         "status": "ok",
         "version": app.version,
         "service": "breezetravel-backend",
+        "instance_id": os.getenv("INSTANCE_ID", "single"),
     }
 
 
@@ -135,6 +150,16 @@ async def metrics():
             "search_travel_notes": m["tool_calls_rag"],
             "get_weather": m["tool_calls_weather"],
         },
+        "reliability": {
+            "agent_degraded_count": m["agent_degraded_count"],
+            "rag_empty_count": m["rag_empty_count"],
+            "tool_error_count": m["tool_error_count"],
+            "sse_disconnect_count": m["sse_disconnect_count"],
+        },
+        "model_usage": m["labelled"].get("model_usage", {}),
+        "tool_outcomes": m["labelled"].get("tool_outcomes", {}),
+        "error_categories": m["labelled"].get("error_categories", {}),
+        "estimated_llm_cost_usd": round(m["estimated_llm_cost_usd"], 8),
         # ── 系统信息 ──────────────────────────────────────────────
         "langsmith_enabled": bool(settings.langsmith_api_key),
         "langsmith_project": settings.langsmith_project if settings.langsmith_api_key else None,
@@ -143,6 +168,11 @@ async def metrics():
         "startup_time": m["startup_time"],
         "version": app.version,
     }
+
+
+@app.get("/metrics/prometheus", response_class=PlainTextResponse, tags=["ops"])
+async def prometheus_metrics_endpoint():
+    return PlainTextResponse(prometheus_metrics.render(), media_type="text/plain; version=0.0.4")
 
 
 # ── 请求计数中间件 ─────────────────────────────────────────────────────────

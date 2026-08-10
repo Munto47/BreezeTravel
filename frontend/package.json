@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e:local": "playwright test -c playwright.local.config.js",
+    "test:e2e:public": "playwright test -c playwright.config.js"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
@@ -23,6 +25,7 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -72,6 +72,9 @@ class AgentState(TypedDict):
     # ── 会话标识 ─────────────────────────────────────────────────────────
     thread_id: str
     user_id: str
+    room_id: Optional[str]
+    trace_id: str
+    deadline_monotonic: float
 
     # ── 目的地上下文 ──────────────────────────────────────────────────────
     trip_city: Optional[str]           # 如 "成都"、"北京"
@@ -80,6 +83,7 @@ class AgentState(TypedDict):
     intent: Optional[str]              # "rag" | "amap" | "both"（向后兼容）
     query_rewrite: Optional[str]       # 改写后的查询（向后兼容）
     react_iterations: int              # ReAct 循环次数（防无限循环）
+    routing_signals: list[str]         # deterministic mixed-intent evidence for trace/eval
 
     # ── Memory 字段（Sprint 2 新增） ──────────────────────────────────────
     working_context: Optional[WorkingContext]   # 会话内偏好追踪
@@ -88,6 +92,9 @@ class AgentState(TypedDict):
     # ── 各工具节点输出 ────────────────────────────────────────────────────
     amap_places: list[Place]           # 高德 API 返回的候选地点
     rag_chunks: list[dict]             # RAG 检索返回的 chunk 列表
+    citations: list[dict]              # display-safe provenance for the final answer
+    tool_failures: list[dict]          # sanitized partial-failure records for UI/metrics
+    tool_receipts: list[dict]
 
     # ── Synthesizer 输出 ──────────────────────────────────────────────────
     synthesized_places: list[Place]

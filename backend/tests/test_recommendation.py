@@ -12,7 +12,6 @@
 import sys
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -196,7 +195,6 @@ class TestSynthesizerRecommendationsField:
 
     def test_no_places_returns_empty_recommendations(self):
         import asyncio
-        from unittest.mock import patch
         from app.agents.nodes.synthesizer import run
 
         state = self._make_state(places=[])
@@ -228,7 +226,6 @@ class TestSynthesizerRecommendationsField:
         from app.agents.nodes.synthesizer import _parse_recommendations
 
         # chunk 有 chunk_id
-        chunks_with_id = [{"chunk_id": "c001", "content": "游记内容A"}]
         valid_ids = {"c001"}
         raw = [{"place_id": "p1", "name": "A", "source_chunk_ids": ["c001"], "reason": "引自c001"}]
         recs = _parse_recommendations(raw, valid_ids)

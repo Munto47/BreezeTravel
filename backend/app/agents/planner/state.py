@@ -21,6 +21,8 @@ from typing import TypedDict, Optional
 from app.schemas.itinerary import DayPlan, Itinerary
 from app.schemas.place import Place
 from app.schemas.preferences import GroupPreferences, WeatherDay
+from app.schemas.task_spec import TripTaskSpec
+from app.schemas.verification import VerificationReport
 
 
 class Slot(TypedDict, total=False):
@@ -58,6 +60,8 @@ class PlannerState(TypedDict, total=False):
     user_prefs: Optional[GroupPreferences]
     weather_forecast: dict[int, WeatherDay]   # day_index → 天气
     vote_counts: dict[str, int]               # D24：place_id → 票数（前端 Yjs 传入）
+    task_spec: Optional[TripTaskSpec]
+    planning_input_hash: str
 
     # ── ClustererAgent 输出 ─────────────────────────────────────────
     activities: list[Place]
@@ -84,6 +88,10 @@ class PlannerState(TypedDict, total=False):
 
     # ── 终态 ─────────────────────────────────────────────────────────
     itinerary: Optional[Itinerary]
+    verification_report: Optional[VerificationReport]
+    repair_rounds: int
+    repair_signatures: list[str]
+    unresolved_repair_reasons: list[str]
 
     # ── 调试 / 可观测 ───────────────────────────────────────────────
     trace: list[str]

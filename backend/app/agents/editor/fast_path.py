@@ -14,7 +14,7 @@ from __future__ import annotations
 import copy
 from typing import Optional
 
-from app.schemas.itinerary import DayPlan, Itinerary, TimeSlot
+from app.schemas.itinerary import DayPlan, Itinerary
 from app.schemas.patch import ItineraryPatch
 
 

@@ -10,6 +10,21 @@ export interface ThinkingStep {
   durationMs: number    // 节点耗时（毫秒）
 }
 
+export interface Citation {
+  sourceId: string
+  title: string
+  url?: string
+  excerpt: string
+  score: number
+  retrievalSources: string[]
+  publishedAt?: string
+  retrievedAt?: string
+  license?: string
+  revision?: string
+  attribution?: string
+  corpusKind: 'public' | 'synthetic' | string
+}
+
 export interface ChatMessage {
   messageId: string
   threadId: string
@@ -23,4 +38,6 @@ export interface ChatMessage {
   agentNode?: string                // 触发回复的最终节点
   placesGenerated?: Place[]         // 本轮 AI 推荐的地点列表
   thinkingSteps?: ThinkingStep[]    // Agent 思考链（实时展示推理过程）
+  citations?: Citation[]            // RAG source provenance, streamed separately
+  traceId?: string
 }

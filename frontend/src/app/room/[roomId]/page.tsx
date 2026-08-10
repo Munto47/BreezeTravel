@@ -7,7 +7,7 @@ import { AnimatePresence } from 'framer-motion'
 
 import { useYjsRoom } from '@/hooks/useYjsRoom'
 import { useAIChat } from '@/hooks/useAIChat'
-import { useOptimize } from '@/hooks/useOptimize'
+import { planningFingerprint, useOptimize } from '@/hooks/useOptimize'
 import { useRoomStore } from '@/stores/roomStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -86,7 +86,9 @@ export default function RoomPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/room/${roomId}/state`)
+        const res = await fetch(`${API_BASE}/api/room/${roomId}/state`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
         if (!res.ok) throw new Error(`${res.status}`)
         const data = await res.json()
         if (cancelled) return
@@ -96,7 +98,7 @@ export default function RoomPage() {
       }
     })()
     return () => { cancelled = true }
-  }, [roomId, roomData.loaded, API_BASE])
+  }, [roomId, roomData.loaded, API_BASE, token])
 
   const threadId = roomData.threadId || roomId
   const tripCity = roomData.tripCity || ''
@@ -106,10 +108,10 @@ export default function RoomPage() {
   const { places, members, phase, isConnected, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(roomId, userId, nickname)
 
   // ── AI 聊天 ────────────────────────────────────────────────────────────
-  const { messages, isStreaming, sendMessage } = useAIChat(threadId, userId)
+  const { messages, isStreaming, sendMessage } = useAIChat(threadId, userId, roomId)
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
-  const { itinerary, isOptimizing, backupPool, criticViolations, optimize } = useOptimize(threadId, roomId)
+  const { itinerary, isOptimizing, backupPool, criticViolations, verificationReport, optimize } = useOptimize(threadId, roomId)
   const [isBackupOpen, setIsBackupOpen] = useState(false)
 
   const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
@@ -181,6 +183,16 @@ export default function RoomPage() {
       trip_days: storeDays || tripDays,
     }).catch(() => {})
   }, [itinerary]) // eslint-disable-line
+
+  // Any relevant collaborative change invalidates the old green report
+  // immediately. Re-validation happens on the next optimize request.
+  useEffect(() => {
+    if (!verificationReport || typeof window === 'undefined') return
+    const snapshot = localStorage.getItem(`planning_snapshot_${roomId}`)
+    if (snapshot && snapshot !== planningFingerprint(places)) {
+      localStorage.setItem(`verification_stale_${roomId}`, 'true')
+    }
+  }, [places, verificationReport, roomId])
 
   // ── 初始化 ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -256,8 +268,35 @@ export default function RoomPage() {
       toast(`行程缺少：${missing.join('、')}，请在候选地点中补充选择`, 'warning')
       return
     }
+    const latestUserText = [...messages].reverse().find(message => message.role === 'user')?.content
+      || `${tripCity}${storeDays || tripDays}日游`
+    let parsedTaskSpec
+    try {
+      const parseResponse = await fetch(`${API_BASE}/api/room/${roomId}/task/parse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          text: latestUserText,
+          default_city: tripCity,
+          default_days: storeDays || tripDays,
+        }),
+      })
+      if (!parseResponse.ok) throw new Error(`task parse ${parseResponse.status}`)
+      const parsed = await parseResponse.json()
+      if (parsed.needs_clarification) {
+        toast(parsed.clarification_message || '关键约束仍需确认，暂不生成可能误导的行程', 'warning')
+        return
+      }
+      parsedTaskSpec = parsed.task_spec
+    } catch {
+      toast('任务约束解析失败，未开始排线', 'error')
+      return
+    }
     setPhase('optimizing')
-    await optimize(selectedPlaces, storeDays || tripDays)
+    await optimize(selectedPlaces, storeDays || tripDays, undefined, parsedTaskSpec)
     setPhase('planned')
     // 备选池提示（A7）
     if (backupPool.length > 0) {
