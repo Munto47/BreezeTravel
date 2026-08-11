@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0",
+  "description": "手工情境集：验证系统是否尊重真实人的活动范围、同行者负担和连续住宿，而不只评估文案流畅度。",
+  "cases": [
+    {
+      "id": "hj-shanghai-minhang-family",
+      "persona": "带6岁孩子和母亲出行，希望少折腾的三口之家",
+      "city": "上海",
+      "days": 3,
+      "turns": [
+        "我们三个人去上海玩三天，带一个6岁孩子和我妈妈。",
+        "只在闵行区活动，别把外滩、迪士尼之类的外区地点塞进来。",
+        "酒店不要每天换，晚上都回同一家，步行也别太累。"
+      ],
+      "expected": {
+        "district": "闵行区",
+        "all_places_in_district": true,
+        "hotel_every_day": true,
+        "stable_hotel": true
+      }
+    },
+    {
+      "id": "hj-shanghai-minhang-rain",
+      "persona": "雨天临时改计划的亲子家庭",
+      "city": "上海",
+      "days": 2,
+      "turns": [
+        "上海两天亲子游，只在闵行区。",
+        "第二天下雨，优先室内，午饭和晚饭都要留时间。"
+      ],
+      "expected": {
+        "district": "闵行区",
+        "all_places_in_district": true,
+        "hotel_every_day": true,
+        "meal_windows": true
+      }
+    },
+    {
+      "id": "hj-hangzhou-xihu-senior",
+      "persona": "陪两位老人慢游，不希望跨区赶路",
+      "city": "杭州",
+      "days": 2,
+      "turns": [
+        "带两位老人去杭州两日游，只在西湖区活动。",
+        "每天最多三个游玩地点，酒店两晚保持同一家。"
+      ],
+      "expected": {
+        "district": "西湖区",
+        "all_places_in_district": true,
+        "hotel_every_day": true,
+        "stable_hotel": true
+      }
+    },
+    {
+      "id": "hj-shenzhen-nanshan-couple",
+      "persona": "不想频繁换酒店的情侣周末游",
+      "city": "深圳",
+      "days": 2,
+      "turns": [
+        "深圳周末两天，只安排南山区的地点。",
+        "想看海和夜景，晚上回同一家酒店。"
+      ],
+      "expected": {
+        "district": "南山区",
+        "all_places_in_district": true,
+        "hotel_every_day": true,
+        "stable_hotel": true
+      }
+    },
+    {
+      "id": "hj-constraint-correction",
+      "persona": "会在对话中纠正区域的用户",
+      "city": "上海",
+      "days": 2,
+      "turns": [
+        "先看看浦东新区两日游。",
+        "改一下，不要浦东新区，最终只在闵行区活动。"
+      ],
+      "expected": {
+        "district": "闵行区",
+        "all_places_in_district": true,
+        "latest_constraint_wins": true
+      }
+    },
+    {
+      "id": "hj-no-area-fallback",
+      "persona": "明确区域后不能接受系统偷偷扩大范围的用户",
+      "city": "上海",
+      "days": 1,
+      "turns": [
+        "只推荐闵行区的精品咖啡馆；如果没有，就直接说没有，不要拿静安区凑数。"
+      ],
+      "expected": {
+        "district": "闵行区",
+        "all_places_in_district": true,
+        "honest_empty_allowed": true
+      }
+    }
+  ]
+}

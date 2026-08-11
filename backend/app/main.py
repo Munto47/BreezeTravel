@@ -59,7 +59,7 @@ app = FastAPI(
     title="BreezeTravel — AI 智能旅行协同规划系统",
     description=(
         "基于 LangGraph ReAct + Critic + Advanced RAG + MCP Server 的旅行规划系统。\n\n"
-        "Sprint 5 新增：Critic 反思节点 / LangSmith 追踪 / MCP Server / GitHub Actions CI"
+        "Sprint 5 新增：Critic 反思节点 / LangSmith 追踪 / MCP Server / 本地显式验证"
     ),
     version="2.0.0",
     lifespan=lifespan,

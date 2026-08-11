@@ -9,8 +9,15 @@ class MealWindowRule:
 
     def evaluate(self, context: RuleContext) -> list[ConstraintCheck]:
         checks = []
+        last_day_index = max((day.day_index for day in context.itinerary.days), default=0)
         for day in context.itinerary.days:
             for name, start, end in self.windows:
+                if len(context.itinerary.days) > 1 and day.day_index == 0 and name == "lunch":
+                    continue
+                if len(context.itinerary.days) > 1 and day.day_index == last_day_index and name == "dinner":
+                    continue
+                if len(context.itinerary.days) > 1 and day.day_index == last_day_index and name == "lunch":
+                    start = 11 * 60
                 found = False
                 for slot in day.slots:
                     category = normalise((slot.place or {}).get("category"))

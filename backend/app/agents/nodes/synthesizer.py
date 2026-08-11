@@ -16,6 +16,12 @@ from app.config import settings
 from app.memory.working import format_for_prompt
 from app.schemas.place import Place, PlaceCategory, PlaceRAGMeta
 from app.schemas.recommendation import Alternative, PlaceRecommendation
+from app.constraints.location import (
+    extract_district_constraint,
+    extract_district_from_messages,
+    filter_human_suitable_places,
+    filter_places_by_district,
+)
 
 
 # 首批结果硬上限：每类 5 个，总计 15 个
@@ -120,6 +126,14 @@ SYNTHESIZER_SYSTEM = (
 
 SYNTHESIZER_PROMPT = """根据以下地点数据和游记摘录，生成个性化的旅行推荐。
 
+用户本轮明确需求：
+<user_request>
+{user_request}
+</user_request>
+
+机器已识别的行政区硬约束：{district_constraint}
+若该值不是“无”，只能推荐该行政区内的地点，并在 response_text 中明确说明范围。
+
 高德 POI 数据（客观）：
 {amap_places_json}
 
@@ -187,10 +201,20 @@ async def run(state: AgentState) -> dict:
     # 用户硬约束品类过滤（"火锅" 查询不应返回"网红快餐/炒饭/烤肉"等不相关品类）
     msgs = state.get("messages", []) or []
     last_user_msg = ""
+    recent_user_messages: list[str] = []
+    for m in msgs:
+        if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
+            recent_user_messages.append(str(m.content))
     for m in reversed(msgs):
         if getattr(m, "type", "") == "human" or m.__class__.__name__ == "HumanMessage":
             last_user_msg = str(m.content)
             break
+    user_request_text = "\n".join(recent_user_messages[-4:]) or last_user_msg
+    trip_district = (
+        state.get("trip_district")
+        or extract_district_constraint(last_user_msg)
+        or extract_district_from_messages(msgs)
+    )
     cuisine_kws = _extract_user_cuisine_constraint(last_user_msg)
     if cuisine_kws:
         before = len(amap_places)
@@ -203,16 +227,27 @@ async def run(state: AgentState) -> dict:
         if settings.demo_mode or settings.amap_mock:
             # 开发/演示模式：从本地 fixture 按意图过滤加载
             from app.agents.nodes.amap_search import _load_mock_places
-            amap_places = _load_mock_places(trip_city, last_user_msg)
+            amap_places = _load_mock_places(trip_city, last_user_msg, trip_district or "")
             print(f"[Synthesizer] 兜底 Mock：{trip_city}，{len(amap_places)} 个地点")
         elif settings.amap_api_key:
             # 生产模式：兜底调用真实高德 API
             try:
                 from app.tools.amap_tool import _run_amap_search
-                amap_places = await _run_amap_search(last_user_msg[:60], trip_city)
+                amap_places = await _run_amap_search(
+                    last_user_msg[:60], trip_city, district=trip_district or ""
+                )
                 print(f"[Synthesizer] 兜底 AMAP 搜索：{trip_city}，{len(amap_places)} 个地点")
             except Exception as _exc:
                 print(f"[Synthesizer] 兜底搜索失败：{_exc}")
+
+    # 行政区是硬约束，必须在预览、LLM 输入和最终卡片三个阶段保持一致。
+    amap_places = filter_human_suitable_places(filter_places_by_district(amap_places, trip_district))
+    if trip_district and not amap_places:
+        return {
+            "synthesized_places": [],
+            "final_response": f"没有找到位于{trip_district}且符合当前条件的地点，我没有用其他区域的结果凑数。",
+            "recommendations": [],
+        }
 
     # 首批结果硬上限（每类 5 个，总 15 个）
     # 关键：在 LLM 调用前 cap，能同时减少 LLM 输入 tokens / 响应延迟 / 前端卡片堆积
@@ -232,7 +267,9 @@ async def run(state: AgentState) -> dict:
     if settings.demo_mode:
         return {
             "synthesized_places": amap_places,
-            "final_response": _build_demo_response(amap_places, trip_city, working_ctx),
+            "final_response": _build_demo_response(
+                amap_places, trip_city, working_ctx, trip_district
+            ),
             "recommendations": [],
         }
 
@@ -284,6 +321,8 @@ async def run(state: AgentState) -> dict:
                     amap_places_json=amap_json,
                     rag_chunks_text=rag_text,
                     working_memory=working_mem_section,
+                    user_request=user_request_text,
+                    district_constraint=trip_district or "无",
                 ) + extra_instruction),
             ]
 
@@ -351,7 +390,14 @@ async def run(state: AgentState) -> dict:
                 valid_chunk_ids,
             )
 
-            response_text = result.get("response_text", f"为您找到了 {len(enriched)} 个相关地点。")
+            response_candidate = result.get("response_text")
+            response_text = (
+                response_candidate.strip()
+                if isinstance(response_candidate, str) and len(response_candidate.strip()) >= 20
+                else _build_demo_response(enriched, trip_city, working_ctx, trip_district)
+            )
+            if trip_district and trip_district not in response_text:
+                response_text = f"已严格按{trip_district}范围筛选。{response_text}"
 
             # 后台触发长期偏好提取（不等待，不阻塞响应）
             _schedule_preference_extraction(state)
@@ -367,7 +413,9 @@ async def run(state: AgentState) -> dict:
 
     return {
         "synthesized_places": amap_places,
-        "final_response": f"为您找到了 {len(amap_places)} 个{trip_city}地点，请查看地点列表。",
+        "final_response": _build_demo_response(
+            amap_places, trip_city, working_ctx, trip_district
+        ),
         "recommendations": [],
     }
 
@@ -391,7 +439,7 @@ def _parse_recommendations(
         verified_ids = [cid for cid in raw_ids if cid in valid_chunk_ids]
 
         # 无游记支撑时剥离 reason / avoid_tips（SPEC §5.2 引用强制）
-        reason = item.get("reason", "")
+        reason = item.get("reason") or ""
         avoid_tips = item.get("avoid_tips") or []
         if raw_ids and not verified_ids:
             reason = ""
@@ -413,9 +461,9 @@ def _parse_recommendations(
 
         out.append(PlaceRecommendation(
             place_id=item["place_id"],
-            name=item.get("name", ""),
-            category_l1=item.get("category_l1", ""),
-            category_l2=item.get("category_l2", ""),
+            name=item.get("name") or "",
+            category_l1=item.get("category_l1") or "",
+            category_l2=item.get("category_l2") or "",
             reason=reason,
             suitable_for=item.get("suitable_for") or [],
             avoid_tips=avoid_tips,
@@ -426,7 +474,12 @@ def _parse_recommendations(
     return out
 
 
-def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> str:
+def _build_demo_response(
+    places: list,
+    city: str,
+    working_ctx: dict | None,
+    district: str | None = None,
+) -> str:
     """
     Demo 模式下生成个性化推荐文案。
 
@@ -453,7 +506,8 @@ def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> s
         top = hotels[0]
         highlights.append(f"住宿推荐 **{top.name}**")
 
-    parts = ["✨ 已为您精选出以下推荐：\n"]
+    scope = district or city
+    parts = [f"✨ 已严格按{scope}范围精选以下推荐：\n"]
     for h in highlights:
         parts.append(f"• {h}")
 
@@ -472,7 +526,7 @@ def _build_demo_response(places: list, city: str, working_ctx: dict | None) -> s
         [f"{total_cats[0]}个景点", f"{total_cats[1]}道美食", f"{total_cats[2]}处住宿"],
         total_cats
     ) if c > 0)
-    parts.append(f"\n共找到 **{len(places)}** 个{city}地点（{cat_desc}），点击卡片可加入行程 →")
+    parts.append(f"\n共找到 **{len(places)}** 个{scope}地点（{cat_desc}），点击卡片可加入行程 →")
 
     return "\n".join(parts)
 

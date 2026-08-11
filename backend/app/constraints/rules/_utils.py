@@ -23,6 +23,11 @@ def place_text(slot) -> str:
     return normalise(" ".join(str(item or "") for item in values))
 
 
+def category_value(slot) -> str:
+    category = (slot.place or {}).get("category")
+    return str(getattr(category, "value", category) or "")
+
+
 def minutes(value: str) -> Optional[int]:
     if not value or value.startswith("次日"):
         return None

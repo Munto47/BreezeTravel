@@ -21,6 +21,12 @@ import aiohttp
 from app.agents.state import AgentState
 from app.config import settings
 from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
+from app.constraints.location import (
+    extract_district_constraint,
+    extract_district_from_messages,
+    filter_human_suitable_places,
+    filter_places_by_district,
+)
 
 # 高德 POI 大类 → 系统 category 映射
 AMAP_TYPE_MAP = {
@@ -129,6 +135,7 @@ async def _fetch_amap_poi(
         "output": "json",
         "extensions": "all",
         "offset": 10,
+        "citylimit": "true",
     }
     # 热门排序：高德 sortrule=weight 按综合热度（评分+评论量）排序
     if prefer_trending:
@@ -160,7 +167,7 @@ _ENTERTAIN_KW = {
 }
 
 
-def _load_mock_places(city: str, query: str = "") -> list[Place]:
+def _load_mock_places(city: str, query: str = "", district: str = "") -> list[Place]:
     """从本地 fixture 文件加载 Mock 数据，按查询意图过滤品类后返回。
 
     重要：Mock 数据只包含 attraction / food / hotel 三类。
@@ -176,6 +183,11 @@ def _load_mock_places(city: str, query: str = "") -> list[Place]:
 
     city_places = mock_data.get(city, mock_data.get("成都", []))
     all_places = [Place(**p) for p in city_places]
+
+    # An explicit area is a hard constraint.  Empty is honest; falling back to
+    # another district would produce a fluent but unusable recommendation.
+    district = district or extract_district_constraint(query) or ""
+    all_places = filter_human_suitable_places(filter_places_by_district(all_places, district))
 
     if not query:
         return all_places
@@ -217,6 +229,12 @@ async def run(state: AgentState) -> dict:
     """AmapSearch 节点入口函数"""
     query = state.get("query_rewrite") or ""
     city = _extract_city(state)
+    district = (
+        state.get("trip_district")
+        or extract_district_constraint(query)
+        or extract_district_from_messages(state.get("messages", []))
+        or ""
+    )
     ctx = state.get("working_context") or {}
     prefer_trending: bool = bool(ctx.get("prefer_trending", False))
     prefer_chain: bool = bool(ctx.get("prefer_chain", False))
@@ -226,28 +244,30 @@ async def run(state: AgentState) -> dict:
         query = f"{query} 连锁".strip()
 
     if settings.amap_mock or settings.demo_mode:
-        places = _load_mock_places(city, query)
+        places = _load_mock_places(city, query, district)
         if prefer_trending:
             places = sorted(places, key=lambda p: p.amap_rating or 0, reverse=True)
-        print(f"[AmapSearch] Mock 模式，city={city}，query={query!r}，返回 {len(places)} 个地点")
+        print(f"[AmapSearch] Mock 模式，city={city}，district={district or '-'}，query={query!r}，返回 {len(places)} 个地点")
         return {"amap_places": places}
 
     # 真实高德 API 模式
     if not settings.amap_api_key:
         print("[AmapSearch] 未配置 AMAP_API_KEY，降级到 Mock")
-        return {"amap_places": _load_mock_places(city, query)}
+        return {"amap_places": _load_mock_places(city, query, district)}
 
     try:
-        places = await _fetch_amap_poi(query, city, prefer_trending=prefer_trending, prefer_chain=prefer_chain)
+        search_query = f"{district} {query}".strip() if district and district not in query else query
+        places = await _fetch_amap_poi(search_query, city, prefer_trending=prefer_trending, prefer_chain=prefer_chain)
+        places = filter_human_suitable_places(filter_places_by_district(places, district))
     except Exception as e:
         print(f"[AmapSearch] 高德 API 调用异常：{e}，降级到 Mock")
-        places = _load_mock_places(city, query)
+        places = _load_mock_places(city, query, district)
         return {"amap_places": places}
 
     # 真实 API 返回空结果时降级到 Mock（避免 query 不匹配导致空列表）
     if not places:
         print(f"[AmapSearch] 真实 API 返回空，降级到 Mock，city={city}, query={query}")
-        places = _load_mock_places(city, query)
+        places = _load_mock_places(city, query, district)
 
-    print(f"[AmapSearch] city={city}, query={query}, prefer_trending={prefer_trending}, 返回 {len(places)} 个地点")
+    print(f"[AmapSearch] city={city}, district={district or '-'}, query={query}, prefer_trending={prefer_trending}, 返回 {len(places)} 个地点")
     return {"amap_places": places}

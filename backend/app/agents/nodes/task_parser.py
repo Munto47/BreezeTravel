@@ -21,6 +21,7 @@ from app.schemas.task_spec import (
     Travelers,
     TripTaskSpec,
 )
+from app.constraints.location import extract_district_constraint
 
 
 _KNOWN_CITIES = (
@@ -131,6 +132,20 @@ def parse_task_spec(
 
     must_include, excluded = _extract_named_requirements(clean)
     hard: list[HardConstraint] = []
+    district = extract_district_constraint(clean)
+    if district:
+        hotel_only = bool(re.search(
+            rf"(?:酒店|住宿|住处|住在)[^，。；;]{{0,16}}{re.escape(district)}|"
+            rf"{re.escape(district)}[^，。；;]{{0,16}}(?:酒店|住宿|住处)",
+            clean,
+        )) and not any(word in clean for word in ("只在", "限定", "范围", "全程", "活动", "行程"))
+        hard.append(HardConstraint(
+            id="c_hotel_area" if hotel_only else "c_trip_area",
+            type="hotel_area" if hotel_only else "trip_area",
+            operator="eq",
+            value=district,
+            scope="hotel" if hotel_only else "trip",
+        ))
     travel_match = re.search(r"(?:每天|每日)?(?:交通|通勤)(?:时间)?(?:不超过|最多|控制在)\s*([0-9]+)\s*(分钟|小时)", clean)
     if travel_match:
         minutes = int(travel_match.group(1)) * (60 if travel_match.group(2) == "小时" else 1)
@@ -168,10 +183,24 @@ def parse_task_spec(
             value=True,
             scope="trip",
         ))
+    # BreezeTravel 的路线产品按“每天结束于住宿点”展示；这不是让模型
+    # 猜酒店，而是要求规划器使用用户已选择的酒店作为每日夜间锚点。
+    if days > 0:
+        hard.append(HardConstraint(
+            id="c_daily_hotel",
+            type="daily_hotel",
+            operator="eq",
+            value=True,
+            scope="per_day",
+        ))
 
     soft: list[SoftPreference] = []
     if any(word in clean for word in ("亲子", "带娃", "孩子")):
         soft.append(SoftPreference(id="p_family", type="family_friendly", value=True, weight=0.9, source=ConstraintSource.USER_EXPLICIT))
+    if any(word in clean for word in ("老人", "长辈", "老年人")):
+        soft.append(SoftPreference(id="p_senior", type="senior_friendly", value=True, weight=0.9, source=ConstraintSource.USER_EXPLICIT))
+    if any(word in clean for word in ("少走路", "步行别太累", "不要太累", "轻松一点")):
+        soft.append(SoftPreference(id="p_low_walking", type="low_walking", value=True, weight=0.9, source=ConstraintSource.USER_EXPLICIT))
     if "低预算" in clean or "省钱" in clean:
         soft.append(SoftPreference(id="p_budget", type="prefer_low_cost", value=True, weight=0.8, source=ConstraintSource.USER_EXPLICIT))
     if "失败时保留" in clean or "明确降级" in clean:

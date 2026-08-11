@@ -78,6 +78,7 @@ class AgentState(TypedDict):
 
     # ── 目的地上下文 ──────────────────────────────────────────────────────
     trip_city: Optional[str]           # 如 "成都"、"北京"
+    trip_district: Optional[str]       # 用户明确限定的行政区，如 "闵行区"
 
     # ── ReAct Agent 控制 ──────────────────────────────────────────────────
     intent: Optional[str]              # "rag" | "amap" | "both"（向后兼容）

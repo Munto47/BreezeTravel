@@ -24,7 +24,7 @@ import aiohttp
 from app.agents.nodes.optimizer import (
     _estimate_driving,
     _fetch_weather,
-    _match_hotel,
+    _haversine_km,
     _time_str_to_mins,
 )
 from app.agents.planner.state import DayPlannerState, PlannerState, Slot
@@ -286,6 +286,22 @@ async def run(state: PlannerState) -> dict:
     # 加载所有地点的 place_meta
     all_places = [p for places in orderings.values() for p in places]
     meta_cache = await _load_place_meta([p.place_id for p in all_places])
+    stay_hotel = _select_stay_hotel(all_places, hotels_pool)
+    # 备用餐厅仍然必须服从用户的硬性禁忌；否则跨簇补餐会把前面
+    # 已经由 valid_candidates 排除的 no_go 地点重新塞回行程。
+    meal_reserve = [
+        place
+        for place in all_places
+        if place.category == PlaceCategory.FOOD
+        and not _is_no_go(place, user_prefs)
+    ]
+    meal_catalog = list(meal_reserve)
+    attraction_reserve = [
+        place
+        for place in all_places
+        if place.category == PlaceCategory.ATTRACTION
+        and not _is_no_go(place, user_prefs)
+    ]
 
     # 确定出发日期（用于星期几判断）
     trip_start_date: Optional[date] = None
@@ -327,6 +343,16 @@ async def run(state: PlannerState) -> dict:
                 and not _is_closed(p, meta_cache, dow)
                 and not _is_no_go(p, user_prefs)   # D24：no_go 硬剔除
             ]
+            # Geographic clustering can occasionally produce a food-only day.
+            # Borrow one unused attraction from the global reserve so a multi-
+            # day trip never degenerates into "吃一顿然后等到回酒店".
+            if not any(p.category == PlaceCategory.ATTRACTION for p in valid_candidates):
+                borrowed = next(
+                    (p for p in attraction_reserve if p.place_id not in used_place_ids),
+                    None,
+                )
+                if borrowed is not None:
+                    valid_candidates.append(borrowed)
 
             # 按模板槽位分配地点（贪心）
             day_slots: list[Slot] = []
@@ -337,6 +363,11 @@ async def run(state: PlannerState) -> dict:
             for t_slot in template.slots:
                 if not available and not t_slot.is_required:
                     continue
+
+                # Template hints are real scheduling constraints, not labels.
+                # Without this, a "dinner" slot could accidentally start at
+                # 14:30 simply because the previous item finished early.
+                cursor_mins = max(cursor_mins, t_slot.start_hint)
 
                 # D24 + 模板匹配联合评分：slot_match * 10 + pref_score
                 def _combined_score(p: Place, _slot=t_slot) -> float:
@@ -356,6 +387,14 @@ async def run(state: PlannerState) -> dict:
                         continue  # no_go
                     if _slot_match_score(cand, t_slot) <= 0:
                         break  # 后面都不匹配
+
+                    remaining_days = max(0, trip_days - day_index - 1)
+                    if (
+                        cand.category == PlaceCategory.ATTRACTION
+                        and not t_slot.is_required
+                        and len(attraction_reserve) <= remaining_days
+                    ):
+                        continue  # 为后续每一天保留至少一个真实活动点
 
                     # 天气+体力约束：雨天/热窗口时户外槽换室内
                     if rain_block and _is_outdoor(cand) and not t_slot.is_required:
@@ -380,7 +419,10 @@ async def run(state: PlannerState) -> dict:
                     cursor_mins += t_slot.duration_minutes
                     continue
 
-                dwell = _dwell_minutes(chosen, meta_cache)
+                # The template represents the promised human rhythm.  A generic
+                # POI duration must not turn an optional 45-minute arrival-day
+                # stroll into a two-hour late-night activity.
+                dwell = min(_dwell_minutes(chosen, meta_cache), t_slot.duration_minutes)
                 end_mins = cursor_mins + dwell + t_slot.buffer_minutes
 
                 slot: Slot = {
@@ -397,22 +439,49 @@ async def run(state: PlannerState) -> dict:
                 day_slots.append(slot)
                 available.remove(chosen)
                 used_place_ids.add(chosen.place_id)
+                if chosen in meal_reserve:
+                    meal_reserve.remove(chosen)
+                if chosen in attraction_reserve:
+                    attraction_reserve.remove(chosen)
                 l2_chosen = _guess_l2(chosen)
                 prev_l2 = l2_chosen
                 if l2_chosen:
                     used_l2_today.add(l2_chosen)   # D24 diversity_bonus 追踪
                 cursor_mins = end_mins + 15  # 15 min 通勤 buffer
 
+            # 确保用餐时段有餐厅（R_MEAL_SLOT_FILLED 硬规则）
+            day_slots = _ensure_meal_slots(
+                day_slots,
+                available,
+                day_index=day_index,
+                trip_days=trip_days,
+                used_place_ids=used_place_ids,
+                meal_candidates=meal_reserve,
+                reusable_meal_candidates=meal_catalog,
+                template_id=template.template_id,
+            )
+
             # 剩余排不下的候选进备选池
-            backup_pool.extend(p for p in available if p.place_id not in used_place_ids)
+            deferred_meals = {
+                p.place_id for p in available
+                if p.category == PlaceCategory.FOOD and p in meal_reserve
+            }
+            deferred_attractions = {
+                p.place_id for p in available
+                if p.category == PlaceCategory.ATTRACTION and p in attraction_reserve
+            }
+            deferred_for_future = deferred_meals | deferred_attractions
+            backup_pool.extend(
+                p for p in available
+                if p.place_id not in used_place_ids and p.place_id not in deferred_for_future
+            )
             for p in available:
+                if p.place_id in deferred_for_future:
+                    continue
                 used_place_ids.add(p.place_id)
 
-            # 确保用餐时段有餐厅（R_MEAL_SLOT_FILLED 硬规则）
-            day_slots = _ensure_meal_slots(day_slots, cursor_mins)
-
             # 酒店挂载
-            day_slots = _attach_hotel(day_slots, hotels_pool)
+            day_slots = _attach_hotel(day_slots, stay_hotel, day_index)
 
             # 天气信息
             weather_summary: Optional[WeatherInfo] = None
@@ -453,6 +522,16 @@ async def run(state: PlannerState) -> dict:
             )
 
     day_plans.sort(key=lambda d: d.day_index)
+    backup_ids = {place.place_id for place in backup_pool}
+    backup_pool.extend(
+        place for place in meal_reserve
+        if place.place_id not in used_place_ids and place.place_id not in backup_ids
+    )
+    backup_ids = {place.place_id for place in backup_pool}
+    backup_pool.extend(
+        place for place in attraction_reserve
+        if place.place_id not in used_place_ids and place.place_id not in backup_ids
+    )
 
     trace = state.get("trace", []) + [
         f"[SchedulerV2] {len(day_plans)} 天，backup_pool={len(backup_pool)} 个备选"
@@ -511,41 +590,162 @@ def _has_meal_in_window(slots: list[Slot], window_start: int, window_end: int) -
     return False
 
 
-def _ensure_meal_slots(slots: list[Slot], cursor_mins: int) -> list[Slot]:
-    """检查午餐 / 晚餐窗口，缺则插入空占位槽"""
+def _ensure_meal_slots(
+    slots: list[Slot],
+    available: Optional[list[Place]] = None,
+    cursor_mins: Optional[int] = None,
+    *,
+    day_index: Optional[int] = None,
+    trip_days: Optional[int] = None,
+    used_place_ids: Optional[set[str]] = None,
+    meal_candidates: Optional[list[Place]] = None,
+    reusable_meal_candidates: Optional[list[Place]] = None,
+    template_id: Optional[str] = None,
+) -> list[Slot]:
+    """Fill humane meal anchors with real restaurants when candidates exist.
+
+    Arrival day does not force lunch before the traveller arrives.  Departure
+    day allows an 11:00 early lunch and does not invent a dinner after leaving.
+    """
     LUNCH_START, LUNCH_END = 12 * 60, 13 * 60 + 30
     DINNER_START, DINNER_END = 18 * 60, 20 * 60
 
     result = list(slots)
-    if not _has_meal_in_window(result, LUNCH_START, LUNCH_END):
-        result.append({
-            "slot_index": len(result),
-            "template_slot_id": "lunch_fallback",
-            "place_id": None,
-            "place": None,
-            "start_time": "12:30",
-            "end_time": "13:30",
-            "category_l1": "餐饮",
-            "category_l2": "餐厅",
-            "is_required": True,
-        })
-    if not _has_meal_in_window(result, DINNER_START, DINNER_END):
-        result.append({
-            "slot_index": len(result),
-            "template_slot_id": "dinner_fallback",
-            "place_id": None,
-            "place": None,
-            "start_time": "18:30",
-            "end_time": "19:45",
-            "category_l1": "餐饮",
-            "category_l2": "餐厅",
-            "is_required": True,
-        })
+    if isinstance(available, int):
+        available = []
+    available = available or []
+    used_place_ids = used_place_ids if used_place_ids is not None else set()
+    meal_candidates = meal_candidates if meal_candidates is not None else available
+    reusable_meal_candidates = reusable_meal_candidates or []
+    windows: list[tuple[str, int, int, str, str]] = []
+    legacy_all_day = day_index is None or trip_days is None
+    is_arrival = template_id == "T_ARRIVAL" or (template_id is None and not legacy_all_day and day_index == 0)
+    is_departure = template_id == "T_DEPARTURE" or (
+        template_id is None and not legacy_all_day and day_index == trip_days - 1
+    )
+    if legacy_all_day or not is_arrival:
+        lunch_start = 11 * 60 if is_departure else LUNCH_START
+        windows.append(("lunch_fallback", lunch_start, LUNCH_END, _mins_to_str(lunch_start), _mins_to_str(lunch_start + 60)))
+    if legacy_all_day or not is_departure:
+        windows.append(("dinner_fallback", DINNER_START, DINNER_END, "18:30", "19:45"))
+
+    for slot_id, window_start, window_end, start_time, end_time in windows:
+        if _has_meal_in_window(result, window_start, window_end):
+            continue
+        food = next(
+            (
+                place for place in meal_candidates
+                if place.category == PlaceCategory.FOOD and place.place_id not in used_place_ids
+            ),
+            None,
+        )
+        if food is None:
+            # A strict district may expose fewer unique restaurants than the
+            # number of meal anchors. Reusing a real family-suitable restaurant
+            # on another day is preferable to inventing a POI or omitting food.
+            today_ids = {slot.get("place_id") for slot in result}
+            food = next(
+                (
+                    place for place in reusable_meal_candidates
+                    if place.category == PlaceCategory.FOOD and place.place_id not in today_ids
+                ),
+                None,
+            )
+        if food:
+            if food in available:
+                available.remove(food)
+            if food in meal_candidates:
+                meal_candidates.remove(food)
+            used_place_ids.add(food.place_id)
+            result.append({
+                "slot_index": len(result),
+                "template_slot_id": slot_id,
+                "place_id": food.place_id,
+                "place": food.model_dump(),
+                "start_time": start_time,
+                "end_time": end_time,
+                "category_l1": "餐饮",
+                "category_l2": _guess_l2(food) or "餐厅",
+                "is_required": True,
+            })
+        else:
+            result.append({
+                "slot_index": len(result),
+                "template_slot_id": slot_id,
+                "place_id": None,
+                "place": None,
+                "start_time": start_time,
+                "end_time": end_time,
+                "category_l1": "餐饮",
+                "category_l2": "餐厅",
+                "is_required": True,
+            })
+
+    # Meals are fixed human anchors.  If an optional/template activity runs
+    # through lunch or dinner, keep the meal and move that activity to backup
+    # instead of returning an impossible overlapping timetable.
+    meal_anchors = [
+        slot for slot in result
+        if slot.get("place_id")
+        and slot.get("category_l1") == "餐饮"
+        and (
+            11 * 60 <= _time_str_to_mins(slot["start_time"]) < LUNCH_END
+            or DINNER_START <= _time_str_to_mins(slot["start_time"]) < DINNER_END
+        )
+    ]
+    displaced: list[Slot] = []
+    for slot in result:
+        if slot in meal_anchors:
+            continue
+        slot_start = _time_str_to_mins(slot["start_time"])
+        slot_end = _time_str_to_mins(slot["end_time"])
+        if any(
+            slot_start < _time_str_to_mins(anchor["end_time"])
+            and slot_end > _time_str_to_mins(anchor["start_time"])
+            for anchor in meal_anchors
+        ):
+            displaced.append(slot)
+    for slot in displaced:
+        result.remove(slot)
+        if slot.get("place"):
+            try:
+                restored = Place(**slot["place"])
+                if all(place.place_id != restored.place_id for place in available):
+                    available.append(restored)
+                used_place_ids.discard(restored.place_id)
+            except Exception:
+                pass
+
+    result.sort(key=lambda slot: _time_str_to_mins(slot["start_time"]))
+    for index, slot in enumerate(result):
+        slot["slot_index"] = index
     return result
 
 
-def _attach_hotel(slots: list[Slot], hotels_pool: list[Place]) -> list[Slot]:
-    """从最后一个有地点的 slot 的 Place 找最近酒店，附加 check-in slot"""
+def _select_stay_hotel(activities: list[Place], hotels_pool: list[Place]) -> Optional[Place]:
+    """Choose one stable base hotel for the whole trip.
+
+    A single central hotel avoids the old behaviour where the pool was
+    consumed one hotel per day and later days had no lodging at all.
+    """
+    if not hotels_pool:
+        return None
+    def rank(hotel: Place) -> tuple[float, float]:
+        rating = hotel.amap_rating if hotel.amap_rating is not None else -1.0
+        total_distance = (
+            sum(_haversine_km(activity, hotel) for activity in activities)
+            if activities else 0.0
+        )
+        # For a multi-night family base, accommodation quality is the primary
+        # human-facing choice; centrality breaks ties between similarly rated
+        # hotels instead of selecting a low-quality lodging solely by centroid.
+        return rating, -total_distance
+
+    return max(hotels_pool, key=rank)
+
+
+def _attach_hotel(slots: list[Slot], hotel: Optional[Place], day_index: int) -> list[Slot]:
+    """Append the same selected hotel as the final slot of every day."""
     last_place: Optional[Place] = None
     for s in reversed(slots):
         if s.get("place"):
@@ -553,11 +753,7 @@ def _attach_hotel(slots: list[Slot], hotels_pool: list[Place]) -> list[Slot]:
             last_place = PlaceModel(**s["place"])
             break
 
-    if last_place is None or not hotels_pool:
-        return slots
-
-    hotel = _match_hotel(last_place, hotels_pool)
-    if hotel is None:
+    if last_place is None or hotel is None:
         return slots
 
     dur_mins, dist_km = _estimate_driving(last_place, hotel)
@@ -566,9 +762,11 @@ def _attach_hotel(slots: list[Slot], hotels_pool: list[Place]) -> list[Slot]:
 
     slots.append({
         "slot_index": len(slots),
-        "template_slot_id": "hotel_checkin",
+        "template_slot_id": "hotel_checkin" if day_index == 0 else "hotel_return",
         "place_id": hotel.place_id,
-        "place": hotel.model_copy(update={"tags": list(hotel.tags or []) + ["今晚住宿"]}).model_dump(),
+        "place": hotel.model_copy(update={
+            "tags": list(hotel.tags or []) + (["办理入住", "今晚住宿"] if day_index == 0 else ["返回酒店", "今晚住宿"]),
+        }).model_dump(),
         "start_time": _mins_to_str(hotel_start),
         "end_time": "次日12:00",
         "category_l1": "住宿",

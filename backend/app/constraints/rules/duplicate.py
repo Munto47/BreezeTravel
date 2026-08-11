@@ -1,5 +1,5 @@
 from app.constraints.base import RuleContext
-from app.constraints.rules._utils import all_slots
+from app.constraints.rules._utils import all_slots, category_value
 from app.schemas.verification import ConstraintCheck, ConstraintStatus
 
 
@@ -10,6 +10,12 @@ class DuplicateRule:
         seen: dict[str, int] = {}
         duplicates: list[tuple[int, str]] = []
         for day, slot in all_slots(context.itinerary):
+            # Reusing lodging is intentional.  Under a strict district filter,
+            # repeating a real restaurant is also a safer degradation than
+            # hallucinating a POI or leaving a meal empty. Attractions remain
+            # unique because repetition there materially reduces trip value.
+            if category_value(slot) in {"hotel", "food"}:
+                continue
             if slot.place_id in seen:
                 duplicates.append((day, slot.place_id))
             else:

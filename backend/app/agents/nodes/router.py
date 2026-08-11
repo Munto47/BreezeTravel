@@ -32,6 +32,7 @@ from app.memory.working import extract_from_messages, format_for_prompt
 from app.tools import ALL_TOOLS
 from app.agents.routing_policy import plan_simple_tools, plan_tools
 from app import metrics as _metrics
+from app.constraints.location import extract_district_from_messages
 
 MAX_REACT_ITERATIONS = 3  # 最多 3 轮工具调用（防止无限循环）
 
@@ -87,6 +88,17 @@ async def run(state: AgentState) -> dict:
     trip_city = state.get("trip_city") or "成都"
     iterations = state.get("react_iterations", 0)
 
+    # The first deterministic search plus one model-guided expansion normally
+    # provides enough grounded options.  Continuing to a third round after we
+    # already have category diversity adds latency and can starve Synthesizer
+    # under the request-wide deadline.
+    if iterations >= 2 and _has_sufficient_place_evidence(state.get("amap_places", [])):
+        print(
+            f"[ReActAgent] 已有 {len(state.get('amap_places', []))} 个多品类地点，"
+            "停止重复检索并进入 Synthesizer"
+        )
+        return {"react_iterations": iterations}
+
     # 超出最大循环次数，强制结束（通过不输出 tool_calls 让图路由到 synthesizer）
     if iterations >= MAX_REACT_ITERATIONS:
         print(f"[ReActAgent] 已达最大迭代次数 {MAX_REACT_ITERATIONS}，进入 Synthesizer")
@@ -99,14 +111,17 @@ async def run(state: AgentState) -> dict:
     # P0 mixed-intent guard.  Make the minimum complete tool plan explicit
     # before the optional local classifier or LLM gets a chance to omit one.
     last_query = _get_last_human_query(messages)
+    trip_district = state.get("trip_district") or extract_district_from_messages(messages)
     forced_plan = plan_tools(last_query) if iterations == 0 else None
     if forced_plan is None and iterations == 0 and settings.deterministic_routing_enabled:
         forced_plan = plan_simple_tools(last_query)
     if forced_plan:
-        tool_calls = [
-            {"name": name, "args": {"query": last_query, "city": trip_city}, "id": f"policy-{index}"}
-            for index, name in enumerate(forced_plan.tools, start=1)
-        ]
+        tool_calls = []
+        for index, name in enumerate(forced_plan.tools, start=1):
+            args = {"query": last_query, "city": trip_city}
+            if name == "search_places" and trip_district:
+                args["district"] = trip_district
+            tool_calls.append({"name": name, "args": args, "id": f"policy-{index}"})
         print(f"[ReActAgent] deterministic tool policy: {forced_plan.signals}")
         return {
             "messages": [AIMessage(content="", tool_calls=tool_calls)], "intent": forced_plan.intent,
@@ -210,6 +225,24 @@ async def run(state: AgentState) -> dict:
             "react_iterations": iterations,
             "working_context": updated_ctx,
         }
+
+
+def _has_sufficient_place_evidence(places: list) -> bool:
+    """Return true once retrieval has enough unique, category-diverse POIs."""
+    unique_ids: set[str] = set()
+    categories: set[str] = set()
+    for place in places:
+        if isinstance(place, dict):
+            place_id = place.get("place_id")
+            category = place.get("category")
+        else:
+            place_id = getattr(place, "place_id", None)
+            category = getattr(place, "category", None)
+        if place_id:
+            unique_ids.add(str(place_id))
+        if category is not None:
+            categories.add(str(getattr(category, "value", category)))
+    return len(unique_ids) >= 8 and len(categories) >= 2
 
 
 def _get_last_human_query(messages: list) -> str:

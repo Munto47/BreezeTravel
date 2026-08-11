@@ -1,5 +1,5 @@
 from app.constraints.base import RuleContext
-from app.constraints.rules._utils import find_constraints, normalise
+from app.constraints.rules._utils import category_value, find_constraints, normalise
 from app.schemas.verification import ConstraintCheck, ConstraintStatus
 
 
@@ -12,7 +12,7 @@ class HotelAreaRule:
             return []
         constraint = constraints[0]
         target = normalise(constraint.value)
-        hotels = [slot for day in context.itinerary.days for slot in day.slots if str((slot.place or {}).get("category")) == "hotel"]
+        hotels = [slot for day in context.itinerary.days for slot in day.slots if category_value(slot) == "hotel"]
         if not hotels:
             return [ConstraintCheck(
                 constraint_id=constraint.id,

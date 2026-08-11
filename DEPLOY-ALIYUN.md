@@ -453,21 +453,20 @@ RUN pip install --no-cache-dir -i https://mirrors.aliyun.com/pypi/simple/ -r req
 
 ---
 
-## 11. 升级到自动化部署（可选）
+## 11. 发布与部署边界
 
-当前是"手动 git pull 部署"模式。如果想做到 **push 即上线**，仓库已经准备好了 `.github/workflows/deploy.yml`，只需配置 3 个 GitHub Secrets：
+仓库不启用 GitHub Actions 自动部署。代码推送与服务器发布是两个独立动作：推送到 GitHub 不会自动修改服务器。
 
-| Secret 名 | 值 |
-|-----------|---|
-| `ALIYUN_HOST` | ECS 公网 IP |
-| `ALIYUN_USER` | `root` |
-| `ALIYUN_SSH_KEY` | 部署用的 SSH 私钥（在本地 `ssh-keygen` 生成新的一对，公钥放服务器 `~/.ssh/authorized_keys`） |
+服务器继续使用手动、可审计的部署流程：
 
-启用前提：
-- GitHub Actions 可用（私有仓库需付费 minutes，或把仓库设为 public 享受免费 unlimited）
-- 服务器 22 端口可从 GitHub Actions IP 段访问（默认 0.0.0.0/0 即可）
+```bash
+cd /root/breezetravel
+git pull --ff-only
+docker compose up -d --build --remove-orphans
+curl -f http://localhost:8000/health
+```
 
-启用后流程：本地 `git push origin main` → GitHub Action 触发 → SSH 到服务器 `git pull && docker compose up -d --build` → 部署完成。
+执行前应确认目标分支、环境变量、数据库迁移和回滚点；健康检查成功只证明服务存活，不等同于完整业务验收。
 
 ---
 

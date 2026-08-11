@@ -205,6 +205,8 @@ async def _execute_tool_call(
     name = tool_call["name"]
     args = dict(tool_call.get("args", {}))
     trip_city = state.get("trip_city") or "成都"
+    from app.constraints.location import extract_district_from_messages
+    trip_district = state.get("trip_district") or extract_district_from_messages(state.get("messages", []))
 
     # LLM 未传 city 时自动填充 trip_city
     if not args.get("city"):
@@ -217,6 +219,7 @@ async def _execute_tool_call(
         places = await _run_amap_search(
             query=args.get("query", ""),
             city=args["city"],
+            district=args.get("district") or trip_district or "",
             category=args.get("category", ""),
             prefer_trending=bool(args.get("prefer_trending", False)),
             prefer_chain=bool(args.get("prefer_chain", False)),

@@ -48,6 +48,7 @@ import json
 
 # FastMCP：Anthropic 官方 MCP Server 框架（pip install mcp）
 from mcp.server.fastmcp import FastMCP
+from starlette.responses import JSONResponse
 
 # 加载项目配置（复用 .env）
 
@@ -59,6 +60,12 @@ mcp = FastMCP(
         "适合规划中国城市旅行行程时使用。"
     ),
 )
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(_request):
+    """供 Docker 和本地诊断使用的轻量健康检查。"""
+    return JSONResponse({"status": "ok", "service": "breezetravel-mcp"})
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -236,4 +243,7 @@ if __name__ == "__main__":
     print("[MCP] 工具：search_places / search_travel_notes / get_weather")
     print(f"[MCP] Claude Desktop 接入：http://localhost:{port}/mcp")
 
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    # mcp>=1.12 从 FastMCP.run() 移除了 host/port 参数，监听配置需写入 settings。
+    mcp.settings.host = "0.0.0.0"
+    mcp.settings.port = port
+    mcp.run(transport="streamable-http")

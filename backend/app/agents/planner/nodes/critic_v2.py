@@ -90,10 +90,14 @@ def _check_no_backtoback_l2(
     return violations
 
 
-def _check_meal_slot_filled(slots: list[Slot], day_index: int) -> list[Violation]:
+def _check_meal_slot_filled(
+    slots: list[Slot],
+    day_index: int,
+    template_id: Optional[str] = None,
+) -> list[Violation]:
     """R_MEAL_SLOT_FILLED：12:00–13:30 / 18:00–20:00 必须有餐饮 slot"""
     violations = []
-    LUNCH = (12 * 60, 13 * 60 + 30)
+    LUNCH = (11 * 60 if template_id == "T_DEPARTURE" else 12 * 60, 13 * 60 + 30)
     DINNER = (18 * 60, 20 * 60)
 
     def has_food_in(window_start, window_end):
@@ -107,14 +111,14 @@ def _check_meal_slot_filled(slots: list[Slot], day_index: int) -> list[Violation
                 return True
         return False
 
-    if not has_food_in(*LUNCH):
+    if template_id != "T_ARRIVAL" and not has_food_in(*LUNCH):
         violations.append({
             "rule": "R_MEAL_SLOT_FILLED",
             "day_index": day_index,
             "place_id": None,
             "message": "12:00–13:30 无餐饮 slot（缺午餐）",
         })
-    if not has_food_in(*DINNER):
+    if template_id != "T_DEPARTURE" and not has_food_in(*DINNER):
         violations.append({
             "rule": "R_MEAL_SLOT_FILLED",
             "day_index": day_index,
@@ -199,6 +203,21 @@ def _check_buffer_deficit(slots: list[Slot], day_index: int) -> list[Violation]:
     return violations
 
 
+def _check_hotel_day_end(slots: list[Slot], day_index: int) -> Optional[Violation]:
+    """R_DAILY_HOTEL_END：每天最后一个真实地点必须是酒店。"""
+    filled = [slot for slot in slots if slot.get("place_id") and slot.get("place")]
+    if filled:
+        category = (filled[-1].get("place") or {}).get("category", "")
+        if str(getattr(category, "value", category)) == "hotel":
+            return None
+    return {
+        "rule": "R_DAILY_HOTEL_END",
+        "day_index": day_index,
+        "place_id": filled[-1].get("place_id") if filled else None,
+        "message": f"第 {day_index + 1} 天末尾缺少酒店住宿节点",
+    }
+
+
 # ─── 主入口 ───────────────────────────────────────────────────────────────────
 
 async def run(state: PlannerState) -> dict:
@@ -257,7 +276,7 @@ async def run(state: PlannerState) -> dict:
                 all_violations.append(v)
 
         all_violations.extend(_check_no_backtoback_l2(slots, day_index))
-        all_violations.extend(_check_meal_slot_filled(slots, day_index))
+        all_violations.extend(_check_meal_slot_filled(slots, day_index, ds.get("template_id")))
 
         v = _check_daily_food_cap(slots, day_index)
         if v:
@@ -272,6 +291,10 @@ async def run(state: PlannerState) -> dict:
             all_violations.append(v)
 
         all_violations.extend(_check_buffer_deficit(slots, day_index))
+
+        v = _check_hotel_day_end(slots, day_index)
+        if v:
+            all_violations.append(v)
 
     trace = state.get("trace", []) + [
         f"[CriticV2] 检查完成，发现 {len(all_violations)} 条违规"

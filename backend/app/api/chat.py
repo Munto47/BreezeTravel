@@ -39,6 +39,7 @@ from app.utils.auth import get_optional_user
 from app.observability.metrics import metrics as _prom_metrics
 from app import metrics as _m
 from app.api.rate_limit import check_public_chat_limit
+from app.constraints.location import extract_district_constraint
 
 router = APIRouter()
 
@@ -115,6 +116,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "trace_id": trace_id,
         "deadline_monotonic": time.monotonic() + get_settings().chat_deadline_seconds,
         "trip_city": request.trip_city,
+        "trip_district": extract_district_constraint(request.message),
         "amap_places": [],
         "rag_chunks": [],
         "citations": [],

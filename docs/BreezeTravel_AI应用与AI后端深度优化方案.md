@@ -108,7 +108,7 @@ Next.js 房间界面
 - Working Memory、Long-term Memory；
 - Yjs CRDT 协同；
 - Redis 限流基础；
-- Docker Compose、CI、部署 workflow、MCP Server 和证据发布脚本。
+- Docker Compose、本地验证脚本、手动部署流程、MCP Server 和证据发布脚本。
 
 ### 3.2 当前证据边界
 
@@ -120,7 +120,7 @@ Next.js 房间界面
 
 - 工作区尚未形成干净 release；
 - Demo 测试单独运行与组合运行结果不一致；
-- CI 未覆盖完整 Demo 主链路；
+- 本地组合门禁未覆盖完整 Demo 主链路；
 - Python lint 当前不阻断；
 - 定时公网 Playwright 已配置，但配置存在不等于公网运行已经成功；
 - 数据库迁移和 Checkpoint setup 仍与应用启动存在耦合；
@@ -312,7 +312,7 @@ planning_input_hash
 
 | 阶段 | 推荐时长 | 前置条件 | 核心交付 |
 |---|---:|---|---|
-| R0 | 3～5 天 | 当前仓库 | 干净 release、组合测试、迁移和 CI 门禁 |
+| R0 | 3～5 天 | 当前仓库 | 干净 release、组合测试、迁移和本地门禁 |
 | R1 | 7～10 天 | R0 | TaskSpec、三态 Verifier、有限定向修复 |
 | R2 | 5～7 天 | R0，可与 R1 后半段并行 | HTTP/WS 权限、Memory 治理、协同失效机制 |
 | R3 | 7～10 天 | R1、R2 | 高质量端到端评测、公开语料 release、最小公网 Beta |
@@ -347,9 +347,9 @@ planning_input_hash
 - `docker-compose.yml`
 - `.env.example`
 
-##### R0.2 测试隔离和 CI 门禁
+##### R0.2 测试隔离和本地质量门禁
 
-- 把 `test_chat_demo.py` 纳入 CI；
+- 把 `test_chat_demo.py` 纳入本地组合验证；
 - 增加随机顺序执行，发现全局状态污染；
 - 后端单元测试与 PostgreSQL/Redis 集成测试分 Job；
 - `ruff`、`pytest`、`tsc --noEmit`、前端 build 全部阻断；
@@ -381,13 +381,13 @@ Manifest 至少记录 Commit、依赖锁哈希、迁移版本、配置摘要、�
 - 随机顺序连续运行至少 3 个 seed；
 - 全新数据库迁移成功；
 - 从干净 clone 使用一条主命令完成构建和验证；
-- CI 不读取开发机 `.env`；
+- 本地门禁使用隔离的测试配置，不读取开发机 `.env`；
 - `git diff --check` 和前后端非交互检查通过。
 
 #### 完成定义
 
 - 工作区形成可定位 Commit；
-- CI 全绿且不存在非阻断质量检查；
+- 本地质量门禁全绿且不存在非阻断质量检查；
 - 干净 clone 回读成功；
 - `latest.json` 仍可保持历史待重跑，但其状态和新 release 不混淆。
 
@@ -989,7 +989,7 @@ yjs_connection_total
 
 发布前必须满足：
 
-- 当前 Commit 的 CI 全绿；
+- 当前 Commit 的本地质量门禁全绿；
 - 数据库迁移成功；
 - 公开语料 license/attribution 完整；
 - 端到端 blind、故障集和公网 Smoke 通过各自门槛；
@@ -1070,7 +1070,7 @@ P0 完成后，项目已经具备强校招主项目价值。
 
 | 阶段 | 核心产物 | 阻断门禁 |
 |---|---|---|
-| R0 | 干净 release、CI、迁移、manifest | 全套组合测试和干净 clone 不通过则停止 |
+| R0 | 干净 release、本地门禁、迁移、manifest | 全套组合测试和干净 clone 不通过则停止 |
 | R1 | TaskSpec、Verifier、Repair、约束 UI | UNKNOWN 被当作通过或修复无上限则停止 |
 | R2 | HTTP/WS 权限、Memory 治理、协同失效机制 | 存在跨房间越权或旧验证仍显示通过则停止 |
 | R3 | 高质量评测、公开语料、Beta E2E | Blind 泄漏或公网 Smoke 失败则不发布指标 |
@@ -1112,7 +1112,7 @@ P0 完成后，项目已经具备强校招主项目价值。
 - Mock、本地真实依赖、公网和用户验证分开；
 - 单实例和多实例分开；
 - 构建成功与实际运行成功分开；
-- 配置了 CI/E2E 与 CI/E2E 真正成功分开；
+- 配置了本地 E2E 与本地 E2E 真正成功分开；
 - 规划目标不写成已实现；
 - 两实例、20 并发等有限实验不描述为海量生产能力；
 - `UNKNOWN` 不描述成约束满足；

@@ -1,5 +1,5 @@
 from app.constraints.base import RuleContext
-from app.constraints.rules._utils import minutes
+from app.constraints.rules._utils import category_value, minutes
 from app.schemas.verification import ConstraintCheck, ConstraintStatus
 
 
@@ -12,8 +12,19 @@ class TimeChainRule:
             invalid = False
             unknown = False
             previous_end = None
-            for slot in day.slots:
+            for index, slot in enumerate(day.slots):
                 start, end = minutes(slot.start_time), minutes(slot.end_time)
+                is_overnight_hotel = (
+                    index == len(day.slots) - 1
+                    and category_value(slot) == "hotel"
+                    and str(slot.end_time).startswith("次日")
+                )
+                if is_overnight_hotel:
+                    if start is None:
+                        unknown = True
+                    elif previous_end is not None and start < previous_end:
+                        invalid = True
+                    continue
                 if start is None or end is None:
                     unknown = True
                     continue

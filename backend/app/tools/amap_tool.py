@@ -22,6 +22,7 @@ from langchain_core.tools import tool
 async def search_places(
     query: Annotated[str, "搜索关键词，应包含口味/菜系/风格等修饰词。示例：'素食餐厅''韩国料理''网红咖啡''连锁火锅''熊猫基地''精品酒店'"],
     city: Annotated[str, "目的地城市，如'成都''北京'"],
+    district: Annotated[str, "用户明确限定的行政区，如'闵行区'；未限定时留空"] = "",
     category: Annotated[str, "可选品类过滤：'景点'|'美食'|'住宿'，留空则不过滤"] = "",
     prefer_trending: Annotated[bool, "是否优先返回热门网红/高人气地点（用于'想去网红店''流行的'等诉求）"] = False,
     prefer_chain: Annotated[bool, "是否优先返回连锁品牌（用于'靠谱''有保障''连锁'等诉求）"] = False,
@@ -48,6 +49,7 @@ async def search_places(
 async def _run_amap_search(
     query: str,
     city: str,
+    district: str = "",
     category: str = "",
     prefer_trending: bool = False,
     prefer_chain: bool = False,
@@ -69,6 +71,8 @@ async def _run_amap_search(
 
     # 根据连锁/热门偏好追加修饰词，提升高德关键词精准度
     parts = [query]
+    if district and district not in query:
+        parts.insert(0, district)
     if prefer_chain and "连锁" not in query:
         parts.append("连锁")
     if category:
@@ -84,6 +88,7 @@ async def _run_amap_search(
         "thread_id": "tool-call",
         "user_id": "tool-call",
         "trip_city": city,
+        "trip_district": district or None,
         "intent": "amap",
         "query_rewrite": search_query,
         "amap_places": [],
@@ -105,7 +110,8 @@ async def _run_amap_search(
         if prefer_trending:
             places = sorted(places, key=lambda p: p.amap_rating or 0, reverse=True)
 
-        return places
+        from app.constraints.location import filter_places_by_district
+        return filter_places_by_district(places, district)
     except Exception as exc:
         print(f"[AmapTool] 搜索失败：{exc}")
         return []

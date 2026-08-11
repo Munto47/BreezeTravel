@@ -1,5 +1,5 @@
 from app.constraints.base import RuleContext
-from app.constraints.rules._utils import find_constraints
+from app.constraints.rules._utils import category_value, find_constraints
 from app.schemas.verification import ConstraintCheck, ConstraintStatus
 
 
@@ -13,7 +13,11 @@ class DailyCapacityRule:
         limit = int(constraints[0].value)
         checks = []
         for day in context.itinerary.days:
-            count = len(day.slots)
+            # A hotel is the night anchor, not another sightseeing workload.
+            count = sum(
+                1 for slot in day.slots
+                if category_value(slot) != "hotel"
+            )
             checks.append(ConstraintCheck(
                 constraint_id=constraints[0].id,
                 status=ConstraintStatus.SATISFIED if count <= limit else ConstraintStatus.VIOLATED,

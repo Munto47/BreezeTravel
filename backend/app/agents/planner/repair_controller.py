@@ -53,8 +53,14 @@ class TargetedRepairController:
 
         def protected(slot) -> bool:
             place = slot.place or {}
+            category = getattr(place.get("category"), "value", place.get("category"))
             text = "".join(f"{place.get('name', '')}{place.get('tags', '')}".lower().split())
-            return bool(place.get("isPinned") or place.get("is_pinned") or any(term in text for term in must_terms))
+            return bool(
+                category == "hotel"
+                or place.get("isPinned")
+                or place.get("is_pinned")
+                or any(term in text for term in must_terms)
+            )
 
         def is_meal_anchor(slot) -> bool:
             place = slot.place or {}
@@ -127,6 +133,33 @@ class TargetedRepairController:
                     slot.end_time = f"{end // 60:02d}:{end % 60:02d}"
                     cursor = end + 15
                 plan.actions.append(f"repair_time_chain:{day.day_index}")
+                continue
+
+            if violation.reason_code == "DAILY_HOTEL_MISSING" and day:
+                from app.schemas.itinerary import TimeSlot
+
+                hotel_place = next(
+                    (
+                        slot.place
+                        for current_day in repaired.days
+                        for slot in current_day.slots
+                        if getattr((slot.place or {}).get("category"), "value", (slot.place or {}).get("category")) == "hotel"
+                    ),
+                    None,
+                )
+                if hotel_place is None:
+                    hotel_candidate = next((item for item in candidates if item.category.value == "hotel"), None)
+                    hotel_place = hotel_candidate.model_dump(mode="json") if hotel_candidate else None
+                if hotel_place:
+                    day.slots.append(TimeSlot(
+                        place_id=hotel_place["place_id"],
+                        place=hotel_place,
+                        start_time="21:00",
+                        end_time="次日12:00",
+                    ))
+                    plan.actions.append(f"restore_daily_hotel:{day.day_index}:{hotel_place['place_id']}")
+                else:
+                    plan.unresolved.append(f"{violation.constraint_id}:hotel_candidate_missing")
                 continue
 
             if violation.reason_code == "MUST_INCLUDE_MISSING":

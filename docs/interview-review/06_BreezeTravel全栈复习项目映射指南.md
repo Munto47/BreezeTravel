@@ -27,7 +27,7 @@
 | Java / Spring | 不是本项目技术栈 | 无 | 诚实说明：以 Python/FastAPI 实践为主；只迁移思想，不虚构 Spring 经历 |
 | React / Next.js | 前端 UI、地图、流式渲染和协同状态 | `frontend/src/hooks/`、`frontend/package.json` | Zustand 是本地 UI，Yjs 才是共享事实源；避免双向同步环 |
 | 分布式 / MQ / 可观测性 | 多服务协作、CRDT、trace、metrics、压测已有实践 | `metrics.py`、`tests/test_planner_graph.py`、压测脚本 | 当前没有 MQ 作为核心已落地链路；应讲“为何现在不引入、何时引入” |
-| 工程效能 / CI/CD | 单元、集成、离线评估、GitHub Actions、Docker 化 | `.github/`、`backend/tests/` | 生产部署仍是待完成项，不能宣称已有完整发布/回滚平台 |
+| 工程效能 / 交付 | 单元、集成、离线评估、本地显式门禁、Docker 化 | `verify-local.ps1`、`backend/tests/` | GitHub Actions 已取消；不能宣称存在远程 CI 或完整发布/回滚平台 |
 | LLM / RAG / Agent | 项目的核心差异化能力 | `agents/graph.py`、`rag/`、`mcp_server.py` | 评估指标、成本、幻觉、权限和降级必须成套回答 |
 | 项目深挖 / 系统设计 | 上述链路可展开成 AI 对话、知识库、协同与行程规划设计题 | 本文第 5 节 | 区分现状、压测数据和未来设计；所有数字应可追溯 |
 
@@ -95,7 +95,7 @@
 
 - **测试金字塔证据**：优化器、Planner 子图、RAG、API、Mock 数据、Agent 评测都有测试文件；离线测试避免 API 成本和环境不稳定，集成评估单独运行。
 - **质量门禁**：对 RAG 不只看“能回答”，还看 Faithfulness、Relevancy、Context Recall；对意图分类有准确率与延迟评估；对接口有 P50/P95/P99 压测口径。
-- **CI/CD 边界**：已有 GitHub Actions CI 与 Docker 化；生产部署是下一阶段。因此应准备发布策略、环境隔离、migration、回滚、feature flag 和 secret 管理的设计答案，不把它们描述为已上线事实。
+- **交付边界**：已有 Docker 化与可重复的本地验证脚本，GitHub Actions 已取消；生产部署、远程质量门禁和自动回滚仍是后续能力，不能描述为已上线事实。
 
 ### 11. LLM、RAG、Agent 与 AI 应用工程（P0）
 

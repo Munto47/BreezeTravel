@@ -13,7 +13,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - **Advanced RAG**：混合检索（BM25 + pgvector RRF）+ Cross-Encoder Re-ranking + HyDE 查询扩展
 - **Memory 系统**：Working Memory（会话内规则提取）+ Long-term Memory（pgvector 持久化）
 - **MCP Server**：三个核心工具暴露为标准 MCP Server，可被 Codex Desktop 直接调用
-- **可观测性**：LangSmith 全链路追踪 + /health /metrics 端点 + GitHub Actions CI
+- **可观测性**：LangSmith 全链路追踪 + /health /metrics 端点 + 本地显式验证脚本
 - **微调**：Qwen2.5-1.5B LoRA 意图分类（DeepSeek 数据蒸馏，训练脚本就绪待执行）
 - **Yjs CRDT 实时协同**：多人 500ms 内同步
 - **K-Means + TSP 混合排线**：K-Means 宏观聚类 + 最近邻 TSP 微观排线
@@ -187,7 +187,7 @@ Zustand store (`frontend/src/stores/`) 管理本地 UI 状态，Yjs 负责多人
 - [x] O1：LangSmith 全链路追踪（Agent 调用链路 + Token 消耗可视化）
 - [x] M1：MCP Server（三工具标准 MCP 接口，支持 Codex Desktop 调用）
 - [x] E1：/health + /metrics 监控端点
-- [x] CI：GitHub Actions 自动化测试流水线
+- [x] 本地质量门禁：pytest / 前端构建 / E2E / `verify-local.ps1` 显式执行
 
 ### Sprint 3（微调）— ✅ 已完成
 - [x] F1：Qwen2.5-1.5B LoRA 微调 Router 分类器（DeepSeek 数据蒸馏 + 4060 本地训练）

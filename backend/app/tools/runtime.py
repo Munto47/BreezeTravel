@@ -30,6 +30,7 @@ class SearchPlacesArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=200)
     city: str = Field(min_length=1, max_length=80)
+    district: str = Field(default="", max_length=80)
     category: str = Field(default="", max_length=80)
     prefer_trending: bool = False
     prefer_chain: bool = False

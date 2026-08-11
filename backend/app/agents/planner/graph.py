@@ -31,6 +31,7 @@ from app.schemas.task_spec import TripTaskSpec
 from app.schemas.verification import ConstraintStatus, VerificationReport
 from app.constraints.verifier import ItineraryVerifier
 from app.agents.planner.repair_controller import TargetedRepairController
+from app.constraints.location import filter_human_suitable_places, filter_places_by_district
 
 # 完整 planner 输出（itinerary + 备选池 + 违规报告）
 from typing import NamedTuple
@@ -134,6 +135,7 @@ async def run_planner(
     planning_input_hash: str = "",
 ) -> PlannerResult:
     """PlannerGraph v2 入口。返回 PlannerResult(itinerary, backup_pool, critic_violations)。"""
+    places = filter_human_suitable_places(places)
     if task_spec:
         excluded_terms = ["".join(item.value.lower().split()) for item in task_spec.exclude]
         filtered_places = []
@@ -142,6 +144,20 @@ async def run_planner(
             if not any(term and term in searchable for term in excluded_terms):
                 filtered_places.append(place)
         places = filtered_places
+
+        area_constraint = next(
+            (item for item in task_spec.hard_constraints if item.type == "trip_area"),
+            None,
+        )
+        if area_constraint:
+            before_area = list(places)
+            places = filter_places_by_district(places, str(area_constraint.value))
+            if not places:
+                raise ValueError(f"限定区域 {area_constraint.value} 内没有可排线地点")
+            if any(place.category.value == "hotel" for place in before_area) and not any(
+                place.category.value == "hotel" for place in places
+            ):
+                raise ValueError(f"限定区域 {area_constraint.value} 内缺少已选择的酒店")
 
         # The existing scheduler already prioritises vote_counts. Give explicit
         # must-include candidates a deterministic priority without introducing
@@ -153,6 +169,19 @@ async def run_planner(
             if any(term and term in searchable for term in must_terms):
                 boosted_votes[place.place_id] = max(boosted_votes.get(place.place_id, 0), 1000)
         vote_counts = boosted_votes
+
+        if user_prefs is None and (
+            task_spec.travelers.children > 0
+            or task_spec.travelers.seniors > 0
+            or any(pref.type in {"family_friendly", "senior_friendly", "low_walking"} for pref in task_spec.soft_preferences)
+        ):
+            user_prefs = GroupPreferences(
+                style="family",
+                has_kids=task_spec.travelers.children > 0,
+                nice_to_have=["亲子", "室内", "轻松", "长辈推荐"],
+                trip_city=task_spec.city,
+                trip_days=task_spec.date_range.days,
+            )
 
     initial: PlannerState = {
         "places": places,

@@ -58,17 +58,23 @@ async def optimize(request: OptimizeRequest, current_user: str | None = Depends(
         except Exception as e:
             print(f"[Optimize] user_prefs 解析失败（跳过）：{e}")
 
-    result = await run_planner(
-        places=request.places,
-        trip_days=request.trip_days,
-        thread_id=request.thread_id,
-        start_date=request.start_date,
-        preferences_text=preferences_text,
-        user_prefs=user_prefs,
-        vote_counts=request.vote_counts,
-        task_spec=request.task_spec,
-        planning_input_hash=request.planning_input_hash or "",
-    )
+    try:
+        result = await run_planner(
+            places=request.places,
+            trip_days=request.trip_days,
+            thread_id=request.thread_id,
+            start_date=request.start_date,
+            preferences_text=preferences_text,
+            user_prefs=user_prefs,
+            vote_counts=request.vote_counts,
+            task_spec=request.task_spec,
+            planning_input_hash=request.planning_input_hash or "",
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "UNSATISFIED_HARD_CONSTRAINT", "message": str(exc)},
+        ) from exc
 
     itinerary = result.itinerary
     backup_pool = result.backup_pool

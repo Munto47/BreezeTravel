@@ -18,7 +18,7 @@ BreezeTravel 是一款帮助小团体共同规划出游的产品：多人在同�
 | **安全协同** | HTTP 房间成员授权 + Yjs 房间绑定 JWT + Prompt Injection 信号 + 日志脱敏 |
 | **可靠运行时** | 请求 deadline/取消 + 工具预算/重试/熔断/并发隔离 + Redis 原子限流 + 双实例 Checkpoint |
 | **MCP Server** | 三个核心工具（地点搜索/游记检索/天气查询）暴露为标准 **MCP Server**，可被 Claude Desktop / Cursor 直接调用 |
-| **可观测性** | LangSmith 全链路追踪（节点耗时/Token 消耗/工具调用频次）+ /metrics 端点 + GitHub Actions CI |
+| **可观测性** | LangSmith 全链路追踪（节点耗时/Token 消耗/工具调用频次）+ /metrics 端点 + 本地显式验证脚本 |
 | **LoRA 微调** | Qwen2.5-1.5B 意图分类：DeepSeek 数据蒸馏 1500 条 + SFTTrainer LoRA 训练脚本 + 准确率回归测试脚本（待 GPU 环境执行训练） |
 | **实时协同** | Yjs CRDT 无锁同步，多标签页 500ms 内完成投票/备注/状态同步 |
 | **路径优化** | K-Means 宏观聚类分天 + 高德真实驾车距离矩阵（Redis 缓存 TTL 24h）+ 最近邻 TSP 微观排序 |

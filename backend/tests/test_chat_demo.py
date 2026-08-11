@@ -200,6 +200,21 @@ class TestCategoryFiltering:
         hotel_count = sum(1 for e in places if e["data"]["place"]["category"] == "hotel")
         assert hotel_count >= 3, f"住宿查询中 hotel 类地点不足：{hotel_count}"
 
+    def test_minhang_hard_scope_is_visible_and_never_spills(self, client):
+        """真实用户约束行政区时，卡片和文案都必须承认并遵守该范围。"""
+        events, places = _chat(
+            client,
+            "我们带孩子在上海玩三天，只在闵行区安排景点、美食和酒店",
+            "上海",
+            "demo-minhang-hard-scope",
+        )
+        assert len(places) >= 6
+        assert {event["data"]["place"]["district"] for event in places} == {"闵行区"}
+        text = "".join(
+            event["data"]["delta"] for event in events if event.get("event") == "text"
+        )
+        assert "闵行区" in text
+
 
 # ── 测试组 3：多城市覆盖 ──────────────────────────────────────────────────────
 

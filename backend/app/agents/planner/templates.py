@@ -86,21 +86,21 @@ T_FAMILY_LIGHT = RhythmTemplate(
     template_id="T_FAMILY_LIGHT",
     name="亲子轻松型",
     slots=[
-        TemplateSlot("brunch",        "餐饮", ["早午餐","餐厅","面馆","粥"],
-                     start_hint=9*60,   duration_minutes=75,  buffer_minutes=15,
-                     is_required=True,  label="早午餐"),
         TemplateSlot("morning_main",  "景点", ["主题乐园","动物园","科技馆","自然博物馆","公园"],
-                     start_hint=10*60,  duration_minutes=120, buffer_minutes=30,
+                     start_hint=9*60+30, duration_minutes=90, buffer_minutes=15,
                      is_required=True,  label="亲子景点"),
+        TemplateSlot("lunch",         "餐饮", ["餐厅","地方菜","面馆","儿童友好餐厅"],
+                     start_hint=12*60, duration_minutes=60, buffer_minutes=15,
+                     is_required=True, label="午餐"),
         TemplateSlot("rest",          "住宿", ["酒店"],
-                     start_hint=13*60,  duration_minutes=90,  buffer_minutes=0,
+                     start_hint=13*60+30, duration_minutes=60, buffer_minutes=0,
                      is_required=False, label="午休回酒店"),
         TemplateSlot("afternoon_park","景点", ["公园","街区","广场","湖畔"],
                      start_hint=15*60,  duration_minutes=90,  buffer_minutes=20,
                      is_required=False, label="下午公园"),
         TemplateSlot("dinner",        "餐饮", ["餐厅","地方菜","火锅","儿童友好餐厅"],
-                     start_hint=17*60+30, duration_minutes=75, buffer_minutes=15,
-                     is_required=True,  label="早晚餐（17:30）"),
+                     start_hint=18*60, duration_minutes=75, buffer_minutes=15,
+                     is_required=True,  label="早晚餐（18:00）"),
     ],
 )
 
@@ -149,9 +149,13 @@ def select_template(
     prefs: Optional[GroupPreferences] = None,
 ) -> RhythmTemplate:
     """按 SPEC §3.2 模板选择逻辑：抵达日/离开日强制，中间天按偏好选"""
-    if day_index == 0:
+    # Keep legacy callers (prefs=None) unchanged.  Once structured preferences
+    # exist, only treat the edges as half-days when the user actually supplied
+    # arrival/departure times; otherwise a "三日游" should contain three useful
+    # days rather than silently shrinking to one full day.
+    if day_index == 0 and (prefs is None or prefs.arrival_time):
         return T_ARRIVAL
-    if day_index == trip_days - 1:
+    if day_index == trip_days - 1 and (prefs is None or prefs.departure_time):
         return T_DEPARTURE
 
     if prefs is None:
