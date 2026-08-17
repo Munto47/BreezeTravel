@@ -40,7 +40,10 @@ EXPECTED_MODEL = "gpt-5.6-sol"
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    # Judge artifacts may be produced on Windows and verified on Linux.
+    # Normalize text line endings so the binding survives a clean checkout.
+    raw = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _canonical_sha256(value: Any) -> str:

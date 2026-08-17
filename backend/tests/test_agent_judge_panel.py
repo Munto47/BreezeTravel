@@ -6,13 +6,26 @@ import pytest
 
 from scripts.agent_judge_panel import (
     SCORE_NAMES,
+    _sha256 as judge_artifact_sha256,
     aggregate_panel,
     export_blind_bundle,
     validate_round,
 )
+from scripts.verify_rc1_evidence import _sha256 as evidence_artifact_sha256
 
 
 DATASET = Path(__file__).resolve().parents[1] / "eval_data" / "daily_queries" / "cases.json"
+
+
+def test_evidence_hash_ignores_platform_line_endings(tmp_path: Path):
+    windows_file = tmp_path / "windows.json"
+    linux_file = tmp_path / "linux.json"
+    windows_file.write_bytes(b'{\r\n  "ok": true\r\n}\r\n')
+    linux_file.write_bytes(b'{\n  "ok": true\n}\n')
+
+    expected = evidence_artifact_sha256(linux_file)
+    assert evidence_artifact_sha256(windows_file) == expected
+    assert judge_artifact_sha256(windows_file) == expected
 
 
 def _source_report(tmp_path: Path) -> Path:

@@ -19,20 +19,20 @@
   "frozen_replays": [
     {
       "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json",
-      "sha256": "e575812da9517f9bcb99b86fd565edadf4fa795eda9421ce41563300d27dff5f"
+      "sha256": "64153d3236589732a702f918ef305d8fff408864deed3cfd09a6b747486bb636"
     },
     {
       "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay2.json",
-      "sha256": "72e6c83933ff35cdd91ec23636962640397595b650a0cade9b648b696fe8555e"
+      "sha256": "a9cb62ff3290a147d3de0e4c7ae8510f1e2ccb7eca0b477315f404f421dcfcda"
     },
     {
       "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay3.json",
-      "sha256": "8e91730ac62b8c123be8536a21c59579e59a78b1e2f2714833e13cefccf525f6"
+      "sha256": "bf1593ff18933dace2e524fb75af170d1f5fa8dfaf33c9ab79f807941d017de8"
     }
   ],
   "model_judge_panel": {
     "path": "backend/results/three_city_daily_query_agent_judge_panel_rc1_v22.json",
-    "sha256": "bbe6ec5f5bce0fb2ba1c09327764f5f1f93a09b374bcc594cbe07f33eb8218c9"
+    "sha256": "28e155d578e47cecae14b0f8a4082cf185cf47b6058e70bb02e008d2220c6ab2"
   },
   "live_product_runs": [],
   "acceptance": {

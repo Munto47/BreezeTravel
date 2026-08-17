@@ -65,6 +65,7 @@ jobs:
         working-directory: y-websocket
       - run: npm test
         working-directory: y-websocket
+      - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: docker compose -f docker-compose.multi.yml config --quiet
       - run: git diff --check

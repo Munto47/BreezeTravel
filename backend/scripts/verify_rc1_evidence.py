@@ -20,7 +20,10 @@ ZERO_CALL_KEYS = ("provider_calls", "generation_llm_calls", "judge_api_calls")
 
 
 def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    # Evidence JSON is generated on both Windows and Linux.  Bind the content,
+    # not the checkout's platform-specific text line endings.
+    raw = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _load(path: Path) -> dict[str, Any]:
