@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { MapPin, Star, AlertCircle, BookOpen, ExternalLink } from 'lucide-react'
 import type { ChatMessage } from '@/types/chat'
@@ -9,11 +10,28 @@ interface MessageItemProps {
   onClickPlace?: (placeId: string) => void
 }
 
-const CATEGORY_ICON: Record<string, string> = {
-  attraction: '🏛',
-  food: '🍜',
-  hotel: '🏨',
-  transport: '🚉',
+function PlaceThumbnail({ name, photos }: { name: string; photos: string[] }) {
+  const [failed, setFailed] = useState(false)
+  const photo = photos.find((url) => /^https?:\/\//i.test(url))
+
+  if (!photo || failed) {
+    return (
+      <div className="w-20 h-14 rounded-lg bg-slate-100 text-[10px] text-slate-400 flex items-center justify-center text-center flex-shrink-0">
+        暂无实景图
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={photo}
+      alt={`${name}实景`}
+      loading="lazy"
+      decoding="async"
+      onError={() => setFailed(true)}
+      className="w-20 h-14 rounded-lg object-cover flex-shrink-0 bg-slate-100"
+    />
+  )
 }
 
 export default function MessageItem({ message, onClickPlace }: MessageItemProps) {
@@ -36,10 +54,11 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
         <div className="space-y-2">
           <p className="text-[11px] text-gray-400 px-1 flex items-center gap-1">
             <MapPin className="w-3 h-3" />
-            推荐了 {message.placesGenerated.length} 个地点 · 已加入右侧候选区
+            {message.status === 'streaming'
+              ? `已在地图预览 ${message.placesGenerated.length} 个地点 · AI 正在完善说明`
+              : `推荐了 ${message.placesGenerated.length} 个地点 · 已加入右侧候选区`}
           </p>
           {message.placesGenerated.map((place, i) => {
-            const icon = CATEGORY_ICON[place.category] || '📍'
             return (
               <motion.div
                 key={place.placeId}
@@ -50,9 +69,7 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
                 className="bg-white/70 rounded-xl border border-gray-100/80 p-3 hover:border-coral-200 hover:shadow-card transition-all duration-200 cursor-pointer active:scale-[0.98]"
               >
                 <div className="flex items-start gap-2.5">
-                  <div className="w-9 h-9 rounded-lg bg-coral-50 flex items-center justify-center text-lg flex-shrink-0">
-                    {icon}
-                  </div>
+                  <PlaceThumbnail name={place.name} photos={place.amapPhotos || []} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-semibold text-gray-900 truncate">{place.name}</span>
@@ -78,6 +95,30 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
                         ))}
                       </div>
                     )}
+                    {place.constraintEvidence?.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {place.constraintEvidence.slice(0, 3).map((item) => (
+                          <span
+                            key={item.constraint}
+                            title={item.detail}
+                            className={`text-[10px] leading-none px-1.5 py-1 rounded-md border ${
+                              item.status === 'VERIFIED'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : item.status === 'REQUIRES_CONFIRMATION'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-100'
+                                  : 'bg-slate-50 text-slate-500 border-slate-100'
+                            }`}
+                          >
+                            {item.label} · {item.status === 'VERIFIED' ? '有数据支持' : item.status === 'UNKNOWN' ? '暂无数据' : '需联系确认'}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {place.confirmationActions?.map((action) => (
+                      <p key={action} className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-800">
+                        {action}
+                      </p>
+                    ))}
                   </div>
                 </div>
               </motion.div>

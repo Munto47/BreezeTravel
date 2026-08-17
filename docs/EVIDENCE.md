@@ -4,7 +4,13 @@
 
 ## 当前基线状态
 
-`backend/evidence/latest.json` 是唯一可公开读取的摘要，并明确标记为 `historical_baseline_pending_rerun`：
+`backend/evidence/latest.json` 是唯一可公开读取的摘要，当前标记为 `three_city_local_rc1_candidate`。这表示候选版证据可回读，但不表示完整 RC1 已通过：
+
+- v22 三次冻结重放均为 150/150、规范化哈希一致，且生成、高德和 Judge API 调用均为 0。
+- 模型盲评三轮为 146/150、145/150、142/150；完全一致率 95.33%，一致性门禁通过。
+- 质量总门禁未通过：第三轮 `all` 意图为 5/9；真人校准、两轮付费真实链路、公网部署和真实用户验证均未执行。
+
+下列 Router、RAG 和排线数字仍是历史基线，不因三城候选版而升级为当前发布指标：
 
 - Router 离线固定集：50 条，准确率 0.88；`both` 类 0.60，是当前最重要的改进对象。
 - RAG 历史评测：27 条，Faithfulness 0.9389、Answer Relevancy 0.9889、Context Recall 0.6944；其语料为历史合成资料，不能作为公开真实资料的效果宣称。
@@ -18,3 +24,11 @@
 4. 更新 `backend/evidence/latest.json` 的状态、数据说明和指标后，才可在 README 或简历使用新数值。
 
 当前 `/api/evidence/latest` 仅返回这个脱敏摘要；它不会暴露原始 prompt、密钥、用户请求或 LangSmith 私有 trace。
+
+## 三城本地 RC1 候选版口径
+
+RC1 的专项推荐证据仅覆盖北京、上海、杭州各 50 条。冻结重放、真实产品链路、模型评审组和人工证据必须分别记录，不能相互替代。三名 GPT-5.6-sol 子 Agent 的独立盲评可以证明模型评审一致性，但在没有真人标签时不得写成“已完成人类校准”或“Judge-human agreement 已通过”。
+
+当前冻结候选为 `rc1_v22`：三次完整重放均为 150/150，规范化输出哈希一致，DeepSeek 生成、高德和 Judge API 调用均为 0。两条杭州样本因为冻结 provider 候选中没有合格的附近餐饮而安全降级，缺品类率为 1.33%；系统没有继续把景区当餐饮，也没有交付距离西湖约 5.6 km 的夜宵，因此错误品类率为 0。自动通过不隐藏这两条缺口，原始报告的 `summary.category_coverage` 会保留 case ID、缺品类率和安全降级回执。
+
+模型评审组达到一致性阈值，但 `quality_thresholds_passed=false`，因此不能写成“RC1 质量门禁通过”。v22 后增加的景餐住 pairwise 紧凑核心、750 米空间重复景点去重和短距离车辆接驳表述没有重新执行 150 条全量评测，只能列为后续机制加固。当前明确排除完整 RC1 发布、真人校准、Judge-human agreement、两轮实时产品链路、公网全栈、真实用户效果和生产 SLO 等声明。

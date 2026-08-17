@@ -106,6 +106,10 @@ async def health_check():
         "version": app.version,
         "service": "breezetravel-backend",
         "instance_id": os.getenv("INSTANCE_ID", "single"),
+        "runtime_profile": settings.runtime_profile,
+        "demo_mode": settings.demo_mode,
+        "amap_mock": settings.amap_mock,
+        "amap_configured": bool(settings.amap_api_key),
     }
 
 
@@ -157,6 +161,7 @@ async def metrics():
             "sse_disconnect_count": m["sse_disconnect_count"],
         },
         "model_usage": m["labelled"].get("model_usage", {}),
+        "model_calls": m["labelled"].get("model_calls", {}),
         "tool_outcomes": m["labelled"].get("tool_outcomes", {}),
         "error_categories": m["labelled"].get("error_categories", {}),
         "estimated_llm_cost_usd": round(m["estimated_llm_cost_usd"], 8),

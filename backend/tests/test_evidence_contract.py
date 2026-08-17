@@ -27,7 +27,9 @@ def test_citations_are_display_safe_and_keep_provenance():
     assert citations[0]["corpus_kind"] == "public"
 
 
-def test_latest_evidence_discloses_historical_boundary():
+def test_latest_evidence_discloses_candidate_boundary():
     evidence = asyncio.run(latest_evidence())
-    assert evidence["status"] == "historical_baseline_pending_rerun"
-    assert evidence["metrics"]["router_both_accuracy"] == 0.6
+    assert evidence["status"] == "three_city_local_rc1_candidate"
+    assert evidence["three_city_candidate"]["overall_rc1_passed"] is False
+    assert evidence["three_city_candidate"]["model_panel_quality_passed"] is False
+    assert evidence["historical_metrics"]["router_both_accuracy"] == 0.6

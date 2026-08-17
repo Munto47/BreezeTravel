@@ -1,13 +1,6 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
-
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-})
 
 export const metadata: Metadata = {
   title: 'BreezeTravel — AI 智能旅行协同规划',
@@ -20,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" className={inter.variable} suppressHydrationWarning>
-      <body className={`${inter.className} bg-gray-100`} suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
+      <body className="bg-gray-100 font-sans" suppressHydrationWarning>
         {children}
         <ToastContainer />
       </body>

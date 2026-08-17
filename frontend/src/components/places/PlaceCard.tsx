@@ -159,6 +159,30 @@ export default function PlaceCard({
               </div>
             )}
 
+            {place.constraintEvidence?.length > 0 && (
+              <div className="mt-2 space-y-1.5 rounded-lg border border-slate-100 bg-slate-50/70 p-2">
+                {place.constraintEvidence.slice(0, 4).map((item) => (
+                  <div key={item.constraint} className="flex items-start gap-1.5 text-[10px] leading-relaxed">
+                    <span className={`mt-0.5 rounded px-1 py-0.5 font-medium ${
+                      item.status === 'VERIFIED'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : item.status === 'REQUIRES_CONFIRMATION'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {item.status === 'VERIFIED' ? '已核验' : item.status === 'UNKNOWN' ? '未知' : '需确认'}
+                    </span>
+                    <span className="text-slate-600" title={item.detail}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {place.confirmationActions?.map((action) => (
+              <p key={action} className="mt-2 rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-800">
+                {action}
+              </p>
+            ))}
+
             <div className="flex items-center gap-2 mt-2.5 text-[11px] text-gray-400">
               <MapPin className="w-3 h-3 flex-shrink-0" />
               <span className="truncate flex-1">{place.district || place.address}</span>

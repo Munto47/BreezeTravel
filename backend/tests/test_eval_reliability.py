@@ -8,6 +8,7 @@ from app.config import Settings
 from app.rag.execution_policy import select_rag_policy
 from app.tools.runtime import ProviderRuntime, ToolCallEnvelope, ToolRuntimeError, enforce_tool_budget
 from evals.experiments import ExperimentConfig, ExperimentRunner
+from evals.faults import inject_fault
 from evals.metrics import bootstrap_ci, ndcg_at_k, precision_recall_f1, reciprocal_rank
 from evals.runner import load_cases
 from evals.schema import EvalSplit
@@ -51,6 +52,18 @@ def test_dynamic_rag_policy_has_explainable_boundaries():
     assert not precise.use_hyde and not precise.use_multi_query and precise.use_reranker
     descriptive = select_rag_policy("杭州酒店住宿避坑和交通经验", "hotel", 5, settings)
     assert descriptive.use_multi_query and not descriptive.use_hyde and not descriptive.use_reranker
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "profile",
+    ["deepseek_timeout", "deepseek_429", "deepseek_5xx", "invalid_model_json"],
+)
+async def test_synthesizer_provider_faults_preserve_grounded_poi(profile):
+    result = await inject_fault(profile)
+    assert result["passed"] is True
+    assert result["preserved_place_ids"] == ["p1"]
+    assert result["response_nonempty"] is True
 
 
 @pytest.mark.asyncio

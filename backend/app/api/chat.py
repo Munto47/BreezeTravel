@@ -39,7 +39,9 @@ from app.utils.auth import get_optional_user
 from app.observability.metrics import metrics as _prom_metrics
 from app import metrics as _m
 from app.api.rate_limit import check_public_chat_limit
-from app.constraints.location import extract_district_constraint
+from app.constraints.location import extract_explicit_district_constraint
+from app.constraints.recommendation_intent import rank_places_for_request
+from app.memory.policy import should_use_long_term_memory
 
 router = APIRouter()
 
@@ -99,7 +101,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
     long_term_prefs = ""
     try:
         from app.memory.longterm import load_user_preferences
-        if request.user_id and request.user_id not in ("anonymous", ""):
+        if request.use_long_term_memory and should_use_long_term_memory(request.user_id):
             long_term_prefs = await asyncio.wait_for(
                 load_user_preferences(request.user_id),
                 timeout=2.0,
@@ -112,21 +114,32 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "messages": [HumanMessage(content=request.message)],
         "thread_id": request.thread_id,
         "user_id": request.user_id,
+        "long_term_memory_enabled": request.use_long_term_memory,
         "room_id": request.room_id,
         "trace_id": trace_id,
         "deadline_monotonic": time.monotonic() + get_settings().chat_deadline_seconds,
         "trip_city": request.trip_city,
-        "trip_district": extract_district_constraint(request.message),
+        # Only a district the visitor explicitly named is a request-wide hard
+        # boundary.  Landmark-derived districts stay slot-local; otherwise an
+        # ordered route such as 故宫(东城) -> 景山(西城) deletes its second POI.
+        "trip_district": extract_explicit_district_constraint(request.message),
         "amap_places": [],
+        "eligible_amap_places": [],
+        "eligible_candidates_computed": False,
         "rag_chunks": [],
         "citations": [],
         "tool_failures": [],
         "tool_receipts": [],
+        "retrieval_audits": [],
+        "retrieval_snapshots": [],
         "synthesized_places": [],
         "selected_place_ids": request.selected_place_ids,
         "intent": None,
         "query_rewrite": None,
         "routing_signals": [],
+        "recommendation_plan": None,
+        "slot_coverage": {},
+        "missing_slot_ids": [],
         "itinerary": None,
         "final_response": None,
         "working_context": default_working_context(),
@@ -136,6 +149,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         "critic_retry": False,
         "critic_reason": None,
         "critic_iterations": 0,
+        "critic_exhausted": False,
     }
 
     # ── 推送初始 thinking 事件（让用户立即看到响应）─────────────────
@@ -149,9 +163,19 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
     _critic_fired = False
     _previewed_ids: set[str] = set()         # 已作为预览卡推送过的 place_id（P1-12）
     _preview_per_cat: dict[str, int] = {}    # 已预览的各类目计数（首批硬上限用）
+    _reported_failure_count = 0              # tool_failures 在图状态中累积，SSE 只推送新增项
+    _latest_grounded_places: list = []       # 模型超时时仍可返回已获取的 POI
+    _latest_retrieval_audits: list[dict] = []
+    _latest_tool_failures: list[dict] = []
+    _latest_tool_receipts: list[dict] = []
+    _latest_retrieval_snapshots: list[dict] = []
 
     # LLM 增强后可能新增的字段（增量推送用）
-    _ENRICH_FIELDS = ("description", "tags", "rag_meta", "estimated_duration", "duration_basis")
+    _ENRICH_FIELDS = (
+        "description", "tags", "rag_meta", "constraint_evidence",
+        "selection_evidence_status", "geo_evidence", "confirmation_actions",
+        "estimated_duration", "duration_basis",
+    )
 
     # 首批预览硬上限：每类 5 个，总 15 个（与 synthesizer 同步）
     _PREVIEW_PER_CAT = 5
@@ -213,6 +237,8 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
 
                 elif ename == "tool_executor":
                     amap_raw = output.get("amap_places", []) or []
+                    if amap_raw:
+                        _latest_grounded_places = list(amap_raw)
                     chunks_count = len(output.get("rag_chunks", []))
                     parts = []
                     if amap_raw:
@@ -228,19 +254,25 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                     elif chunks_count:
                         _m.inc("rag_empty_count")
                     failures = output.get("tool_failures", []) or []
-                    for failure in failures:
+                    _latest_tool_failures = list(failures)
+                    _latest_tool_receipts = list(output.get("tool_receipts", []) or [])
+                    _latest_retrieval_audits = list(output.get("retrieval_audits", []) or [])
+                    _latest_retrieval_snapshots = list(output.get("retrieval_snapshots", []) or [])
+                    new_failures = failures[_reported_failure_count:]
+                    _reported_failure_count = len(failures)
+                    failed_labels: list[str] = []
+                    for failure in new_failures:
                         _m.inc("tool_error_count")
                         _m.inc("agent_degraded_count")
                         label = _TOOL_LABELS.get(failure.get("tool", ""), "外部工具")
+                        if label not in failed_labels:
+                            failed_labels.append(label)
+                    for label in failed_labels:
                         yield _thinking("tool_executor", f"{label}暂时不可用，已保留其他结果", elapsed)
 
                     # P1-12 真流式：立即推送预览卡，不等 Synthesizer 完成
                     # 受首批上限约束（每类 5、总 15），按 amap_rating 降序优先推送
-                    sorted_raw = sorted(
-                        amap_raw,
-                        key=lambda p: (p.amap_rating if p.amap_rating is not None else 0.0),
-                        reverse=True,
-                    )
+                    sorted_raw = rank_places_for_request(amap_raw, request.message)
                     for place in sorted_raw:
                         if place.place_id in _previewed_ids:
                             continue
@@ -251,7 +283,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                             continue
                         _previewed_ids.add(place.place_id)
                         _preview_per_cat[cat_key] = _preview_per_cat.get(cat_key, 0) + 1
-                        yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
+                        yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump(mode='json')}}, ensure_ascii=False)}\n\n"
                         if len(_previewed_ids) == 1:
                             _prom_metrics.observe("agent_time_to_first_meaningful_place_seconds", time.time() - start_time, status="ok")
 
@@ -271,14 +303,14 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                     # 已预览的 place 走 place_update 增量；新增 place 走 place
                     for place in places:
                         if place.place_id in _previewed_ids:
-                            dumped = place.model_dump()
+                            dumped = place.model_dump(mode="json")
                             fields = {k: dumped.get(k) for k in _ENRICH_FIELDS if dumped.get(k) is not None}
                             if not fields:
                                 continue
                             yield f"data: {json.dumps({'event': 'place_update', 'data': {'place_id': place.place_id, 'fields': fields}}, ensure_ascii=False)}\n\n"
                         else:
                             _previewed_ids.add(place.place_id)
-                            yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump()}}, ensure_ascii=False)}\n\n"
+                            yield f"data: {json.dumps({'event': 'place', 'data': {'place': place.model_dump(mode='json')}}, ensure_ascii=False)}\n\n"
 
                     # 文本重置帧：Critic 触发重检索时 synthesizer 会再跑一次，
                     # 此时清空前一轮文本，避免前端追加导致重复段落
@@ -295,6 +327,8 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
                     if retry:
                         _critic_fired = True
                         yield _thinking("critic", f"结果待优化（{reason}），正在重新搜索...", elapsed)
+                    elif output.get("critic_exhausted", False):
+                        yield _thinking("critic", f"质量仍未达标（{reason}），已停止自动重试", elapsed)
                     else:
                         yield _thinking("critic", "质量检查通过", elapsed)
 
@@ -302,7 +336,7 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         _prom_metrics.observe("agent_duration_seconds", total_ms / 1000, status="ok" if places else "degraded")
         _prom_metrics.inc("agent_task_completed_total", status="ok" if places else "degraded")
         _prom_metrics.observe("agent_react_iterations", react_round, status="ok")
-        yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round, 'trace_id': trace_id}}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(places), 'total_ms': total_ms, 'react_rounds': react_round, 'trace_id': trace_id, 'retrieval_audits': _latest_retrieval_audits, 'tool_failures': _latest_tool_failures, 'tool_receipts': _latest_tool_receipts, 'retrieval_snapshots': _latest_retrieval_snapshots}}, ensure_ascii=False)}\n\n"
 
         # ── 写入 Agent 级指标 ──────────────────────────────────────
         if places:
@@ -326,10 +360,25 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         _prom_metrics.inc("sse_disconnect_total", reason="cancelled_by_client")
         raise
     except TimeoutError:
-        _m.inc("agent_failure_count")
         _m.inc("agent_degraded_count")
         _prom_metrics.inc("agent_degraded_total", error_category="deadline_exceeded")
-        yield f"data: {json.dumps({'event': 'error', 'data': {'message': '请求已超过总时限，未完成的模型和工具任务已取消。', 'trace_id': trace_id, 'error_category': 'deadline_exceeded'}}, ensure_ascii=False)}\n\n"
+        if _latest_grounded_places and _previewed_ids:
+            from app.agents.nodes.synthesizer import ensure_grounded_fallback_descriptions
+
+            displayed = ensure_grounded_fallback_descriptions([
+                place for place in _latest_grounded_places if place.place_id in _previewed_ids
+            ])
+            for place in displayed:
+                yield f"data: {json.dumps({'event': 'place_update', 'data': {'place_id': place.place_id, 'fields': {'description': place.description}}}, ensure_ascii=False)}\n\n"
+            fallback_text = "模型增强超时，已先返回高德地点的可验证基础信息；营业时间和价格请以最新页面为准。"
+            yield f"data: {json.dumps({'event': 'text_reset', 'data': {}}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'event': 'text', 'data': {'delta': fallback_text}}, ensure_ascii=False)}\n\n"
+            total_ms = int((time.time() - start_time) * 1000)
+            yield f"data: {json.dumps({'event': 'done', 'data': {'total_places': len(displayed), 'total_ms': total_ms, 'react_rounds': react_round, 'trace_id': trace_id, 'degraded': True, 'error_category': 'deadline_exceeded', 'retrieval_audits': _latest_retrieval_audits, 'tool_failures': _latest_tool_failures, 'tool_receipts': _latest_tool_receipts, 'retrieval_snapshots': _latest_retrieval_snapshots}}, ensure_ascii=False)}\n\n"
+            _m.inc("agent_success_count")
+        else:
+            _m.inc("agent_failure_count")
+            yield f"data: {json.dumps({'event': 'error', 'data': {'message': '请求已超过总时限，未完成的模型和工具任务已取消。', 'trace_id': trace_id, 'error_category': 'deadline_exceeded'}}, ensure_ascii=False)}\n\n"
     except Exception:
         _m.inc("agent_failure_count")
         _m.inc("agent_degraded_count")

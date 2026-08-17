@@ -173,10 +173,9 @@ class RecommendResponse(BaseModel):
 
 
 def _parse_amap_type(type_str: str) -> PlaceCategory:
-    for key, cat in AMAP_TYPE_MAP.items():
-        if key in type_str:
-            return cat
-    return PlaceCategory.ATTRACTION
+    from app.constraints.amap_types import classify_amap_type
+
+    return classify_amap_type(type_label=type_str)
 
 
 def _parse_amap_place(raw: dict, city: str) -> Optional[Place]:
@@ -193,7 +192,9 @@ def _parse_amap_place(raw: dict, city: str) -> Optional[Place]:
         photos = []
         if raw.get("photos"):
             photos = [p.get("url", "") for p in raw["photos"][:3] if p.get("url")]
-        category = _parse_amap_type(raw.get("type", ""))
+        from app.constraints.amap_types import classify_amap_type
+
+        category = classify_amap_type(raw.get("typecode", ""), raw.get("type", ""))
         # 名称含「酒店/宾馆/客栈/民宿…」时强制归 HOTEL，纠正 Amap 类型误判
         name_hint = _hint_category_from_name(raw.get("name", ""))
         if name_hint:

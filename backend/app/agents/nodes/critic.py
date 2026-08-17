@@ -11,6 +11,12 @@ Rule 4: Alternative 合法性（place_id 非空）→ 移除无效 alternative
 from app.agents.state import AgentState
 from app.schemas.place import PlaceCategory
 from app.schemas.recommendation import PlaceRecommendation
+from app.constraints.recommendation_intent import (
+    extract_landmark_groups,
+    infer_requested_categories,
+    request_has_all_landmarks,
+)
+from app.constraints.recommendation_plan import missing_slot_ids, slot_coverage
 
 MIN_PLACES = 3
 MAX_CRITIC_RETRIES = 1
@@ -61,7 +67,16 @@ async def run(state: AgentState) -> dict:
     recs: list[PlaceRecommendation] = state.get("recommendations", [])
     working_ctx = state.get("working_context") or {}
     preferred_cats = working_ctx.get("preferred_categories", [])
+    user_query = next(
+        (str(getattr(message, "content", "")) for message in reversed(state.get("messages", []))
+         if getattr(message, "type", "") in {"human", "user"}),
+        "",
+    )
+    requested_categories = infer_requested_categories(user_query)
     iterations = state.get("critic_iterations", 0)
+    plan = state.get("recommendation_plan")
+    coverage = slot_coverage(plan, places) if plan else {}
+    missing_slots = missing_slot_ids(plan, places) if plan else []
 
     # ── 已达重试上限，强制通过 ────────────────────────────────────────────────
     if iterations >= MAX_CRITIC_RETRIES:
@@ -69,13 +84,38 @@ async def run(state: AgentState) -> dict:
         recs = _run_quality_rules(recs, rag_chunks)
         return {
             "critic_retry": False,
-            "critic_reason": "已达重试上限，直接输出",
+            "critic_exhausted": True,
+            "critic_reason": "结果仍未达标，已达自动重试上限",
             "recommendations": recs,
+            "slot_coverage": coverage,
         }
 
+    if missing_slots:
+        return _make_retry(
+            iterations,
+            "计划槽位未覆盖：" + "、".join(missing_slots),
+            missing_slot_ids=missing_slots,
+            coverage=coverage,
+        )
+
     # ── Rule 1：结果数量不足 ───────────────────────────────────────────────────
-    if len(places) < MIN_PLACES:
-        return _make_retry(iterations, f"结果仅 {len(places)} 个（期望 ≥ {MIN_PLACES}），扩大搜索范围")
+    explicit_entities = len(extract_landmark_groups(user_query))
+    minimum_places = max(1, explicit_entities) if explicit_entities else MIN_PLACES
+    if len(places) < minimum_places:
+        return _make_retry(iterations, f"结果仅 {len(places)} 个（期望 ≥ {minimum_places}），扩大搜索范围")
+
+    if requested_categories:
+        off_intent = [
+            p for p in places if getattr(p, "category", None) not in requested_categories
+        ]
+        missing = requested_categories - {getattr(p, "category", None) for p in places}
+        if off_intent or missing:
+            return _make_retry(
+                iterations,
+                f"结果品类不符合用户明确需求（越界 {len(off_intent)} 个，缺失 {len(missing)} 类）",
+            )
+    if not request_has_all_landmarks(places, user_query):
+        return _make_retry(iterations, "用户明确指定的地标没有全部返回")
 
     # ── Rule 2：品类漂移 ───────────────────────────────────────────────────────
     if "美食" in preferred_cats or "餐饮" in preferred_cats:
@@ -88,8 +128,10 @@ async def run(state: AgentState) -> dict:
 
     return {
         "critic_retry": False,
+        "critic_exhausted": False,
         "critic_reason": "质量检查通过",
         "recommendations": recs,
+        "slot_coverage": coverage,
     }
 
 
@@ -104,22 +146,38 @@ def _run_quality_rules(
     return recs
 
 
-def _make_retry(iterations: int, reason: str) -> dict:
+def _make_retry(
+    iterations: int,
+    reason: str,
+    *,
+    missing_slot_ids: list[str] | None = None,
+    coverage: dict | None = None,
+) -> dict:
     # 注入引导消息：告知 Router 上次失败原因，强制下一轮调用 search_places
     from langchain_core.messages import SystemMessage
     hint = SystemMessage(
         content=f"[系统反思] 上一轮未返回地点数据（原因：{reason}）。"
                 "本轮必须调用 search_places 工具以获取结构化 POI 数据，否则用户仍将看到空列表。"
     )
-    return {
+    result = {
         "critic_retry": True,
+        "critic_exhausted": False,
         "critic_reason": reason,
         "critic_iterations": iterations + 1,
         "react_iterations": 0,
-        "amap_places": [],
         "rag_chunks": [],
         "synthesized_places": [],
         "final_response": None,
         "recommendations": [],
         "messages": [hint],  # add_messages 注解会追加而非覆盖
     }
+    if missing_slot_ids:
+        result["missing_slot_ids"] = missing_slot_ids
+        result["slot_coverage"] = coverage or {}
+        # Preserve candidates that already satisfy other slots; Router repairs
+        # only the missing slots on the next pass.
+    else:
+        result["amap_places"] = []
+        result["eligible_amap_places"] = []
+        result["eligible_candidates_computed"] = False
+    return result

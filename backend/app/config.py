@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     public_demo_chat_requests_per_minute: int = 12
     trust_proxy_headers: bool = False
     tool_timeout_seconds: float = 12.0
+    amap_tool_timeout_seconds: float = 20.0
     tool_max_concurrency: int = 3
     chat_max_tool_calls: int = 6
     e2e_cleanup_secret: str = ""
@@ -98,7 +99,7 @@ class Settings(BaseSettings):
     model_pricing_version: str = "unconfigured"
     chat_deadline_seconds: float = 30.0
     llm_max_concurrency: int = 4
-    amap_max_concurrency: int = 8
+    amap_max_concurrency: int = 4
     weather_max_concurrency: int = 4
     embedding_max_concurrency: int = 4
     provider_failure_threshold: int = 5

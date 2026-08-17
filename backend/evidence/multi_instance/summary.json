@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-09T09:14:28.732948+00:00",
+  "generated_at": "2026-08-15T15:45:50.615378+00:00",
   "scope": "controlled_local_multi_instance",
   "passed": true,
   "health": [
@@ -7,13 +7,21 @@
       "status": "ok",
       "version": "2.0.0",
       "service": "breezetravel-backend",
-      "instance_id": "backend-a"
+      "instance_id": "backend-a",
+      "runtime_profile": "test",
+      "demo_mode": true,
+      "amap_mock": true,
+      "amap_configured": false
     },
     {
       "status": "ok",
       "version": "2.0.0",
       "service": "breezetravel-backend",
-      "instance_id": "backend-b"
+      "instance_id": "backend-b",
+      "runtime_profile": "test",
+      "demo_mode": true,
+      "amap_mock": true,
+      "amap_configured": false
     }
   ],
   "chat": [
@@ -21,13 +29,13 @@
       "port": 18001,
       "status": 200,
       "done": true,
-      "response_bytes": 11642
+      "response_bytes": 8264
     },
     {
       "port": 18002,
       "status": 200,
       "done": true,
-      "response_bytes": 4511
+      "response_bytes": 7762
     }
   ],
   "checkpoint_counts": {

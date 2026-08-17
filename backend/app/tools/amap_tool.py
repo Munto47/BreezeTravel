@@ -14,6 +14,7 @@
 """
 
 from typing import Annotated
+import re
 
 from langchain_core.tools import tool
 
@@ -53,7 +54,32 @@ async def _run_amap_search(
     category: str = "",
     prefer_trending: bool = False,
     prefer_chain: bool = False,
+    typecodes: list[str] | None = None,
 ) -> list:
+    places, _ = await _run_amap_search_with_audit(
+        query=query,
+        city=city,
+        district=district,
+        category=category,
+        prefer_trending=prefer_trending,
+        prefer_chain=prefer_chain,
+        typecodes=typecodes,
+    )
+    return places
+
+
+async def _run_amap_search_with_audit(
+    query: str,
+    city: str,
+    district: str = "",
+    category: str = "",
+    prefer_trending: bool = False,
+    prefer_chain: bool = False,
+    slot_id: str = "",
+    anchor_place: str = "",
+    radius_m: int = 0,
+    typecodes: list[str] | None = None,
+) -> tuple[list, list[dict]]:
     """
     底层高德搜索执行函数（供 tool_executor 直接调用，无竞态风险）
 
@@ -70,13 +96,16 @@ async def _run_amap_search(
     from langchain_core.messages import HumanMessage
 
     # 根据连锁/热门偏好追加修饰词，提升高德关键词精准度
-    parts = [query]
-    if district and district not in query:
-        parts.insert(0, district)
+    provider_query = query
+    if anchor_place:
+        provider_query = provider_query.replace(anchor_place, "").replace("附近", "").strip()
+    provider_query = _compile_provider_keyword(provider_query, category)
+    parts = [provider_query or category]
     if prefer_chain and "连锁" not in query:
         parts.append("连锁")
-    if category:
-        parts.append(category)
+    # Category is carried by a closed Amap typecode and post-filter contract;
+    # it is not appended to the keyword. Provider keywords stay short and do
+    # not absorb administrative or natural-language constraints.
     search_query = " ".join(parts).strip()
 
     ctx = default_working_context()
@@ -93,6 +122,7 @@ async def _run_amap_search(
         "query_rewrite": search_query,
         "amap_places": [],
         "rag_chunks": [],
+        "retrieval_audits": [],
         "synthesized_places": [],
         "final_response": None,
         "itinerary": None,
@@ -100,18 +130,67 @@ async def _run_amap_search(
         "working_context": ctx,
         "user_long_term_prefs": None,
         "react_iterations": 0,
+        "search_anchor": anchor_place or None,
+        "search_radius_m": radius_m or None,
+        "search_typecodes": list(typecodes or []),
     }
 
-    try:
-        result = await amap_node.run(mock_state)
-        places = result.get("amap_places", [])
+    result = await amap_node.run(mock_state)
+    places = result.get("amap_places", [])
+    audits = result.get("retrieval_audits", [])
 
-        # prefer_trending：按评分降序重排（高德 weight 排序仅真实模式有效）
-        if prefer_trending:
-            places = sorted(places, key=lambda p: p.amap_rating or 0, reverse=True)
+    # prefer_trending：按评分降序重排（高德 weight 排序仅真实模式有效）
+    if prefer_trending:
+        places = sorted(places, key=lambda p: p.amap_rating or 0, reverse=True)
 
-        from app.constraints.location import filter_places_by_district
-        return filter_places_by_district(places, district)
-    except Exception as exc:
-        print(f"[AmapTool] 搜索失败：{exc}")
-        return []
+    from app.constraints.location import filter_human_suitable_places, filter_places_by_district
+    from app.constraints.recommendation_intent import filter_places_for_request, rank_places_for_request
+    places = filter_human_suitable_places(filter_places_by_district(places, district))
+    places = filter_places_for_request(places, query, category)
+    places = rank_places_for_request(places, query)
+    if slot_id:
+        places = [
+            place.model_copy(update={
+                "recommendation_slot_ids": list(dict.fromkeys([
+                    *place.recommendation_slot_ids, slot_id,
+                ])),
+            })
+            for place in places
+        ]
+    if audits:
+        audits[-1] = {**audits[-1], "slot_id": slot_id or None, "result_count": len(places)}
+    return places, audits
+
+
+def _compile_provider_keyword(query: str, category: str) -> str:
+    """Keep semantic constraints in the slot; send Amap short POI keywords."""
+    compact = re.sub(r"\s+", " ", str(query or "")).strip()
+    if "住宿" in category or "酒店" in category:
+        # Room type, accessibility, shuttle, pet and quietness are not Amap POI
+        # keyword capabilities. They remain field-level evidence constraints.
+        if "四合院" in compact:
+            return "四合院 酒店"
+        if "历史建筑" in compact or "老洋房" in compact:
+            return "历史建筑 酒店"
+        if "客栈" in compact or "民宿" in compact:
+            return "客栈 民宿"
+        if "精品" in compact:
+            return "精品酒店"
+        if "公寓式" in compact:
+            return "公寓式酒店"
+        if "经济型" in compact:
+            return "经济型酒店"
+        return "酒店"
+    if "美食" in category or "餐饮" in category:
+        cuisines = [term for term in (
+            "北京菜", "烤鸭", "清真", "素食", "川菜", "湘菜", "粤菜",
+            "本帮菜", "杭帮菜", "生煎", "小笼", "片儿川", "火锅", "烧烤",
+            "日料", "咖啡", "茶馆", "甜品", "早餐", "夜宵", "豆汁", "炒肝",
+            "卤煮", "锅贴", "粢饭", "面馆", "北京小吃", "上海小吃", "杭州小吃",
+            "24小时餐厅", "亲子餐厅", "家常菜", "粥店", "素菜馆", "社区小馆",
+            "商务餐厅", "小吃快餐",
+        ) if term in compact]
+        return " ".join(cuisines[:2]) or "餐厅"
+    if "交通" in category:
+        return "交通枢纽"
+    return compact or "景点"

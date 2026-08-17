@@ -1,0 +1,2426 @@
+{
+  "schema_version": "1.0",
+  "kind": "codex_subagent_judge_round",
+  "evaluator": {
+    "kind": "codex_subagent",
+    "model": "gpt-5.6-sol",
+    "evaluator_id": "rc1-v22-judge-3",
+    "round": 3,
+    "blind": true
+  },
+  "bindings": {
+    "source_report_sha256": "e575812da9517f9bcb99b86fd565edadf4fa795eda9421ce41563300d27dff5f",
+    "dataset_sha256": "5851eaffa476fefc094f5bf841863132c8da80df5e517d1dbdf7a8964a53b578",
+    "rubric_sha256": "4810dca3b7b31027d961b811b4fcb90eb116efc4b1a487e6e0d1a6a7f7ff5802",
+    "execution_tree_sha256": "ad36860fb5edd627209ef632287365e66825e7213f76b86be88be256caef92fb"
+  },
+  "cases": [
+    {
+      "id": "bj_01_first_time_landmarks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "故宫、景山与天坛均是辨识度高的北京历史地标，类别不重复堆砌且提供开放信息与可逆选择。"
+    },
+    {
+      "id": "bj_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "皇家园林候选真实，并将步行强度、休息点和无障碍条件标为待确认，附逐处电话或页面核实动作。"
+    },
+    {
+      "id": "bj_03_child_science",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选以科技、自然科普室内场馆为主且非培训或商场，但动手体验项目仍需按提示向场馆核实。"
+    },
+    {
+      "id": "bj_04_teen_history",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "故宫、国博与恭王府直接关联明清史，回复清楚区分宫廷、通史和王府研学侧重点。"
+    },
+    {
+      "id": "bj_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "经典景点类别与区域正确，无障碍设施没有被保证，并给出入口、卫生间、观光车及休息点的具体核实动作。"
+    },
+    {
+      "id": "bj_06_rainy_museums",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个室内文化场馆相距约0.618公里且均明确为目标，预约与开放状态保持待核并给出官网或小程序动作。"
+    },
+    {
+      "id": "bj_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "景山与永定门是中轴线公共拍摄候选且排除器材店；日出朝向、开放和机位仍需出发前复核。"
+    },
+    {
+      "id": "bj_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均为有开放信息的公共夜游区域且未导向酒吧，安全相关照明、人流和返程条件以地图实时核实。"
+    },
+    {
+      "id": "bj_09_haidian_student",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三个候选均在海淀且适合停留，低价或免费状态不冒充已证实并附电话或官方页面核实。"
+    },
+    {
+      "id": "bj_10_798_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "UCCA明确位于798艺术区，红砖美术馆补充当代艺术空间，未混入古建且展览开放信息可核。"
+    },
+    {
+      "id": "bj_11_hutong_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "史家胡同博物馆与东交民巷提供不同社区漫步入口，避免商业街单一答案并明确商业化程度需查看近期信息。"
+    },
+    {
+      "id": "bj_12_autumn_foliage",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选兼有城区和近郊秋色地点，季相与公共交通均未虚构并附逐处核实动作，但远近取舍说明较简略。"
+    },
+    {
+      "id": "bj_13_airport_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "仅给首都机场近距离候选，明确首选单程约12分钟、往返下限、安检和拥堵缓冲，时间不稳则留机场。"
+    },
+    {
+      "id": "bj_14_forbidden_city_then_jingshan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "故宫与景山均完整返回并严格保持指定先后，约0.894公里关系及地图复核动作清楚。"
+    },
+    {
+      "id": "bj_15_central_no_great_wall",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选全部位于核心城区并明确排除长城，开放信息和首选备选足以支持半天选择。"
+    },
+    {
+      "id": "bj_16_roast_duck_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "提供多家烤鸭或京味餐饮，当前人均参考价均不超过150元并提醒下单前复核动态价格。"
+    },
+    {
+      "id": "bj_17_halal_niujie",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均在牛街极近范围且名称提供清真依据，饮食要求仍逐店标为待确认并附电话或页面动作。"
+    },
+    {
+      "id": "bj_18_peanut_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "王府井附近餐厅位置明确，花生过敏与交叉污染未作安全保证，并提供逐店电话确认动作。"
+    },
+    {
+      "id": "bj_19_vegetarian_temple",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个候选均是东城区正餐素食餐厅而非咖啡店，蛋奶素饮食细节保持待确认并附电话。"
+    },
+    {
+      "id": "bj_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "豆汁与卤煮餐馆均有可回读的早间营业时间、价格和地址，首选备选清晰且未虚构开门时间。"
+    },
+    {
+      "id": "bj_21_family_dinner",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "故宫附近北京菜候选均有距离与用餐信息，六人家庭所需包间、安静和饮食细节保持待确认并附电话或页面动作。"
+    },
+    {
+      "id": "bj_22_solo_small_portion",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "炸酱面、卤煮和小吃候选可支持一人食，份量仍逐店确认；首选排序含多人型烤鸭店，画像适配不够突出。"
+    },
+    {
+      "id": "bj_23_sanlitun_late_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家餐饮距三里屯约0.23公里内且均有覆盖22:30的营业记录，并明确临时调整和返程需实时复核。"
+    },
+    {
+      "id": "bj_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两家均为前门约0.21公里内的北京小吃或京味餐厅，明确排除点名的全国快餐连锁。"
+    },
+    {
+      "id": "bj_25_spicy_sichuan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选全部是国贸极近范围的川菜餐厅，菜系标签直接支持嗜辣意图且未混入北京菜。"
+    },
+    {
+      "id": "bj_26_dairy_free_dessert",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "甜品饮品候选距什刹海约1公里，无乳糖或植物奶配方未被保证，并给出逐店电话或页面确认动作。"
+    },
+    {
+      "id": "bj_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "国贸近距离餐厅均有午间营业与300元内参考价，包间和安静程度保持待确认并附逐店电话。"
+    },
+    {
+      "id": "bj_28_early_train_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "早餐候选均有覆盖6点的营业记录且距南站约0.69至1.4公里，但实际步行路线和出餐速度仍需实时复核。"
+    },
+    {
+      "id": "bj_29_hutong_boutique_hotel",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "核心城区住宿中有胡同和四合院候选，风格、千元预算与夜间隔音均诚实待确认并附逐店电话。"
+    },
+    {
+      "id": "bj_30_family_near_palace",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "酒店均在东城区且距故宫不足1公里，家庭房逐店电话确认；地铁实际便利性仍需按地图路线复核。"
+    },
+    {
+      "id": "bj_31_budget_subway_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "经济型住宿候选真实，价格、地铁步行、卫生正规与安全均保持未知并提供逐店电话核实。"
+    },
+    {
+      "id": "bj_32_capital_airport_early",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "住宿均在顺义近首都机场范围，接送机或班车未被保证并附逐店电话确认，早班机选择清晰。"
+    },
+    {
+      "id": "bj_33_south_station_late",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "住宿均距北京南站极近并有步行时间或距离证据，优先正规连锁且未作绝对安全承诺。"
+    },
+    {
+      "id": "bj_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "王府井近距离酒店真实，无障碍房、无台阶入口、电梯和浴室均逐店标为待确认并给出电话。"
+    },
+    {
+      "id": "bj_35_business_guomao_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "酒店均在国贸约0.45公里内，800元预算保持未知并附逐店核价，日常通勤选择明确。"
+    },
+    {
+      "id": "bj_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "公寓或家庭住宿类别与长住相关，家庭房、洗衣和空间全部保持待确认并提供逐店电话。"
+    },
+    {
+      "id": "bj_37_quiet_no_nightlife",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均有二环内证据且不是酒吧类场所，安静和隔音未被保证并附逐店电话核实。"
+    },
+    {
+      "id": "bj_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "提供北京真实住宿候选，携宠与停车均未冒充已满足并给出逐店电话确认动作。"
+    },
+    {
+      "id": "bj_39_parent_child_day",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 1,
+        "entity_coverage": 5,
+        "constraint_adherence": 2,
+        "persona_fit": 2,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [
+        "semantic_radius_mismatch"
+      ],
+      "passed": false,
+      "root_cause_hint": "required_parent_child_attractions_too_far_apart",
+      "summary": "两处明确必去亲子景点虽均在朝阳区，但直线相距约10.452公里，明显不符合一日少换乘、相对集中要求。"
+    },
+    {
+      "id": "bj_40_elder_temple_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "完整覆盖天坛与0.732公里附近北京菜，低强度和清淡饮食均保持待确认并给出具体核实动作。"
+    },
+    {
+      "id": "bj_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "798园区与三家咖啡馆完整覆盖，主咖啡馆距园区约45米，开放、价格和可逆选择信息充足。"
+    },
+    {
+      "id": "bj_42_student_haidian_day",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "海淀文化景点和80元内参考价餐饮均充分覆盖，主组合相距约0.651公里且动态价格提醒克制。"
+    },
+    {
+      "id": "bj_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "室内文化场馆与0.49公里附近餐饮完整覆盖，儿童就餐适配未被臆造并附逐店电话确认。"
+    },
+    {
+      "id": "bj_44_night_view_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "夜景节点与本地夜宵均有营业信息，主组合相距约2.503公里；夜间人流、末班车和实际路线仍需实时核实。"
+    },
+    {
+      "id": "bj_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "老社区节点与近距离京味馆子均有覆盖且明确排除商场门店，居民客群属性保持待确认。"
+    },
+    {
+      "id": "bj_46_two_landmarks_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "严格保持故宫到景山再到北京菜的顺序，景山与首选餐饮约0.261公里，三类关系清楚可核。"
+    },
+    {
+      "id": "bj_47_layover_food",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "活动点距南站约0.458公里、餐饮在站内或极近，并明确倒推返站和预留安检缓冲；活动开放仍需核实。"
+    },
+    {
+      "id": "bj_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "恰好15个候选且景点、北京菜、住宿各五个，代表性与类型覆盖完整，未无依据声称房价。"
+    },
+    {
+      "id": "bj_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "亲子场馆、非奢侈餐饮和经济住宿三类齐全，交通、家庭房与儿童就餐均提供逐项确认动作。"
+    },
+    {
+      "id": "bj_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 3,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 3,
+        "practical_usefulness": 3,
+        "groundedness": 4
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "low_transfer_combination_not_supported",
+      "summary": "三类齐全且动态属性诚实待确认，但所谓最紧凑组合两两最大直线距离仍约3.93公里，未证明老人低强度、少换乘路线。"
+    },
+    {
+      "id": "sh_01_first_time_landmarks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "外滩直接覆盖地标和浦东天际线，豫园补充老城文化，东馆补充现代城市形象且没有商场凑数。"
+    },
+    {
+      "id": "sh_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "外滩与室内博物馆构成可择一的城市风貌候选，低强度、休息点和无障碍条件均明确待确认。"
+    },
+    {
+      "id": "sh_03_child_science",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "科技馆特展厅与自然博物馆均为真实科普场馆，适龄互动项目没有被静态保证并提示官网或小程序核实。"
+    },
+    {
+      "id": "sh_04_teen_architecture",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "历史博物馆、规划馆与外滩从历史、规划和建筑街区互补呈现上海城市变迁。"
+    },
+    {
+      "id": "sh_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "经典城市景观候选真实，坡道、电梯、卫生间与休息点均未保证并提供官方页面或电话核实。"
+    },
+    {
+      "id": "sh_06_rainy_indoor",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个明确目标均为真实室内文化场馆且排除商场，但相距约7.8公里，雨天半日组合的便利性一般。"
+    },
+    {
+      "id": "sh_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "外滩和两处滨江公共空间均可作为拍摄候选且排除照相馆，具体日出方向、机位与临时开放需复核。"
+    },
+    {
+      "id": "sh_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选是公共滨江区域且未导向酒吧，夜间人流、照明、轨交与返程均保持待确认并提供官方或地图动作。"
+    },
+    {
+      "id": "sh_09_minhang_parks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五个候选均经证据确认位于闵行且为公园绿地，明确排除商场并提供开放时间与首选备选。"
+    },
+    {
+      "id": "sh_10_contemporary_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "西岸、龙美术馆与浦东美术馆均为当代艺术空间，其中包含工业改造场馆，未混入古镇园林。"
+    },
+    {
+      "id": "sh_11_local_alley_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "武康路、思南与愚园路提供多个里弄和梧桐街区入口，避免单一网红建筑并提示查看近期社区状态。"
+    },
+    {
+      "id": "sh_12_autumn_plane_trees",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三个候选均为中心城区历史街区且没有远郊公园，十一月梧桐季相未保证并给出官方页面核实。"
+    },
+    {
+      "id": "sh_13_hongqiao_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 3,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "airport_proximity_not_supported",
+      "summary": "候选均在闵行且风险提示克制，但没有虹桥机场到首选地点的距离或路线证据，三小时转机的近距硬约束尚未验证。"
+    },
+    {
+      "id": "sh_14_disney_then_wildlife",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "上海迪士尼与上海野生动物园均完整返回并严格保持指定顺序，开放和地图路线信息可核。"
+    },
+    {
+      "id": "sh_15_china_tallest",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "将中国第一高楼准确解析为上海中心的上海之巅观光厅，没有用地铁站或泛化商圈替代。"
+    },
+    {
+      "id": "sh_16_shengjian_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家上海小吃均在人民广场约0.8公里内且当前人均参考价不超过80元，并提示动态复核。"
+    },
+    {
+      "id": "sh_17_vegetarian_minhang",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两家正餐候选均经证据确认位于闵行且名称支持素食，清淡和具体菜品仍逐店电话确认。"
+    },
+    {
+      "id": "sh_18_shellfish_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "南京西路近距离本帮餐饮真实，海鲜过敏与交叉污染未作安全保证并提供逐店电话确认。"
+    },
+    {
+      "id": "sh_19_halal_hongkou",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家均为虹口真实餐厅且名称有清真依据，饮食要求仍逐店待确认并排除便利店。"
+    },
+    {
+      "id": "sh_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "生煎、锅贴和粢饭候选均有覆盖早上7点的营业记录，并提醒临时调整需地图或电话复核。"
+    },
+    {
+      "id": "sh_21_family_disney_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家均为迪士尼约0.8至2.4公里内可坐下用餐的实体，乐园只作位置锚点，首选与备选清楚。"
+    },
+    {
+      "id": "sh_22_solo_benbang",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "本帮餐饮覆盖充分且逐店确认小份，但首选排序包含更偏多人正餐的高人均餐厅，一人食适配不够突出。"
+    },
+    {
+      "id": "sh_23_late_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家静安餐饮均有覆盖22:30的营业记录，热面、正餐和火锅可选，并提醒临时调整与返程核实。"
+    },
+    {
+      "id": "sh_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三家地方小吃距城隍庙约0.07公里内，明确排除点名连锁，且有价格、地址与可逆首选。"
+    },
+    {
+      "id": "sh_25_spicy_hunan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选全部为徐家汇极近范围的湘菜餐厅，菜系和店名直接支持辣味诉求且未混入本帮菜。"
+    },
+    {
+      "id": "sh_26_dairy_free_cafe",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家咖啡店距武康路约0.25公里内，植物奶供应未被保证并提供逐店电话确认。"
+    },
+    {
+      "id": "sh_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "陆家嘴近距离午餐候选有400元内参考价，包间和安静程度保持待确认并附逐店电话。"
+    },
+    {
+      "id": "sh_28_early_hongqiao_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个候选均有覆盖6点的营业记录且距虹桥站约0.66至1.27公里，但跨枢纽实际路线和出餐时间仍需实时核实。"
+    },
+    {
+      "id": "sh_29_boutique_lane_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "中心历史风貌住宿候选充分，建筑体验、1200元预算和隔音均保持未知并附逐店电话；远郊项仅作备选。"
+    },
+    {
+      "id": "sh_30_family_near_disney",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "住宿均在迪士尼约1.3公里内，家庭房和接驳班次逐店待确认，并提供电话与清晰首选备选。"
+    },
+    {
+      "id": "sh_31_budget_subway_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "经济住宿候选名称体现近地铁，价格、实际步行、卫生正规与安全均未保证并提供逐店电话。"
+    },
+    {
+      "id": "sh_32_pudong_airport_early",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均在浦东机场近距离范围，接驳班次和航站楼关系保持待确认并附电话及地图动作。"
+    },
+    {
+      "id": "sh_33_hongqiao_late_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "四家正规住宿均距虹桥站约0.53公里内且有5至15分钟路线信息，未作绝对安全承诺。"
+    },
+    {
+      "id": "sh_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "外滩近距离酒店真实，无障碍客房、入口、电梯和浴室均逐店待确认并提供电话。"
+    },
+    {
+      "id": "sh_35_lujiazui_business_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "酒店均在陆家嘴约0.5公里内，900元预算保持未知并附逐店核价，通勤位置直接可用。"
+    },
+    {
+      "id": "sh_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家均为公寓式或长住相关住宿，家庭房、洗衣、空间和厨房逐项待确认并附电话。"
+    },
+    {
+      "id": "sh_37_quiet_no_bar",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "住宿均直接命中历史风貌语义区域且非酒吧实体，实际安静与隔音仍逐店电话确认。"
+    },
+    {
+      "id": "sh_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "上海住宿候选真实，携猫与停车政策均保持待确认并给出逐店电话，没有无依据标注可携宠。"
+    },
+    {
+      "id": "sh_39_parent_child_pudong",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个浦东亲子场馆和附近餐饮均完整覆盖，景点相距约4.616公里且实际路线待核，集中度尚可但不算紧凑。"
+    },
+    {
+      "id": "sh_40_elder_yuyuan_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "完整覆盖豫园与约0.12公里内上海小吃，低强度和饮食适配保持待确认并给出具体动作。"
+    },
+    {
+      "id": "sh_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "西岸两处美术馆与约0.48公里内餐饮完整覆盖，营业、价格和选择信息充分；聊天环境未被额外臆造。"
+    },
+    {
+      "id": "sh_42_student_yangpu",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "杨浦文化场馆与80元内参考价餐饮均丰富，主组合约1公里且价格动态提醒克制。"
+    },
+    {
+      "id": "sh_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "室内自然博物馆与三家0.46公里内餐饮完整覆盖，儿童就餐适配保持待确认并附电话。"
+    },
+    {
+      "id": "sh_44_night_view_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "外滩与0.74公里起的黄浦夜宵组合明确，营业时间可核，末班车和夜间返程要求实时确认。"
+    },
+    {
+      "id": "sh_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "历史街区与居民价位小馆两类齐全，主组合约1.295公里且明确排除商场购物中心。"
+    },
+    {
+      "id": "sh_46_bund_then_tower_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "严格保持外滩到上海中心再到陆家嘴餐饮的顺序，末段约0.508公里并给出地图复核。"
+    },
+    {
+      "id": "sh_47_minhang_food_play",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "游玩和餐饮均充分覆盖且全部经证据确认位于闵行，主组合相距约0.294公里。"
+    },
+    {
+      "id": "sh_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "duplicate_landmark_candidates",
+      "summary": "总数与三类覆盖正确，但外滩与万国建筑博览群、豫园与城隍庙存在明显区域和主题重复，不符合避免重复要求。"
+    },
+    {
+      "id": "sh_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "亲子场馆、低中价餐饮和青年住宿三类齐全，家庭房、地铁与儿童就餐均逐项待确认。"
+    },
+    {
+      "id": "sh_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 3,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 3,
+        "practical_usefulness": 3,
+        "groundedness": 4
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "low_transfer_combination_not_supported",
+      "summary": "三类齐全且动态信息诚实，但优先景餐住组合跨黄浦与浦东，最大直线约2.015公里且无实际路线，低强度少转场未证实。"
+    },
+    {
+      "id": "hz_01_first_time_west_lake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "西湖核心、灵隐寺与京杭运河形成景观、寺院和历史文化互补，没有普通公园堆叠。"
+    },
+    {
+      "id": "hz_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "西湖周边候选可择一两处，观光车、休息点和无障碍条件均保持待确认并附具体核实动作。"
+    },
+    {
+      "id": "hz_03_child_nature",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "动物园、自然博物院和湿地博物馆均直接支持儿童动物与自然兴趣，开放信息和选择差异充分。"
+    },
+    {
+      "id": "hz_04_teen_song_history",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "官窑、杭州历史与南宋御街三类实体直接对应南宋史，并分别说明文物、都城和街区学习侧重。"
+    },
+    {
+      "id": "hz_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "西湖景观和现代场馆候选真实，坡道、电梯、卫生间与低强度条件均未保证并提供逐处核实。"
+    },
+    {
+      "id": "hz_06_rainy_indoor",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个室内文化场馆相距约54米且都明确为目标，科技馆开放与预约状态通过官网或小程序待核。"
+    },
+    {
+      "id": "hz_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三个候选均为西湖公共取景节点且排除摄影店，日出朝向、遮挡、机位和临时开放保持待确认。"
+    },
+    {
+      "id": "hz_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "提供一个运河公共夜游候选且未导向酒吧，夜间人流、照明、地铁和返程均通过电话或地图复核。"
+    },
+    {
+      "id": "hz_09_xihu_free",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个候选均经证据确认位于西湖区，门票不冒充免费并附电话；两点较远时可按卡片选择。"
+    },
+    {
+      "id": "hz_10_contemporary_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "浙江美术馆与天目里美术馆均为可参观艺术建筑空间，开放信息明确且没有办公楼凑数。"
+    },
+    {
+      "id": "hz_11_canal_local_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "京杭运河主节点与大兜路、桥西历史街区互补，未全用商业街并提示按近期街景复核生活气。"
+    },
+    {
+      "id": "hz_12_autumn_osmanthus",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三个西湖区秋景候选可达性较高，桂花季相与公交均未保证并附官方页面或电话核实。"
+    },
+    {
+      "id": "hz_13_airport_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "只给萧山区候选并明确首选单程约22分钟、往返下限及安检拥堵缓冲，时间不稳则留机场。"
+    },
+    {
+      "id": "hz_14_lingyin_then_westlake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "灵隐寺与西湖均完整返回并严格保持上午灵隐、下午西湖的指定顺序，距离和地图动作可核。"
+    },
+    {
+      "id": "hz_15_no_theme_park",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均为杭州中心城区文化博物场馆，明确排除主题乐园，开放信息与首选备选足以支持半日选择。"
+    },
+    {
+      "id": "hz_16_local_noodles_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两家杭州面馆位于西湖区或中心城区，当前人均参考价均低于60元并提醒动态复核。"
+    },
+    {
+      "id": "hz_17_vegetarian_lingyin",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "四家素食餐厅距灵隐约0.72公里内，菜品和饮食细节保持待确认并提供电话或官方页面动作。"
+    },
+    {
+      "id": "hz_18_nut_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三家杭帮餐饮距湖滨约0.16公里内，坚果配料和交叉污染未被保证并提供逐店确认。"
+    },
+    {
+      "id": "hz_19_halal_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家清真命名正餐距武林广场约0.18公里起，饮食要求仍逐店电话或页面确认。"
+    },
+    {
+      "id": "hz_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "小笼与杭州小吃候选均有覆盖早上7点的营业记录，并提醒临时调整需地图或电话复核。"
+    },
+    {
+      "id": "hz_21_family_westlake_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家家庭正餐均在西湖约1.5公里内，不辣点菜和儿童适配未被保证并提供逐店电话确认。"
+    },
+    {
+      "id": "hz_22_solo_hangbang",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "杭帮菜候选与小份确认动作齐全，但首选排序偏完整正餐，一人简餐适配不够明显。"
+    },
+    {
+      "id": "hz_23_late_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家黄龙附近餐饮均有覆盖22:30的营业记录，热粥、火锅和小吃可选且提示动态复核。"
+    },
+    {
+      "id": "hz_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三家地方小吃距河坊街约0.05公里内，明确排除点名连锁且价格、营业与选择信息充分。"
+    },
+    {
+      "id": "hz_25_spicy_sichuan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选全部位于滨江且以川菜、麻辣烤鱼或辣味标签为依据，没有杭帮菜凑数。"
+    },
+    {
+      "id": "hz_26_dairy_free_tea",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "茶咖候选距龙井村约0.4至1.2公里，无乳配方未作保证并给出逐店电话或官方页面确认。"
+    },
+    {
+      "id": "hz_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "钱江新城近距离商务午餐有300元内已知参考价，另两家价格明确未知，包间与安静均逐店确认。"
+    },
+    {
+      "id": "hz_28_early_east_station_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "站内及极近餐饮均有覆盖6点的营业记录，首选约65米，并提示路线、营业和返站缓冲实时核实。"
+    },
+    {
+      "id": "hz_29_westlake_boutique_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "五家地方氛围住宿距西湖约0.53公里内，千元预算、建筑体验与隔音均逐店待确认。"
+    },
+    {
+      "id": "hz_30_family_near_westlake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "住宿均距西湖约0.53公里内，家庭房逐店电话确认，周边用餐便利也明确要求按地图和营业时段核实。"
+    },
+    {
+      "id": "hz_31_budget_metro_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均为杭州酒店且给出价格、地铁步行与卫生安全的具体核实动作；动态条件未确认，约束维度按4分。"
+    },
+    {
+      "id": "hz_32_airport_early_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选集中在萧山机场周边，明确早班机出发余量与接驳核实动作；接送服务属动态信息，约束维度按4分。"
+    },
+    {
+      "id": "hz_33_east_station_late_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均紧邻杭州东站，距离与驾车时长有证据，适合晚到入住并给出清晰选择建议。"
+    },
+    {
+      "id": "hz_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选位于西湖周边且距离证据充分，无障碍房、无台阶入口、电梯和卫浴需逐项电话确认，约束维度按4分。"
+    },
+    {
+      "id": "hz_35_business_qianjiang_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "酒店均位于钱江新城近距离范围，商务通勤可操作；房价上限需按日期电话确认，约束维度按4分。"
+    },
+    {
+      "id": "hz_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选覆盖酒店与公寓式住宿，并给出洗衣、空间和家庭房等具体核实动作；长期入住设施为动态信息，按4分。"
+    },
+    {
+      "id": "hz_37_quiet_no_bar",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均为西湖周边住宿且未混入酒吧，安静度和隔音需电话确认，动态约束按4分。"
+    },
+    {
+      "id": "hz_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选均为杭州住宿，宠物政策、清洁费与停车条件均给出具体电话核实动作，动态约束按4分。"
+    },
+    {
+      "id": "hz_39_parent_child_xihu",
+      "scores": {
+        "intent_relevance": 3,
+        "geographic_fit": 2,
+        "entity_coverage": 2,
+        "constraint_adherence": 2,
+        "persona_fit": 2,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [
+        "missing_required_category",
+        "semantic_radius_mismatch"
+      ],
+      "passed": false,
+      "root_cause_hint": "missing_food_and_overly_dispersed_attractions",
+      "summary": "仅给出两处相距约7.2公里的景点，缺少明确要求的附近餐饮，既不满足组合品类也不够紧凑。"
+    },
+    {
+      "id": "hz_40_elder_lingyin_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "以灵隐寺为核心并给出有距离证据的附近餐饮，低强度与饮食适配提供了具体电话或页面确认动作；动态条件按4分。"
+    },
+    {
+      "id": "hz_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "艺术场馆与韩美林艺术馆附近餐饮均有明确证据，并清楚区分主组合与备选；聊天氛围未作无证据承诺。"
+    },
+    {
+      "id": "hz_42_student_gongshu",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "拱墅运河文化地点与人均80元内餐饮均有证据，预算适配突出；主餐饮距锚点约2.21公里且路线待核实，地理与实用性按4分。"
+    },
+    {
+      "id": "hz_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "提供多个室内亲子场馆和至少两处0.6公里内餐饮，未以商场替代活动；儿童就餐适配给出逐店电话确认，动态约束按4分。"
+    },
+    {
+      "id": "hz_44_night_lake_supper",
+      "scores": {
+        "intent_relevance": 3,
+        "geographic_fit": 5,
+        "entity_coverage": 2,
+        "constraint_adherence": 2,
+        "persona_fit": 3,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [
+        "missing_required_category"
+      ],
+      "passed": false,
+      "root_cause_hint": "missing_required_food_category",
+      "summary": "仅提供西湖夜景景点，明确要求的杭州夜宵餐饮完全缺失，无法形成夜景后就餐与返程方案。"
+    },
+    {
+      "id": "hz_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "老社区或历史街区与本地小馆均覆盖，候选明确排除商场门店；主组合合理，实际路线仍需地图核实。"
+    },
+    {
+      "id": "hz_46_lingyin_then_lake_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "明确保留灵隐寺→西湖→湖滨餐饮的指定顺序，湖滨餐饮与湖滨锚点距离有证据；广义西湖POI到餐厅的路线未确认，地理与实用性按4分。"
+    },
+    {
+      "id": "hz_47_east_station_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "活动与餐饮均位于杭州东站极近范围，未安排西湖或灵隐，并强调返站缓冲；活动到站及到餐厅路线仍需核实，动态时间约束按4分。"
+    },
+    {
+      "id": "hz_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "14个候选未超上限且景点、杭帮餐饮、住宿三类齐全，覆盖西湖、灵隐与杭州历史文化；作为候选池可用，但缺少进一步三日取舍与情侣化差异。"
+    },
+    {
+      "id": "hz_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "亲子景点、餐饮和常规住宿三类齐全且并非全高端；家庭房、地铁步行和儿童就餐均给出具体电话确认，动态约束按4分。"
+    },
+    {
+      "id": "hz_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 3,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 3,
+        "practical_usefulness": 3,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "low_transfer_combination_not_supported",
+      "summary": "三类候选齐全且动态条件有具体确认动作，但最紧凑组合两两最远仍约1.93公里且实际路线未知，未充分支撑老人少走路、低转场要求。"
+    }
+  ]
+}

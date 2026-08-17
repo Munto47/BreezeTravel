@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 
 import type { ChatMessage, ThinkingStep, Citation } from '@/types/chat'
@@ -16,10 +16,33 @@ interface UseAIChatReturn {
   clearMessages: () => void
 }
 
-export function useAIChat(threadId: string, userId: string, roomId?: string): UseAIChatReturn {
+export function useAIChat(
+  threadId: string,
+  userId: string,
+  roomId?: string,
+  persistedMessages: ChatMessage[] = [],
+  persistCompleted?: (messages: ChatMessage[]) => void,
+): UseAIChatReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    if (!persistedMessages.length) return
+    setMessages((current) => {
+      const byId = new Map(current.map((message) => [message.messageId, message]))
+      for (const message of persistedMessages) {
+        if (!byId.has(message.messageId)) byId.set(message.messageId, message)
+      }
+      return [...byId.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    })
+  }, [persistedMessages])
+
+  useEffect(() => {
+    const last = messages[messages.length - 1]
+    if (!last || last.role !== 'assistant' || last.status !== 'done') return
+    persistCompleted?.(messages.slice(-2))
+  }, [messages, persistCompleted])
 
   const sendMessage = useCallback(async (
     text: string,
@@ -127,7 +150,7 @@ export function useAIChat(threadId: string, userId: string, roomId?: string): Us
               }
 
               if (event === 'place_update') {
-                // LLM 增强字段增量合并：description/tags/ragMeta/estimatedDuration
+                // Synthesizer 增强字段增量合并：描述、标签、证据、时长
                 const pid: string = data.place_id
                 const fields = (data.fields || {}) as Record<string, unknown>
                 const merged = (last.placesGenerated || []).map((p) => {
@@ -135,6 +158,36 @@ export function useAIChat(threadId: string, userId: string, roomId?: string): Us
                   const patched: Partial<Place> = {}
                   if (typeof fields.description === 'string') patched.description = fields.description
                   if (Array.isArray(fields.tags)) patched.tags = fields.tags as string[]
+                  if (Array.isArray(fields.constraint_evidence)) {
+                    patched.constraintEvidence = parsePlaceFromAPI({
+                      place_id: p.placeId,
+                      name: p.name,
+                      category: p.category,
+                      address: p.address,
+                      coords: p.coords,
+                      city: p.city,
+                      source: p.source,
+                      constraint_evidence: fields.constraint_evidence,
+                    }).constraintEvidence
+                  }
+                  if (typeof fields.selection_evidence_status === 'string') {
+                    patched.selectionEvidenceStatus = fields.selection_evidence_status as Place['selectionEvidenceStatus']
+                  }
+                  if (Array.isArray(fields.geo_evidence)) {
+                    patched.geoEvidence = parsePlaceFromAPI({
+                      place_id: p.placeId,
+                      name: p.name,
+                      category: p.category,
+                      address: p.address,
+                      coords: p.coords,
+                      city: p.city,
+                      source: p.source,
+                      geo_evidence: fields.geo_evidence,
+                    }).geoEvidence
+                  }
+                  if (Array.isArray(fields.confirmation_actions)) {
+                    patched.confirmationActions = fields.confirmation_actions as string[]
+                  }
                   if (fields.rag_meta && typeof fields.rag_meta === 'object') {
                     const rm = fields.rag_meta as Record<string, unknown>
                     patched.ragMeta = {
@@ -221,7 +274,7 @@ export function useAIChat(threadId: string, userId: string, roomId?: string): Us
       setMessages((prev) => {
         const last = prev[prev.length - 1]
         if (!last || last.role !== 'assistant' || last.status === 'done' || last.status === 'error') return prev
-        return [...prev.slice(0, -1), { ...last, status: 'done' }]
+        return [...prev.slice(0, -1), { ...last, status: 'done' as const }]
       })
 
     } catch (err) {
@@ -236,7 +289,7 @@ export function useAIChat(threadId: string, userId: string, roomId?: string): Us
       setIsStreaming(false)
       abortRef.current = null
     }
-  }, [threadId, userId, roomId, isStreaming])
+  }, [threadId, userId, roomId, isStreaming, persistCompleted])
 
   const clearMessages = useCallback(() => setMessages([]), [])
 

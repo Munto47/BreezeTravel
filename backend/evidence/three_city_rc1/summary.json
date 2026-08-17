@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "kind": "three_city_local_rc1_candidate_evidence",
+  "generated_at": "2026-08-17T02:01:16.507546+00:00",
+  "scope": {
+    "cities": [
+      "北京",
+      "上海",
+      "杭州"
+    ],
+    "cases_per_city": 50,
+    "total": 150
+  },
+  "bindings": {
+    "dataset_sha256": "5851eaffa476fefc094f5bf841863132c8da80df5e517d1dbdf7a8964a53b578",
+    "execution_tree_sha256": "ad36860fb5edd627209ef632287365e66825e7213f76b86be88be256caef92fb",
+    "normalized_replay_sha256": "f99fa056a648560883a3885e352eaba040653b6227be4604e54918b09da3dd6f"
+  },
+  "frozen_replays": [
+    {
+      "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json",
+      "sha256": "e575812da9517f9bcb99b86fd565edadf4fa795eda9421ce41563300d27dff5f"
+    },
+    {
+      "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay2.json",
+      "sha256": "72e6c83933ff35cdd91ec23636962640397595b650a0cade9b648b696fe8555e"
+    },
+    {
+      "path": "backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay3.json",
+      "sha256": "8e91730ac62b8c123be8536a21c59579e59a78b1e2f2714833e13cefccf525f6"
+    }
+  ],
+  "model_judge_panel": {
+    "path": "backend/results/three_city_daily_query_agent_judge_panel_rc1_v22.json",
+    "sha256": "bbe6ec5f5bce0fb2ba1c09327764f5f1f93a09b374bcc594cbe07f33eb8218c9"
+  },
+  "live_product_runs": [],
+  "acceptance": {
+    "offline_replay_passed": true,
+    "model_panel_agreement_passed": true,
+    "model_panel_quality_passed": false,
+    "live_runs_complete": false,
+    "overall_rc1_passed": false,
+    "judge_api_calls": 0,
+    "human_calibration_performed": false,
+    "post_v22_hardening_revalidated": false
+  },
+  "claim": "三城本地可靠性强化候选版：冻结重放通过，模型评审一致性阈值通过，质量总门禁未通过；真人校准未执行",
+  "excluded_claims": [
+    "full RC1 release",
+    "public deployment",
+    "human calibration",
+    "Judge-human agreement",
+    "real-user validation",
+    "production SLO"
+  ]
+}

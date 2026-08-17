@@ -1,8 +1,8 @@
 {
-  "run_id": "2576f1d5-5b2d-4559-98f2-3f52d45f6d87",
+  "run_id": "a74132a4-4675-407f-9996-ceba898db1ec",
   "kind": "task_parse",
   "split": "pilot",
-  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
   "dataset_hash": "d2c332f68e674f64ac903fc49e827a16f0155d7b51febb0dd18ea1a81260482f",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "0dbfa301d34f1a0018c93a774f45f3f296f3fc78bcc11c53c9040a41bc0100b7",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-10T01:29:23.776256Z",
+  "started_at": "2026-08-15T15:39:19.687527Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -90,15 +90,16 @@
         "must": [],
         "exclude": [],
         "constraints": [
-          "max_daily_travel_minutes"
+          "max_daily_travel_minutes",
+          "daily_hotel"
         ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 2.619900042191148,
+        "latency_ms": 3.027700000529876,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-001"
       },
       "passed": true,
-      "latency_ms": 2.619900042191148,
+      "latency_ms": 3.027700000529876,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-001"
     },
@@ -126,14 +127,16 @@
         "exclude": [
           "高强度爬山"
         ],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.06970018148422241,
+        "latency_ms": 0.14490000103251077,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-002"
       },
       "passed": true,
-      "latency_ms": 0.06970018148422241,
+      "latency_ms": 0.14490000103251077,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-002"
     },
@@ -164,11 +167,11 @@
           "date_range.days"
         ],
         "conflict": false,
-        "latency_ms": 0.03190012648701668,
+        "latency_ms": 0.04809999882127158,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-003"
       },
       "passed": true,
-      "latency_ms": 0.03190012648701668,
+      "latency_ms": 0.04809999882127158,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-003"
     },
@@ -198,15 +201,16 @@
         "exclude": [],
         "constraints": [
           "max_daily_places",
-          "avoid_outdoor_on_rain"
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
         ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.04200008697807789,
+        "latency_ms": 0.05750000127591193,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-004"
       },
       "passed": true,
-      "latency_ms": 0.04200008697807789,
+      "latency_ms": 0.05750000127591193,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-004"
     },
@@ -229,14 +233,16 @@
         "budget_scope": "per_person_per_day",
         "must": [],
         "exclude": [],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.034499913454055786,
+        "latency_ms": 0.0914999982342124,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-005"
       },
       "passed": true,
-      "latency_ms": 0.034499913454055786,
+      "latency_ms": 0.0914999982342124,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-005"
     },
@@ -263,14 +269,16 @@
         "exclude": [
           "西湖"
         ],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": true,
-        "latency_ms": 0.03320001997053623,
+        "latency_ms": 0.11819999781437218,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-006"
       },
       "passed": true,
-      "latency_ms": 0.03320001997053623,
+      "latency_ms": 0.11819999781437218,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-006"
     },
@@ -295,15 +303,16 @@
         "must": [],
         "exclude": [],
         "constraints": [
-          "max_daily_travel_minutes"
+          "max_daily_travel_minutes",
+          "daily_hotel"
         ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.033599790185689926,
+        "latency_ms": 0.10119999933522195,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-007"
       },
       "passed": true,
-      "latency_ms": 0.033599790185689926,
+      "latency_ms": 0.10119999933522195,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-007"
     },
@@ -331,14 +340,16 @@
         "exclude": [
           "高强度爬山"
         ],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.03160000778734684,
+        "latency_ms": 0.08560000060242601,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-008"
       },
       "passed": true,
-      "latency_ms": 0.03160000778734684,
+      "latency_ms": 0.08560000060242601,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-008"
     },
@@ -369,11 +380,11 @@
           "date_range.days"
         ],
         "conflict": false,
-        "latency_ms": 0.0241999514400959,
+        "latency_ms": 0.07000000186963007,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-009"
       },
       "passed": true,
-      "latency_ms": 0.0241999514400959,
+      "latency_ms": 0.07000000186963007,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-009"
     },
@@ -403,15 +414,16 @@
         "exclude": [],
         "constraints": [
           "max_daily_places",
-          "avoid_outdoor_on_rain"
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
         ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.0320998951792717,
+        "latency_ms": 0.08739999975659885,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-010"
       },
       "passed": true,
-      "latency_ms": 0.0320998951792717,
+      "latency_ms": 0.08739999975659885,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-010"
     },
@@ -434,14 +446,16 @@
         "budget_scope": "per_person_per_day",
         "must": [],
         "exclude": [],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": false,
-        "latency_ms": 0.02429983578622341,
+        "latency_ms": 0.06480000229203142,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-011"
       },
       "passed": true,
-      "latency_ms": 0.02429983578622341,
+      "latency_ms": 0.06480000229203142,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-011"
     },
@@ -468,14 +482,16 @@
         "exclude": [
           "西湖"
         ],
-        "constraints": [],
+        "constraints": [
+          "daily_hotel"
+        ],
         "clarification": [],
         "conflict": true,
-        "latency_ms": 0.027700094506144524,
+        "latency_ms": 0.07750000077066943,
         "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-012"
       },
       "passed": true,
-      "latency_ms": 0.027700094506144524,
+      "latency_ms": 0.07750000077066943,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-012"
     }

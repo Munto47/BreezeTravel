@@ -19,7 +19,7 @@ BreezeTravel 是一款帮助小团体共同规划出游的产品：多人在同�
 | **可靠运行时** | 请求 deadline/取消 + 工具预算/重试/熔断/并发隔离 + Redis 原子限流 + 双实例 Checkpoint |
 | **MCP Server** | 三个核心工具（地点搜索/游记检索/天气查询）暴露为标准 **MCP Server**，可被 Claude Desktop / Cursor 直接调用 |
 | **可观测性** | LangSmith 全链路追踪（节点耗时/Token 消耗/工具调用频次）+ /metrics 端点 + 本地显式验证脚本 |
-| **LoRA 微调** | Qwen2.5-1.5B 意图分类：DeepSeek 数据蒸馏 1500 条 + SFTTrainer LoRA 训练脚本 + 准确率回归测试脚本（待 GPU 环境执行训练） |
+| **LoRA 微调** | Qwen2.5-1.5B 意图分类历史训练已完成并留有 91% 评测；当前 RC1 默认不启用，需在目标环境重新验证后才能作为当前发布指标 |
 | **实时协同** | Yjs CRDT 无锁同步，多标签页 500ms 内完成投票/备注/状态同步 |
 | **路径优化** | K-Means 宏观聚类分天 + 高德真实驾车距离矩阵（Redis 缓存 TTL 24h）+ 最近邻 TSP 微观排序 |
 
@@ -89,14 +89,19 @@ Query ──→ HyDE（DeepSeek 生成假设文档） ──→ Embedding
 
 所有公开数字必须能回读到版本化结果，不能把演示或合成语料的结果写成生产效果。
 
+当前提交状态为 **three-city local RC1 candidate（三城本地可靠性强化候选版）**。专项开发与质量声明只覆盖**北京、上海、杭州**，固定数据集为每城 50 条、共 150 条。系统保留通用城市输入能力，但其他城市不属于本次验收范围，也不会据此扩展城市数据或质量结论。
+
 - 运行中可读取的脱敏摘要：`GET /api/evidence/latest`。
-- 受控本地固定评测：Router 96、任务解析 72、Verifier 120、端到端 60，共 **348/348**；原始 case、split、hash 和置信区间位于 `backend/evidence/local_eval/`。
+- 受控本地固定评测当前重跑为 **348/348**：Router 96/96、任务解析 72/72、Verifier 120/120、端到端 60/60；原始 case、split、hash 和置信区间位于 `backend/evidence/local_eval/`。
 - 故障注入 **24/24**；双实例验证覆盖两个独立进程、跨实例 Checkpoint 和 Redis 3/6 原子限流，均有 JSON 报告可回读。
+- `rc1_v22` 三次冻结重放均为 150/150、规范化哈希一致，生成、高德和 Judge API 调用均为 0；缺品类 2/150（1.33%，显式安全降级），错误品类为 0。
+- 3 个独立 GPT-5.6-sol 子 Agent 盲评分别为 146/150、145/150、142/150；多数票 146/150，完全一致率 95.33%。一致性门禁通过，但第三轮 `all` 仅 5/9，故**质量总门禁未通过**。
+- 模型盲评不写入人工字段；**真人校准未执行**，不得描述为 Judge-human agreement。v22 后加入的低转场核心组合和空间去重属于后续加固，未重新进行 150 条全量评测。
 - 当前提交的是**历史基线，等待以公开资料重跑**：Router 固定离线集 50 条准确率 0.88，`both` 类 0.60；历史 RAG 27 条 Context Recall 0.6944；排线 50 次 P95 2221ms。
 - 指标范围、原始文件、已知缺口和重跑门槛见 [评测说明](docs/EVALUATION.md) 与 [证据报告](docs/EVIDENCE.md)。架构、安全、可靠性和复现边界分别见 `docs/ARCHITECTURE.md`、`docs/SECURITY.md`、`docs/RELIABILITY.md`、`docs/REPRODUCE.md`。
 - 深度优化方案与面试复习资料统一收在 `docs/`，避免在仓库根目录混放设计文档和运行产物。
 
-这意味着：现有数字可作为改进基线，**不应在简历中宣称为公开真实语料或公网环境结果**。完成公开资料盲测重跑后再替换此段。
+这意味着：现有数字可作为可靠性工程和改进基线，**不能宣称为完整 RC1、公开真实语料、公网环境或真实用户效果**。
 
 ---
 
@@ -223,6 +228,18 @@ python -m pytest tests/test_rag.py -v -k "not evaluate_rag_pipeline"
 # RAGAS 集成评估（需要 API Key + 已入库游记数据）
 python -m scripts.ingest_notes                                    # 先入库
 python -m pytest tests/test_rag.py::evaluate_rag_pipeline -v -s  # 再评估
+
+# 冻结候选重放：零 DeepSeek / 高德 / Judge API 调用
+python -m scripts.run_daily_query_eval \
+  --replay-snapshot results/three_city_daily_query_candidates_rc1_v22.json \
+  --output results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json
+
+# 真实产品链路：需要已启动服务和 DeepSeek/高德 Key；必须显式授权，且始终关闭 API Judge
+python -m scripts.run_daily_query_eval --skip-judge --allow-paid-generation --workers 1 \
+  --snapshot-output results/three_city_daily_query_candidates_live_rc1_run1.json \
+  --output results/three_city_daily_query_eval_live_rc1_run1.json
+
+# 子 Agent Judge 的盲评包导出与三轮结果聚合见 scripts/agent_judge_panel.py
 ```
 
 ## MCP 接入（Claude Desktop / Cursor）

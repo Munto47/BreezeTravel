@@ -70,11 +70,13 @@ async def _synth_provider_fault(error: BaseException) -> dict:
             "working_context": {}, "messages": [HumanMessage(content="推荐景点")],
         })
     preserved = [item.place_id for item in result["synthesized_places"]]
+    response_text = str(result.get("final_response") or "")
     return {
         "behavior": "degraded_or_explicit_failure",
-        "passed": preserved == ["p1"] and "找到了" in result["final_response"],
+        "passed": preserved == ["p1"] and "受控地点" in response_text,
         "actual": "provider failed; grounded POI retained by controlled fallback",
         "preserved_place_ids": preserved,
+        "response_nonempty": bool(response_text.strip()),
     }
 
 

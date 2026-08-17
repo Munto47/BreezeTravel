@@ -81,6 +81,29 @@ class TestTaskParser:
         assert result.needs_clarification
         assert result.clarification_fields == ["city", "date_range.days"]
 
+    def test_non_budget_numeric_limit_is_not_parsed_as_money(self):
+        parsed = parse_task_spec(
+            "北京亲子三日游，雨天不要户外，每日交通不超过120分钟",
+            room_id="room-1",
+        ).task_spec
+        assert parsed.budget is None
+        assert any(
+            item.type == "max_daily_travel_minutes" and item.value == 120
+            for item in parsed.hard_constraints
+        )
+
+    @pytest.mark.parametrize(
+        ("text", "amount"),
+        [
+            ("杭州两日游，预算3000元", 3000),
+            ("杭州两日游，费用不超过800元", 800),
+            ("杭州两日游，控制在500块", 500),
+        ],
+    )
+    def test_budget_requires_budget_or_currency_context(self, text, amount):
+        parsed = parse_task_spec(text, room_id="room-1").task_spec
+        assert parsed.budget and parsed.budget.amount == amount
+
     def test_memory_is_only_soft_preference(self):
         parsed = parse_task_spec(
             "杭州两日游", room_id="room-1", memory_preferences=["喜欢博物馆"]

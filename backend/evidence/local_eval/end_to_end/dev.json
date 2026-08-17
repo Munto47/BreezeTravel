@@ -1,8 +1,8 @@
 {
-  "run_id": "499d4b16-1d32-4dec-8eea-44890f635b2b",
+  "run_id": "48636137-ba73-4095-b92a-fe58417f5fb9",
   "kind": "end_to_end",
   "split": "dev",
-  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
   "dataset_hash": "ebdbfbae7770f095a29d7f8e5f37a7a332bc31a2632f7957b1fcdb55b8f70e82",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "a79690fbb2b160f32be0d3c3a6acb06d9c009dfacb275a9915c33b69c84b917a",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-10T01:29:29.605040Z",
+  "started_at": "2026-08-15T15:39:27.613119Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -88,11 +88,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 53.818900138139725,
+        "latency_ms": 56.29150000095251,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-011"
       },
       "passed": true,
-      "latency_ms": 53.818900138139725,
+      "latency_ms": 56.29150000095251,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-011"
     },
@@ -116,11 +116,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 56.29169987514615,
+        "latency_ms": 59.2512999974133,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-012"
       },
       "passed": true,
-      "latency_ms": 56.29169987514615,
+      "latency_ms": 59.2512999974133,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-012"
     },
@@ -143,11 +143,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 58.6111000739038,
+        "latency_ms": 57.91949999911594,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-013"
       },
       "passed": true,
-      "latency_ms": 58.6111000739038,
+      "latency_ms": 57.91949999911594,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-013"
     },
@@ -171,11 +171,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 50.96410005353391,
+        "latency_ms": 53.50859999816748,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-014"
       },
       "passed": true,
-      "latency_ms": 50.96410005353391,
+      "latency_ms": 53.50859999816748,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-014"
     },
@@ -198,11 +198,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 56.2175998929888,
+        "latency_ms": 51.2708999995084,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-015"
       },
       "passed": true,
-      "latency_ms": 56.2175998929888,
+      "latency_ms": 51.2708999995084,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-015"
     },
@@ -225,11 +225,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 55.109000066295266,
+        "latency_ms": 52.08589999892865,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-016"
       },
       "passed": true,
-      "latency_ms": 55.109000066295266,
+      "latency_ms": 52.08589999892865,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-016"
     },
@@ -253,11 +253,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 58.56340005993843,
+        "latency_ms": 52.300899998954264,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-017"
       },
       "passed": true,
-      "latency_ms": 58.56340005993843,
+      "latency_ms": 52.300899998954264,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-017"
     },
@@ -280,11 +280,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 53.85030014440417,
+        "latency_ms": 54.250900000624824,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-018"
       },
       "passed": true,
-      "latency_ms": 53.85030014440417,
+      "latency_ms": 54.250900000624824,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-018"
     },
@@ -308,11 +308,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 51.75399989821017,
+        "latency_ms": 52.61590000009164,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-019"
       },
       "passed": true,
-      "latency_ms": 51.75399989821017,
+      "latency_ms": 52.61590000009164,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-019"
     },
@@ -335,11 +335,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 55.406800005584955,
+        "latency_ms": 51.79570000109379,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-020"
       },
       "passed": true,
-      "latency_ms": 55.406800005584955,
+      "latency_ms": 51.79570000109379,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-020"
     },
@@ -362,11 +362,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 52.64310003258288,
+        "latency_ms": 55.0812000001315,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-021"
       },
       "passed": true,
-      "latency_ms": 52.64310003258288,
+      "latency_ms": 55.0812000001315,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-021"
     },
@@ -390,11 +390,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 52.720900159329176,
+        "latency_ms": 53.755199998704484,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-022"
       },
       "passed": true,
-      "latency_ms": 52.720900159329176,
+      "latency_ms": 53.755199998704484,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-022"
     },
@@ -417,11 +417,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 55.67290005274117,
+        "latency_ms": 51.91180000110762,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-023"
       },
       "passed": true,
-      "latency_ms": 55.67290005274117,
+      "latency_ms": 51.91180000110762,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-023"
     },
@@ -445,11 +445,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 48.12499997206032,
+        "latency_ms": 50.730499999190215,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-024"
       },
       "passed": true,
-      "latency_ms": 48.12499997206032,
+      "latency_ms": 50.730499999190215,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-024"
     },
@@ -472,11 +472,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 52.183100022375584,
+        "latency_ms": 55.12149999776739,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-025"
       },
       "passed": true,
-      "latency_ms": 52.183100022375584,
+      "latency_ms": 55.12149999776739,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-025"
     },
@@ -499,11 +499,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 51.15390010178089,
+        "latency_ms": 57.43799999982002,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-026"
       },
       "passed": true,
-      "latency_ms": 51.15390010178089,
+      "latency_ms": 57.43799999982002,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-026"
     },
@@ -527,11 +527,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 54.30809990502894,
+        "latency_ms": 55.78590000004624,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-027"
       },
       "passed": true,
-      "latency_ms": 54.30809990502894,
+      "latency_ms": 55.78590000004624,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-027"
     },
@@ -554,11 +554,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 54.20239991508424,
+        "latency_ms": 54.94590000307653,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-028"
       },
       "passed": true,
-      "latency_ms": 54.20239991508424,
+      "latency_ms": 54.94590000307653,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-028"
     },
@@ -582,11 +582,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 49.5875000488013,
+        "latency_ms": 53.28240000017104,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-029"
       },
       "passed": true,
-      "latency_ms": 49.5875000488013,
+      "latency_ms": 53.28240000017104,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-029"
     },
@@ -609,11 +609,11 @@
         "verification_status": "UNKNOWN",
         "violations": [],
         "unknown_honesty": true,
-        "latency_ms": 51.96309997700155,
+        "latency_ms": 50.66939999960596,
         "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-030"
       },
       "passed": true,
-      "latency_ms": 51.96309997700155,
+      "latency_ms": 50.66939999960596,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-030"
     }

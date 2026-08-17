@@ -18,15 +18,14 @@ ENV NEXT_PUBLIC_Y_WEBSOCKET_URL=$NEXT_PUBLIC_Y_WEBSOCKET_URL
 ENV NEXT_PUBLIC_AMAP_JS_KEY=$NEXT_PUBLIC_AMAP_JS_KEY
 ENV NEXT_PUBLIC_AMAP_SECURITY_CODE=$NEXT_PUBLIC_AMAP_SECURITY_CODE
 
-RUN npm run build && npm prune --production
+RUN npm run build
 
 FROM node:20.18.3-alpine3.21 AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
 
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

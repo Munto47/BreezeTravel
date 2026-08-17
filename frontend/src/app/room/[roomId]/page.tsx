@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { AnimatePresence } from 'framer-motion'
@@ -105,10 +105,36 @@ export default function RoomPage() {
   const tripDays = roomData.tripDays || 3
 
   // ── Yjs 协同 ───────────────────────────────────────────────────────────
-  const { places, members, phase, isConnected, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(roomId, userId, nickname)
+  const { places, members, phase, isConnected, chatMessages, appendChatMessages, addPlace, removePlace, toggleVote, setPhase, initRoom } = useYjsRoom(roomId, userId, nickname)
 
   // ── AI 聊天 ────────────────────────────────────────────────────────────
-  const { messages, isStreaming, sendMessage } = useAIChat(threadId, userId, roomId)
+  const { messages, isStreaming, sendMessage } = useAIChat(
+    threadId,
+    userId,
+    roomId,
+    chatMessages,
+    appendChatMessages,
+  )
+
+  // SSE preview cards arrive before Synthesizer/Critic finish. Feed the same
+  // provider-backed POIs to the map immediately, but do not persist them to
+  // the collaborative candidate pool until the request reaches `done`.
+  const mapPlaces = useMemo<YjsPlace[]>(() => {
+    const byId = new Map(places.map((place) => [place.placeId, place]))
+    const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
+    for (const place of latestAssistant?.placesGenerated || []) {
+      if (byId.has(place.placeId)) continue
+      byId.set(place.placeId, {
+        ...place,
+        votedBy: [],
+        addedBy: 'ai-preview',
+        addedAt: latestAssistant?.createdAt || new Date().toISOString(),
+        note: '',
+        isPinned: false,
+      })
+    }
+    return [...byId.values()]
+  }, [places, messages])
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
   const { itinerary, isOptimizing, backupPool, criticViolations, verificationReport, optimize } = useOptimize(threadId, roomId)
@@ -311,7 +337,7 @@ export default function RoomPage() {
 
   return (
     <div className="h-screen w-screen overflow-hidden relative">
-      <AMapContainer places={places} itinerary={itinerary} tripCity={tripCity} />
+      <AMapContainer places={mapPlaces} itinerary={itinerary} tripCity={tripCity} />
 
       {/* 备选抽屉（A7） */}
       <BackupDrawer
@@ -411,6 +437,7 @@ function placeToRaw(p: YjsPlace) {
     amap_photos: p.amapPhotos,
     description: p.description,
     tags: p.tags,
+    constraint_evidence: p.constraintEvidence,
     estimated_duration: p.estimatedDuration,
   }
 }

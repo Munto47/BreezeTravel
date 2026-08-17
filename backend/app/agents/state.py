@@ -72,6 +72,7 @@ class AgentState(TypedDict):
     # ── 会话标识 ─────────────────────────────────────────────────────────
     thread_id: str
     user_id: str
+    long_term_memory_enabled: bool
     room_id: Optional[str]
     trace_id: str
     deadline_monotonic: float
@@ -85,17 +86,27 @@ class AgentState(TypedDict):
     query_rewrite: Optional[str]       # 改写后的查询（向后兼容）
     react_iterations: int              # ReAct 循环次数（防无限循环）
     routing_signals: list[str]         # deterministic mixed-intent evidence for trace/eval
+    recommendation_plan: Optional[dict]  # ordered RecommendationPlan contract
+    slot_coverage: dict[str, dict]       # latest slot-level coverage receipt
+    missing_slot_ids: list[str]          # targeted repair request from Router/Critic
+    search_anchor: Optional[str]         # provider around-search anchor for an isolated tool call
+    search_radius_m: Optional[int]       # provider around-search radius for an isolated tool call
+    search_typecodes: list[str]          # closed Amap category filter for an isolated tool call
 
     # ── Memory 字段（Sprint 2 新增） ──────────────────────────────────────
     working_context: Optional[WorkingContext]   # 会话内偏好追踪
     user_long_term_prefs: Optional[str]         # 历史偏好文本（从 DB 加载）
 
     # ── 各工具节点输出 ────────────────────────────────────────────────────
-    amap_places: list[Place]           # 高德 API 返回的候选地点
+    amap_places: list[Place]           # 高德 API 返回的 canonical 候选地点
+    eligible_amap_places: list[Place]  # 经过硬约束、证据与地理筛选的可交付候选
+    eligible_candidates_computed: bool # 区分尚未计算与合法空结果
     rag_chunks: list[dict]             # RAG 检索返回的 chunk 列表
     citations: list[dict]              # display-safe provenance for the final answer
     tool_failures: list[dict]          # sanitized partial-failure records for UI/metrics
     tool_receipts: list[dict]
+    retrieval_audits: list[dict]       # provider query/mode/time/hash/fallback evidence
+    retrieval_snapshots: list[dict]    # frozen provider inputs/candidates for deterministic replay
 
     # ── Synthesizer 输出 ──────────────────────────────────────────────────
     synthesized_places: list[Place]
@@ -112,3 +123,4 @@ class AgentState(TypedDict):
     critic_retry: bool                 # Critic 是否触发重检索
     critic_reason: Optional[str]       # 重试原因（供 SSE thinking 事件展示）
     critic_iterations: int             # Critic 重试次数（上限 MAX_CRITIC_RETRIES=1）
+    critic_exhausted: bool             # 结果仍不合格，但已用完自动重试预算

@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1200)
     selected_place_ids: list[str] = []
     trip_city: Optional[str] = None   # 房间目的地城市，用于 AmapSearch 精确检索
+    use_long_term_memory: bool = True  # 评测/无痕请求可关闭偏好读写，鉴权身份不变
 
 
 # SSE 事件类型（以 text/event-stream 格式推送）

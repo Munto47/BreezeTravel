@@ -10,6 +10,22 @@ $summaryDir = Join-Path $root "backend\evidence\verification"
 New-Item -ItemType Directory -Force -Path $summaryDir | Out-Null
 $records = [System.Collections.Generic.List[object]]::new()
 
+# The RC1 verification entrypoint is deliberately offline.  Explicitly mask
+# inherited provider and tracing credentials so a developer shell cannot turn
+# an offline gate into a paid call or an observability upload.
+$offlineEnvironment = @{
+    DEEPSEEK_API_KEY = ""
+    OPENAI_API_KEY = ""
+    AMAP_API_KEY = ""
+    LANGCHAIN_TRACING_V2 = "false"
+    LANGSMITH_TRACING = "false"
+}
+$savedEnvironment = @{}
+foreach ($name in $offlineEnvironment.Keys) {
+    $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+    [Environment]::SetEnvironmentVariable($name, $offlineEnvironment[$name], "Process")
+}
+
 function Invoke-Check {
     param([string]$Name, [string]$WorkingDirectory, [scriptblock]$Command)
     $started = Get-Date
@@ -56,6 +72,9 @@ Invoke-Check "compose-config" $root { docker compose config --quiet }
 Invoke-Check "compose-multi-config" $root { docker compose -f docker-compose.multi.yml config --quiet }
 if (-not $SkipBrowser) {
     Invoke-Check "local-browser-e2e" "$root\frontend" { npm run test:e2e:local }
+    if ($WithServices) {
+        Invoke-Check "chat-persistence-e2e" "$root\frontend" { npm run test:e2e:persistence }
+    }
 }
 Invoke-Check "git-diff-check" $root { git diff --check }
 
@@ -67,5 +86,8 @@ $summary = [ordered]@{
     records = $records
 }
 $summary | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 "$summaryDir\summary.json"
-Invoke-Check "release-manifest" "$root\backend" { python -m scripts.build_release_manifest }
 Write-Host "Local verification completed: $summaryDir\summary.json"
+
+foreach ($name in $offlineEnvironment.Keys) {
+    [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], "Process")
+}

@@ -12,6 +12,31 @@ export interface PlaceRAGMeta {
   sourceNoteIds: string[]     // 支撑该内容的游记文档 ID（可溯源）
 }
 
+export type EvidenceStatus = 'VERIFIED' | 'UNKNOWN' | 'REQUIRES_CONFIRMATION'
+
+export interface ConstraintEvidence {
+  constraint: string
+  label: string
+  status: EvidenceStatus
+  detail: string
+  source: string
+  value?: unknown
+  sourceUrl?: string
+  observedAt?: string
+  confidence: number
+}
+
+export interface GeoEvidence {
+  slotId: string
+  anchorPlace: string
+  status: EvidenceStatus
+  satisfiesConstraint?: boolean
+  straightLineDistanceKm?: number
+  estimatedTravelMinutes?: number
+  transportMode: string
+  source: string
+}
+
 /** Phase B：替代方案 */
 export interface PlaceAlternative {
   placeId: string
@@ -56,6 +81,10 @@ export interface Place {
   // AI 生成
   description?: string
   tags: string[]
+  constraintEvidence: ConstraintEvidence[]
+  selectionEvidenceStatus?: EvidenceStatus
+  geoEvidence: GeoEvidence[]
+  confirmationActions: string[]
 
   // Optimizer
   clusterId?: number
@@ -92,6 +121,29 @@ export function parsePlaceFromAPI(raw: Record<string, unknown>): Place {
       : undefined,
     description: raw.description as string | undefined,
     tags: (raw.tags as string[]) || [],
+    constraintEvidence: ((raw.constraint_evidence as Record<string, unknown>[]) || []).map((item) => ({
+      constraint: item.constraint as string,
+      label: item.label as string,
+      status: item.status as EvidenceStatus,
+      detail: item.detail as string,
+      source: item.source as string,
+      value: item.value,
+      sourceUrl: item.source_url as string | undefined,
+      observedAt: item.observed_at as string | undefined,
+      confidence: Number(item.confidence || 0),
+    })),
+    selectionEvidenceStatus: raw.selection_evidence_status as EvidenceStatus | undefined,
+    geoEvidence: ((raw.geo_evidence as Record<string, unknown>[]) || []).map((item) => ({
+      slotId: item.slot_id as string,
+      anchorPlace: item.anchor_place as string,
+      status: item.status as EvidenceStatus,
+      satisfiesConstraint: item.satisfies_constraint as boolean | undefined,
+      straightLineDistanceKm: item.straight_line_distance_km as number | undefined,
+      estimatedTravelMinutes: item.estimated_travel_minutes as number | undefined,
+      transportMode: String(item.transport_mode || 'walking'),
+      source: String(item.source || 'amap_coordinates'),
+    })),
+    confirmationActions: (raw.confirmation_actions as string[]) || [],
     clusterId: raw.cluster_id as number | undefined,
     visitOrder: raw.visit_order as number | undefined,
     estimatedDuration: raw.estimated_duration as number | undefined,

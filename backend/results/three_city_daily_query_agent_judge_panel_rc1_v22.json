@@ -1,0 +1,888 @@
+{
+  "schema_version": "1.0",
+  "kind": "codex_subagent_judge_panel",
+  "generated_at": "2026-08-15T15:48:55.180785+00:00",
+  "bindings": {
+    "source_report_sha256": "e575812da9517f9bcb99b86fd565edadf4fa795eda9421ce41563300d27dff5f",
+    "dataset_sha256": "5851eaffa476fefc094f5bf841863132c8da80df5e517d1dbdf7a8964a53b578",
+    "rubric_sha256": "4810dca3b7b31027d961b811b4fcb90eb116efc4b1a487e6e0d1a6a7f7ff5802",
+    "execution_tree_sha256": "ad36860fb5edd627209ef632287365e66825e7213f76b86be88be256caef92fb"
+  },
+  "evaluators": [
+    {
+      "kind": "codex_subagent",
+      "model": "gpt-5.6-sol",
+      "evaluator_id": "rc1-v22-judge-1",
+      "round": 1,
+      "blind": true
+    },
+    {
+      "kind": "codex_subagent",
+      "model": "gpt-5.6-sol",
+      "evaluator_id": "rc1-v22-judge-2",
+      "round": 2,
+      "blind": true
+    },
+    {
+      "kind": "codex_subagent",
+      "model": "gpt-5.6-sol",
+      "evaluator_id": "rc1-v22-judge-3",
+      "round": 3,
+      "blind": true
+    }
+  ],
+  "round_reports": [
+    {
+      "path": "results/three_city_daily_query_agent_judge_rc1_v22_rounds/agent_judge_round1.json",
+      "sha256": "1659e7ce180b6515c00d670f519f846064f29ec9a326ae6c1dd5564868117d00",
+      "summary": {
+        "total": 150,
+        "passed": 146,
+        "pass_rate": 0.9733333333333334,
+        "judged": 150,
+        "judge_errors": 0,
+        "system_errors": 0,
+        "infrastructure_errors": 0,
+        "judged_pass_rate": 0.9733333333333334,
+        "end_to_end_success": {
+          "total": 150,
+          "passed": 146,
+          "pass_rate": 0.9733333333333334
+        },
+        "retrieval_availability": {
+          "total": 150,
+          "available": 150,
+          "availability_rate": 1.0,
+          "infrastructure_failures": 0
+        },
+        "recommendation_quality_under_valid_retrieval": {
+          "eligible": 150,
+          "passed": 146,
+          "pass_rate": 0.9733333333333334,
+          "excluded": 0,
+          "by_city": {
+            "北京": {
+              "eligible": 50,
+              "passed": 48,
+              "pass_rate": 0.96
+            },
+            "上海": {
+              "eligible": 50,
+              "passed": 50,
+              "pass_rate": 1.0
+            },
+            "杭州": {
+              "eligible": 50,
+              "passed": 48,
+              "pass_rate": 0.96
+            }
+          },
+          "by_intent": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 45,
+              "pass_rate": 1.0
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 30,
+              "pass_rate": 1.0
+            },
+            "mixed": {
+              "eligible": 27,
+              "passed": 23,
+              "pass_rate": 0.8518518518518519
+            },
+            "all": {
+              "eligible": 9,
+              "passed": 9,
+              "pass_rate": 1.0
+            }
+          },
+          "by_intent_group": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 45,
+              "pass_rate": 1.0
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 30,
+              "pass_rate": 1.0
+            },
+            "compound": {
+              "eligible": 36,
+              "passed": 32,
+              "pass_rate": 0.8888888888888888
+            }
+          }
+        },
+        "by_city": {
+          "北京": {
+            "total": 50,
+            "passed": 48,
+            "pass_rate": 0.96
+          },
+          "上海": {
+            "total": 50,
+            "passed": 50,
+            "pass_rate": 1.0
+          },
+          "杭州": {
+            "total": 50,
+            "passed": 48,
+            "pass_rate": 0.96
+          }
+        },
+        "by_intent": {
+          "attraction": {
+            "total": 45,
+            "passed": 45,
+            "pass_rate": 1.0
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 30,
+            "pass_rate": 1.0
+          },
+          "mixed": {
+            "total": 27,
+            "passed": 23,
+            "pass_rate": 0.8518518518518519
+          },
+          "all": {
+            "total": 9,
+            "passed": 9,
+            "pass_rate": 1.0
+          }
+        },
+        "by_intent_group": {
+          "attraction": {
+            "total": 45,
+            "passed": 45,
+            "pass_rate": 1.0
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 30,
+            "pass_rate": 1.0
+          },
+          "compound": {
+            "total": 36,
+            "passed": 32,
+            "pass_rate": 0.8888888888888888
+          }
+        },
+        "failure_type_counts": {
+          "passed": 146,
+          "llm_semantic_only": 4,
+          "llm_semantic_failed_total": 4
+        },
+        "judge_provider_distribution": {
+          "codex_subagent": 150
+        },
+        "judge_model_distribution": {
+          "gpt-5.6-sol": 150
+        },
+        "average_judge_scores": {
+          "intent_relevance": 4.96,
+          "geographic_fit": 4.94,
+          "entity_coverage": 5.0,
+          "constraint_adherence": 4.333,
+          "persona_fit": 4.373,
+          "practical_usefulness": 4.327,
+          "groundedness": 4.987
+        },
+        "failure_reasons": {
+          "LLM低分:constraint_adherence": 4,
+          "LLM低分:persona_fit": 3,
+          "LLM低分:practical_usefulness": 3,
+          "LLM低分:geographic_fit": 2,
+          "LLM:obvious_compound_geography_mismatch": 2,
+          "LLM低分:intent_relevance": 2,
+          "LLM低分:groundedness": 1
+        },
+        "category_coverage": {
+          "missing_category_case_count": 2,
+          "missing_category_case_rate": 0.013333333333333334,
+          "missing_category_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "wrong_category_case_count": 0,
+          "wrong_category_case_rate": 0.0,
+          "wrong_category_case_ids": [],
+          "safe_degradation_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "passed": true
+        },
+        "retrieval_integrity": {
+          "fixture_places": 0,
+          "fallback_places": 0,
+          "canonical_duplicate_count": 0,
+          "retrieval_audit_count": 558,
+          "data_purity_passed": true,
+          "all_retrievals_succeeded": true,
+          "amap_tool_call_count": 455,
+          "amap_failure_count": 0,
+          "amap_tool_failure_rate": 0.0
+        },
+        "high_risk_honesty": {
+          "pending_place_count": 424,
+          "pending_with_action_count": 424,
+          "confirmation_action_coverage": 1.0,
+          "unsupported_affirmative_claim_count": 0,
+          "unsupported_affirmative_claims": [],
+          "passed": true
+        }
+      }
+    },
+    {
+      "path": "results/three_city_daily_query_agent_judge_rc1_v22_rounds/agent_judge_round2.json",
+      "sha256": "1599a4879224767ad906882e935520ffdd46d0de14219cdff51483c835bdda09",
+      "summary": {
+        "total": 150,
+        "passed": 145,
+        "pass_rate": 0.9666666666666667,
+        "judged": 150,
+        "judge_errors": 0,
+        "system_errors": 0,
+        "infrastructure_errors": 0,
+        "judged_pass_rate": 0.9666666666666667,
+        "end_to_end_success": {
+          "total": 150,
+          "passed": 145,
+          "pass_rate": 0.9666666666666667
+        },
+        "retrieval_availability": {
+          "total": 150,
+          "available": 150,
+          "availability_rate": 1.0,
+          "infrastructure_failures": 0
+        },
+        "recommendation_quality_under_valid_retrieval": {
+          "eligible": 150,
+          "passed": 145,
+          "pass_rate": 0.9666666666666667,
+          "excluded": 0,
+          "by_city": {
+            "北京": {
+              "eligible": 50,
+              "passed": 48,
+              "pass_rate": 0.96
+            },
+            "上海": {
+              "eligible": 50,
+              "passed": 49,
+              "pass_rate": 0.98
+            },
+            "杭州": {
+              "eligible": 50,
+              "passed": 48,
+              "pass_rate": 0.96
+            }
+          },
+          "by_intent": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 45,
+              "pass_rate": 1.0
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 29,
+              "pass_rate": 0.9666666666666667
+            },
+            "mixed": {
+              "eligible": 27,
+              "passed": 23,
+              "pass_rate": 0.8518518518518519
+            },
+            "all": {
+              "eligible": 9,
+              "passed": 9,
+              "pass_rate": 1.0
+            }
+          },
+          "by_intent_group": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 45,
+              "pass_rate": 1.0
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 29,
+              "pass_rate": 0.9666666666666667
+            },
+            "compound": {
+              "eligible": 36,
+              "passed": 32,
+              "pass_rate": 0.8888888888888888
+            }
+          }
+        },
+        "by_city": {
+          "北京": {
+            "total": 50,
+            "passed": 48,
+            "pass_rate": 0.96
+          },
+          "上海": {
+            "total": 50,
+            "passed": 49,
+            "pass_rate": 0.98
+          },
+          "杭州": {
+            "total": 50,
+            "passed": 48,
+            "pass_rate": 0.96
+          }
+        },
+        "by_intent": {
+          "attraction": {
+            "total": 45,
+            "passed": 45,
+            "pass_rate": 1.0
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 29,
+            "pass_rate": 0.9666666666666667
+          },
+          "mixed": {
+            "total": 27,
+            "passed": 23,
+            "pass_rate": 0.8518518518518519
+          },
+          "all": {
+            "total": 9,
+            "passed": 9,
+            "pass_rate": 1.0
+          }
+        },
+        "by_intent_group": {
+          "attraction": {
+            "total": 45,
+            "passed": 45,
+            "pass_rate": 1.0
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 29,
+            "pass_rate": 0.9666666666666667
+          },
+          "compound": {
+            "total": 36,
+            "passed": 32,
+            "pass_rate": 0.8888888888888888
+          }
+        },
+        "failure_type_counts": {
+          "passed": 145,
+          "llm_semantic_only": 5,
+          "llm_semantic_failed_total": 5
+        },
+        "judge_provider_distribution": {
+          "codex_subagent": 150
+        },
+        "judge_model_distribution": {
+          "gpt-5.6-sol": 150
+        },
+        "average_judge_scores": {
+          "intent_relevance": 4.96,
+          "geographic_fit": 4.873,
+          "entity_coverage": 4.973,
+          "constraint_adherence": 4.247,
+          "persona_fit": 4.733,
+          "practical_usefulness": 4.9,
+          "groundedness": 4.967
+        },
+        "failure_reasons": {
+          "LLM低分:persona_fit": 5,
+          "LLM低分:constraint_adherence": 4,
+          "LLM低分:practical_usefulness": 3,
+          "LLM低分:geographic_fit": 2,
+          "LLM低分:intent_relevance": 2,
+          "LLM低分:entity_coverage": 2,
+          "LLM:必需品类缺失：未返回任何餐饮候选": 2,
+          "LLM:地理范围明显错误：两个必去亲子景点直线约10.452公里": 1,
+          "LLM低分:groundedness": 1,
+          "LLM:地理组合明显不紧凑：两个亲子景点直线约7.244公里": 1
+        },
+        "category_coverage": {
+          "missing_category_case_count": 2,
+          "missing_category_case_rate": 0.013333333333333334,
+          "missing_category_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "wrong_category_case_count": 0,
+          "wrong_category_case_rate": 0.0,
+          "wrong_category_case_ids": [],
+          "safe_degradation_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "passed": true
+        },
+        "retrieval_integrity": {
+          "fixture_places": 0,
+          "fallback_places": 0,
+          "canonical_duplicate_count": 0,
+          "retrieval_audit_count": 558,
+          "data_purity_passed": true,
+          "all_retrievals_succeeded": true,
+          "amap_tool_call_count": 455,
+          "amap_failure_count": 0,
+          "amap_tool_failure_rate": 0.0
+        },
+        "high_risk_honesty": {
+          "pending_place_count": 424,
+          "pending_with_action_count": 424,
+          "confirmation_action_coverage": 1.0,
+          "unsupported_affirmative_claim_count": 0,
+          "unsupported_affirmative_claims": [],
+          "passed": true
+        }
+      }
+    },
+    {
+      "path": "results/three_city_daily_query_agent_judge_rc1_v22_rounds/agent_judge_round3.json",
+      "sha256": "a32a9062f696b0d73204eb4f58168b5224b333d1d1526ffe6f8746128bc5a252",
+      "summary": {
+        "total": 150,
+        "passed": 142,
+        "pass_rate": 0.9466666666666667,
+        "judged": 150,
+        "judge_errors": 0,
+        "system_errors": 0,
+        "infrastructure_errors": 0,
+        "judged_pass_rate": 0.9466666666666667,
+        "end_to_end_success": {
+          "total": 150,
+          "passed": 142,
+          "pass_rate": 0.9466666666666667
+        },
+        "retrieval_availability": {
+          "total": 150,
+          "available": 150,
+          "availability_rate": 1.0,
+          "infrastructure_failures": 0
+        },
+        "recommendation_quality_under_valid_retrieval": {
+          "eligible": 150,
+          "passed": 142,
+          "pass_rate": 0.9466666666666667,
+          "excluded": 0,
+          "by_city": {
+            "北京": {
+              "eligible": 50,
+              "passed": 48,
+              "pass_rate": 0.96
+            },
+            "上海": {
+              "eligible": 50,
+              "passed": 47,
+              "pass_rate": 0.94
+            },
+            "杭州": {
+              "eligible": 50,
+              "passed": 47,
+              "pass_rate": 0.94
+            }
+          },
+          "by_intent": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 44,
+              "pass_rate": 0.9777777777777777
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 30,
+              "pass_rate": 1.0
+            },
+            "mixed": {
+              "eligible": 27,
+              "passed": 24,
+              "pass_rate": 0.8888888888888888
+            },
+            "all": {
+              "eligible": 9,
+              "passed": 5,
+              "pass_rate": 0.5555555555555556
+            }
+          },
+          "by_intent_group": {
+            "attraction": {
+              "eligible": 45,
+              "passed": 44,
+              "pass_rate": 0.9777777777777777
+            },
+            "food": {
+              "eligible": 39,
+              "passed": 39,
+              "pass_rate": 1.0
+            },
+            "hotel": {
+              "eligible": 30,
+              "passed": 30,
+              "pass_rate": 1.0
+            },
+            "compound": {
+              "eligible": 36,
+              "passed": 29,
+              "pass_rate": 0.8055555555555556
+            }
+          }
+        },
+        "by_city": {
+          "北京": {
+            "total": 50,
+            "passed": 48,
+            "pass_rate": 0.96
+          },
+          "上海": {
+            "total": 50,
+            "passed": 47,
+            "pass_rate": 0.94
+          },
+          "杭州": {
+            "total": 50,
+            "passed": 47,
+            "pass_rate": 0.94
+          }
+        },
+        "by_intent": {
+          "attraction": {
+            "total": 45,
+            "passed": 44,
+            "pass_rate": 0.9777777777777777
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 30,
+            "pass_rate": 1.0
+          },
+          "mixed": {
+            "total": 27,
+            "passed": 24,
+            "pass_rate": 0.8888888888888888
+          },
+          "all": {
+            "total": 9,
+            "passed": 5,
+            "pass_rate": 0.5555555555555556
+          }
+        },
+        "by_intent_group": {
+          "attraction": {
+            "total": 45,
+            "passed": 44,
+            "pass_rate": 0.9777777777777777
+          },
+          "food": {
+            "total": 39,
+            "passed": 39,
+            "pass_rate": 1.0
+          },
+          "hotel": {
+            "total": 30,
+            "passed": 30,
+            "pass_rate": 1.0
+          },
+          "compound": {
+            "total": 36,
+            "passed": 29,
+            "pass_rate": 0.8055555555555556
+          }
+        },
+        "failure_type_counts": {
+          "passed": 142,
+          "llm_semantic_only": 8,
+          "llm_semantic_failed_total": 8
+        },
+        "judge_provider_distribution": {
+          "codex_subagent": 150
+        },
+        "judge_model_distribution": {
+          "gpt-5.6-sol": 150
+        },
+        "average_judge_scores": {
+          "intent_relevance": 4.893,
+          "geographic_fit": 4.853,
+          "entity_coverage": 4.96,
+          "constraint_adherence": 4.287,
+          "persona_fit": 4.48,
+          "practical_usefulness": 4.527,
+          "groundedness": 4.987
+        },
+        "failure_reasons": {
+          "LLM低分:constraint_adherence": 8,
+          "LLM低分:geographic_fit": 6,
+          "LLM低分:persona_fit": 6,
+          "LLM低分:practical_usefulness": 6,
+          "LLM:semantic_radius_mismatch": 2,
+          "LLM低分:intent_relevance": 2,
+          "LLM低分:entity_coverage": 2,
+          "LLM:missing_required_category": 2
+        },
+        "category_coverage": {
+          "missing_category_case_count": 2,
+          "missing_category_case_rate": 0.013333333333333334,
+          "missing_category_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "wrong_category_case_count": 0,
+          "wrong_category_case_rate": 0.0,
+          "wrong_category_case_ids": [],
+          "safe_degradation_case_ids": [
+            "hz_39_parent_child_xihu",
+            "hz_44_night_lake_supper"
+          ],
+          "passed": true
+        },
+        "retrieval_integrity": {
+          "fixture_places": 0,
+          "fallback_places": 0,
+          "canonical_duplicate_count": 0,
+          "retrieval_audit_count": 558,
+          "data_purity_passed": true,
+          "all_retrievals_succeeded": true,
+          "amap_tool_call_count": 455,
+          "amap_failure_count": 0,
+          "amap_tool_failure_rate": 0.0
+        },
+        "high_risk_honesty": {
+          "pending_place_count": 424,
+          "pending_with_action_count": 424,
+          "confirmation_action_coverage": 1.0,
+          "unsupported_affirmative_claim_count": 0,
+          "unsupported_affirmative_claims": [],
+          "passed": true
+        }
+      }
+    }
+  ],
+  "panel_summary": {
+    "total": 150,
+    "majority_passed": 146,
+    "majority_pass_rate": 0.9733333333333334,
+    "unanimous_cases": 143,
+    "unanimous_agreement_rate": 0.9533333333333334,
+    "by_city": {
+      "上海": {
+        "total": 50,
+        "passed": 50,
+        "pass_rate": 1.0
+      },
+      "北京": {
+        "total": 50,
+        "passed": 48,
+        "pass_rate": 0.96
+      },
+      "杭州": {
+        "total": 50,
+        "passed": 48,
+        "pass_rate": 0.96
+      }
+    },
+    "by_intent": {
+      "all": {
+        "total": 9,
+        "passed": 9,
+        "pass_rate": 1.0
+      },
+      "attraction": {
+        "total": 45,
+        "passed": 45,
+        "pass_rate": 1.0
+      },
+      "food": {
+        "total": 39,
+        "passed": 39,
+        "pass_rate": 1.0
+      },
+      "hotel": {
+        "total": 30,
+        "passed": 30,
+        "pass_rate": 1.0
+      },
+      "mixed": {
+        "total": 27,
+        "passed": 23,
+        "pass_rate": 0.8518518518518519
+      }
+    },
+    "disagreement_count": 7,
+    "quality_thresholds_passed": false,
+    "agreement_threshold_passed": true,
+    "passed": false
+  },
+  "disagreements": [
+    {
+      "id": "bj_45_no_mall_local",
+      "city": "北京",
+      "intent": "mixed",
+      "votes": {
+        "rc1-v22-judge-1": false,
+        "rc1-v22-judge-2": false,
+        "rc1-v22-judge-3": true
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "exclusion_filter",
+        "rc1-v22-judge-2": "排除项过滤",
+        "rc1-v22-judge-3": "none"
+      }
+    },
+    {
+      "id": "bj_50_elder_all_access",
+      "city": "北京",
+      "intent": "all",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": true,
+        "rc1-v22-judge-3": false
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "无",
+        "rc1-v22-judge-3": "low_transfer_combination_not_supported"
+      }
+    },
+    {
+      "id": "sh_13_hongqiao_layover",
+      "city": "上海",
+      "intent": "attraction",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": true,
+        "rc1-v22-judge-3": false
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "无",
+        "rc1-v22-judge-3": "airport_proximity_not_supported"
+      }
+    },
+    {
+      "id": "sh_35_lujiazui_business_hotel",
+      "city": "上海",
+      "intent": "hotel",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": false,
+        "rc1-v22-judge-3": true
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "预算候选排序",
+        "rc1-v22-judge-3": "none"
+      }
+    },
+    {
+      "id": "sh_48_three_day_first_visit",
+      "city": "上海",
+      "intent": "all",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": true,
+        "rc1-v22-judge-3": false
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "无",
+        "rc1-v22-judge-3": "duplicate_landmark_candidates"
+      }
+    },
+    {
+      "id": "sh_50_elder_all_access",
+      "city": "上海",
+      "intent": "all",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": true,
+        "rc1-v22-judge-3": false
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "无",
+        "rc1-v22-judge-3": "low_transfer_combination_not_supported"
+      }
+    },
+    {
+      "id": "hz_50_elder_all_access",
+      "city": "杭州",
+      "intent": "all",
+      "votes": {
+        "rc1-v22-judge-1": true,
+        "rc1-v22-judge-2": true,
+        "rc1-v22-judge-3": false
+      },
+      "root_causes": {
+        "rc1-v22-judge-1": "none",
+        "rc1-v22-judge-2": "无",
+        "rc1-v22-judge-3": "low_transfer_combination_not_supported"
+      }
+    }
+  ],
+  "provenance": {
+    "judge_api_calls": 0,
+    "human_calibration_performed": false,
+    "claim": "GPT-5.6-sol 三模型独立盲评达到既定校准阈值；真人校准未执行"
+  }
+}

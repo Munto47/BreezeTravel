@@ -32,9 +32,29 @@ from app.memory.working import extract_from_messages, format_for_prompt
 from app.tools import ALL_TOOLS
 from app.agents.routing_policy import plan_simple_tools, plan_tools
 from app import metrics as _metrics
-from app.constraints.location import extract_district_from_messages
+from app.constraints.location import extract_explicit_district_from_messages
+from app.constraints.recommendation_intent import (
+    build_category_search_plan,
+    build_place_search_queries,
+    extract_landmark_groups,
+    infer_requested_categories,
+    request_has_all_landmarks,
+    requested_category_argument,
+)
+from app.constraints.recommendation_plan import (
+    build_recommendation_plan,
+    missing_slot_ids as find_missing_slot_ids,
+    slot_coverage,
+)
+from app.schemas.recommendation_plan import RecommendationPlan
 
 MAX_REACT_ITERATIONS = 3  # 最多 3 轮工具调用（防止无限循环）
+_CATEGORY_ARGS = {
+    "attraction": "景点",
+    "food": "美食",
+    "hotel": "住宿",
+    "transport": "交通",
+}
 
 _REACT_SYSTEM = """你是一个专业的旅行规划助手，帮助用户发现适合的旅行地点。
 
@@ -92,12 +112,113 @@ async def run(state: AgentState) -> dict:
     # provides enough grounded options.  Continuing to a third round after we
     # already have category diversity adds latency and can starve Synthesizer
     # under the request-wide deadline.
-    if iterations >= 2 and _has_sufficient_place_evidence(state.get("amap_places", [])):
+    last_query = _get_last_human_query(messages)
+    trip_district = state.get("trip_district") or extract_explicit_district_from_messages(messages)
+    plan = (
+        RecommendationPlan.model_validate(state["recommendation_plan"])
+        if state.get("recommendation_plan")
+        else build_recommendation_plan(last_query, trip_city, trip_district or "")
+    )
+    plan_dict = plan.model_dump(mode="json")
+    # ToolExecutor computes this after canonical merge plus the same hard
+    # category/district/evidence/geo filters used by Synthesizer. Raw provider
+    # hits must not satisfy a slot that will disappear before delivery.
+    current_places = state.get("eligible_amap_places", state.get("amap_places", []))
+    current_coverage = slot_coverage(plan, current_places) if plan.slots else {}
+    missing_slots = find_missing_slot_ids(plan, current_places) if plan.slots else []
+    if iterations >= 1 and plan.slots and not missing_slots:
+        print(f"[ReActAgent] RecommendationPlan {len(plan.slots)} 个槽位均已覆盖，进入 Synthesizer")
+        return {
+            "react_iterations": iterations,
+            "recommendation_plan": plan_dict,
+            "slot_coverage": current_coverage,
+            "missing_slot_ids": [],
+        }
+    if iterations >= 1 and not plan.slots and _has_sufficient_place_evidence(current_places, last_query):
         print(
             f"[ReActAgent] 已有 {len(state.get('amap_places', []))} 个多品类地点，"
             "停止重复检索并进入 Synthesizer"
         )
         return {"react_iterations": iterations}
+
+    # The first parallel batch can legitimately return no usable POI for one
+    # category. Repair only the missing category with the same explicit
+    # provider contract; do not hand the gap to a free-form LLM retry.
+    requested_repairs = list(state.get("missing_slot_ids", [])) or missing_slots
+    if plan.slots and requested_repairs and 1 <= iterations < MAX_REACT_ITERATIONS:
+        repair_slots = [slot for slot in plan.slots if slot.slot_id in requested_repairs]
+        tool_calls = []
+        for call_index, slot in enumerate(repair_slots, 1):
+            args = {
+                "query": slot.query,
+                "city": trip_city,
+                "category": _CATEGORY_ARGS[slot.category.value],
+                "slot_id": slot.slot_id,
+                "typecodes": slot.provider_typecodes,
+            }
+            if slot.geo.administrative_district:
+                args["district"] = slot.geo.administrative_district
+            if slot.geo.anchor_place:
+                args["anchor_place"] = slot.geo.anchor_place
+                args["radius_m"] = int((slot.geo.max_radius_km or 3.0) * 1000)
+            tool_calls.append({
+                "name": "search_places",
+                "args": args,
+                "id": f"slot-repair-{iterations}-{call_index}",
+            })
+        if tool_calls:
+            return {
+                "messages": [AIMessage(content="", tool_calls=tool_calls)],
+                "intent": "amap",
+                "query_rewrite": last_query,
+                "routing_signals": [
+                    f"missing:{slot.category.value}"
+                    for slot in repair_slots
+                ],
+                "react_iterations": iterations + 1,
+                "recommendation_plan": plan_dict,
+                "slot_coverage": current_coverage,
+                "missing_slot_ids": [],
+            }
+
+    if not plan.slots and 1 <= iterations < MAX_REACT_ITERATIONS:
+        requested = infer_requested_categories(last_query)
+        covered = _covered_place_categories(
+            state.get("eligible_amap_places", state.get("amap_places", []))
+        )
+        missing = requested - covered
+        repair_plan = build_category_search_plan(last_query, trip_city, missing)
+        if repair_plan:
+            tool_calls = []
+            call_index = 0
+            for category in (
+                "attraction", "food", "hotel", "transport",
+            ):
+                category_enum = next((item for item in missing if item.value == category), None)
+                if category_enum is None:
+                    continue
+                for query in repair_plan.get(category_enum, []):
+                    call_index += 1
+                    args = {
+                        "query": query,
+                        "city": trip_city,
+                        "category": _CATEGORY_ARGS[category],
+                    }
+                    if trip_district:
+                        args["district"] = trip_district
+                    tool_calls.append({
+                        "name": "search_places",
+                        "args": args,
+                        "id": f"category-repair-{iterations}-{call_index}",
+                    })
+            if tool_calls:
+                return {
+                    "messages": [AIMessage(content="", tool_calls=tool_calls)],
+                    "intent": "amap",
+                    "query_rewrite": last_query,
+                    "routing_signals": [f"missing:{item.value}" for item in sorted(missing, key=lambda item: item.value)],
+                    "react_iterations": iterations + 1,
+                }
 
     # 超出最大循环次数，强制结束（通过不输出 tool_calls 让图路由到 synthesizer）
     if iterations >= MAX_REACT_ITERATIONS:
@@ -110,23 +231,49 @@ async def run(state: AgentState) -> dict:
 
     # P0 mixed-intent guard.  Make the minimum complete tool plan explicit
     # before the optional local classifier or LLM gets a chance to omit one.
-    last_query = _get_last_human_query(messages)
-    trip_district = state.get("trip_district") or extract_district_from_messages(messages)
     forced_plan = plan_tools(last_query) if iterations == 0 else None
     if forced_plan is None and iterations == 0 and settings.deterministic_routing_enabled:
         forced_plan = plan_simple_tools(last_query)
-    if forced_plan:
+    search_queries = build_place_search_queries(last_query, trip_city) if iterations == 0 else []
+    requested_categories = infer_requested_categories(last_query)
+    should_force_place_search = bool(requested_categories or extract_landmark_groups(last_query))
+    if forced_plan or (iterations == 0 and settings.deterministic_routing_enabled and should_force_place_search):
         tool_calls = []
-        for index, name in enumerate(forced_plan.tools, start=1):
-            args = {"query": last_query, "city": trip_city}
-            if name == "search_places" and trip_district:
-                args["district"] = trip_district
-            tool_calls.append({"name": name, "args": args, "id": f"policy-{index}"})
-        print(f"[ReActAgent] deterministic tool policy: {forced_plan.signals}")
+        tools = forced_plan.tools if forced_plan else ("search_places",)
+        category_arg = requested_category_argument(last_query)
+        call_index = 0
+        for name in tools:
+            if name == "search_places" and plan.slots:
+                query_entries = [(slot.query, slot) for slot in plan.slots]
+            else:
+                query_entries = [(query, None) for query in (search_queries if name == "search_places" else [last_query])]
+            for query, slot in query_entries:
+                call_index += 1
+                args = {"query": query, "city": trip_city}
+                if name == "search_places":
+                    slot_district = slot.geo.administrative_district if slot else trip_district
+                    if slot_district:
+                        args["district"] = slot_district
+                    query_category = _CATEGORY_ARGS[slot.category.value] if slot else (requested_category_argument(query) or category_arg)
+                    if query_category:
+                        args["category"] = query_category
+                    if slot:
+                        args["slot_id"] = slot.slot_id
+                        args["typecodes"] = slot.provider_typecodes
+                        if slot.geo.anchor_place:
+                            args["anchor_place"] = slot.geo.anchor_place
+                            args["radius_m"] = int((slot.geo.max_radius_km or 3.0) * 1000)
+                tool_calls.append({"name": name, "args": args, "id": f"policy-{call_index}"})
+        signals = list(forced_plan.signals) if forced_plan else [category.value for category in requested_categories]
+        print(f"[ReActAgent] deterministic tool policy: {tuple(signals)}")
         return {
-            "messages": [AIMessage(content="", tool_calls=tool_calls)], "intent": forced_plan.intent,
-            "query_rewrite": last_query, "routing_signals": list(forced_plan.signals),
+            "messages": [AIMessage(content="", tool_calls=tool_calls)],
+            "intent": forced_plan.intent if forced_plan else "amap",
+            "query_rewrite": last_query, "routing_signals": signals,
             "react_iterations": iterations + 1,
+            "recommendation_plan": plan_dict,
+            "slot_coverage": current_coverage,
+            "missing_slot_ids": [],
         }
 
     # Sprint 3 — 微调分类器 fast path
@@ -195,6 +342,7 @@ async def run(state: AgentState) -> dict:
         ]
 
         response: AIMessage = await llm_with_tools.ainvoke(invoke_messages)
+        _metrics.observe("model_calls", f"{settings.llm_model_router}:router", 1)
         usage = getattr(response, "usage_metadata", None) or {}
         input_tokens = int(usage.get("input_tokens", 0) or 0)
         output_tokens = int(usage.get("output_tokens", 0) or 0)
@@ -227,8 +375,8 @@ async def run(state: AgentState) -> dict:
         }
 
 
-def _has_sufficient_place_evidence(places: list) -> bool:
-    """Return true once retrieval has enough unique, category-diverse POIs."""
+def _has_sufficient_place_evidence(places: list, query: str = "") -> bool:
+    """Stop once explicit intent is covered; diversity is not always desired."""
     unique_ids: set[str] = set()
     categories: set[str] = set()
     for place in places:
@@ -242,7 +390,30 @@ def _has_sufficient_place_evidence(places: list) -> bool:
             unique_ids.add(str(place_id))
         if category is not None:
             categories.add(str(getattr(category, "value", category)))
+    requested = {category.value for category in infer_requested_categories(query)}
+    if requested:
+        minimum = max(1, len(extract_landmark_groups(query))) if extract_landmark_groups(query) else 3
+        return (
+            len(unique_ids) >= minimum
+            and requested.issubset(categories)
+            and categories.issubset(requested)
+            and request_has_all_landmarks(places, query)
+        )
     return len(unique_ids) >= 8 and len(categories) >= 2
+
+
+def _covered_place_categories(places: list) -> set:
+    from app.schemas.place import PlaceCategory
+
+    covered: set[PlaceCategory] = set()
+    for place in places:
+        raw = place.get("category") if isinstance(place, dict) else getattr(place, "category", None)
+        value = getattr(raw, "value", raw)
+        try:
+            covered.add(PlaceCategory(str(value)))
+        except ValueError:
+            continue
+    return covered
 
 
 def _get_last_human_query(messages: list) -> str:

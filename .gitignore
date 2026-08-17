@@ -85,3 +85,17 @@ backend/data/test_mini.jsonl
 frontend/tsconfig.tsbuildinfo
 backend/data/generated/
 backend/evidence/corpus/
+
+# Evaluation workbench outputs are local by default.  RC1 keeps only the
+# explicitly bound three-city artifacts below; tracked historical baselines
+# remain tracked even though they match this rule.
+backend/results/*
+!backend/results/three_city_daily_query_candidates_rc1_v22.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay2.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay3.json
+!backend/results/three_city_daily_query_agent_judge_bundle_rc1_v22.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round1_raw.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round2_raw.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round3_raw.json
+!backend/results/three_city_daily_query_agent_judge_panel_rc1_v22.json

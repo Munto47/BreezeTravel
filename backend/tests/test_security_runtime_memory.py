@@ -11,7 +11,9 @@ from app.memory.governance import contains_injection_signal, infer_category, is_
 from app.services.room_access import reject_claimed_identity, require_room_member
 from app.tools.runtime import (
     TOOL_SCOPES, ProviderRuntime, ToolCallEnvelope, ToolErrorCategory, ToolRuntimeError,
+    classify_error,
 )
+from app.config import get_settings
 
 
 class Acquire:
@@ -75,6 +77,17 @@ def test_tool_runtime_validates_payload_and_returns_receipt():
     assert receipt.result_count == 1
 
 
+def test_tool_runtime_classifies_empty_search_as_degraded_not_provider_failure():
+    async def operation(_args):
+        return ("no_results", [], [])
+
+    result, receipt = asyncio.run(ProviderRuntime().execute(envelope(), operation))
+    assert result[0] == "no_results"
+    assert receipt.status == "degraded"
+    assert receipt.error_category == ToolErrorCategory.EMPTY_RESULT
+    assert receipt.result_count == 0
+
+
 def test_tool_runtime_rejects_unknown_arguments_before_provider_call():
     called = False
 
@@ -100,6 +113,97 @@ def test_tool_runtime_obeys_total_deadline_and_retries_only_read_failure():
         asyncio.run(ProviderRuntime().execute(envelope(deadline=0.02), operation))
     assert timeout.value.receipt.error_category == ToolErrorCategory.TIMEOUT
     assert calls <= 1
+
+
+def test_amap_provider_concurrency_is_bounded_for_bursty_slot_searches():
+    async def scenario():
+        runtime = ProviderRuntime()
+        active = 0
+        peak = 0
+        lock = asyncio.Lock()
+
+        async def operation(args):
+            nonlocal active, peak
+            async with lock:
+                active += 1
+                peak = max(peak, active)
+            await asyncio.sleep(0.02)
+            async with lock:
+                active -= 1
+            return ("ok", [args], [])
+
+        tasks = [
+            runtime.execute(envelope(deadline=2), operation)
+            for _ in range(get_settings().amap_max_concurrency + 3)
+        ]
+        await asyncio.gather(*tasks)
+        assert peak <= get_settings().amap_max_concurrency
+
+    asyncio.run(scenario())
+
+
+class _AuditedBusinessError(RuntimeError):
+    def __init__(self, fallback_reason: str, status: str = "empty"):
+        super().__init__(fallback_reason)
+        self.audit = {"fallback_reason": fallback_reason, "status": status}
+
+
+def test_anchor_not_found_is_business_failure_and_never_opens_shared_circuit():
+    async def scenario():
+        runtime = ProviderRuntime()
+
+        async def missing_anchor(_):
+            raise _AuditedBusinessError("anchor_not_found")
+
+        for _ in range(get_settings().provider_failure_threshold + 2):
+            with pytest.raises(ToolRuntimeError) as raised:
+                await runtime.execute(envelope(), missing_anchor)
+            assert raised.value.receipt.error_category == ToolErrorCategory.ANCHOR_NOT_FOUND
+            assert raised.value.receipt.circuit_state == "closed"
+
+        async def success(args):
+            return ("ok", [args], [])
+
+        _, receipt = await runtime.execute(envelope(), success)
+        assert receipt.status == "ok"
+        assert receipt.circuit_failure_count == 0
+
+    asyncio.run(scenario())
+
+
+def test_wrapped_timeout_is_classified_from_exception_chain():
+    inner = TimeoutError("provider timeout")
+    outer = _AuditedBusinessError("TimeoutError", status="error")
+    outer.__cause__ = inner
+    assert classify_error(outer) == ToolErrorCategory.TIMEOUT
+
+
+def test_half_open_allows_exactly_one_concurrent_probe():
+    async def scenario():
+        runtime = ProviderRuntime()
+        circuit = runtime._circuits["amap"]
+        circuit.failures = get_settings().provider_failure_threshold
+        circuit.opened_at = 0.0
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def probe(args):
+            entered.set()
+            await release.wait()
+            return ("ok", [args], [])
+
+        first = asyncio.create_task(runtime.execute(envelope(), probe))
+        await entered.wait()
+        with pytest.raises(ToolRuntimeError) as blocked:
+            await runtime.execute(envelope(), probe)
+        assert blocked.value.receipt.error_category == ToolErrorCategory.CIRCUIT_OPEN
+        assert blocked.value.receipt.circuit_state == "half_open"
+        release.set()
+        _, receipt = await first
+        assert receipt.half_open_probe is True
+        assert receipt.circuit_state == "closed"
+
+    asyncio.run(scenario())
 
 
 @pytest.mark.parametrize(

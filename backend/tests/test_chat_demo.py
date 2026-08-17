@@ -173,6 +173,33 @@ class TestNewRoomFirstQuery:
         error_events = [e for e in all_events if e.get("event") == "error"]
         assert len(error_events) == 0, f"出现错误事件：{error_events}"
 
+    def test_realistic_beijing_room_opening_prompt_respects_initial_list_contract(self, client):
+        """Real room copy must not become a district or collapse to an empty list."""
+        from tests.test_daily_query_quality import ROOM_OPENING_PROMPT
+
+        events, places = _chat(
+            client,
+            ROOM_OPENING_PROMPT,
+            "北京",
+            "demo-realistic-beijing-room-opening",
+        )
+        categories: dict[str, int] = {}
+        for event in places:
+            category = event["data"]["place"]["category"]
+            categories[category] = categories.get(category, 0) + 1
+
+        assert 3 <= len(places) <= 15
+        assert {"attraction", "food", "hotel"} <= set(categories)
+        assert all(count <= 5 for count in categories.values())
+        text = "".join(
+            event["data"]["delta"] for event in events if event.get("event") == "text"
+        )
+        assert "大致价位与所在片区且符合" not in text
+        assert not any(
+            "高德地点搜索暂时不可用" in event.get("data", {}).get("summary", "")
+            for event in events
+        )
+
 
 # ── 测试组 2：意图过滤（单类查询）────────────────────────────────────────────
 

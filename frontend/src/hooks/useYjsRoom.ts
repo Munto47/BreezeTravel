@@ -6,6 +6,7 @@ import { WebsocketProvider } from 'y-websocket'
 
 import type { YjsPlace, YjsRoomMeta, RoomMember, RoomPhase } from '@/types/room'
 import type { Place } from '@/types/place'
+import type { ChatMessage } from '@/types/chat'
 
 const Y_WEBSOCKET_URL = process.env.NEXT_PUBLIC_Y_WEBSOCKET_URL || 'ws://localhost:1234'
 
@@ -21,6 +22,7 @@ interface UseYjsRoomReturn {
   members: RoomMember[]
   phase: RoomPhase
   isConnected: boolean
+  chatMessages: ChatMessage[]
 
   // 操作方法
   addPlace: (place: Place) => void
@@ -29,6 +31,7 @@ interface UseYjsRoomReturn {
   updateNote: (placeId: string, note: string) => void
   setPhase: (phase: RoomPhase) => void
   initRoom: (meta: Partial<YjsRoomMeta>) => void
+  appendChatMessages: (messages: ChatMessage[]) => void
 }
 
 export function useYjsRoom(
@@ -43,6 +46,7 @@ export function useYjsRoom(
   const [members, setMembers] = useState<RoomMember[]>([])
   const [phase, setPhaseState] = useState<RoomPhase>('exploring')
   const [isConnected, setIsConnected] = useState(false)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
 
   // 用户颜色（基于 userId hash 确保稳定）
   const userColor = MEMBER_COLORS[
@@ -59,6 +63,7 @@ export function useYjsRoom(
     // 初始化 Yjs 共享数据结构
     const placesMap = doc.getMap<YjsPlace>('places')
     const roomMeta = doc.getMap<unknown>('room')
+    const chatArray = doc.getArray<ChatMessage>('chat')
 
     let provider: WebsocketProvider | null = null
     let cancelled = false
@@ -122,11 +127,25 @@ export function useYjsRoom(
     roomMeta.observe(updatePhase)
     updatePhase()
 
+    // Only finalized messages are appended to Yjs. SSE deltas remain local,
+    // avoiding a CRDT update for every token while still surviving refresh.
+    const updateChat = () => {
+      const seen = new Set<string>()
+      setChatMessages(chatArray.toArray().filter((message) => {
+        if (!message?.messageId || seen.has(message.messageId)) return false
+        seen.add(message.messageId)
+        return true
+      }))
+    }
+    chatArray.observe(updateChat)
+    updateChat()
+
     return () => {
       cancelled = true
       provider?.awareness.off('change', updateMembers)
       placesMap.unobserve(updatePlaces)
       roomMeta.unobserve(updatePhase)
+      chatArray.unobserve(updateChat)
       provider?.destroy()
       doc.destroy()
       docRef.current = null
@@ -216,16 +235,30 @@ export function useYjsRoom(
     })
   }, [])
 
+  const appendChatMessages = useCallback((messages: ChatMessage[]) => {
+    const doc = docRef.current
+    if (!doc || !messages.length) return
+    const chatArray = doc.getArray<ChatMessage>('chat')
+    const knownIds = new Set(chatArray.toArray().map((message) => message.messageId))
+    const newMessages = messages.filter(
+      (message) => message.status === 'done' && !knownIds.has(message.messageId),
+    )
+    if (!newMessages.length) return
+    doc.transact(() => chatArray.push(newMessages))
+  }, [])
+
   return {
     places,
     members,
     phase,
     isConnected,
+    chatMessages,
     addPlace,
     removePlace,
     toggleVote,
     updateNote,
     setPhase,
     initRoom,
+    appendChatMessages,
   }
 }

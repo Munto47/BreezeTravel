@@ -1,8 +1,8 @@
 {
-  "run_id": "b4445c0f-8013-4435-b17c-f76e83ef55c9",
+  "run_id": "2fb814cb-e077-4d30-a808-c19cf5b798f4",
   "kind": "router",
   "split": "pilot",
-  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
   "dataset_hash": "9a46c1abcfb7d5358ab07f33270f90ed68153f3dd3bf3e6b72d5df71f93cb670",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "2ee91edad291d6ff6967bb988268796a5bf967aca878466b5c7f8e84d1fb8538",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-10T01:29:23.414722Z",
+  "started_at": "2026-08-15T15:39:19.256585Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -74,11 +74,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.009800074622035027,
+        "latency_ms": 0.012699998478638008,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-001"
       },
       "passed": true,
-      "latency_ms": 0.009800074622035027,
+      "latency_ms": 0.012699998478638008,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-001"
     },
@@ -99,11 +99,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.005699926987290382,
+        "latency_ms": 0.010200001270277426,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-002"
       },
       "passed": true,
-      "latency_ms": 0.005699926987290382,
+      "latency_ms": 0.010200001270277426,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-002"
     },
@@ -124,11 +124,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.003600027412176132,
+        "latency_ms": 0.005999998393235728,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-003"
       },
       "passed": true,
-      "latency_ms": 0.003600027412176132,
+      "latency_ms": 0.005999998393235728,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-003"
     },
@@ -149,11 +149,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.00300002284348011,
+        "latency_ms": 0.005699999746866524,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-004"
       },
       "passed": true,
-      "latency_ms": 0.00300002284348011,
+      "latency_ms": 0.005699999746866524,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-004"
     },
@@ -174,11 +174,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002499902620911598,
+        "latency_ms": 0.005599998985417187,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-005"
       },
       "passed": true,
-      "latency_ms": 0.002499902620911598,
+      "latency_ms": 0.005599998985417187,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-005"
     },
@@ -199,11 +199,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002600019797682762,
+        "latency_ms": 0.004400000761961564,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-006"
       },
       "passed": true,
-      "latency_ms": 0.002600019797682762,
+      "latency_ms": 0.004400000761961564,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-006"
     },
@@ -224,11 +224,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.0023997854441404343,
+        "latency_ms": 0.005000001692678779,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-007"
       },
       "passed": true,
-      "latency_ms": 0.0023997854441404343,
+      "latency_ms": 0.005000001692678779,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-007"
     },
@@ -249,11 +249,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002300133928656578,
+        "latency_ms": 0.004999998054699972,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-008"
       },
       "passed": true,
-      "latency_ms": 0.002300133928656578,
+      "latency_ms": 0.004999998054699972,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-008"
     },
@@ -274,11 +274,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002699904143810272,
+        "latency_ms": 0.005500001861946657,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-009"
       },
       "passed": true,
-      "latency_ms": 0.002699904143810272,
+      "latency_ms": 0.005500001861946657,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-009"
     },
@@ -299,11 +299,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0029000002541579306,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-010"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0029000002541579306,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-010"
     },
@@ -324,11 +324,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0034000004234258085,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-011"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0034000004234258085,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-011"
     },
@@ -349,11 +349,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0031000017770566046,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-012"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0031000017770566046,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-012"
     },
@@ -374,11 +374,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0027999994927085936,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-013"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0027999994927085936,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-013"
     },
@@ -399,11 +399,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002300133928656578,
+        "latency_ms": 0.0031000017770566046,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-014"
       },
       "passed": true,
-      "latency_ms": 0.002300133928656578,
+      "latency_ms": 0.0031000017770566046,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-014"
     },
@@ -424,11 +424,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0034000004234258085,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-015"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0034000004234258085,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-015"
     },
@@ -449,11 +449,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0031999989005271345,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-016"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0031999989005271345,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-016"
     }

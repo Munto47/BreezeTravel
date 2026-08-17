@@ -1,14 +1,32 @@
 {
   "schema_version": "1.0",
-  "status": "historical_baseline_pending_rerun",
-  "published_at": "2026-07-29T00:00:00Z",
-  "disclosure": "This manifest records historical baselines committed with the repository. It is not a current release claim; rerun the commands below against the public corpus before publishing resume metrics.",
+  "status": "three_city_local_rc1_candidate",
+  "published_at": "2026-08-17T00:00:00Z",
+  "disclosure": "This is a controlled-local three-city reliability candidate, not a full RC1 release, public deployment, human calibration, real-user validation or production claim.",
+  "scope": {
+    "cities": ["北京", "上海", "杭州"],
+    "cases_per_city": 50,
+    "total": 150
+  },
+  "three_city_candidate": {
+    "evidence": "backend/evidence/three_city_rc1/summary.json",
+    "frozen_replays_passed": true,
+    "model_panel_round_passed": [146, 145, 142],
+    "majority_pass_rate": 0.9733333333333334,
+    "unanimous_agreement_rate": 0.9533333333333334,
+    "model_panel_agreement_passed": true,
+    "model_panel_quality_passed": false,
+    "overall_rc1_passed": false,
+    "human_calibration_performed": false,
+    "paid_live_runs_complete": false,
+    "post_v22_hardening_revalidated": false
+  },
   "datasets": {
     "agent_router": {"split": "offline fixed set", "samples": 50, "source": "backend/results/agent_eval_offline.json"},
     "rag": {"split": "evaluation set", "samples": 27, "source": "backend/results/ragas_eval.json", "corpus_disclosure": "historical synthetic corpus"},
     "optimizer": {"samples": 50, "source": "backend/results/load_test_quick_run2.json"}
   },
-  "metrics": {
+  "historical_metrics": {
     "router_accuracy": 0.88,
     "router_both_accuracy": 0.6,
     "rag_faithfulness": 0.9389,
@@ -22,6 +40,9 @@
     "python backend/scripts/load_test.py --quick"
   ],
   "known_gaps": [
+    "Round three passed only 5/9 all-intent cases, so the model-panel quality gate did not pass.",
+    "Post-v22 low-transfer and spatial-deduplication hardening was not followed by another full replay or panel.",
+    "Human calibration, two paid live product runs, public deployment and real-user validation were not performed.",
     "both intent routing is the weakest historical class and must be reevaluated on a held-out set.",
     "The committed RAG baseline used synthetic material; public-source results are required before public performance claims."
   ]

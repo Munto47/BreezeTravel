@@ -117,9 +117,17 @@ def parse_task_spec(
         adults = max(1, adults - seniors) if people_raw else adults
 
     budget = None
-    budget_match = re.search(r"(?:预算|不超过|控制在)\s*(?:人民币|¥|￥)?\s*([0-9]+(?:\.[0-9]+)?)\s*(万|元|块)?", clean)
+    budget_match = re.search(
+        r"(?:预算(?:为|是|约|大概|不超过|控制在)?\s*(?:人民币|¥|￥)?\s*"
+        r"([0-9]+(?:\.[0-9]+)?)\s*(万|元|块)?|"
+        r"(?:不超过|控制在)\s*(?:人民币|¥|￥)?\s*"
+        r"([0-9]+(?:\.[0-9]+)?)\s*(万?元|块))",
+        clean,
+    )
     if budget_match:
-        amount = float(budget_match.group(1)) * (10000 if budget_match.group(2) == "万" else 1)
+        raw_amount = budget_match.group(1) or budget_match.group(3)
+        raw_unit = budget_match.group(2) or budget_match.group(4)
+        amount = float(raw_amount) * (10000 if raw_unit in {"万", "万元"} else 1)
         if "每人每天" in clean or "人均每天" in clean:
             scope = "per_person_per_day"
         elif "人均" in clean or "每人" in clean:

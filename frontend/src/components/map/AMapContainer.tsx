@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import type { YjsPlace } from '@/types/room'
 import type { Itinerary } from '@/types/itinerary'
 import { useRoomStore } from '@/stores/roomStore'
@@ -52,6 +52,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   const routePolylinesRef = useRef<any[]>([])
   const drivingRef      = useRef<any[]>([])
   const infoWindowRef   = useRef<any>(null)
+  const [isMapReady, setIsMapReady] = useState(false)
   // 记录上次渲染时的 place ID 集合，只有 ID 变化（新增/删除地点）才调 setFitView
   // 投票只改 votedBy，不触发地图缩放
   const prevPlaceIdsRef = useRef<Set<string>>(new Set())
@@ -108,6 +109,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
           viewMode: '3D',
         })
         mapRef.current = map
+        setIsMapReady(true)
 
         // 城市不在预置表里时，用 Geocoder 定位（如用户自定义城市名）
         if (city && !CITY_CENTERS[city]) {
@@ -332,23 +334,18 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     })
   }, [itinerary])
 
-  // places 变化 → 重绘 Markers
+  // places 变化或 SDK 刚完成初始化 → 重绘 Markers。过去只做一次固定
+  // 1.5s 重试，SDK 初始化更慢时会永久错过首批地点。
   useEffect(() => {
-    if (!mapRef.current) {
-      const t = setTimeout(renderMarkers, 1500)
-      return () => clearTimeout(t)
-    }
+    if (!isMapReady || !mapRef.current) return
     renderMarkers()
-  }, [places, renderMarkers])
+  }, [places, isMapReady, renderMarkers])
 
   // itinerary 变化 → 重绘静态路线
   useEffect(() => {
-    if (!mapRef.current) {
-      const t = setTimeout(renderRoutes, 1500)
-      return () => clearTimeout(t)
-    }
+    if (!isMapReady || !mapRef.current) return
     renderRoutes()
-  }, [itinerary, renderRoutes])
+  }, [itinerary, isMapReady, renderRoutes])
 
   // hoveredPlaceId 变化 → 更新对应 Marker 高亮样式
   useEffect(() => {

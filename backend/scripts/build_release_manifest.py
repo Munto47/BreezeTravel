@@ -77,16 +77,20 @@ def working_tree_fingerprint() -> tuple[str, int]:
     return digest.hexdigest(), included
 
 
-def build(output_root: Path) -> Path:
+def build(output_root: Path, *, require_clean: bool = False) -> Path:
     commit = git("rev-parse", "HEAD")
     status = git("status", "--porcelain=v1")
     dirty = bool(status)
+    if require_clean and dirty:
+        raise RuntimeError("RC1 candidate manifest requires a clean working tree")
     tree_hash, untracked_count = working_tree_fingerprint() if dirty else ("", 0)
     release_id = f"{commit[:12]}-dirty-{tree_hash[:12]}" if dirty else commit
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     eval_manifest = BACKEND / "eval_data" / "manifest.json"
     payload = {
-        "schema_version": "1.0",
+        "schema_version": "2.0",
+        "release_status": "three_city_local_rc1_candidate",
+        "overall_rc1_passed": False,
         "release_id": release_id,
         "commit_sha": commit,
         "working_tree_clean": not dirty,
@@ -103,19 +107,46 @@ def build(output_root: Path) -> Path:
         "migrations": [{"name": item.name, "sha256": sha256_file(item)} for item in migrations],
         "latest_migration": migrations[-1].name if migrations else None,
         "configuration": config_summary(),
+        "evaluation_scope": {
+            "supported_and_claimed_cities": ["北京", "上海", "杭州"],
+            "cases_per_city": 50,
+            "total_cases": 150,
+            "expanded_city_claims": False,
+        },
+        "external_api_policy": {
+            "iteration_mode": "frozen_snapshot_zero_external_calls",
+            "paid_live_runs_executed": 0,
+            "paid_live_runs_status": "paused",
+            "paid_generation_requires_explicit_flag": True,
+            "api_llm_judge_allowed": False,
+        },
+        "judge_policy": {
+            "kind": "independent_codex_subagent_panel",
+            "model": "gpt-5.6-sol",
+            "evaluator_count": 3,
+            "minimum_unanimous_agreement": 0.85,
+            "human_calibration_performed": False,
+            "agreement_threshold_passed": True,
+            "quality_thresholds_passed": False,
+            "allowed_claim": "模型评审组达到一致性阈值；质量总门禁未通过；真人校准未执行",
+        },
         "evaluation_manifest_sha256": sha256_file(eval_manifest),
         "evidence_paths": {
             "local_eval": "backend/evidence/local_eval/summary.json",
             "fault_injection": "backend/evidence/fault_injection/summary.json",
             "experiments": "backend/evidence/experiments/summary.json",
             "multi_instance": "backend/evidence/multi_instance/summary.json",
+            "three_city_rc1": "backend/evidence/three_city_rc1/summary.json",
         },
         "verification_commands": [
             "powershell -ExecutionPolicy Bypass -File .\\verify-local.ps1",
             "docker compose config --quiet",
             "docker compose -f docker-compose.multi.yml config --quiet",
         ],
-        "excluded_claims": ["public deployment", "public smoke", "real-user validation", "production SLO"],
+        "excluded_claims": [
+            "full RC1 release", "public deployment", "public smoke", "real-user validation",
+            "human calibration", "Judge-human agreement", "production SLO",
+        ],
     }
     target = output_root / release_id / "release.json"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -138,5 +169,6 @@ def build(output_root: Path) -> Path:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=BACKEND / "evidence" / "releases")
+    parser.add_argument("--require-clean", action="store_true")
     args = parser.parse_args()
-    print(build(args.output))
+    print(build(args.output, require_clean=args.require_clean))

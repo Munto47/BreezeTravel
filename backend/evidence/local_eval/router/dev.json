@@ -1,8 +1,8 @@
 {
-  "run_id": "d337be7b-c7b6-47a4-a677-ca04b4dc3f81",
+  "run_id": "2c3bcc2a-a83c-411f-bae5-e37d131c5366",
   "kind": "router",
   "split": "dev",
-  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
   "dataset_hash": "9a46c1abcfb7d5358ab07f33270f90ed68153f3dd3bf3e6b72d5df71f93cb670",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "2ee91edad291d6ff6967bb988268796a5bf967aca878466b5c7f8e84d1fb8538",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-10T01:29:23.540539Z",
+  "started_at": "2026-08-15T15:39:19.404278Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -86,11 +86,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.011999858543276787,
+        "latency_ms": 0.011399999493733048,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-017"
       },
       "passed": true,
-      "latency_ms": 0.011999858543276787,
+      "latency_ms": 0.011399999493733048,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-017"
     },
@@ -111,11 +111,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.0034999102354049683,
+        "latency_ms": 0.006199999916134402,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-018"
       },
       "passed": true,
-      "latency_ms": 0.0034999102354049683,
+      "latency_ms": 0.006199999916134402,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-018"
     },
@@ -136,11 +136,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.00300002284348011,
+        "latency_ms": 0.004600002284860238,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-019"
       },
       "passed": true,
-      "latency_ms": 0.00300002284348011,
+      "latency_ms": 0.004600002284860238,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-019"
     },
@@ -161,11 +161,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002600019797682762,
+        "latency_ms": 0.0032000025385059416,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-020"
       },
       "passed": true,
-      "latency_ms": 0.002600019797682762,
+      "latency_ms": 0.0032000025385059416,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-020"
     },
@@ -186,11 +186,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-021"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-021"
     },
@@ -211,11 +211,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002500135451555252,
+        "latency_ms": 0.0032999996619764715,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-022"
       },
       "passed": true,
-      "latency_ms": 0.002500135451555252,
+      "latency_ms": 0.0032999996619764715,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-022"
     },
@@ -236,11 +236,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002200016751885414,
+        "latency_ms": 0.0031000017770566046,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-023"
       },
       "passed": true,
-      "latency_ms": 0.002200016751885414,
+      "latency_ms": 0.0031000017770566046,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-023"
     },
@@ -261,11 +261,11 @@
         "tool_set": [
           "search_places"
         ],
-        "latency_ms": 0.002200016751885414,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-024"
       },
       "passed": true,
-      "latency_ms": 0.002200016751885414,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-024"
     },
@@ -286,11 +286,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.004899920895695686,
+        "latency_ms": 0.005300000339047983,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-025"
       },
       "passed": true,
-      "latency_ms": 0.004899920895695686,
+      "latency_ms": 0.005300000339047983,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-025"
     },
@@ -311,11 +311,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.003100140020251274,
+        "latency_ms": 0.0039000005926936865,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-026"
       },
       "passed": true,
-      "latency_ms": 0.003100140020251274,
+      "latency_ms": 0.0039000005926936865,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-026"
     },
@@ -336,11 +336,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002800021320581436,
+        "latency_ms": 0.0034000004234258085,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-027"
       },
       "passed": true,
-      "latency_ms": 0.002800021320581436,
+      "latency_ms": 0.0034000004234258085,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-027"
     },
@@ -361,11 +361,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002500135451555252,
+        "latency_ms": 0.0033000032999552786,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-028"
       },
       "passed": true,
-      "latency_ms": 0.002500135451555252,
+      "latency_ms": 0.0033000032999552786,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-028"
     },
@@ -386,11 +386,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-029"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-029"
     },
@@ -411,11 +411,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002500135451555252,
+        "latency_ms": 0.0030999981390777975,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-030"
       },
       "passed": true,
-      "latency_ms": 0.002500135451555252,
+      "latency_ms": 0.0030999981390777975,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-030"
     },
@@ -436,11 +436,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0030999981390777975,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-031"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0030999981390777975,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-031"
     },
@@ -461,11 +461,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-032"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-032"
     },
@@ -486,11 +486,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0029999973776284605,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-033"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0029999973776284605,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-033"
     },
@@ -511,11 +511,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002200016751885414,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-034"
       },
       "passed": true,
-      "latency_ms": 0.002200016751885414,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-034"
     },
@@ -536,11 +536,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-035"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-035"
     },
@@ -561,11 +561,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002300133928656578,
+        "latency_ms": 0.0029000002541579306,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-036"
       },
       "passed": true,
-      "latency_ms": 0.002300133928656578,
+      "latency_ms": 0.0029000002541579306,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-036"
     },
@@ -586,11 +586,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0027999994927085936,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-037"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0027999994927085936,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-037"
     },
@@ -611,11 +611,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002200016751885414,
+        "latency_ms": 0.0029000002541579306,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-038"
       },
       "passed": true,
-      "latency_ms": 0.002200016751885414,
+      "latency_ms": 0.0029000002541579306,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-038"
     },
@@ -636,11 +636,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002299901098012924,
+        "latency_ms": 0.0029999973776284605,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-039"
       },
       "passed": true,
-      "latency_ms": 0.002299901098012924,
+      "latency_ms": 0.0029999973776284605,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-039"
     },
@@ -661,11 +661,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002300133928656578,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-040"
       },
       "passed": true,
-      "latency_ms": 0.002300133928656578,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-040"
     },
@@ -686,11 +686,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0029000002541579306,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-041"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0029000002541579306,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-041"
     },
@@ -711,11 +711,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002600019797682762,
+        "latency_ms": 0.0030999981390777975,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-042"
       },
       "passed": true,
-      "latency_ms": 0.002600019797682762,
+      "latency_ms": 0.0030999981390777975,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-042"
     },
@@ -736,11 +736,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-043"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-043"
     },
@@ -761,11 +761,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0030000010156072676,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-044"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0030000010156072676,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-044"
     },
@@ -786,11 +786,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0029000002541579306,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-045"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0029000002541579306,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-045"
     },
@@ -811,11 +811,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002499902620911598,
+        "latency_ms": 0.0032000025385059416,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-046"
       },
       "passed": true,
-      "latency_ms": 0.002499902620911598,
+      "latency_ms": 0.0032000025385059416,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-046"
     },
@@ -836,11 +836,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0027999994927085936,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-047"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0027999994927085936,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-047"
     },
@@ -861,11 +861,11 @@
         "tool_set": [
           "search_travel_notes"
         ],
-        "latency_ms": 0.002400018274784088,
+        "latency_ms": 0.0029999973776284605,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-048"
       },
       "passed": true,
-      "latency_ms": 0.002400018274784088,
+      "latency_ms": 0.0029999973776284605,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-048"
     }

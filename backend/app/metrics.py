@@ -28,7 +28,7 @@ _store: dict = {
     "estimated_llm_cost_usd": 0.0,
 }
 _labelled: dict[str, dict[str, int | float]] = {
-    "tool_outcomes": {}, "model_usage": {}, "error_categories": {},
+    "tool_outcomes": {}, "model_usage": {}, "model_calls": {}, "error_categories": {},
 }
 
 
