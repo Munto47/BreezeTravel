@@ -17,6 +17,7 @@ from app.operations.repositories import (
     PostgresCreationCommandRepository,
 )
 from app.services.room_access import require_room_member
+from app.trip_check.briefs import PostgresTripBriefRepository, TripBriefRepository
 from app.utils.auth import get_current_user
 
 
@@ -39,6 +40,10 @@ def get_creation_command_repository() -> CreationCommandRepository:
     return PostgresCreationCommandRepository()
 
 
+def get_trip_brief_repository() -> TripBriefRepository:
+    return PostgresTripBriefRepository()
+
+
 ImportRepositoryDep = Annotated[ImportRepository, Depends(get_import_repository)]
 ItineraryRepositoryDep = Annotated[ItineraryRepository, Depends(get_itinerary_repository)]
 EntityProviderDep = Annotated[EntityCandidateProvider, Depends(get_entity_candidate_provider)]
@@ -47,6 +52,7 @@ CreationCommandRepositoryDep = Annotated[
     CreationCommandRepository,
     Depends(get_creation_command_repository),
 ]
+TripBriefRepositoryDep = Annotated[TripBriefRepository, Depends(get_trip_brief_repository)]
 
 
 class CreateImportRequest(BaseModel):
@@ -163,6 +169,7 @@ async def create_itinerary_import(
     import_repository: ImportRepositoryDep,
     entity_provider: EntityProviderDep,
     command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
     response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
@@ -172,6 +179,7 @@ async def create_itinerary_import(
             import_repository=import_repository,
             itinerary_repository=itinerary_repository,
             entity_resolver=EntityResolver(entity_provider),
+            trip_brief_repository=trip_brief_repository,
         ).create_import_idempotent(
             workspace_id=workspace_id,
             source_type=body.source_type,

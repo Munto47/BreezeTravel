@@ -165,6 +165,9 @@ class TripWorkspace(BaseModel):
     current_member_constraint_revision: int | None = Field(default=None, ge=1)
     current_report_id: str | None = None
     current_import_id: str | None = None
+    current_brief_id: str | None = None
+    current_trip_brief_revision: int | None = Field(default=None, ge=1)
+    current_trip_check_run_id: str | None = None
     status: WorkspaceStatus = WorkspaceStatus.DRAFT
     created_by: str = Field(min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

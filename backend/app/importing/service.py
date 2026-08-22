@@ -30,6 +30,7 @@ from app.itineraries.models import (
 from app.itineraries.repositories import ItineraryRepository
 from app.operations.models import CreationCommandResponse, CreationOperation
 from app.operations.repositories import CreationCommandRepository
+from app.trip_check.briefs import TripBriefApplicationService, TripBriefRepository
 
 
 def _clock(raw: str, *, afternoon_hint: bool = False) -> str | None:
@@ -111,11 +112,13 @@ class ImportApplicationService:
         itinerary_repository: ItineraryRepository,
         entity_resolver: EntityResolver,
         parser: ItineraryTextParser | None = None,
+        trip_brief_repository: TripBriefRepository | None = None,
     ):
         self.import_repository = import_repository
         self.itinerary_repository = itinerary_repository
         self.entity_resolver = entity_resolver
         self.parser = parser or ItineraryTextParser()
+        self.trip_brief_repository = trip_brief_repository
 
     async def create_import(
         self,
@@ -222,6 +225,13 @@ class ImportApplicationService:
                     basis=stored_basis,
                     conn=conn,
                 )
+                if self.trip_brief_repository is not None:
+                    await TripBriefApplicationService(self.trip_brief_repository).create_for_import(
+                        workspace=workspace,
+                        itinerary_import=stored,
+                        actor_user_id=actor_user_id,
+                        conn=conn,
+                    )
                 return CreationCommandResponse(
                     status_code=201,
                     body=stored.model_dump(mode="json"),

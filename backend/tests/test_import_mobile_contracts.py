@@ -12,6 +12,7 @@ from app.importing.repositories import InMemoryImportRepository
 from app.itineraries.models import TripDateRange, TripWorkspace
 from app.itineraries.repositories import InMemoryItineraryRepository
 from app.operations.repositories import InMemoryCreationCommandRepository
+from app.trip_check.briefs import InMemoryTripBriefRepository
 from app.utils.auth import get_current_user
 
 
@@ -56,11 +57,13 @@ def _client(monkeypatch) -> tuple[TestClient, InMemoryImportRepository]:
     )
     import_repository = InMemoryImportRepository(itinerary_repository)
     command_repository = InMemoryCreationCommandRepository()
+    trip_brief_repository = InMemoryTripBriefRepository()
     app = FastAPI()
     app.include_router(imports_api.router, prefix="/api")
     app.dependency_overrides[imports_api.get_itinerary_repository] = lambda: itinerary_repository
     app.dependency_overrides[imports_api.get_import_repository] = lambda: import_repository
     app.dependency_overrides[imports_api.get_creation_command_repository] = lambda: command_repository
+    app.dependency_overrides[imports_api.get_trip_brief_repository] = lambda: trip_brief_repository
     app.dependency_overrides[imports_api.get_entity_candidate_provider] = lambda: MobileImportProvider()
     app.dependency_overrides[get_current_user] = lambda: "mobile-import-user"
     monkeypatch.setattr(imports_api, "require_room_member", AsyncMock(return_value=None))

@@ -9,7 +9,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
-from app.api import audits, imports, repairs, suggestions, templates, trip_workspaces, members
+from app.api import audits, imports, repairs, suggestions, templates, trip_briefs, trip_workspaces, members
 from app.api import auth as auth_api
 from app.api import e2e as e2e_api
 from app.api import user_profile
@@ -113,6 +113,7 @@ app.include_router(memories.router, prefix="/api", tags=["memory"])
 app.include_router(trip_workspaces.router, prefix="/api", tags=["trip-workspaces"])
 app.include_router(audits.router, prefix="/api", tags=["audits"])
 app.include_router(imports.router, prefix="/api", tags=["imports"])
+app.include_router(trip_briefs.router, prefix="/api", tags=["trip-briefs"])
 app.include_router(repairs.router, prefix="/api", tags=["repairs"])
 app.include_router(members.router, prefix="/api", tags=["members"])
 app.include_router(templates.router, prefix="/api", tags=["route-templates"])
