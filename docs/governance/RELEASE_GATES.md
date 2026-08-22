@@ -60,13 +60,75 @@
 
 G0～G6 必须在候选 commit 上重新运行。旧 manifest、历史报告或不同 dirty tree 的结果不能拼接。
 
+## 5.1 开发阶段 Gate
+
+### D1：第 6 周文本纵向闭环
+
+- 北京、上海、杭州各至少一个浏览器主链通过；
+- 18 条 pilot 可由固定 runner 执行；
+- 错 POI/错城自动接受为 0；
+- Repair 后新增 BLOCKER/HIGH/UNKNOWN 为 0；
+- Evidence 后终止进程，恢复后 Run、receipt、revision 和 postcheck 一致；
+- 同一幂等键不产生第二个 Run、repair 或 revision。
+
+### Reliability Gate
+
+六类固定故障必须产生预期机器可读结果：
+
+| 故障 | 预期 |
+|---|---|
+| Provider timeout | 有界重试，受影响字段 UNKNOWN，其他事实保留 |
+| 字段部分失败 | Run 为 PARTIAL，成功事实不丢失 |
+| 重复提交 | 返回同一资源并标记 idempotent replay |
+| 并发编辑 | 一个成功，失败方 409 并回读当前 revision |
+| 进程终止 | 过期 lease 接管，不重复副作用 |
+| config 漂移 | `RUN_CONFIG_MISMATCH`，禁止拼接恢复 |
+
+Trace 必须包含 `bt.run_id`、revision、brief、evidence、config、rule、provider、execution mode 和失败类别，且敏感字段扫描为 0 命中。
+
+### Solver Admission Gate
+
+在固定 36 条 bake-off 上按以下顺序判定：
+
+1. 新增 BLOCKER/HIGH/UNKNOWN 为 0；
+2. 完整 postcheck 成功率优先；
+3. 相比 BoundedRepair 成功率提高至少 10 个百分点，或稳定解决至少 3 类其无法解决的问题；
+4. 5 天 25 站 P95 ≤2 秒；
+5. 安全条件相同时比较编辑成本和路线代价。
+
+未通过时 OR-Tools 保持实验资产，不得进入默认运行时。
+
+### Evaluation Gate
+
+- 数据为 18 pilot / 180 dev / 72 regression / 90 frozen blind，三城各 120；
+- 同源/变异案例不跨 split；
+- Legacy A、Core B、Solver C 使用相同 RunSpec 和 oracle；
+- blind 标签对开发 Agent、运行模型和 Judge 隔离；
+- 结果包含任务成功、错 POI、HARD 漏检、UNKNOWN 保留、postcheck、unsupported claim、P95、token、成本和 replay hash；
+- 消融结果只决定默认运行时，不替代 G0～G6。
+
+### Candidate Gate
+
+候选版除 G0～G6 外还必须交付受控公网演示、90 秒视频、5 分钟完整演示、架构图、恢复时序图、消融表和可回读 manifest。公网演示默认使用受控 snapshot；live Provider Gate 单独执行。
+
 ## 6. Judge 与人工证据
 
 自动语义 Judge 使用独立、无 API 的模型评审流程；运行时 DeepSeek 不得评价自己的输出。结果只标记为 `automated_proxy_judge`，不等于真人校准、public E2E 或发布批准。
 
 `frozen_blind` 标签与开发 Agent、运行模型和 Judge 隔离；blind 失败只进入 `dev/regression` 的复现形式，禁止修改 blind/oracle 以消除失败。
 
-真人内测不属于本 V1 候选版 Gate。候选版通过后，由用户另行批准和设计 consent、样本与反馈流程。
+真人内测不属于本 V1 候选版 Gate。候选版通过后进入 H1，并由用户现场批准公网、招募与 consent。
+
+### Human Usability Gate（H1）
+
+- 8～12 人；每人完成一个统一受控任务，并可自愿使用真实行程；
+- ≥80% 无需开发者代操作完成输入、确认、报告理解和采纳；
+- 关键 Finding 理解率 ≥80%；
+- 虚构事实/错误地点被当作可靠建议为 0；
+- 原图留存和隐私事故为 0；
+- 严重误导或主链阻断全部进入 regression，修复后重跑相关 G1～G6 并生成新 manifest。
+
+H1 只能描述为小样本真人可用性证据，不得宣称统计显著、市场验证或生产 SLO。
 
 ## 7. 禁止替代
 

@@ -1,43 +1,74 @@
-# 「行程查」V1 24 周 Roadmap
+# 「行程查」V1 纵向 Roadmap
 
 > 状态：`ACCEPTED`
 >
-> 起始基线：2026-08-22
-> 说明：阶段编号只表示 V1 交付顺序，不代表并行授权。
+> Program：`TC-V1-INTERVIEW-2026`
+>
+> 周期：24 周内测候选版 + 3 周 H1 真人实测闭环
 
-任何时刻只允许 `CURRENT_GOAL.md` 中一个 `APPROVED` 切片。阶段完成后停止，由用户决定是否进入下一阶段。
+任何时刻只执行 `CURRENT_GOAL.md` 中一个 `APPROVED/IN_PROGRESS` 切片。阶段 Gate、clean tree、远端 checkpoint 和 evidence readback 全部通过后，才可按 `PROGRAM.md` 自动生成下一 Goal。
 
-| 阶段 | 周期 | 用户可见结果 | 主要实现 | 阶段退出证据 |
+## 1. 阶段顺序
+
+| 阶段 | 周期 | 首要用户结果 | 核心实现 | 退出 Gate |
 |---|---:|---|---|---|
-| P0 指导与基线 | 第 1～2 周 | 项目目标、能力声明和开发边界一致 | 权威迁移、旧方案归档、Builder 冻结、能力分级、基线 | 文档/链接审计、现有代码/迁移/测试/evidence 基线 |
-| P1 输入与 TripBrief | 第 3～6 周 | 用户能提交文本/截图并确认完整行程条件 | PaddleOCR、临时资产清理、解析确认、TripBriefRevision、范围拒绝 | OCR/解析样本、PostgreSQL、隐私清理、关键字段门禁 |
-| P2 事实核验 | 第 7～10 周 | 用户看到地点、营业、路线、酒店和时间事实 | 地点归属、四种路线、酒店往返、时间可行性、receipt、恢复 | G1/G2/G3；局部 Provider 失败、幂等、并发、恢复 |
-| P3 偏好天气风险 | 第 11～14 周 | 硬事实和建议判断分开，风险有来源 | 偏好/强度规则、月份先验、天气、Brave、RiskEvidence | 来源优先级/TTL/成本测试与真实 Provider receipt |
-| P4 Advice 与候选 | 第 15～18 周 | 每个问题有行动方式，可安全采纳真实候选 | AdviceBundle、CandidateSet、路线变化、Repair/EditCommand、postcheck | 建议 100% 覆盖、候选 receipt 100%、零新增高风险 |
-| P5 360 数据集与连续验收 | 第 19～22 周 | 每次变化可与稳定基线比较并决定接受/拒绝 | import-only v2、runner、snapshot、独立无 API Judge、blind 隔离 | 18/180/72/90 分层完成，三城各 120，G0～G5 同绑定 |
-| P6 稳定化与内部交付 | 第 23～24 周 | 形成「行程查 V1 内测候选版」 | 浏览器 E2E、性能、重启、隐私、live Provider、manifest | `RELEASE_GATES.md` 全部满足，G6 manifest 为候选 |
+| P0-G02 | 当前 | 架构、API、数据、Gate 和自动推进无冲突 | Program、ADR、API 合同、文档权威迁移 | 文档 Gate |
+| P1 文本纵向闭环 | 第 3～6 周 | 文本行程完成确认、核验、修复、采纳和复验 | Brief、fixture Evidence、Audit、Advice adapter、Repair、恢复 | D1 |
+| P2 可靠运行 | 第 7～10 周 | 刷新、断线、重复提交、并发和重启可恢复 | TripCheckRun、lease、CAS、幂等、SSE、Trace | Reliability Gate |
+| P3 输入/Provider 完整性 | 第 11～14 周 | 截图、四种交通、天气和风险来源进入主链 | OCR 隐私、Provider adapter、RiskEvidence | G1～G4 子集 |
+| P4 Advice/Repair | 第 15～18 周 | 每个问题有行动方式和安全候选 | AdviceBundle、CandidateSet、RepairEngine、OR-Tools bake-off | Solver Admission Gate |
+| P5 评测与消融 | 第 19～22 周 | 每次变更可与稳定基线比较 | 360 数据、Legacy/Core/Solver、snapshot、Judge | Evaluation Gate |
+| P6 候选与公网证据 | 第 23～24 周 | 可公开演示的 V1 内测候选版 | G0～G6、live receipts、性能、manifest、视频 | Candidate Gate |
+| H1 真人实测 | 第 25～27 周 | 8～12 人完成受控/真实任务并闭环缺陷 | consent、访谈、regression、重新复验 | Human Usability Gate |
 
-## 每阶段实现顺序
+## 2. P1 必须在第 6 周前完成的链路
 
-每个阶段均拆成可独立验证的纵向切片：合同/schema 设计（需 HITL）→ 最小后端路径 → 持久化/失败语义 → 前端主链 → 定向测试 → 同阶段完整门禁。不得先批量建设基础设施，再寻找用户路径。
+```text
+文本 Import → TripBrief 确认 → 歧义 POI 确认 → EvidenceSnapshot
+→ 一个事实/路线冲突 → Advice → Repair 预览 → 新 Revision
+→ 完整 postcheck → Evidence 后杀进程并恢复
+```
 
-## 数据集计划
+- 北京、上海、杭州各至少一个浏览器主链；
+- Provider 使用受控 fixture；
+- 18 条 pilot 同步建立，每城 6 条；
+- OCR 只做隔离技术验证，不阻塞 D1；
+- 重启不得重复创建 Provider 副作用、repair 或 revision。
 
-P5 新建 `import-only v2`，总计 360 条：
+## 3. 数据增长
 
-| 分区 | 数量 | 用途 | 允许调整 |
-|---|---:|---|---|
-| pilot | 18 | 合同试跑与标注流程验证 | 可重建，但必须版本化 |
-| dev | 180 | 规则、Prompt、排序、检索优化 | 允许开发使用，不用于最终晋级 |
-| regression | 72 | 已修复问题的持续防回归 | 仅追加或经审计更正 |
-| frozen blind | 90 | 独立最终评估 | 开发 Agent、运行模型和 Judge 不得查看标签 |
+| 时间点 | pilot | dev | regression | frozen blind | 规则 |
+|---|---:|---:|---:|---:|---|
+| P1 | 18 | 0 | 0 | 0 | 先验证合同、runner 和 oracle |
+| P2/P3 | 18 | 逐步到 180 | 随缺陷追加 | 0 | 修复故障必须进入 regression |
+| P4 | 18 | 180 | 72 | 0 | schema/oracle 冻结准备 |
+| P5 | 18 | 180 | 72 | 90 | blind 由隔离流程生成并封存 |
 
-北京、上海、杭州各 120 条，覆盖干净/噪声文本、手工描述、截图、歧义地点、酒店、餐饮、四种交通、天气、风险新闻和复合修复。train/dev 不用于模型微调。
+最终总计 360 条，北京、上海、杭州各 120。同源和变异案例不得跨 split；blind 失败只回流为 dev/regression 复现。
 
-## 分支与交付
+## 4. OR-Tools 准入
 
-阶段分支使用 `codex/trip-check-p<n>-<scope>`。一个 PR 只包含一个阶段；切片验证后立即 commit/push，最长 60 分钟必须产生远端 checkpoint。合并与进入下一阶段必须人工批准。
+P4 通过统一 RepairEngine 比较 BoundedRepair、RoutingModel/TSPTW 和 CP-SAT。新策略必须先满足零新增 BLOCKER/HIGH/UNKNOWN，再按完整 postcheck 成功率、P95、编辑成本和路线代价比较。未通过 Gate 只保留实验代码和报告。
 
-## Roadmap 之外
+## 5. 证据实验台
 
-真人内测在 P6 候选版后单独启动，不提前计入 V1 证据。扩城、跨城、Builder、MQ、Kubernetes、GraphRAG、新 Agent 和重新微调不在本 Roadmap 中。
+每个阶段持续维护：
+
+- `RunSpec`：commit/config/model/prompt/rule/provider/dataset/snapshot/fault/budget；
+- 六类 fault：Provider timeout、字段部分失败、重复提交、并发编辑、进程终止、config 漂移；
+- Trace、receipt、snapshot、replay 和原始指标；
+- Legacy A、Core B、Solver C 的同 RunSpec 结果；
+- 同绑定 release manifest。
+
+实验台不需要大型运营后台；提供 CLI artifact 和一个受控演示页面即可。
+
+## 6. 分支与 checkpoint
+
+- Program 集成分支：`codex/trip-check-v1-program`；
+- 阶段分支：`codex/trip-check-p<n>-<scope>`；
+- 每个可验证切片执行定向检查、显式暂存、commit 和 push；最长 60 分钟形成远端 checkpoint；
+- Gate 通过后可在 Program 授权内 fast-forward 到集成分支；不得自动合并 `main`。
+
+## 7. H1
+
+H1 只有在 G0～G6 全部通过、公网和招募现场批准、consent/删除/退出机制完成后开始。每名参与者完成一个统一任务，并可自愿使用自己的真实行程。严重误导、主链阻断和隐私问题必须进入 regression，修复后重跑相关 Gate 和 manifest。

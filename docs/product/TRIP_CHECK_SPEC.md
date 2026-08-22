@@ -22,6 +22,18 @@
 
 任何步骤失败都应保留已经成功且配置一致的阶段结果，并给出可恢复状态；不得把不同配置的阶段输出拼成一次完成的 Run。
 
+### 1.1 第一可交付纵向闭环
+
+P1 必须先使用文本和受控 Provider fixture 交付：
+
+```text
+文本 Import → TripBrief 确认 → 歧义 POI 确认 → EvidenceSnapshot
+→ 事实/路线冲突 → Advice → Repair 预览 → 新 Revision
+→ 完整 postcheck → Evidence 后杀进程并恢复
+```
+
+该闭环覆盖北京、上海、杭州各至少一个浏览器案例，并同步建立 18 条 pilot。OCR 是后续输入 adapter，不得阻塞第一条可演示闭环。
+
 ## 2. 输入合同
 
 ### 2.1 文本
@@ -79,16 +91,30 @@ Finding 分为 `MUST_ADJUST`、`SHOULD_OPTIMIZE`、`NEEDS_CONFIRMATION`。每个
 
 长运行通过数据库状态和 SSE 展示进度，不引入消息队列。断线或重启后从同一配置下最后完成阶段恢复；阶段使用稳定幂等键。Provider 局部失败保留成功事实并标记受影响字段；Brave 不可用不得影响其他核验。
 
+LangGraph checkpoint 只保存可恢复计算进度；Provider 请求、数据库 mutation、建议采纳和 postcheck 必须分别使用稳定幂等键、事务边界和可回读回执。worker 只能接管过期 lease；config hash 不一致返回 `RUN_CONFIG_MISMATCH`，不得继续原 Run。
+
+SSE 断线不取消后台 Run。客户端使用 `Last-Event-ID` 重连；重复事件不能触发重复副作用。并发更新由 `If-Match` 保护，输掉竞争的客户端收到 409 并重新读取当前 revision/state。
+
+Provider 局部失败可形成 `PARTIAL` Run：已成功事实继续可用，失败字段保持 `UNKNOWN/UNAVAILABLE` 并显示失败类别和可重试动作。隐私清理失败必须形成 `PRIVACY_BLOCKED`，不得标记成功。
+
 ## 6. 接口与持久化边界
 
-V1 需要截图/OCR、TripBriefRevision、TripCheckRun/进度、Advice 查询/应用和 postcheck 资源；具体路径和 schema 在对应 Goal 中经 HITL 后确定。所有写接口使用 revision 前置条件和幂等键，客户端不能提交 canonical POI、Provider 事实或「已解决」状态作为权威值。
+V1 截图/OCR、TripBriefRevision、TripCheckRun/进度、Advice 查询/应用和 postcheck 的固定路径、schema、ETag、错误码与兼容规则见 [`TRIP_CHECK_API_CONTRACT.md`](TRIP_CHECK_API_CONTRACT.md)。所有写接口使用 revision 前置条件和幂等键，客户端不能提交 canonical POI、Provider 事实或「已解决」状态作为权威值。
 
 - 新 migration 从 `022` 开始，只追加，不重写历史；
 - 旧文本导入和现有 revision 保持可读；
 - 保留输入、确认版本、事实、Finding、Advice、命令和 postcheck lineage；
 - 原图是临时资产，不属于持久化业务记录。
 
-## 7. 性能与失败体验
+## 7. 数据与评测演进
+
+- P1 同步建立 18 条 pilot，北京、上海、杭州各 6；
+- P2/P3 将 dev 增长到 180，每个被修复的真实故障追加 regression；
+- P4 结束时 regression 达到 72，schema/oracle 稳定；
+- P5 由隔离流程生成并冻结 90 条 blind，最终三城各 120、总计 360；
+- 同源或变异案例必须位于同一 split；blind 失败只能形成 dev/regression 复现，禁止修改 blind/oracle 消除失败。
+
+## 8. 性能与失败体验
 
 - 标准文本输入首次进度反馈 ≤1 秒；解析与确认页 P95 ≤3 秒；
 - 三张截图 OCR P95 ≤12 秒；基础报告 P95 ≤30 秒；
@@ -96,7 +122,7 @@ V1 需要截图/OCR、TripBriefRevision、TripCheckRun/进度、Advice 查询/�
 
 超时、断线和 Provider 失败必须显示已完成阶段、不可用字段、可重试动作和稳定 Run ID，禁止以空白页或通用「生成失败」结束。
 
-## 8. 外部技术依据
+## 9. 外部技术依据
 
 - [PaddleOCR 3.x Quick Start](https://www.paddleocr.ai/main/quick_start.html)
 - [高德路径规划 2.0](https://lbs.amap.com/api/webservice/guide/api/newroute)
