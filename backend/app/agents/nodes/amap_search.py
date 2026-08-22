@@ -198,6 +198,11 @@ async def _fetch_amap_poi(
     # v5 文本检索默认按综合权重排序；周边检索才接受 sortrule。
     if prefer_trending and location:
         params["sortrule"] = "weight"
+    request_hash = _response_hash({
+        "method": "GET",
+        "url": url,
+        "params": {key: value for key, value in params.items() if key != "key"},
+    })
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=8)) as resp:
@@ -224,6 +229,7 @@ async def _fetch_amap_poi(
             places = [_parse_amap_place(p, city) for p in (data.get("pois") or [])]
             parsed = [
                 place.model_copy(update={
+                    "retrieval_request_hash": request_hash,
                     "retrieval_response_hash": response_hash,
                     "retrieval_observed_at": retrieved_at,
                 })
@@ -292,10 +298,18 @@ def _load_mock_places(city: str, query: str = "", district: str = "") -> list[Pl
 
     city_places = mock_data.get(city, mock_data.get("成都", []))
     fixture_hash = _response_hash(city_places)
+    request_hash = _response_hash({
+        "provider": "amap_fixture",
+        "fixture_hash": fixture_hash,
+        "city": city,
+        "query": query,
+        "district": district,
+    })
     all_places = [
         Place(**p).model_copy(update={
             "execution_mode": RetrievalExecutionMode.FIXTURE,
             "retrieval_provider": "amap_fixture",
+            "retrieval_request_hash": request_hash,
             "retrieval_response_hash": fixture_hash,
             "retrieval_observed_at": datetime.fromtimestamp(
                 MOCK_DATA_PATH.stat().st_mtime, tz=timezone.utc,
@@ -350,6 +364,88 @@ def _load_mock_places(city: str, query: str = "", district: str = "") -> list[Pl
     )
 
 
+def _normalize_entity_fixture_name(value: str) -> str:
+    """Normalize only presentation punctuation for fixture identity lookup."""
+    return re.sub(r"[\s·•\-—_（）()]+", "", (value or "").casefold())
+
+
+def _load_mock_entity_candidates(city: str, query: str) -> list[Place]:
+    """Replay the controlled POI fixture as an entity-search response.
+
+    Entity resolution and recommendation ranking have different contracts.  A
+    recommendation query may intentionally prefer a category or popularity,
+    while an imported POI name must first surface identity-compatible rows.
+    This adapter therefore selects rows solely from the explicit ``city`` and
+    ``query`` input bytes.  It also retains strong name hits from other fixture
+    cities so the resolver can reject them with an immutable wrong-city
+    receipt; it never fabricates a cross-city candidate when the fixture has no
+    matching row.
+    """
+    normalized_query = _normalize_entity_fixture_name(query)
+    if not normalized_query or not MOCK_DATA_PATH.exists():
+        return []
+
+    with open(MOCK_DATA_PATH, "r", encoding="utf-8") as fixture_file:
+        mock_data = json.load(fixture_file)
+
+    matched_rows: list[dict] = []
+    for fixture_city, rows in mock_data.items():
+        if not isinstance(rows, list):
+            continue
+        for raw in rows:
+            if not isinstance(raw, dict):
+                continue
+            normalized_name = _normalize_entity_fixture_name(str(raw.get("name") or ""))
+            if not normalized_name:
+                continue
+            if normalized_query not in normalized_name and normalized_name not in normalized_query:
+                continue
+            # Keep the city embedded in the fixture row authoritative.  The
+            # top-level key is used only when an older fixture omitted it.
+            matched_rows.append({**raw, "city": str(raw.get("city") or fixture_city)})
+
+    if not matched_rows:
+        return []
+
+    matched_rows.sort(
+        key=lambda raw: (
+            0 if str(raw.get("city") or "") == city else 1,
+            0
+            if _normalize_entity_fixture_name(str(raw.get("name") or "")) == normalized_query
+            else 1,
+            str(raw.get("place_id") or ""),
+        )
+    )
+    fixture_hash = _response_hash(mock_data)
+    request_hash = _response_hash(
+        {
+            "provider": "amap_fixture_entity",
+            "fixture_hash": fixture_hash,
+            "target_city": city,
+            "query": query,
+        }
+    )
+    response_hash = _response_hash(
+        {
+            "fixture_hash": fixture_hash,
+            "matches": matched_rows,
+        }
+    )
+    observed_at = datetime.fromtimestamp(MOCK_DATA_PATH.stat().st_mtime, tz=timezone.utc)
+    return [
+        Place(**raw).model_copy(
+            update={
+                "execution_mode": RetrievalExecutionMode.FIXTURE,
+                "retrieval_provider": "amap_fixture",
+                "retrieval_request_hash": request_hash,
+                "retrieval_response_hash": response_hash,
+                "retrieval_observed_at": observed_at,
+            }
+        )
+        for raw in matched_rows
+    ]
+
+
 async def run(state: AgentState) -> dict:
     """AmapSearch 节点入口函数"""
     query = state.get("query_rewrite") or ""
@@ -368,7 +464,10 @@ async def run(state: AgentState) -> dict:
     if prefer_chain and "连锁" not in query:
         query = f"{query} 连锁".strip()
 
-    fixture_allowed = settings.runtime_profile in {"demo", "test"}
+    # ``local_fixture`` is the compose-only development profile.  It permits
+    # deterministic fixture reads while remaining distinct from ``local_real``
+    # (which must use a configured live provider) and ``public``.
+    fixture_allowed = settings.runtime_profile in {"demo", "test", "local_fixture"}
     if settings.amap_mock or settings.demo_mode:
         if not fixture_allowed:
             audit = RetrievalAudit(

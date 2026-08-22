@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/auditor-human-manifest-v1.json",
+  "title": "BreezeTravel human auditor manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "scope",
+    "required_real_itineraries_for_p0",
+    "required_real_itineraries_for_m1",
+    "required_real_organizers_for_m1",
+    "collected_real_itineraries",
+    "human_labeled_itineraries",
+    "real_organizers",
+    "case_schema",
+    "prediction_schema",
+    "cases",
+    "evidence_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "auditor-human-v1"},
+    "status": {"enum": ["awaiting_human_collection", "collecting", "ready_for_evaluation"]},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cities", "trip_days", "group_size"],
+      "properties": {
+        "cities": {"const": ["北京", "上海", "杭州"]},
+        "trip_days": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {"min": {"const": 2}, "max": {"const": 5}}
+        },
+        "group_size": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["min", "max"],
+          "properties": {"min": {"const": 2}, "max": {"const": 5}}
+        }
+      }
+    },
+    "required_real_itineraries_for_p0": {"const": 10},
+    "required_real_itineraries_for_m1": {"const": 30},
+    "required_real_organizers_for_m1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {"min": {"const": 15}, "max": {"const": 20}}
+    },
+    "collected_real_itineraries": {"type": "integer", "minimum": 0},
+    "human_labeled_itineraries": {"type": "integer", "minimum": 0},
+    "real_organizers": {"type": "integer", "minimum": 0, "maximum": 20},
+    "case_schema": {"const": "case.schema.json"},
+    "prediction_schema": {"const": "prediction.schema.json"},
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "case_path", "prediction_path"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "case_path": {"type": "string", "minLength": 1},
+          "prediction_path": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "evidence_boundary": {
+      "const": "Only a real organizer may add source text and human findings. Synthetic, model-generated, Judge, or agent labels must not increment human counts."
+    }
+  }
+}

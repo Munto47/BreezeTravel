@@ -1,0 +1,37 @@
+{
+  "schema_version": "dual-entry-source-capture-v2",
+  "source_document_id": "open-wikivoyage-reuse-policy-20260821",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Wikivoyage:How_to_re-use_Wikivoyage_guides",
+  "captured_at": "2026-08-21T10:35:46+08:00",
+  "capture_method": "HTTPS MediaWiki Action API at a fixed revision plus siteinfo rightsinfo",
+  "http": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "remote_body_sha256": "4afc1bd4490bd001ea9f6844bcfa553a97034d9e8dd61264f60f626bd381344c",
+    "request_url": "https://en.wikivoyage.org/w/api.php?action=query&format=json&formatversion=2&prop=info%7Crevisions&rvprop=ids%7Ctimestamp%7Csha1%7Ccontent&rvslots=main&rvstartid=4999830&rvendid=4999830&titles=Wikivoyage%3AHow%20to%20re-use%20Wikivoyage%20guides"
+  },
+  "revision": {
+    "source_revision": "4999830",
+    "revision_url": "https://en.wikivoyage.org/w/index.php?title=Wikivoyage%3AHow_to_re-use_Wikivoyage_guides&oldid=4999830",
+    "revision_timestamp": "2025-01-03T21:02:52Z",
+    "parent_revision": "4873584",
+    "mediawiki_sha1": "1d0d25056bfdf35961b266545f0451f9a8db98d1"
+  },
+  "site_rights": {
+    "text": "Creative Commons Attribution-Share Alike 4.0",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/deed.en",
+    "api_url": "https://en.wikivoyage.org/w/api.php?action=query&format=json&formatversion=2&meta=siteinfo&siprop=general%7Crightsinfo"
+  },
+  "archive_policy": "CC BY-SA permits reuse, but this archive retains only immutable revision metadata, hashes and a task-specific obligation projection; no page text or images are redistributed.",
+  "minimal_snapshot": {
+    "license_spdx": "CC-BY-SA-4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "obligation_codes": [
+      "ATTRIBUTE_CONTRIBUTORS",
+      "LINK_SOURCE_OR_REVISION_HISTORY",
+      "LINK_LICENSE",
+      "SHARE_ALIKE_OR_COMPATIBLE_LICENSE"
+    ],
+    "image_boundary": "Images have separate licences and are excluded from this data chain."
+  }
+}

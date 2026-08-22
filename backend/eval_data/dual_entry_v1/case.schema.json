@@ -1,0 +1,320 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/dual-entry-case-v1.json",
+  "title": "BreezeTravel dual-entry evaluation input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "split",
+    "entry",
+    "city",
+    "trip_days",
+    "group_size",
+    "source_family_id",
+    "template_family_id",
+    "generator_family_id",
+    "mutation_parent_case_id",
+    "lineage_status",
+    "normalized_input_sha256",
+    "receipt_refs",
+    "data_origin",
+    "tags",
+    "input",
+    "execution"
+  ],
+  "properties": {
+    "schema_version": {"const": "dual-entry-case-v1"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "split": {"enum": ["pilot", "dev", "regression", "frozen_blind", "temporal_canary", "human_calibration"]},
+    "entry": {"enum": ["IMPORT", "BUILDER"]},
+    "city": {"enum": ["北京", "上海", "杭州"]},
+    "trip_days": {"type": "integer", "minimum": 2, "maximum": 5},
+    "group_size": {"type": "integer", "minimum": 2, "maximum": 5},
+    "source_family_id": {"type": "string", "minLength": 3},
+    "template_family_id": {"type": "string", "minLength": 3},
+    "generator_family_id": {"type": "string", "minLength": 3},
+    "mutation_parent_case_id": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9][a-z0-9._-]+$"
+    },
+    "lineage_status": {"$ref": "#/$defs/lineageStatus"},
+    "normalized_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "receipt_refs": {"$ref": "#/$defs/receiptRefs"},
+    "data_origin": {"enum": ["high_fidelity_synthetic", "controlled_mutation", "public_source_seed", "authorized_user", "human_calibration"]},
+    "source_document_refs": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "tags": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "input": {"type": "object", "minProperties": 1},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider_mode", "steps"],
+      "properties": {
+        "provider_mode": {"enum": ["controlled_fixture", "frozen_snapshot", "live_provider", "human_only"]},
+        "fault_profile": {"type": ["string", "null"]},
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "create_workspace", "import_text", "resolve_candidates", "apply_import",
+              "collect_evidence", "full_audit", "generate_repair", "preview_repair",
+              "apply_repair", "postcheck", "confirm", "search_seed", "accept_seed",
+              "request_suggestions", "preview_candidate", "accept_candidate", "dismiss_candidate",
+              "drag_stop", "move_stop_button", "undo", "incremental_audit", "readback",
+              "restart_backend_yjs", "concurrent_edit"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "lineageStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_family", "template_family", "generator_family", "mutation_family"],
+      "properties": {
+        "source_family": {"enum": ["RECORDED", "UNAVAILABLE"]},
+        "template_family": {"enum": ["RECORDED", "UNAVAILABLE"]},
+        "generator_family": {"enum": ["RECORDED", "UNAVAILABLE"]},
+        "mutation_family": {"enum": ["RECORDED", "UNAVAILABLE", "NOT_APPLICABLE"]}
+      }
+    },
+    "receiptRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_evidence_refs", "source_receipts"],
+      "properties": {
+        "subject_evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["subject_path", "receipt_id", "record_sha256"],
+            "properties": {
+              "subject_path": {"type": "string", "pattern": "^input\\."},
+              "receipt_id": {"type": "string", "pattern": "^(fixture|unavailable)-[0-9a-f]{32}$"},
+              "record_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        },
+        "source_receipts": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_document_id", "raw_sha256", "extract_sha256"],
+            "properties": {
+              "source_document_id": {"type": "string", "minLength": 1},
+              "raw_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "extract_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "importInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["raw_itinerary"],
+      "properties": {
+        "raw_itinerary": {"type": "string", "minLength": 1, "maxLength": 12000},
+        "controlled_facts": {"type": "object"},
+        "confirmation_instructions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["raw_name", "canonical_place_id"],
+            "properties": {
+              "raw_name": {"type": "string", "minLength": 1},
+              "canonical_place_id": {"type": "string", "minLength": 1}
+            }
+          }
+        },
+        "member_constraints": {"type": "array", "items": {"type": "object"}},
+        "mutation": {"type": "string"}
+      }
+    },
+    "builderInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["seed", "candidate_snapshot"],
+      "properties": {
+        "seed": {"$ref": "#/$defs/builderStop"},
+        "initial_route": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/builderStop"}},
+        "request_context": {"$ref": "#/$defs/suggestionRequestContext"},
+        "suggestion_set_fixture": {"$ref": "#/$defs/suggestionSetFixture"},
+        "candidate_snapshot": {"type": "array", "items": {"$ref": "#/$defs/builderCandidate"}},
+        "intent": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["NEARBY", "POPULAR", "FUN", "FOOD"]}
+        },
+        "member_constraints": {"type": "array", "items": {"type": "object"}},
+        "action_sequence": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "accept_attempts": {"type": "array", "items": {"$ref": "#/$defs/acceptAttempt"}},
+        "ui_command_pairs": {"type": "array", "items": {"$ref": "#/$defs/uiCommandPair"}},
+        "insert_between": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "provider_error": {"type": "string"},
+        "fault_injection": {"type": "object"}
+      }
+    },
+    "builderStop": {
+      "type": "object",
+      "required": ["place_id", "name"],
+      "properties": {
+        "stop_id": {"type": "string", "minLength": 1},
+        "place_id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "city": {"enum": ["北京", "上海", "杭州"]},
+        "category": {"type": "string", "minLength": 1},
+        "day_index": {"type": "integer", "minimum": 0, "maximum": 4},
+        "start_time": {"type": "string"},
+        "end_time": {"type": "string"},
+        "provider_receipt_id": {"type": "string", "minLength": 1},
+        "coords": {"$ref": "#/$defs/coordinates"}
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lng", "lat"],
+      "properties": {
+        "lng": {"type": "number", "minimum": -180, "maximum": 180},
+        "lat": {"type": "number", "minimum": -90, "maximum": 90}
+      }
+    },
+    "routeLeg": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_stop_id", "to_stop_id", "minutes", "receipt_id", "freshness"],
+      "properties": {
+        "from_stop_id": {"type": "string", "minLength": 1},
+        "to_stop_id": {"type": "string", "minLength": 1},
+        "minutes": {"type": ["number", "null"], "minimum": 0},
+        "receipt_id": {"type": ["string", "null"]},
+        "freshness": {"enum": ["FRESH", "STALE", "UNAVAILABLE", "CONFLICTING"]}
+      }
+    },
+    "builderCandidate": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "canonical_place_id": {"type": "string", "minLength": 1},
+        "city": {"type": "string", "minLength": 1},
+        "category": {"type": "string", "minLength": 1},
+        "provider_receipt_id": {"type": "string", "minLength": 1},
+        "coords": {"$ref": "#/$defs/coordinates"},
+        "delta_route_minutes": {"type": ["number", "null"], "minimum": 0},
+        "gate": {"type": "string", "minLength": 1},
+        "hard_gate_reasons": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "evidence_freshness": {"enum": ["FRESH", "STALE", "UNAVAILABLE", "CONFLICTING"]},
+        "route_legs": {"type": "array", "items": {"$ref": "#/$defs/routeLeg"}},
+        "official_prior": {"type": "number"},
+        "open_user_prior": {"type": "number"},
+        "score_components": {"type": "object"},
+        "explanation_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "suggestionRequestContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_id", "day_index", "query_mode", "intents", "policy_version", "provider_snapshot_id", "context_hash"],
+      "properties": {
+        "workspace_id": {"type": "string", "minLength": 1},
+        "day_index": {"type": "integer", "minimum": 0, "maximum": 4},
+        "query_mode": {"enum": ["ANCHOR", "INSERT_EDGE"]},
+        "anchor_stop_id": {"type": "string", "minLength": 1},
+        "insert_after_stop_id": {"type": "string", "minLength": 1},
+        "insert_before_stop_id": {"type": "string", "minLength": 1},
+        "current_time": {"type": "string"},
+        "intents": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["NEARBY", "POPULAR", "FUN", "FOOD"]}
+        },
+        "selected_place_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "policy_version": {"type": "string", "minLength": 1},
+        "provider_snapshot_id": {"type": "string", "minLength": 1},
+        "context_hash": {"type": "string", "minLength": 8}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"query_mode": {"const": "ANCHOR"}}},
+          "then": {"required": ["anchor_stop_id"]}
+        },
+        {
+          "if": {"properties": {"query_mode": {"const": "INSERT_EDGE"}}},
+          "then": {"required": ["insert_after_stop_id", "insert_before_stop_id"]}
+        }
+      ]
+    },
+    "suggestionSetFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["suggestion_set_id", "workspace_id", "base_revision", "context_hash", "policy_version", "provider_snapshot_id", "expires_at"],
+      "properties": {
+        "suggestion_set_id": {"type": "string", "minLength": 1},
+        "workspace_id": {"type": "string", "minLength": 1},
+        "base_revision": {"type": "integer", "minimum": 1},
+        "context_hash": {"type": "string", "minLength": 8},
+        "policy_version": {"type": "string", "minLength": 1},
+        "provider_snapshot_id": {"type": "string", "minLength": 1},
+        "expires_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "acceptAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "workspace_id", "suggestion_set_id", "candidate_id", "if_match", "idempotency_key"],
+      "properties": {
+        "attempt_id": {"type": "string", "minLength": 1},
+        "workspace_id": {"type": "string", "minLength": 1},
+        "suggestion_set_id": {"type": "string", "minLength": 1},
+        "candidate_id": {"type": "string", "minLength": 1},
+        "if_match": {"type": "integer", "minimum": 1},
+        "idempotency_key": {"type": "string", "minLength": 8},
+        "client_place_override": {"type": "object"},
+        "mutations": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "uiCommandPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_revision", "drag", "button"],
+      "properties": {
+        "base_revision": {"type": "integer", "minimum": 1},
+        "drag": {"type": "object"},
+        "button": {"type": "object"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"entry": {"const": "IMPORT"}}},
+      "then": {"properties": {"input": {"$ref": "#/$defs/importInput"}}}
+    },
+    {
+      "if": {"properties": {"entry": {"const": "BUILDER"}}},
+      "then": {"properties": {"input": {"$ref": "#/$defs/builderInput"}}}
+    },
+    {
+      "if": {"properties": {"split": {"const": "human_calibration"}}},
+      "then": {"properties": {"data_origin": {"enum": ["authorized_user", "human_calibration"]}}}
+    }
+  ]
+}

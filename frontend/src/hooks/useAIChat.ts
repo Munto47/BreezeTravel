@@ -7,7 +7,7 @@ import type { ChatMessage, ThinkingStep, Citation } from '@/types/chat'
 import type { Place } from '@/types/place'
 import { parsePlaceFromAPI } from '@/types/place'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 interface UseAIChatReturn {
   messages: ChatMessage[]

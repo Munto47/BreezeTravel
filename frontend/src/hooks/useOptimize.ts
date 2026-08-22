@@ -9,22 +9,7 @@ import { parsePlaceFromAPI } from '@/types/place'
 import type { TripTaskSpec } from '@/types/taskSpec'
 import type { VerificationReport } from '@/types/verification'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-
-export function planningFingerprint(places: Array<Place & { votedBy?: string[]; isPinned?: boolean }>): string {
-  return JSON.stringify(
-    places.map((place) => ({
-      placeId: place.placeId,
-      name: place.name,
-      category: place.category,
-      amapPrice: place.amapPrice ?? null,
-      openingHours: (place as Place & { openingHours?: string }).openingHours ?? null,
-      estimatedDuration: place.estimatedDuration ?? null,
-      votedBy: [...(place.votedBy ?? [])].sort(),
-      isPinned: Boolean(place.isPinned),
-    })).sort((a, b) => a.placeId.localeCompare(b.placeId)),
-  )
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 interface UseOptimizeReturn {
   itinerary: Itinerary | null
@@ -34,6 +19,8 @@ interface UseOptimizeReturn {
   criticViolations: object[]    // Critic 违规摘要
   taskSpec: TripTaskSpec | null
   verificationReport: VerificationReport | null
+  workspaceId: string | null
+  itineraryRevision: number | null
   optimize: (places: Place[], tripDays: number, startDate?: string, taskSpec?: TripTaskSpec) => Promise<void>
 }
 
@@ -45,6 +32,8 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
   const [criticViolations, setCriticViolations] = useState<object[]>([])
   const [taskSpec, setTaskSpec] = useState<TripTaskSpec | null>(null)
   const [verificationReport, setVerificationReport] = useState<VerificationReport | null>(null)
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
+  const [itineraryRevision, setItineraryRevision] = useState<number | null>(null)
 
   const optimize = useCallback(
     async (places: Place[], tripDays: number, startDate?: string, parsedTaskSpec?: TripTaskSpec) => {
@@ -52,12 +41,14 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
       setIsOptimizing(true)
 
       try {
+        const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
+        const shouldPersistWorkspace = Boolean(roomId && startDate && authToken)
         const response = await fetch(`${API_BASE}/api/optimize`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(typeof window !== 'undefined' && localStorage.getItem('authToken')
-              ? { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+            ...(authToken
+              ? { Authorization: `Bearer ${authToken}` }
               : {}),
           },
           body: JSON.stringify({
@@ -81,6 +72,7 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
             trip_days: tripDays,
             start_date: startDate ?? null,
             task_spec: parsedTaskSpec ?? null,
+            persist_workspace: shouldPersistWorkspace,
           }),
         })
 
@@ -99,14 +91,16 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
         setCriticViolations(data.critic_violations ?? [])
         setTaskSpec((data.task_spec ?? parsedTaskSpec ?? null) as TripTaskSpec | null)
         setVerificationReport((data.verification_report ?? null) as VerificationReport | null)
+        setWorkspaceId((data.workspace_id ?? null) as string | null)
+        setItineraryRevision(typeof data.itinerary_revision === 'number' ? data.itinerary_revision : null)
 
         if (roomId && typeof window !== 'undefined') {
-          localStorage.setItem(`itinerary_${roomId}`, JSON.stringify(parsed))
-          if (data.task_spec ?? parsedTaskSpec) localStorage.setItem(`task_spec_${roomId}`, JSON.stringify(data.task_spec ?? parsedTaskSpec))
+          // Cache only. PostgreSQL workspace/revision/report remains authoritative.
+          localStorage.setItem(`itinerary_cache_${roomId}`, JSON.stringify(parsed))
+          if (data.workspace_id) localStorage.setItem(`workspace_ref_${roomId}`, String(data.workspace_id))
+          if (data.task_spec ?? parsedTaskSpec) localStorage.setItem(`task_spec_cache_${roomId}`, JSON.stringify(data.task_spec ?? parsedTaskSpec))
           if (data.verification_report) {
-            localStorage.setItem(`verification_${roomId}`, JSON.stringify(data.verification_report))
-            localStorage.setItem(`verification_stale_${roomId}`, 'false')
-            localStorage.setItem(`planning_snapshot_${roomId}`, planningFingerprint(places))
+            localStorage.setItem(`verification_cache_${roomId}`, JSON.stringify(data.verification_report))
           }
         }
       } catch (err) {
@@ -118,5 +112,16 @@ export function useOptimize(threadId: string, roomId?: string): UseOptimizeRetur
     [threadId, roomId, isOptimizing],
   )
 
-  return { itinerary, isOptimizing, totalDistanceKm, backupPool, criticViolations, taskSpec, verificationReport, optimize }
+  return {
+    itinerary,
+    isOptimizing,
+    totalDistanceKm,
+    backupPool,
+    criticViolations,
+    taskSpec,
+    verificationReport,
+    workspaceId,
+    itineraryRevision,
+    optimize,
+  }
 }

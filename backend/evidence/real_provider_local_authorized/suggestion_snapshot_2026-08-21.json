@@ -1,0 +1,1855 @@
+{
+  "schema_version": "1.0",
+  "evidence_class": "real_provider_local_authorized",
+  "evidence_subtype": "suggestion_live_candidate_and_walking_route_snapshot",
+  "claim_boundary": {
+    "proves_local_authorized_live_entity": true,
+    "proves_local_authorized_live_route": true,
+    "proves_opening_hours": false,
+    "proves_reservation": false,
+    "proves_accessibility": false,
+    "is_public_internet_e2e": false,
+    "is_human_evidence": false,
+    "is_release_approval": false
+  },
+  "runtime": {
+    "runtime_profile": "local_real",
+    "amap_mock": false,
+    "demo_mode": false,
+    "amap_api_key_configured": true,
+    "authentication_material_persisted": false,
+    "raw_provider_payload_persisted": false,
+    "request_mode": "sequential_low_rate",
+    "request_pause_seconds": 0.25
+  },
+  "run_started_at": "2026-08-21T04:11:15.612580Z",
+  "run_completed_at": "2026-08-21T04:11:29.399183Z",
+  "overall_status": "passed",
+  "failure_receipt": null,
+  "cities": [
+    {
+      "city": "北京",
+      "anchor": {
+        "place_id": "B000A7BD6T",
+        "name": "故宫博物院",
+        "coords": {
+          "lng": 116.3913,
+          "lat": 39.9163
+        },
+        "authority": "fixed_canonical_anchor"
+      },
+      "provider_snapshot_id": "amap-suggestion-composite-5eb9a30a4a6365cd203d1a4c9fb830f5d6d8e87b13203018141fb672e9e7b74c",
+      "query_receipts": [
+        {
+          "intent": "NEARBY",
+          "query_contract_sha256": "6a6e085e884df7097c00f3fe7b9dab3092b7001578e3717c48837f0106319e6d",
+          "provider_snapshot_id": "amap-3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+          "retrieved_at": "2026-08-21T04:11:15.898296Z",
+          "result_count": 20,
+          "provider_request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+          "provider_response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed"
+        },
+        {
+          "intent": "POPULAR",
+          "query_contract_sha256": "2595deaa2a2a4b8d6810a9dc024891a1419fe90d40b7c8b521d067c870cf7f70",
+          "provider_snapshot_id": "amap-33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+          "retrieved_at": "2026-08-21T04:11:16.423807Z",
+          "result_count": 13,
+          "provider_request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+          "provider_response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5"
+        },
+        {
+          "intent": "FUN",
+          "query_contract_sha256": "53072bfa2d6f830f2cd0ddd0c3599d6318c8496b5fa87b5ba86f6d6b3a04aea1",
+          "provider_snapshot_id": "amap-c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af",
+          "retrieved_at": "2026-08-21T04:11:16.966365Z",
+          "result_count": 20,
+          "provider_request_hash": "4e6731f0f0ac44bc069d958889158c96092b4cdcb782ffa7e6e2239e5adb1a95",
+          "provider_response_hash": "c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af"
+        },
+        {
+          "intent": "FOOD",
+          "query_contract_sha256": "667be8c13401e8573e7db4541b01df258bcc86285b06ce0811d208068b09568e",
+          "provider_snapshot_id": "amap-f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90",
+          "retrieved_at": "2026-08-21T04:11:17.555000Z",
+          "result_count": 20,
+          "provider_request_hash": "3d1ecfff1daa5e3e6bae50a60cefd45f61fe9bdb3d62ac7c1b47ed96f346d5e5",
+          "provider_response_hash": "f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90"
+        }
+      ],
+      "selection": {
+        "raw_unique_candidate_count": 73,
+        "frozen_candidate_count": 6,
+        "excluded_counts": {
+          "wrong_city": 0,
+          "wrong_category": 0,
+          "anchor_duplicate": 0,
+          "canonical_duplicate": 0
+        },
+        "strategy": "intent_round_robin_then_provider_order"
+      },
+      "candidates": [
+        {
+          "matched_intents": [
+            "NEARBY"
+          ],
+          "canonical_place": {
+            "place_id": "B000A9PJ0L",
+            "name": "中山公园-格言亭",
+            "city": "北京",
+            "district": "东城区",
+            "address": "中山公园(东北门)附近",
+            "category": "attraction",
+            "coords": {
+              "lng": 116.394702,
+              "lat": 39.912655
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B000A9PJ0L",
+            "provider": "amap",
+            "provider_place_id": "B000A9PJ0L",
+            "name": "中山公园-格言亭",
+            "city": "北京",
+            "district": "东城区",
+            "address": "中山公园(东北门)附近",
+            "category": "attraction",
+            "longitude": 116.394702,
+            "latitude": 39.912655,
+            "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+            "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+            "observed_at": "2026-08-21T04:11:15.898296Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.76,
+            "diversity_tags": [
+              "文物古迹"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:15.898296Z",
+                "valid_until": null,
+                "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+                "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 10,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B000A9PJ0L",
+                "destination_coords": {
+                  "lng": 116.394702,
+                  "lat": 39.912655
+                },
+                "duration_minutes": 10,
+                "provider": "amap",
+                "request_hash": "87d3c6d5b18ad3f063ed7a075049c60f76c5820986ae712835969a09fbf76fe9",
+                "response_hash": "3cbf7ea829fa3a8c4c4d65d2b9e3f8996eda416f9293eae432198a8eb53d8c7f",
+                "observed_at": "2026-08-21T04:11:17.951491Z",
+                "snapshot_id": "amap-route-3cbf7ea829fa3a8c4c4d65d2b9e3f8996eda416f9293eae432198a8eb53d8c7f",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B0HU1MA1CN",
+            "name": "新淮扬村(崇文门店)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "崇文门西大街2号崇文门饭店5层",
+            "category": "food",
+            "coords": {
+              "lng": 116.417777,
+              "lat": 39.900469
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0HU1MA1CN",
+            "provider": "amap",
+            "provider_place_id": "B0HU1MA1CN",
+            "name": "新淮扬村(崇文门店)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "崇文门西大街2号崇文门饭店5层",
+            "category": "food",
+            "longitude": 116.417777,
+            "latitude": 39.900469,
+            "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+            "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+            "observed_at": "2026-08-21T04:11:16.423807Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.9199999999999999,
+            "diversity_tags": [
+              "淮扬菜"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "10:00-14:00 17:00-21:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:16.423807Z",
+                "valid_until": null,
+                "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+                "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 55,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B0HU1MA1CN",
+                "destination_coords": {
+                  "lng": 116.417777,
+                  "lat": 39.900469
+                },
+                "duration_minutes": 55,
+                "provider": "amap",
+                "request_hash": "44c5814f69eaa87ef95fd0f6b406d8720076bcc2b5ffd2664a33f7aac60e97b1",
+                "response_hash": "90e8cbe99904c160df68efea2475021b5fc363c62ad2d4482924c7e6a73aedf1",
+                "observed_at": "2026-08-21T04:11:18.344601Z",
+                "snapshot_id": "amap-route-90e8cbe99904c160df68efea2475021b5fc363c62ad2d4482924c7e6a73aedf1",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FUN"
+          ],
+          "canonical_place": {
+            "place_id": "B000A7J7WD",
+            "name": "昭显庙",
+            "city": "北京",
+            "district": "西城区",
+            "address": "北长街71号",
+            "category": "attraction",
+            "coords": {
+              "lng": 116.390622,
+              "lat": 39.918247
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B000A7J7WD",
+            "provider": "amap",
+            "provider_place_id": "B000A7J7WD",
+            "name": "昭显庙",
+            "city": "北京",
+            "district": "西城区",
+            "address": "北长街71号",
+            "category": "attraction",
+            "longitude": 116.390622,
+            "latitude": 39.918247,
+            "request_hash": "4e6731f0f0ac44bc069d958889158c96092b4cdcb782ffa7e6e2239e5adb1a95",
+            "response_hash": "c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af",
+            "observed_at": "2026-08-21T04:11:16.966365Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.72,
+            "diversity_tags": [
+              "文物古迹"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "07:00-18:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:16.966365Z",
+                "valid_until": null,
+                "request_hash": "4e6731f0f0ac44bc069d958889158c96092b4cdcb782ffa7e6e2239e5adb1a95",
+                "response_hash": "c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 3,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B000A7J7WD",
+                "destination_coords": {
+                  "lng": 116.390622,
+                  "lat": 39.918247
+                },
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "95c5fff7adb5f9138a2089ad7f189eac024a84c3e278118b097fe152ef2ecc96",
+                "response_hash": "cfa5469962e41120f3d263c58f7ecf460b6155af5956f555e300810ec5b2d37c",
+                "observed_at": "2026-08-21T04:11:18.736263Z",
+                "snapshot_id": "amap-route-cfa5469962e41120f3d263c58f7ecf460b6155af5956f555e300810ec5b2d37c",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FOOD"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFK4RUWA",
+            "name": "泽园酒家",
+            "city": "北京",
+            "district": "西城区",
+            "address": "南长街20号(近中山公园西门)",
+            "category": "food",
+            "coords": {
+              "lng": 116.391547,
+              "lat": 39.914046
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFK4RUWA",
+            "provider": "amap",
+            "provider_place_id": "B0FFK4RUWA",
+            "name": "泽园酒家",
+            "city": "北京",
+            "district": "西城区",
+            "address": "南长街20号(近中山公园西门)",
+            "category": "food",
+            "longitude": 116.391547,
+            "latitude": 39.914046,
+            "request_hash": "3d1ecfff1daa5e3e6bae50a60cefd45f61fe9bdb3d62ac7c1b47ed96f346d5e5",
+            "response_hash": "f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90",
+            "observed_at": "2026-08-21T04:11:17.555000Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.8400000000000001,
+            "diversity_tags": [
+              "湘菜"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "09:00-21:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:17.555000Z",
+                "valid_until": null,
+                "request_hash": "3d1ecfff1daa5e3e6bae50a60cefd45f61fe9bdb3d62ac7c1b47ed96f346d5e5",
+                "response_hash": "f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 3,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B0FFK4RUWA",
+                "destination_coords": {
+                  "lng": 116.391547,
+                  "lat": 39.914046
+                },
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "8013176168249a8cefb594084dd005c14ad14fcf53f43507934b1b2f3b51c6e8",
+                "response_hash": "27d73d62a39168bf3b0ea81f0f91b2da273c63934a173cc0f77a9809e3f69807",
+                "observed_at": "2026-08-21T04:11:19.161917Z",
+                "snapshot_id": "amap-route-27d73d62a39168bf3b0ea81f0f91b2da273c63934a173cc0f77a9809e3f69807",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "NEARBY"
+          ],
+          "canonical_place": {
+            "place_id": "B0MRPZIC6K",
+            "name": "故宫博物院-熙和门断虹桥附近红墙(打卡点)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "景山前街4号故宫博物院",
+            "category": "attraction",
+            "coords": {
+              "lng": 116.396652,
+              "lat": 39.91871
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0MRPZIC6K",
+            "provider": "amap",
+            "provider_place_id": "B0MRPZIC6K",
+            "name": "故宫博物院-熙和门断虹桥附近红墙(打卡点)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "景山前街4号故宫博物院",
+            "category": "attraction",
+            "longitude": 116.396652,
+            "latitude": 39.91871,
+            "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+            "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+            "observed_at": "2026-08-21T04:11:15.898296Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.0,
+            "diversity_tags": [
+              "风景名胜",
+              "风景名胜",
+              "观景点"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:15.898296Z",
+                "valid_until": null,
+                "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+                "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 22,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B0MRPZIC6K",
+                "destination_coords": {
+                  "lng": 116.396652,
+                  "lat": 39.91871
+                },
+                "duration_minutes": 22,
+                "provider": "amap",
+                "request_hash": "ae90ab3cd6eb70d8d8ca16b654ca01851305c0ba81b750c10c766725268be145",
+                "response_hash": "f3f0e33caaf9d865176cd202f1f186174498f2e55501c5b5aacc4de186ea9bc0",
+                "observed_at": "2026-08-21T04:11:19.579890Z",
+                "snapshot_id": "amap-route-f3f0e33caaf9d865176cd202f1f186174498f2e55501c5b5aacc4de186ea9bc0",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B000A8WCQN",
+            "name": "嘉和一品(交道口店)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "北京城区交道口十字路口东北角(天客隆超市二楼)",
+            "category": "food",
+            "coords": {
+              "lng": 116.409974,
+              "lat": 39.941041
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B000A8WCQN",
+            "provider": "amap",
+            "provider_place_id": "B000A8WCQN",
+            "name": "嘉和一品(交道口店)",
+            "city": "北京",
+            "district": "东城区",
+            "address": "北京城区交道口十字路口东北角(天客隆超市二楼)",
+            "category": "food",
+            "longitude": 116.409974,
+            "latitude": 39.941041,
+            "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+            "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+            "observed_at": "2026-08-21T04:11:16.423807Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.86,
+            "diversity_tags": [
+              "小吃快餐"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "06:30-22:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:16.423807Z",
+                "valid_until": null,
+                "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+                "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 57,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B000A7BD6T",
+                "origin_coords": {
+                  "lng": 116.3913,
+                  "lat": 39.9163
+                },
+                "destination_place_id": "B000A8WCQN",
+                "destination_coords": {
+                  "lng": 116.409974,
+                  "lat": 39.941041
+                },
+                "duration_minutes": 57,
+                "provider": "amap",
+                "request_hash": "e907e64ca55b34d7153c65518a052cdc8e2a06209dfefd5cd7f8778756619a0e",
+                "response_hash": "19b5104d94ea26e55909a92679d9b1e94fce81e7c0bd089752ef9daaa97a59f6",
+                "observed_at": "2026-08-21T04:11:19.971552Z",
+                "snapshot_id": "amap-route-19b5104d94ea26e55909a92679d9b1e94fce81e7c0bd089752ef9daaa97a59f6",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "anchor": {
+        "place_id": "B00155H52F",
+        "name": "外滩",
+        "coords": {
+          "lng": 121.4896,
+          "lat": 31.2393
+        },
+        "authority": "fixed_canonical_anchor"
+      },
+      "provider_snapshot_id": "amap-suggestion-composite-5c6c0508a1fd468276509c1f7dce97cc518c4060d8f2b6a8c900f6cd474b246f",
+      "query_receipts": [
+        {
+          "intent": "NEARBY",
+          "query_contract_sha256": "b2f6024398c48d5658e728484cb124d6bcef6a4c7ad2dcd70eb4e7df96e44f88",
+          "provider_snapshot_id": "amap-35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1",
+          "retrieved_at": "2026-08-21T04:11:20.520596Z",
+          "result_count": 20,
+          "provider_request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+          "provider_response_hash": "35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1"
+        },
+        {
+          "intent": "POPULAR",
+          "query_contract_sha256": "d256af1670dba53b405f6a51d392b8b7cd1c548128da1f9cec3220a49ea33890",
+          "provider_snapshot_id": "amap-2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+          "retrieved_at": "2026-08-21T04:11:20.994095Z",
+          "result_count": 9,
+          "provider_request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+          "provider_response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33"
+        },
+        {
+          "intent": "FUN",
+          "query_contract_sha256": "34ddbfbdb679b7b1f926727c56a14359e2d6d72a5c27fe18eb8ecaedce763e88",
+          "provider_snapshot_id": "amap-3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582",
+          "retrieved_at": "2026-08-21T04:11:21.547187Z",
+          "result_count": 20,
+          "provider_request_hash": "f11e7706920c1266738deef907160697650d7c01957bfce809547ce403283c9f",
+          "provider_response_hash": "3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582"
+        },
+        {
+          "intent": "FOOD",
+          "query_contract_sha256": "d329992c39a3d04bdf6e6172feea9798705f548b47b165c21d89dbd6ffdf9e7b",
+          "provider_snapshot_id": "amap-7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13",
+          "retrieved_at": "2026-08-21T04:11:22.130676Z",
+          "result_count": 20,
+          "provider_request_hash": "528b63b005d6fd11714072bbe184d97b4a279b65d882641a3c2ff51c0d210f5b",
+          "provider_response_hash": "7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13"
+        }
+      ],
+      "selection": {
+        "raw_unique_candidate_count": 69,
+        "frozen_candidate_count": 6,
+        "excluded_counts": {
+          "wrong_city": 0,
+          "wrong_category": 1,
+          "anchor_duplicate": 0,
+          "canonical_duplicate": 0
+        },
+        "strategy": "intent_round_robin_then_provider_order"
+      },
+      "candidates": [
+        {
+          "matched_intents": [
+            "NEARBY"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFF00N9I",
+            "name": "上海洋行",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "宁波路50-1附近(南京东路地铁站6号口步行210米)",
+            "category": "attraction",
+            "coords": {
+              "lng": 121.486345,
+              "lat": 31.239802
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFF00N9I",
+            "provider": "amap",
+            "provider_place_id": "B0FFF00N9I",
+            "name": "上海洋行",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "宁波路50-1附近(南京东路地铁站6号口步行210米)",
+            "category": "attraction",
+            "longitude": 121.486345,
+            "latitude": 31.239802,
+            "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+            "response_hash": "35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1",
+            "observed_at": "2026-08-21T04:11:20.520596Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.6799999999999999,
+            "diversity_tags": [
+              "人文景观"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:20.520596Z",
+                "valid_until": null,
+                "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+                "response_hash": "35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 5,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B0FFF00N9I",
+                "destination_coords": {
+                  "lng": 121.486345,
+                  "lat": 31.239802
+                },
+                "duration_minutes": 5,
+                "provider": "amap",
+                "request_hash": "55c87b5bfcb805e3464b79cc8573e786ca20ee096ed81a11b612b5cb9f8b1947",
+                "response_hash": "88420f891faee9aef784e4005ac59dbbe9829789f75311cfdbcc1e9fe8df1a31",
+                "observed_at": "2026-08-21T04:11:22.529994Z",
+                "snapshot_id": "amap-route-88420f891faee9aef784e4005ac59dbbe9829789f75311cfdbcc1e9fe8df1a31",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFHR1R2L",
+            "name": "晶浦会·现代潮粤菜·宝宝宴·答谢宴·商务宴(上海中心大厦店)",
+            "city": "上海",
+            "district": "浦东新区",
+            "address": "银城中路501号上海中心大厦4层·不招聘员工·推销勿扰",
+            "category": "food",
+            "coords": {
+              "lng": 121.505598,
+              "lat": 31.233538
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFHR1R2L",
+            "provider": "amap",
+            "provider_place_id": "B0FFHR1R2L",
+            "name": "晶浦会·现代潮粤菜·宝宝宴·答谢宴·商务宴(上海中心大厦店)",
+            "city": "上海",
+            "district": "浦东新区",
+            "address": "银城中路501号上海中心大厦4层·不招聘员工·推销勿扰",
+            "category": "food",
+            "longitude": 121.505598,
+            "latitude": 31.233538,
+            "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+            "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+            "observed_at": "2026-08-21T04:11:20.994095Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.9199999999999999,
+            "diversity_tags": [
+              "中餐"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "11:00-14:00 17:00-22:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:20.994095Z",
+                "valid_until": null,
+                "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+                "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 34,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B0FFHR1R2L",
+                "destination_coords": {
+                  "lng": 121.505598,
+                  "lat": 31.233538
+                },
+                "duration_minutes": 34,
+                "provider": "amap",
+                "request_hash": "a50595895fd32ff79ffddbd3e4a9708279671f81a1e5eb85f26d9ca065188eea",
+                "response_hash": "9a4f7937d965765c5fe8dd47c9be3a9e6387847f721f9f632f34d302a6fa97f8",
+                "observed_at": "2026-08-21T04:11:22.937218Z",
+                "snapshot_id": "amap-route-9a4f7937d965765c5fe8dd47c9be3a9e6387847f721f9f632f34d302a6fa97f8",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FUN"
+          ],
+          "canonical_place": {
+            "place_id": "B00156R4O6",
+            "name": "沙逊大厦旧址",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "上海市外滩街道外滩街道中山东一路20号",
+            "category": "attraction",
+            "coords": {
+              "lng": 121.48976,
+              "lat": 31.239138
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B00156R4O6",
+            "provider": "amap",
+            "provider_place_id": "B00156R4O6",
+            "name": "沙逊大厦旧址",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "上海市外滩街道外滩街道中山东一路20号",
+            "category": "attraction",
+            "longitude": 121.48976,
+            "latitude": 31.239138,
+            "request_hash": "f11e7706920c1266738deef907160697650d7c01957bfce809547ce403283c9f",
+            "response_hash": "3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582",
+            "observed_at": "2026-08-21T04:11:21.547187Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.8,
+            "diversity_tags": [
+              "文物古迹"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:21.547187Z",
+                "valid_until": null,
+                "request_hash": "f11e7706920c1266738deef907160697650d7c01957bfce809547ce403283c9f",
+                "response_hash": "3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 1,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B00156R4O6",
+                "destination_coords": {
+                  "lng": 121.48976,
+                  "lat": 31.239138
+                },
+                "duration_minutes": 1,
+                "provider": "amap",
+                "request_hash": "050274c0ced48ed6aca2cd216c49552d6f3bed6c438b3074f078fe26f65e768d",
+                "response_hash": "3858f78720d62d2531d4c149a1db201add9a782d17efb1bb2011ae28ddd1b019",
+                "observed_at": "2026-08-21T04:11:23.364559Z",
+                "snapshot_id": "amap-route-3858f78720d62d2531d4c149a1db201add9a782d17efb1bb2011ae28ddd1b019",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FOOD"
+          ],
+          "canonical_place": {
+            "place_id": "B00156EIBM",
+            "name": "上海和平饭店龙凤厅",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "南京东路20号上海和平饭店北楼8层(近中山东一路)",
+            "category": "food",
+            "coords": {
+              "lng": 121.489456,
+              "lat": 31.239016
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B00156EIBM",
+            "provider": "amap",
+            "provider_place_id": "B00156EIBM",
+            "name": "上海和平饭店龙凤厅",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "南京东路20号上海和平饭店北楼8层(近中山东一路)",
+            "category": "food",
+            "longitude": 121.489456,
+            "latitude": 31.239016,
+            "request_hash": "528b63b005d6fd11714072bbe184d97b4a279b65d882641a3c2ff51c0d210f5b",
+            "response_hash": "7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13",
+            "observed_at": "2026-08-21T04:11:22.130676Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.9199999999999999,
+            "diversity_tags": [
+              "上海菜"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "11:30-14:00 17:30-21:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:22.130676Z",
+                "valid_until": null,
+                "request_hash": "528b63b005d6fd11714072bbe184d97b4a279b65d882641a3c2ff51c0d210f5b",
+                "response_hash": "7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 1,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B00156EIBM",
+                "destination_coords": {
+                  "lng": 121.489456,
+                  "lat": 31.239016
+                },
+                "duration_minutes": 1,
+                "provider": "amap",
+                "request_hash": "f28c1e68f4341c2ebc7bd4dafd779717722812631dd2c8dab314153eb31169a5",
+                "response_hash": "8116ef0d292763955c09df65802746e1bb681cebe70d47cf1f267fab0e1f26e0",
+                "observed_at": "2026-08-21T04:11:23.774144Z",
+                "snapshot_id": "amap-route-8116ef0d292763955c09df65802746e1bb681cebe70d47cf1f267fab0e1f26e0",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "NEARBY"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFI8XVP3",
+            "name": "陈记小吃老上海馄饨铺(广东路店)",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "江西中路265号附近(豫园地铁站6号口步行440米)",
+            "category": "food",
+            "coords": {
+              "lng": 121.488494,
+              "lat": 31.233723
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFI8XVP3",
+            "provider": "amap",
+            "provider_place_id": "B0FFI8XVP3",
+            "name": "陈记小吃老上海馄饨铺(广东路店)",
+            "city": "上海",
+            "district": "黄浦区",
+            "address": "江西中路265号附近(豫园地铁站6号口步行440米)",
+            "category": "food",
+            "longitude": 121.488494,
+            "latitude": 31.233723,
+            "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+            "response_hash": "35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1",
+            "observed_at": "2026-08-21T04:11:20.520596Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.8,
+            "diversity_tags": [
+              "小吃快餐"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "07:00-00:30",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:20.520596Z",
+                "valid_until": null,
+                "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+                "response_hash": "35bf6faca23677ab80f4db15da4a07ded01fa94f8e12f2f15d55a1fd44353ed1",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 12,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B0FFI8XVP3",
+                "destination_coords": {
+                  "lng": 121.488494,
+                  "lat": 31.233723
+                },
+                "duration_minutes": 12,
+                "provider": "amap",
+                "request_hash": "af47aa0150161ee75a329863e835bff9709761ba5b81902289d16901d42182c8",
+                "response_hash": "b26d8305b801deb2147f75a0709a5c8b547aaeb208aa78c17c7f5b6e3fc0777c",
+                "observed_at": "2026-08-21T04:11:24.187727Z",
+                "snapshot_id": "amap-route-b26d8305b801deb2147f75a0709a5c8b547aaeb208aa78c17c7f5b6e3fc0777c",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B00156DX1B",
+            "name": "心乐蝶舞(梅赛德斯奔驰店)",
+            "city": "上海",
+            "district": "浦东新区",
+            "address": "世博大道1200号梅赛德斯-奔驰文化中心6层",
+            "category": "food",
+            "coords": {
+              "lng": 121.493176,
+              "lat": 31.188971
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B00156DX1B",
+            "provider": "amap",
+            "provider_place_id": "B00156DX1B",
+            "name": "心乐蝶舞(梅赛德斯奔驰店)",
+            "city": "上海",
+            "district": "浦东新区",
+            "address": "世博大道1200号梅赛德斯-奔驰文化中心6层",
+            "category": "food",
+            "longitude": 121.493176,
+            "latitude": 31.188971,
+            "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+            "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+            "observed_at": "2026-08-21T04:11:20.994095Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.9199999999999999,
+            "diversity_tags": [
+              "上海菜"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "11:00-22:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:20.994095Z",
+                "valid_until": null,
+                "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+                "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 101,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B00155H52F",
+                "origin_coords": {
+                  "lng": 121.4896,
+                  "lat": 31.2393
+                },
+                "destination_place_id": "B00156DX1B",
+                "destination_coords": {
+                  "lng": 121.493176,
+                  "lat": 31.188971
+                },
+                "duration_minutes": 101,
+                "provider": "amap",
+                "request_hash": "f4ff1f42cdddc5e6f0e83110f5b7e1fe88f2d9eb7795f361acc2e9ae2714fbbd",
+                "response_hash": "6add2b594c2b5d930b8a9bc11624c7545a08dd35982e16d5ca2d94c4f743771f",
+                "observed_at": "2026-08-21T04:11:24.584584Z",
+                "snapshot_id": "amap-route-6add2b594c2b5d930b8a9bc11624c7545a08dd35982e16d5ca2d94c4f743771f",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "anchor": {
+        "place_id": "B0FFHZ0001",
+        "name": "西湖风景名胜区",
+        "coords": {
+          "lng": 120.1551,
+          "lat": 30.2523
+        },
+        "authority": "fixed_canonical_anchor"
+      },
+      "provider_snapshot_id": "amap-suggestion-composite-b0b033693a3a6e2c9de3f9db3fc279e9f6444866f77363eaf394aaa8ca5b3a7a",
+      "query_receipts": [
+        {
+          "intent": "NEARBY",
+          "query_contract_sha256": "87b50dd223b7f5b9728753a8f16fd24b0f9df088bee36d9ed2e6efc680e56d1f",
+          "provider_snapshot_id": "amap-169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+          "retrieved_at": "2026-08-21T04:11:25.102027Z",
+          "result_count": 20,
+          "provider_request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+          "provider_response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611"
+        },
+        {
+          "intent": "POPULAR",
+          "query_contract_sha256": "4e625ebc3a8231f4d029c1acc3734d29364d358f6e06e0fff82fca694c72a20c",
+          "provider_snapshot_id": "amap-5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+          "retrieved_at": "2026-08-21T04:11:25.574931Z",
+          "result_count": 7,
+          "provider_request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+          "provider_response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1"
+        },
+        {
+          "intent": "FUN",
+          "query_contract_sha256": "51d8f79a646eb5db0b34169ff745a6822c119e4674aee7941586ea4b4fe77bb5",
+          "provider_snapshot_id": "amap-fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160",
+          "retrieved_at": "2026-08-21T04:11:26.129419Z",
+          "result_count": 20,
+          "provider_request_hash": "c875c15839ef10c5ccda118a41478869627ed5e794cd33d1bb37a96d763e98c9",
+          "provider_response_hash": "fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160"
+        },
+        {
+          "intent": "FOOD",
+          "query_contract_sha256": "b160c69ac474f3a786f78fd24213f4e26739fed3ec17f98e4230c8436d6f0aef",
+          "provider_snapshot_id": "amap-d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb",
+          "retrieved_at": "2026-08-21T04:11:26.733504Z",
+          "result_count": 20,
+          "provider_request_hash": "445ee0f54f21730040de54616c7cc36bdeabe47f27533625e7c666ec3b7426ec",
+          "provider_response_hash": "d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb"
+        }
+      ],
+      "selection": {
+        "raw_unique_candidate_count": 65,
+        "frozen_candidate_count": 6,
+        "excluded_counts": {
+          "wrong_city": 0,
+          "wrong_category": 1,
+          "anchor_duplicate": 0,
+          "canonical_duplicate": 0
+        },
+        "strategy": "intent_round_robin_then_provider_order"
+      },
+      "candidates": [
+        {
+          "matched_intents": [
+            "NEARBY",
+            "FUN"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFHY5A6E",
+            "name": "四公园-公共直饮水机",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "湖滨路附近五公园内(龙翔桥地铁站B出口步行330米)",
+            "category": "attraction",
+            "coords": {
+              "lng": 120.160244,
+              "lat": 30.255358
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFHY5A6E",
+            "provider": "amap",
+            "provider_place_id": "B0FFHY5A6E",
+            "name": "四公园-公共直饮水机",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "湖滨路附近五公园内(龙翔桥地铁站B出口步行330米)",
+            "category": "attraction",
+            "longitude": 120.160244,
+            "latitude": 30.255358,
+            "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+            "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+            "observed_at": "2026-08-21T04:11:25.102027Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.6799999999999999,
+            "diversity_tags": [
+              "风景名胜",
+              "风景名胜相关",
+              "旅游景点"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:25.102027Z",
+                "valid_until": null,
+                "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+                "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 14,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0FFHY5A6E",
+                "destination_coords": {
+                  "lng": 120.160244,
+                  "lat": 30.255358
+                },
+                "duration_minutes": 14,
+                "provider": "amap",
+                "request_hash": "32b555109ca1fee662139f097791da386713a0eab3ae81cfe3f4277350aff0b1",
+                "response_hash": "878e3f9e302a3dfcc2020084bd7891f1d22c6fb3b6a356c2df18fdf02a60f548",
+                "observed_at": "2026-08-21T04:11:27.110582Z",
+                "snapshot_id": "amap-route-878e3f9e302a3dfcc2020084bd7891f1d22c6fb3b6a356c2df18fdf02a60f548",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B0MGA5E3CK",
+            "name": "雀巢冰淇淋蛋糕(拱墅店)",
+            "city": "杭州",
+            "district": "拱墅区",
+            "address": "潮王路6-3-1号",
+            "category": "food",
+            "coords": {
+              "lng": 120.170495,
+              "lat": 30.290975
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0MGA5E3CK",
+            "provider": "amap",
+            "provider_place_id": "B0MGA5E3CK",
+            "name": "雀巢冰淇淋蛋糕(拱墅店)",
+            "city": "杭州",
+            "district": "拱墅区",
+            "address": "潮王路6-3-1号",
+            "category": "food",
+            "longitude": 120.170495,
+            "latitude": 30.290975,
+            "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+            "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+            "observed_at": "2026-08-21T04:11:25.574931Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.8,
+            "diversity_tags": [
+              "甜品店"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "08:30-20:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:25.574931Z",
+                "valid_until": null,
+                "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+                "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 78,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0MGA5E3CK",
+                "destination_coords": {
+                  "lng": 120.170495,
+                  "lat": 30.290975
+                },
+                "duration_minutes": 78,
+                "provider": "amap",
+                "request_hash": "4ea53c095066c235d72372845675f87b1095a24c091c3835b1f6cdc69002b941",
+                "response_hash": "963577564cec6fd22fd1c14aa932990c4c19a69e7e88a3879c1516fcdb5f6d22",
+                "observed_at": "2026-08-21T04:11:27.521342Z",
+                "snapshot_id": "amap-route-963577564cec6fd22fd1c14aa932990c4c19a69e7e88a3879c1516fcdb5f6d22",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FUN"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFK2ZVSX",
+            "name": "西湖手划船六公园码头(湖滨码头)",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "北山街道湖滨路47号",
+            "category": "attraction",
+            "coords": {
+              "lng": 120.158349,
+              "lat": 30.256505
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFK2ZVSX",
+            "provider": "amap",
+            "provider_place_id": "B0FFK2ZVSX",
+            "name": "西湖手划船六公园码头(湖滨码头)",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "北山街道湖滨路47号",
+            "category": "attraction",
+            "longitude": 120.158349,
+            "latitude": 30.256505,
+            "request_hash": "c875c15839ef10c5ccda118a41478869627ed5e794cd33d1bb37a96d763e98c9",
+            "response_hash": "fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160",
+            "observed_at": "2026-08-21T04:11:26.129419Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.0,
+            "diversity_tags": [
+              "港口码头"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "06:30-18:30 07:00-18:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:26.129419Z",
+                "valid_until": null,
+                "request_hash": "c875c15839ef10c5ccda118a41478869627ed5e794cd33d1bb37a96d763e98c9",
+                "response_hash": "fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 16,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0FFK2ZVSX",
+                "destination_coords": {
+                  "lng": 120.158349,
+                  "lat": 30.256505
+                },
+                "duration_minutes": 16,
+                "provider": "amap",
+                "request_hash": "9c72f1ac5057df14324543eb03bbc25c53894a37b5eb9d32b33e3ff21c3409af",
+                "response_hash": "c7583a7b4dd52cc8fb47f1f7aac99922963266364ab333eb6fc3e8b7d94e6b3e",
+                "observed_at": "2026-08-21T04:11:27.912490Z",
+                "snapshot_id": "amap-route-c7583a7b4dd52cc8fb47f1f7aac99922963266364ab333eb6fc3e8b7d94e6b3e",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "FOOD"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFKETFI9",
+            "name": "大华沿湖茶室",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "杭州西湖风景名胜区内(东北角)",
+            "category": "food",
+            "coords": {
+              "lng": 120.159131,
+              "lat": 30.24831
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFKETFI9",
+            "provider": "amap",
+            "provider_place_id": "B0FFKETFI9",
+            "name": "大华沿湖茶室",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "杭州西湖风景名胜区内(东北角)",
+            "category": "food",
+            "longitude": 120.159131,
+            "latitude": 30.24831,
+            "request_hash": "445ee0f54f21730040de54616c7cc36bdeabe47f27533625e7c666ec3b7426ec",
+            "response_hash": "d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb",
+            "observed_at": "2026-08-21T04:11:26.733504Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.6,
+            "diversity_tags": [
+              "茶座"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "09:30-22:30",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:26.733504Z",
+                "valid_until": null,
+                "request_hash": "445ee0f54f21730040de54616c7cc36bdeabe47f27533625e7c666ec3b7426ec",
+                "response_hash": "d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 2,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0FFKETFI9",
+                "destination_coords": {
+                  "lng": 120.159131,
+                  "lat": 30.24831
+                },
+                "duration_minutes": 2,
+                "provider": "amap",
+                "request_hash": "b4c7fcb705de5554ec23df9a00f8189a89bf2fe4770019891234fca47a008312",
+                "response_hash": "b8963827fde2a89a4ce5cc75869a6672fcd88fa174ab5f88b5ae3d9205205ead",
+                "observed_at": "2026-08-21T04:11:28.317003Z",
+                "snapshot_id": "amap-route-b8963827fde2a89a4ce5cc75869a6672fcd88fa174ab5f88b5ae3d9205205ead",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "NEARBY",
+            "FUN"
+          ],
+          "canonical_place": {
+            "place_id": "B0FFGGYE3S",
+            "name": "西湖风景区湖滨公园-棋士铜人",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "湖滨路附近湖滨公园一公园内",
+            "category": "attraction",
+            "coords": {
+              "lng": 120.16109,
+              "lat": 30.249835
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0FFGGYE3S",
+            "provider": "amap",
+            "provider_place_id": "B0FFGGYE3S",
+            "name": "西湖风景区湖滨公园-棋士铜人",
+            "city": "杭州",
+            "district": "上城区",
+            "address": "湖滨路附近湖滨公园一公园内",
+            "category": "attraction",
+            "longitude": 120.16109,
+            "latitude": 30.249835,
+            "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+            "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+            "observed_at": "2026-08-21T04:11:25.102027Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.7,
+            "diversity_tags": [
+              "文物古迹"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "24小时营业",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:25.102027Z",
+                "valid_until": null,
+                "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+                "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 3,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0FFGGYE3S",
+                "destination_coords": {
+                  "lng": 120.16109,
+                  "lat": 30.249835
+                },
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "add982bfe91abc0bb144cdad09811cb8bdc8de81b17d78ab2024f376eedba872",
+                "response_hash": "f533660dd2a0e2e2f41c227ab29256e7a5aa5dec387f641cbcd1f5da690c4223",
+                "observed_at": "2026-08-21T04:11:28.732636Z",
+                "snapshot_id": "amap-route-f533660dd2a0e2e2f41c227ab29256e7a5aa5dec387f641cbcd1f5da690c4223",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        },
+        {
+          "matched_intents": [
+            "POPULAR"
+          ],
+          "canonical_place": {
+            "place_id": "B0I0MC0UKW",
+            "name": "有牛在鲜·潮汕鲜牛肉火锅(滨江海威领界店)",
+            "city": "杭州",
+            "district": "滨江区",
+            "address": "东信大道1188号海威领界大厦2幢楼101-1314室",
+            "category": "food",
+            "coords": {
+              "lng": 120.152369,
+              "lat": 30.185428
+            }
+          },
+          "provider_receipt": {
+            "canonical_place_id": "B0I0MC0UKW",
+            "provider": "amap",
+            "provider_place_id": "B0I0MC0UKW",
+            "name": "有牛在鲜·潮汕鲜牛肉火锅(滨江海威领界店)",
+            "city": "杭州",
+            "district": "滨江区",
+            "address": "东信大道1188号海威领界大厦2幢楼101-1314室",
+            "category": "food",
+            "longitude": 120.152369,
+            "latitude": 30.185428,
+            "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+            "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+            "observed_at": "2026-08-21T04:11:25.574931Z",
+            "execution_mode": "live",
+            "source_url": "https://restapi.amap.com/v5/place/around"
+          },
+          "provider_signals": {
+            "popularity": 0.9199999999999999,
+            "diversity_tags": [
+              "牛肉火锅"
+            ]
+          },
+          "operational_evidence": {
+            "status": "PROVIDER_EXPLICIT",
+            "facts": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "value": "10:30-14:30 15:30-24:00",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T04:11:25.574931Z",
+                "valid_until": null,
+                "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+                "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+                "execution_mode": "live",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "confidence": 0.7
+              }
+            ],
+            "note": "Explicit Provider fields are frozen, but are not a public or human-validated claim."
+          },
+          "route_times": {
+            "status": "AVAILABLE",
+            "previous_to_candidate_minutes": 131,
+            "candidate_to_next_minutes": null,
+            "previous_to_next_minutes": null,
+            "route_receipts": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "transport_mode": "walking",
+                "origin_place_id": "B0FFHZ0001",
+                "origin_coords": {
+                  "lng": 120.1551,
+                  "lat": 30.2523
+                },
+                "destination_place_id": "B0I0MC0UKW",
+                "destination_coords": {
+                  "lng": 120.152369,
+                  "lat": 30.185428
+                },
+                "duration_minutes": 131,
+                "provider": "amap",
+                "request_hash": "cc3fff87d868f17b247bcc91ca1927946ba874d11c6e1a827befd3c95e688887",
+                "response_hash": "59d70da16e086d660ed3f7aa2f530ac7a23dbbec3ae2415a1463f7f699076213",
+                "observed_at": "2026-08-21T04:11:29.146443Z",
+                "snapshot_id": "amap-route-59d70da16e086d660ed3f7aa2f530ac7a23dbbec3ae2415a1463f7f699076213",
+                "execution_mode": "live",
+                "max_age_seconds": 900,
+                "source_url": "https://restapi.amap.com/v3/direction/walking"
+              }
+            ],
+            "reason_code": null
+          }
+        }
+      ]
+    }
+  ],
+  "integrity": {
+    "artifact_payload_sha256": "d64231204b8319cb488754afc331800dd0c51e41b2a2f3ba15194c3c2f2bc5bd",
+    "hash_algorithm": "SHA-256 over canonical UTF-8 JSON excluding integrity",
+    "passed": true,
+    "validation_errors": []
+  }
+}

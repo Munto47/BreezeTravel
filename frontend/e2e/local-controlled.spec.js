@@ -36,25 +36,16 @@ const report = {
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(({ room, itineraryValue, reportValue }) => {
-    localStorage.setItem(`itinerary_${room}`, JSON.stringify(itineraryValue));
-    localStorage.setItem(`verification_${room}`, JSON.stringify(reportValue));
-    if (localStorage.getItem(`verification_stale_${room}`) === null) {
-      localStorage.setItem(`verification_stale_${room}`, 'false');
-    }
+    // The legacy route only accepts cached data as a non-authoritative fallback.
+    // A report retrieved from localStorage must never render as current evidence.
+    localStorage.setItem(`itinerary_cache_${room}`, JSON.stringify(itineraryValue));
+    localStorage.setItem(`verification_cache_${room}`, JSON.stringify(reportValue));
   }, { room: roomId, itineraryValue: itinerary, reportValue: report });
 });
 
-test('renders three-state verification and hides stale green evidence after a collaborative change', async ({ page }) => {
+test('treats cached verification as stale and never renders it as current evidence', async ({ page }) => {
   await page.goto(`/room/${roomId}/itinerary`);
-  const panel = page.getByTestId('constraint-panel');
-  await expect(panel).toBeVisible();
-  await expect(panel.getByText('满足 · 博物馆已安排')).toBeVisible();
-  await expect(panel.getByText('违反 · 晚餐时段缺少餐饮')).toBeVisible();
-  await expect(panel.getByText('未知 · 天气数据缺失')).toBeVisible();
-  await expect(panel.getByText('缺少证据，不会自动当作通过或触发修复。')).toBeVisible();
-
-  await page.evaluate(room => localStorage.setItem(`verification_stale_${room}`, 'true'), roomId);
-  await page.reload();
   await expect(page.getByTestId('verification-stale')).toContainText('验证结果已过期');
   await expect(page.getByTestId('constraint-panel')).toHaveCount(0);
+  await expect(page.getByText('杭州 1 日游')).toBeVisible();
 });

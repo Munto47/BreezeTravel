@@ -1,0 +1,1785 @@
+{
+  "schema_version": "auditor-proxy-evaluation-v1",
+  "calibration_lane": "M1-dev",
+  "evidence_type": "synthetic_proxy",
+  "execution_status": "COMPLETED",
+  "generated_at": "2026-08-20T19:35:05+08:00",
+  "bindings": {
+    "blind_cases_sha256": "f40efeca23f08b86d052d38e41ec482e46f35ce709fb3533d64646d18fe376f2",
+    "cases_sha256": "81e10cf12bc74247996e5f0fa1d7732ee70568fc47a3d6ac98416b281ceaaaff",
+    "dataset_manifest_sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73",
+    "input_sha256": "af1ffa6e10abcac001e121ed060c0520d876b677601528671b988543aaa5d74f",
+    "pipeline_code_sha256": "56c052bee5a9a9186f982cdac74f5843ff2e3326b139f61c6d96332767c2d635",
+    "prompt_sha256": "2c939cfd2b20b738995c43ca17d746ab9c8bf215dce2b8e43d8206a0dace4bb0",
+    "runner_code_sha256": "b04c040aba051bc29b5e3e341f5607aca64cdfefbc64ee0e2ba7d296cb571927",
+    "source_report_sha256": "4936a549377dd7030c6e4d64d06372b8c16554fa05c297f243062c60e567177b"
+  },
+  "evaluator": {
+    "role_id": "proxy-evaluator-3",
+    "model": "gpt-5.6-sol",
+    "model_version": "gpt-5.6-sol",
+    "blind": true,
+    "independent": true
+  },
+  "cases": [
+    {
+      "case_id": "sim-bj-original-01",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-01",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-02",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-02",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-03",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-03",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-04",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-05",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-05",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-06",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-06",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-07",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-08",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-09",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-09",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-10",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-10",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-11",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-11",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-12",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-12",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-13",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-13",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-14",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-14",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-15",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-15",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-16",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-16",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-17",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-17",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-18",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-18",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-19",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-19",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-original-20",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-mutation-20",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-01",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-02",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-03",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-05",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-06",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-09",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-bj-boundary-10",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-01",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-01",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-02",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-02",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-03",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-03",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-04",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-05",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-05",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-06",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-06",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-07",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-08",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-09",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-09",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-10",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-10",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-11",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-11",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-12",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-12",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-13",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-13",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-14",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-14",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-15",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-15",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-16",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-16",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-17",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-17",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-18",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-18",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-19",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-19",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-original-20",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-mutation-20",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-01",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-02",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-03",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-05",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-06",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-09",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-sh-boundary-10",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-01",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-01",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-02",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-02",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-03",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-03",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-04",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-05",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-05",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-06",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-06",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-07",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-08",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-09",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-09",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-10",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-10",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-11",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-11",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-12",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-12",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-13",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-13",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-14",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-14",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-15",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-15",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-16",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-16",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-17",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-17",
+      "expected_critical_categories": [
+        "TIME_CHAIN_BROKEN",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_CHAIN_BROKEN": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-18",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-18",
+      "expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "DUPLICATE_PLACE": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "ACCEPT",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-19",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-19",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-original-20",
+      "expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-mutation-20",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-01",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-02",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-03",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-04",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-05",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-06",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-07",
+      "expected_critical_categories": [
+        "TIME_DATA_INVALID",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "TIME_DATA_INVALID": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-08",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-09",
+      "expected_critical_categories": [
+        "PLACE_NOT_RESOLVED",
+        "OPENING_HOURS_MISSING"
+      ],
+      "evidence_readback": {
+        "PLACE_NOT_RESOLVED": true,
+        "OPENING_HOURS_MISSING": true
+      },
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    },
+    {
+      "case_id": "sim-hz-boundary-10",
+      "expected_critical_categories": [],
+      "evidence_readback": {},
+      "repair_decision": "SKIP",
+      "repair_rejection_reason": null
+    }
+  ],
+  "output_sha256": "3527f5d2346c586630927b7eb5c257a7da7ad7c2e8c14b03646791b74226a7f2"
+}

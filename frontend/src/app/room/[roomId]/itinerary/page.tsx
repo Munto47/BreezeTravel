@@ -202,7 +202,7 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
   )
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 export default function ItineraryPage() {
   const params = useParams()
@@ -216,25 +216,30 @@ export default function ItineraryPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const stored = localStorage.getItem(`itinerary_${roomId}`)
-    const storedVerification = localStorage.getItem(`verification_${roomId}`)
-    if (storedVerification) {
-      try { setVerification(JSON.parse(storedVerification) as VerificationReport) } catch {}
-    }
-    setVerificationStale(localStorage.getItem(`verification_stale_${roomId}`) === 'true')
-    if (stored) {
+    const cachedItinerary = localStorage.getItem(`itinerary_cache_${roomId}`)
+    const cachedVerification = localStorage.getItem(`verification_cache_${roomId}`)
+    if (cachedVerification) {
       try {
-        setItinerary(JSON.parse(stored))
-        setLoading(false)
-        return
-      } catch (e) {
-        console.error('[ItineraryPage] localStorage parse failed', e)
+        setVerification(JSON.parse(cachedVerification) as VerificationReport)
+        // A cached report is never authoritative; server audit readback will replace this in P2.
+        setVerificationStale(true)
+      } catch {}
+    }
+
+    const useCachedItinerary = () => {
+      if (!cachedItinerary) return
+      try { setItinerary(JSON.parse(cachedItinerary) as Itinerary) } catch (e) {
+        console.error('[ItineraryPage] itinerary cache parse failed', e)
       }
     }
 
-    // localStorage miss — 从 API 恢复（跨设备/清缓存场景）
+    // Always prefer the server record so another browser observes the same itinerary.
     const token = localStorage.getItem('authToken')
-    if (!token) { setLoading(false); return }
+    if (!token) {
+      useCachedItinerary()
+      setLoading(false)
+      return
+    }
 
     fetch(`${API_BASE}/api/room/${roomId}/itinerary`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -243,10 +248,9 @@ export default function ItineraryPage() {
       .then(data => {
         const itin = data.itinerary_data as Itinerary
         setItinerary(itin)
-        // 回填 localStorage 供下次直接读取
-        localStorage.setItem(`itinerary_${roomId}`, JSON.stringify(itin))
+        localStorage.setItem(`itinerary_cache_${roomId}`, JSON.stringify(itin))
       })
-      .catch(() => {})
+      .catch(() => { useCachedItinerary() })
       .finally(() => setLoading(false))
   }, [roomId])
 

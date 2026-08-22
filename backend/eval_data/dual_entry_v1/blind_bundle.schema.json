@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/dual-entry-blind-label-bundle-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "evidence_class", "human_evidence", "run_binding", "labels"],
+  "properties": {
+    "schema_version": {"const": "dual-entry-blind-label-bundle-v1"},
+    "evidence_class": {"const": "controlled_blind_oracle"},
+    "human_evidence": {"const": false},
+    "run_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "run_spec_sha256", "dataset_content_sha256", "manifest_sha256", "case_ids_sha256", "product_outputs_sha256"],
+      "properties": {
+        "run_id": {"type": "string", "minLength": 1},
+        "run_spec_sha256": {"$ref": "#/$defs/sha256"},
+        "dataset_content_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "case_ids_sha256": {"$ref": "#/$defs/sha256"},
+        "product_outputs_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "labels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["schema_version", "case_id", "deterministic_truth", "metric_oracles", "gate_assertions"]
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

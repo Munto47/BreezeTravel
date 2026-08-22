@@ -5,8 +5,8 @@
   DistanceAgent   → time_matrices
   SequencerAgent  → orderings
   SchedulerAgent  → day_plans / day_states（v2 新增，按天切片）
-  CriticV2        → critic_violations（违规报告，触发局部重跑）
-  TipsAgent       → itinerary
+  Assembler       → draft itinerary
+  TipsAgent       → final verified itinerary tips
 
 v2 新增字段（SPEC Phase A）：
   weather_forecast  — 按 day_index 的天气预报
@@ -62,6 +62,7 @@ class PlannerState(TypedDict, total=False):
     vote_counts: dict[str, int]               # D24：place_id → 票数（前端 Yjs 传入）
     task_spec: Optional[TripTaskSpec]
     planning_input_hash: str
+    defer_tips: bool                    # persisted flow waits for canonical AuditReport
 
     # ── ClustererAgent 输出 ─────────────────────────────────────────
     activities: list[Place]

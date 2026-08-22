@@ -7,12 +7,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Compass, Users, Copy, Check, ArrowRight, Sparkles,
   Map, Route, History, LogOut, MapPin, Calendar,
+  FileText, ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 // 当前主推城市均有已入库、可追溯的深度游记语料。
 const DEEP_CITY_CARDS: { city: string; emoji: string; gradient: string; tagline: string }[] = [
@@ -38,6 +39,7 @@ export default function HomePage() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [city, setCity] = useState('北京')
   const [days, setDays] = useState(3)
+  const [entryMode, setEntryMode] = useState<'import' | 'template' | 'legacy'>('import')
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
@@ -99,6 +101,18 @@ export default function HomePage() {
 
   const handleEnterRoom = () => {
     if (!createdRoomInfo) return
+    if (entryMode === 'import') {
+      router.push(
+        `/import?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
+      )
+      return
+    }
+    if (entryMode === 'template') {
+      router.push(
+        `/templates?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
+      )
+      return
+    }
     router.push(
       `/room/${createdRoomInfo.roomId}?threadId=${createdRoomInfo.threadId}&city=${encodeURIComponent(city)}&days=${days}`
     )
@@ -198,9 +212,9 @@ export default function HomePage() {
         {/* 特性标签 */}
         <div className="flex items-center gap-2 mb-6">
           {[
-            { icon: <Sparkles className="w-3 h-3" />, label: 'AI 智能推荐' },
+            { icon: <FileText className="w-3 h-3" />, label: '导入已有行程' },
+            { icon: <ShieldCheck className="w-3 h-3" />, label: '证据化排雷' },
             { icon: <Users className="w-3 h-3" />, label: '好友实时协同' },
-            { icon: <Route className="w-3 h-3" />, label: '最优路线规划' },
           ].map((f) => (
             <span
               key={f.label}
@@ -212,6 +226,38 @@ export default function HomePage() {
         </div>
 
         {/* P0-6 深度推荐城市图卡（无需外部图片资源，emoji + 渐变） */}
+        {!createdRoomInfo && (
+          <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/70 p-2 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setEntryMode('import')}
+              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'import' ? 'bg-coral-500 text-white' : 'bg-gray-50 text-gray-600'}`}
+            >
+              <FileText className="mb-2 h-4 w-4" />
+              <p className="text-xs font-semibold">导入已有行程</p>
+              <p className={`mt-1 text-[10px] ${entryMode === 'import' ? 'text-white/75' : 'text-gray-400'}`}>消歧、排雷、Repair</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEntryMode('template')}
+              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'template' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}
+            >
+              <Route className="mb-2 h-4 w-4" />
+              <p className="text-xs font-semibold">路线骨架</p>
+              <p className={`mt-1 text-[10px] ${entryMode === 'template' ? 'text-white/75' : 'text-gray-400'}`}>模型生成 DRAFT</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setEntryMode('legacy')}
+              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'legacy' ? 'bg-slate-800 text-white' : 'bg-gray-50 text-gray-600'}`}
+            >
+              <Route className="mb-2 h-4 w-4" />
+              <p className="text-xs font-semibold">现有协同选点</p>
+              <p className={`mt-1 text-[10px] ${entryMode === 'legacy' ? 'text-white/75' : 'text-gray-400'}`}>实时协同选点</p>
+            </button>
+          </div>
+        )}
+
         {!createdRoomInfo && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2 px-1">
@@ -323,7 +369,7 @@ export default function HomePage() {
                   <div className="w-24">
                     <label className="block text-[11px] font-medium text-gray-500 mb-1.5 uppercase tracking-wider">天数</label>
                     <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="input-glass appearance-none text-center">
-                      {[2, 3, 4, 5, 7].map((d) => <option key={d} value={d}>{d} 天</option>)}
+                      {[2, 3, 4, 5].map((d) => <option key={d} value={d}>{d} 天</option>)}
                     </select>
                   </div>
                 </div>
@@ -336,7 +382,7 @@ export default function HomePage() {
                   {isCreating ? (
                     <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />创建中...</>
                   ) : (
-                    <>创建协同房间 <ArrowRight className="w-4 h-4" /></>
+                    <>{entryMode === 'import' ? '创建并导入行程' : entryMode === 'template' ? '创建并选择路线骨架' : '创建协同房间'} <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
               </motion.div>

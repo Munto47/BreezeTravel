@@ -497,6 +497,27 @@
       ]
     },
     {
+      "place_id": "fixture-bj-jingshan-01",
+      "name": "景山公园",
+      "category": "attraction",
+      "address": "东城区景山西街44号",
+      "coords": {
+        "lng": 116.3974,
+        "lat": 39.9254
+      },
+      "city": "北京",
+      "district": "东城区",
+      "source": "amap_poi",
+      "amap_rating": 4.6,
+      "amap_price": 2,
+      "opening_hours": "06:30-21:00",
+      "phone": null,
+      "amap_photos": [],
+      "estimated_duration": 90,
+      "description": "本地受控 fixture：用于验证故宫周边文本导入的实体消歧链路。",
+      "tags": ["fixture", "历史文化", "城市公园"]
+    },
+    {
       "place_id": "B000A7BD6V",
       "name": "颐和园",
       "category": "attraction",

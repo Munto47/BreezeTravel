@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import ConfigDict
@@ -13,7 +14,7 @@ class Settings(BaseSettings):
         protected_namespaces=("settings_",),
     )
 
-    runtime_profile: Literal["demo", "test", "local_real", "public"] = "local_real"
+    runtime_profile: Literal["demo", "test", "local_fixture", "local_real", "public"] = "local_real"
     # ── 主 LLM：DeepSeek API ──────────────────────────────────────────
     # deepseek-chat   : 通用对话，适合 Router / Synthesizer
     # deepseek-reasoner: 深度推理（R1），适合复杂规划任务
@@ -54,6 +55,18 @@ class Settings(BaseSettings):
     amap_api_key: str = ""
     amap_js_key: str = ""
     amap_mock: bool = True  # 默认 Mock，保护配额
+    # SuggestionSet 的 Provider 模式是一个独立的、显式的选择。
+    # auto 保留旧行为；frozen_snapshot 只会重放指定快照，不会回退到
+    # Amap live 或 fixture。快照模式的三个标识和重放时钟都必须显式配置。
+    suggestion_provider_mode: Literal["auto", "live", "fixture", "frozen_snapshot"] = "auto"
+    suggestion_snapshot_path: str = ""
+    suggestion_snapshot_sha256: str = ""
+    suggestion_snapshot_id: str = ""
+    suggestion_snapshot_replay_at: datetime | None = None
+    # P8 临行复检默认只重放已持久化的证据。只有在明确开启、且运行在
+    # 非 fixture 的真实 Provider 配置下，才允许逐地点刷新 Amap POI 事实。
+    # 这不是发布开关，也不能把未发生的调用写成 live receipt。
+    pre_trip_live_provider_recheck_enabled: bool = False
 
     # ── 和风天气 ──────────────────────────────────────────────────────
     qweather_api_key: str = ""
@@ -94,6 +107,7 @@ class Settings(BaseSettings):
     tool_max_concurrency: int = 3
     chat_max_tool_calls: int = 6
     e2e_cleanup_secret: str = ""
+    e2e_restart_gate_mode: bool = False
     router_input_cost_per_million: float = 0.0
     router_output_cost_per_million: float = 0.0
     model_pricing_version: str = "unconfigured"
@@ -107,7 +121,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "008_task_security_memory.sql"
+    required_migration: str = "021_atomic_suggestion_undo.sql"
     memory_enabled_default: bool = True
     memory_min_confidence: float = 0.65
     memory_ttl_days: int = 180

@@ -9,6 +9,7 @@ from app.constraints.rules.daily_hotel import DailyHotelRule
 from app.constraints.rules.inclusion import InclusionRule
 from app.constraints.rules.meal_window import MealWindowRule
 from app.constraints.rules.opening_hours import OpeningHoursRule
+from app.constraints.rules.pacing import PacingRule
 from app.constraints.rules.time_chain import TimeChainRule
 from app.constraints.rules.travel_time import TravelTimeRule
 from app.constraints.rules.weather import WeatherRule
@@ -17,5 +18,6 @@ __all__ = [
     "InclusionRule", "ExclusionRule", "DuplicateRule", "DailyCapacityRule",
     "TimeChainRule", "TravelTimeRule", "MealWindowRule", "OpeningHoursRule",
     "BudgetRule", "WeatherRule", "HotelAreaRule", "TripAreaRule", "DailyHotelRule",
+    "PacingRule",
     "CollaborationSnapshotRule",
 ]

@@ -6,12 +6,13 @@
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
+from app.schemas.itinerary import DayPlan, Itinerary
 from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
 
 
@@ -54,6 +55,33 @@ class TestPlannerGraphCompile:
     def test_graph_singleton_exists(self):
         from app.agents.planner.graph import _planner_graph
         assert _planner_graph is not None
+
+
+@pytest.mark.asyncio
+async def test_tips_agent_uses_final_repaired_itinerary_instead_of_reassembling_day_plans():
+    from app.agents.planner.nodes import tips_agent
+
+    repaired = Itinerary(
+        itinerary_id="final-repaired",
+        thread_id="tips-final",
+        city="北京",
+        days=[DayPlan(day_index=0, cluster_id=0, slots=[])],
+        generated_at="2026-08-20T00:00:00+00:00",
+        version=3,
+    )
+    with patch("app.agents.planner.nodes.tips_agent.generate_tips", AsyncMock(return_value=repaired)) as mocked:
+        result = await tips_agent.run({
+            "itinerary": repaired,
+            "day_plans": [],
+            "thread_id": "tips-final",
+            "preferences_text": "少走路",
+            "trace": ["[Verifier] SATISFIED"],
+        })
+
+    assert mocked.await_args.args[0] == repaired
+    assert result["itinerary"].itinerary_id == "final-repaired"
+    assert result["itinerary"].version == 3
+    assert result["trace"][-2] == "[Verifier] SATISFIED"
 
 
 # ===== 子节点单元测试 =====

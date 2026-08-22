@@ -13,6 +13,7 @@ class WeatherInfo(BaseModel):
     temp_high: int
     temp_low: int
     suggestion: str     # "适合户外，建议带防晒"
+    precip_mm: Optional[float] = None
 
 
 class TimeSlot(BaseModel):

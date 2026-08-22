@@ -7,10 +7,17 @@ class DailyHotelRule:
     rule_id = "daily_hotel"
 
     def evaluate(self, context: RuleContext) -> list[ConstraintCheck]:
-        if not find_constraints(context.task_spec, "daily_hotel"):
+        constraints = find_constraints(context.task_spec, "daily_hotel")
+        if not constraints:
             return []
         checks: list[ConstraintCheck] = []
+        last_day_index = max((day.day_index for day in context.itinerary.days), default=0)
         for day in context.itinerary.days:
+            if not any(
+                constraint.scope != "overnight_days" or day.day_index < last_day_index
+                for constraint in constraints
+            ):
+                continue
             last = day.slots[-1] if day.slots else None
             category = category_value(last) if last else ""
             ok = last is not None and category == "hotel"

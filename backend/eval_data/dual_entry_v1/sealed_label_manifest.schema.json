@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/dual-entry-sealed-label-manifest-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "split", "scoring_payload_present", "external_bundle_required", "bundle_schema_version", "label_schema_version", "case_count", "case_ids_sha256", "labels_canonical_sha256", "legacy_repository_payload_sha256", "truth_provenance", "human_evidence", "migration_note"],
+  "properties": {
+    "schema_version": {"const": "dual-entry-sealed-label-manifest-v1"},
+    "split": {"const": "frozen_blind"},
+    "scoring_payload_present": {"const": false},
+    "external_bundle_required": {"const": true},
+    "bundle_schema_version": {"const": "dual-entry-blind-label-bundle-v1"},
+    "label_schema_version": {"const": "dual-entry-label-v1"},
+    "case_count": {"type": "integer", "minimum": 1},
+    "case_ids_sha256": {"$ref": "#/$defs/sha256"},
+    "labels_canonical_sha256": {"$ref": "#/$defs/sha256"},
+    "legacy_repository_payload_sha256": {"$ref": "#/$defs/sha256"},
+    "truth_provenance": {"const": "controlled_blind_oracle"},
+    "human_evidence": {"const": false},
+    "migration_note": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

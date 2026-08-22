@@ -1,0 +1,36 @@
+{
+  "schema_version": "dual-entry-source-extract-v2",
+  "artifact_kind": "LICENSE_POLICY",
+  "source_document_id": "open-wikivoyage-reuse-policy-20260821",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Wikivoyage:How_to_re-use_Wikivoyage_guides",
+  "source_revision": "4999830",
+  "revision_url": "https://en.wikivoyage.org/w/index.php?title=Wikivoyage%3AHow_to_re-use_Wikivoyage_guides&oldid=4999830",
+  "content_sha256": "4afc1bd4490bd001ea9f6844bcfa553a97034d9e8dd61264f60f626bd381344c",
+  "derivation": {
+    "raw_archive_path": "archives/open-wikivoyage-reuse-policy-20260821/raw_capture_receipt.json",
+    "source_body_sha256": "4afc1bd4490bd001ea9f6844bcfa553a97034d9e8dd61264f60f626bd381344c",
+    "capture_fields": [
+      "minimal_snapshot.license_spdx",
+      "minimal_snapshot.license_url",
+      "minimal_snapshot.obligation_codes",
+      "minimal_snapshot.image_boundary"
+    ],
+    "method": "Deterministic projection of licence obligations from the fixed policy revision and site rightsinfo."
+  },
+  "license_spdx": "CC-BY-SA-4.0",
+  "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "obligation_codes": [
+    "ATTRIBUTE_CONTRIBUTORS",
+    "LINK_SOURCE_OR_REVISION_HISTORY",
+    "LINK_LICENSE",
+    "SHARE_ALIKE_OR_COMPATIBLE_LICENSE"
+  ],
+  "allowed_use": [
+    "RETRIEVAL",
+    "EVAL_ONLY"
+  ],
+  "prohibited_content": [
+    "UNATTRIBUTED_TEXT",
+    "UNREVIEWED_IMAGES"
+  ]
+}

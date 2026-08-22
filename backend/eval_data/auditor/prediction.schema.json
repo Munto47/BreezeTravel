@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/auditor-prediction-v1.json",
+  "title": "BreezeTravel audit prediction and organizer decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "audit_duration_seconds",
+    "extraction_counts",
+    "auto_matches",
+    "fixed_commitments",
+    "silent_mismatches",
+    "findings",
+    "critical_human_check",
+    "repair"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "audit_duration_seconds": {"type": "number", "minimum": 0},
+    "extraction_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date", "time", "place", "fixed_commitment"],
+      "properties": {
+        "date": {"$ref": "#/$defs/counts"},
+        "time": {"$ref": "#/$defs/counts"},
+        "place": {"$ref": "#/$defs/counts"},
+        "fixed_commitment": {"$ref": "#/$defs/counts"}
+      }
+    },
+    "auto_matches": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accepted", "correct"],
+      "properties": {
+        "accepted": {"type": "integer", "minimum": 0},
+        "correct": {"type": "integer", "minimum": 0}
+      }
+    },
+    "fixed_commitments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected", "recalled"],
+      "properties": {
+        "expected": {"type": "integer", "minimum": 0},
+        "recalled": {"type": "integer", "minimum": 0}
+      }
+    },
+    "silent_mismatches": {"type": "integer", "minimum": 0},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prediction_id", "severity", "human_verdict", "matched_human_finding_ids", "evidence_readable"],
+        "properties": {
+          "prediction_id": {"type": "string", "minLength": 1},
+          "severity": {"enum": ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]},
+          "human_verdict": {"enum": ["CORRECT", "INCORRECT"]},
+          "matched_human_finding_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+          "evidence_readable": {"type": "boolean"}
+        }
+      }
+    },
+    "critical_human_check": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "review_protocol", "checked", "correct"],
+          "properties": {
+            "status": {"const": "AVAILABLE"},
+            "review_protocol": {"const": "independent_critical_finding_check_v1"},
+            "checked": {"type": "integer", "minimum": 1},
+            "correct": {"type": "integer", "minimum": 0}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "reason"],
+          "properties": {
+            "status": {"const": "UNAVAILABLE"},
+            "reason": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "repair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["offered", "accepted", "rejection_reason"],
+      "properties": {
+        "offered": {"type": "boolean"},
+        "accepted": {"type": "boolean"},
+        "rejection_reason": {"type": ["string", "null"]}
+      }
+    }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tp", "fp", "fn"],
+      "properties": {
+        "tp": {"type": "integer", "minimum": 0},
+        "fp": {"type": "integer", "minimum": 0},
+        "fn": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

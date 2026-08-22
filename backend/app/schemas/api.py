@@ -39,6 +39,8 @@ class OptimizeRequest(BaseModel):
     vote_counts: dict[str, int] = {}    # D24：place_id → 票数（Yjs votedBy 长度）
     task_spec: Optional[TripTaskSpec] = None
     planning_input_hash: Optional[str] = None
+    workspace_id: Optional[str] = None
+    persist_workspace: bool = False
 
 
 class OptimizeResponse(BaseModel):
@@ -51,6 +53,14 @@ class OptimizeResponse(BaseModel):
     task_spec: Optional[TripTaskSpec] = None
     verification_report: Optional[VerificationReport] = None
     planning_input_hash: Optional[str] = None
+    workspace_id: Optional[str] = None
+    itinerary_revision: Optional[int] = None
+    audit_report_id: Optional[str] = None
+    audit_status: Optional[str] = None
+    audit_error_code: Optional[str] = None
+    tips_status: Optional[str] = None
+    tips_basis_revision: Optional[int] = None
+    tips_basis_report_id: Optional[str] = None
 
 
 # ===== GET /api/room/{room_id}/state =====

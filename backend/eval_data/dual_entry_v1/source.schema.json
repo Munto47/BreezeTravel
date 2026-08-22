@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/source-registry-v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["source_document_id", "canonical_url", "domain", "source_type", "license_or_terms", "usage_modes", "city", "retrieved_at", "access_status", "fact_boundary"],
+  "properties": {
+    "source_document_id": {"type": "string", "minLength": 3},
+    "canonical_url": {"type": "string", "pattern": "^https://"},
+    "domain": {"type": "string", "minLength": 3},
+    "source_type": {"enum": ["OFFICIAL_ROUTE", "OFFICIAL_POLICY", "OPEN_DATA", "USER_AUTHORIZED", "PROVIDER_DOC"]},
+    "source_kind": {"enum": ["wikivoyage_community"]},
+    "license_or_terms": {"type": "string", "minLength": 1},
+    "license_spdx": {"enum": ["CC-BY-SA-4.0"]},
+    "license_url": {"type": "string", "pattern": "^https://"},
+    "attribution": {"type": "string", "minLength": 12},
+    "source_revision": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "revision_url": {"type": "string", "pattern": "^https://"},
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rights_source_document_id": {"type": "string", "minLength": 3},
+    "terms_url": {"type": "string", "pattern": "^https://"},
+    "terms_checked_at": {"type": "string", "format": "date-time"},
+    "capture_policy": {"enum": ["FULL_ARCHIVE_ALLOWED", "METADATA_MINIMAL_EXTRACT_ONLY", "NO_ARCHIVE_ALLOWED"]},
+    "usage_modes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["STRUCTURE", "FACT", "RETRIEVAL", "EVAL_ONLY"]}},
+    "city": {"enum": ["北京", "上海", "杭州", "ALL"]},
+    "published_at": {"type": ["string", "null"], "format": "date-time"},
+    "retrieved_at": {"type": "string", "format": "date-time"},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "access_status": {"enum": ["VERIFIED_ACCESSIBLE", "UNAVAILABLE_ON_CHECK", "DOCUMENTATION_ACCESSIBLE"]},
+    "raw_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "extract_hash": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "raw_archive_path": {"type": ["string", "null"]},
+    "extract_archive_path": {"type": ["string", "null"]},
+    "fact_ttl_hours": {"type": ["integer", "null"], "minimum": 1},
+    "fact_boundary": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_type": {"const": "OPEN_DATA"},
+          "raw_hash": {"type": "string"}
+        },
+        "required": ["source_type", "raw_hash"]
+      },
+      "then": {
+        "required": [
+          "license_spdx",
+          "license_url",
+          "attribution",
+          "source_revision",
+          "revision_url",
+          "content_hash",
+          "rights_source_document_id"
+        ]
+      }
+    }
+  ]
+}

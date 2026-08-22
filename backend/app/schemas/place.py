@@ -91,6 +91,7 @@ class Place(BaseModel):
         description="本次检索执行模式；与内容来源 source 分开，禁止用 amap_poi 冒充 live",
     )
     retrieval_provider: Optional[str] = Field(None, description="本次检索提供方，例如 amap")
+    retrieval_request_hash: Optional[str] = Field(None, description="脱敏后提供方请求参数的 SHA256")
     retrieval_response_hash: Optional[str] = Field(None, description="提供方响应的 SHA256")
     retrieval_observed_at: Optional[datetime] = Field(None, description="本次提供方响应观测时间")
     recommendation_slot_ids: list[str] = Field(

@@ -1,4 +1,4 @@
-"""TipsAgent：将 day_plans 装配为 Itinerary，并调用 TipsGenerator 注入贴心提示"""
+"""Assemble a draft, then inject tips only after the final verification pass."""
 
 import uuid
 from datetime import datetime, timezone
@@ -8,11 +8,10 @@ from app.agents.planner.state import PlannerState
 from app.schemas.itinerary import Itinerary
 
 
-async def run(state: PlannerState) -> dict:
+def assemble(state: PlannerState) -> dict:
     day_plans = state["day_plans"]
     activities = state.get("activities", [])
     thread_id = state["thread_id"]
-    preferences = state.get("preferences_text", "")
 
     city = activities[0].city if activities else "未知"
 
@@ -25,13 +24,29 @@ async def run(state: PlannerState) -> dict:
         version=1,
     )
 
+    trace = state.get("trace", []) + [
+        f"[Assembler] Itinerary 装配完成，days={len(day_plans)}"
+    ]
+    return {"itinerary": itinerary, "trace": trace}
+
+
+async def run(state: PlannerState) -> dict:
+    itinerary = state.get("itinerary")
+    if itinerary is None:
+        assembled = assemble(state)
+        itinerary = assembled["itinerary"]
+        base_trace = assembled["trace"]
+    else:
+        base_trace = state.get("trace", [])
+    preferences = state.get("preferences_text", "")
+
     try:
         itinerary = await generate_tips(itinerary, preferences=preferences)
     except Exception as e:
         # Tips 失败不阻塞主流程
         print(f"[TipsAgent] 注入提示失败（继续返回原始行程）：{e}")
 
-    trace = state.get("trace", []) + [
-        f"[TipsAgent] Itinerary 装配完成，days={len(day_plans)}"
+    trace = base_trace + [
+        f"[TipsAgent] 最终复验后注入提示，revision={itinerary.version}"
     ]
     return {"itinerary": itinerary, "trace": trace}

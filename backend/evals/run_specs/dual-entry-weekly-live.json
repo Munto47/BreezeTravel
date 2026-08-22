@@ -1,0 +1,15 @@
+{
+  "schema_version": "dual-entry-run-spec-v1",
+  "lane": "weekly_live",
+  "purpose": "development",
+  "sut": {"commit_sha":"RESOLVE_AT_RUN_START","dirty_diff_sha256":"RESOLVE_AT_RUN_START","runtime_config_sha256":"RESOLVE_AT_RUN_START","docker_image_digest":"RESOLVE_AT_RUN_START","base_url":"http://127.0.0.1:8000","allow_direct_domain_calls":false,"allow_sql_seed":false},
+  "dataset": {"manifest":"backend/eval_data/dual_entry_v1/manifest.json","manifest_sha256":"RESOLVE_AT_RUN_START","case_ids_sha256":"RESOLVE_AT_RUN_START","splits":["temporal_canary","dev"],"hash_policy":"compute_and_freeze_before_run","label_access":"development_scorer"},
+  "provider": {"mode":"live_provider","fixture_fallback_allowed":false,"receipts_required":true,"snapshot_id":null,"snapshot_sha256":null},
+  "models": {"generator":{"enabled":false,"model":"disabled","prompt_sha256":"disabled"},"parser_fallback":{"enabled":true,"provider":"deepseek","model":"deepseek-chat","max_calls_per_case":1,"prompt_sha256":"REQUIRED_AT_RUN_START"},"correction":{"enabled":true,"provider":"deepseek","model":"deepseek-chat","prompt_sha256":"REQUIRED_AT_RUN_START"},"judge":{"enabled":false,"model":"disabled","prompt_sha256":"disabled","rubric_version":"semantic-rubric-v1"}},
+  "comparison": {"baseline_run_id":"REQUIRED_AT_RUN_START","threshold_set_version":"dual-entry-gates-v1","paired_only":false,"confidence":0.95,"noninferiority_margin":0.02},
+  "execution": {"resume_at_case_boundary":true,"normalize_volatile_fields":true,"cache_namespace_sha256":"REQUIRED_AT_RUN_START","retry_policy_version":"live-provider-retry-v1"},
+  "budget": {"paid_api_allowed":true,"max_total_cost_cny":300,"max_concurrency":3,"max_case_seconds":240},
+  "thresholds": {"live_cases_min":30,"all_cities_min_each":10,"entity_route_weather_rounds_per_city":3,"end_to_end_success_rate":0.95,"candidate_p95_ms":3000,"provider_receipt_readback":1.0,"fixture_fallback_count":0,"wrong_city":0,"hard_leak":0},
+  "artifacts": ["run_spec.json","product_outputs.jsonl","provider_receipts.jsonl","deterministic_scores.json","comparison.json","bad_cases.jsonl","cost.json","gate.json"],
+  "prohibitions": ["sql_seed","fixture_fallback","fixed_candidate_name_assertion","blind_label_access","live_failure_marked_pass"]
+}

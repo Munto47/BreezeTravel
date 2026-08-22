@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-15T15:39:35.832055+00:00",
+  "generated_at": "2026-08-20T13:59:56.381708+00:00",
   "environment": "local-controlled-fault-injection",
   "sample_size": 24,
   "passed": 24,
@@ -26,7 +26,7 @@
         "response_nonempty": true
       },
       "passed": true,
-      "latency_ms": 2.202799998485716,
+      "latency_ms": 2.119300013873726,
       "trace_id": "fault-fault-001",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -49,7 +49,7 @@
         "response_nonempty": true
       },
       "passed": true,
-      "latency_ms": 0.6291999998211395,
+      "latency_ms": 1.0016000014729798,
       "trace_id": "fault-fault-002",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -72,7 +72,7 @@
         "response_nonempty": true
       },
       "passed": true,
-      "latency_ms": 0.5124999988765921,
+      "latency_ms": 0.5528999608941376,
       "trace_id": "fault-fault-003",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -94,7 +94,7 @@
           "trace_id": "fault-trace",
           "tool": "search_places",
           "status": "error",
-          "duration_ms": 261,
+          "duration_ms": 298,
           "result_count": 0,
           "attempts": 2,
           "error_category": "timeout",
@@ -123,7 +123,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 261.80680000106804,
+      "latency_ms": 298.46220003673807,
       "trace_id": "fault-fault-004",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -174,7 +174,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 0.29689999792026356,
+      "latency_ms": 0.38400001358240843,
       "trace_id": "fault-fault-005",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -196,7 +196,7 @@
           "trace_id": "fault-trace",
           "tool": "search_travel_notes",
           "status": "error",
-          "duration_ms": 277,
+          "duration_ms": 288,
           "result_count": 0,
           "attempts": 2,
           "error_category": "timeout",
@@ -225,7 +225,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 277.2839999997814,
+      "latency_ms": 288.326199981384,
       "trace_id": "fault-fault-006",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -276,7 +276,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 0.36270000055083074,
+      "latency_ms": 0.3067999496124685,
       "trace_id": "fault-fault-007",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -295,7 +295,7 @@
         "actual": "第 1 天缺少天气数据"
       },
       "passed": true,
-      "latency_ms": 1.0287999975844286,
+      "latency_ms": 0.9047000203281641,
       "trace_id": "fault-fault-008",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -314,7 +314,7 @@
         "actual": "in-process limiter used; multi-instance consistency unavailable"
       },
       "passed": true,
-      "latency_ms": 0.009700001101009548,
+      "latency_ms": 0.008800008799880743,
       "trace_id": "fault-fault-009",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -333,7 +333,7 @@
         "actual": "controlled PostgreSQL outage"
       },
       "passed": true,
-      "latency_ms": 0.05129999772179872,
+      "latency_ms": 0.0523999915458262,
       "trace_id": "fault-fault-010",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -356,7 +356,7 @@
         "response_nonempty": true
       },
       "passed": true,
-      "latency_ms": 0.8282999988296069,
+      "latency_ms": 0.7389999809674919,
       "trace_id": "fault-fault-011",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -373,10 +373,10 @@
         "behavior": "cancel_main_task",
         "passed": true,
         "actual": "main generator cancelled",
-        "release_ms": 0.03469999865046702
+        "release_ms": 0.03260001540184021
       },
       "passed": true,
-      "latency_ms": 0.10449999899719842,
+      "latency_ms": 0.09689998114481568,
       "trace_id": "fault-fault-012",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -395,7 +395,7 @@
         "actual": "real child-process restart persistence test passed"
       },
       "passed": true,
-      "latency_ms": 0.011300002370262519,
+      "latency_ms": 0.016000005416572094,
       "trace_id": "fault-fault-013",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -414,7 +414,7 @@
         "actual": "payload flagged as untrusted data; no privileged tool exists"
       },
       "passed": true,
-      "latency_ms": 0.1965000010386575,
+      "latency_ms": 0.19990000873804092,
       "trace_id": "fault-fault-014",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -433,7 +433,7 @@
         "actual": "one-off instruction rejected from stable memory and hard constraints"
       },
       "passed": true,
-      "latency_ms": 2.938599998742575,
+      "latency_ms": 2.6845000102184713,
       "trace_id": "fault-fault-015",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -467,7 +467,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 0.07139999797800556,
+      "latency_ms": 0.07190002361312509,
       "trace_id": "fault-fault-016",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -488,7 +488,7 @@
           "trace_id": "fault-trace",
           "tool": "search_places",
           "status": "error",
-          "duration_ms": 0,
+          "duration_ms": 1,
           "result_count": 0,
           "attempts": 1,
           "error_category": "invalid_payload",
@@ -501,7 +501,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 0.06650000068475492,
+      "latency_ms": 1.310100022237748,
       "trace_id": "fault-fault-017",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -523,7 +523,7 @@
         }
       },
       "passed": true,
-      "latency_ms": 0.010799998563015833,
+      "latency_ms": 0.016300007700920105,
       "trace_id": "fault-fault-018",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -555,10 +555,10 @@
           "circuit_failure_count": 5,
           "half_open_probe": false
         },
-        "latency_ms": 0.032400002965005115
+        "latency_ms": 0.08440000237897038
       },
       "passed": true,
-      "latency_ms": 0.0501000031363219,
+      "latency_ms": 0.11660001473501325,
       "trace_id": "fault-fault-019",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -577,7 +577,7 @@
         "actual": "HTTP 401"
       },
       "passed": true,
-      "latency_ms": 0.23689999943599105,
+      "latency_ms": 0.28819998260587454,
       "trace_id": "fault-fault-020",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -596,7 +596,7 @@
         "actual": "HTTP 403"
       },
       "passed": true,
-      "latency_ms": 0.09529999806545675,
+      "latency_ms": 0.08349999552592635,
       "trace_id": "fault-fault-021",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -615,7 +615,7 @@
         "actual": "HTTP 403"
       },
       "passed": true,
-      "latency_ms": 0.05400000009103678,
+      "latency_ms": 0.05530001362785697,
       "trace_id": "fault-fault-022",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -632,12 +632,12 @@
         "behavior": "visible_stale",
         "passed": true,
         "actual": {
-          "before": "sha256:81e331ebb688080d11a7555489f7833efce47585616963b40d8c756d7cf5d110",
-          "after": "sha256:ceb891a33d7aac899897ff6aea30492662b7b27b0bd1a2f8e20a181715b75850"
+          "before": "sha256:744deb520bd7701e5fb81ff65ae200cc1c8db07b4db05ec46e6d3a01f5187261",
+          "after": "sha256:4e96bb3ce10ed2457dd42e13b619ecb0627707cdb35af4912d5aea0bcefc1849"
         }
       },
       "passed": true,
-      "latency_ms": 0.3524999992805533,
+      "latency_ms": 0.374700000975281,
       "trace_id": "fault-fault-023",
       "error_category": null,
       "conclusion": "matched_expected_boundary"
@@ -656,7 +656,7 @@
         "actual": "database schema is behind; missing migration 008_task_security_memory.sql"
       },
       "passed": true,
-      "latency_ms": 0.05240000245976262,
+      "latency_ms": 0.03959995228797197,
       "trace_id": "fault-fault-024",
       "error_category": null,
       "conclusion": "matched_expected_boundary"

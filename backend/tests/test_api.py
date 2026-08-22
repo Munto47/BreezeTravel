@@ -118,6 +118,17 @@ class TestHealthCheck:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
+        assert data["service"] == "breezetravel-backend"
+        witness = data["boot_generation"]
+        assert len(witness["instance_id"]) == 36
+        assert witness["started_at"].endswith("+00:00")
+        assert isinstance(witness["pid"], int) and witness["pid"] > 0
+
+        # The witness identifies the running process generation, not an HTTP
+        # request. Repeated requests to one process must return the same value.
+        assert client.get("/health").json()["boot_generation"] == witness
+        assert "cleanup_secret" not in resp.text.casefold()
+        assert "restart_gate_mode" not in resp.text.casefold()
 
 
 class TestRoomAPI:

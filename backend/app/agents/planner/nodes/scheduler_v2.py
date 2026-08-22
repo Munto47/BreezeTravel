@@ -488,7 +488,20 @@ async def run(state: PlannerState) -> dict:
             day_date_str: Optional[str] = None
             if day_date:
                 day_date_str = day_date.isoformat()
-                if weather_enabled:
+                forecast = state.get("weather_forecast", {}).get(day_index)
+                if forecast is not None:
+                    weather_summary = WeatherInfo(
+                        condition=forecast.condition,
+                        temp_high=round(forecast.temp_max),
+                        temp_low=round(forecast.temp_min),
+                        suggestion=(
+                            "降水较明显，优先安排室内地点"
+                            if forecast.precip_mm > 5
+                            else "天气动态信息已进入本次审计"
+                        ),
+                        precip_mm=forecast.precip_mm,
+                    )
+                elif weather_enabled:
                     offset = (day_date - today).days
                     if 0 <= offset <= 2:
                         try:
@@ -782,9 +795,15 @@ def _slots_to_timeslots(slots: list[Slot]) -> list[TimeSlot]:
     for s in slots:
         if not s.get("place_id") or not s.get("place"):
             continue  # 跳过空占位槽
+        place_payload = dict(s["place"])
+        # Keep the scheduler's deterministic secondary classification on the
+        # legacy draft so the authoritative pacing rule can reproduce the
+        # retired Critic check during the persistence/audit hand-off.
+        if s.get("category_l2"):
+            place_payload["category_l2"] = s["category_l2"]
         result.append(TimeSlot(
             place_id=s["place_id"],
-            place=s["place"],
+            place=place_payload,
             start_time=s["start_time"],
             end_time=s["end_time"],
             transport=None,

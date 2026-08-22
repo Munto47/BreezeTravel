@@ -1,4 +1,5 @@
 {
-  "release_id": "1548368649f4-dirty-ee664a8d2616",
-  "manifest": "backend/evidence/releases/1548368649f4-dirty-ee664a8d2616/release.json"
+  "release_id": "2238c5304e3c-dirty-49ed368574ac",
+  "manifest": "backend/evidence/releases/2238c5304e3c-dirty-49ed368574ac/release.json",
+  "manifest_reference_kind": "workspace_relative"
 }

@@ -14,6 +14,8 @@ os.environ["AMAP_MOCK"] = "true"
 os.environ["REQUIRE_SCHEMA_CHECK"] = "false"
 os.environ["FT_ROUTER_ENABLED"] = "false"
 os.environ["PLACE_META_LOOKUP_ENABLED"] = "false"
+os.environ["LANGCHAIN_TRACING_V2"] = "false"
+os.environ["LANGSMITH_TRACING"] = "false"
 
 
 def pytest_configure(config):
@@ -25,6 +27,7 @@ def pytest_configure(config):
 
 def pytest_collection_modifyitems(items):
     """Classify legacy tests so CI cannot accidentally call providers/GPU."""
+    run_external = os.environ.get("RUN_EXTERNAL_TESTS") == "1"
     for item in items:
         node_id = item.nodeid.replace("\\", "/")
         if "test_migrations_integration.py" in node_id or "test_service_integration.py" in node_id:
@@ -33,6 +36,8 @@ def pytest_collection_modifyitems(items):
             item.add_marker(pytest.mark.external)
         elif not any(item.get_closest_marker(name) for name in ("unit", "integration", "local_e2e", "external")):
             item.add_marker(pytest.mark.unit)
+        if item.get_closest_marker("external") and not run_external:
+            item.add_marker(pytest.mark.skip(reason="set RUN_EXTERNAL_TESTS=1 for provider/GPU tests"))
 
 
 @pytest.fixture

@@ -16,6 +16,13 @@ const nextConfig: NextConfig = {
     }
     return config
   },
+  async rewrites() {
+    // Docker's browser-facing frontend uses this same-origin bridge so it
+    // never bakes a transient LAN address into client JavaScript.  An explicit
+    // NEXT_PUBLIC_API_URL remains available for non-Docker deployments.
+    const backend = process.env.BACKEND_INTERNAL_URL || 'http://localhost:8000'
+    return [{ source: '/api/:path*', destination: `${backend}/api/:path*` }]
+  },
 }
 
 export default nextConfig

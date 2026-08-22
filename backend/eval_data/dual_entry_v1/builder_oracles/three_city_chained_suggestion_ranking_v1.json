@@ -1,0 +1,1494 @@
+{
+  "schema_version": "frozen-suggestion-ranking-oracle-v1",
+  "content_sha256": "f5e407db01214d2c9514a10069b68fa491ac3459b8292873f7e23677261fc08b",
+  "content": {
+    "artifact_kind": "FROZEN_SUGGESTION_GRADED_RANKING_ORACLE",
+    "label_authority": "AUTOMATED_DETERMINISTIC_PROXY_NOT_HUMAN",
+    "is_human_label": false,
+    "is_release_approval": false,
+    "rubric": {
+      "rubric_version": "deterministic-route-category-receipt-v1",
+      "grade_range": [
+        0,
+        5
+      ],
+      "route_points": {
+        "0-15": 3,
+        "16-30": 2,
+        "31-60": 1,
+        "over-60-or-UNKNOWN": 0
+      },
+      "intent_category_points": 1,
+      "receipt_completeness_points": 1,
+      "forced_zero": [
+        "WRONG_CITY",
+        "CANONICAL_OR_ANCHOR_DUPLICATE",
+        "EXPLICIT_HARD",
+        "ROUTE_UNKNOWN"
+      ],
+      "relevant_threshold": 4,
+      "subjective_policy": "UNKNOWN_OR_N_A_NEVER_INFERRED",
+      "product_ranking_fields_read": false
+    },
+    "source": {
+      "snapshot_path": "backend/evidence/real_provider_local_authorized/suggestion_chain_snapshot_2026-08-21-v2.json",
+      "snapshot_sha256": "7a5f24a7cb764d1fc603329bb7db59de497802bac4bdf48f234f54d21697bdfa",
+      "evidence_class": "real_provider_local_authorized",
+      "evidence_subtype": "suggestion_live_chained_candidate_and_walking_route_snapshot",
+      "claim_boundary": {
+        "proves_local_authorized_live_entity": true,
+        "proves_local_authorized_live_route": true,
+        "proves_three_city_four_stop_snapshot_replay": false,
+        "proves_current_live_state_at_replay": false,
+        "proves_opening_hours": false,
+        "proves_reservation": false,
+        "proves_accessibility": false,
+        "is_public_internet_e2e": false,
+        "is_human_evidence": false,
+        "is_release_approval": false
+      },
+      "ranking_scope": "INITIAL_FIXED_ANCHOR_ONLY",
+      "three_round_product_safety_scored_by": "G2_DETERMINISTIC_HTTP_CHECKS"
+    },
+    "cities": [
+      {
+        "city": "北京",
+        "anchor": {
+          "place_id": "B000A7BD6T",
+          "name": "故宫博物院",
+          "coords": {
+            "lng": 116.3913,
+            "lat": 39.9163
+          },
+          "authority": "fixed_canonical_anchor"
+        },
+        "provider_snapshot_id": "amap-suggestion-chain-round-5eb9a30a4a6365cd203d1a4c9fb830f5d6d8e87b13203018141fb672e9e7b74c",
+        "candidate_universe_size": 6,
+        "candidates": [
+          {
+            "canonical_candidate_id": "B000A9PJ0L",
+            "canonical_name": "中山公园-格言亭",
+            "city": "北京",
+            "category": "attraction",
+            "matched_intents": [
+              "NEARBY"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "NEARBY_INTENT_ROUTE_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B000A9PJ0L",
+              "provider": "amap",
+              "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+              "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+              "observed_at": "2026-08-21T07:21:37.440153Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "5969259b1b6267d68e234fad7ae25809284783d7b8f1718ef5637a7f47bf0a6b"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B000A9PJ0L",
+                "duration_minutes": 10,
+                "provider": "amap",
+                "request_hash": "87d3c6d5b18ad3f063ed7a075049c60f76c5820986ae712835969a09fbf76fe9",
+                "response_hash": "3cbf7ea829fa3a8c4c4d65d2b9e3f8996eda416f9293eae432198a8eb53d8c7f",
+                "snapshot_id": "amap-route-3cbf7ea829fa3a8c4c4d65d2b9e3f8996eda416f9293eae432198a8eb53d8c7f",
+                "observed_at": "2026-08-21T07:21:40.320619Z",
+                "receipt_sha256": "275eea3db2fb8727068042a1bfc50336d0f68dd280e8a0ddc2ed66867876c716"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:37.440153Z",
+                "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+                "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "b6224eeaa0427bfecd5b63797477a27eb8ba3949af2ff644990d4fbe05682027",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "ec75bef50dbd6cefe6ed95246d46ade4201fcd53229ffc92afb0697d0e17e425"
+          },
+          {
+            "canonical_candidate_id": "B0HU1MA1CN",
+            "canonical_name": "新淮扬村(崇文门店)",
+            "city": "北京",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 2,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 1,
+                "reason_code": "REMOTE_31_TO_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0HU1MA1CN",
+              "provider": "amap",
+              "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+              "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+              "observed_at": "2026-08-21T07:21:38.155774Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "d5c5c2b25f3fe1ac54b8214b8414ad0d7e13cfb5730f0007809971a760ecd810"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B0HU1MA1CN",
+                "duration_minutes": 55,
+                "provider": "amap",
+                "request_hash": "44c5814f69eaa87ef95fd0f6b406d8720076bcc2b5ffd2664a33f7aac60e97b1",
+                "response_hash": "90e8cbe99904c160df68efea2475021b5fc363c62ad2d4482924c7e6a73aedf1",
+                "snapshot_id": "amap-route-90e8cbe99904c160df68efea2475021b5fc363c62ad2d4482924c7e6a73aedf1",
+                "observed_at": "2026-08-21T07:21:40.953682Z",
+                "receipt_sha256": "02d010aee7a10c1d20cfd42f3bf53951c808afc366ebc1b8cfd8da3a1fc47666"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:38.155774Z",
+                "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+                "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "1362d3e051ecc6683468088dcd2a2876138b9203c1fdb51c8505951ecaf5b27e",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "7b20b10da374ee13b3950b5557f96867530beacf96d7f16311ef26de23f5abb2"
+          },
+          {
+            "canonical_candidate_id": "B000A7J7WD",
+            "canonical_name": "昭显庙",
+            "city": "北京",
+            "category": "attraction",
+            "matched_intents": [
+              "FUN"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FUN_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B000A7J7WD",
+              "provider": "amap",
+              "request_hash": "4e6731f0f0ac44bc069d958889158c96092b4cdcb782ffa7e6e2239e5adb1a95",
+              "response_hash": "c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af",
+              "observed_at": "2026-08-21T07:21:38.892959Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "7d6a391d1a61bd315cbb14795f1ca28d7ded48752b4f3c3a3ae43b557038afbe"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B000A7J7WD",
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "95c5fff7adb5f9138a2089ad7f189eac024a84c3e278118b097fe152ef2ecc96",
+                "response_hash": "cfa5469962e41120f3d263c58f7ecf460b6155af5956f555e300810ec5b2d37c",
+                "snapshot_id": "amap-route-cfa5469962e41120f3d263c58f7ecf460b6155af5956f555e300810ec5b2d37c",
+                "observed_at": "2026-08-21T07:21:41.567980Z",
+                "receipt_sha256": "6fa3ff37620b5c1292ec070a531b5025782e85c9bc25b3d003a7328c3ab5931e"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:38.892959Z",
+                "request_hash": "4e6731f0f0ac44bc069d958889158c96092b4cdcb782ffa7e6e2239e5adb1a95",
+                "response_hash": "c419b9d84f33f059c9767fcf131dcdd5b9295f34e593ca36e0cdfea0514e60af",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "df14ef5c8761f9e308c979fd9fdaa6fa7a00f3893cc839977ed95c6d8a1c1623",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "2f61ad71db9d9ddb8eddd13f05df87c46473e8bca30842809b8182346f4ddd76"
+          },
+          {
+            "canonical_candidate_id": "B0FFK4RUWA",
+            "canonical_name": "泽园酒家",
+            "city": "北京",
+            "category": "food",
+            "matched_intents": [
+              "FOOD"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FOOD_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFK4RUWA",
+              "provider": "amap",
+              "request_hash": "3d1ecfff1daa5e3e6bae50a60cefd45f61fe9bdb3d62ac7c1b47ed96f346d5e5",
+              "response_hash": "f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90",
+              "observed_at": "2026-08-21T07:21:39.698193Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "1ed628f83abf874a9b7c90b7d4e67d1f29f7a05e7b06e75119f64fac8a671fa3"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B0FFK4RUWA",
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "8013176168249a8cefb594084dd005c14ad14fcf53f43507934b1b2f3b51c6e8",
+                "response_hash": "27d73d62a39168bf3b0ea81f0f91b2da273c63934a173cc0f77a9809e3f69807",
+                "snapshot_id": "amap-route-27d73d62a39168bf3b0ea81f0f91b2da273c63934a173cc0f77a9809e3f69807",
+                "observed_at": "2026-08-21T07:21:42.191028Z",
+                "receipt_sha256": "28a742cc41228bcb0a38c40a0925bb2ab36adb79e11b04be936c629a9ecdac5a"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:39.698193Z",
+                "request_hash": "3d1ecfff1daa5e3e6bae50a60cefd45f61fe9bdb3d62ac7c1b47ed96f346d5e5",
+                "response_hash": "f26b9a7754ced7580e22a6e49fe1167427158c74317d1fa7efc8d06a50658c90",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "acc6616f98213a9f232bc38b82dcd0487dab0f5e512fda7c61b4d5461a1bb00f",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "c7e89f1bfc042fc9c5206ee33cd185542f8328ba2e3c971c5eea34280909b4d5"
+          },
+          {
+            "canonical_candidate_id": "B0MRPZIC6K",
+            "canonical_name": "故宫博物院-熙和门断虹桥附近红墙(打卡点)",
+            "city": "北京",
+            "category": "attraction",
+            "matched_intents": [
+              "NEARBY"
+            ],
+            "relevance_grade": 3,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 2,
+                "reason_code": "ACCEPTABLE_DETOUR_LE_30_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0MRPZIC6K",
+              "provider": "amap",
+              "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+              "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+              "observed_at": "2026-08-21T07:21:37.440153Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "0d8ed6861b47ed3585b6e6e0101419ffe4ce4ba9311ad1ef2606ca447b127f25"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B0MRPZIC6K",
+                "duration_minutes": 22,
+                "provider": "amap",
+                "request_hash": "ae90ab3cd6eb70d8d8ca16b654ca01851305c0ba81b750c10c766725268be145",
+                "response_hash": "f3f0e33caaf9d865176cd202f1f186174498f2e55501c5b5aacc4de186ea9bc0",
+                "snapshot_id": "amap-route-f3f0e33caaf9d865176cd202f1f186174498f2e55501c5b5aacc4de186ea9bc0",
+                "observed_at": "2026-08-21T07:21:42.827010Z",
+                "receipt_sha256": "bf6988efd7802fc2d6b984705211200497573dd03317e00bde2dcb1967b09d4f"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:37.440153Z",
+                "request_hash": "be0671bb66fd10c2df66eaad798fd6d4bfeef21df264e343c3d74fb75cf3ccaf",
+                "response_hash": "3ed9f4e45dfc8d7769b73cb1fe39ee9c2e215e3016421736e1065a6bfbad0eed",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "b6224eeaa0427bfecd5b63797477a27eb8ba3949af2ff644990d4fbe05682027",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "b3ca376426478b6b9c014f0d314b0cefd12df45cbdc1bb38c268a4f368a3876b"
+          },
+          {
+            "canonical_candidate_id": "B000A8WCQN",
+            "canonical_name": "嘉和一品(交道口店)",
+            "city": "北京",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 2,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 1,
+                "reason_code": "REMOTE_31_TO_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B000A8WCQN",
+              "provider": "amap",
+              "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+              "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+              "observed_at": "2026-08-21T07:21:38.155774Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "bc543415c3782a0a5f9f17b9be4d30553aeea6d5283d1b942f2a578bc96c0817"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B000A7BD6T",
+                "destination_place_id": "B000A8WCQN",
+                "duration_minutes": 57,
+                "provider": "amap",
+                "request_hash": "e907e64ca55b34d7153c65518a052cdc8e2a06209dfefd5cd7f8778756619a0e",
+                "response_hash": "19b5104d94ea26e55909a92679d9b1e94fce81e7c0bd089752ef9daaa97a59f6",
+                "snapshot_id": "amap-route-19b5104d94ea26e55909a92679d9b1e94fce81e7c0bd089752ef9daaa97a59f6",
+                "observed_at": "2026-08-21T07:21:43.460907Z",
+                "receipt_sha256": "3dd147482e4f08e8ffb0fd40d5505cdbb62b6b2e4b55c8d02ac1ecac12ce92fb"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:38.155774Z",
+                "request_hash": "247ac5a8ed6616487e63bcfeb1c4302ada8b95e98162faccfdf8c2df2df1380e",
+                "response_hash": "33c0d391aeda133d4b7dfa33e639e4b110580874f6a13e9c346f4bed6a9dc5e5",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "b03fa0815341abcc6d7f3b0d3d8d930115758f3da310428622210236c161eb8e",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "e2e2a2767222c3ffe5dd3698897db4b7f2df156e23cae5f1398595c69e02dbfe"
+          }
+        ],
+        "relevant_candidate_ids": [
+          "B000A9PJ0L",
+          "B000A7J7WD",
+          "B0FFK4RUWA"
+        ],
+        "city_oracle_sha256": "11a45dae3744cf559a5dabe645186592694088d8a47f67ce3ead8d483d4eb30c"
+      },
+      {
+        "city": "上海",
+        "anchor": {
+          "place_id": "B00155H52F",
+          "name": "外滩",
+          "coords": {
+            "lng": 121.4896,
+            "lat": 31.2393
+          },
+          "authority": "fixed_canonical_anchor"
+        },
+        "provider_snapshot_id": "amap-suggestion-chain-round-1b052b93b3bea9dcc63bea106daa5ecd7a9db4d3b9e5bbcf94f5f10ff25fd55c",
+        "candidate_universe_size": 6,
+        "candidates": [
+          {
+            "canonical_candidate_id": "B0FFF00N9I",
+            "canonical_name": "上海洋行",
+            "city": "上海",
+            "category": "attraction",
+            "matched_intents": [
+              "NEARBY"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "NEARBY_INTENT_ROUTE_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFF00N9I",
+              "provider": "amap",
+              "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+              "response_hash": "661ff2582163579c02be1af4336a9625dddeaf7399423fdeb5c7d48b2ea2c189",
+              "observed_at": "2026-08-21T07:21:57.793791Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "68cf178ce568aa0991456fd9427b397b38b44407266ed0c3f49028a073c9e4b6"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B0FFF00N9I",
+                "duration_minutes": 5,
+                "provider": "amap",
+                "request_hash": "55c87b5bfcb805e3464b79cc8573e786ca20ee096ed81a11b612b5cb9f8b1947",
+                "response_hash": "88420f891faee9aef784e4005ac59dbbe9829789f75311cfdbcc1e9fe8df1a31",
+                "snapshot_id": "amap-route-88420f891faee9aef784e4005ac59dbbe9829789f75311cfdbcc1e9fe8df1a31",
+                "observed_at": "2026-08-21T07:22:02.628552Z",
+                "receipt_sha256": "d9d18029473eb098ffa727d6b00a12f03c9ad7009d70986e36afae69ae9dada5"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:57.793791Z",
+                "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+                "response_hash": "661ff2582163579c02be1af4336a9625dddeaf7399423fdeb5c7d48b2ea2c189",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "3d0417ac4f87cd18dd199d76f275e82ce553c64270c5d1009eb443dd4cdf04e6",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "881f7b6bcdaae58d5a6dbbba996365c27178c9096ef5414aa8a72de6ddc504a3"
+          },
+          {
+            "canonical_candidate_id": "B0FFHR1R2L",
+            "canonical_name": "晶浦会·现代潮粤菜·宝宝宴·答谢宴·商务宴(上海中心大厦店)",
+            "city": "上海",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 2,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 1,
+                "reason_code": "REMOTE_31_TO_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFHR1R2L",
+              "provider": "amap",
+              "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+              "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+              "observed_at": "2026-08-21T07:21:58.584351Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "95b6dbdc5c90eab6c90c256e793140944f698e10614ff87f66f0c5a2375ee3de"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B0FFHR1R2L",
+                "duration_minutes": 34,
+                "provider": "amap",
+                "request_hash": "a50595895fd32ff79ffddbd3e4a9708279671f81a1e5eb85f26d9ca065188eea",
+                "response_hash": "9a4f7937d965765c5fe8dd47c9be3a9e6387847f721f9f632f34d302a6fa97f8",
+                "snapshot_id": "amap-route-9a4f7937d965765c5fe8dd47c9be3a9e6387847f721f9f632f34d302a6fa97f8",
+                "observed_at": "2026-08-21T07:22:03.255378Z",
+                "receipt_sha256": "0a031ae8bbe13fc46b64aaca32876c64e8b85cc9c2faa007af34b88e5c1db5d6"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:58.584351Z",
+                "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+                "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "c7d77ba2f0070e955fb7ece324bc17e7627b0ba8f1d519c18448797ff8442fe9",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "8024c1a28153d0a23a9fc191fac8b3a1a763a3e650990bafa9307fca2c197176"
+          },
+          {
+            "canonical_candidate_id": "B00156R4O6",
+            "canonical_name": "沙逊大厦旧址",
+            "city": "上海",
+            "category": "attraction",
+            "matched_intents": [
+              "FUN"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FUN_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B00156R4O6",
+              "provider": "amap",
+              "request_hash": "f11e7706920c1266738deef907160697650d7c01957bfce809547ce403283c9f",
+              "response_hash": "3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582",
+              "observed_at": "2026-08-21T07:21:59.326686Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "2efe3340d7a396a78e59d647b3e37c32d30942086c100602d73ddb5c89080cdd"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B00156R4O6",
+                "duration_minutes": 1,
+                "provider": "amap",
+                "request_hash": "050274c0ced48ed6aca2cd216c49552d6f3bed6c438b3074f078fe26f65e768d",
+                "response_hash": "3858f78720d62d2531d4c149a1db201add9a782d17efb1bb2011ae28ddd1b019",
+                "snapshot_id": "amap-route-3858f78720d62d2531d4c149a1db201add9a782d17efb1bb2011ae28ddd1b019",
+                "observed_at": "2026-08-21T07:22:03.876991Z",
+                "receipt_sha256": "18bf00a165039c2f33b3819ebb432fa82617231974773ac7132ede52e41f03da"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:59.326686Z",
+                "request_hash": "f11e7706920c1266738deef907160697650d7c01957bfce809547ce403283c9f",
+                "response_hash": "3e704c6448068abbe34155c12b81024070de6ff66ea2b2150d2b441707a4a582",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "e84bb9d47f05a711f4b6f4d0b5312267aced0e5a2d014ba96e2a18a5941f2c3a",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "8b8fd1c89924476169053f72a8cad5616a4cc894ebeaa2edc028ef0344e978be"
+          },
+          {
+            "canonical_candidate_id": "B00156EIBM",
+            "canonical_name": "上海和平饭店龙凤厅",
+            "city": "上海",
+            "category": "food",
+            "matched_intents": [
+              "FOOD"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FOOD_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B00156EIBM",
+              "provider": "amap",
+              "request_hash": "528b63b005d6fd11714072bbe184d97b4a279b65d882641a3c2ff51c0d210f5b",
+              "response_hash": "7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13",
+              "observed_at": "2026-08-21T07:22:00.242393Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "4ca14b666a96c33ab0ea808b7e7d6ab4ff209242b3c5efae40d0e46973d79088"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B00156EIBM",
+                "duration_minutes": 1,
+                "provider": "amap",
+                "request_hash": "f28c1e68f4341c2ebc7bd4dafd779717722812631dd2c8dab314153eb31169a5",
+                "response_hash": "8116ef0d292763955c09df65802746e1bb681cebe70d47cf1f267fab0e1f26e0",
+                "snapshot_id": "amap-route-8116ef0d292763955c09df65802746e1bb681cebe70d47cf1f267fab0e1f26e0",
+                "observed_at": "2026-08-21T07:22:04.487879Z",
+                "receipt_sha256": "060a9aa54f565ad59c0b748ed233080789c0e40eca7f32d98004212d3c205d6e"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:00.242393Z",
+                "request_hash": "528b63b005d6fd11714072bbe184d97b4a279b65d882641a3c2ff51c0d210f5b",
+                "response_hash": "7b26163981cb6ed716cc5d8e7cca417199e6209ca75ccae84b14600487805d13",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "ff272547e74472ae430ab4d125f2afe87ca2c3764b214d53ccc0000326b702a3",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "0817566f6b2bc9810cece76ab02b624a0bf02d9675218e64bd0530bc5cf92667"
+          },
+          {
+            "canonical_candidate_id": "B0FFI8XVP3",
+            "canonical_name": "陈记小吃老上海馄饨铺(广东路店)",
+            "city": "上海",
+            "category": "food",
+            "matched_intents": [
+              "NEARBY"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "NEARBY_INTENT_ROUTE_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFI8XVP3",
+              "provider": "amap",
+              "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+              "response_hash": "661ff2582163579c02be1af4336a9625dddeaf7399423fdeb5c7d48b2ea2c189",
+              "observed_at": "2026-08-21T07:21:57.793791Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "1de674c05e9287fd6cba2fc25556cf8641c4276ff54106378e78d618c9777cf5"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B0FFI8XVP3",
+                "duration_minutes": 12,
+                "provider": "amap",
+                "request_hash": "af47aa0150161ee75a329863e835bff9709761ba5b81902289d16901d42182c8",
+                "response_hash": "b26d8305b801deb2147f75a0709a5c8b547aaeb208aa78c17c7f5b6e3fc0777c",
+                "snapshot_id": "amap-route-b26d8305b801deb2147f75a0709a5c8b547aaeb208aa78c17c7f5b6e3fc0777c",
+                "observed_at": "2026-08-21T07:22:05.109453Z",
+                "receipt_sha256": "56c69ea581c869bef5afc61be2771faea365f3a67859eba4c8e65f10f4f43ce0"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:57.793791Z",
+                "request_hash": "fff6db692326120ad10f56e9af8cc99d5ae3519035a21292dfb835394d205f08",
+                "response_hash": "661ff2582163579c02be1af4336a9625dddeaf7399423fdeb5c7d48b2ea2c189",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "341aa42dbf66b448873a7cafbf202b80089c563db65f4d1b90431348c53ccbcd",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "8a4fcf1db74cbe4e633b43817d1ca25959f0a2d4326c3da18ffaf16ae38892cc"
+          },
+          {
+            "canonical_candidate_id": "B00156DX1B",
+            "canonical_name": "心乐蝶舞(梅赛德斯奔驰店)",
+            "city": "上海",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 1,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 0,
+                "reason_code": "REMOTE_OVER_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B00156DX1B",
+              "provider": "amap",
+              "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+              "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+              "observed_at": "2026-08-21T07:21:58.584351Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "af90a1080ff03687d437292a2383f972dc15ab626888a9d12b857b3e9ff90425"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B00155H52F",
+                "destination_place_id": "B00156DX1B",
+                "duration_minutes": 101,
+                "provider": "amap",
+                "request_hash": "f4ff1f42cdddc5e6f0e83110f5b7e1fe88f2d9eb7795f361acc2e9ae2714fbbd",
+                "response_hash": "6add2b594c2b5d930b8a9bc11624c7545a08dd35982e16d5ca2d94c4f743771f",
+                "snapshot_id": "amap-route-6add2b594c2b5d930b8a9bc11624c7545a08dd35982e16d5ca2d94c4f743771f",
+                "observed_at": "2026-08-21T07:22:05.718538Z",
+                "receipt_sha256": "20179824829842323292cf5fc3b31d3ea3a892934099ba4f7c77b9cf62725899"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:21:58.584351Z",
+                "request_hash": "79bec57d7e53bbab619a4334be83663d470074ca9062e56a60d9164dcf3750c7",
+                "response_hash": "2db99750537bf5c2586005e915317281cc4ae8491af7e4343ccede9d1e0a6d33",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "78f4d22311f3d8a681e4b5da1048a4328056cd54f6ca748a5733a6a196868aee",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "eadf0f5c81120503a3d4010fa1bb6d47db33c7a034773127ffa5613e45d2ac8e"
+          }
+        ],
+        "relevant_candidate_ids": [
+          "B0FFF00N9I",
+          "B00156R4O6",
+          "B00156EIBM",
+          "B0FFI8XVP3"
+        ],
+        "city_oracle_sha256": "7b4e5c37283685a4db9350fc0d70f627fc5450bd95e354a92f0ff2c73c0ebdca"
+      },
+      {
+        "city": "杭州",
+        "anchor": {
+          "place_id": "B0FFHZ0001",
+          "name": "西湖风景名胜区",
+          "coords": {
+            "lng": 120.1551,
+            "lat": 30.2523
+          },
+          "authority": "fixed_canonical_anchor"
+        },
+        "provider_snapshot_id": "amap-suggestion-chain-round-b0b033693a3a6e2c9de3f9db3fc279e9f6444866f77363eaf394aaa8ca5b3a7a",
+        "candidate_universe_size": 6,
+        "candidates": [
+          {
+            "canonical_candidate_id": "B0FFHY5A6E",
+            "canonical_name": "四公园-公共直饮水机",
+            "city": "杭州",
+            "category": "attraction",
+            "matched_intents": [
+              "NEARBY",
+              "FUN"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FUN_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFHY5A6E",
+              "provider": "amap",
+              "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+              "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+              "observed_at": "2026-08-21T07:22:20.202618Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "491a9bb9a6d2e6d8dcfbcae3bdd4e6a15da1aec63a5d5df56e2828a6d3fa57bc"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0FFHY5A6E",
+                "duration_minutes": 14,
+                "provider": "amap",
+                "request_hash": "32b555109ca1fee662139f097791da386713a0eab3ae81cfe3f4277350aff0b1",
+                "response_hash": "878e3f9e302a3dfcc2020084bd7891f1d22c6fb3b6a356c2df18fdf02a60f548",
+                "snapshot_id": "amap-route-878e3f9e302a3dfcc2020084bd7891f1d22c6fb3b6a356c2df18fdf02a60f548",
+                "observed_at": "2026-08-21T07:22:23.068326Z",
+                "receipt_sha256": "e52aee7d7c836f9590e9bdef6f419f672c30609c945fa9743d6d7aa2a8b45c8b"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:20.202618Z",
+                "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+                "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "84638b813fcfcc82730b4e266e22d335ee73682f084b4cc9d764fc83542707dd",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "5bf3274dff09eba1cbfcc3d5436980ce7a438eaf643297cd19acd698bf6f235a"
+          },
+          {
+            "canonical_candidate_id": "B0MGA5E3CK",
+            "canonical_name": "雀巢冰淇淋蛋糕(拱墅店)",
+            "city": "杭州",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 1,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 0,
+                "reason_code": "REMOTE_OVER_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0MGA5E3CK",
+              "provider": "amap",
+              "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+              "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+              "observed_at": "2026-08-21T07:22:20.889308Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "d52099526ed3a6c1dab67b7fa6412984616f5b4ed58179968b756a7242d212f7"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0MGA5E3CK",
+                "duration_minutes": 78,
+                "provider": "amap",
+                "request_hash": "4ea53c095066c235d72372845675f87b1095a24c091c3835b1f6cdc69002b941",
+                "response_hash": "963577564cec6fd22fd1c14aa932990c4c19a69e7e88a3879c1516fcdb5f6d22",
+                "snapshot_id": "amap-route-963577564cec6fd22fd1c14aa932990c4c19a69e7e88a3879c1516fcdb5f6d22",
+                "observed_at": "2026-08-21T07:22:23.672748Z",
+                "receipt_sha256": "e80bf91a1f6f503919f0a0486c33e1cf7599c09ff739a745f327519e1eeb350e"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:20.889308Z",
+                "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+                "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "0c090a581d23a50414108a81c2260f1b2273947461501dec35806e8b2995ce66",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "c833f05317bdcbaa08495554d6b7aa29cc5438b1e6e79c1b03af5b53c80e7997"
+          },
+          {
+            "canonical_candidate_id": "B0FFK2ZVSX",
+            "canonical_name": "西湖手划船六公园码头(湖滨码头)",
+            "city": "杭州",
+            "category": "attraction",
+            "matched_intents": [
+              "FUN"
+            ],
+            "relevance_grade": 4,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 2,
+                "reason_code": "ACCEPTABLE_DETOUR_LE_30_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FUN_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFK2ZVSX",
+              "provider": "amap",
+              "request_hash": "c875c15839ef10c5ccda118a41478869627ed5e794cd33d1bb37a96d763e98c9",
+              "response_hash": "fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160",
+              "observed_at": "2026-08-21T07:22:21.678082Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "e2bbd69fb1989cb91bb54ff3d51943601d4210b4e84904eda697edf1958c462f"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0FFK2ZVSX",
+                "duration_minutes": 16,
+                "provider": "amap",
+                "request_hash": "9c72f1ac5057df14324543eb03bbc25c53894a37b5eb9d32b33e3ff21c3409af",
+                "response_hash": "c7583a7b4dd52cc8fb47f1f7aac99922963266364ab333eb6fc3e8b7d94e6b3e",
+                "snapshot_id": "amap-route-c7583a7b4dd52cc8fb47f1f7aac99922963266364ab333eb6fc3e8b7d94e6b3e",
+                "observed_at": "2026-08-21T07:22:24.278468Z",
+                "receipt_sha256": "9a5725609f1d3731eeaabd02a419afe930aba1a79c1cd65f72cf29684e9e81ae"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:21.678082Z",
+                "request_hash": "c875c15839ef10c5ccda118a41478869627ed5e794cd33d1bb37a96d763e98c9",
+                "response_hash": "fbd383e4b0cd1ddd13bbea8208bb134ad1e96eac4c9dc1aafeb08eac116f4160",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "fb9b2421c0f0cd1563916e5500f73374b8a56ab19dedf5e30ef69de989bad33c",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "c6abe887f6db35001dbd819b99c643ae38d43e13e4f6738ada4dd6813375f8b4"
+          },
+          {
+            "canonical_candidate_id": "B0FFKETFI9",
+            "canonical_name": "大华沿湖茶室",
+            "city": "杭州",
+            "category": "food",
+            "matched_intents": [
+              "FOOD"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FOOD_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFKETFI9",
+              "provider": "amap",
+              "request_hash": "445ee0f54f21730040de54616c7cc36bdeabe47f27533625e7c666ec3b7426ec",
+              "response_hash": "d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb",
+              "observed_at": "2026-08-21T07:22:22.463228Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "df6136c1bdd6a8c52582cc1a3986581df221eefa415195cba8a0faf961bbee2a"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0FFKETFI9",
+                "duration_minutes": 2,
+                "provider": "amap",
+                "request_hash": "b4c7fcb705de5554ec23df9a00f8189a89bf2fe4770019891234fca47a008312",
+                "response_hash": "b8963827fde2a89a4ce5cc75869a6672fcd88fa174ab5f88b5ae3d9205205ead",
+                "snapshot_id": "amap-route-b8963827fde2a89a4ce5cc75869a6672fcd88fa174ab5f88b5ae3d9205205ead",
+                "observed_at": "2026-08-21T07:22:24.906116Z",
+                "receipt_sha256": "cc01aa25969b8d67797d79098ed7e0bbd2e642c65e95a063ab548f88885864ce"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:22.463228Z",
+                "request_hash": "445ee0f54f21730040de54616c7cc36bdeabe47f27533625e7c666ec3b7426ec",
+                "response_hash": "d1259a091af8c7b4e11fbd27bf3715525511b2f101f2355ad98c3ebd77407fdb",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "6f0a8b69f95565038c96a5f79472dc757040381f0bfd62d8afe56f302dc3a2dd",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "895356337c53837753aa24a23db352907eed942353c959cc8e6e2c4dd963677c"
+          },
+          {
+            "canonical_candidate_id": "B0FFGGYE3S",
+            "canonical_name": "西湖风景区湖滨公园-棋士铜人",
+            "city": "杭州",
+            "category": "attraction",
+            "matched_intents": [
+              "NEARBY",
+              "FUN"
+            ],
+            "relevance_grade": 5,
+            "relevant_at_4": true,
+            "grade_components": {
+              "route_suitability": {
+                "points": 3,
+                "reason_code": "ON_ROUTE_LE_15_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 1,
+                "reason_code": "FUN_INTENT_CATEGORY_MATCH"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0FFGGYE3S",
+              "provider": "amap",
+              "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+              "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+              "observed_at": "2026-08-21T07:22:20.202618Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "41ce87cc60f42faa75e0855851035d26df363c2924b9e40127c5046f30b00370"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0FFGGYE3S",
+                "duration_minutes": 3,
+                "provider": "amap",
+                "request_hash": "add982bfe91abc0bb144cdad09811cb8bdc8de81b17d78ab2024f376eedba872",
+                "response_hash": "f533660dd2a0e2e2f41c227ab29256e7a5aa5dec387f641cbcd1f5da690c4223",
+                "snapshot_id": "amap-route-f533660dd2a0e2e2f41c227ab29256e7a5aa5dec387f641cbcd1f5da690c4223",
+                "observed_at": "2026-08-21T07:22:25.545522Z",
+                "receipt_sha256": "8fe4c07ccbf5ab09dac12b09b3ab2986c23b4eebb638b23bae1bb1495ece4a7b"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:20.202618Z",
+                "request_hash": "7cc99e7dfed00de14f1763b25c4067244c46ab9d3e268ee86e8479e6777d5f04",
+                "response_hash": "169b44e322f6cef793bc21882337f52e37957d999d88b20744907a7fe5903611",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "84638b813fcfcc82730b4e266e22d335ee73682f084b4cc9d764fc83542707dd",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "a536fddc325ecc07fca688d7c5926ef4d717e02c477af0df6074ebcd4bffa167"
+          },
+          {
+            "canonical_candidate_id": "B0I0MC0UKW",
+            "canonical_name": "有牛在鲜·潮汕鲜牛肉火锅(滨江海威领界店)",
+            "city": "杭州",
+            "category": "food",
+            "matched_intents": [
+              "POPULAR"
+            ],
+            "relevance_grade": 1,
+            "relevant_at_4": false,
+            "grade_components": {
+              "route_suitability": {
+                "points": 0,
+                "reason_code": "REMOTE_OVER_60_MIN"
+              },
+              "intent_category_coverage": {
+                "points": 0,
+                "reason_code": "INTENT_CATEGORY_SUBJECTIVE_OR_NOT_ESTABLISHED"
+              },
+              "receipt_completeness": {
+                "points": 1
+              }
+            },
+            "eligibility_checks": {
+              "wrong_city": false,
+              "canonical_or_anchor_duplicate": false,
+              "explicit_hard_block_codes": [],
+              "route_status": "AVAILABLE",
+              "exclusion_codes": []
+            },
+            "subjective_boundaries": {
+              "human_preference_fit": "UNKNOWN",
+              "current_popularity_quality": "UNKNOWN",
+              "opening_fit_without_visit_slot": "N_A",
+              "reservation_fit_without_requirement": "N_A",
+              "accessibility_fit_without_member_requirement": "N_A",
+              "community_or_official_prior_used_as_current_fact": false
+            },
+            "entity_receipt_ref": {
+              "canonical_place_id": "B0I0MC0UKW",
+              "provider": "amap",
+              "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+              "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+              "observed_at": "2026-08-21T07:22:20.889308Z",
+              "execution_mode": "live",
+              "source_url": "https://restapi.amap.com/v5/place/around",
+              "receipt_sha256": "b6d3d2c738fe5f5ea636b0bc23d71b4ffa02e9828d2d52e7cc4c8b1c0cdc6a62"
+            },
+            "route_receipt_refs": [
+              {
+                "leg": "PREVIOUS_TO_CANDIDATE",
+                "origin_place_id": "B0FFHZ0001",
+                "destination_place_id": "B0I0MC0UKW",
+                "duration_minutes": 131,
+                "provider": "amap",
+                "request_hash": "cc3fff87d868f17b247bcc91ca1927946ba874d11c6e1a827befd3c95e688887",
+                "response_hash": "59d70da16e086d660ed3f7aa2f530ac7a23dbbec3ae2415a1463f7f699076213",
+                "snapshot_id": "amap-route-59d70da16e086d660ed3f7aa2f530ac7a23dbbec3ae2415a1463f7f699076213",
+                "observed_at": "2026-08-21T07:22:26.173627Z",
+                "receipt_sha256": "4ed6ad05df993fb9727fc7cb4296f55ee3bd8cc248f0385a791e7c5fd40a548e"
+              }
+            ],
+            "current_fact_receipt_refs": [
+              {
+                "fact_type": "OPENING_HOURS",
+                "provider": "amap_v5_place_around",
+                "observed_at": "2026-08-21T07:22:20.889308Z",
+                "request_hash": "1df9552b09598ec15a02ea8479bb0766fcfa17b4c273dc607e430834b6b03ec9",
+                "response_hash": "5f488bea80e80e0d92764661b5de522595ddc2d47de2a28f4ec6f30465e109b1",
+                "source_url": "https://restapi.amap.com/v5/place/around",
+                "fact_receipt_sha256": "c38e4d903de86455a99b2af588d81b6437b98c40e9a13e75ae55c2c906fdc443",
+                "rubric_use": "HARD_CHECK_ONLY_IF_QUERY_CONTEXT_ESTABLISHES_APPLICABILITY"
+              }
+            ],
+            "source_candidate_projection_sha256": "1d99f778c5f8b97c24a492cd7bfae2a1e854acdd53e795076707c140e996730c"
+          }
+        ],
+        "relevant_candidate_ids": [
+          "B0FFHY5A6E",
+          "B0FFK2ZVSX",
+          "B0FFKETFI9",
+          "B0FFGGYE3S"
+        ],
+        "city_oracle_sha256": "7744087d8b7be1eff01b53a13eb7988a191cb349384c6db6543d910c9bfaaf73"
+      }
+    ]
+  }
+}

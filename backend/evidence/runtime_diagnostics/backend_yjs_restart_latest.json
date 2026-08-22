@@ -1,0 +1,26 @@
+{
+    "schema_version":  "backend-yjs-restart-runtime-diagnostic-v1",
+    "status":  "PASS",
+    "decision":  "ACCEPT_LOCAL_FIXTURE_GATE",
+    "reason_code":  "LOCAL_FIXTURE_NINE_CASE_RESTART_GATE_PASSED",
+    "message":  "Nine isolated cases completed with one real process replacement and exact public HTTP/Yjs/browser readback.",
+    "generated_at":  "2026-08-21T07:44:18.0994758+00:00",
+    "claim_scope":  "local_fixture_backend_yjs_restart_only",
+    "docker_required":  true,
+    "sqlite_substitute_used":  false,
+    "service_targets":  [
+                            "backend",
+                            "y-websocket"
+                        ],
+    "required_independent_cases":  9,
+    "matrix_version":  "g5-backend-yjs-restart-v1",
+    "initial_running":  {
+                            "backend":  true,
+                            "postgres":  true,
+                            "redis":  true,
+                            "y-websocket":  true
+                        },
+    "services_started_by_runner":  [
+
+                                   ]
+}

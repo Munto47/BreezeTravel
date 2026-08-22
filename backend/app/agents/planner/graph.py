@@ -2,12 +2,13 @@
 
 拓扑（SPEC Phase A）：
 
-    clusterer → distance → sequencer → scheduler_v2 → critic_v2 → tips → END
+    clusterer → distance → sequencer → scheduler_v2
+      → assembler → verifier → repair loop → tips or END
 
 v2 相对 v1 的变化：
   - scheduler 替换为 scheduler_v2（鱼骨模板 + 营业时间 + 用餐窗 + 体力曲线）
-  - 新增 critic_v2 节点（7 条硬规则检验，违规打印告警）
-  - PlannerState 新增 day_states / backup_pool / critic_violations 字段
+  - Critic 独有规则迁入统一 RuleRegistry 后，主图不再运行第二套 finding 源
+  - 持久化调用可延后 Tips，等 canonical revision + AuditReport 成立后再生成
 """
 
 from typing import Optional
@@ -19,7 +20,6 @@ from app.agents.planner.nodes import (
     distance,
     scheduler_v2,
     weather_fetcher,
-    critic_v2,
     sequencer,
     tips_agent,
 )
@@ -66,13 +66,13 @@ async def _verify(state: PlannerState) -> dict:
 def _verification_route(state: PlannerState) -> str:
     report = state.get("verification_report")
     if report is None:
-        return "done"
+        return "done" if state.get("defer_tips", False) else "tips"
     repairable = [item for item in report.checks if item.status == ConstraintStatus.VIOLATED and item.repairable]
     if not repairable or state.get("repair_rounds", 0) >= TargetedRepairController.max_rounds:
-        return "done"
+        return "done" if state.get("defer_tips", False) else "tips"
     signature = TargetedRepairController.signature(repairable)
     if signature in state.get("repair_signatures", []):
-        return "done"
+        return "done" if state.get("defer_tips", False) else "tips"
     return "repair"
 
 
@@ -101,7 +101,7 @@ def build_planner_graph():
     g.add_node("sequencer",       sequencer.run)
     g.add_node("weather_fetcher", weather_fetcher.run)
     g.add_node("scheduler_v2",    scheduler_v2.run)
-    g.add_node("critic_v2",       critic_v2.run)
+    g.add_node("assembler",       tips_agent.assemble)
     g.add_node("tips",            tips_agent.run)
     g.add_node("verifier",        _verify)
     g.add_node("repair",          _repair)
@@ -111,11 +111,15 @@ def build_planner_graph():
     g.add_edge("distance",        "sequencer")
     g.add_edge("sequencer",       "weather_fetcher")
     g.add_edge("weather_fetcher", "scheduler_v2")
-    g.add_edge("scheduler_v2",    "critic_v2")
-    g.add_edge("critic_v2",       "tips")
-    g.add_edge("tips",            "verifier")
-    g.add_conditional_edges("verifier", _verification_route, {"repair": "repair", "done": END})
+    g.add_edge("scheduler_v2",    "assembler")
+    g.add_edge("assembler",       "verifier")
+    g.add_conditional_edges(
+        "verifier",
+        _verification_route,
+        {"repair": "repair", "tips": "tips", "done": END},
+    )
     g.add_edge("repair",          "verifier")
+    g.add_edge("tips",            END)
 
     return g.compile()
 
@@ -133,6 +137,7 @@ async def run_planner(
     vote_counts: Optional[dict[str, int]] = None,
     task_spec: Optional[TripTaskSpec] = None,
     planning_input_hash: str = "",
+    defer_tips: bool = False,
 ) -> PlannerResult:
     """PlannerGraph v2 入口。返回 PlannerResult(itinerary, backup_pool, critic_violations)。"""
     places = filter_human_suitable_places(places)
@@ -194,6 +199,7 @@ async def run_planner(
         "vote_counts": vote_counts or {},
         "task_spec": task_spec,
         "planning_input_hash": planning_input_hash,
+        "defer_tips": defer_tips,
         "backup_pool": [],
         "critic_violations": [],
         "verification_report": None,

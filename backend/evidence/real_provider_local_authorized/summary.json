@@ -1,0 +1,845 @@
+{
+  "schema_version": "1.0",
+  "evidence_class": "real_provider_local_authorized",
+  "claim_boundary": {
+    "is_real_provider": true,
+    "is_local_authorized": true,
+    "is_public_internet_e2e": false,
+    "is_human_evidence": false,
+    "is_release_approval": false,
+    "note": "Local authorized REST observations only; no fixture fallback and no human/public claim."
+  },
+  "run_started_at": "2026-08-20T14:29:08.359863Z",
+  "run_completed_at": "2026-08-20T14:29:11.759025Z",
+  "iterations": 3,
+  "fixed_cities": [
+    "北京",
+    "上海",
+    "杭州"
+  ],
+  "runtime": {
+    "runtime_profile": "local_real",
+    "amap_mock": false,
+    "demo_mode": false,
+    "amap_api_key_configured": true,
+    "qweather_auth_type": "jwt",
+    "qweather_credentials_configured": true,
+    "qweather_custom_host_configured": true,
+    "sequential_requests": true,
+    "timeout_seconds": 10.0
+  },
+  "sample_definition": {
+    "entity": "Amap v5 exact landmark text search",
+    "route": "Amap v3 driving route between fixed labeled coordinates",
+    "weather": "QWeather city lookup followed by 3-day forecast",
+    "raw_provider_payload_persisted": false,
+    "authentication_material_persisted": false,
+    "hash_algorithm": "SHA-256 over canonical UTF-8 JSON"
+  },
+  "performance": {
+    "entity": {
+      "sample_count": 9,
+      "ok_count": 9,
+      "error_count": 0,
+      "success_rate": 1.0,
+      "latency_ms": {
+        "min": 157.23,
+        "p50": 189.35,
+        "p95": 215.26,
+        "max": 219.0
+      }
+    },
+    "route": {
+      "sample_count": 9,
+      "ok_count": 9,
+      "error_count": 0,
+      "success_rate": 1.0,
+      "latency_ms": {
+        "min": 60.13,
+        "p50": 66.69,
+        "p95": 79.4,
+        "max": 80.21
+      }
+    },
+    "weather": {
+      "sample_count": 9,
+      "ok_count": 9,
+      "error_count": 0,
+      "success_rate": 1.0,
+      "latency_ms": {
+        "min": 100.12,
+        "p50": 103.24,
+        "p95": 187.92,
+        "max": 243.86
+      }
+    },
+    "all": {
+      "sample_count": 27,
+      "ok_count": 27,
+      "error_count": 0,
+      "success_rate": 1.0,
+      "latency_ms": {
+        "min": 60.13,
+        "p50": 103.24,
+        "p95": 216.19,
+        "max": 243.86
+      }
+    }
+  },
+  "errors_by_category": {},
+  "samples": [
+    {
+      "case_id": "amap_entity_北京_1",
+      "city": "北京",
+      "kind": "entity",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 191.96,
+      "observed_at": "2026-08-20T14:29:08.569099Z",
+      "request_hash": "sha256:2949bcf1bca1fd7bfff594064f2af7e1e9ce956649098085e8703f5baf26c569",
+      "response_hash": "sha256:4d6dd3645fca7c84b3be1aa4492136089158be33ea06f6188302810ccf944207",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "故宫博物院",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "故宫博物院",
+        "provider_place_id": "B000A8UIN8",
+        "location": "116.397029,39.917839"
+      }
+    },
+    {
+      "case_id": "amap_route_北京_1",
+      "city": "北京",
+      "kind": "route",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 60.13,
+      "observed_at": "2026-08-20T14:29:08.629576Z",
+      "request_hash": "sha256:3cbaa45629a9014b7131c174736ab11a8a171c94f75d1df52fe0de72f8236954",
+      "response_hash": "sha256:b1955c5a7733c632ac8722b3f307ae8f677c4bb5040f2ea91d44d3615397db39",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "故宫博物院",
+        "destination_label": "天坛公园",
+        "duration_seconds": 1151,
+        "distance_meters": 6092
+      }
+    },
+    {
+      "case_id": "qweather_forecast_北京_1",
+      "city": "北京",
+      "kind": "weather",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 243.86,
+      "observed_at": "2026-08-20T14:29:08.877240Z",
+      "request_hash": "sha256:ed08fe1810a8994a1fdbb29f0f741e4fcbb760ed5cdd78fb5b8e046bb7d3e5dc",
+      "response_hash": "sha256:3b5a5c47380fda204f8e6f4732b8fecdadea56a7e1042b67defea567ee8a1a80",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:702e1b7f0a1df258c0a6f369c38bc1c79c6dd384b794b771e8b877d74f12a6ed",
+          "response_hash": "sha256:c32c4c3546f461ed3052fa33edb7a6bc3e66c91e263474ef1f60d924667fb1dd",
+          "http_status": 200,
+          "latency_ms": 186.66,
+          "observed_at": "2026-08-20T14:29:08.820005Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:4b68312825a66b8494d1f9e8fca4d09ba18fdef90a2e954dee77d3b44d588b72",
+          "response_hash": "sha256:612dd3d10ff93a032137583d19cbd45e3a1bdc813c0ad8ed0fce6eb5d0b457c8",
+          "http_status": 200,
+          "latency_ms": 57.2,
+          "observed_at": "2026-08-20T14:29:08.877240Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101010100",
+        "provider_location_name": "北京",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "多云"
+      }
+    },
+    {
+      "case_id": "amap_entity_上海_1",
+      "city": "上海",
+      "kind": "entity",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 189.35,
+      "observed_at": "2026-08-20T14:29:09.066801Z",
+      "request_hash": "sha256:a2989f5d77e86a28d8a23dea86c53ccb6004136c278b01cbaaa628487801d793",
+      "response_hash": "sha256:af62cfedd3978164465f2e23bd22ce007667b0766b13b66314fcb042d589cf30",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "上海博物馆",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "上海博物馆(人民广场馆)",
+        "provider_place_id": "B001535BBC",
+        "location": "121.475480,31.228231"
+      }
+    },
+    {
+      "case_id": "amap_route_上海_1",
+      "city": "上海",
+      "kind": "route",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 62.1,
+      "observed_at": "2026-08-20T14:29:09.129083Z",
+      "request_hash": "sha256:121a74528ed28e7980796b8d3988a52610aadfb2915a301e70fb8b26139e2490",
+      "response_hash": "sha256:5dba51df1cbd707a4997da2c10a28b465f1d87fa310ec2081b5cdac3d39ae0cb",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "上海博物馆",
+        "destination_label": "东方明珠",
+        "duration_seconds": 1068,
+        "distance_meters": 5001
+      }
+    },
+    {
+      "case_id": "qweather_forecast_上海_1",
+      "city": "上海",
+      "kind": "weather",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 103.24,
+      "observed_at": "2026-08-20T14:29:09.232787Z",
+      "request_hash": "sha256:f3ab7f4312ec9965cbf0909e91fb1396de0b53092f594c0492b1ef1b7d3bf465",
+      "response_hash": "sha256:4cc4bf04c66c46b28742e96a834fdad911cfc0e9783f8cce93ce39bbb3d07355",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a905439feafe921e97453b784a1930f73645fb71e2f6f24d094d1480b02e4b72",
+          "response_hash": "sha256:95653e951075640cccbac3009dd9c8bd39ac6a4ab3143305ac65361d1090988b",
+          "http_status": 200,
+          "latency_ms": 51.19,
+          "observed_at": "2026-08-20T14:29:09.180686Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:3ab62b9c738c10aa1a414eb6d247a89e714ec4438ce0688cda1b94e3e41fa45c",
+          "response_hash": "sha256:cfce3d5c3720f9612187ee63ebc8f58078e39b14a70a4f105f03a31802c6f6e5",
+          "http_status": 200,
+          "latency_ms": 52.06,
+          "observed_at": "2026-08-20T14:29:09.232787Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101020100",
+        "provider_location_name": "上海",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    },
+    {
+      "case_id": "amap_entity_杭州_1",
+      "city": "杭州",
+      "kind": "entity",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 209.64,
+      "observed_at": "2026-08-20T14:29:09.442688Z",
+      "request_hash": "sha256:7b87bd0eb4af66529434f74bc0f2fbbe52bd18b63cbdd506cce9d96890bbd3cd",
+      "response_hash": "sha256:2889edd3878ab3d46abac86eaa99aff6357ce4b907893f84b03f241ae834a37d",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "西湖风景名胜区",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "杭州西湖风景名胜区",
+        "provider_place_id": "B023B13L9M",
+        "location": "120.121358,30.222692"
+      }
+    },
+    {
+      "case_id": "amap_route_杭州_1",
+      "city": "杭州",
+      "kind": "route",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 60.66,
+      "observed_at": "2026-08-20T14:29:09.503524Z",
+      "request_hash": "sha256:983ba3961e979fa96b8672ff02c75f29136d1fee1a64f303f85050af7ca91a6c",
+      "response_hash": "sha256:623db29edd0ca494f95ffea6f5ed52aabd3b1f03ed7dfff431457b813a03008e",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "西湖断桥",
+        "destination_label": "灵隐寺",
+        "duration_seconds": 1126,
+        "distance_meters": 6614
+      }
+    },
+    {
+      "case_id": "qweather_forecast_杭州_1",
+      "city": "杭州",
+      "kind": "weather",
+      "iteration": 1,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 100.68,
+      "observed_at": "2026-08-20T14:29:09.604999Z",
+      "request_hash": "sha256:c5a7ec8d2af01e549e0ec1a9bce480e146f02e4dd4a3d188bfdaac76d8323171",
+      "response_hash": "sha256:3e7f574a2a4bfe792b8a79e3ff664b90e579a05caf0b2b5a55d8c94009139a4b",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a4e5a04df2b045ed8df25db379e781e441d56aa12d65a9da6ce9cd84dfc7cdf9",
+          "response_hash": "sha256:cd879622c881fbb59dabde76f1d609e6541ad574a755c2d9144416700b1e508b",
+          "http_status": 200,
+          "latency_ms": 49.7,
+          "observed_at": "2026-08-20T14:29:09.553985Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:858fec3fd552d5873c07825eccd4307c0086ef7f577207609c63f6ea34c9f910",
+          "response_hash": "sha256:974d1a01328c6b7c71bd4bb91368d11f08ca7191343ea1a923f5290455d7d0bc",
+          "http_status": 200,
+          "latency_ms": 50.98,
+          "observed_at": "2026-08-20T14:29:09.604999Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101210101",
+        "provider_location_name": "杭州",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    },
+    {
+      "case_id": "amap_entity_北京_2",
+      "city": "北京",
+      "kind": "entity",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 168.6,
+      "observed_at": "2026-08-20T14:29:09.773777Z",
+      "request_hash": "sha256:2949bcf1bca1fd7bfff594064f2af7e1e9ce956649098085e8703f5baf26c569",
+      "response_hash": "sha256:4d6dd3645fca7c84b3be1aa4492136089158be33ea06f6188302810ccf944207",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "故宫博物院",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "故宫博物院",
+        "provider_place_id": "B000A8UIN8",
+        "location": "116.397029,39.917839"
+      }
+    },
+    {
+      "case_id": "amap_route_北京_2",
+      "city": "北京",
+      "kind": "route",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 66.47,
+      "observed_at": "2026-08-20T14:29:09.840452Z",
+      "request_hash": "sha256:3cbaa45629a9014b7131c174736ab11a8a171c94f75d1df52fe0de72f8236954",
+      "response_hash": "sha256:b1955c5a7733c632ac8722b3f307ae8f677c4bb5040f2ea91d44d3615397db39",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "故宫博物院",
+        "destination_label": "天坛公园",
+        "duration_seconds": 1151,
+        "distance_meters": 6092
+      }
+    },
+    {
+      "case_id": "qweather_forecast_北京_2",
+      "city": "北京",
+      "kind": "weather",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 100.12,
+      "observed_at": "2026-08-20T14:29:09.941017Z",
+      "request_hash": "sha256:ed08fe1810a8994a1fdbb29f0f741e4fcbb760ed5cdd78fb5b8e046bb7d3e5dc",
+      "response_hash": "sha256:3b5a5c47380fda204f8e6f4732b8fecdadea56a7e1042b67defea567ee8a1a80",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:702e1b7f0a1df258c0a6f369c38bc1c79c6dd384b794b771e8b877d74f12a6ed",
+          "response_hash": "sha256:c32c4c3546f461ed3052fa33edb7a6bc3e66c91e263474ef1f60d924667fb1dd",
+          "http_status": 200,
+          "latency_ms": 49.52,
+          "observed_at": "2026-08-20T14:29:09.890368Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:4b68312825a66b8494d1f9e8fca4d09ba18fdef90a2e954dee77d3b44d588b72",
+          "response_hash": "sha256:612dd3d10ff93a032137583d19cbd45e3a1bdc813c0ad8ed0fce6eb5d0b457c8",
+          "http_status": 200,
+          "latency_ms": 50.6,
+          "observed_at": "2026-08-20T14:29:09.941017Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101010100",
+        "provider_location_name": "北京",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "多云"
+      }
+    },
+    {
+      "case_id": "amap_entity_上海_2",
+      "city": "上海",
+      "kind": "entity",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 189.07,
+      "observed_at": "2026-08-20T14:29:10.130379Z",
+      "request_hash": "sha256:a2989f5d77e86a28d8a23dea86c53ccb6004136c278b01cbaaa628487801d793",
+      "response_hash": "sha256:af62cfedd3978164465f2e23bd22ce007667b0766b13b66314fcb042d589cf30",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "上海博物馆",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "上海博物馆(人民广场馆)",
+        "provider_place_id": "B001535BBC",
+        "location": "121.475480,31.228231"
+      }
+    },
+    {
+      "case_id": "amap_route_上海_2",
+      "city": "上海",
+      "kind": "route",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 66.9,
+      "observed_at": "2026-08-20T14:29:10.197443Z",
+      "request_hash": "sha256:121a74528ed28e7980796b8d3988a52610aadfb2915a301e70fb8b26139e2490",
+      "response_hash": "sha256:5dba51df1cbd707a4997da2c10a28b465f1d87fa310ec2081b5cdac3d39ae0cb",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "上海博物馆",
+        "destination_label": "东方明珠",
+        "duration_seconds": 1068,
+        "distance_meters": 5001
+      }
+    },
+    {
+      "case_id": "qweather_forecast_上海_2",
+      "city": "上海",
+      "kind": "weather",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 103.46,
+      "observed_at": "2026-08-20T14:29:10.301387Z",
+      "request_hash": "sha256:f3ab7f4312ec9965cbf0909e91fb1396de0b53092f594c0492b1ef1b7d3bf465",
+      "response_hash": "sha256:4cc4bf04c66c46b28742e96a834fdad911cfc0e9783f8cce93ce39bbb3d07355",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a905439feafe921e97453b784a1930f73645fb71e2f6f24d094d1480b02e4b72",
+          "response_hash": "sha256:95653e951075640cccbac3009dd9c8bd39ac6a4ab3143305ac65361d1090988b",
+          "http_status": 200,
+          "latency_ms": 51.48,
+          "observed_at": "2026-08-20T14:29:10.249362Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:3ab62b9c738c10aa1a414eb6d247a89e714ec4438ce0688cda1b94e3e41fa45c",
+          "response_hash": "sha256:cfce3d5c3720f9612187ee63ebc8f58078e39b14a70a4f105f03a31802c6f6e5",
+          "http_status": 200,
+          "latency_ms": 51.99,
+          "observed_at": "2026-08-20T14:29:10.301387Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101020100",
+        "provider_location_name": "上海",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    },
+    {
+      "case_id": "amap_entity_杭州_2",
+      "city": "杭州",
+      "kind": "entity",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 219.0,
+      "observed_at": "2026-08-20T14:29:10.520554Z",
+      "request_hash": "sha256:7b87bd0eb4af66529434f74bc0f2fbbe52bd18b63cbdd506cce9d96890bbd3cd",
+      "response_hash": "sha256:2889edd3878ab3d46abac86eaa99aff6357ce4b907893f84b03f241ae834a37d",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "西湖风景名胜区",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "杭州西湖风景名胜区",
+        "provider_place_id": "B023B13L9M",
+        "location": "120.121358,30.222692"
+      }
+    },
+    {
+      "case_id": "amap_route_杭州_2",
+      "city": "杭州",
+      "kind": "route",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 78.18,
+      "observed_at": "2026-08-20T14:29:10.598902Z",
+      "request_hash": "sha256:983ba3961e979fa96b8672ff02c75f29136d1fee1a64f303f85050af7ca91a6c",
+      "response_hash": "sha256:623db29edd0ca494f95ffea6f5ed52aabd3b1f03ed7dfff431457b813a03008e",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "西湖断桥",
+        "destination_label": "灵隐寺",
+        "duration_seconds": 1126,
+        "distance_meters": 6614
+      }
+    },
+    {
+      "case_id": "qweather_forecast_杭州_2",
+      "city": "杭州",
+      "kind": "weather",
+      "iteration": 2,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 104.0,
+      "observed_at": "2026-08-20T14:29:10.703343Z",
+      "request_hash": "sha256:c5a7ec8d2af01e549e0ec1a9bce480e146f02e4dd4a3d188bfdaac76d8323171",
+      "response_hash": "sha256:3e7f574a2a4bfe792b8a79e3ff664b90e579a05caf0b2b5a55d8c94009139a4b",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a4e5a04df2b045ed8df25db379e781e441d56aa12d65a9da6ce9cd84dfc7cdf9",
+          "response_hash": "sha256:cd879622c881fbb59dabde76f1d609e6541ad574a755c2d9144416700b1e508b",
+          "http_status": 200,
+          "latency_ms": 51.6,
+          "observed_at": "2026-08-20T14:29:10.650892Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:858fec3fd552d5873c07825eccd4307c0086ef7f577207609c63f6ea34c9f910",
+          "response_hash": "sha256:974d1a01328c6b7c71bd4bb91368d11f08ca7191343ea1a923f5290455d7d0bc",
+          "http_status": 200,
+          "latency_ms": 52.41,
+          "observed_at": "2026-08-20T14:29:10.703343Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101210101",
+        "provider_location_name": "杭州",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    },
+    {
+      "case_id": "amap_entity_北京_3",
+      "city": "北京",
+      "kind": "entity",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 157.23,
+      "observed_at": "2026-08-20T14:29:10.860747Z",
+      "request_hash": "sha256:2949bcf1bca1fd7bfff594064f2af7e1e9ce956649098085e8703f5baf26c569",
+      "response_hash": "sha256:4d6dd3645fca7c84b3be1aa4492136089158be33ea06f6188302810ccf944207",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "故宫博物院",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "故宫博物院",
+        "provider_place_id": "B000A8UIN8",
+        "location": "116.397029,39.917839"
+      }
+    },
+    {
+      "case_id": "amap_route_北京_3",
+      "city": "北京",
+      "kind": "route",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 70.46,
+      "observed_at": "2026-08-20T14:29:10.931360Z",
+      "request_hash": "sha256:3cbaa45629a9014b7131c174736ab11a8a171c94f75d1df52fe0de72f8236954",
+      "response_hash": "sha256:b1955c5a7733c632ac8722b3f307ae8f677c4bb5040f2ea91d44d3615397db39",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "故宫博物院",
+        "destination_label": "天坛公园",
+        "duration_seconds": 1151,
+        "distance_meters": 6092
+      }
+    },
+    {
+      "case_id": "qweather_forecast_北京_3",
+      "city": "北京",
+      "kind": "weather",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 104.02,
+      "observed_at": "2026-08-20T14:29:11.035866Z",
+      "request_hash": "sha256:ed08fe1810a8994a1fdbb29f0f741e4fcbb760ed5cdd78fb5b8e046bb7d3e5dc",
+      "response_hash": "sha256:3b5a5c47380fda204f8e6f4732b8fecdadea56a7e1042b67defea567ee8a1a80",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:702e1b7f0a1df258c0a6f369c38bc1c79c6dd384b794b771e8b877d74f12a6ed",
+          "response_hash": "sha256:c32c4c3546f461ed3052fa33edb7a6bc3e66c91e263474ef1f60d924667fb1dd",
+          "http_status": 200,
+          "latency_ms": 53.56,
+          "observed_at": "2026-08-20T14:29:10.985352Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:4b68312825a66b8494d1f9e8fca4d09ba18fdef90a2e954dee77d3b44d588b72",
+          "response_hash": "sha256:612dd3d10ff93a032137583d19cbd45e3a1bdc813c0ad8ed0fce6eb5d0b457c8",
+          "http_status": 200,
+          "latency_ms": 50.46,
+          "observed_at": "2026-08-20T14:29:11.035866Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101010100",
+        "provider_location_name": "北京",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "多云"
+      }
+    },
+    {
+      "case_id": "amap_entity_上海_3",
+      "city": "上海",
+      "kind": "entity",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 177.53,
+      "observed_at": "2026-08-20T14:29:11.213631Z",
+      "request_hash": "sha256:a2989f5d77e86a28d8a23dea86c53ccb6004136c278b01cbaaa628487801d793",
+      "response_hash": "sha256:af62cfedd3978164465f2e23bd22ce007667b0766b13b66314fcb042d589cf30",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "上海博物馆",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "上海博物馆(人民广场馆)",
+        "provider_place_id": "B001535BBC",
+        "location": "121.475480,31.228231"
+      }
+    },
+    {
+      "case_id": "amap_route_上海_3",
+      "city": "上海",
+      "kind": "route",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 66.69,
+      "observed_at": "2026-08-20T14:29:11.280539Z",
+      "request_hash": "sha256:121a74528ed28e7980796b8d3988a52610aadfb2915a301e70fb8b26139e2490",
+      "response_hash": "sha256:5dba51df1cbd707a4997da2c10a28b465f1d87fa310ec2081b5cdac3d39ae0cb",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "上海博物馆",
+        "destination_label": "东方明珠",
+        "duration_seconds": 1068,
+        "distance_meters": 5001
+      }
+    },
+    {
+      "case_id": "qweather_forecast_上海_3",
+      "city": "上海",
+      "kind": "weather",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 100.93,
+      "observed_at": "2026-08-20T14:29:11.382062Z",
+      "request_hash": "sha256:f3ab7f4312ec9965cbf0909e91fb1396de0b53092f594c0492b1ef1b7d3bf465",
+      "response_hash": "sha256:4cc4bf04c66c46b28742e96a834fdad911cfc0e9783f8cce93ce39bbb3d07355",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a905439feafe921e97453b784a1930f73645fb71e2f6f24d094d1480b02e4b72",
+          "response_hash": "sha256:95653e951075640cccbac3009dd9c8bd39ac6a4ab3143305ac65361d1090988b",
+          "http_status": 200,
+          "latency_ms": 50.12,
+          "observed_at": "2026-08-20T14:29:11.331220Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:3ab62b9c738c10aa1a414eb6d247a89e714ec4438ce0688cda1b94e3e41fa45c",
+          "response_hash": "sha256:cfce3d5c3720f9612187ee63ebc8f58078e39b14a70a4f105f03a31802c6f6e5",
+          "http_status": 200,
+          "latency_ms": 50.81,
+          "observed_at": "2026-08-20T14:29:11.382062Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101020100",
+        "provider_location_name": "上海",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    },
+    {
+      "case_id": "amap_entity_杭州_3",
+      "city": "杭州",
+      "kind": "entity",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 194.09,
+      "observed_at": "2026-08-20T14:29:11.576394Z",
+      "request_hash": "sha256:7b87bd0eb4af66529434f74bc0f2fbbe52bd18b63cbdd506cce9d96890bbd3cd",
+      "response_hash": "sha256:2889edd3878ab3d46abac86eaa99aff6357ce4b907893f84b03f241ae834a37d",
+      "result_count": 10,
+      "error_category": null,
+      "error_detail": null,
+      "expected_entity": "西湖风景名胜区",
+      "expected_entity_found": true,
+      "sample_result": {
+        "name": "杭州西湖风景名胜区",
+        "provider_place_id": "B023B13L9M",
+        "location": "120.121358,30.222692"
+      }
+    },
+    {
+      "case_id": "amap_route_杭州_3",
+      "city": "杭州",
+      "kind": "route",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 80.21,
+      "observed_at": "2026-08-20T14:29:11.656835Z",
+      "request_hash": "sha256:983ba3961e979fa96b8672ff02c75f29136d1fee1a64f303f85050af7ca91a6c",
+      "response_hash": "sha256:623db29edd0ca494f95ffea6f5ed52aabd3b1f03ed7dfff431457b813a03008e",
+      "result_count": 1,
+      "error_category": null,
+      "error_detail": null,
+      "sample_result": {
+        "origin_label": "西湖断桥",
+        "destination_label": "灵隐寺",
+        "duration_seconds": 1126,
+        "distance_meters": 6614
+      }
+    },
+    {
+      "case_id": "qweather_forecast_杭州_3",
+      "city": "杭州",
+      "kind": "weather",
+      "iteration": 3,
+      "status": "ok",
+      "http_status": 200,
+      "latency_ms": 100.61,
+      "observed_at": "2026-08-20T14:29:11.757960Z",
+      "request_hash": "sha256:c5a7ec8d2af01e549e0ec1a9bce480e146f02e4dd4a3d188bfdaac76d8323171",
+      "response_hash": "sha256:3e7f574a2a4bfe792b8a79e3ff664b90e579a05caf0b2b5a55d8c94009139a4b",
+      "result_count": 3,
+      "error_category": null,
+      "error_detail": null,
+      "provider_calls": [
+        {
+          "path": "/geo/v2/city/lookup",
+          "request_hash": "sha256:a4e5a04df2b045ed8df25db379e781e441d56aa12d65a9da6ce9cd84dfc7cdf9",
+          "response_hash": "sha256:cd879622c881fbb59dabde76f1d609e6541ad574a755c2d9144416700b1e508b",
+          "http_status": 200,
+          "latency_ms": 49.74,
+          "observed_at": "2026-08-20T14:29:11.707054Z"
+        },
+        {
+          "path": "/v7/weather/3d",
+          "request_hash": "sha256:858fec3fd552d5873c07825eccd4307c0086ef7f577207609c63f6ea34c9f910",
+          "response_hash": "sha256:974d1a01328c6b7c71bd4bb91368d11f08ca7191343ea1a923f5290455d7d0bc",
+          "http_status": 200,
+          "latency_ms": 50.86,
+          "observed_at": "2026-08-20T14:29:11.757960Z"
+        }
+      ],
+      "sample_result": {
+        "provider_location_id": "101210101",
+        "provider_location_name": "杭州",
+        "first_forecast_date": "2026-08-20",
+        "first_forecast_condition": "小雨"
+      }
+    }
+  ],
+  "validation_errors": [],
+  "overall_status": "passed",
+  "adapter_smoke": {
+    "evidence_file": "backend/evidence/real_provider_local_authorized/adapter_smoke.json",
+    "sha256": "sha256:73fcfc28bfd8e4f827a6469fb43eb3f201420aa085a6bdcd6fae7647e9306b22",
+    "overall_status": "passed",
+    "run_completed_at": "2026-08-20T14:39:20.359161Z",
+    "claim_boundary": {
+      "is_real_provider": true,
+      "is_local_authorized": true,
+      "is_public_internet_e2e": false,
+      "is_human_evidence": false,
+      "is_release_approval": false
+    }
+  }
+}

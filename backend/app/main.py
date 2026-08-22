@@ -1,12 +1,15 @@
 import os
 import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
+from app.api import audits, imports, repairs, suggestions, templates, trip_workspaces, members
 from app.api import auth as auth_api
 from app.api import e2e as e2e_api
 from app.api import user_profile
@@ -19,20 +22,33 @@ from app.db import connection as db_connection
 from app.agents import graph as agent_graph
 from app import metrics as _m
 from app.observability.metrics import metrics as prometheus_metrics
+from app.suggestions.frozen_snapshot import (
+    suggestion_provider_health,
+    validate_suggestion_provider_configuration,
+)
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
 # 确保追踪 SDK 能正确拦截所有调用链路
-if settings.langsmith_api_key:
+_langsmith_enabled = bool(settings.langsmith_api_key and settings.runtime_profile != "test")
+if _langsmith_enabled:
     os.environ["LANGCHAIN_TRACING_V2"] = "true"
     os.environ["LANGCHAIN_API_KEY"] = settings.langsmith_api_key
     os.environ["LANGCHAIN_PROJECT"] = settings.langsmith_project
     print(f"[Observability] LangSmith 追踪已启用，项目：{settings.langsmith_project}")
 else:
-    # 未配置时确保不意外开启追踪（避免环境变量污染）
-    os.environ.setdefault("LANGCHAIN_TRACING_V2", "false")
+    # 测试进程即使从本地 .env 读到 Key 也禁止外发 trace。
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 # 指标存储统一在 app.metrics 模块管理，此处仅保留 startup_time 写入
+
+# A deployment ``INSTANCE_ID`` identifies a replica and therefore commonly
+# stays stable across process restarts.  The restart gate needs a different,
+# process-scoped witness: these values are created once at module import and
+# cannot be supplied by a request or inherited from a previous process.
+_BOOT_GENERATION_ID = str(uuid.uuid4())
+_PROCESS_STARTED_AT = datetime.now(timezone.utc).isoformat()
+_PROCESS_ID = os.getpid()
 
 
 @asynccontextmanager
@@ -40,6 +56,10 @@ async def lifespan(app: FastAPI):
     # ── startup ──────────────────────────────────────────────────────────
     _m.set_val("startup_time", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     cfg = get_settings()
+    # Validate the byte-exact frozen Suggestion artifact before opening any
+    # service dependency.  Each Suggestion request validates it again, so a
+    # post-startup file replacement also fails closed.
+    validate_suggestion_provider_configuration(cfg)
     await db_connection.get_pool()
     if cfg.auto_migrate:
         await db_connection.run_migrations()
@@ -90,6 +110,13 @@ app.include_router(evidence.router, prefix="/api", tags=["evidence"])
 app.include_router(e2e_api.router, prefix="/api", tags=["e2e"])
 app.include_router(tasks.router, prefix="/api", tags=["tasks"])
 app.include_router(memories.router, prefix="/api", tags=["memory"])
+app.include_router(trip_workspaces.router, prefix="/api", tags=["trip-workspaces"])
+app.include_router(audits.router, prefix="/api", tags=["audits"])
+app.include_router(imports.router, prefix="/api", tags=["imports"])
+app.include_router(repairs.router, prefix="/api", tags=["repairs"])
+app.include_router(members.router, prefix="/api", tags=["members"])
+app.include_router(templates.router, prefix="/api", tags=["route-templates"])
+app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
 
 
 # ── 运维端点 ──────────────────────────────────────────────────────────────
@@ -103,9 +130,15 @@ async def health_check():
     """
     return {
         "status": "ok",
+        "suggestion_provider": suggestion_provider_health(get_settings()),
         "version": app.version,
         "service": "breezetravel-backend",
         "instance_id": os.getenv("INSTANCE_ID", "single"),
+        "boot_generation": {
+            "instance_id": _BOOT_GENERATION_ID,
+            "started_at": _PROCESS_STARTED_AT,
+            "pid": _PROCESS_ID,
+        },
         "runtime_profile": settings.runtime_profile,
         "demo_mode": settings.demo_mode,
         "amap_mock": settings.amap_mock,
@@ -131,6 +164,7 @@ async def metrics():
     m = _m.snapshot()
     total_agent = m["agent_success_count"] + m["agent_failure_count"]
 
+    cfg = get_settings()
     return {
         # ── 请求级 ────────────────────────────────────────────────
         "total_chat_requests": m["total_chat_requests"],
@@ -166,10 +200,11 @@ async def metrics():
         "error_categories": m["labelled"].get("error_categories", {}),
         "estimated_llm_cost_usd": round(m["estimated_llm_cost_usd"], 8),
         # ── 系统信息 ──────────────────────────────────────────────
-        "langsmith_enabled": bool(settings.langsmith_api_key),
-        "langsmith_project": settings.langsmith_project if settings.langsmith_api_key else None,
+        "langsmith_enabled": _langsmith_enabled,
+        "langsmith_project": settings.langsmith_project if _langsmith_enabled else None,
         "demo_mode": settings.demo_mode,
         "amap_mock": settings.amap_mock,
+        "suggestion_provider": suggestion_provider_health(cfg),
         "startup_time": m["startup_time"],
         "version": app.version,
     }

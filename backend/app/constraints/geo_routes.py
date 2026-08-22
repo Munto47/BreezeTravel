@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 import json
 import threading
-import weakref
 from datetime import datetime, timezone
 from typing import Any, Literal
 
@@ -35,9 +34,13 @@ _ROUTE_ENDPOINTS = {
     "driving": "https://restapi.amap.com/v3/direction/driving",
     "transit": "https://restapi.amap.com/v3/direction/transit/integrated",
 }
-_ROUTE_SEMAPHORES: weakref.WeakKeyDictionary[
-    asyncio.AbstractEventLoop, asyncio.Semaphore
-] = weakref.WeakKeyDictionary()
+# Keep a strong reference while this process is alive.  A WeakKeyDictionary
+# releases the semaphore as soon as a short-lived worker loop closes; CPython
+# can then reuse the same object id for the next worker and make a cross-loop
+# limiter look shared in diagnostics.  The API service normally owns one
+# long-lived loop, and replay workers are bounded, so retaining one tiny
+# semaphore per loop is the safer trade-off.
+_ROUTE_SEMAPHORES: dict[asyncio.AbstractEventLoop, asyncio.Semaphore] = {}
 _ROUTE_SEMAPHORES_LOCK = threading.Lock()
 
 

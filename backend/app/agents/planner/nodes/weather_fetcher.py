@@ -28,6 +28,7 @@ import aiohttp
 from app.agents.planner.state import PlannerState
 from app.config import settings
 from app.schemas.preferences import WeatherDay
+from app.tools.weather_tool import _build_weather_headers
 
 # 和风天气 API 条件码 → 统一 condition 字符串 + precip_mm 估算
 _QWEATHER_COND_MAP: dict[str, tuple[str, float]] = {
@@ -68,22 +69,44 @@ def _parse_condition(code: str, precip_str: str) -> tuple[str, float]:
     return condition, precip
 
 
+def _has_qweather_credentials() -> bool:
+    """Match the API weather adapter's JWT/API-key credential contract."""
+    if settings.qweather_auth_type == "jwt":
+        return bool(
+            settings.qweather_private_key
+            and settings.qweather_key_id
+            and settings.qweather_project_id
+        )
+    return bool(settings.qweather_api_key)
+
+
 async def _fetch_qweather_7d(
     session: aiohttp.ClientSession,
     lat: float,
     lng: float,
 ) -> list[dict]:
     """调和风 7 日预报 API，返回 daily 列表；失败返回空"""
-    if not settings.qweather_api_key:
+    if not _has_qweather_credentials():
         return []
     try:
-        url = "https://devapi.qweather.com/v7/weather/7d"
+        host = (
+            settings.qweather_api_host.strip()
+            .removeprefix("https://")
+            .removeprefix("http://")
+            .rstrip("/")
+        )
+        url = f"https://{host}/v7/weather/7d"
         params = {
-            "key": settings.qweather_api_key,
             "location": f"{lng:.4f},{lat:.4f}",
             "lang": "zh",
         }
-        async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+        headers = await _build_weather_headers()
+        async with session.get(
+            url,
+            params=params,
+            headers=headers,
+            timeout=aiohttp.ClientTimeout(total=5),
+        ) as resp:
             data = await resp.json()
             if data.get("code") == "200":
                 return data.get("daily", [])
@@ -100,9 +123,9 @@ async def run(state: PlannerState) -> dict:
 
     weather_forecast: dict[int, WeatherDay] = {}
 
-    if not start_date_str or not settings.qweather_api_key:
+    if not start_date_str or not _has_qweather_credentials():
         trace = state.get("trace", []) + [
-            "[WeatherFetcher] 跳过（无 start_date 或无 API key）"
+            "[WeatherFetcher] 跳过（无 start_date 或无 Provider 凭据）"
         ]
         return {"weather_forecast": weather_forecast, "trace": trace}
 

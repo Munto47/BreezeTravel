@@ -1,0 +1,36 @@
+{
+  "schema_version": "dual-entry-source-capture-v2",
+  "source_document_id": "open-wikivoyage-hangzhou-5265453",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Hangzhou",
+  "captured_at": "2026-08-21T10:35:46+08:00",
+  "capture_method": "HTTPS MediaWiki Action API at a fixed revision",
+  "http": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "remote_body_sha256": "41f7c5528737d35672091096c3df990f7fe321c951e15343f19c8562ffe4404b",
+    "request_url": "https://en.wikivoyage.org/w/api.php?action=query&format=json&formatversion=2&prop=info%7Crevisions&rvprop=ids%7Ctimestamp%7Csha1%7Ccontent&rvslots=main&rvstartid=5265453&rvendid=5265453&titles=Hangzhou"
+  },
+  "revision": {
+    "source_revision": "5265453",
+    "revision_url": "https://en.wikivoyage.org/w/index.php?title=Hangzhou&oldid=5265453",
+    "revision_timestamp": "2026-04-22T09:49:15Z",
+    "parent_revision": "5255351",
+    "mediawiki_sha1": "085be1212a12d2e36449e6516c059d44955915bd"
+  },
+  "archive_policy": "Only immutable revision metadata, hashes, place-name query hints and task-specific structural tags are retained; no article prose, coordinates or images are redistributed.",
+  "minimal_snapshot": {
+    "article_title": "Hangzhou",
+    "route_sequences": [
+      {
+        "prior_id": "hangzhou-west-lake-cluster",
+        "sequence_kind": "ARTICLE_CLUSTER_ORDER",
+        "query_hints": ["West Lake", "Spring Dawn at Su Causeway"],
+        "basis_code": "ARTICLE_WEST_LAKE_CLUSTER_NOT_GEOGRAPHIC_ORDER"
+      }
+    ],
+    "related_place_query_hints": ["Spring Dawn at Su Causeway", "Lingering Snow on Broken Bridge", "Leifeng Pagoda in Evening Glow", "Three Ponds Mirroring the Moon", "Mid-Lake Pavilion"],
+    "experience_tags": ["lake-circuit", "causeway-walk", "boat-option", "seasonal-theme-diversity"],
+    "season_hints": ["spring-theme", "summer-lotus-theme", "autumn-moon-theme", "snow-theme-not-forecast"],
+    "audience_hints": ["long-walk-tolerant", "scenery-oriented", "boat-interested"]
+  }
+}

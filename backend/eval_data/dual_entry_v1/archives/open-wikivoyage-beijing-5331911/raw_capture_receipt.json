@@ -1,0 +1,50 @@
+{
+  "schema_version": "dual-entry-source-capture-v2",
+  "source_document_id": "open-wikivoyage-beijing-5331911",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Beijing",
+  "captured_at": "2026-08-21T10:35:46+08:00",
+  "capture_method": "HTTPS MediaWiki Action API at a fixed revision",
+  "http": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "remote_body_sha256": "5e8157689cf4aff71d8d33eda6231137a508faa6a115c7f1cd2d7fbd2701ee5d",
+    "request_url": "https://en.wikivoyage.org/w/api.php?action=query&format=json&formatversion=2&prop=info%7Crevisions&rvprop=ids%7Ctimestamp%7Csha1%7Ccontent&rvslots=main&rvstartid=5331911&rvendid=5331911&titles=Beijing"
+  },
+  "revision": {
+    "source_revision": "5331911",
+    "revision_url": "https://en.wikivoyage.org/w/index.php?title=Beijing&oldid=5331911",
+    "revision_timestamp": "2026-08-20T21:57:01Z",
+    "parent_revision": "5331909",
+    "mediawiki_sha1": "d1bae337122325cbb3d9057e5ed707d72e2eb3d6"
+  },
+  "archive_policy": "Only immutable revision metadata, hashes, place-name query hints and task-specific structural tags are retained; no article prose or images are redistributed.",
+  "minimal_snapshot": {
+    "article_title": "Beijing",
+    "route_sequences": [
+      {
+        "prior_id": "beijing-central-axis-north-south",
+        "sequence_kind": "EXPLICIT_DIRECTIONAL_SEQUENCE",
+        "query_hints": [
+          "Drum and Bell Towers",
+          "Forbidden City",
+          "Tiananmen Square",
+          "Zhengyangmen",
+          "Temple of Heaven",
+          "Yongdingmen Gate"
+        ],
+        "basis_code": "ARTICLE_EXPLICIT_NORTH_TO_SOUTH_AXIS"
+      }
+    ],
+    "related_place_query_hints": [
+      "Drum and Bell Towers",
+      "Tiananmen Square",
+      "Zhengyangmen",
+      "Temple of Heaven",
+      "Yongdingmen Gate",
+      "Mutianyu Great Wall"
+    ],
+    "experience_tags": ["imperial-history", "central-axis", "urban-walk", "great-wall-diversity"],
+    "season_hints": [],
+    "audience_hints": ["history-oriented", "walking-tolerant", "crowd-sensitive-options"]
+  }
+}

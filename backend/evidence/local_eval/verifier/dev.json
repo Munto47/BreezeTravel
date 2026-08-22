@@ -1,8 +1,8 @@
 {
-  "run_id": "6da6373a-ab4c-42d4-a149-f5d3fc9890b6",
+  "run_id": "785d577b-1785-4667-bff1-a277414d3e7b",
   "kind": "verifier",
   "split": "dev",
-  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
+  "commit_sha": "2238c5304e3c17fae8162cbfca345d2fbdf5f076",
   "dataset_hash": "453bb11da0a5c9724a497ce6b07dd5608174f2d63d7d430527b09de2b39a5340",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "3800ddfc0a471f4c4f2ddb539746d2ba49281f2612f8f133d6a780d2aba57800",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-15T15:39:20.336846Z",
+  "started_at": "2026-08-20T14:00:13.482749Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -84,11 +84,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.7031999994069338,
+        "latency_ms": 0.4369000089354813,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-021"
       },
       "passed": true,
-      "latency_ms": 0.7031999994069338,
+      "latency_ms": 0.4369000089354813,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-021"
     },
@@ -107,11 +107,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.570500000321772,
+        "latency_ms": 0.24610001128166914,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-022"
       },
       "passed": true,
-      "latency_ms": 0.570500000321772,
+      "latency_ms": 0.24610001128166914,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-022"
     },
@@ -130,11 +130,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.5125999996380415,
+        "latency_ms": 0.2437999937683344,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-023"
       },
       "passed": true,
-      "latency_ms": 0.5125999996380415,
+      "latency_ms": 0.2437999937683344,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-023"
     },
@@ -153,11 +153,11 @@
         "status": "SATISFIED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.46970000039436854,
+        "latency_ms": 0.21729996660724282,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-024"
       },
       "passed": true,
-      "latency_ms": 0.46970000039436854,
+      "latency_ms": 0.21729996660724282,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-024"
     },
@@ -176,11 +176,11 @@
         "status": "SATISFIED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.3956000000471249,
+        "latency_ms": 0.20060001406818628,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-025"
       },
       "passed": true,
-      "latency_ms": 0.3956000000471249,
+      "latency_ms": 0.20060001406818628,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-025"
     },
@@ -199,11 +199,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.4217999994580168,
+        "latency_ms": 0.20260002929717302,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-026"
       },
       "passed": true,
-      "latency_ms": 0.4217999994580168,
+      "latency_ms": 0.20260002929717302,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-026"
     },
@@ -222,11 +222,11 @@
         "status": "UNKNOWN",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.36410000029718503,
+        "latency_ms": 0.18279999494552612,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-027"
       },
       "passed": true,
-      "latency_ms": 0.36410000029718503,
+      "latency_ms": 0.18279999494552612,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-027"
     },
@@ -245,11 +245,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.44359999810694717,
+        "latency_ms": 0.2558000269345939,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-028"
       },
       "passed": true,
-      "latency_ms": 0.44359999810694717,
+      "latency_ms": 0.2558000269345939,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-028"
     },
@@ -268,11 +268,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.37460000021383166,
+        "latency_ms": 0.20249997032806277,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-029"
       },
       "passed": true,
-      "latency_ms": 0.37460000021383166,
+      "latency_ms": 0.20249997032806277,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-029"
     },
@@ -291,11 +291,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.3778000027523376,
+        "latency_ms": 0.2204999909736216,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-030"
       },
       "passed": true,
-      "latency_ms": 0.3778000027523376,
+      "latency_ms": 0.2204999909736216,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-030"
     },
@@ -314,11 +314,11 @@
         "status": "VIOLATED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.3940999995393213,
+        "latency_ms": 0.19809999503195286,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-031"
       },
       "passed": true,
-      "latency_ms": 0.3940999995393213,
+      "latency_ms": 0.19809999503195286,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-031"
     },
@@ -337,11 +337,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.40219999937107787,
+        "latency_ms": 0.20820001373067498,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-032"
       },
       "passed": true,
-      "latency_ms": 0.40219999937107787,
+      "latency_ms": 0.20820001373067498,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-032"
     },
@@ -360,11 +360,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.3918000002158806,
+        "latency_ms": 0.2052999916486442,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-033"
       },
       "passed": true,
-      "latency_ms": 0.3918000002158806,
+      "latency_ms": 0.2052999916486442,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-033"
     },
@@ -383,11 +383,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.37789999987580813,
+        "latency_ms": 0.18889998318627477,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-034"
       },
       "passed": true,
-      "latency_ms": 0.37789999987580813,
+      "latency_ms": 0.18889998318627477,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-034"
     },
@@ -406,11 +406,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.38979999953880906,
+        "latency_ms": 0.2125999890267849,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-035"
       },
       "passed": true,
-      "latency_ms": 0.38979999953880906,
+      "latency_ms": 0.2125999890267849,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-035"
     },
@@ -429,11 +429,11 @@
         "status": "SATISFIED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.419699998019496,
+        "latency_ms": 0.4524000105448067,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-036"
       },
       "passed": true,
-      "latency_ms": 0.419699998019496,
+      "latency_ms": 0.4524000105448067,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-036"
     },
@@ -452,11 +452,11 @@
         "status": "SATISFIED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.3558000025805086,
+        "latency_ms": 0.3373000072315335,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-037"
       },
       "passed": true,
-      "latency_ms": 0.3558000025805086,
+      "latency_ms": 0.3373000072315335,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-037"
     },
@@ -475,11 +475,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.38109999877633527,
+        "latency_ms": 0.24470000062137842,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-038"
       },
       "passed": true,
-      "latency_ms": 0.38109999877633527,
+      "latency_ms": 0.24470000062137842,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-038"
     },
@@ -498,11 +498,11 @@
         "status": "UNKNOWN",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.3668999997898936,
+        "latency_ms": 0.18839997937902808,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-039"
       },
       "passed": true,
-      "latency_ms": 0.3668999997898936,
+      "latency_ms": 0.18839997937902808,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-039"
     },
@@ -521,11 +521,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.44580000030691735,
+        "latency_ms": 0.43429998913779855,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-040"
       },
       "passed": true,
-      "latency_ms": 0.44580000030691735,
+      "latency_ms": 0.43429998913779855,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-040"
     },
@@ -544,11 +544,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.40099999750964344,
+        "latency_ms": 0.22490002447739244,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-041"
       },
       "passed": true,
-      "latency_ms": 0.40099999750964344,
+      "latency_ms": 0.22490002447739244,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-041"
     },
@@ -567,11 +567,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.37959999826853164,
+        "latency_ms": 0.20970002515241504,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-042"
       },
       "passed": true,
-      "latency_ms": 0.37959999826853164,
+      "latency_ms": 0.20970002515241504,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-042"
     },
@@ -590,11 +590,11 @@
         "status": "VIOLATED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.42519999988144264,
+        "latency_ms": 0.19689998589456081,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-043"
       },
       "passed": true,
-      "latency_ms": 0.42519999988144264,
+      "latency_ms": 0.19689998589456081,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-043"
     },
@@ -613,11 +613,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.3692999998747837,
+        "latency_ms": 0.3986000083386898,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-044"
       },
       "passed": true,
-      "latency_ms": 0.3692999998747837,
+      "latency_ms": 0.3986000083386898,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-044"
     },
@@ -636,11 +636,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.37630000224453397,
+        "latency_ms": 0.22789998911321163,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-045"
       },
       "passed": true,
-      "latency_ms": 0.37630000224453397,
+      "latency_ms": 0.22789998911321163,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-045"
     },
@@ -659,11 +659,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.32640000063111074,
+        "latency_ms": 0.2099000266753137,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-046"
       },
       "passed": true,
-      "latency_ms": 0.32640000063111074,
+      "latency_ms": 0.2099000266753137,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-046"
     },
@@ -682,11 +682,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.31060000037541613,
+        "latency_ms": 0.19859999883919954,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-047"
       },
       "passed": true,
-      "latency_ms": 0.31060000037541613,
+      "latency_ms": 0.19859999883919954,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-047"
     },
@@ -705,11 +705,11 @@
         "status": "SATISFIED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.32130000181496143,
+        "latency_ms": 0.21080003352835774,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-048"
       },
       "passed": true,
-      "latency_ms": 0.32130000181496143,
+      "latency_ms": 0.21080003352835774,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-048"
     },
@@ -728,11 +728,11 @@
         "status": "SATISFIED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.29129999893484637,
+        "latency_ms": 0.179499969817698,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-049"
       },
       "passed": true,
-      "latency_ms": 0.29129999893484637,
+      "latency_ms": 0.179499969817698,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-049"
     },
@@ -751,11 +751,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.30610000248998404,
+        "latency_ms": 0.18579995958134532,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-050"
       },
       "passed": true,
-      "latency_ms": 0.30610000248998404,
+      "latency_ms": 0.18579995958134532,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-050"
     },
@@ -774,11 +774,11 @@
         "status": "UNKNOWN",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.2884999994421378,
+        "latency_ms": 0.17389998538419604,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-051"
       },
       "passed": true,
-      "latency_ms": 0.2884999994421378,
+      "latency_ms": 0.17389998538419604,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-051"
     },
@@ -797,11 +797,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.35850000131176785,
+        "latency_ms": 0.4611000185832381,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-052"
       },
       "passed": true,
-      "latency_ms": 0.35850000131176785,
+      "latency_ms": 0.4611000185832381,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-052"
     },
@@ -820,11 +820,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.31550000130664557,
+        "latency_ms": 0.3294000052846968,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-053"
       },
       "passed": true,
-      "latency_ms": 0.31550000130664557,
+      "latency_ms": 0.3294000052846968,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-053"
     },
@@ -843,11 +843,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.38160000258358195,
+        "latency_ms": 0.20489998860284686,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-054"
       },
       "passed": true,
-      "latency_ms": 0.38160000258358195,
+      "latency_ms": 0.20489998860284686,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-054"
     },
@@ -866,11 +866,11 @@
         "status": "VIOLATED",
         "checks": 7,
         "unknown_honesty": true,
-        "latency_ms": 0.3680000008898787,
+        "latency_ms": 0.19109999993816018,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-055"
       },
       "passed": true,
-      "latency_ms": 0.3680000008898787,
+      "latency_ms": 0.19109999993816018,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-055"
     },
@@ -889,11 +889,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.34640000012586825,
+        "latency_ms": 0.20900001982226968,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-056"
       },
       "passed": true,
-      "latency_ms": 0.34640000012586825,
+      "latency_ms": 0.20900001982226968,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-056"
     },
@@ -912,11 +912,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.33400000029359944,
+        "latency_ms": 0.19839999731630087,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-057"
       },
       "passed": true,
-      "latency_ms": 0.33400000029359944,
+      "latency_ms": 0.19839999731630087,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-057"
     },
@@ -935,11 +935,11 @@
         "status": "UNKNOWN",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.32189999910769984,
+        "latency_ms": 0.18930004443973303,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-058"
       },
       "passed": true,
-      "latency_ms": 0.32189999910769984,
+      "latency_ms": 0.18930004443973303,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-058"
     },
@@ -958,11 +958,11 @@
         "status": "VIOLATED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.32140000257641077,
+        "latency_ms": 0.19180000526830554,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-059"
       },
       "passed": true,
-      "latency_ms": 0.32140000257641077,
+      "latency_ms": 0.19180000526830554,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-059"
     },
@@ -981,11 +981,11 @@
         "status": "SATISFIED",
         "checks": 8,
         "unknown_honesty": true,
-        "latency_ms": 0.3284999984316528,
+        "latency_ms": 0.18849998014047742,
         "reproduce": "python -m scripts.run_local_eval_suite --case verifier-060"
       },
       "passed": true,
-      "latency_ms": 0.3284999984316528,
+      "latency_ms": 0.18849998014047742,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case verifier-060"
     }

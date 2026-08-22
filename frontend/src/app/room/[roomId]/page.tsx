@@ -7,7 +7,7 @@ import { AnimatePresence } from 'framer-motion'
 
 import { useYjsRoom } from '@/hooks/useYjsRoom'
 import { useAIChat } from '@/hooks/useAIChat'
-import { planningFingerprint, useOptimize } from '@/hooks/useOptimize'
+import { useOptimize } from '@/hooks/useOptimize'
 import { useRoomStore } from '@/stores/roomStore'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
@@ -79,7 +79,7 @@ export default function RoomPage() {
     loaded: !!searchParams.get('threadId'),
   })
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
   useEffect(() => {
     if (roomData.loaded) return
@@ -137,7 +137,7 @@ export default function RoomPage() {
   }, [places, messages])
 
   // ── 路线优化 ───────────────────────────────────────────────────────────
-  const { itinerary, isOptimizing, backupPool, criticViolations, verificationReport, optimize } = useOptimize(threadId, roomId)
+  const { itinerary, isOptimizing, backupPool, criticViolations, optimize } = useOptimize(threadId, roomId)
   const [isBackupOpen, setIsBackupOpen] = useState(false)
 
   const { isChatOpen, tripDays: storeDays, setTripDays, setIsChatOpen, setRightTab, setSelectedPlaceId } = useRoomStore()
@@ -209,16 +209,6 @@ export default function RoomPage() {
       trip_days: storeDays || tripDays,
     }).catch(() => {})
   }, [itinerary]) // eslint-disable-line
-
-  // Any relevant collaborative change invalidates the old green report
-  // immediately. Re-validation happens on the next optimize request.
-  useEffect(() => {
-    if (!verificationReport || typeof window === 'undefined') return
-    const snapshot = localStorage.getItem(`planning_snapshot_${roomId}`)
-    if (snapshot && snapshot !== planningFingerprint(places)) {
-      localStorage.setItem(`verification_stale_${roomId}`, 'true')
-    }
-  }, [places, verificationReport, roomId])
 
   // ── 初始化 ─────────────────────────────────────────────────────────────
   useEffect(() => {

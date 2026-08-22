@@ -480,7 +480,8 @@ class TestPlannerGraphV2:
         nodes = list(g.nodes)
         assert "scheduler_v2"    in nodes, "scheduler_v2 节点缺失"
         assert "weather_fetcher" in nodes, "weather_fetcher 节点缺失"
-        assert "critic_v2"       in nodes, "critic_v2 节点缺失"
+        assert "critic_v2" not in nodes, "Critic parity 完成后不应继续作为第二 finding 源"
+        assert "verifier" in nodes, "兼容规划器仍需在持久化前做确定性自检"
 
     def test_graph_v1_scheduler_removed(self):
         """确认旧 scheduler 节点不再在图中（已被 scheduler_v2 替换）"""

@@ -1,8 +1,8 @@
 {
-  "run_id": "5fc85eb7-68f9-44ee-a034-f1da30096f90",
+  "run_id": "c014d5d0-af14-4aa0-8694-d208b1f8322e",
   "kind": "router",
   "split": "blind",
-  "commit_sha": "7ab2fd5efd737ddfdf725b3cd9151118b1a9e14b",
+  "commit_sha": "2238c5304e3c17fae8162cbfca345d2fbdf5f076",
   "dataset_hash": "9a46c1abcfb7d5358ab07f33270f90ed68153f3dd3bf3e6b72d5df71f93cb670",
   "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
   "config_hash": "2ee91edad291d6ff6967bb988268796a5bf967aca878466b5c7f8e84d1fb8538",
@@ -10,7 +10,7 @@
   "prompt_version": "task-parser-v1",
   "environment": "local-controlled-mock-providers",
   "seed": 42,
-  "started_at": "2026-08-15T15:39:19.570718Z",
+  "started_at": "2026-08-20T14:00:12.880632Z",
   "metrics": {
     "pass_rate": {
       "mean": 1.0,
@@ -88,11 +88,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.011899999663000926,
+        "latency_ms": 0.010699965059757233,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-049"
       },
       "passed": true,
-      "latency_ms": 0.011899999663000926,
+      "latency_ms": 0.010699965059757233,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-049"
     },
@@ -115,11 +115,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.004400000761961564,
+        "latency_ms": 0.004200031980872154,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-050"
       },
       "passed": true,
-      "latency_ms": 0.004400000761961564,
+      "latency_ms": 0.004200031980872154,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-050"
     },
@@ -142,11 +142,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0034000004234258085,
+        "latency_ms": 0.0029999646358191967,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-051"
       },
       "passed": true,
-      "latency_ms": 0.0034000004234258085,
+      "latency_ms": 0.0029999646358191967,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-051"
     },
@@ -169,11 +169,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0027999994927085936,
+        "latency_ms": 0.002500019036233425,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-052"
       },
       "passed": true,
-      "latency_ms": 0.0027999994927085936,
+      "latency_ms": 0.002500019036233425,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-052"
     },
@@ -196,11 +196,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0026999987312592566,
+        "latency_ms": 0.0021999585442245007,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-053"
       },
       "passed": true,
-      "latency_ms": 0.0026999987312592566,
+      "latency_ms": 0.0021999585442245007,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-053"
     },
@@ -223,11 +223,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0027999994927085936,
+        "latency_ms": 0.002200016751885414,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-054"
       },
       "passed": true,
-      "latency_ms": 0.0027999994927085936,
+      "latency_ms": 0.002200016751885414,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-054"
     },
@@ -250,11 +250,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0024000000848900527,
+        "latency_ms": 0.0022999593056738377,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-055"
       },
       "passed": true,
-      "latency_ms": 0.0024000000848900527,
+      "latency_ms": 0.0022999593056738377,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-055"
     },
@@ -277,11 +277,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0023000029614195228,
+        "latency_ms": 0.002100015990436077,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-056"
       },
       "passed": true,
-      "latency_ms": 0.0023000029614195228,
+      "latency_ms": 0.002100015990436077,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-056"
     },
@@ -304,11 +304,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0023000029614195228,
+        "latency_ms": 0.002100015990436077,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-057"
       },
       "passed": true,
-      "latency_ms": 0.0023000029614195228,
+      "latency_ms": 0.002100015990436077,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-057"
     },
@@ -331,11 +331,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0026999987312592566,
+        "latency_ms": 0.002100015990436077,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-058"
       },
       "passed": true,
-      "latency_ms": 0.0026999987312592566,
+      "latency_ms": 0.002100015990436077,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-058"
     },
@@ -358,11 +358,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0024000000848900527,
+        "latency_ms": 0.00200001522898674,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-059"
       },
       "passed": true,
-      "latency_ms": 0.0024000000848900527,
+      "latency_ms": 0.00200001522898674,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-059"
     },
@@ -385,11 +385,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0021000014385208488,
+        "latency_ms": 0.0019999570213258266,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-060"
       },
       "passed": true,
-      "latency_ms": 0.0021000014385208488,
+      "latency_ms": 0.0019999570213258266,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-060"
     },
@@ -412,11 +412,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0021999985619913787,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-061"
       },
       "passed": true,
-      "latency_ms": 0.0021999985619913787,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-061"
     },
@@ -439,11 +439,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0019999970390927047,
+        "latency_ms": 0.0018999562598764896,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-062"
       },
       "passed": true,
-      "latency_ms": 0.0019999970390927047,
+      "latency_ms": 0.0018999562598764896,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-062"
     },
@@ -466,11 +466,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0022000021999701858,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-063"
       },
       "passed": true,
-      "latency_ms": 0.0022000021999701858,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-063"
     },
@@ -493,11 +493,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0023000029614195228,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-064"
       },
       "passed": true,
-      "latency_ms": 0.0023000029614195228,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-064"
     },
@@ -520,11 +520,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0021999985619913787,
+        "latency_ms": 0.0017999554984271526,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-065"
       },
       "passed": true,
-      "latency_ms": 0.0021999985619913787,
+      "latency_ms": 0.0017999554984271526,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-065"
     },
@@ -547,11 +547,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0021999985619913787,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-066"
       },
       "passed": true,
-      "latency_ms": 0.0021999985619913787,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-066"
     },
@@ -574,11 +574,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0025000008463393897,
+        "latency_ms": 0.0019999570213258266,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-067"
       },
       "passed": true,
-      "latency_ms": 0.0025000008463393897,
+      "latency_ms": 0.0019999570213258266,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-067"
     },
@@ -601,11 +601,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.004500001523410901,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-068"
       },
       "passed": true,
-      "latency_ms": 0.004500001523410901,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-068"
     },
@@ -628,11 +628,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.005900001269765198,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-069"
       },
       "passed": true,
-      "latency_ms": 0.005900001269765198,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-069"
     },
@@ -655,11 +655,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0032999996619764715,
+        "latency_ms": 0.0016999547369778156,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-070"
       },
       "passed": true,
-      "latency_ms": 0.0032999996619764715,
+      "latency_ms": 0.0016999547369778156,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-070"
     },
@@ -682,11 +682,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0029000002541579306,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-071"
       },
       "passed": true,
-      "latency_ms": 0.0029000002541579306,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-071"
     },
@@ -709,11 +709,11 @@
           "search_places",
           "search_travel_notes"
         ],
-        "latency_ms": 0.0027999994927085936,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-072"
       },
       "passed": true,
-      "latency_ms": 0.0027999994927085936,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-072"
     },
@@ -734,11 +734,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.005800000508315861,
+        "latency_ms": 0.003600027412176132,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-073"
       },
       "passed": true,
-      "latency_ms": 0.005800000508315861,
+      "latency_ms": 0.003600027412176132,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-073"
     },
@@ -759,11 +759,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0034000004234258085,
+        "latency_ms": 0.0021999585442245007,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-074"
       },
       "passed": true,
-      "latency_ms": 0.0034000004234258085,
+      "latency_ms": 0.0021999585442245007,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-074"
     },
@@ -784,11 +784,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0030999981390777975,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-075"
       },
       "passed": true,
-      "latency_ms": 0.0030999981390777975,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-075"
     },
@@ -809,11 +809,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.00419999923906289,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-076"
       },
       "passed": true,
-      "latency_ms": 0.00419999923906289,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-076"
     },
@@ -834,11 +834,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0029000002541579306,
+        "latency_ms": 0.0018999562598764896,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-077"
       },
       "passed": true,
-      "latency_ms": 0.0029000002541579306,
+      "latency_ms": 0.0018999562598764896,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-077"
     },
@@ -859,11 +859,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0036000019463244826,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-078"
       },
       "passed": true,
-      "latency_ms": 0.0036000019463244826,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-078"
     },
@@ -884,11 +884,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0035999983083456755,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-079"
       },
       "passed": true,
-      "latency_ms": 0.0035999983083456755,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-079"
     },
@@ -909,11 +909,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0018999999156221747,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-080"
       },
       "passed": true,
-      "latency_ms": 0.0018999999156221747,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-080"
     },
@@ -934,11 +934,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0021000014385208488,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-081"
       },
       "passed": true,
-      "latency_ms": 0.0021000014385208488,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-081"
     },
@@ -959,11 +959,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0017999991541728377,
+        "latency_ms": 0.0018999562598764896,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-082"
       },
       "passed": true,
-      "latency_ms": 0.0017999991541728377,
+      "latency_ms": 0.0018999562598764896,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-082"
     },
@@ -984,11 +984,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0023000029614195228,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-083"
       },
       "passed": true,
-      "latency_ms": 0.0023000029614195228,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-083"
     },
@@ -1009,11 +1009,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0020000006770715117,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-084"
       },
       "passed": true,
-      "latency_ms": 0.0020000006770715117,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-084"
     },
@@ -1034,11 +1034,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0021000014385208488,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-085"
       },
       "passed": true,
-      "latency_ms": 0.0021000014385208488,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-085"
     },
@@ -1059,11 +1059,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0018999999156221747,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-086"
       },
       "passed": true,
-      "latency_ms": 0.0018999999156221747,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-086"
     },
@@ -1084,11 +1084,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0022000021999701858,
+        "latency_ms": 0.0018999562598764896,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-087"
       },
       "passed": true,
-      "latency_ms": 0.0022000021999701858,
+      "latency_ms": 0.0018999562598764896,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-087"
     },
@@ -1109,11 +1109,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0020000006770715117,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-088"
       },
       "passed": true,
-      "latency_ms": 0.0020000006770715117,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-088"
     },
@@ -1134,11 +1134,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0021000014385208488,
+        "latency_ms": 0.002100015990436077,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-089"
       },
       "passed": true,
-      "latency_ms": 0.0021000014385208488,
+      "latency_ms": 0.002100015990436077,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-089"
     },
@@ -1159,11 +1159,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0021000014385208488,
+        "latency_ms": 0.0018999562598764896,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-090"
       },
       "passed": true,
-      "latency_ms": 0.0021000014385208488,
+      "latency_ms": 0.0018999562598764896,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-090"
     },
@@ -1184,11 +1184,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0020000006770715117,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-091"
       },
       "passed": true,
-      "latency_ms": 0.0020000006770715117,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-091"
     },
@@ -1209,11 +1209,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0020999978005420417,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-092"
       },
       "passed": true,
-      "latency_ms": 0.0020999978005420417,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-092"
     },
@@ -1234,11 +1234,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0018999999156221747,
+        "latency_ms": 0.0017999554984271526,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-093"
       },
       "passed": true,
-      "latency_ms": 0.0018999999156221747,
+      "latency_ms": 0.0017999554984271526,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-093"
     },
@@ -1259,11 +1259,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0019999970390927047,
+        "latency_ms": 0.001800013706088066,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-094"
       },
       "passed": true,
-      "latency_ms": 0.0019999970390927047,
+      "latency_ms": 0.001800013706088066,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-094"
     },
@@ -1284,11 +1284,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0020000006770715117,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-095"
       },
       "passed": true,
-      "latency_ms": 0.0020000006770715117,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-095"
     },
@@ -1309,11 +1309,11 @@
         "tool_set": [
           "get_weather"
         ],
-        "latency_ms": 0.0017999991541728377,
+        "latency_ms": 0.001900014467537403,
         "reproduce": "python -m scripts.run_local_eval_suite --case router-096"
       },
       "passed": true,
-      "latency_ms": 0.0017999991541728377,
+      "latency_ms": 0.001900014467537403,
       "error_category": null,
       "reproduce": "python -m scripts.run_local_eval_suite --case router-096"
     }

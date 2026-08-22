@@ -89,7 +89,7 @@ export function useYjsRoom(
       setMembers(onlineMembers)
     }
     const connect = async () => {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || ''
       const authToken = localStorage.getItem('authToken')
       if (!authToken) return
       const response = await fetch(`${apiBase}/api/room/${encodeURIComponent(roomId)}/ws-token`, {

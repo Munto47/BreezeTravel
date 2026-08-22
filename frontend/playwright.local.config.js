@@ -2,7 +2,7 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './e2e',
-  testMatch: 'local-controlled.spec.js',
+  testMatch: ['local-controlled.spec.js', 'template-entry.spec.js', 'import-fixture-entry.spec.js'],
   timeout: 30_000,
   fullyParallel: false,
   retries: 0,

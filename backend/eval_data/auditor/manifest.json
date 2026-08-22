@@ -1,0 +1,19 @@
+{
+  "schema_version": "auditor-human-v1",
+  "status": "awaiting_human_collection",
+  "scope": {
+    "cities": ["北京", "上海", "杭州"],
+    "trip_days": {"min": 2, "max": 5},
+    "group_size": {"min": 2, "max": 5}
+  },
+  "required_real_itineraries_for_p0": 10,
+  "required_real_itineraries_for_m1": 30,
+  "required_real_organizers_for_m1": {"min": 15, "max": 20},
+  "collected_real_itineraries": 0,
+  "human_labeled_itineraries": 0,
+  "real_organizers": 0,
+  "case_schema": "case.schema.json",
+  "prediction_schema": "prediction.schema.json",
+  "cases": [],
+  "evidence_boundary": "Only a real organizer may add source text and human findings. Synthetic, model-generated, Judge, or agent labels must not increment human counts."
+}

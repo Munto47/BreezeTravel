@@ -95,6 +95,10 @@ class TestFixtureStructure:
         names = [p["name"] for p in chengdu]
         assert any("熊猫" in n for n in names), f"成都 fixture 缺少熊猫基地，当前地点：{names}"
 
+    def test_beijing_has_jingshan_for_controlled_text_import(self):
+        names = [place["name"] for place in load_fixture()["北京"]]
+        assert "景山公园" in names
+
     def test_place_ids_unique(self):
         """所有地点 place_id 必须唯一"""
         data = load_fixture()

@@ -99,3 +99,12 @@ backend/results/*
 !backend/results/three_city_daily_query_agent_judge_rc1_v22_round2_raw.json
 !backend/results/three_city_daily_query_agent_judge_rc1_v22_round3_raw.json
 !backend/results/three_city_daily_query_agent_judge_panel_rc1_v22.json
+
+# M1-dev proxy calibration delivery evidence.  These are small, redacted
+# synthetic_proxy role outputs and the derived gate report, not human data.
+!backend/results/auditor_simulated/
+backend/results/auditor_simulated/*
+!backend/results/auditor_simulated/proxy_role_1.json
+!backend/results/auditor_simulated/proxy_role_2.json
+!backend/results/auditor_simulated/proxy_role_3.json
+!backend/results/auditor_simulated/m1_dev_proxy_gate.json
