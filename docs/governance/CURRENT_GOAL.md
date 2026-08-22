@@ -1,98 +1,125 @@
-# CURRENT GOAL：P0-G02 纵向 Program 指导与合同重构
+# CURRENT GOAL：P1-G01 文本纵向闭环
 
 ## Metadata
 
-- Goal ID：`TC-P0-G02`
+- Goal ID：`TC-P1-G01-text-vertical-slice`
 - Program ID：`TC-V1-INTERVIEW-2026`
-- Phase：`P0`
-- Status：`COMPLETED`
-- Branch：`codex/trip-check-p0-vertical-program`
-- Baseline commit：`d0f786744f0f011c2e8bbca7bdf8ffc5037f7558`
+- Phase：`P1`
+- Status：`IN_PROGRESS`
+- Branch：`codex/trip-check-p1-text-vertical-slice`
+- Baseline commit：`8cafa26d6b972faa54b1fc10f375eab4a32c6383`
 - Approved by / at：用户批准完整实施方案 / 2026-08-22
-- Predecessor gate：`TC-P0-G01 COMPLETED`
+- Predecessor gate：`TC-P0-G02 PASS`
 
 ## Outcome
 
-仓库形成一套可直接驱动 P1～P6 和 H1 的面试优先 Program：第 6 周前交付文本纵向闭环，pilot 从首个切片开始，架构/API/数据/Gate/自动推进均无需实现者临场决定。
+用受控 fixture 交付第一条真实可操作的文本纵向闭环，并证明在 Evidence 阶段终止进程后可以恢复且不重复 Provider 副作用或 revision：
+
+```text
+文本 Import → TripBrief 确认 → 歧义 POI 确认
+→ EvidenceSnapshot → 事实/路线冲突 → Advice
+→ Repair 预览/采纳 → 新 Revision → 完整 postcheck
+```
 
 ## Scope
 
-- 重写仓库指导、架构、产品规格、Roadmap、Release Gates 和 Goal 模板；
-- 新增 Portfolio Mission、Program、模块化单体 ADR 和固定 API 合同；
-- 归档已完成 Goal 和漂移的 Evaluation/Evidence/Reliability 说明；
-- 更新 README、文档索引与能力状态口径；
-- 仅修改文档，不实现 API、schema、migration、依赖或运行代码。
+- 按 API 合同实现 `TripBriefRevision`、字段来源、确认状态和必要的 `TripCheckRun/RunSpec/AdviceBundle` 最小纵向字段；
+- 追加且只追加 migration `022`～`024`，不修改历史 migration；
+- 保留现有文本 Import，并接通 Brief 读取、条件更新、确认、Run 创建/读取/恢复、SSE 和 Advice 读取；
+- 所有写操作实现稳定 `Idempotency-Key`，revision 更新实现 `If-Match`、`409` 与 `428`；
+- 复用现有 EvidenceSnapshot、AuditEngine、Repair/EditCommand，不创建第二套编辑协议；
+- 支持一例歧义 POI、一个确定性事实或路线冲突、Advice、采纳后新 revision 和完整 postcheck；
+- 建立北京、上海、杭州各 6 条，共 18 条可执行 pilot；缺陷修复同步进入 regression；
+- 浏览器覆盖三城各至少一条文本主链；加入 Evidence 后进程终止/恢复测试。
 
 ## Non-goals
 
-- 不实现 TripBriefRevision、TripCheckRun、OCR、Advice 或 OR-Tools；
-- 不执行 migration、真实 Provider、公网部署或真人测试；
-- 不改变三城、2～5 人、2～5 天单城市范围；
-- 不晋级任何 evidence。
+- OCR 与截图 Import 只允许隔离技术验证，不进入本 Goal 主链；
+- 不接真实高德、天气、Brave 或付费模型；Provider 只用受控 fixture；
+- 不引入 OpenTelemetry、OR-Tools、Redis 权威状态、新 Agent 或新基础设施；
+- 不扩城、不跨城，不主动修改 Builder、Planner、RAG、LoRA 或 Yjs；
+- 不晋级 live/public/user evidence，不部署公网或招募真人。
 
 ## Authority
 
-`AGENTS.md`、`../product/PROJECT_CHARTER.md`、`../product/TRIP_CHECK_SPEC.md`、`PORTFOLIO_MISSION.md`、`PROGRAM.md`、本文件及本 Goal 新增的 ADR/API 合同。
+`AGENTS.md`、`../product/PROJECT_CHARTER.md`、`../product/TRIP_CHECK_SPEC.md`、`../product/TRIP_CHECK_API_CONTRACT.md`、`PROGRAM.md`、`RELEASE_GATES.md`、ADR-005 与本 Goal。
 
-## Baseline
+## API and schema contract
 
-- 工作树开始时 clean；
-- 当前分支从 `d0f7867` 创建；
-- P0 基线：1227 passed、25 skipped、Ruff PASS、frontend build PASS；
-- V1 G2～G6、live Provider、公网与真人证据仍为 `NOT_RUN`。
+- API version：`trip-check-api-v1`；
+- schema additions：`022_trip_brief_revisions.sql`、`023_trip_check_runs.sql`、`024_advice_bundles.sql`；
+- compatibility：现有 Import、revision、evidence、repair 与 suggestion 读取能力保持兼容；
+- stable errors：`PRECONDITION_REQUIRED`、`REVISION_CONFLICT`、`IDEMPOTENCY_CONFLICT`、`RUN_CONFIG_MISMATCH`；
+- dataset increment：`18 pilot = 北京 6 + 上海 6 + 杭州 6`；
+- fault profile：`terminate_after_evidence`、`duplicate_submit`、`concurrent_revision`；
+- evidence path：`backend/evidence/trip_check_v1/p1/`。
 
 ## Invariants
 
-- 旧 migration、revision、evidence 和运行代码不修改；
-- `UNKNOWN/UNAVAILABLE`、revision、postcheck、CandidateSet、隐私和证据等级边界不降低；
-- 历史资料可追溯但不重新成为权威；
-- 文档改写不能让 release manifest 晋级。
+- PostgreSQL/持久仓储是权威状态；进程内状态和 SSE 连接不是事实来源；
+- Checkpoint 只表示阶段可恢复，不替代副作用幂等键、事务和 receipt；
+- `UNKNOWN/UNAVAILABLE` 不得转成 PASS；Provider 局部失败保留成功事实；
+- 任何有语义的采纳创建新 revision，旧报告 stale，完整 postcheck 后才能显示解决；
+- 候选地点来自冻结 CandidateSet 并绑定 receipt；模型文本不得变成已验证事实；
+- P1 不处理原始截图，日志和测试 artifact 不得包含密钥或未脱敏真实用户文本。
 
 ## Acceptance cases
 
-- 权威文件不存在互相冲突的主链、阶段顺序或完成状态；
-- API 合同固定路径、前置条件、错误码和兼容边界；
-- Roadmap 在第 6 周前产生文本闭环，18 pilot 从 P1 开始；
-- Gate 定义 D1、可靠性、Solver、Evaluation、Candidate 和 H1；
-- 当前 Goal 完成后能按 Program 生成 P1 Goal。
+- 北京、上海、杭州各一条浏览器文本主链完整通过；
+- 18 条 pilot 全部可执行，城市分布严格为 6/6/6；
+- 错误 POI 自动接受数为 0；
+- Repair 后新增 `HIGH/UNKNOWN` 数为 0；
+- Evidence 后终止再恢复，Run、Evidence、Provider receipt 和 revision 数量一致且无重复副作用；
+- 重复写请求返回同一业务结果；不同 payload 复用同一幂等键稳定失败；
+- stale `If-Match` 返回 409，缺少前置条件返回 428；
+- P0 离线回归、Ruff 和前端 build 不退化；
+- 形成绑定 commit/config/dataset 的 D1 artifact 和 90 秒演示脚本。
 
 ## Verification
 
-- Markdown 链接与旧权威引用审计；
-- `git diff --check`、敏感信息扫描、显式 staged diff；
-- 后端离线测试/Ruff、前端 build；
-- PostgreSQL、snapshot、live Provider、浏览器、manifest 与真人层级保持 `NOT_RUN`。
+- 新模型、仓储、API、Audit/Repair/postcheck 的定向单元与集成测试；
+- migration append-only/顺序检查和 PostgreSQL 持久恢复测试；
+- 18 pilot schema、分布、oracle 与执行结果验证；
+- 三城浏览器 E2E；
+- `terminate_after_evidence`、重复提交、并发编辑故障测试；
+- `python -m pytest tests/ -q`；
+- `python -m ruff check app evals scripts tests`；
+- `npm run build`；
+- `python backend/scripts/validate_dual_entry_testset.py` 继续只作旧资产结构回归，不作为 D1 放行。
 
 ## Budget
 
-- 外部 API/模型：0；
-- migration/生产依赖：0；
-- 每个文档切片验证后 commit/push，最长 60 分钟形成 checkpoint。
+- 外部 Provider/模型成本：0；
+- 仅使用受控 fixture 和本地 PostgreSQL；
+- 新增依赖：0；
+- 每个可验证功能切片立即 commit/push，最长 60 分钟形成远端 checkpoint。
 
 ## Pre-approved actions
 
-- Program 内文档新增、归档与权威迁移；
-- Gate 通过后创建 `TC-P1-G01-text-vertical-slice`。
+- 实现 migration `022`～`024` 和固定 API/schema；
+- 在本分支运行离线、fixture、PostgreSQL 和本地浏览器测试；
+- D1 通过后 fast-forward 到 `codex/trip-check-v1-program` 并生成 P2 Goal。
 
 ## HITL
 
-本 Goal 无额外 HITL。P1 的 migration/API 实现受 `PROGRAM.md` 预批准约束；公网、live paid Provider 和真人仍需现场批准。
+本 Goal 无额外 HITL。真实/付费 Provider、公网部署、真人招募、降低 Gate、修改 blind/oracle、合并 `main` 仍需现场批准。
 
 ## Stop conditions
 
-发现文档合同与现有不可变领域主干无法兼容、需要修改运行代码/历史 migration、证据矛盾或必须降低 Gate 时停止。
+- 需要修改历史 migration、公共合同或 Program 固定范围；
+- 连续两个实现切片不能改善 D1 同一门禁；
+- 需要新增未批准依赖/基础设施、修改 blind/oracle 或使用真实付费 Provider；
+- Evidence 矛盾、隐私事故、成本超预算，或必须降低 Gate 才能通过。
 
 ## Auto-advance
 
-完成并远端保存后，归档本 Goal，生成 P1 Goal；不得自动合并 `main`。
+D1 全部 PASS、工作树干净、commit 已推送、evidence 可回读且无 Stop condition 后，归档本 Goal 并生成 P2；不得自动合并 `main`。
 
 ## Completion record
 
-- Commits：`40530ce`、`fc5beff`、`4fb16d8`；
-- Remote branch：`origin/codex/trip-check-p0-vertical-program`，upstream 已确认；
-- Verification results：权威 Markdown 链接审计 PASS；冲突术语扫描 PASS；文档常见凭据模式扫描 PASS；`git diff --check` PASS；后端 `1227 passed, 25 skipped, 38 warnings`；Ruff PASS；frontend build PASS；旧双入口数据合同 `structurally_valid=true`、`release_ready=false`；
-- `NOT_RUN`：PostgreSQL Gate、V1 snapshot、live Provider、浏览器恢复/性能、V1 release manifest、公网与真人；
-- Evidence paths：本 Goal、`PROGRAM.md`、`RELEASE_GATES.md`、`docs/EVIDENCE.md` 和三个远端 checkpoint；
-- Next Goal：`TC-P1-G01-text-vertical-slice`；
-- Next Goal generation：P0 完成提交并推送后在独立 P1 分支生成；
-- Promotion decision：`AUTO_ADVANCE_ELIGIBLE`，仅推进到 Program 集成分支与 P1 开发分支，不合并 `main`。
+- Commits：待填写；
+- Remote branch：待填写；
+- Verification results：待填写；
+- Evidence paths：待填写；
+- Next Goal：`TC-P2-G01-reliable-run-and-trace`；
+- Promotion decision：`PENDING`。
