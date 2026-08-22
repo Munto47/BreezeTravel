@@ -4,7 +4,7 @@
 
 - Goal ID：`TC-P0-G01`
 - Phase：`P0`
-- Status：`APPROVED`
+- Status：`COMPLETED`
 - Branch：`codex/trip-check-p0-guidance`
 - Baseline commit：`85e1670ce0d85656be09311285bb9472af28517a`
 - Approved by / at：用户在当前任务批准 / 2026-08-22
@@ -72,6 +72,10 @@
 
 ## Completion record
 
-- Commits：待完成后填写；
-- Verification：待 `docs/governance/BASELINE_2026-08-22.md`；
-- Promotion decision：`NOT_REQUESTED`。
+- `e3511c8`：建立「行程查」产品权威、归档 Final 2.0；
+- `4224f77`：建立 Roadmap、Release Gates 与 Goal 合同；
+- `085f8d5`：README 对齐单入口与证据边界；
+- `3d905d3`：release manifest 绑定新权威并保持 baseline-only/REJECT；
+- Verification：见 `BASELINE_2026-08-22.md`；
+- Remaining red lights：V1 实现、360 数据集、G1～G6 候选复跑、Judge 和真人内测均未开始；
+- Promotion decision：`NOT_REQUESTED`。P1 必须由用户另行批准并建立新 Goal。
