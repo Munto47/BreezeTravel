@@ -5,7 +5,7 @@
 - Goal ID：`TC-P0-G02`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P0`
-- Status：`IN_PROGRESS`
+- Status：`COMPLETED`
 - Branch：`codex/trip-check-p0-vertical-program`
 - Baseline commit：`d0f786744f0f011c2e8bbca7bdf8ffc5037f7558`
 - Approved by / at：用户批准完整实施方案 / 2026-08-22
@@ -88,9 +88,11 @@
 
 ## Completion record
 
-- Commits：待填写；
-- Remote branch：待填写；
-- Verification results：待填写；
-- Evidence paths：待填写；
+- Commits：`40530ce`、`fc5beff`、`4fb16d8`；
+- Remote branch：`origin/codex/trip-check-p0-vertical-program`，upstream 已确认；
+- Verification results：权威 Markdown 链接审计 PASS；冲突术语扫描 PASS；文档常见凭据模式扫描 PASS；`git diff --check` PASS；后端 `1227 passed, 25 skipped, 38 warnings`；Ruff PASS；frontend build PASS；旧双入口数据合同 `structurally_valid=true`、`release_ready=false`；
+- `NOT_RUN`：PostgreSQL Gate、V1 snapshot、live Provider、浏览器恢复/性能、V1 release manifest、公网与真人；
+- Evidence paths：本 Goal、`PROGRAM.md`、`RELEASE_GATES.md`、`docs/EVIDENCE.md` 和三个远端 checkpoint；
 - Next Goal：`TC-P1-G01-text-vertical-slice`；
-- Promotion decision：`NOT_REQUESTED`。
+- Next Goal generation：P0 完成提交并推送后在独立 P1 分支生成；
+- Promotion decision：`AUTO_ADVANCE_ELIGIBLE`，仅推进到 Program 集成分支与 P1 开发分支，不合并 `main`。
