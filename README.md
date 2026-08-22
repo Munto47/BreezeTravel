@@ -1,301 +1,109 @@
-# BreezeTravel — AI 智能旅行协同规划系统
+# BreezeTravel「行程查」
 
-> 多人实时协同 × 智能体编排 × 可引用 RAG × 自动路径规划
+BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上海或杭州的 2～5 天单城市行程，发现地点、时间、交通、住宿、偏好、强度、天气和风险问题，并给出可执行调整或有真实依据的备选地点。
 
-BreezeTravel 是一款帮助小团体共同规划出游的产品：多人在同一房间实时投票、备注、调整地点，AI 助手基于游记知识库和实时 POI 数据给出推荐，并自动按天聚类排好路线、挂载酒店、注入贴心提示，让出行规划从"群里发链接互相吵"变成"一个画板上即时看见结果"。
-
----
-
-## 核心特性
-
-| 技术方向 | 实现内容 |
-|----------|---------|
-| **Advanced RAG** | 混合检索（BM25 + pgvector RRF 融合）+ Cross-Encoder Re-ranking + HyDE 查询扩展 + RAGAS 评估脚手架（Faithfulness/Relevancy/Recall 三项指标，入库后可一键执行） |
-| **可解释引用** | 检索结果将来源、摘录、许可边界与分数通过 SSE 推送到前端；公开资料和演示语料明确区分 |
-| **ReAct + Critic** | LangGraph 有状态图 + LLM native tool calling + Think→Act→Observe 循环 + **Critic 反思节点**（规则驱动质量检查，低质结果触发重检索） |
-| **任务完成验证** | TripTaskSpec 约束契约 + SATISFIED/VIOLATED/UNKNOWN 三态 Verifier + 最多两轮定向修复 + 快照失效 UI |
-| **Memory 系统** | Working Memory + 带来源/置信度/TTL/纠错/删除/退出机制的 Long-term Memory |
-| **安全协同** | HTTP 房间成员授权 + Yjs 房间绑定 JWT + Prompt Injection 信号 + 日志脱敏 |
-| **可靠运行时** | 请求 deadline/取消 + 工具预算/重试/熔断/并发隔离 + Redis 原子限流 + 双实例 Checkpoint |
-| **MCP Server** | 三个核心工具（地点搜索/游记检索/天气查询）暴露为标准 **MCP Server**，可被 Claude Desktop / Cursor 直接调用 |
-| **可观测性** | LangSmith 全链路追踪（节点耗时/Token 消耗/工具调用频次）+ /metrics 端点 + 本地显式验证脚本 |
-| **LoRA 微调** | Qwen2.5-1.5B 意图分类历史训练已完成并留有 91% 评测；当前 RC1 默认不启用，需在目标环境重新验证后才能作为当前发布指标 |
-| **实时协同** | Yjs CRDT 无锁同步，多标签页 500ms 内完成投票/备注/状态同步 |
-| **路径优化** | K-Means 宏观聚类分天 + 高德真实驾车距离矩阵（Redis 缓存 TTL 24h）+ 最近邻 TSP 微观排序 |
-
----
-
-## 系统架构
-
-```
-浏览器
-  ├── Next.js 15 (App Router) + Tailwind CSS + Framer Motion
-  ├── Zustand (本地 UI 状态) + Yjs + y-websocket (多人协同 CRDT)
-  └── 高德地图 JS SDK 2.0 (地图渲染 + Driving 路线可视化)
-       │
-       ├── HTTP/SSE ──→ FastAPI 后端 (:8000)
-       │                    ├── LangGraph ReAct Agent
-       │                    │     Router (Tool Calling) → AmapSearch / RAGRetrieval → Synthesizer
-       │                    ├── Advanced RAG Pipeline
-       │                    │     HyDE扩展 → 混合检索(BM25+pgvector) → bge-reranker精排
-       │                    ├── Memory Layer
-       │                    │     Working Memory + Long-term Preferences (pgvector)
-       │                    │     PostgreSQL Checkpointing (会话历史)
-       │                    └── scikit-learn KMeans + TSP (排线算法)
-       │
-       ├── WebSocket ──→ y-websocket (:1234)  Yjs 实时协同
-       │
-       └── ──→ PostgreSQL 16 + pgvector (:5432)  向量数据库
-                Redis 7 (:6379)  距离矩阵缓存 TTL 24h
+```text
+文本/截图 → OCR/结构解析 → TripBrief 确认 → 地点消歧
+→ 事实采集与核验 → 风险与 Advice → 采纳
+→ 新 Revision → 完整 postcheck
 ```
 
-### LangGraph 工作流
+## 当前状态
 
-```
-用户消息
-  └── Router（ReAct：Think → Tool Select → Act → Observe）
-        └── tool_executor（并发执行工具调用，最多循环 3 次）
-              ├── search_places       → 高德 POI 搜索
-              ├── search_travel_notes → RAG 混合检索 + 重排序
-              └── get_weather         → 和风天气 API
-                    ↓（无 tool_calls 或达到上限）
-              Synthesizer（DeepSeek 合并数据，生成推荐）
-                    ↓
-              Critic（推荐质量反思）
-                    ↓
-              Planner（聚类→距离→排序→排期→Tips）
-                    ↓
-              Verifier（三态规则报告）
-                    ├── VIOLATED → 定向修复（最多 2 轮）→ 重新验证
-                    └── SATISFIED / UNKNOWN → 返回报告和快照哈希
-```
+项目正在执行 P0「指导文件与基线」。现有代码已经包含文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand、PostgreSQL 恢复等可复用底座，但不等于「行程查 V1」已经完成。
 
-### RAG Pipeline
+以下是冻结的历史技术资产，不再作为产品愿景或无条件完成声明：
 
-```
-Query ──→ HyDE（DeepSeek 生成假设文档） ──→ Embedding
-                  ↓                              ↓
-         BM25 (tsvector)              pgvector 余弦检索
-                  └──────── RRF 融合 (top-20) ──────┘
-                                    ↓
-                    bge-reranker-v2-m3 精排（本地推理）
-                                    ↓
-                              top-5 → Synthesizer
-```
+- LangGraph/ReAct/Critic 与多 Agent Planner；
+- BM25 + pgvector + reranker + HyDE 的 RAG；
+- Qwen LoRA Router；
+- Yjs 多人协同与路线 Builder；
+- K-Means/TSP 路线优化、MCP 和旧评测/发布证据。
 
----
+它们只保留最低回归；当前禁止扩城、跨城、新增 Agent、MQ、Kubernetes、GraphRAG、重新微调或主动建设拖拽 Builder。
 
-## 评测与证据
+## 权威文档
 
-所有公开数字必须能回读到版本化结果，不能把演示或合成语料的结果写成生产效果。
+开发前依次读取：
 
-当前提交状态为 **three-city local RC1 candidate（三城本地可靠性强化候选版）**。专项开发与质量声明只覆盖**北京、上海、杭州**，固定数据集为每城 50 条、共 150 条。系统保留通用城市输入能力，但其他城市不属于本次验收范围，也不会据此扩展城市数据或质量结论。
+1. [AGENTS.md](AGENTS.md)
+2. [产品章程](docs/product/PROJECT_CHARTER.md)
+3. [V1 行为规格](docs/product/TRIP_CHECK_SPEC.md)
+4. [当前唯一 Goal](docs/governance/CURRENT_GOAL.md) 与 [24 周 Roadmap](docs/governance/ROADMAP.md)
+5. [Release Gates](docs/governance/RELEASE_GATES.md)
+6. [能力与证据状态](docs/dual-entry/capability-status.md)
 
-- 运行中可读取的脱敏摘要：`GET /api/evidence/latest`。
-- 受控本地固定评测当前重跑为 **348/348**：Router 96/96、任务解析 72/72、Verifier 120/120、端到端 60/60；原始 case、split、hash 和置信区间位于 `backend/evidence/local_eval/`。
-- 故障注入 **24/24**；双实例验证覆盖两个独立进程、跨实例 Checkpoint 和 Redis 3/6 原子限流，均有 JSON 报告可回读。
-- `rc1_v22` 三次冻结重放均为 150/150、规范化哈希一致，生成、高德和 Judge API 调用均为 0；缺品类 2/150（1.33%，显式安全降级），错误品类为 0。
-- 3 个独立 GPT-5.6-sol 子 Agent 盲评分别为 146/150、145/150、142/150；多数票 146/150，完全一致率 95.33%。一致性门禁通过，但第三轮 `all` 仅 5/9，故**质量总门禁未通过**。
-- 模型盲评不写入人工字段；**真人校准未执行**，不得描述为 Judge-human agreement。v22 后加入的低转场核心组合和空间去重属于后续加固，未重新进行 150 条全量评测。
-- 当前提交的是**历史基线，等待以公开资料重跑**：Router 固定离线集 50 条准确率 0.88，`both` 类 0.60；历史 RAG 27 条 Context Recall 0.6944；排线 50 次 P95 2221ms。
-- 指标范围、原始文件、已知缺口和重跑门槛见 [评测说明](docs/EVALUATION.md) 与 [证据报告](docs/EVIDENCE.md)。架构、安全、可靠性和复现边界分别见 `docs/ARCHITECTURE.md`、`docs/SECURITY.md`、`docs/RELIABILITY.md`、`docs/REPRODUCE.md`。
-- 深度优化方案与面试复习资料统一收在 `docs/`，避免在仓库根目录混放设计文档和运行产物。
+旧双入口 Final 2.0 已移入 [历史方案目录](docs/archive/plans/)，仅供追溯。
 
-这意味着：现有数字可作为可靠性工程和改进基线，**不能宣称为完整 RC1、公开真实语料、公网环境或真实用户效果**。
+## 本地启动
 
----
+准备环境文件：
 
-## 快速开始（3 分钟跑起来）
-
-### 方式一：Docker 一键启动（推荐）
-
-```bash
-git clone https://github.com/Munto47/BreezeTravel.git breezetravel
-cd breezetravel
-
-cp .env.example .env
-cp frontend/.env.local.example frontend/.env.local
-
-# 启动所有后端服务（postgres + redis + y-websocket + backend）
-docker-compose up -d --build
-
-# 启动前端
-cd frontend && npm install && npm run dev
+```powershell
+Copy-Item .env.example .env
+Copy-Item frontend/.env.local.example frontend/.env.local
 ```
 
-打开 **http://localhost:3000** 即可使用。
+启动 PostgreSQL、Redis、y-websocket 和后端：
 
-> **零 API Key 体验**：保持 `AMAP_MOCK=true`（默认）+ `DEMO_MODE=true`，无需任何 Key 即可完整体验。
-
-`breezetravel.cn` 当前只能确认前端页面可访问，认证 API 与 evidence 接口尚未通过公网验收；因此不作为“已上线 Demo”宣称。完整发布条件与 smoke 流程见 [Demo 运行手册](docs/DEMO_RUNBOOK.md)；性能或质量数字仅以最新 evidence run 为准。
-
----
-
-### 方式二：配置真实 API（完整功能）
-
-**后端 `.env`：**
-
-```env
-# 主 LLM：DeepSeek API
-DEEPSEEK_API_KEY=sk-...
-
-# 备用 LLM（OpenAI 兼容接口）
-OPENAI_API_KEY=sk-...
-OPENAI_API_URL=https://api.openai.com/v1
-
-# 高德地图后端 REST API Key（Web 服务类型）
-AMAP_API_KEY=your-rest-key
-AMAP_MOCK=false
-
-# 和风天气（可选）
-QWEATHER_KEY=your-qweather-key
-
-DEMO_MODE=false
+```powershell
+docker compose up -d --build
+docker compose logs -f backend
 ```
 
-**前端 `frontend/.env.local`：**
+启动前端：
 
-```env
-NEXT_PUBLIC_AMAP_JS_KEY=your-js-key
-NEXT_PUBLIC_AMAP_SECURITY_CODE=your-code
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
----
+本地入口：前端 `http://localhost:3000`，后端 OpenAPI `http://localhost:8000/docs`。
 
-## 项目结构
+`DEMO_MODE=true` 和 `AMAP_MOCK=true` 只代表 fixture/演示路径，不证明真实 Provider、V1 Gate 或公开可用性。真实 API 调用必须在当前 Goal 明确授权后执行。
 
-```
-breezetravel/
-├── backend/
-│   ├── app/
-│   │   ├── agents/
-│   │   │   ├── graph.py              # LangGraph 主图（ReAct + PostgresSaver）
-│   │   │   ├── state.py              # AgentState（messages/intent/memory/places）
-│   │   │   └── nodes/
-│   │   │       ├── router.py         # ReAct Agent：LLM tool calling 意图路由
-│   │   │       ├── amap_search.py    # 高德 POI 搜索（Mock + 真实双模式）
-│   │   │       ├── rag_retrieval.py  # 混合检索 + Re-ranking + HyDE
-│   │   │       ├── synthesizer.py    # DeepSeek 合成 Place 列表 + 自然语言回复
-│   │   │       └── optimizer.py      # K-Means + TSP 排线（独立于主图）
-│   │   ├── memory/                   # Memory 系统（Working/Long-term/Summary）
-│   │   ├── tools/                    # LangChain @tool 工具集（POI/天气/搜索）
-│   │   ├── api/                      # FastAPI 路由
-│   │   ├── db/                       # asyncpg 连接池 + init.sql
-│   │   └── schemas/                  # Pydantic 数据模型（Place/Itinerary/API）
-│   ├── scripts/
-│   │   ├── ingest_notes.py           # RAG 游记入库（合成数据 + Entity Linking + 分块）
-│   │   └── finetune/                 # LoRA 微调脚本（数据生成 + 训练 + 评估）
-│   ├── eval_data/                     # 固定 pilot/dev/blind 评测集与清单
-│   ├── evals/                         # 统一评测、故障注入和实验框架
-│   ├── evidence/                      # 可回读的本地验证与发布证据
-│   └── tests/
-│       ├── fixtures/                 # 4 城市 Mock POI 数据
-│       ├── test_api.py               # API 集成测试
-│       ├── test_rag.py               # RAGAS 评估（Faithfulness/Relevancy/Recall）
-│       └── test_optimizer.py         # 排线算法单元测试
-├── frontend/
-│   ├── e2e/                           # Playwright 本地受控与公网 smoke
-│   └── src/
-│       ├── components/
-│       │   ├── map/AMapContainer.tsx     # 地图（Marker 联动 + 多色路线）
-│       │   ├── chat/                     # ChatPanel + ThinkingSteps（工具调用可视化）
-│       │   └── places/                   # PlaceList + PlaceCard（投票/备注）
-│       └── hooks/
-│           ├── useYjsRoom.ts             # Yjs 协同核心
-│           ├── useAIChat.ts              # SSE 流式解析
-│           └── useOptimize.ts            # 排线请求
-├── y-websocket/                       # 带房间 JWT 绑定的独立协同服务
-├── docs/                              # 架构、评测、安全、复现与复习资料
-├── verify-local.ps1                   # 本地全量验证入口
-├── docker-compose.yml
-└── .env.example
-```
+## 开发与验证
 
----
+后端开发：
 
-## 运行测试
-
-```bash
+```powershell
 cd backend
-pip install -r requirements.txt
-
-# 纯单元测试（无需 API Key / 数据库）
-python -m pytest tests/test_optimizer.py tests/test_mock_data.py tests/test_router_ft_unit.py -v
-
-# RAG 单元测试（离线）
-python -m pytest tests/test_rag.py -v -k "not evaluate_rag_pipeline"
-
-# RAGAS 集成评估（需要 API Key + 已入库游记数据）
-python -m scripts.ingest_notes                                    # 先入库
-python -m pytest tests/test_rag.py::evaluate_rag_pipeline -v -s  # 再评估
-
-# 冻结候选重放：零 DeepSeek / 高德 / Judge API 调用
-python -m scripts.run_daily_query_eval \
-  --replay-snapshot results/three_city_daily_query_candidates_rc1_v22.json \
-  --output results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json
-
-# 真实产品链路：需要已启动服务和 DeepSeek/高德 Key；必须显式授权，且始终关闭 API Judge
-python -m scripts.run_daily_query_eval --skip-judge --allow-paid-generation --workers 1 \
-  --snapshot-output results/three_city_daily_query_candidates_live_rc1_run1.json \
-  --output results/three_city_daily_query_eval_live_rc1_run1.json
-
-# 子 Agent Judge 的盲评包导出与三轮结果聚合见 scripts/agent_judge_panel.py
+python -m pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
-## MCP 接入（Claude Desktop / Cursor）
+默认离线检查：
 
-```bash
-# 启动 MCP Server（默认端口 8001）
-cd backend && python -m app.mcp_server
+```powershell
+cd backend
+python -m pytest tests/ -q
+python -m ruff check app tests scripts
 
-# 在 claude_desktop_config.json 中添加：
-# {
-#   "mcpServers": {
-#     "breezetravel": { "url": "http://localhost:8001/mcp" }
-#   }
-# }
+cd ../frontend
+npm run build
 ```
 
----
+真实 PostgreSQL、固定 snapshot、真实高德/天气/Brave、浏览器恢复与性能、release manifest 分属不同 Gate，必须在同一 commit/config/dataset/model/receipt 上分别重跑。未运行即 `NOT_RUN`，不能由 unit/fixture 或历史结果推断通过。
 
-## 云端部署
+## 目录
 
-### Railway（全栈一键）
-
-1. Fork 本仓库
-2. Railway 会自动识别 `docker-compose.yml` 并部署全部服务
-3. 在 Railway 环境变量中填写 `DEEPSEEK_API_KEY`、`AMAP_API_KEY` 等
-
-### Vercel（前端）+ Railway（后端）分离
-
-前端 Vercel Root Directory 设为 `frontend`，配置环境变量：
-
-```
-NEXT_PUBLIC_API_URL=https://your-backend.railway.app
-NEXT_PUBLIC_Y_WEBSOCKET_URL=wss://your-ws.railway.app
-NEXT_PUBLIC_AMAP_JS_KEY=...
+```text
+backend/             FastAPI、领域模型、Provider、migration、测试与 evidence
+frontend/            Next.js UI 与浏览器测试
+y-websocket/         历史协同服务（冻结资产）
+docs/product/        当前产品章程与 V1 规格
+docs/governance/     Roadmap、Goal 合同、Release Gates 与基线
+docs/adr/            架构决策
+docs/archive/        历史方案与 Review
 ```
 
----
+## 能力声明边界
 
-## 常见问题
-
-**Q: 无需任何 API Key 能跑起来吗？**  
-A: 可以。`AMAP_MOCK=true` + `DEMO_MODE=true` 可完整体验所有功能。
-
-**Q: AI 对话无响应**  
-A: 检查 `.env` 中 `DEEPSEEK_API_KEY` 是否有效；或将 `DEMO_MODE=true` 切换演示模式。
-
-**Q: 地图空白不显示**  
-A: 确认 `frontend/.env.local` 中 `NEXT_PUBLIC_AMAP_JS_KEY` 已填写，并在高德控制台将当前域名加入白名单。
-
-**Q: RAG 游记数据为空**  
-A: 运行入库脚本：`cd backend && python -m scripts.ingest_notes`
-
-**Q: 多人协同如何测试**  
-A: 同一浏览器开两个标签页，或不同浏览器打开相同 URL，输入相同房间号即可。
-
----
+- 代码存在不等于能力完成；
+- unit、integration、snapshot、live、public、human 是不同证据等级；
+- 自动 Judge 只属于 `automated_proxy_judge`，不等于真人验证；
+- 当前没有「行程查 V1 已发布」或「真人内测已通过」的声明。
 
 ## License
 
