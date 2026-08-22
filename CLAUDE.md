@@ -1,12 +1,13 @@
 # CLAUDE.md
 
-本文件不再复制项目说明，避免与仓库级指导发生漂移。
+本文件不复制项目说明，避免与仓库级指导漂移。
 
-在本仓库工作前，必须依次读取：
+在本仓库工作前，依次读取：
 
-1. 根目录 `AGENTS.md`：当前仓库的开发约束与常用命令；
-2. `README.md`：可运行入口与公开能力边界；
-3. `docs/BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md`：当前产品与架构基线；
-4. `docs/dual-entry/capability-status.md`：目标能力的当前证据状态。
+1. `AGENTS.md`；
+2. `docs/product/PROJECT_CHARTER.md`；
+3. `docs/product/TRIP_CHECK_SPEC.md`；
+4. `docs/governance/CURRENT_GOAL.md` 与 `docs/governance/ROADMAP.md`；
+5. 当前 Goal 引用的 ADR、能力状态和 evidence。
 
-历史方案只保存在 `docs/archive/`，不得作为当前实现目标。若上述文件冲突，先停止实现并明确哪一份权威文件需要更新。
+没有处于 `APPROVED` 的 `CURRENT_GOAL.md` 时，只能做只读诊断和方案讨论。历史方案、旧 evidence 和 README 不能扩大当前开发范围。
