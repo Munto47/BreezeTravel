@@ -1,4 +1,7 @@
-"""Regression coverage for the dual-entry local-delivery manifest."""
+"""Regression coverage for the Trip Check V1 Phase 0 manifest.
+
+The module name is retained to avoid breaking existing targeted test commands.
+"""
 
 from __future__ import annotations
 
@@ -8,55 +11,65 @@ from scripts.build_release_manifest import build
 from scripts.verify_dual_entry_delivery import verify
 
 
-def test_manifest_binds_dual_entry_local_delivery_without_human_or_public_claims(tmp_path):
+def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
     target = build(tmp_path)
     payload = json.loads(target.read_text(encoding="utf-8"))
     latest = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
 
-    assert payload["schema_version"] == "3.0"
-    assert payload["release_status"] == "dual_entry_local_delivery_candidate"
+    assert payload["schema_version"] == "4.0"
+    assert payload["release_status"] == "trip_check_v1_preimplementation_baseline"
     assert payload["release_approval_granted"] is False
     assert payload["latest_migration"] == "021_atomic_suggestion_undo.sql"
     assert payload["configuration"]["required_migration"] == "021_atomic_suggestion_undo.sql"
 
-    delivery = payload["dual_entry_delivery_evidence"]
-    assert delivery["final_plan"]["exists"] is True
-    assert delivery["local_delivery_acceptance"]["exists"] is True
-    assert delivery["m1_dev_dataset_manifest"]["exists"] is True
-    assert delivery["m1_dev_proxy_gate"]["exists"] is True
-    assert delivery["m1_dev_evidence_type"] == "synthetic_proxy"
-    assert delivery["human_validated"] is False
-    assert delivery["publicly_verified"] is False
+    authority = payload["product_authority"]
+    for name in (
+        "agents",
+        "project_charter",
+        "trip_check_spec",
+        "current_goal",
+        "roadmap",
+        "release_gates",
+        "capability_status",
+    ):
+        assert authority[name]["exists"] is True
 
-    release_gates = payload["dual_entry_release_gate_evidence"]
-    assert release_gates["dataset_manifest"]["exists"] is True
-    assert release_gates["latest_import_http_gate"]["exists"] is True
-    assert release_gates["latest_builder_http_gate"]["exists"] is True
-    assert release_gates["g5_restart_evidence"]["exists"] is True
-    assert release_gates["full_backend_junit"]["exists"] is True
-    assert release_gates["g5_restart_status"] == "PASSED"
-    assert release_gates["overall_release_decision"] == "REJECT"
-    assert release_gates["builder_http"]["decision"] == "REJECT"
-    assert release_gates["builder_http"]["g2_four_stop_session_gate"]["status"] != "PASS"
-    assert release_gates["independent_paired_judge_decision"] == "NOT_RUN"
-    assert release_gates["baseline_candidate_promotion_decision"] == "NOT_RUN"
-    assert release_gates["external_blind_bundle_provisioned"] is False
-    assert release_gates["human_calibration_case_count"] == 0
-    assert "HUMAN_CALIBRATION_IS_0_OF_30" in release_gates["release_blockers"]
+    scope = payload["evaluation_scope"]
+    assert scope["supported_and_claimed_cities"] == ["北京", "上海", "杭州"]
+    assert scope["target_cases_per_city"] == 120
+    assert scope["target_total_cases"] == 360
+    assert scope["target_splits"] == {
+        "pilot": 18,
+        "dev": 180,
+        "regression": 72,
+        "frozen_blind": 90,
+    }
+    assert scope["dataset_status"] == "planned"
 
-    commands = payload["dual_entry_local_delivery_verification_commands"]
-    assert any("run_m1_dev_proxy_gate" in command for command in commands)
-    assert any("test_dual_entry_postgres_integration.py" in command for command in commands)
+    gates = payload["trip_check_v1_release_gate_evidence"]
+    assert gates["overall_release_decision"] == "REJECT"
+    assert gates["g1_offline"] == "NOT_RUN"
+    assert gates["g4_live_providers"] == "NOT_RUN"
+    assert gates["g6_release_manifest"] == "BASELINE_ONLY"
+    assert gates["automated_proxy_judge"] == "NOT_RUN"
+    assert "TRIP_CHECK_V1_IMPLEMENTATION_NOT_STARTED" in gates["release_blockers"]
+
+    legacy = payload["legacy_dual_entry_delivery_evidence"]
+    assert legacy["archived_final_plan"]["exists"] is True
+    assert legacy["m1_dev_evidence_type"] == "synthetic_proxy"
+    assert legacy["human_validated"] is False
+    assert legacy["publicly_verified"] is False
+
     assert latest["manifest_reference_kind"] == "absolute_external"
     assert latest["manifest"] == str(target.resolve())
 
 
-def test_delivery_verifier_accepts_an_externally_generated_manifest(tmp_path):
+def test_verifier_accepts_externally_generated_trip_check_baseline(tmp_path):
     build(tmp_path)
 
     result = verify(tmp_path / "latest.json")
 
-    assert result["status"] == "LOCAL_DELIVERY_EVIDENCE_VALID"
+    assert result["status"] == "TRIP_CHECK_V1_BASELINE_EVIDENCE_VALID"
     assert result["latest_migration"] == "021_atomic_suggestion_undo.sql"
     assert result["human_validated"] is False
     assert result["publicly_verified"] is False

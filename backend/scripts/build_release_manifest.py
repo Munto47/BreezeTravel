@@ -17,7 +17,18 @@ from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
-FINAL_PLAN = ROOT / "docs" / "BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md"
+PRODUCT_CHARTER = ROOT / "docs" / "product" / "PROJECT_CHARTER.md"
+TRIP_CHECK_SPEC = ROOT / "docs" / "product" / "TRIP_CHECK_SPEC.md"
+CURRENT_GOAL = ROOT / "docs" / "governance" / "CURRENT_GOAL.md"
+ROADMAP = ROOT / "docs" / "governance" / "ROADMAP.md"
+RELEASE_GATES = ROOT / "docs" / "governance" / "RELEASE_GATES.md"
+ARCHIVED_FINAL_PLAN = (
+    ROOT
+    / "docs"
+    / "archive"
+    / "plans"
+    / "BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md"
+)
 LOCAL_DELIVERY_ACCEPTANCE = ROOT / "docs" / "dual-entry" / "local-delivery-acceptance-2026-08-20.md"
 CAPABILITY_STATUS = ROOT / "docs" / "dual-entry" / "capability-status.md"
 M1_DEV_DATASET = BACKEND / "eval_data" / "auditor_simulated" / "manifest.json"
@@ -190,26 +201,28 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     )
     import_summary = gate_summary(import_gate, current_tree_hash=tree_hash)
     builder_summary = gate_summary(builder_gate, current_tree_hash=tree_hash)
-    release_blockers = list(dataset_payload.get("release_blockers") or [])
+    legacy_release_blockers = list(dataset_payload.get("release_blockers") or [])
     if import_summary["decision"] not in {"PROMOTE", "ACCEPT_IMPORT_HTTP_SLICE"}:
-        release_blockers.append("LATEST_IMPORT_HTTP_GATE_NOT_PROMOTED")
+        legacy_release_blockers.append("LEGACY_IMPORT_HTTP_GATE_NOT_PROMOTED")
     if builder_summary["decision"] != "PROMOTE":
-        release_blockers.append("LATEST_BUILDER_HTTP_GATE_NOT_PROMOTED")
+        legacy_release_blockers.append("LEGACY_BUILDER_HTTP_GATE_NOT_PROMOTED")
     if not import_summary["same_worktree_binding"] or not builder_summary["same_worktree_binding"]:
-        release_blockers.append("HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING")
-    if restart_payload.get("status") != "PASSED":
-        release_blockers.append("G5_RESTART_EVIDENCE_NOT_PASSED")
-    release_blockers.extend(
-        [
-            "G3_INDEPENDENT_PAIRED_JUDGE_NOT_RUN",
-            "BASELINE_CANDIDATE_PROMOTION_NOT_RUN",
-        ]
-    )
+        legacy_release_blockers.append("LEGACY_HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING")
+    trip_check_release_blockers = [
+        "TRIP_CHECK_V1_IMPLEMENTATION_NOT_STARTED",
+        "TRIP_CHECK_V1_DATASET_360_NOT_BUILT",
+        "G1_OFFLINE_NOT_RUN_FOR_CANDIDATE",
+        "G2_POSTGRES_NOT_RUN_FOR_CANDIDATE",
+        "G3_SNAPSHOT_NOT_RUN_FOR_CANDIDATE",
+        "G4_LIVE_PROVIDERS_NOT_RUN_FOR_CANDIDATE",
+        "G5_BROWSER_AND_PERFORMANCE_NOT_RUN_FOR_CANDIDATE",
+        "G6_RELEASE_CANDIDATE_MANIFEST_NOT_APPROVED",
+    ]
     release_id = f"{commit[:12]}-dirty-{tree_hash[:12]}" if dirty else commit
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     payload = {
-        "schema_version": "3.0",
-        "release_status": "dual_entry_local_delivery_candidate",
+        "schema_version": "4.0",
+        "release_status": "trip_check_v1_preimplementation_baseline",
         "release_approval_granted": False,
         "local_delivery_test_execution": "not_run_by_manifest",
         "manifest_generation_executes_tests": False,
@@ -231,12 +244,49 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
         "configuration": config_summary(),
         "evaluation_scope": {
             "supported_and_claimed_cities": ["北京", "上海", "杭州"],
-            "cases_per_city": 50,
-            "total_cases": 150,
+            "target_cases_per_city": 120,
+            "target_total_cases": 360,
+            "target_splits": {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90},
+            "dataset_status": "planned",
             "expanded_city_claims": False,
         },
-        "dual_entry_delivery_evidence": {
-            "final_plan": evidence_reference(FINAL_PLAN),
+        "product_authority": {
+            "agents": evidence_reference(ROOT / "AGENTS.md"),
+            "project_charter": evidence_reference(PRODUCT_CHARTER),
+            "trip_check_spec": evidence_reference(TRIP_CHECK_SPEC),
+            "current_goal": evidence_reference(CURRENT_GOAL),
+            "roadmap": evidence_reference(ROADMAP),
+            "release_gates": evidence_reference(RELEASE_GATES),
+            "capability_status": evidence_reference(CAPABILITY_STATUS),
+            "authority_order": [
+                "AGENTS.md",
+                "PROJECT_CHARTER.md",
+                "TRIP_CHECK_SPEC.md",
+                "CURRENT_GOAL.md/ROADMAP.md",
+                "ADR",
+                "same-commit evidence",
+            ],
+        },
+        "trip_check_v1_release_gate_evidence": {
+            "g0_document_and_schema": "DOCUMENTS_BOUND_SCHEMA_NOT_REVIEWED",
+            "g1_offline": "NOT_RUN",
+            "g2_postgres": "NOT_RUN",
+            "g3_fixed_snapshot": "NOT_RUN",
+            "g4_live_providers": "NOT_RUN",
+            "g5_browser_recovery_performance": "NOT_RUN",
+            "g6_release_manifest": "BASELINE_ONLY",
+            "automated_proxy_judge": "NOT_RUN",
+            "human_validation": "OUT_OF_SCOPE_UNTIL_SEPARATELY_APPROVED",
+            "overall_release_decision": "REJECT",
+            "release_blockers": trip_check_release_blockers,
+            "claim_boundary": (
+                "This manifest binds the Phase 0 product authority and legacy evidence only. "
+                "It does not prove Trip Check V1 implementation, live-provider behavior, "
+                "browser acceptance, human validation, or release approval."
+            ),
+        },
+        "legacy_dual_entry_delivery_evidence": {
+            "archived_final_plan": evidence_reference(ARCHIVED_FINAL_PLAN),
             "capability_status": evidence_reference(CAPABILITY_STATUS),
             "local_delivery_acceptance": evidence_reference(LOCAL_DELIVERY_ACCEPTANCE),
             "m1_dev_dataset_manifest": evidence_reference(M1_DEV_DATASET),
@@ -250,7 +300,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
                 "or release approval."
             ),
         },
-        "dual_entry_release_gate_evidence": {
+        "legacy_dual_entry_release_gate_evidence": {
             "dataset_manifest": evidence_reference(DUAL_ENTRY_DATASET),
             "latest_import_http_gate": optional_evidence_reference(import_gate),
             "latest_builder_http_gate": optional_evidence_reference(builder_gate),
@@ -266,7 +316,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "external_blind_bundle_provisioned": False,
             "human_calibration_case_count": 0,
             "overall_release_decision": "REJECT",
-            "release_blockers": list(dict.fromkeys(release_blockers)),
+            "release_blockers": list(dict.fromkeys(legacy_release_blockers)),
             "claim_boundary": (
                 "This section is an evidence index, not a release approval. "
                 "A stale worktree binding, missing stage, failed gate, absent blind bundle, "
@@ -303,32 +353,20 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "docker compose config --quiet",
             "docker compose -f docker-compose.multi.yml config --quiet",
         ],
-        "dual_entry_local_delivery_verification_commands": [
+        "trip_check_v1_verification_commands": [
             "cd backend; python -m pytest tests -q",
-            "cd backend; python -m ruff check app evals scripts tests",
-            (
-                "cd backend; python -m scripts.run_m1_dev_proxy_gate "
-                "--artifact results/auditor_simulated/proxy_role_1.json "
-                "--artifact results/auditor_simulated/proxy_role_2.json "
-                "--artifact results/auditor_simulated/proxy_role_3.json"
-            ),
+            "cd backend; python -m ruff check app tests scripts",
             "cd frontend; npm run build",
-            "cd frontend; npx playwright test -c playwright.local.config.js",
-            "cd frontend; npx playwright test -c playwright.workspace.config.js",
-            (
-                "docker compose up -d postgres; cd backend; "
-                "$env:RUN_SERVICE_INTEGRATION='1'; python -m pytest "
-                "tests/test_migrations_integration.py tests/test_templates_sharing_postgres.py "
-                "tests/test_dual_entry_postgres_integration.py -q; docker compose stop postgres"
-            ),
+            "python backend/scripts/validate_dual_entry_testset.py",
         ],
         "excluded_claims": [
-            "full RC1 release",
+            "Trip Check V1 implemented",
+            "Trip Check V1 release candidate",
             "public deployment",
             "public smoke",
             "real-user validation",
             "human calibration",
-            "Judge-human agreement",
+            "automated Judge as human evidence",
             "live-provider SLO",
             "production SLO",
         ],
