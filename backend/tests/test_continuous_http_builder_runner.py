@@ -64,8 +64,7 @@ def test_g2_chain_run_spec_bootstraps_exact_three_city_selected_chains():
         assert len(chain) == len(set(chain)) == 4
         assert chain[0] == anchor["place_id"]
         assert [
-            builder_module._captured_chain_accept_place_id(anchor, round_index)
-            for round_index in (1, 2, 3)
+            builder_module._captured_chain_accept_place_id(anchor, round_index) for round_index in (1, 2, 3)
         ] == chain[1:]
 
 
@@ -321,9 +320,7 @@ class BuilderFixtureTransport:
                     "suggestion_provider": {
                         "mode": provider["mode"],
                         "snapshot_id": (
-                            "wrong-snapshot-id"
-                            if self.provider_identity_mismatch
-                            else provider["snapshot_id"]
+                            "wrong-snapshot-id" if self.provider_identity_mismatch else provider["snapshot_id"]
                         ),
                         "snapshot_sha256": provider["snapshot_sha256"],
                         "replay_at": "2026-08-21T04:11:29.399183+00:00",
@@ -360,9 +357,7 @@ class BuilderFixtureTransport:
                 "days": days,
                 "set_round": 0,
             }
-            self.workspaces[workspace_id]["revisions"] = {
-                1: self._revision(self.workspaces[workspace_id])
-            }
+            self.workspaces[workspace_id]["revisions"] = {1: self._revision(self.workspaces[workspace_id])}
             self.events[workspace_id] = []
             return HttpResponse(201, {}, {"workspace_id": workspace_id, "current_itinerary_revision": 1})
         if path.endswith("/snapshot"):
@@ -415,9 +410,7 @@ class BuilderFixtureTransport:
                     changed_days = sorted({source_day["day_index"], target_day["day_index"]})
                 elif operation == "LOCK_STOP":
                     located["locked"] = True
-                    changed_days = [
-                        day["day_index"] for day in state["days"] if located in day["stops"]
-                    ]
+                    changed_days = [day["day_index"] for day in state["days"] if located in day["stops"]]
                 else:
                     raise AssertionError(f"unsupported fixture edit operation: {operation}")
                 state["revision"] += 1
@@ -460,7 +453,9 @@ class BuilderFixtureTransport:
         if "/suggestion-sets/" in path and method == "GET":
             set_id = path.split("/")[-1]
             return HttpResponse(200, {}, copy.deepcopy(self.sets[set_id]))
-        if (path.endswith(":preview") or path.endswith(":dismiss") or path.endswith(":line-completed")) and method == "POST":
+        if (
+            path.endswith(":preview") or path.endswith(":dismiss") or path.endswith(":line-completed")
+        ) and method == "POST":
             if self.event_failure == "http":
                 return HttpResponse(503, {}, {"detail": {"code": "EVENT_COMMAND_UNAVAILABLE"}})
             workspace_id = path.split("/")[3]
@@ -484,9 +479,7 @@ class BuilderFixtureTransport:
             suggestion_set = self.sets[set_id]
             rank_position = None
             if candidate_id is not None:
-                candidate = next(
-                    item for item in suggestion_set["candidates"] if item["candidate_id"] == candidate_id
-                )
+                candidate = next(item for item in suggestion_set["candidates"] if item["candidate_id"] == candidate_id)
                 rank_position = candidate["rank_position"]
             event = self._event(
                 workspace_id,
@@ -628,13 +621,19 @@ def _run(tmp_path, monkeypatch, transport, *, cases=None, restart_gate_runner=No
     )
 
 
-def test_three_city_four_stop_slice_promotes_and_never_sends_place_body_on_accept(tmp_path, monkeypatch):
+def test_three_city_four_stop_slice_rejects_below_nine_sessions_and_never_sends_place_body_on_accept(
+    tmp_path, monkeypatch
+):
     cases = _supported_three_city_cases()
     result = _run(tmp_path, monkeypatch, BuilderFixtureTransport(), cases=cases)
 
-    assert result.gate["status"] == "PASS"
-    assert result.gate["decision"] == "PROMOTE"
+    assert result.gate["status"] == "INVALID"
+    assert result.gate["decision"] == "REJECT"
     assert result.gate["execution"]["completed_case_count"] == 3
+    session_gate = next(item for item in result.gate["gates"] if item["id"] == "G2_FOUR_STOP_SESSION_COUNT")
+    assert session_gate["status"] == "FAIL"
+    assert session_gate["actual"] == 3
+    assert session_gate["threshold"] == 9
     assert result.gate["execution"]["direct_domain_calls"] == 0
     assert result.gate["execution"]["sql_seed_operations"] == 0
     assert result.gate["execution"]["client_place_bodies_on_accept"] == 0
@@ -706,9 +705,7 @@ def test_two_runs_use_disjoint_workspace_namespaces(tmp_path, monkeypatch):
         ("replay", "EVENT_COMMAND_IDEMPOTENT_REPLAY_FAILED"),
     ],
 )
-def test_event_command_http_context_or_replay_failure_fails_closed(
-    tmp_path, monkeypatch, event_failure, failure_code
-):
+def test_event_command_http_context_or_replay_failure_fails_closed(tmp_path, monkeypatch, event_failure, failure_code):
     cases, labels = _supported_three_city_cases()
     selected = ([cases[0]], {cases[0]["case_id"]: labels[cases[0]["case_id"]]})
     result = _run(
@@ -736,9 +733,7 @@ def test_event_missing_from_ledger_readback_rejects_after_http_command_success(t
 
     assert result.gate["decision"] == "REJECT"
     score = json.loads((result.run_dir / "deterministic_scores.json").read_text(encoding="utf-8"))["cases"][0]
-    readback = next(
-        check for check in score["checks"] if check["id"] == "EVENT_COMMANDS_EXACT_LEDGER_READBACK"
-    )
+    readback = next(check for check in score["checks"] if check["id"] == "EVENT_COMMANDS_EXACT_LEDGER_READBACK")
     assert readback["status"] == "FAIL"
     assert readback["missing_event_ids"]
 
@@ -821,22 +816,14 @@ def test_checked_in_g2_g5_cases_only_report_actual_unsupported_boundaries(tmp_pa
     assert "move_stop_button" not in unsupported
     assert "concurrent_edit" not in unsupported
     assert "incremental_audit" not in unsupported
-    recovery_outputs = [
-        output for output in outputs if output["recovery_contracts"].get("drag_button_equivalence")
-    ]
+    recovery_outputs = [output for output in outputs if output["recovery_contracts"].get("drag_button_equivalence")]
     assert recovery_outputs
     assert all(
-        output["recovery_contracts"]["drag_button_equivalence"]["status"] == "PASS"
-        for output in recovery_outputs
+        output["recovery_contracts"]["drag_button_equivalence"]["status"] == "PASS" for output in recovery_outputs
     )
-    concurrent_outputs = [
-        output for output in outputs if output["recovery_contracts"].get("concurrent_edit")
-    ]
+    concurrent_outputs = [output for output in outputs if output["recovery_contracts"].get("concurrent_edit")]
     assert concurrent_outputs
-    assert all(
-        output["recovery_contracts"]["concurrent_edit"]["status"] == "PASS"
-        for output in concurrent_outputs
-    )
+    assert all(output["recovery_contracts"]["concurrent_edit"]["status"] == "PASS" for output in concurrent_outputs)
     scores = json.loads((result.run_dir / "deterministic_scores.json").read_text(encoding="utf-8"))
     selected_case_ids = json.loads(SPEC.read_text(encoding="utf-8"))["dataset"]["case_ids"]
     for metric in ("builder_ndcg_at_5", "builder_recall_at_5"):
@@ -856,15 +843,12 @@ def test_checked_in_g2_g5_cases_only_report_actual_unsupported_boundaries(tmp_pa
     assert all(output["undo_revision_after"] == output["undo_revision_before"] + 1 for output in undo_outputs)
     assert all(output["undo_event"]["event_type"] == "stop_undone" for output in undo_outputs)
     assert all(
-        output["undo_event"]["payload"]["source_accept_event_id"]
-        == output["undo_source_accept_event"]["event_id"]
+        output["undo_event"]["payload"]["source_accept_event_id"] == output["undo_source_accept_event"]["event_id"]
         for output in undo_outputs
     )
 
 
-def test_successful_external_restart_gate_binds_fresh_http_readback_to_restart_cases(
-    tmp_path, monkeypatch
-):
+def test_successful_external_restart_gate_binds_fresh_http_readback_to_restart_cases(tmp_path, monkeypatch):
     def passed_restart(*_args, **_kwargs):
         return RestartGateResult(
             "PASS",
@@ -892,10 +876,7 @@ def test_successful_external_restart_gate_binds_fresh_http_readback_to_restart_c
     ]
     assert restart_outputs
     for output in restart_outputs:
-        assert not any(
-            item["step"] == "restart_backend_yjs"
-            for item in output["unsupported_capabilities"]
-        )
+        assert not any(item["step"] == "restart_backend_yjs" for item in output["unsupported_capabilities"])
         contract = output["recovery_contracts"]["backend_yjs_restart"]
         assert contract["status"] == "PASS"
         assert contract["revision_exact"] is True

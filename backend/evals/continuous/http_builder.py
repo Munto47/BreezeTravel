@@ -130,9 +130,10 @@ def _load_selected_builder_cases_and_labels(
     resolved_spec: Mapping[str, Any], repo_root: Path
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     dataset = resolved_spec["dataset"]
-    if resolved_spec.get("lane") not in {"pr_offline", "nightly_snapshot"} or dataset.get(
-        "label_access"
-    ) != "development_scorer":
+    if (
+        resolved_spec.get("lane") not in {"pr_offline", "nightly_snapshot"}
+        or dataset.get("label_access") != "development_scorer"
+    ):
         raise ValueError("BUILDER_HTTP_ADAPTER_ONLY_SUPPORTS_DEVELOPMENT_LABELS")
     manifest_path = (repo_root / dataset["manifest"]).resolve()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -302,9 +303,7 @@ def _collect_suggestion_receipts(
     return rows
 
 
-def _unsupported_capabilities(
-    case: Mapping[str, Any], *, restart_gate_passed: bool = False
-) -> list[dict[str, str]]:
+def _unsupported_capabilities(case: Mapping[str, Any], *, restart_gate_passed: bool = False) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for step in case.get("execution", {}).get("steps", []):
         if step == "restart_backend_yjs" and restart_gate_passed:
@@ -322,7 +321,10 @@ def _unsupported_capabilities(
 
 
 def _event_has_correlation(event: Mapping[str, Any]) -> bool:
-    return all(event.get(key) not in {None, ""} for key in ("event_id", "session_id", "workspace_id", "actor_id", "occurred_at"))
+    return all(
+        event.get(key) not in {None, ""}
+        for key in ("event_id", "session_id", "workspace_id", "actor_id", "occurred_at")
+    )
 
 
 def _interaction_plan(case: Mapping[str, Any]) -> tuple[dict[int, list[dict[str, str]]], bool]:
@@ -451,10 +453,7 @@ def _run_interaction_command(
     if event_type == "line_completed":
         path = f"/api/trip-workspaces/{workspace_id}/suggestion-sets/{set_id}:line-completed"
     else:
-        path = (
-            f"/api/trip-workspaces/{workspace_id}/suggestion-sets/{set_id}"
-            f"/candidates/{candidate_id}:{suffix}"
-        )
+        path = f"/api/trip-workspaces/{workspace_id}/suggestion-sets/{set_id}/candidates/{candidate_id}:{suffix}"
     key = f"continuous-builder-{suffix}-{_sha256_bytes(case_id.encode())[:16]}-{round_index}-{command_index}"
     body = {"reason_code": reason_code} if event_type == "candidate_dismissed" else None
     step = f"{suffix}_candidate_{round_index}_{command_index}" if candidate else f"line_completed_{round_index}"
@@ -527,9 +526,7 @@ def _finding_semantics(finding: Mapping[str, Any]) -> dict[str, Any]:
     """Drop only run-specific evidence handles before incremental/full comparison."""
 
     return {
-        key: copy.deepcopy(value)
-        for key, value in finding.items()
-        if key not in {"finding_id", "evidence_fact_ids"}
+        key: copy.deepcopy(value) for key, value in finding.items() if key not in {"finding_id", "evidence_fact_ids"}
     }
 
 
@@ -539,21 +536,15 @@ def _replace_logical_stop_identity(value: Any, *, physical_stop_id: str) -> Any:
     if isinstance(value, str):
         return "$SEED_STOP" if value == physical_stop_id else value
     if isinstance(value, list):
-        return [
-            _replace_logical_stop_identity(item, physical_stop_id=physical_stop_id)
-            for item in value
-        ]
+        return [_replace_logical_stop_identity(item, physical_stop_id=physical_stop_id) for item in value]
     if isinstance(value, dict):
         return {
-            key: _replace_logical_stop_identity(item, physical_stop_id=physical_stop_id)
-            for key, item in value.items()
+            key: _replace_logical_stop_identity(item, physical_stop_id=physical_stop_id) for key, item in value.items()
         }
     return value
 
 
-def _normalized_revision_semantic_hash(
-    revision: Mapping[str, Any], *, physical_stop_id: str
-) -> str:
+def _normalized_revision_semantic_hash(revision: Mapping[str, Any], *, physical_stop_id: str) -> str:
     """Mirror the product content-hash payload while normalizing local IDs.
 
     Separate workspaces must not reuse a globally unique itinerary identity just
@@ -663,9 +654,7 @@ def _create_recovery_workspace(
         "recovery_seed_readback",
     )
     seed_place_id = (
-        str(provider_anchor["place_id"])
-        if provider_anchor is not None
-        else str(case["input"]["seed"]["place_id"])
+        str(provider_anchor["place_id"]) if provider_anchor is not None else str(case["input"]["seed"]["place_id"])
     )
     return snapshot, _find_seed_stop(snapshot, seed_place_id)
 
@@ -728,10 +717,7 @@ def _full_audit_parity(
         for finding in audit_response.body.get("findings", [])
         if isinstance(finding, dict)
         and finding.get("rule_id") in affected_rule_ids
-        and (
-            not finding.get("affected_days")
-            or changed_days.intersection(finding.get("affected_days") or [])
-        )
+        and (not finding.get("affected_days") or changed_days.intersection(finding.get("affected_days") or []))
     ]
     incremental = [
         _finding_semantics(finding)
@@ -862,48 +848,31 @@ def _run_drag_button_equivalence(
     button_result = sides["button"]["edit_result"]
     result_fields = ("changed_days", "changed_route_edges", "affected_rule_ids", "route_delta")
     outputs_equivalent = all(
-        _replace_logical_stop_identity(
-            drag_result.get(field), physical_stop_id=stop_ids["drag"]
-        )
-        == _replace_logical_stop_identity(
-            button_result.get(field), physical_stop_id=stop_ids["button"]
-        )
+        _replace_logical_stop_identity(drag_result.get(field), physical_stop_id=stop_ids["drag"])
+        == _replace_logical_stop_identity(button_result.get(field), physical_stop_id=stop_ids["button"])
         for field in result_fields
     )
     normalized_revision_hashes = {
-        origin: _normalized_revision_semantic_hash(
-            sides[origin]["revision"], physical_stop_id=stop_ids[origin]
-        )
+        origin: _normalized_revision_semantic_hash(sides[origin]["revision"], physical_stop_id=stop_ids[origin])
         for origin in ("drag", "button")
     }
-    normalized_revision_hash_equal = (
-        normalized_revision_hashes["drag"] == normalized_revision_hashes["button"]
+    normalized_revision_hash_equal = normalized_revision_hashes["drag"] == normalized_revision_hashes["button"]
+    raw_revision_hash_equal = sides["drag"]["revision"].get("content_hash") == sides["button"]["revision"].get(
+        "content_hash"
     )
-    raw_revision_hash_equal = sides["drag"]["revision"].get("content_hash") == sides[
-        "button"
-    ]["revision"].get("content_hash")
     rollback_equivalent = bool(
         sides["drag"]["failure_status_code"] == sides["button"]["failure_status_code"] == 409
-        and sides["drag"]["failure_code"]
-        == sides["button"]["failure_code"]
-        == "ITINERARY_REVISION_CONFLICT"
+        and sides["drag"]["failure_code"] == sides["button"]["failure_code"] == "ITINERARY_REVISION_CONFLICT"
         and sides["drag"]["rollback_revision"] == sides["button"]["rollback_revision"] == 2
         and all(
-            sides[origin]["rollback_content_hash"]
-            == sides[origin]["revision"].get("content_hash")
+            sides[origin]["rollback_content_hash"] == sides[origin]["revision"].get("content_hash")
             for origin in ("drag", "button")
         )
     )
     incremental_parity = all(
-        sides[origin]["incremental_full_parity"].get("status") == "PASS"
-        for origin in ("drag", "button")
+        sides[origin]["incremental_full_parity"].get("status") == "PASS" for origin in ("drag", "button")
     )
-    passed = (
-        outputs_equivalent
-        and normalized_revision_hash_equal
-        and rollback_equivalent
-        and incremental_parity
-    )
+    passed = outputs_equivalent and normalized_revision_hash_equal and rollback_equivalent and incremental_parity
     return {
         "status": "PASS" if passed else "FAIL",
         "transport": "PUBLIC_HTTP_ONLY",
@@ -1102,22 +1071,23 @@ def _score_case(
         )
         expected_chain_place_id = item.get("expected_captured_chain_place_id")
         if expected_chain_place_id is not None:
-            checks.append({
-                "id": f"ROUND_{index}_CAPTURED_CHAIN_ACCEPT_EXACT",
-                "status": (
-                    "PASS"
-                    if item.get("accepted_canonical_place_id") == expected_chain_place_id
-                    else "FAIL"
-                ),
-                "expected": expected_chain_place_id,
-                "actual": item.get("accepted_canonical_place_id"),
-            })
+            checks.append(
+                {
+                    "id": f"ROUND_{index}_CAPTURED_CHAIN_ACCEPT_EXACT",
+                    "status": (
+                        "PASS" if item.get("accepted_canonical_place_id") == expected_chain_place_id else "FAIL"
+                    ),
+                    "expected": expected_chain_place_id,
+                    "actual": item.get("accepted_canonical_place_id"),
+                }
+            )
     receipt_values = [row["receipt"] for row in receipts]
     checks.append(
         {
             "id": "SUGGESTION_PROVIDER_RECEIPTS_COMPLETE",
             "status": "PASS"
-            if receipt_values and all(_check_receipt(item, case["execution"]["provider_mode"]) for item in receipt_values)
+            if receipt_values
+            and all(_check_receipt(item, case["execution"]["provider_mode"]) for item in receipt_values)
             else "FAIL",
             "receipt_count": len(receipt_values),
         }
@@ -1137,7 +1107,9 @@ def _score_case(
         [
             {
                 "id": "EVENT_LEDGER_COUNTS",
-                "status": "PASS" if len(accepted_events) >= len(rounds) and len(shown_events) >= len(rounds) else "FAIL",
+                "status": "PASS"
+                if len(accepted_events) >= len(rounds) and len(shown_events) >= len(rounds)
+                else "FAIL",
                 "shown": len(shown_events),
                 "accepted": len(accepted_events),
             },
@@ -1189,8 +1161,10 @@ def _score_case(
         checks.extend(
             [
                 {
-                "id": "UNDO_APPEND_ONLY_REVISION",
-                "status": "PASS" if output.get("undo_revision_after") == output.get("undo_revision_before", 0) + 1 else "FAIL",
+                    "id": "UNDO_APPEND_ONLY_REVISION",
+                    "status": "PASS"
+                    if output.get("undo_revision_after") == output.get("undo_revision_before", 0) + 1
+                    else "FAIL",
                 },
                 {
                     "id": "UNDO_STOP_UNDONE_EVENT_READBACK",
@@ -1222,9 +1196,7 @@ def _score_case(
                 },
                 {
                     "id": "DRAG_BUTTON_FAILURE_ROLLBACK_EQUIVALENCE",
-                    "status": "PASS"
-                    if equivalence.get("failure_rollback_equivalent") is True
-                    else "FAIL",
+                    "status": "PASS" if equivalence.get("failure_rollback_equivalent") is True else "FAIL",
                 },
             ]
         )
@@ -1233,9 +1205,7 @@ def _score_case(
         checks.append(
             {
                 "id": "INCREMENTAL_FULL_AUDIT_AFFECTED_SCOPE_SEMANTIC_PARITY",
-                "status": "PASS"
-                if equivalence.get("incremental_full_audit_semantic_parity") is True
-                else "FAIL",
+                "status": "PASS" if equivalence.get("incremental_full_audit_semantic_parity") is True else "FAIL",
             }
         )
     if "concurrent_edit" in required_steps:
@@ -1356,15 +1326,15 @@ def _execute_case(
     )
     current_revision = 1
     seed_place_id = (
-        str(provider_anchor["place_id"])
-        if provider_anchor is not None
-        else str(case["input"]["seed"]["place_id"])
+        str(provider_anchor["place_id"]) if provider_anchor is not None else str(case["input"]["seed"]["place_id"])
     )
     anchor_stop_id = _find_seed_stop(snapshot, seed_place_id)
     session_id = f"eval-builder-session-{suffix}"
-    intents = case.get("input", {}).get("request_context", {}).get("intents") or case.get("input", {}).get(
-        "intent"
-    ) or ["NEARBY", "POPULAR", "FUN", "FOOD"]
+    intents = (
+        case.get("input", {}).get("request_context", {}).get("intents")
+        or case.get("input", {}).get("intent")
+        or ["NEARBY", "POPULAR", "FUN", "FOOD"]
+    )
     expected_rounds = _expected_rounds(case)
     rounds: list[dict[str, Any]] = []
     receipts: list[dict[str, Any]] = []
@@ -1418,7 +1388,9 @@ def _execute_case(
         frozen = get_response.body
         last_frozen = frozen
         receipts.extend(_collect_suggestion_receipts(case_id, frozen, round_index))
-        usable = [candidate for candidate in frozen.get("candidates", []) if _candidate_usable(candidate, str(case["city"]))]
+        usable = [
+            candidate for candidate in frozen.get("candidates", []) if _candidate_usable(candidate, str(case["city"]))
+        ]
         if not usable:
             failed_step = f"select_usable_candidate_{round_index}"
             failure_code = "NO_ACCEPTABLE_FROZEN_CANDIDATE"
@@ -1432,8 +1404,7 @@ def _execute_case(
                 avoid=interacted_candidates,
                 protected_place_ids=(
                     {expected_accept_place_id}
-                    if interaction["event_type"] == "candidate_dismissed"
-                    and expected_accept_place_id is not None
+                    if interaction["event_type"] == "candidate_dismissed" and expected_accept_place_id is not None
                     else None
                 ),
             )
@@ -1464,16 +1435,18 @@ def _execute_case(
             event_commands.append(receipt)
         if failed_step is not None:
             break
-        accepted_candidate = next((
-            item
-            for item in usable
-            if str(item.get("candidate_id")) not in dismissed_candidates
-            and (
-                expected_accept_place_id is None
-                or (item.get("canonical_place") or {}).get("place_id")
-                == expected_accept_place_id
-            )
-        ), None)
+        accepted_candidate = next(
+            (
+                item
+                for item in usable
+                if str(item.get("candidate_id")) not in dismissed_candidates
+                and (
+                    expected_accept_place_id is None
+                    or (item.get("canonical_place") or {}).get("place_id") == expected_accept_place_id
+                )
+            ),
+            None,
+        )
         if accepted_candidate is None:
             failed_step = f"select_usable_candidate_{round_index}"
             failure_code = (
@@ -1526,9 +1499,7 @@ def _execute_case(
                 "create_hash": _frozen_hash(created),
                 "readback_hash": _frozen_hash(frozen),
                 "accepted_candidate_id": candidate_id,
-                "accepted_canonical_place_id": (
-                    accepted_candidate.get("canonical_place") or {}
-                ).get("place_id"),
+                "accepted_canonical_place_id": (accepted_candidate.get("canonical_place") or {}).get("place_id"),
                 "expected_captured_chain_place_id": expected_accept_place_id,
                 "accepted_stop_id": accepted.get("stop_id"),
                 "revision_before": current_revision,
@@ -1587,7 +1558,9 @@ def _execute_case(
         f"/api/trip-workspaces/{workspace_id}/recommendation-events",
         bearer_token=bearer_token,
     )
-    events = events_response.body if events_response.status_code == 200 and isinstance(events_response.body, list) else []
+    events = (
+        events_response.body if events_response.status_code == 200 and isinstance(events_response.body, list) else []
+    )
     events = [event for event in events if isinstance(event, dict)]
     undo_attempted = "undo" in case.get("execution", {}).get("steps", []) and current_revision > 1
     undo_before = current_revision
@@ -1595,9 +1568,7 @@ def _execute_case(
     undo_event: dict[str, Any] | None = None
     undo_source_accept_event: dict[str, Any] | None = None
     if undo_attempted:
-        before_undo_event_ids = {
-            event.get("event_id") for event in events if isinstance(event.get("event_id"), str)
-        }
+        before_undo_event_ids = {event.get("event_id") for event in events if isinstance(event.get("event_id"), str)}
         source_matches = [
             event
             for event in events
@@ -1734,11 +1705,7 @@ def _post_restart_case_readback(
     events = events_response.body if events_response.status_code == 200 else None
     expected_snapshot = output.get("final_snapshot")
     expected_events = output.get("events")
-    expected_revision = (
-        expected_snapshot.get("current_revision")
-        if isinstance(expected_snapshot, dict)
-        else None
-    )
+    expected_revision = expected_snapshot.get("current_revision") if isinstance(expected_snapshot, dict) else None
     actual_revision = snapshot.get("current_revision") if isinstance(snapshot, dict) else None
     exact_revision = bool(
         isinstance(expected_revision, dict)
@@ -1779,12 +1746,18 @@ def run_builder_http(
     started_at_iso = datetime.now(timezone.utc).isoformat()
     preflight_result = preflight(spec_path, repo_root=repo_root, environ=environ)
     lane = preflight_result.resolved_spec.get("lane", "invalid") if preflight_result.resolved_spec else "invalid"
-    output_root = Path(runs_root).resolve() if runs_root else preflight_result.repo_root / "backend" / "evidence" / "runs"
+    output_root = (
+        Path(runs_root).resolve() if runs_root else preflight_result.repo_root / "backend" / "evidence" / "runs"
+    )
     run_id, run_dir = _new_run_dir(output_root, str(lane))
-    artifact_spec = copy.deepcopy(preflight_result.resolved_spec) if preflight_result.resolved_spec else {
-        "schema_version": "invalid-run-spec-v1",
-        "source_path": str(preflight_result.spec_path),
-    }
+    artifact_spec = (
+        copy.deepcopy(preflight_result.resolved_spec)
+        if preflight_result.resolved_spec
+        else {
+            "schema_version": "invalid-run-spec-v1",
+            "source_path": str(preflight_result.spec_path),
+        }
+    )
     artifact_spec["run_id"] = run_id
     artifact_spec["started_at"] = started_at_iso
     _atomic_write_json(run_dir / "run_spec.json", artifact_spec)
@@ -1826,9 +1799,7 @@ def run_builder_http(
                 token = login_body.get("token")
                 if not isinstance(token, str) or not token:
                     raise RuntimeError("auth_test_login returned no bearer token")
-            completed: list[
-                tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]
-            ] = []
+            completed: list[tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]] = []
             for case in cases:
                 try:
                     output, receipts, events = _execute_case(
@@ -1840,12 +1811,12 @@ def run_builder_http(
                     )
                     product_outputs.append(output)
                     provider_receipts.extend(receipts)
-                    recommendation_events.extend(
-                        {"case_id": case["case_id"], **event} for event in events
-                    )
+                    recommendation_events.extend({"case_id": case["case_id"], **event} for event in events)
                     completed.append((case, output, receipts, events))
                 except Exception as exc:
-                    bad_cases.append({"case_id": case["case_id"], "reason": "HTTP_WORKFLOW_FAILED", "message": str(exc)})
+                    bad_cases.append(
+                        {"case_id": case["case_id"], "reason": "HTTP_WORKFLOW_FAILED", "message": str(exc)}
+                    )
 
             restart_cases = [item for item in completed if "restart_backend_yjs" in _required_steps(item[0])]
             if restart_cases:
@@ -1861,18 +1832,22 @@ def run_builder_http(
                     command_id=command_id,
                 )
                 for case, output, _receipts, _events in restart_cases:
-                    contract = _post_restart_case_readback(
-                        recorder,
-                        case=case,
-                        output=output,
-                        bearer_token=token,
-                        restart_gate=restart_gate_result,
-                    ) if restart_gate_result.passed else {
-                        "status": "FAIL",
-                        "transport": "PUBLIC_HTTP_AND_SEPARATE_BROWSER_YJS_GATE",
-                        "claim_scope": "local_fixture_process_restart_recovery",
-                        "restart_gate_reason_code": restart_gate_result.reason_code,
-                    }
+                    contract = (
+                        _post_restart_case_readback(
+                            recorder,
+                            case=case,
+                            output=output,
+                            bearer_token=token,
+                            restart_gate=restart_gate_result,
+                        )
+                        if restart_gate_result.passed
+                        else {
+                            "status": "FAIL",
+                            "transport": "PUBLIC_HTTP_AND_SEPARATE_BROWSER_YJS_GATE",
+                            "claim_scope": "local_fixture_process_restart_recovery",
+                            "restart_gate_reason_code": restart_gate_result.reason_code,
+                        }
+                    )
                     output.setdefault("recovery_contracts", {})["backend_yjs_restart"] = contract
                     output["unsupported_capabilities"] = _unsupported_capabilities(
                         case,
@@ -1906,11 +1881,40 @@ def run_builder_http(
     metric_scores = [score["metric_score"] for score in scores]
     metric_aggregate = aggregate_metric_scores(metric_scores)
     metric_gates = evaluate_metric_thresholds(metric_aggregate, artifact_spec.get("thresholds", {}))
+    g2_seed = artifact_spec.get("dataset", {}).get("gate_case_seeds", {}).get("G2_FOUR_STOP_BUILDER")
+    if isinstance(g2_seed, dict):
+        required_g2_sessions = int(g2_seed.get("required_min", 0))
+        eligible_g2_case_ids = {str(case_id) for case_id in g2_seed.get("case_ids", []) if isinstance(case_id, str)}
+        completed_g2_case_ids = {
+            str(score["case_id"])
+            for score in scores
+            if score.get("status") == "PASS" and score.get("case_id") in eligible_g2_case_ids
+        }
+        g2_session_gate = {
+            "id": "G2_FOUR_STOP_SESSION_COUNT",
+            "status": "PASS" if len(completed_g2_case_ids) >= required_g2_sessions else "FAIL",
+            "actual": len(completed_g2_case_ids),
+            "threshold": required_g2_sessions,
+            "completed_case_ids": sorted(completed_g2_case_ids),
+            "reason": "DISTINCT_COMPLETED_FOUR_STOP_SESSIONS_BELOW_REQUIRED_MINIMUM"
+            if len(completed_g2_case_ids) < required_g2_sessions
+            else "DISTINCT_COMPLETED_FOUR_STOP_SESSIONS_MEET_REQUIRED_MINIMUM",
+        }
+    else:
+        g2_session_gate = {
+            "id": "G2_FOUR_STOP_SESSION_COUNT",
+            "status": "N_A",
+            "actual": 0,
+            "threshold": None,
+            "completed_case_ids": [],
+            "reason": "G2_FOUR_STOP_GATE_NOT_DECLARED",
+        }
     all_pass = (
         preflight_result.valid
         and reason == "BUILDER_HTTP_SLICE_COMPLETE"
         and accept_place_body_count == 0
         and all(item["status"] == "PASS" for item in metric_gates)
+        and g2_session_gate["status"] != "FAIL"
     )
     _atomic_write_jsonl(run_dir / "product_outputs.jsonl", product_outputs)
     _atomic_write_jsonl(run_dir / "provider_receipts.jsonl", provider_receipts)
@@ -1946,6 +1950,7 @@ def run_builder_http(
         "gates": [
             *preflight_result.checks,
             *metric_gates,
+            g2_session_gate,
             {"id": "PRODUCT_HTTP_EXECUTION", "status": "PASS" if all_pass else "FAIL", "reason": reason},
         ],
         "failed_cases": [item["case_id"] for item in bad_cases],

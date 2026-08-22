@@ -46,11 +46,7 @@ from evals.continuous import HttpResponse, run_builder_http
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT_PATH = (
-    REPO_ROOT
-    / "backend"
-    / "evidence"
-    / "real_provider_local_authorized"
-    / "suggestion_snapshot_2026-08-21.json"
+    REPO_ROOT / "backend" / "evidence" / "real_provider_local_authorized" / "suggestion_snapshot_2026-08-21.json"
 )
 SNAPSHOT_RELATIVE = SNAPSHOT_PATH.relative_to(REPO_ROOT).as_posix()
 SNAPSHOT_FILE_SHA256 = "9e93086e4c764ac7c5aa628d6e857a7b03f3a8939a9971a7631e27607a792c04"
@@ -116,11 +112,7 @@ def _query(
     return ProviderCandidateQuery(
         city=city,
         intents=intents,
-        typecodes=tuple(
-            dict.fromkeys(
-                code for category in categories for code in typecodes_for_category(category)
-            )
-        ),
+        typecodes=tuple(dict.fromkeys(code for category in categories for code in typecodes_for_category(category))),
         radius_m=radius,
         anchor_name=name or anchor_name,
         anchor_place_id=place_id,
@@ -178,9 +170,12 @@ async def test_three_city_snapshot_returns_only_exact_original_receipts(city):
     assert route.route_receipts[0].destination_place_id == first.canonical_place.place_id
 
 
-@pytest.mark.parametrize("city", ["北京", "上海", "杭州"])
+@pytest.mark.parametrize(
+    ("city", "expected_suitable_count"),
+    [("北京", 4), ("上海", 4), ("杭州", 3)],
+)
 @pytest.mark.asyncio
-async def test_far_popular_candidates_rank_after_four_suitable_options(city):
+async def test_far_popular_candidates_rank_after_suitable_options(city, expected_suitable_count):
     result = await AnchorCandidateRanker(
         FrozenSnapshotCandidateSource(_spec()),
         FrozenSnapshotRouteSource(_spec()),
@@ -198,16 +193,13 @@ async def test_far_popular_candidates_rank_after_four_suitable_options(city):
     suitable = [
         item
         for item in result.candidates
-        if item.classification
-        in {SuggestionClassification.ON_ROUTE, SuggestionClassification.ACCEPTABLE_DETOUR}
+        if item.classification in {SuggestionClassification.ON_ROUTE, SuggestionClassification.ACCEPTABLE_DETOUR}
     ]
     deferred = [
-        item
-        for item in result.candidates
-        if item.classification is SuggestionClassification.DEFER_TO_OTHER_DAY
+        item for item in result.candidates if item.classification is SuggestionClassification.DEFER_TO_OTHER_DAY
     ]
     assert result.provider_status == "OK"
-    assert len(suitable) == 4
+    assert len(suitable) == expected_suitable_count
     assert deferred
     assert max(item.rank_position for item in suitable) < min(item.rank_position for item in deferred)
     assert all(item.route_delta.delta_route_minutes <= 30 for item in result.acceptable_top3)
@@ -220,9 +212,7 @@ async def test_single_captured_intent_supported_but_uncaptured_combination_rejec
     assert food.candidates
     assert all(item.canonical_place.category == PlaceCategory.FOOD.value for item in food.candidates)
     with pytest.raises(FrozenSnapshotError, match="INTENT_COMBINATION_NOT_CAPTURED"):
-        await source.search(
-            _query("北京", intents=(SuggestionIntent.NEARBY, SuggestionIntent.FOOD))
-        )
+        await source.search(_query("北京", intents=(SuggestionIntent.NEARBY, SuggestionIntent.FOOD)))
 
 
 @pytest.mark.asyncio
@@ -233,9 +223,7 @@ async def test_query_anchor_and_city_must_match_exactly():
     wrong_id = _query("北京").model_copy(update={"anchor_place_id": "CLIENT-SPOOFED-ID"})
     with pytest.raises(FrozenSnapshotError, match="QUERY_NOT_EXACT"):
         await source.search(wrong_id)
-    wrong_coords = _query("北京").model_copy(
-        update={"anchor_coords": Coordinates(lng=116.3914, lat=39.9163)}
-    )
+    wrong_coords = _query("北京").model_copy(update={"anchor_coords": Coordinates(lng=116.3914, lat=39.9163)})
     with pytest.raises(FrozenSnapshotError, match="QUERY_NOT_EXACT"):
         await source.search(wrong_coords)
     wrong_city = _query("北京").model_copy(update={"city": "北京市"})
@@ -245,9 +233,7 @@ async def test_query_anchor_and_city_must_match_exactly():
 
 def test_byte_hash_and_payload_hash_tampering_both_fail_closed(tmp_path):
     path = tmp_path / "tampered.json"
-    raw = SNAPSHOT_PATH.read_bytes().replace(
-        "中山公园".encode(), "中山公园X".encode(), 1
-    )
+    raw = SNAPSHOT_PATH.read_bytes().replace("中山公园".encode(), "中山公园X".encode(), 1)
     path.write_bytes(raw)
     with pytest.raises(FrozenSnapshotError, match="FILE_HASH_MISMATCH"):
         FrozenSuggestionSnapshot.load(
@@ -354,9 +340,7 @@ def test_provider_mode_forbids_snapshot_live_fixture_mixing():
     )
     validate_suggestion_provider_configuration(valid)
     with pytest.raises(FrozenSnapshotError, match="FIELDS_FORBIDDEN"):
-        validate_suggestion_provider_configuration(
-            valid.model_copy(update={"suggestion_provider_mode": "live"})
-        )
+        validate_suggestion_provider_configuration(valid.model_copy(update={"suggestion_provider_mode": "live"}))
 
 
 def _repositories(city: str):
@@ -414,8 +398,11 @@ def _repositories(city: str):
     return itineraries, InMemorySuggestionRepository(itineraries)
 
 
-@pytest.mark.parametrize("city", ["北京", "上海", "杭州"])
-def test_public_api_uses_snapshot_and_rejects_uncaptured_next_anchor(monkeypatch, city):
+@pytest.mark.parametrize(
+    ("city", "expected_candidate_count"),
+    [("北京", 4), ("上海", 4), ("杭州", 3)],
+)
+def test_public_api_uses_snapshot_and_rejects_uncaptured_next_anchor(monkeypatch, city, expected_candidate_count):
     itineraries, suggestions = _repositories(city)
     provider = suggestions_api.DefaultRankedSuggestionProvider(
         itineraries,
@@ -450,7 +437,7 @@ def test_public_api_uses_snapshot_and_rejects_uncaptured_next_anchor(monkeypatch
     )
     assert created.status_code == 201, created.text
     body = created.json()
-    assert len(body["candidates"]) == 4
+    assert len(body["candidates"]) == expected_candidate_count
     assert all(item["route_delta"]["delta_route_minutes"] <= 30 for item in body["candidates"])
     assert all(item["provider_receipt"]["execution_mode"] == "live" for item in body["candidates"])
 

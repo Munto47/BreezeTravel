@@ -23,10 +23,8 @@ CAPABILITY_STATUS = ROOT / "docs" / "dual-entry" / "capability-status.md"
 M1_DEV_DATASET = BACKEND / "eval_data" / "auditor_simulated" / "manifest.json"
 M1_DEV_PROXY_GATE = BACKEND / "results" / "auditor_simulated" / "m1_dev_proxy_gate.json"
 DUAL_ENTRY_DATASET = BACKEND / "eval_data" / "dual_entry_v1" / "manifest.json"
-G5_RESTART_EVIDENCE = (
-    BACKEND / "evidence" / "full_stack" / "dual_user_backend_yjs_restart_2026-08-20.json"
-)
-FULL_BACKEND_JUNIT = BACKEND / "results" / "dual_entry_full_20260821.xml"
+G5_RESTART_EVIDENCE = BACKEND / "evidence" / "full_stack" / "dual_user_backend_yjs_restart_2026-08-20.json"
+FULL_BACKEND_JUNIT = BACKEND / "results" / "closure_checkpoint_20260822" / "backend-pytest.xml"
 
 
 def sha256_file(path: Path) -> str | None:
@@ -41,8 +39,13 @@ def sha256_file(path: Path) -> str | None:
 
 def git(*args: str) -> str:
     result = subprocess.run(
-        ["git", *args], cwd=ROOT, text=True, encoding="utf-8",
-        errors="replace", capture_output=True, check=True,
+        ["git", *args],
+        cwd=ROOT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+        check=True,
     )
     return result.stdout.strip()
 
@@ -64,7 +67,16 @@ def config_summary() -> dict[str, object]:
 def working_tree_fingerprint() -> tuple[str, int]:
     """Hash tracked changes plus untracked files without self-hashing releases."""
     digest = hashlib.sha256()
-    digest.update(git("diff", "--binary", "HEAD").encode())
+    digest.update(
+        git(
+            "diff",
+            "--binary",
+            "HEAD",
+            "--",
+            ".",
+            ":(exclude)backend/evidence/releases/**",
+        ).encode()
+    )
     result = subprocess.run(
         ["git", "ls-files", "--others", "--exclude-standard", "-z"],
         cwd=ROOT,
@@ -127,7 +139,7 @@ def gate_summary(path: Path | None, *, current_tree_hash: str) -> dict[str, obje
         }
     payload = json.loads(path.read_text(encoding="utf-8"))
     bound_diff = payload.get("bindings", {}).get("dirty_diff_sha256")
-    return {
+    summary = {
         "run_id": payload.get("run_id"),
         "phase": payload.get("phase"),
         "decision": payload.get("decision"),
@@ -136,6 +148,31 @@ def gate_summary(path: Path | None, *, current_tree_hash: str) -> dict[str, obje
         "bound_dirty_diff_sha256": bound_diff,
         "failed_case_count": len(payload.get("failed_cases") or []),
     }
+    if payload.get("phase") == "BUILDER_SUGGESTION_HTTP":
+        session_gate = next(
+            (
+                item
+                for item in payload.get("gates", [])
+                if isinstance(item, dict) and item.get("id") == "G2_FOUR_STOP_SESSION_COUNT"
+            ),
+            None,
+        )
+        session_gate_passed = bool(
+            session_gate
+            and session_gate.get("status") == "PASS"
+            and isinstance(session_gate.get("actual"), int)
+            and isinstance(session_gate.get("threshold"), int)
+            and session_gate["actual"] >= session_gate["threshold"]
+        )
+        summary["reported_decision"] = payload.get("decision")
+        summary["g2_four_stop_session_gate"] = session_gate or {
+            "status": "MISSING",
+            "reason": "LEGACY_GATE_DID_NOT_PROVE_REQUIRED_SESSION_COUNT",
+        }
+        if not session_gate_passed:
+            summary["decision"] = "REJECT"
+            summary["status"] = "INVALID"
+    return summary
 
 
 def build(output_root: Path, *, require_clean: bool = False) -> Path:
@@ -147,15 +184,9 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     tree_hash, untracked_count = working_tree_fingerprint() if dirty else ("", 0)
     import_gate = latest_product_gate("IMPORT_HTTP")
     builder_gate = latest_product_gate("BUILDER_SUGGESTION_HTTP")
-    dataset_payload = (
-        json.loads(DUAL_ENTRY_DATASET.read_text(encoding="utf-8"))
-        if DUAL_ENTRY_DATASET.is_file()
-        else {}
-    )
+    dataset_payload = json.loads(DUAL_ENTRY_DATASET.read_text(encoding="utf-8")) if DUAL_ENTRY_DATASET.is_file() else {}
     restart_payload = (
-        json.loads(G5_RESTART_EVIDENCE.read_text(encoding="utf-8"))
-        if G5_RESTART_EVIDENCE.is_file()
-        else {}
+        json.loads(G5_RESTART_EVIDENCE.read_text(encoding="utf-8")) if G5_RESTART_EVIDENCE.is_file() else {}
     )
     import_summary = gate_summary(import_gate, current_tree_hash=tree_hash)
     builder_summary = gate_summary(builder_gate, current_tree_hash=tree_hash)
@@ -292,8 +323,14 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             ),
         ],
         "excluded_claims": [
-            "full RC1 release", "public deployment", "public smoke", "real-user validation",
-            "human calibration", "Judge-human agreement", "live-provider SLO", "production SLO",
+            "full RC1 release",
+            "public deployment",
+            "public smoke",
+            "real-user validation",
+            "human calibration",
+            "Judge-human agreement",
+            "live-provider SLO",
+            "production SLO",
         ],
     }
     target = output_root / release_id / "release.json"

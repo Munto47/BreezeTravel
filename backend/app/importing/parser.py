@@ -13,9 +13,7 @@ _CLOCK_POINT = (
     r"(?:(?:上午|下午|晚上|中午|早上)\s*\d{1,2}(?::\d{2}|点(?:半|\d{1,2}分)?)?"
     r"|\d{1,2}(?::\d{2}|点(?:半|\d{1,2}分)?))"
 )
-_TIME_PATTERN = re.compile(
-    rf"(?:{_CLOCK_POINT}\s*(?:[-—~～至]\s*(?:次日)?\s*{_CLOCK_POINT})?)"
-)
+_TIME_PATTERN = re.compile(rf"(?:{_CLOCK_POINT}\s*(?:[-—~～至]\s*(?:次日)?\s*{_CLOCK_POINT})?)")
 _DATE_PATTERN = re.compile(r"(?:20\d{2}[年/-])?\d{1,2}[月/-]\d{1,2}日?")
 _FIXED_VISIT_TERMS = ("已预约", "预约", "已预订", "不可改", "固定")
 _FIXED_TERMS = _FIXED_VISIT_TERMS + ("航班", "高铁", "火车", "返程", "接送")
@@ -23,8 +21,16 @@ _ARRIVAL_TERMS = ("到达", "抵达")
 _RETURN_TERMS = ("返程", "航班", "高铁", "火车", "离开", "去机场", "前往机场")
 _MEMBER_TERMS = ("同行", "成员", "老人", "长辈", "孩子", "儿童", "轮椅", "过敏", "午休", "服药")
 _NON_STOP_PREFIXES = (
-    "交通", "说明", "备注", "提示", "预算", "住宿建议", "行程概览", "注意",
-    "不要把", "合理映射",
+    "交通",
+    "说明",
+    "备注",
+    "提示",
+    "预算",
+    "住宿建议",
+    "行程概览",
+    "注意",
+    "不要把",
+    "合理映射",
 )
 _KNOWN_TRIP_CITIES = ("北京", "上海", "杭州", "成都", "广州", "深圳", "厦门")
 _UNTRUSTED_INSTRUCTION = re.compile(
@@ -35,9 +41,7 @@ _INLINE_DAY_PATTERN = re.compile(
     r"(?:第\s*[一二三四五1-5]\s*天|day\s*[1-5]|d\s*[1-5])",
     re.I,
 )
-_LATEST_RETURN_PATTERN = re.compile(
-    rf"(?:{_CLOCK_POINT})\s*前\s*(?:回|返回|到达)\s*(?:酒店|住宿|住处|民宿)\s*$"
-)
+_LATEST_RETURN_PATTERN = re.compile(rf"(?:{_CLOCK_POINT})\s*前\s*(?:回|返回|到达)\s*(?:酒店|住宿|住处|民宿)\s*$")
 
 
 def _table_columns(sentence: str) -> list[str] | None:
@@ -101,10 +105,12 @@ def _commitment_kind(segment: str) -> CommitmentKind | None:
 
 def _is_transport_event_without_place(name: str) -> bool:
     compact = re.sub(r"\s+", "", name)
-    return bool(re.fullmatch(
-        r"(?:航班|飞机|高铁|火车|列车)(?:已预约|已预订|不可改|固定)?",
-        compact,
-    ))
+    return bool(
+        re.fullmatch(
+            r"(?:航班|飞机|高铁|火车|列车)(?:已预约|已预订|不可改|固定)?",
+            compact,
+        )
+    )
 
 
 def _iter_segments(sentence: str):
@@ -119,7 +125,7 @@ def _iter_segments(sentence: str):
         text = coarse.group()
         split_at = [0]
         for delimiter in re.finditer(r"[，,]", text):
-            tail = text[delimiter.end():]
+            tail = text[delimiter.end() :]
             if _TIME_PATTERN.match(tail.lstrip()):
                 split_at.append(delimiter.end())
         split_at.append(len(text))
@@ -182,7 +188,6 @@ def _iter_natural_segments(sentence: str):
                 offset = part_offset + route_match.start(group_index)
                 yield value, offset
             continue
-        cursor = 0
         for item in re.finditer(r"[^、]+", part):
             listed = item.group().strip()
             if not listed:
@@ -198,7 +203,6 @@ def _iter_natural_segments(sentence: str):
                     yield value, listed_offset + pair.start(group_index)
             else:
                 yield listed, listed_offset
-            cursor = item.end()
 
 
 class ItineraryTextParser:
@@ -249,17 +253,19 @@ class ItineraryTextParser:
                 absolute_start = line_start + max(place_offset, 0)
                 absolute_end = absolute_start + len(table_columns[2])
                 commitment_text = " ".join(table_columns[2:])
-                raw_stops.append(RawStop(
-                    raw_stop_id=str(uuid4()),
-                    import_id=import_id,
-                    day_index=current_day,
-                    raw_name=raw_name,
-                    raw_time=raw_time,
-                    source_span=SourceSpan(start=absolute_start, end=absolute_end),
-                    source_sentence=raw_text[absolute_start:absolute_end],
-                    commitment_kind=_commitment_kind(commitment_text),
-                    fixed_commitment=any(term in commitment_text for term in _FIXED_TERMS),
-                ))
+                raw_stops.append(
+                    RawStop(
+                        raw_stop_id=str(uuid4()),
+                        import_id=import_id,
+                        day_index=current_day,
+                        raw_name=raw_name,
+                        raw_time=raw_time,
+                        source_span=SourceSpan(start=absolute_start, end=absolute_end),
+                        source_sentence=raw_text[absolute_start:absolute_end],
+                        commitment_kind=_commitment_kind(commitment_text),
+                        fixed_commitment=any(term in commitment_text for term in _FIXED_TERMS),
+                    )
+                )
                 if len(raw_stops) >= self.max_stops:
                     return ImportParseDraft(
                         raw_stops=raw_stops,
@@ -271,7 +277,7 @@ class ItineraryTextParser:
             day_match = _DAY_PATTERN.match(sentence)
             if day_match:
                 current_day = _day_number(day_match) - 1
-                sentence = sentence[day_match.end():].strip()
+                sentence = sentence[day_match.end() :].strip()
                 if not sentence:
                     continue
                 # "Day 1 北京" / "第 1 天：杭州" is a day header, not a
@@ -297,10 +303,12 @@ class ItineraryTextParser:
                             r"(?:机场|火车站|高铁站|客运站|码头|航站楼)$",
                             previous.raw_name,
                         ):
-                            raw_stops[-1] = previous.model_copy(update={
-                                "commitment_kind": CommitmentKind.RETURN_DEPARTURE,
-                                "fixed_commitment": True,
-                            })
+                            raw_stops[-1] = previous.model_copy(
+                                update={
+                                    "commitment_kind": CommitmentKind.RETURN_DEPARTURE,
+                                    "fixed_commitment": True,
+                                }
+                            )
                     continue
                 if re.fullmatch(r"(?:乘|坐|搭乘|步行|打车|地铁|公交).{0,20}", name):
                     continue
@@ -309,17 +317,19 @@ class ItineraryTextParser:
                     relative_start = segment_start
                 absolute_start = line_start + relative_start
                 absolute_end = absolute_start + len(segment)
-                raw_stops.append(RawStop(
-                    raw_stop_id=str(uuid4()),
-                    import_id=import_id,
-                    day_index=current_day,
-                    raw_name=name,
-                    raw_time=raw_time_match.group().strip() if raw_time_match else None,
-                    source_span=SourceSpan(start=absolute_start, end=absolute_end),
-                    source_sentence=segment[:1000],
-                    commitment_kind=_commitment_kind(segment),
-                    fixed_commitment=any(term in segment for term in _FIXED_TERMS),
-                ))
+                raw_stops.append(
+                    RawStop(
+                        raw_stop_id=str(uuid4()),
+                        import_id=import_id,
+                        day_index=current_day,
+                        raw_name=name,
+                        raw_time=raw_time_match.group().strip() if raw_time_match else None,
+                        source_span=SourceSpan(start=absolute_start, end=absolute_end),
+                        source_sentence=segment[:1000],
+                        commitment_kind=_commitment_kind(segment),
+                        fixed_commitment=any(term in segment for term in _FIXED_TERMS),
+                    )
+                )
                 if len(raw_stops) >= self.max_stops:
                     return ImportParseDraft(
                         raw_stops=raw_stops,

@@ -36,6 +36,8 @@ def test_manifest_binds_dual_entry_local_delivery_without_human_or_public_claims
     assert release_gates["full_backend_junit"]["exists"] is True
     assert release_gates["g5_restart_status"] == "PASSED"
     assert release_gates["overall_release_decision"] == "REJECT"
+    assert release_gates["builder_http"]["decision"] == "REJECT"
+    assert release_gates["builder_http"]["g2_four_stop_session_gate"]["status"] != "PASS"
     assert release_gates["independent_paired_judge_decision"] == "NOT_RUN"
     assert release_gates["baseline_candidate_promotion_decision"] == "NOT_RUN"
     assert release_gates["external_blind_bundle_provisioned"] is False
