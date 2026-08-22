@@ -9,7 +9,7 @@
 
 | V1 能力 | 当前最高证据 | 当前边界或缺口 |
 |---|---|---|
-| 文本导入、原文/source span 与解析草稿 | integration_verified | 现有 Import/PostgreSQL 链可复用；新的 TripBrief 必填确认合同尚未实现 |
+| 文本导入、原文/source span 与解析草稿 | integration_verified | 现有 Import 主链已接通 TripBrief 草稿和字段 provenance；真实 PostgreSQL migration/事务 Gate 尚未运行 |
 | 截图上传、本地 PaddleOCR、原图终态清理 | planned | 尚无目标接口、清理回执和三图 P95 证据 |
 | 版本化 TripBrief 与确认档案复用 | integration_verified | migration 022、文本 Import 同事务建档、字段 provenance、`NO_PREFERENCE`、ETag/幂等修订与确认已通过受控 API 集成测试；PostgreSQL Gate 未运行 |
 | 单城市、2～5 人、2～5 天早期拒绝 | planned | 现有城市/解析逻辑不能替代统一入口边界 |
