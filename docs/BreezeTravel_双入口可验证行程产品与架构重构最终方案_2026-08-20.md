@@ -11,8 +11,8 @@
 
 本文融合并取代以下两份草案，并在 Final 2.0 中补齐持续验收、真实 Provider 闭环、模型评测隔离、路线构建反馈账本和互联网来源治理：
 
-- `BreezeTravel_统一产品与架构重构方案_2026-08-20.md`；
-- `BreezeTravel_双入口可验证行程产品与重构实施方案_v3.md`。
+- `archive/plans/BreezeTravel_统一产品与架构重构方案_2026-08-20.md`；
+- `archive/plans/BreezeTravel_双入口可验证行程产品与重构实施方案_v3.md`。
 
 后续产品、架构、接口、数据模型和开发排期以本文为准。若实现与本文冲突，应先更新本文或新增 ADR，再修改代码。
 
@@ -2144,10 +2144,10 @@ EVAL_JUDGE_API_BASE=<official OpenAI API base>
 
 本方案的本地输入包括：
 
-- `docs/BreezeTravel_统一产品与架构重构方案_2026-08-20.md`；
-- `docs/BreezeTravel_双入口可验证行程产品与重构实施方案_v3.md`；
-- `docs/BreezeTravel_产品方向与市场痛点调研报告_2026-08-20.md`；
-- `docs/BreezeTravel_AI应用与AI后端深度优化方案.md`；
+- `docs/archive/plans/BreezeTravel_统一产品与架构重构方案_2026-08-20.md`；
+- `docs/archive/plans/BreezeTravel_双入口可验证行程产品与重构实施方案_v3.md`；
+- `docs/research/BreezeTravel_产品方向与市场痛点调研报告_2026-08-20.md`；
+- `docs/archive/plans/BreezeTravel_AI应用与AI后端深度优化方案.md`；
 - 当前仓库的 schema、Planner、constraint、migration、API、Yjs 和前端状态实现；
 - `backend/evidence/real_provider_local_authorized/` 的一次性真实 Provider evidence；
 - `backend/evidence/full_stack/` 的双用户与 Backend/Yjs 重启 evidence；

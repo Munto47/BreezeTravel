@@ -1,5 +1,7 @@
 # BreezeTravel 阿里云部署文档
 
+> **状态说明：历史部署 Runbook。** 使用前必须重新核对当前 Compose、环境变量、服务器备份与回滚方案；本文存在不等于当前公网部署已经验证。
+
 记录从零部署 BreezeTravel 到阿里云 ECS（Ubuntu 24.04）的完整流程，涵盖 Docker 编排、Nginx 反向代理、HTTPS 证书、日常更新操作。
 
 ---
