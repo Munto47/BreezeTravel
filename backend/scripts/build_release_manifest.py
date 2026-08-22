@@ -19,6 +19,9 @@ BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
 PRODUCT_CHARTER = ROOT / "docs" / "product" / "PROJECT_CHARTER.md"
 TRIP_CHECK_SPEC = ROOT / "docs" / "product" / "TRIP_CHECK_SPEC.md"
+TRIP_CHECK_API_CONTRACT = ROOT / "docs" / "product" / "TRIP_CHECK_API_CONTRACT.md"
+PORTFOLIO_MISSION = ROOT / "docs" / "governance" / "PORTFOLIO_MISSION.md"
+PROGRAM = ROOT / "docs" / "governance" / "PROGRAM.md"
 CURRENT_GOAL = ROOT / "docs" / "governance" / "CURRENT_GOAL.md"
 ROADMAP = ROOT / "docs" / "governance" / "ROADMAP.md"
 RELEASE_GATES = ROOT / "docs" / "governance" / "RELEASE_GATES.md"
@@ -71,7 +74,7 @@ def config_summary() -> dict[str, object]:
         "ft_router_enabled": os.getenv("FT_ROUTER_ENABLED", "false").lower() == "true",
         "reranker_enabled": os.getenv("RERANKER_ENABLED", "false").lower() == "true",
         "auto_migrate": os.getenv("AUTO_MIGRATE", "false").lower() == "true",
-        "required_migration": os.getenv("REQUIRED_MIGRATION", "021_atomic_suggestion_undo.sql"),
+        "required_migration": os.getenv("REQUIRED_MIGRATION", "024_advice_bundles.sql"),
     }
 
 
@@ -209,7 +212,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     if not import_summary["same_worktree_binding"] or not builder_summary["same_worktree_binding"]:
         legacy_release_blockers.append("LEGACY_HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING")
     trip_check_release_blockers = [
-        "TRIP_CHECK_V1_IMPLEMENTATION_NOT_STARTED",
+        "TRIP_CHECK_V1_P1_D1_NOT_PASSED",
         "TRIP_CHECK_V1_DATASET_360_NOT_BUILT",
         "G1_OFFLINE_NOT_RUN_FOR_CANDIDATE",
         "G2_POSTGRES_NOT_RUN_FOR_CANDIDATE",
@@ -222,7 +225,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     payload = {
         "schema_version": "4.0",
-        "release_status": "trip_check_v1_preimplementation_baseline",
+        "release_status": "trip_check_v1_p1_in_progress_baseline",
         "release_approval_granted": False,
         "local_delivery_test_execution": "not_run_by_manifest",
         "manifest_generation_executes_tests": False,
@@ -247,13 +250,16 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "target_cases_per_city": 120,
             "target_total_cases": 360,
             "target_splits": {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90},
-            "dataset_status": "planned",
+            "dataset_status": "pilot_contract_ready_execution_not_run",
             "expanded_city_claims": False,
         },
         "product_authority": {
             "agents": evidence_reference(ROOT / "AGENTS.md"),
             "project_charter": evidence_reference(PRODUCT_CHARTER),
             "trip_check_spec": evidence_reference(TRIP_CHECK_SPEC),
+            "trip_check_api_contract": evidence_reference(TRIP_CHECK_API_CONTRACT),
+            "portfolio_mission": evidence_reference(PORTFOLIO_MISSION),
+            "program": evidence_reference(PROGRAM),
             "current_goal": evidence_reference(CURRENT_GOAL),
             "roadmap": evidence_reference(ROADMAP),
             "release_gates": evidence_reference(RELEASE_GATES),
@@ -262,13 +268,15 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
                 "AGENTS.md",
                 "PROJECT_CHARTER.md",
                 "TRIP_CHECK_SPEC.md",
-                "CURRENT_GOAL.md/ROADMAP.md",
+                "PORTFOLIO_MISSION.md",
+                "PROGRAM.md",
+                "CURRENT_GOAL.md/ROADMAP.md/RELEASE_GATES.md",
                 "ADR",
                 "same-commit evidence",
             ],
         },
         "trip_check_v1_release_gate_evidence": {
-            "g0_document_and_schema": "DOCUMENTS_BOUND_SCHEMA_NOT_REVIEWED",
+            "g0_document_and_schema": "CONTRACT_PRESENT_RUNTIME_GATE_NOT_RUN",
             "g1_offline": "NOT_RUN",
             "g2_postgres": "NOT_RUN",
             "g3_fixed_snapshot": "NOT_RUN",

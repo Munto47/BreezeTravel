@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "021_atomic_suggestion_undo.sql"
+    required_migration: str = "024_advice_bundles.sql"
     memory_enabled_default: bool = True
     memory_min_confidence: float = 0.65
     memory_ttl_days: int = 180

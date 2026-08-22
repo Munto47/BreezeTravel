@@ -1,4 +1,4 @@
-"""Verify the hash-bound Trip Check V1 baseline without making release claims.
+"""Verify the hash-bound Trip Check V1 in-progress baseline without release claims.
 
 The filename is retained for compatibility with existing local commands.  New
 callers should treat the result as a Phase 0 authority/baseline verification,
@@ -17,7 +17,7 @@ from typing import Any
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
 DEFAULT_LATEST = BACKEND / "evidence" / "releases" / "latest.json"
-EXPECTED_MIGRATION = "021_atomic_suggestion_undo.sql"
+EXPECTED_MIGRATION = "024_advice_bundles.sql"
 
 
 def sha256_file(path: Path) -> str:
@@ -52,8 +52,8 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
 
     if payload.get("schema_version") != "4.0":
         raise ValueError("expected Trip Check V1 baseline manifest schema 4.0")
-    if payload.get("release_status") != "trip_check_v1_preimplementation_baseline":
-        raise ValueError("manifest is not a Trip Check V1 preimplementation baseline")
+    if payload.get("release_status") != "trip_check_v1_p1_in_progress_baseline":
+        raise ValueError("manifest is not a Trip Check V1 P1 in-progress baseline")
     if payload.get("latest_migration") != EXPECTED_MIGRATION:
         raise ValueError(f"manifest does not bind migration {EXPECTED_MIGRATION}")
     if payload.get("release_approval_granted") is not False:
@@ -66,6 +66,9 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
         "agents",
         "project_charter",
         "trip_check_spec",
+        "trip_check_api_contract",
+        "portfolio_mission",
+        "program",
         "current_goal",
         "roadmap",
         "release_gates",
@@ -88,7 +91,7 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
     if gates.get("automated_proxy_judge") != "NOT_RUN":
         raise ValueError("automated proxy Judge state was overstated")
     if not gates.get("release_blockers"):
-        raise ValueError("preimplementation baseline must carry release blockers")
+        raise ValueError("in-progress baseline must carry release blockers")
 
     legacy = payload.get("legacy_dual_entry_delivery_evidence")
     if not isinstance(legacy, dict):
