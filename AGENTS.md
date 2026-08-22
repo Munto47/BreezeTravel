@@ -14,6 +14,32 @@ BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程�
 
 拖拽式路线 Builder、旧 Planner、RAG、多 Agent、LoRA、Yjs 等仅是保留的技术资产，不是当前产品目标。除最低回归和 Roadmap 记录外，不得主动扩建。
 
+## 工程使命与架构
+
+本项目以 AI 应用与可靠后端岗位的面试竞争力为首要工程交付目标，以真实用户价值验证为必要约束。面试目标不得降低事实正确性、隐私或证据门禁；任何新技术必须先对应真实问题，再通过固定实验证明价值。
+
+采用模块化单体：
+
+```text
+文本/截图 → OCR/Parser → TripBriefRevision 确认 → ItineraryRevision
+→ Provider Adapters → EvidenceSnapshot → AuditEngine
+→ Advice/Constraint Repair → 预览采纳 → 新 Revision → 完整 postcheck
+```
+
+旁路面试证据链固定为：
+
+```text
+Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
+→ Replay → Legacy Agent/Core/Solver 消融 → Release Manifest
+```
+
+- PostgreSQL 保存权威状态、revision、run、lease、幂等记录、receipt 和 lineage；Redis 只保存缓存、限流等可丢失状态。
+- LangGraph 只编排固定阶段、HITL、SSE 和恢复。Checkpoint 不代表 Provider 请求、数据库副作用或采纳命令“恰好执行一次”；这些操作仍需稳定幂等键、事务边界和回执。
+- LLM 只用于结构解析、歧义解释、风险归纳和 Advice 表达；AuditEngine 是 Finding 的唯一权威。
+- 旧 ReAct/Critic、RAG、LoRA Router 和 Planner 只作为冻结 Baseline；不得重新包装为 V1 主链。
+
+“Trip Compiler”只允许作为严格比喻：Source=文本/截图，IR=`TripBriefRevision + ItineraryRevision`，Semantic Check=`EvidenceSnapshot + AuditEngine`，Diagnostic=`AuditFinding`，Rewrite=`EditCommand/RepairOption`，Recompile=新 revision 完整 postcheck。
+
 ## 权威顺序
 
 发生冲突时按以下顺序处理，不能选择更容易实现的一份：
@@ -21,9 +47,11 @@ BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程�
 1. 本文件；
 2. `docs/product/PROJECT_CHARTER.md`；
 3. `docs/product/TRIP_CHECK_SPEC.md`；
-4. `docs/governance/CURRENT_GOAL.md` 与 `docs/governance/ROADMAP.md`；
-5. 已接受的 ADR；
-6. 当前 commit/config 对应的 evidence。
+4. `docs/governance/PORTFOLIO_MISSION.md`；
+5. `docs/governance/PROGRAM.md`；
+6. `docs/governance/CURRENT_GOAL.md`、`docs/governance/ROADMAP.md` 与 `docs/governance/RELEASE_GATES.md`；
+7. 已接受的 ADR；
+8. 当前 commit/config 对应的 evidence。
 
 历史方案、旧报告、测试数量和 README 描述都不能覆盖上述文件。Git/GitHub 提交规则继承全局 `AGENTS.md`，本文件不重复。
 
@@ -48,7 +76,11 @@ BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程�
 
 ## 单一 Goal 合同
 
-任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片不等于获准进入下一阶段。
+任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 或 `IN_PROGRESS` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片不等于获准进入下一阶段。
+
+`PROGRAM.md` 已预定义的下一 Goal 可以在当前 Goal 验收、对应 Gate、clean tree、远端 checkpoint 和 evidence readback 全部通过后自动生成；任何时刻仍只允许一个 Goal 为 `APPROVED/IN_PROGRESS`。自动推进不得扩大 Program 范围，不得自动合并 `main`。
+
+第一个实现阶段必须交付文本纵向闭环，不得先批量建设 OCR、基础设施或评测后台。18 条 pilot 从 P1 同步建设；每个被修复的真实故障必须追加到 regression。新组件固定执行“实验 → 比较 → 达到预设门槛 → 进入运行时”，不得以技术存在或关键词价值代替准入。
 
 连续两个切片无法改善同一门禁、需要扩大范围或新增基础设施、需要修改 blind/oracle、出现证据矛盾或成本超限时，立即停止并请求人工决策。
 

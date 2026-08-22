@@ -5,11 +5,13 @@
 ## Metadata
 
 - Goal ID：
+- Program ID：
 - Phase：
 - Status：
 - Branch：`codex/trip-check-p<n>-<scope>`
 - Baseline commit：
 - Approved by / at：
+- Predecessor gate：
 
 ## Outcome
 
@@ -28,6 +30,13 @@
 ## Authority
 
 引用适用的 Charter、Spec、Roadmap、Gate、ADR 和 schema/API 合同。
+
+## Contract versions
+
+- API/schema version：
+- Dataset increment：
+- Fault profiles：
+- Evidence output path：
 
 ## Baseline
 
@@ -58,9 +67,19 @@
 - 最大重试：
 - diff/切片边界：
 
+## Pre-approved actions
+
+列出 Program 已明确批准、无需逐文件重复请求的 migration、依赖、Provider 模式和开发分支动作。
+
 ## HITL
 
 列出本切片中需要人工批准的 schema、migration、依赖、真实 Provider、Gate 或晋级动作。
+
+## Auto-advance
+
+- Required gate：
+- Next Goal template：
+- 自动推进必须同时满足：验收全 PASS、clean tree、commit 已推送、evidence 可回读、无 Stop condition。
 
 ## Stop conditions
 
@@ -69,7 +88,10 @@
 ## Completion record
 
 - Commits：
+- Remote branch / upstream：
 - Verification results：
 - Evidence paths：
+- Gate result：
+- Next Goal generated：
 - Remaining red lights：
 - Promotion decision：`NOT_REQUESTED / REJECT / APPROVE_NEXT_PHASE`
