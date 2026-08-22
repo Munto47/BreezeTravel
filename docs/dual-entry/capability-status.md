@@ -3,6 +3,8 @@
 > 更新时间：2026-08-22
 > 本表只报告当前状态，不构成产品授权或发布证明。
 
+当前 Goal `TC-P0-G02` 只重构指导与合同，不改变下表的能力证据；P1 文本纵向闭环尚未开始。
+
 状态词固定为 `planned / implemented / unit_verified / integration_verified / snapshot_verified / live_verified / publicly_verified / user_validated`。只能使用当前 commit 对应证据达到的最高等级；更高等级不从低等级推断。
 
 | V1 能力 | 当前最高证据 | 当前边界或缺口 |

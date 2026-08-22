@@ -1,76 +1,34 @@
-# Evaluation and evidence
+# 「行程查」V1 评测合同
 
-## Fixed controlled-local suites
+> 状态：`ACCEPTED`
+>
+> 当前 V1 数据与候选运行：`NOT_RUN`
 
-`python -m scripts.run_local_eval_suite` rebuilds raw case outputs under
-`backend/evidence/local_eval/`. The current fixed dataset contains:
+历史 Router、RAG、Planner、三城 RC1 和旧双入口结果已归档到 [`archive/evidence-2026-08-22/`](archive/evidence-2026-08-22/)，不得作为 V1 当前指标。
 
-| Suite | Samples | Current result |
-|---|---:|---:|
-| Router | 96 | 100% |
-| Task Parser | 72 | 100% |
-| Verifier | 120 | 100% |
-| Controlled end-to-end | 60 | 100% |
-| Total | 348 | 100% |
+## 数据分层
 
-Each suite is split into pilot/dev/blind. Case IDs and dataset/config hashes are
-stored with raw outputs; summary rates include confidence intervals. Blind cases
-are checked for leakage against tuning case IDs.
+| split | 数量 | 用途 | 规则 |
+|---|---:|---|---|
+| pilot | 18 | P1 合同、runner、oracle | 可版本化重建 |
+| dev | 180 | 解析、规则、Advice、Solver 优化 | 允许开发读取 |
+| regression | 72 | 已修复真实故障 | 只追加或审计更正 |
+| frozen blind | 90 | 最终独立评估 | 开发 Agent、运行模型和 Judge 不读标签 |
 
-The end-to-end adapter passes only when no `VIOLATED` check remains. `UNKNOWN`
-is retained in the output and is acceptable only when evidence is genuinely
-unavailable; it is never converted to `SATISFIED`.
+北京、上海、杭州各 120。同源和变异案例保持同一 split。blind 失败只能形成 dev/regression 复现，不能修改 blind/oracle 消除失败。
 
-## Additional evidence
+## 固定变体
 
-- `backend/evidence/fault_injection/summary.json`: 24/24 controlled failures
-  produced the expected bounded retry, circuit, timeout, invalid-payload,
-  persistence or degradation behavior.
-- `backend/evidence/experiments/summary.json`: local RAG proxy ablations, Router
-  tool-policy comparison and Verifier/Repair comparison. Raw cases, hashes and
-  Pareto fields are retained. Three variants requiring an external LLM/GPU were
-  deliberately recorded as not executed.
-- `backend/evidence/multi_instance/summary.json`: two Python 3.11 backend
-  processes, shared PostgreSQL checkpoints and atomic Redis limiting.
-- Frontend controlled E2E renders all three verification states, then changes
-  the itinerary and proves the stale report disappears.
-- Yjs tests perform a real child-process stop/restart and read persisted Y.Doc
-  content after restart.
+- Legacy A：旧 ReAct/Critic/RAG；
+- Core B：TripCheck 固定 Workflow；
+- Solver C：Core 加通过准入的 Repair 策略。
 
-These results are `local_real_verified` or `unit_verified`, depending on the
-artifact. They are not public-deployment, external-provider or real-user proof.
-Public RAG and real-user reports keep separate evidence namespaces.
+三组使用同一 RunSpec、输入、snapshot 和可执行 oracle。比较完整任务成功、错 POI/错城、HARD 漏检、UNKNOWN 保留、postcheck、unsupported claim、P95、token、成本和 replay hash。
 
-## Three-city local RC1 candidate
+## 运行绑定
 
-The RC1 recommendation claim is deliberately limited to Beijing, Shanghai and
-Hangzhou, with 50 fixed cases per city. Iteration uses a frozen live-candidate
-snapshot and must record zero provider, generation-LLM and Judge-API calls.
-After three identical 150-case replays, three independent GPT-5.6-sol Codex
-subagents judge the same blind bundle. Their reports are hash-bound to the
-dataset, replay report, rubric and backend execution tree.
+每次评测保存 commit、config、model、Prompt、rules、provider、dataset、snapshot、fault profile、seed、预算和原始 case 输出。摘要不得脱离原始 artifact；不同 dirty tree 或不同绑定结果不得拼接。
 
-This is a model-panel consistency check, not human calibration. The three
-rounds passed 146/150, 145/150 and 142/150; majority voting passed 146/150 and
-full agreement was 95.33%. The agreement gate passed, but the overall quality
-gate did not: round three passed only 5/9 `all` cases. The allowed wording is
-“the independent model panel met the agreement threshold; the quality gate
-did not pass and human calibration was not performed.” DeepSeek remains part
-of the real product generation chain, but it is never used as the Judge.
+## Judge
 
-The current frozen candidate is `rc1_v22`. Its three full replays each pass
-150/150 with the same normalized output hash and with provider, generation-LLM
-and Judge-API calls all equal to zero. Two Hangzhou cases fail closed because
-the frozen provider pool contains no valid nearby food: this is recorded as a
-1.33% missing-category rate, below the predefined 2% ceiling. The cards do not
-substitute a scenic POI or a meal more than five kilometres away, so the
-wrong-category rate is zero. A safe degradation counts as an automatic pass
-only when the response carries the explicit fail-closed receipt; the missing
-category remains separately visible in `summary.category_coverage`.
-
-The source tree also contains post-v22 hardening for pairwise-compact
-attraction/food/hotel cores, spatially redundant attraction removal and
-short-distance vehicle-transfer wording. These changes were added after the
-bound v22 reports and were not followed by another 150-case replay or model
-panel. They are therefore implementation hardening, not updated evaluation
-evidence.
+自动语义 Judge 使用隔离、无 API 流程，标记为 `automated_proxy_judge`。运行时模型不得评价自己；模型 Judge、真人标签、live Provider 和公网 E2E 是不同证据。

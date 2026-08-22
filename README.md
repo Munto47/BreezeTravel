@@ -10,7 +10,7 @@ BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上
 
 ## 当前状态
 
-项目正在执行 P0「指导文件与基线」。现有代码已经包含文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand、PostgreSQL 恢复等可复用底座，但不等于「行程查 V1」已经完成。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。现有代码已经包含文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand、PostgreSQL 恢复等可复用底座，但不等于「行程查 V1」已经完成。
 
 以下是冻结的历史技术资产，不再作为产品愿景或无条件完成声明：
 
@@ -29,9 +29,11 @@ BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上
 1. [AGENTS.md](AGENTS.md)
 2. [产品章程](docs/product/PROJECT_CHARTER.md)
 3. [V1 行为规格](docs/product/TRIP_CHECK_SPEC.md)
-4. [当前唯一 Goal](docs/governance/CURRENT_GOAL.md) 与 [24 周 Roadmap](docs/governance/ROADMAP.md)
-5. [Release Gates](docs/governance/RELEASE_GATES.md)
-6. [能力与证据状态](docs/dual-entry/capability-status.md)
+4. [作品集使命](docs/governance/PORTFOLIO_MISSION.md)
+5. [V1 Program](docs/governance/PROGRAM.md)
+6. [当前唯一 Goal](docs/governance/CURRENT_GOAL.md) 与 [纵向 Roadmap](docs/governance/ROADMAP.md)
+7. [Release Gates](docs/governance/RELEASE_GATES.md)
+8. [能力与证据状态](docs/dual-entry/capability-status.md)
 
 旧双入口 Final 2.0 已移入 [历史方案目录](docs/archive/plans/)，仅供追溯。
 
@@ -93,7 +95,7 @@ backend/             FastAPI、领域模型、Provider、migration、测试与 e
 frontend/            Next.js UI 与浏览器测试
 y-websocket/         历史协同服务（冻结资产）
 docs/product/        当前产品章程与 V1 规格
-docs/governance/     Roadmap、Goal 合同、Release Gates 与基线
+docs/governance/     Program、Roadmap、Goal 合同、Release Gates 与基线
 docs/adr/            架构决策
 docs/archive/        历史方案与 Review
 ```
