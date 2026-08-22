@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.itineraries.hash_service import sha256_canonical
 from app.itineraries.models import SUPPORTED_CITIES, TripDateRange
 
 
@@ -227,6 +228,7 @@ class TripCheckRun(BaseModel):
     run_id: str = Field(min_length=1)
     workspace_id: str = Field(min_length=1)
     itinerary_revision: int = Field(gt=0)
+    brief_id: str = Field(min_length=1)
     brief_revision: int = Field(gt=0)
     stage: TripCheckStage
     stage_attempt: int = Field(default=1, gt=0)
@@ -241,11 +243,15 @@ class TripCheckRun(BaseModel):
     report_id: str | None = None
     advice_bundle_id: str | None = None
     version: int = Field(default=1, gt=0)
+    created_by: str = Field(min_length=1)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @model_validator(mode="after")
     def validate_run_state(self) -> "TripCheckRun":
+        expected_config_hash = sha256_canonical(self.run_spec.model_dump(mode="json"))
+        if self.config_hash != expected_config_hash:
+            raise ValueError("config hash must match the immutable RunSpec")
         if len(self.completed_stages) != len(set(self.completed_stages)):
             raise ValueError("completed stages must be unique")
         if (self.lease_owner is None) != (self.lease_until is None):
@@ -253,6 +259,34 @@ class TripCheckRun(BaseModel):
         if self.status == TripCheckRunStatus.PARTIAL and not self.partial_failures:
             raise ValueError("partial runs require at least one partial failure")
         return self
+
+
+class TripCheckRunEvent(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    event_id: int = Field(gt=0)
+    run_id: str = Field(min_length=1)
+    event_type: str = Field(min_length=1)
+    stage: TripCheckStage
+    run_version: int = Field(gt=0)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class SideEffectReceipt(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    receipt_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    stage: TripCheckStage
+    side_effect_key: str = Field(min_length=1)
+    effect_type: str = Field(min_length=1)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    response_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    provider: str | None = None
+    status: str = Field(pattern=r"^(SUCCEEDED|PARTIAL|FAILED)$")
+    receipt: dict[str, Any]
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AdviceAction(BaseModel):

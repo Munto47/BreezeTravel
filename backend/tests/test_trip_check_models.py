@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.itineraries.models import TripDateRange
+from app.itineraries.hash_service import sha256_canonical
 from app.trip_check.models import (
     AccommodationBrief,
     ArrivalDeparture,
@@ -132,27 +133,33 @@ def _run_spec():
 
 
 def test_trip_check_run_preserves_partial_and_lease_invariants():
+    spec = _run_spec()
+    config_hash = sha256_canonical(spec.model_dump(mode="json"))
     with pytest.raises(ValidationError, match="partial runs require"):
         TripCheckRun(
             run_id="run-1",
             workspace_id="workspace-1",
             itinerary_revision=1,
+            brief_id="brief-1",
             brief_revision=1,
             stage=TripCheckStage.COLLECT_EVIDENCE,
-            run_spec=_run_spec(),
-            config_hash="d" * 64,
+            run_spec=spec,
+            config_hash=config_hash,
             status=TripCheckRunStatus.PARTIAL,
+            created_by="user-1",
         )
 
     run = TripCheckRun(
         run_id="run-1",
         workspace_id="workspace-1",
         itinerary_revision=1,
+        brief_id="brief-1",
         brief_revision=1,
         stage=TripCheckStage.COLLECT_EVIDENCE,
-        run_spec=_run_spec(),
-        config_hash="d" * 64,
+        run_spec=spec,
+        config_hash=config_hash,
         status=TripCheckRunStatus.PARTIAL,
+        created_by="user-1",
         partial_failures=[
             RunPartialFailure(
                 stage=TripCheckStage.COLLECT_EVIDENCE,
