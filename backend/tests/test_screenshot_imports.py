@@ -240,6 +240,11 @@ def test_screenshot_import_retains_decorative_footer_receipt_but_does_not_parse_
     ]
     assert body["itinerary_import"]["raw_text"] == "第1天：北京 2人 地铁 09:00-11:00 颐和园"
     assert len(body["itinerary_import"]["raw_stops"]) == 1
+    assert body["itinerary_import"]["status"] == "READY"
+    noise = next(
+        line for line in body["ocr_receipts"][0]["lines"] if line["text"] == "a"
+    )
+    assert noise["requires_confirmation"] is True
 
 
 def test_invalid_screenshot_batch_creates_no_asset(monkeypatch):

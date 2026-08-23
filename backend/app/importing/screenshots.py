@@ -42,14 +42,18 @@ _DAY_OR_BULLET_LINE = re.compile(r"^(?:第\s*\d+\s*天|[•●▪-])")
 _TIME_LINE = re.compile(r"^\d{1,2}:\d{2}")
 
 
-def _receipt_text_block(receipt: "ScreenshotOcrReceipt") -> str:
-    lines = [
+def _receipt_itinerary_lines(receipt: "ScreenshotOcrReceipt") -> list["OcrTextLine"]:
+    return [
         line
         for line in receipt.lines
         if not _DECORATIVE_REFERENCE_LINE.fullmatch(line.text.strip())
         and not _DECORATIVE_ITINERARY_TITLE.fullmatch(line.text.strip())
         and not _DECORATIVE_SINGLE_ASCII_NOISE.fullmatch(line.text.strip())
     ]
+
+
+def _receipt_text_block(receipt: "ScreenshotOcrReceipt") -> str:
+    lines = _receipt_itinerary_lines(receipt)
     if not lines:
         return ""
     merged = [lines[0].text.strip()]
@@ -688,11 +692,16 @@ class ScreenshotImportService:
             resolutions = (
                 await self.entity_resolver.resolve_all(draft.raw_stops, city=workspace.city) if draft.raw_stops else []
             )
+            itinerary_lines = [
+                line
+                for receipt in ocr_receipts
+                for line in _receipt_itinerary_lines(receipt)
+            ]
             source_confidence = min(
-                (line.confidence for receipt in ocr_receipts for line in receipt.lines),
+                (line.confidence for line in itinerary_lines),
                 default=0.0,
             )
-            if any(line.requires_confirmation for receipt in ocr_receipts for line in receipt.lines):
+            if any(line.requires_confirmation for line in itinerary_lines):
                 resolutions = [
                     item.model_copy(
                         update={
