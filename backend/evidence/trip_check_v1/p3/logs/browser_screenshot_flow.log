@@ -1,0 +1,19 @@
+
+> agenttravel-frontend@0.1.0 test:e2e:trip-check-p3
+> playwright test -c playwright.trip-check-p3.config.js
+
+
+Running 2 tests using 1 worker
+
+  ok 1 e2e\trip-check-p3.spec.js:99:1 › 截图 OCR 显示低置信度和原图删除回执，刷新恢复导入草稿 (1.5s)
+  ok 2 e2e\trip-check-p3.spec.js:141:1 › 原图删除失败时页面显示 PRIVACY_BLOCKED 且不创建导入草稿 (596ms)
+
+  2 passed (9.0s)
+[2m[WebServer] [22m(node:55164) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:64956) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56560) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

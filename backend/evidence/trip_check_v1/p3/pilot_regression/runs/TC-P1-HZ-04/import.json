@@ -1,0 +1,313 @@
+{
+  "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+  "workspace_id": "pilot-tc-p1-hz-04",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "杭州5人，有长辈，少走路。第1天 08:00 灵隐寺，12:00 西溪湿地国家公园，15:00 龙井村（茶园）；第2天西湖风景名胜区。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
+      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "day_index": 0,
+      "raw_name": "灵隐寺",
+      "raw_time": "08:00",
+      "source_span": {
+        "start": 17,
+        "end": 26
+      },
+      "source_sentence": "08:00 灵隐寺",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
+      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "day_index": 0,
+      "raw_name": "西溪湿地国家公园",
+      "raw_time": "12:00",
+      "source_span": {
+        "start": 27,
+        "end": 41
+      },
+      "source_sentence": "12:00 西溪湿地国家公园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
+      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "day_index": 0,
+      "raw_name": "龙井村（茶园）",
+      "raw_time": "15:00",
+      "source_span": {
+        "start": 42,
+        "end": 55
+      },
+      "source_sentence": "15:00 龙井村（茶园）",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
+      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "day_index": 1,
+      "raw_name": "西湖风景名胜区",
+      "raw_time": null,
+      "source_span": {
+        "start": 59,
+        "end": 66
+      },
+      "source_sentence": "西湖风景名胜区",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
+      "canonical_place_id": "hz-lingyin",
+      "candidates": [
+        {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+          "retrieval_response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-lingyin",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-lingyin",
+            "name": "灵隐寺",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.102,
+            "latitude": 30.24,
+            "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+            "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
+      "canonical_place_id": "hz-xixi",
+      "candidates": [
+        {
+          "place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "retrieval_response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-xixi",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-xixi",
+            "name": "西溪湿地国家公园",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.063,
+            "latitude": 30.268,
+            "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+            "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
+      "canonical_place_id": "hz-longjing",
+      "candidates": [
+        {
+          "place_id": "hz-longjing",
+          "name": "龙井村（茶园）",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.101,
+            "lat": 30.224
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "97b68261c22e01053e14400c073aa07c4cb83b76f167fcae9394860b023de6ec",
+          "retrieval_response_hash": "35fe63fcaa10bb1ea9f8ab8c58a3b4d58e501b2a2170c5520b12ec4f33293695",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-longjing",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-longjing",
+            "name": "龙井村（茶园）",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.101,
+            "latitude": 30.224,
+            "request_hash": "97b68261c22e01053e14400c073aa07c4cb83b76f167fcae9394860b023de6ec",
+            "response_hash": "35fe63fcaa10bb1ea9f8ab8c58a3b4d58e501b2a2170c5520b12ec4f33293695",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
+      "canonical_place_id": "hz-west-lake",
+      "candidates": [
+        {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "retrieval_response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-west-lake",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-west-lake",
+            "name": "西湖风景名胜区",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.148,
+            "latitude": 30.244,
+            "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+            "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [
+    "杭州5人，有长辈，少走路。第1天 08:00 灵隐寺，12:00 西溪湿地国家公园，15:00 龙井村（茶园）；第2天西湖风景名胜区。"
+  ],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T04:58:32.165905Z",
+  "updated_at": "2026-08-23T04:58:32.165905Z"
+}

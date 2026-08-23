@@ -86,6 +86,6 @@
 ## Completion record
 
 - Status：`IN_PROGRESS`；
-- Verification：`NOT_RUN`；
-- Evidence：`NOT_CREATED`；
+- Verification：`REJECT`；G3 snapshot、受控浏览器、P1 pilot、完整 pytest、Ruff、前端构建和敏感扫描通过；G1 真实 OCR、G2 PostgreSQL/P2 当前 commit 回归、G4 live Provider 因环境证据缺失保持 `NOT_RUN`；
+- Evidence：`backend/evidence/trip_check_v1/p3/integrity_gate_manifest.json`，subject commit `e3c46aa142be44bc97c4588b4e8aa73e8399befc`；
 - Promotion：`NOT_REQUESTED`。

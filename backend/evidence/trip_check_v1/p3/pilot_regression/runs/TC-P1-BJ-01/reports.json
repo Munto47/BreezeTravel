@@ -1,0 +1,2327 @@
+[
+  {
+    "report_id": "55b976e4-4abf-4163-803e-88189e5da98c",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_id": "662f6f20-6e9b-455b-8d44-858fde2d41fb",
+    "itinerary_revision": 1,
+    "task_id": "workspace:pilot-tc-p1-bj-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "f10a70ee644f3265be06c2399e6329d975ca788664caa169ecd9e96c1c9791a6",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "d779d5fe-43af-4715-8f41-31922a4ac3d7",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "68d0f2c6-36a8-4e9a-bc92-b86c78fa1bb8",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "故宫博物院 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "place_id": "bj-forbidden-city",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "a6a558c0-486b-5cf1-9c3f-3dc1f413bf7b"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "ad109e4f-0021-4ba7-bbe9-64bdd01c9cdd",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "天坛公园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "place_id": "bj-temple-of-heaven",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0393ba02-1f3d-594a-bcf5-eba6504b5237"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "fb852427-d946-4d8c-ab3c-8975c79988dc",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "颐和园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+          "place_id": "bj-summer-palace",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "55804869-66be-504f-9932-2a491b4ee2f5"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "2b07720a-5dc1-44a0-9436-f9837afde38e",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "ROUTE_GAP_INSUFFICIENT",
+        "message": "相邻地点仅有 0 分钟空档，少于路线所需 35 分钟",
+        "input_values": {
+          "edge_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+          "from_stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "to_stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "available_minutes": 0,
+          "route_duration_minutes": 35,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e68e0c10-3e37-5da5-a44e-a1877a562297"
+        ],
+        "repairable": true,
+        "confirmation_action": "请调整前后活动时间或更换地点"
+      },
+      {
+        "finding_id": "79a1b6e6-a089-4377-8e6b-c534f21c2dbf",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9b40550e-d955-48a5-af3a-e76c222a213c",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "be0c310e-88d6-43bc-8eb4-1e4c1b9b9d78",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 2 天时间链连续有效",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "2b9b1c11-1656-4d70-b707-2f0e59ea3394",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "4ee8dbda-0d80-42a5-9422-aad3d594f449",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "e893c0af-d4ba-4afa-8197-fe414562e575",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "81146a31-e548-4996-b008-9d7e1849a5f2",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "527e0569-4312-4e74-8c8a-22b52d158e76",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "deaaa35b-0d99-4b8a-93b4-be962dea3b4f",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "4b346a84-0584-4196-8b27-0cd520734117",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "85cb4245-27fc-485c-899b-1e9b62e62f0c",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "72c596a6-fe2d-42cf-8eee-069a4bfd9fb5",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "故宫博物院：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-forbidden-city",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "a6a558c0-486b-5cf1-9c3f-3dc1f413bf7b",
+          "9535ac81-ea4e-5fed-a7bd-dd65fa6cf1cd"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "06daa74a-d994-44ea-aaf1-548574198cbd",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "天坛公园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0393ba02-1f3d-594a-bcf5-eba6504b5237",
+          "1ec72800-1221-532a-91b4-17aeebbea0ac"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "8e3ec65a-372a-4415-8718-456d400e57d3",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "颐和园：安排在营业时段内",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "bj-summer-palace",
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "55804869-66be-504f-9932-2a491b4ee2f5",
+          "c4697217-8160-5fef-9d22-ae81d2ff49ca"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "db9c2a5c-c44a-4a2d-92ad-6bc917b22188",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "0381a9e5-6fe1-4b33-a59e-b2241c97e3fb",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "d8b274d9-5bb8-4c76-bc43-b3f78fe3aabf",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0393ba02-1f3d-594a-bcf5-eba6504b5237",
+          "1ec72800-1221-532a-91b4-17aeebbea0ac"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T04:58:32.025143Z",
+    "supersedes_report_id": null
+  },
+  {
+    "report_id": "431654d8-7f01-441e-8adb-e9d22a0fcde4",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_id": "662f6f20-6e9b-455b-8d44-858fde2d41fb",
+    "itinerary_revision": 2,
+    "task_id": "workspace:pilot-tc-p1-bj-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "436a603bbe12d41186be7f4ccd44b4dc92feafe91037abdd4801604b0adbc3c4",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "7099ec45-ae17-4564-8cc7-4cdf24e992c4",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "1b9b2232-d182-45f9-88d5-e6f72c7c2028",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "故宫博物院 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "place_id": "bj-forbidden-city",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "ff4a639b-58cf-434f-9d5d-9e936684712f"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c9211351-b48a-4c3f-a1b5-3e74e0d2b5a2",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "天坛公园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "place_id": "bj-temple-of-heaven",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7fd3486f-d421-4c48-b22b-6d7c0a0aeefb"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9925cf7f-3b88-490c-9039-675b40b8e862",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "颐和园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+          "place_id": "bj-summer-palace",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e3130945-d5f6-43e3-86ca-d0a77a0d03b9"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bd1ce6b8-a0ba-478e-9fd4-6f7c819699a4",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ROUTE_GAP_SUFFICIENT",
+        "message": "相邻地点空档 35 分钟，可覆盖 35 分钟路线",
+        "input_values": {
+          "edge_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+          "from_stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "to_stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "available_minutes": 35,
+          "route_duration_minutes": 35,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "5ef6d0e9-cf6e-4611-b42d-85e288483d28"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "828772f0-9c22-4f86-9fbf-eee958a61f4f",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "1e6a0640-7d94-4965-8922-3e119be5a452",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9a321bbf-1b88-497d-82d6-f40812d14d4f",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 2 天时间链连续有效",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "3ea5c7f0-220f-4ad2-81b8-009e6d25f3ab",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "74479a76-7765-443c-a21c-d26f9b199a94",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c8595621-a9fd-4588-a26d-8250cced53d7",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "1f199f7b-cd4e-430b-96f6-295cb3b0038b",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "5dffbdd3-b097-471e-8001-e56bb6b42fc3",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "af1ec16c-f059-4a97-8a62-68b154296550",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "f1850dbe-9431-4410-af2d-e3e7eeda2040",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c43c1fe2-2809-4f51-99ea-fa77820bbf72",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "1006ac90-6579-4850-b2d5-34143d828dff",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "故宫博物院：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-forbidden-city",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "ff4a639b-58cf-434f-9d5d-9e936684712f",
+          "da55e688-ec58-4130-bd62-20e4df93851a"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "319f4904-a3ea-4905-a212-2a8bd52e4cc2",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "天坛公园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7fd3486f-d421-4c48-b22b-6d7c0a0aeefb",
+          "cd7e2884-e12d-415e-8442-3d1de6ca0981"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "52695d26-887a-4564-b05f-780ccebec7c8",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "颐和园：安排在营业时段内",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "bj-summer-palace",
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e3130945-d5f6-43e3-86ca-d0a77a0d03b9",
+          "546fda8c-258f-4489-9d87-8fa2aa05fd4e"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "f831f4bf-12bf-4298-ba75-4926b728394e",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "0ed03a73-9894-426b-a80d-d1dfb7b3aa64",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "327656f9-2186-4e62-8b06-eed957028fee",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "11:25",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7fd3486f-d421-4c48-b22b-6d7c0a0aeefb",
+          "cd7e2884-e12d-415e-8442-3d1de6ca0981"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T04:58:32.025143Z",
+    "supersedes_report_id": "55b976e4-4abf-4163-803e-88189e5da98c"
+  },
+  {
+    "report_id": "1d567830-6ba9-42ac-9582-94db1dad7a64",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_id": "662f6f20-6e9b-455b-8d44-858fde2d41fb",
+    "itinerary_revision": 2,
+    "task_id": "workspace:pilot-tc-p1-bj-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "ecf97b04977ae415759f29d26c3ed262c61ad8037cf0af47c38f2c1af62cdfb2",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "4b54a908-2a2c-4d9c-846b-e98bd55a9e56",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "a0ac08d3-a203-469f-ad9d-e24ee98cf35e",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "故宫博物院 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "place_id": "bj-forbidden-city",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "c4e59612-3b74-4ee1-975d-3a6d78121ff7"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "30e75dd6-9c78-4b91-a109-2381538b6e0c",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "天坛公园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "place_id": "bj-temple-of-heaven",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e6de1ab1-7497-4efd-8512-d23f8e1c6cc3"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "77616cc2-32a1-40b3-8089-a5d982934e36",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "颐和园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+          "place_id": "bj-summer-palace",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "42e0ab5f-a18e-401b-a3e0-aea80a9fd57e"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "5356420d-7b3a-4e04-8698-35665f524455",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ROUTE_GAP_SUFFICIENT",
+        "message": "相邻地点空档 35 分钟，可覆盖 35 分钟路线",
+        "input_values": {
+          "edge_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+          "from_stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "to_stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+          "available_minutes": 35,
+          "route_duration_minutes": 35,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4",
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0aa14996-040a-425a-ab8b-2019fb67b130"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bdd23ccd-e845-4dc9-81e2-836a0410f9e6",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "adfda426-17a7-4939-91d6-27a81e8252ed",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "e4ea8731-7b7f-4521-af9c-d969acb02692",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 2 天时间链连续有效",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "639ced27-ae8c-4a1d-af28-e46690aeaa70",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bd18d48f-5d84-4ec1-8e02-3af30bc27600",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "95edaf70-7571-48d4-9152-f80797e62f5c",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "837a098d-b939-4992-a600-8710a6fa68bb",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "a082a637-cd92-440b-8663-9b766eb33c0d",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "502bdb73-de56-4c30-a680-5a4b4bd25c46",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "d9c977b8-fc4c-4495-a5e0-df7595db81d9",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9e1031ca-1f2d-4bec-9371-e66e7e9cdbe3",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c3bbfc6e-6509-4803-aaac-aa830103c2cb",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "故宫博物院：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-forbidden-city",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "c38c881d-c300-4010-a552-42045fa3bfc4"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "c4e59612-3b74-4ee1-975d-3a6d78121ff7",
+          "996d2e13-d905-49c2-8e63-bff018792bef"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "056b8cf7-3c02-40ce-ad23-c7116624bc40",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "天坛公园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e6de1ab1-7497-4efd-8512-d23f8e1c6cc3",
+          "a56c2970-f607-4223-8647-4072742223d4"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "91a37e85-749e-4b74-857e-8d18dfe32060",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "颐和园：安排在营业时段内",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "bj-summer-palace",
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "1d017c3d-d8e4-431c-b795-0b6457d9ae53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "42e0ab5f-a18e-401b-a3e0-aea80a9fd57e",
+          "64c2f99f-ecd3-4f2f-816c-81ef8107418b"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "78818833-a304-45b7-b9c2-22d97984a6b4",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "19fbc65f-e900-4cef-8dc7-0cf8eb4790b3",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "25878f22-5d93-4aed-954d-59213815cc31",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-temple-of-heaven",
+          "day_stops": [
+            {
+              "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+              "place_id": "bj-forbidden-city",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+              "place_id": "bj-temple-of-heaven",
+              "start_time": "12:35",
+              "end_time": "13:35",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "e3530d17-5350-46c7-ade7-26ade683fe36"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "e6de1ab1-7497-4efd-8512-d23f8e1c6cc3",
+          "a56c2970-f607-4223-8647-4072742223d4"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T04:58:32.025143Z",
+    "supersedes_report_id": "55b976e4-4abf-4163-803e-88189e5da98c"
+  }
+]

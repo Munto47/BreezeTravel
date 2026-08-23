@@ -1,0 +1,13 @@
+{
+  "case_id": "杭州-snapshot",
+  "city": "杭州",
+  "fault_profile": "none",
+  "status": "PASS",
+  "failures": [],
+  "provider_attempt_count": 6,
+  "receipt_count": 6,
+  "observation_count": 8,
+  "network_call_count": 0,
+  "replay_equal": true,
+  "result_hash": "17a90e6578484c97158b44f97a68395e382574181f367526dafd4b51192a20f9"
+}

@@ -1,0 +1,512 @@
+[
+  {
+    "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+    "workspace_id": "pilot-tc-p1-hz-01",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "379aace6-9c17-580b-bcf8-89a514fc54b7",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "acd2cff9be8435aa37402c2b356541f7253dfa24a00bbb8b815c92731aad23f9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "45d02eec-8ab6-5182-bde3-4a50463425fe",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "2ef201769907ee5687974b9ec25a1d5611f354b0b4fe1f99c13b5b40d77dc88f",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "b9aa04c4-cce7-5584-a737-2bee0b69ae58",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "b52ca688e3c98eb461c61603bcb2961e89a4027a4eebc31715060246f927af9f",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "eadb2e6d-4e2c-5f4e-b866-abfffc26eac7",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "7ff020e40f596f424f43fbdfd4ae7ad30a68b36fea434b888bd913d0eb4246e3",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "e1227c26-7ba2-5b79-b282-b15f047ff2ac",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "fc7e43459af93e7c78d500308070d3ac92e6135ecce65f635bbd15b32d2dd667",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "cbcd4eaa-c35b-57df-b2ab-b5c013793f13",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "95473d7d88d92da72f2324014485c9b3301e7aa1a7a7b4e24ac4107f95b5b595",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "7beccaa6-ff88-5467-80b3-88d7cf9bbb94",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 30
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T04:58:32.140304Z",
+        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "d252cc5e-9bbb-5603-b34f-d26023fe08c7",
+        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "e45e591f-e1c7-47b2-8fd7-0aa9388120ed",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 2,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T04:58:32.140304Z",
+        "response_hash": "07ac43d0144170870de4659796775e81b9b007ecf340325a7a84eb538b17b79e",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T04:58:32.140304Z",
+    "supersedes_snapshot_id": null
+  },
+  {
+    "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+    "workspace_id": "pilot-tc-p1-hz-01",
+    "itinerary_revision": 2,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1",
+      "repair_postcheck"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "79637b87-5447-49f5-b4f8-cdf8be6bcaf9",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "acd2cff9be8435aa37402c2b356541f7253dfa24a00bbb8b815c92731aad23f9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "2415f33d-f901-4f80-8df2-376c972ba855",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "2ef201769907ee5687974b9ec25a1d5611f354b0b4fe1f99c13b5b40d77dc88f",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "aec7c964-5b59-43c5-9b14-25023cb5e704",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "b52ca688e3c98eb461c61603bcb2961e89a4027a4eebc31715060246f927af9f",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "175a5164-9630-44ea-87dc-d88173eef022",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "7ff020e40f596f424f43fbdfd4ae7ad30a68b36fea434b888bd913d0eb4246e3",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "20f8ef9d-0ebe-415c-a701-70a504979cac",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "fc7e43459af93e7c78d500308070d3ac92e6135ecce65f635bbd15b32d2dd667",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "266d97df-b39b-4e6e-b233-f6a0a45bb552",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "95473d7d88d92da72f2324014485c9b3301e7aa1a7a7b4e24ac4107f95b5b595",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "06899a2b-8f8e-4168-9f62-c19e422d6afd",
+        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 30
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T04:58:32.140304Z",
+        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T04:58:32.140304Z",
+    "supersedes_snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec"
+  },
+  {
+    "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+    "workspace_id": "pilot-tc-p1-hz-01",
+    "itinerary_revision": 2,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1",
+      "repair_postcheck"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "4d01cc47-77bd-41e4-82a8-f47dbc4a622a",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "acd2cff9be8435aa37402c2b356541f7253dfa24a00bbb8b815c92731aad23f9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "50a6c2fe-ccbf-4930-8757-a6fb2fc6015f",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "2ef201769907ee5687974b9ec25a1d5611f354b0b4fe1f99c13b5b40d77dc88f",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "963659e3-e0ff-437b-9601-a15d01247908",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "b52ca688e3c98eb461c61603bcb2961e89a4027a4eebc31715060246f927af9f",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "5bb55214-da54-459e-81af-721f84a747fa",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-lingyin",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "7ff020e40f596f424f43fbdfd4ae7ad30a68b36fea434b888bd913d0eb4246e3",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "9670462d-b8ba-46c9-8fbb-6fd9145a9561",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "fc7e43459af93e7c78d500308070d3ac92e6135ecce65f635bbd15b32d2dd667",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "16a07492-d2b4-472a-81da-8f5d89b32def",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "PLACE",
+        "subject_id": "hz-leifeng",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "95473d7d88d92da72f2324014485c9b3301e7aa1a7a7b4e24ac4107f95b5b595",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "66da751a-6b98-4130-903c-bc324010ecda",
+        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 30
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T04:58:32.140304Z",
+        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T04:58:32.140304Z",
+    "supersedes_snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec"
+  }
+]

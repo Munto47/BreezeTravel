@@ -1,0 +1,190 @@
+{
+  "import_id": "f8f3b086-69b0-4e38-a751-a8134b7a9014",
+  "workspace_id": "pilot-tc-p1-bj-02",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "北京3人。第1天 09:00 博物馆，14:00 景山公园；第2天 09:00 颐和园。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "NEEDS_RESOLUTION",
+  "raw_stops": [
+    {
+      "raw_stop_id": "3047ff6c-aefb-410e-a29f-e8ed98488f88",
+      "import_id": "f8f3b086-69b0-4e38-a751-a8134b7a9014",
+      "day_index": 0,
+      "raw_name": "博物馆",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 9,
+        "end": 18
+      },
+      "source_sentence": "09:00 博物馆",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "bd18bf04-9d9e-415d-a9c6-f88c8cfb28cb",
+      "import_id": "f8f3b086-69b0-4e38-a751-a8134b7a9014",
+      "day_index": 0,
+      "raw_name": "景山公园",
+      "raw_time": "14:00",
+      "source_span": {
+        "start": 19,
+        "end": 29
+      },
+      "source_sentence": "14:00 景山公园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "1d6976e6-8814-4af0-9fa3-146184a859d1",
+      "import_id": "f8f3b086-69b0-4e38-a751-a8134b7a9014",
+      "day_index": 1,
+      "raw_name": "颐和园",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 34,
+        "end": 43
+      },
+      "source_sentence": "09:00 颐和园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "3047ff6c-aefb-410e-a29f-e8ed98488f88",
+      "canonical_place_id": null,
+      "candidates": [],
+      "rejected_candidates": [],
+      "confidence": 0.0,
+      "resolution_status": "NOT_FOUND",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "bd18bf04-9d9e-415d-a9c6-f88c8cfb28cb",
+      "canonical_place_id": null,
+      "candidates": [
+        {
+          "place_id": "bj-jingshan",
+          "name": "景山公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.396,
+            "lat": 39.925
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "c974ee0a7aff99d4cffd50997b8a08cb1bafa9603e02a18ad023025c6944c985",
+          "retrieval_response_hash": "863340c4d0ea9aa95c365ad5f4a1ac5c25d86e5b4e78694263cb005356d3f651",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-jingshan",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-jingshan",
+            "name": "景山公园",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.396,
+            "latitude": 39.925,
+            "request_hash": "c974ee0a7aff99d4cffd50997b8a08cb1bafa9603e02a18ad023025c6944c985",
+            "response_hash": "863340c4d0ea9aa95c365ad5f4a1ac5c25d86e5b4e78694263cb005356d3f651",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AMBIGUOUS",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "1d6976e6-8814-4af0-9fa3-146184a859d1",
+      "canonical_place_id": null,
+      "candidates": [
+        {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "cdf48a5f21421e2096455b283d8d08a225b996035945a4aae25ab2a672d2de73",
+          "retrieval_response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-summer-palace",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-summer-palace",
+            "name": "颐和园",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.273,
+            "latitude": 39.999,
+            "request_hash": "cdf48a5f21421e2096455b283d8d08a225b996035945a4aae25ab2a672d2de73",
+            "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AMBIGUOUS",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T04:58:32.045381Z",
+  "updated_at": "2026-08-23T04:58:32.045381Z"
+}

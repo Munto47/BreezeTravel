@@ -1,0 +1,278 @@
+[
+  {
+    "itinerary_id": "662f6f20-6e9b-455b-8d44-858fde2d41fb",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "北京",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+            "place_id": "bj-forbidden-city",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "故宫博物院",
+            "source_raw_stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+            "place_id": "bj-temple-of-heaven",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "visit_duration_minutes": 60,
+            "transport_to_next": null,
+            "raw_name": "天坛公园",
+            "source_raw_stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+            "place_id": "bj-summer-palace",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "颐和园",
+            "source_raw_stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "b7568d2d-4515-4035-853b-91b3f887d7ef",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "c38c881d-c300-4010-a552-42045fa3bfc4": {
+          "place_id": "bj-forbidden-city",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7f3a3063a3a02a107223bfb2fbd85a8ba80357c968784cc3e17d2ab025426d3e",
+          "canonical_name": "故宫博物院"
+        },
+        "e3530d17-5350-46c7-ade7-26ade683fe36": {
+          "place_id": "bj-temple-of-heaven",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7ebefbdf15b58195db87677e6c849141d0e043319dffa5338c5d5d5b0ce93940",
+          "canonical_name": "天坛公园"
+        },
+        "1d017c3d-d8e4-431c-b795-0b6457d9ae53": {
+          "place_id": "bj-summer-palace",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7039b32774766152cb78905c17b478a91cde2413f347c6bd28d6edd0a677958b",
+          "canonical_name": "颐和园"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "bj-forbidden-city",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.397,
+          "latitude": 39.918,
+          "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+          "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-temple-of-heaven",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.417,
+          "latitude": 39.883,
+          "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+          "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-summer-palace",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.273,
+          "latitude": 39.999,
+          "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+          "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "426fe3083f965c84a40b34958c3374d7dde797ddc347e859ce77e6bcf495ee2a"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T04:58:32.024755Z",
+    "content_hash": "fcc2008ff3a8deb1f3021c98b5a5410b84a0497c5952bee0fe2d3647f5575f2c"
+  },
+  {
+    "itinerary_id": "662f6f20-6e9b-455b-8d44-858fde2d41fb",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "revision": 2,
+    "parent_revision": 1,
+    "source_type": "REPAIR",
+    "city": "北京",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+            "place_id": "bj-forbidden-city",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "故宫博物院",
+            "source_raw_stop_id": "c38c881d-c300-4010-a552-42045fa3bfc4",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+            "place_id": "bj-temple-of-heaven",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "12:35",
+            "end_time": "13:35",
+            "visit_duration_minutes": 60,
+            "transport_to_next": null,
+            "raw_name": "天坛公园",
+            "source_raw_stop_id": "e3530d17-5350-46c7-ade7-26ade683fe36",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+            "place_id": "bj-summer-palace",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "颐和园",
+            "source_raw_stop_id": "1d017c3d-d8e4-431c-b795-0b6457d9ae53",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "kind": "repair_preview",
+      "repair_id": "0a988edd-ff0d-4027-b985-bd592a3da0b0",
+      "base_content_hash": "fcc2008ff3a8deb1f3021c98b5a5410b84a0497c5952bee0fe2d3647f5575f2c",
+      "changed_days": [
+        0
+      ],
+      "operation_count": 1
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T04:58:32.043618Z",
+    "content_hash": "3ec5b6c4d36ab80cfb607e1841f5d270b08ff6b291eb15505fa041371862b84f"
+  }
+]

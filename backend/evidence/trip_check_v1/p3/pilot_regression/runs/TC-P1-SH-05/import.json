@@ -1,0 +1,384 @@
+{
+  "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+  "workspace_id": "pilot-tc-p1-sh-05",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "上海2人5天。第1天外滩；第2天豫园；第3天东方明珠广播电视塔；第4天田子坊；第5天上海迪士尼乐园。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+      "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+      "day_index": 0,
+      "raw_name": "外滩",
+      "raw_time": null,
+      "source_span": {
+        "start": 10,
+        "end": 12
+      },
+      "source_sentence": "外滩",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+      "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+      "day_index": 1,
+      "raw_name": "豫园",
+      "raw_time": null,
+      "source_span": {
+        "start": 16,
+        "end": 18
+      },
+      "source_sentence": "豫园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+      "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+      "day_index": 2,
+      "raw_name": "东方明珠广播电视塔",
+      "raw_time": null,
+      "source_span": {
+        "start": 22,
+        "end": 31
+      },
+      "source_sentence": "东方明珠广播电视塔",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+      "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+      "day_index": 3,
+      "raw_name": "田子坊",
+      "raw_time": null,
+      "source_span": {
+        "start": 35,
+        "end": 38
+      },
+      "source_sentence": "田子坊",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+      "import_id": "a568d96c-88a8-4ae3-b368-2ddd7dd63b4d",
+      "day_index": 4,
+      "raw_name": "上海迪士尼乐园",
+      "raw_time": null,
+      "source_span": {
+        "start": 42,
+        "end": 49
+      },
+      "source_sentence": "上海迪士尼乐园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+      "canonical_place_id": "sh-bund",
+      "candidates": [
+        {
+          "place_id": "sh-bund",
+          "name": "外滩",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.49,
+            "lat": 31.241
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "1afffd58160b7aeb055e321eb2172d88054620d6ad949229c8ba332e1da610f0",
+          "retrieval_response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-bund",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-bund",
+            "name": "外滩",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.49,
+            "latitude": 31.241,
+            "request_hash": "1afffd58160b7aeb055e321eb2172d88054620d6ad949229c8ba332e1da610f0",
+            "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+      "canonical_place_id": "sh-yuyuan",
+      "candidates": [
+        {
+          "place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+          "retrieval_response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-yuyuan",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-yuyuan",
+            "name": "豫园",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.493,
+            "latitude": 31.227,
+            "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+            "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+      "canonical_place_id": "sh-oriental-pearl",
+      "candidates": [
+        {
+          "place_id": "sh-oriental-pearl",
+          "name": "东方明珠广播电视塔",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.5,
+            "lat": 31.24
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "5bc04f5856dd0794342fcaab6f8534749c40665d5eb931015168e2aa511ce670",
+          "retrieval_response_hash": "f0904f40973c36fea991fa27c4deed21ae4692a49e90da5f438ff03b021f98f1",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-oriental-pearl",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-oriental-pearl",
+            "name": "东方明珠广播电视塔",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.5,
+            "latitude": 31.24,
+            "request_hash": "5bc04f5856dd0794342fcaab6f8534749c40665d5eb931015168e2aa511ce670",
+            "response_hash": "f0904f40973c36fea991fa27c4deed21ae4692a49e90da5f438ff03b021f98f1",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+      "canonical_place_id": "sh-tianzifang",
+      "candidates": [
+        {
+          "place_id": "sh-tianzifang",
+          "name": "田子坊",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.475,
+            "lat": 31.211
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+          "retrieval_response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-tianzifang",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-tianzifang",
+            "name": "田子坊",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.475,
+            "latitude": 31.211,
+            "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+            "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+      "canonical_place_id": "sh-disney",
+      "candidates": [
+        {
+          "place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+          "retrieval_response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-disney",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-disney",
+            "name": "上海迪士尼乐园",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.657,
+            "latitude": 31.144,
+            "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+            "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T04:58:32.119712Z",
+  "updated_at": "2026-08-23T04:58:32.119712Z"
+}

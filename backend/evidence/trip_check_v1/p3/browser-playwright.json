@@ -1,0 +1,174 @@
+{
+  "config": {
+    "configFile": "<repo>\\frontend\\playwright.trip-check-p3.config.js",
+    "rootDir": "<repo>/frontend/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+      "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
+      "input_cases": [
+        "screenshot_cleanup_receipt",
+        "privacy_blocked_fail_closed"
+      ],
+      "live_provider_evidence": false,
+      "public_e2e_evidence": false,
+      "human_evidence": false,
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../backend/evidence/trip_check_v1/p3/browser-playwright.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "<repo>/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+          "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
+          "input_cases": [
+            "screenshot_cleanup_receipt",
+            "privacy_blocked_fail_closed"
+          ],
+          "live_provider_evidence": false,
+          "public_e2e_evidence": false,
+          "human_evidence": false,
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "<repo>/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "trip-check-p3.spec.js"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 16,
+    "webServer": {
+      "command": "npm run dev -- --hostname 127.0.0.1 --port 3103",
+      "url": "http://127.0.0.1:3103",
+      "reuseExistingServer": false,
+      "timeout": 120000,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:8999",
+        "NEXT_PUBLIC_Y_WEBSOCKET_URL": "ws://127.0.0.1:8998",
+        "NEXT_PUBLIC_TRIP_CHECK_COMMIT_SHA": "e3c46aa142be44bc97c4588b4e8aa73e8399befc"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "trip-check-p3.spec.js",
+      "file": "trip-check-p3.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "截图 OCR 显示低置信度和原图删除回执，刷新恢复导入草稿",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1460,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T04:58:28.191Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d68a9f74a8016da172fc-6a2b34a2b2682020bffe",
+          "file": "trip-check-p3.spec.js",
+          "line": 99,
+          "column": 1
+        },
+        {
+          "title": "原图删除失败时页面显示 PRIVACY_BLOCKED 且不创建导入草稿",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 596,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T04:58:29.750Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "d68a9f74a8016da172fc-a4131ceb55d00639f890",
+          "file": "trip-check-p3.spec.js",
+          "line": 141,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-23T04:58:21.904Z",
+    "duration": 8972.211000000001,
+    "expected": 2,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

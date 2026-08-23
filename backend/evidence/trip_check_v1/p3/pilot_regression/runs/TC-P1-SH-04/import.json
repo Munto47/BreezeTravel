@@ -1,0 +1,240 @@
+{
+  "import_id": "c609673a-bdc2-4ebe-9431-a80b62e505b9",
+  "workspace_id": "pilot-tc-p1-sh-04",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "上海5人，有儿童。第1天 08:00 上海迪士尼乐园，14:00 豫园；第2天 10:00 田子坊。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "b387c858-868a-4b72-b948-920398495001",
+      "import_id": "c609673a-bdc2-4ebe-9431-a80b62e505b9",
+      "day_index": 0,
+      "raw_name": "上海迪士尼乐园",
+      "raw_time": "08:00",
+      "source_span": {
+        "start": 13,
+        "end": 26
+      },
+      "source_sentence": "08:00 上海迪士尼乐园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "1754acb2-e341-4b0d-8ec3-a658ccdbdb8c",
+      "import_id": "c609673a-bdc2-4ebe-9431-a80b62e505b9",
+      "day_index": 0,
+      "raw_name": "豫园",
+      "raw_time": "14:00",
+      "source_span": {
+        "start": 27,
+        "end": 35
+      },
+      "source_sentence": "14:00 豫园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "a331ac4f-ed9a-4300-a146-36eafd842891",
+      "import_id": "c609673a-bdc2-4ebe-9431-a80b62e505b9",
+      "day_index": 1,
+      "raw_name": "田子坊",
+      "raw_time": "10:00",
+      "source_span": {
+        "start": 40,
+        "end": 49
+      },
+      "source_sentence": "10:00 田子坊",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "b387c858-868a-4b72-b948-920398495001",
+      "canonical_place_id": "sh-disney",
+      "candidates": [
+        {
+          "place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+          "retrieval_response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-disney",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-disney",
+            "name": "上海迪士尼乐园",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.657,
+            "latitude": 31.144,
+            "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+            "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "1754acb2-e341-4b0d-8ec3-a658ccdbdb8c",
+      "canonical_place_id": "sh-yuyuan",
+      "candidates": [
+        {
+          "place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+          "retrieval_response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-yuyuan",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-yuyuan",
+            "name": "豫园",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.493,
+            "latitude": 31.227,
+            "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+            "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "a331ac4f-ed9a-4300-a146-36eafd842891",
+      "canonical_place_id": "sh-tianzifang",
+      "candidates": [
+        {
+          "place_id": "sh-tianzifang",
+          "name": "田子坊",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.475,
+            "lat": 31.211
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+          "retrieval_response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-tianzifang",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-tianzifang",
+            "name": "田子坊",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.475,
+            "latitude": 31.211,
+            "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+            "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [
+    "上海5人，有儿童。第1天 08:00 上海迪士尼乐园，14:00 豫园；第2天 10:00 田子坊。"
+  ],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T04:58:32.108432Z",
+  "updated_at": "2026-08-23T04:58:32.108432Z"
+}

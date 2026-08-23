@@ -1,0 +1,185 @@
+[
+  {
+    "itinerary_id": "f54e9483-3705-4e31-9e43-2b49c075f955",
+    "workspace_id": "pilot-tc-p1-bj-04",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "北京",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+            "place_id": "bj-summer-palace",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "颐和园",
+            "source_raw_stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+            "place_id": "bj-badaling",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "13:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "长城（八达岭）",
+            "source_raw_stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+            "place_id": "bj-nanluoguxiang",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "10:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "南锣鼓巷",
+            "source_raw_stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "3dca0430-104d-4e73-8366-3cef186edd59": {
+          "place_id": "bj-summer-palace",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7039b32774766152cb78905c17b478a91cde2413f347c6bd28d6edd0a677958b",
+          "canonical_name": "颐和园"
+        },
+        "59376f0c-7250-4e08-b3ad-1c03c3c69a58": {
+          "place_id": "bj-badaling",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "c67026944b2780b3c88531aeba35753e074f6988794383d248ac3e4aa4f65809",
+          "canonical_name": "长城（八达岭）"
+        },
+        "2b16a117-8232-4774-a9d8-5913dfea9a53": {
+          "place_id": "bj-nanluoguxiang",
+          "coords": {
+            "lng": 116.404,
+            "lat": 39.937
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "28dc9203afd1c520021bf2c27151220bc152030971443645f0675fa7d73aedef",
+          "canonical_name": "南锣鼓巷"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "bj-summer-palace",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.273,
+          "latitude": 39.999,
+          "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+          "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-badaling",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.017,
+          "latitude": 40.354,
+          "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+          "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-nanluoguxiang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-nanluoguxiang",
+          "name": "南锣鼓巷",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.404,
+          "latitude": 39.937,
+          "request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+          "response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "b93368069db3333c8c72b642695e99a5b5f0158ac28d4b8cf968bad6445705ae"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T04:58:32.059477Z",
+    "content_hash": "6e85793e3db187465e7280f669d71969e150696549da2a1c89443768d9bbf706"
+  }
+]

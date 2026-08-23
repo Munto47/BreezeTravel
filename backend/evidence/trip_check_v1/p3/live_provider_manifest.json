@@ -1,0 +1,13 @@
+{
+  "schema_version": "trip-check-p3-live-provider-manifest-v1",
+  "subject_commit": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+  "status": "NOT_RUN",
+  "reason": "LIVE_PROVIDER_CREDENTIALS_MISSING",
+  "missing_credentials": [
+    "AMAP_API_KEY",
+    "QWEATHER_CREDENTIALS",
+    "BRAVE_API_KEY"
+  ],
+  "query_budget": 18,
+  "actual_receipt_count": 0
+}

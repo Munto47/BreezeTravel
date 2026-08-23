@@ -1,0 +1,80 @@
+[
+  {
+    "receipt_id": "3a69b6c1b58bb56cfcc907e18017242476892ed4cff8c77ed7a1727fdaccb52d",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "route.walking",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "a97edb0dd106c1c46cbcd73343261d7a5dcb52a1b16f2835f3f8f9c8be93ef57",
+    "response_hash": "099bb048abe4314ca7a67b671a74c6ac1076af561b3158e6be3ed3aaff2103dd",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://route/杭州/walking",
+    "affected_fields": [],
+    "failure_category": null
+  },
+  {
+    "receipt_id": "e73d73cdebb4be85dfe6f191d0167af217acae8725a2558c213737e237234379",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "route.transit",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "0a401450af27e303a625f8ae2068c616e7456e30241121e0cbd0388db43fae26",
+    "response_hash": "47dc810712d68aa8e91c6c2ca5a85f75204cf5385f14d9559797a7473309a5d9",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://route/杭州/transit",
+    "affected_fields": [],
+    "failure_category": null
+  },
+  {
+    "receipt_id": "efc3be14c3dce9ec83bdccae9c6276e92f3d9755779cea5464869af96b3f8128",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "route.bicycling",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "f6ec40e6ab8d142e647ab3ae0c7fdac2c62ebb10f8c6516846062d7289072ca5",
+    "response_hash": "e1975639ec22b27b5fa4fbe146db1002b91595608b7456b10f119f2fd9a26d6c",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://route/杭州/bicycling",
+    "affected_fields": [],
+    "failure_category": null
+  },
+  {
+    "receipt_id": "30e8e53c1f7655c98b2af766bd4a72607cdd3a1c7ba1142ee3db957bc2a77f43",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "route.driving",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "d441851eca4dcf0e2382a3b8d8a563fc832dc390d363270a89893faa26d81e2e",
+    "response_hash": "b7cc580f247d3bf647aa4e1083eb13ce9a8e8cb85793023fe868d37832d5567f",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://route/杭州/driving",
+    "affected_fields": [],
+    "failure_category": null
+  },
+  {
+    "receipt_id": "cdac46bec975989d8f81ffd0e778c712ad01686d850f65a5040c1b8a7b8b5169",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "weather.daily",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "edf52be7b5fee8b3fad843d454d139244b25b6158ce90abdf79a5c8aba75ca36",
+    "response_hash": "5c06a628fe62b24cd61a0653712b3e2c6f2be3fc12134c0b3d11757bb1f8248a",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://weather/杭州",
+    "affected_fields": [],
+    "failure_category": null
+  },
+  {
+    "receipt_id": "56e3208a17a734ce210765dcc4b669995e4afa9f85b693bb12f96b7d66b08e37",
+    "provider": "frozen_provider_snapshot_v1",
+    "operation": "risk.news_search",
+    "execution_mode": "snapshot",
+    "status": "SUCCEEDED",
+    "request_hash": "bf8d344ab2770bdcddde3f7f57afb3564ac798bbfb76c2618cba284a5413c442",
+    "response_hash": "bbd9c01f0a9a613b17a8097719d82fb694ac141337898ef3770f7c9075d909d4",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "source_url": "snapshot://risk/杭州",
+    "affected_fields": [],
+    "failure_category": null
+  }
+]

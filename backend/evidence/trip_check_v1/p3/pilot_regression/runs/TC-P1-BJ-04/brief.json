@@ -1,0 +1,160 @@
+{
+  "brief_id": "41779b63-14bf-4459-9fa9-a87f63008d43",
+  "workspace_id": "pilot-tc-p1-bj-04",
+  "revision": 2,
+  "parent_revision": 1,
+  "content_hash": "b3fcca48f21bda8c25a137f88f9552c8f0f37ce71d967df0c212a696ac2fef08",
+  "city": "北京",
+  "date_range": {
+    "start": "2026-10-01",
+    "end": "2026-10-02"
+  },
+  "traveler_count": 5,
+  "arrival": {
+    "location": null,
+    "at": null,
+    "notes": null
+  },
+  "departure": {
+    "location": null,
+    "at": null,
+    "notes": null
+  },
+  "accommodation": {
+    "hotel_name": null,
+    "area": null
+  },
+  "transport_modes": [
+    "WALKING"
+  ],
+  "transport_restrictions": "NO_PREFERENCE",
+  "budget": "NO_PREFERENCE",
+  "dining_style": "NO_PREFERENCE",
+  "lodging_style": "NO_PREFERENCE",
+  "dietary_restrictions": "NO_PREFERENCE",
+  "daily_pace": "NO_PREFERENCE",
+  "activity_intensity": "NO_PREFERENCE",
+  "field_provenance": {
+    "city": {
+      "source_spans": [
+        {
+          "source_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+          "start": 0,
+          "end": 2
+        }
+      ],
+      "confidence": 0.85,
+      "origin": "PARSER",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "date_range": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "traveler_count": {
+      "source_spans": [
+        {
+          "source_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+          "start": 2,
+          "end": 4
+        }
+      ],
+      "confidence": 0.85,
+      "origin": "PARSER",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "arrival": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "departure": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "accommodation": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "transport_modes": {
+      "source_spans": [
+        {
+          "source_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+          "start": 10,
+          "end": 12
+        }
+      ],
+      "confidence": 0.85,
+      "origin": "PARSER",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "transport_restrictions": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "budget": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "dining_style": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "lodging_style": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "dietary_restrictions": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "daily_pace": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "activity_intensity": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    }
+  },
+  "status": "CONFIRMED",
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T04:58:32.058783Z",
+  "confirmed_by": "controlled-pilot-runner",
+  "confirmed_at": "2026-08-23T04:58:32.058783Z"
+}

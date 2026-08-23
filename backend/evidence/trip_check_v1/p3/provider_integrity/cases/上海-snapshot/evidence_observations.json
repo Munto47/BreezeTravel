@@ -1,0 +1,154 @@
+[
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:walking",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "walking",
+      "duration_minutes": 22,
+      "distance_km": 1.7,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:transit",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "transit",
+      "duration_minutes": 16,
+      "distance_km": 3.1,
+      "transfer_count": 0
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:bicycling",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "bicycling",
+      "duration_minutes": 11,
+      "distance_km": 2.0,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:driving",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "driving",
+      "duration_minutes": 15,
+      "distance_km": 2.6,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_EDGE",
+    "subject_id": "stop-1->stop-2",
+    "fact_type": "ROUTE_TIME",
+    "value": {
+      "mode": "driving",
+      "duration_minutes": 15,
+      "distance_km": 2.6,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "DAY",
+    "subject_id": "0",
+    "fact_type": "WEATHER",
+    "value": {
+      "condition": "小雨",
+      "temp_high": 26,
+      "temp_low": 20,
+      "precip_mm": 3.0,
+      "suggestion": "受控快照：核对户外停留与雨具",
+      "evidence_class": "DETERMINISTIC_PROVIDER_FACT"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T06:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "DAY",
+    "subject_id": "1",
+    "fact_type": "WEATHER",
+    "value": {
+      "condition": "小雨",
+      "temp_high": 26,
+      "temp_low": 20,
+      "precip_mm": 3.0,
+      "suggestion": "受控快照：核对户外停留与雨具",
+      "evidence_class": "DETERMINISTIC_PROVIDER_FACT"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T06:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "TRIP",
+    "subject_id": "p3-上海-workspace:risk:0",
+    "fact_type": "RISK_SOURCE",
+    "value": {
+      "title": "上海受控风险来源",
+      "url": "fixture://risk/shanghai/weather",
+      "published_at": "2026-08-20",
+      "snippet": "受控快照仅验证来源结构，不代表实时风险。",
+      "risk_type": "WEATHER",
+      "source_tier": "CONTROLLED_FIXTURE",
+      "retrieved_at": "2026-08-23T00:00:00+00:00",
+      "evidence_class": "ADVISORY_SOURCE"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": "fixture://risk/shanghai/weather",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-24T00:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  }
+]

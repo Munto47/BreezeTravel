@@ -1,0 +1,804 @@
+[
+  {
+    "report_id": "69198332-1577-4849-ae29-b33bb5d02d14",
+    "workspace_id": "pilot-tc-p1-bj-04",
+    "itinerary_id": "f54e9483-3705-4e31-9e43-2b49c075f955",
+    "itinerary_revision": 1,
+    "task_id": "workspace:pilot-tc-p1-bj-04:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "75c2cfc5-a370-5455-a4ad-19daaf584c26",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "28c9d22d98eb257628380afad578959d85e8b46349957969187ee788c75ab93d",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "9ed677fd-15a0-4dde-9385-9a054506897e",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "de0e6afd-047c-475b-98a2-f0281353bfa2",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "颐和园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+          "place_id": "bj-summer-palace",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3dca0430-104d-4e73-8366-3cef186edd59"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7c865b18-c3ea-51ae-9606-3e0b47d8af97"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "72a4a9f2-72ac-42cb-826c-96099f1ff9be",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "长城（八达岭） 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+          "place_id": "bj-badaling",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "59376f0c-7250-4e08-b3ad-1c03c3c69a58"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "71b976f5-776c-5d1e-a854-be15dad4ee53"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "7ce6de95-7ba7-4076-9848-8c5a87708ba9",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "南锣鼓巷 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+          "place_id": "bj-nanluoguxiang",
+          "target_city": "北京",
+          "observed_cities": [
+            "北京"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "北京"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "2b16a117-8232-4774-a9d8-5913dfea9a53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "26007890-48cf-5e9c-9623-e865cc5b2620"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "49391bd5-a559-4f0c-bdf5-89f2d12d44ce",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "ROUTE_GAP_TIME_UNKNOWN",
+        "message": "颐和园 到 长城（八达岭） 缺少可计算空档的时间",
+        "input_values": {
+          "edge_id": "3dca0430-104d-4e73-8366-3cef186edd59->59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+          "from_stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+          "to_stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+          "available_minutes": null,
+          "route_duration_minutes": 90,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3dca0430-104d-4e73-8366-3cef186edd59",
+          "59376f0c-7250-4e08-b3ad-1c03c3c69a58"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4218511e-f548-59fe-ae7d-2370cd825f11"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充相邻地点的结束和开始时间后重新审计"
+      },
+      {
+        "finding_id": "ad772ab3-d835-4081-98f9-93708636e346",
+        "rule_id": "trip_brief.group_intensity",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_CAPACITY",
+        "message": "第 1 天为 5 人安排了 2 个地点；仅凭人数不能证明强度可接受",
+        "input_values": {
+          "traveler_count": 5,
+          "stop_count": 2,
+          "brief_confirmation": "CONFIRMED"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3dca0430-104d-4e73-8366-3cef186edd59",
+          "59376f0c-7250-4e08-b3ad-1c03c3c69a58"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "fc8d2f30-3c16-56f3-ac5b-c3f92ffe5027"
+        ],
+        "repairable": false,
+        "confirmation_action": "请同行人确认当日步行与停留强度，必要时减少地点"
+      },
+      {
+        "finding_id": "4327b825-4ada-4705-80e9-2f210d40f864",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "099e5365-8948-4957-8597-904402b38b69",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 1 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "ac63841d-8cee-49f8-9426-93b86f098b98",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 2 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "a7d67fbd-c565-4cd4-8a3b-ccb0abbc549f",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "069b7c51-129a-4150-b388-4adfa83e3f65",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "25474080-efbe-4f01-9226-b3d624dd4d68",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "0b18953e-3f60-4182-b604-b4cd6b8a1e52",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "e1b9f8e3-4e2a-4426-8bf3-e4d906ee5939",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "cf9389d2-fd79-4730-a678-cc8eba23a06d",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "fc9908e6-0b2d-46bc-876a-cdded015a0c6",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "7c5b7c02-8789-4aca-b39c-3d86cc64eb15",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "cf047131-2848-476d-b487-88afea87b02a",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "颐和园：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-summer-palace",
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3dca0430-104d-4e73-8366-3cef186edd59"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7c865b18-c3ea-51ae-9606-3e0b47d8af97",
+          "ec39ee83-4488-579b-9ce2-bd024fef30da"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "de9bce3b-c27f-4b24-93f4-88e08df58613",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "长城（八达岭）：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-badaling",
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "59376f0c-7250-4e08-b3ad-1c03c3c69a58"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "71b976f5-776c-5d1e-a854-be15dad4ee53",
+          "9073f81b-2458-5147-87ed-847130037462"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "c36e1145-7ce5-4d7a-b1a4-933e70e0027c",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "南锣鼓巷：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "bj-nanluoguxiang",
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "2b16a117-8232-4774-a9d8-5913dfea9a53"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "26007890-48cf-5e9c-9623-e865cc5b2620",
+          "2ce5eb81-9325-509b-852e-e64a8a7129e0"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "a8dd51ec-5879-4945-a32c-c687685bea7d",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "4d4f5661-cd57-493f-8939-6df09a63b353",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+              "place_id": "bj-nanluoguxiang",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "2ef220e1-626f-4624-938b-7fa1039b7f2f",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "bj-badaling",
+          "day_stops": [
+            {
+              "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+              "place_id": "bj-summer-palace",
+              "start_time": "09:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+              "place_id": "bj-badaling",
+              "start_time": "13:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "59376f0c-7250-4e08-b3ad-1c03c3c69a58"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "71b976f5-776c-5d1e-a854-be15dad4ee53",
+          "9073f81b-2458-5147-87ed-847130037462"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T04:58:32.059690Z",
+    "supersedes_report_id": null
+  }
+]
