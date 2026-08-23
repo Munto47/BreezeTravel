@@ -62,7 +62,10 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         {
             "schema_version": "trip-check-p5-blind-label-v2",
             "case_id": case.case_id,
-            "oracle": _oracle().model_dump(mode="json"),
+            "oracle": _oracle(
+                candidate_receipt_mode="NOT_APPLICABLE",
+                concurrency_expectation="NONE",
+            ).model_dump(mode="json"),
         }
         for case in reversed(cases)
     ]
@@ -113,11 +116,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         )
         for variant_id in VARIANT_IDS_V2
     }
-    outputs = [
-        _output(case, specs[variant_id])
-        for case in cases
-        for variant_id in VARIANT_IDS_V2
-    ]
+    outputs = [_output(case, specs[variant_id]) for case in cases for variant_id in VARIANT_IDS_V2]
     manifest = {
         "subject_commit": "a" * 40,
         "dataset_manifest_hash": "a" * 64,
@@ -168,9 +167,7 @@ def test_v2_label_commitment_sorts_case_id_and_hashes_each_lf_record() -> None:
         {"case_id": "b", "oracle": {"value": 2}},
         {"case_id": "a", "oracle": {"value": 1}},
     ]
-    expected = hashlib.sha256(
-        canonical_bytes(labels[1]) + b"\n" + canonical_bytes(labels[0]) + b"\n"
-    ).hexdigest()
+    expected = hashlib.sha256(canonical_bytes(labels[1]) + b"\n" + canonical_bytes(labels[0]) + b"\n").hexdigest()
 
     assert canonical_labels_hash_v2(labels) == expected
 
@@ -188,9 +185,7 @@ def test_v2_schema_contract_sorts_exact_file_hash_bindings(tmp_path: Path) -> No
     assert schema_contract_sha256_v2(tmp_path) == digest(bindings)
 
 
-def test_v2_formal_contract_blocks_before_external_bundle_read(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_v2_formal_contract_blocks_before_external_bundle_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def not_ready() -> None:
         raise RuntimeError("not ready")
 
@@ -254,9 +249,7 @@ def test_v2_blind_bundle_rejects_repository_path_and_extra_fields(
         )
 
 
-def test_v2_blind_bundle_rejects_stale_materialization_binding(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_v2_blind_bundle_rejects_stale_materialization_binding(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fixture = _fixture(tmp_path, monkeypatch)
     payload = json.loads(fixture["bundle"].read_text(encoding="utf-8"))
     payload["dataset_binding"]["materializations_content_sha256"] = "0" * 64
@@ -281,9 +274,7 @@ def test_v2_blind_scorer_rejects_tampered_repo_schema_commitment(
         _score(fixture)
 
 
-def test_v2_blind_bundle_rejects_stale_schema_commitment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_v2_blind_bundle_rejects_stale_schema_commitment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fixture = _fixture(tmp_path, monkeypatch)
     payload = json.loads(fixture["bundle"].read_text(encoding="utf-8"))
     payload["dataset_binding"]["schema_contract_sha256"] = "0" * 64

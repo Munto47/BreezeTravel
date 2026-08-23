@@ -82,13 +82,22 @@ def _fixture(input_kind: str = "TEXT") -> tuple[P5CaseV2, dict]:
     provider = evidence_materialization["provider_snapshot"]
     evidence = evidence_materialization["evidence_snapshot"]
     fault = _artifact("fault-case", "trip-check-p5-fault-artifact-v2", {"fault_profile_id": "none"})
+    screenshot_asset_hash = "a" * 64
     render = (
-        {"schema_version": "trip-check-p5-render-receipt-v2", "case_id": "p5.dev.bj.001"}
+        {
+            "schema_version": "trip-check-p5-render-receipt-v2",
+            "case_id": "p5.dev.bj.001",
+            "image_sha256": screenshot_asset_hash,
+        }
         if input_kind != "TEXT"
         else None
     )
     ocr = (
-        {"schema_version": "trip-check-p5-ocr-baseline-receipt-v2", "case_id": "p5.dev.bj.001"}
+        {
+            "schema_version": "trip-check-p5-ocr-baseline-receipt-v2",
+            "case_id": "p5.dev.bj.001",
+            "asset_hash": screenshot_asset_hash,
+        }
         if input_kind != "TEXT"
         else None
     )
@@ -103,7 +112,21 @@ def _fixture(input_kind: str = "TEXT") -> tuple[P5CaseV2, dict]:
         "evidence_snapshot": evidence,
         "candidate_sets": evidence_materialization["candidate_sets"],
         "fault_script": fault,
-        "receipts": evidence_materialization["receipts"],
+        "receipts": [
+            *evidence_materialization["receipts"],
+            *(
+                [
+                    {
+                        "schema_version": "trip-check-p5-cleanup-receipt-v2",
+                        "cleanup_status": "DELETED",
+                        "original_removed": True,
+                        "asset_hash": screenshot_asset_hash,
+                    }
+                ]
+                if input_kind != "TEXT"
+                else []
+            ),
+        ],
     }
     materialization = {**body, "materialization_hash": digest(body)}
     oracle = {
@@ -619,7 +642,7 @@ async def test_core_screenshot_replays_same_bytes_through_production_paddle_boun
         "evidence_snapshot": evidence["evidence_snapshot"],
         "candidate_sets": evidence["candidate_sets"],
         "fault_script": fault,
-        "receipts": evidence["receipts"],
+        "receipts": [*evidence["receipts"], ocr["cleanup_receipt"]],
     }
     materialization = {**body, "materialization_hash": digest(body)}
 
@@ -879,7 +902,13 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
     rubric_path.write_text('{"schema_version":"trip-check-p5-judge-rubric-v2"}', encoding="utf-8")
     case_set_hash = digest([{"case_id": case.case_id, "case_hash": case.case_hash}])
     materialization_set_hash = digest(
-        [{"case_id": case.case_id, "materialization_hash": materialization["materialization_hash"]}]
+        [
+            {
+                "case_id": case.case_id,
+                "materialization_id": materialization["materialization_id"],
+                "materialization_hash": materialization["materialization_hash"],
+            }
+        ]
     )
     dataset = {
         "schema_version": "trip-check-p5-dataset-manifest-v2",

@@ -58,9 +58,7 @@ BLIND_SEAL_FIELDS_V2 = frozenset(
         "human_evidence",
     }
 )
-BLIND_BUNDLE_FIELDS_V2 = frozenset(
-    {"schema_version", "evidence_class", "human_evidence", "dataset_binding", "labels"}
-)
+BLIND_BUNDLE_FIELDS_V2 = frozenset({"schema_version", "evidence_class", "human_evidence", "dataset_binding", "labels"})
 BLIND_DATASET_BINDING_FIELDS_V2 = frozenset(
     {
         "case_count",
@@ -113,11 +111,7 @@ def _load_json(path: Path, reason: str) -> dict[str, Any]:
 
 def _load_jsonl(path: Path, reason: str) -> list[dict[str, Any]]:
     try:
-        rows = [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         _fail_closed(reason, exc)
     if any(not isinstance(row, dict) for row in rows):
@@ -148,7 +142,7 @@ def _contains_symlink(path: Path) -> bool:
     for part in path.parts[1:]:
         current /= part
         try:
-            if current.is_symlink():
+            if current.is_symlink() or (hasattr(current, "is_junction") and current.is_junction()):
                 return True
         except OSError:
             return True
@@ -167,9 +161,7 @@ def schema_contract_sha256_v2(repo_root: Path) -> str:
     bindings = [
         {
             "path": relative_path,
-            "file_sha256": _sha256_file(
-                root / Path(relative_path), "BLIND_SCHEMA_CONTRACT_UNREADABLE"
-            ),
+            "file_sha256": _sha256_file(root / Path(relative_path), "BLIND_SCHEMA_CONTRACT_UNREADABLE"),
         }
         for relative_path in sorted(SCHEMA_CONTRACT_PATHS_V2)
     ]
@@ -249,7 +241,7 @@ def _validate_seal_and_artifacts(
     materializations_path: Path,
     run_spec_template_path: Path,
     rubric_path: Path,
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     seal = _load_json(seal_path, "BLIND_SEAL_INVALID")
     if set(seal) != BLIND_SEAL_FIELDS_V2:
         _fail_closed("BLIND_SEAL_EXTRA_OR_MISSING_FIELDS")
@@ -281,9 +273,7 @@ def _validate_seal_and_artifacts(
     if seal["schema_contract_sha256"] != schema_contract_sha256_v2(repo_root):
         _fail_closed("BLIND_SCHEMA_CONTRACT_MISMATCH")
     inputs = _load_jsonl(inputs_path, "BLIND_INPUTS_INVALID")
-    materializations = _load_jsonl(
-        materializations_path, "BLIND_MATERIALIZATIONS_INVALID"
-    )
+    materializations = _load_jsonl(materializations_path, "BLIND_MATERIALIZATIONS_INVALID")
     case_ids = [item.get("case_id") for item in inputs]
     if (
         len(inputs) != 90
@@ -295,23 +285,19 @@ def _validate_seal_and_artifacts(
         _fail_closed("BLIND_INPUT_FILE_HASH_MISMATCH")
     if digest(inputs) != seal["inputs_content_sha256"]:
         _fail_closed("BLIND_INPUT_CONTENT_HASH_MISMATCH")
-    if _sha256_file(
-        materializations_path, "BLIND_MATERIALIZATIONS_UNREADABLE"
-    ) != seal["materializations_file_sha256"]:
+    if _sha256_file(materializations_path, "BLIND_MATERIALIZATIONS_UNREADABLE") != seal["materializations_file_sha256"]:
         _fail_closed("BLIND_MATERIALIZATION_FILE_HASH_MISMATCH")
     if digest(materializations) != seal["materializations_content_sha256"]:
         _fail_closed("BLIND_MATERIALIZATION_CONTENT_HASH_MISMATCH")
     if digest(sorted(case_ids)) != seal["case_ids_sha256"]:
         _fail_closed("BLIND_CASE_SET_HASH_MISMATCH")
-    if _sha256_file(
-        run_spec_template_path, "BLIND_RUN_SPEC_TEMPLATE_UNREADABLE"
-    ) != seal["run_spec_template_sha256"]:
+    if _sha256_file(run_spec_template_path, "BLIND_RUN_SPEC_TEMPLATE_UNREADABLE") != seal["run_spec_template_sha256"]:
         _fail_closed("BLIND_RUN_SPEC_TEMPLATE_HASH_MISMATCH")
     if _sha256_file(rubric_path, "BLIND_RUBRIC_UNREADABLE") != seal["rubric_sha256"]:
         _fail_closed("BLIND_RUBRIC_HASH_MISMATCH")
     if digest(list(VARIANT_IDS_V2)) != seal["variant_ids_sha256"]:
         _fail_closed("BLIND_VARIANT_SET_HASH_MISMATCH")
-    return seal, inputs
+    return seal, inputs, materializations
 
 
 def _validate_bundle(
@@ -406,7 +392,7 @@ def score_external_blind_run_group_v2(
         except RuntimeError as exc:
             _fail_closed("P5_V2_FORMAL_CONTRACT_NOT_READY", exc)
     root = repo_root.resolve()
-    seal, raw_inputs = _validate_seal_and_artifacts(
+    seal, raw_inputs, raw_materializations = _validate_seal_and_artifacts(
         repo_root=root,
         seal_path=seal_path,
         inputs_path=inputs_path,
@@ -414,9 +400,7 @@ def score_external_blind_run_group_v2(
         run_spec_template_path=run_spec_template_path,
         rubric_path=rubric_path,
     )
-    expected_hash = _require_sha256(
-        expected_bundle_sha256, "BLIND_BUNDLE_SHA256_REQUIRED"
-    )
+    expected_hash = _require_sha256(expected_bundle_sha256, "BLIND_BUNDLE_SHA256_REQUIRED")
     if expected_hash != seal["external_bundle_sha256"]:
         _fail_closed("BLIND_BUNDLE_SEAL_HASH_MISMATCH")
     try:
@@ -443,11 +427,15 @@ def score_external_blind_run_group_v2(
     )
     labels_by_id = _validate_bundle(bundle=bundle, inputs=raw_inputs, seal=seal)
     case_by_id = {case.case_id: case for case in cases}
+    materialization_by_id = {
+        str(materialization["case_id"]): materialization for materialization in raw_materializations
+    }
     scores = [
         score_case_v2(
             case_by_id[output.case_id],
             output,
             oracle_override=labels_by_id[output.case_id],
+            materialization=materialization_by_id[output.case_id],
         )
         for output in outputs
     ]
@@ -460,9 +448,7 @@ def score_external_blind_run_group_v2(
             "by_input_kind": _safe_buckets(items, lambda item: item.input_kind),
             "by_difficulty": _safe_buckets(items, lambda item: item.difficulty),
             "by_fault_profile": _safe_buckets(items, lambda item: item.fault_profile_id),
-            "by_finding": _safe_buckets(
-                items, lambda item: "+".join(item.required_reason_codes) or "NONE"
-            ),
+            "by_finding": _safe_buckets(items, lambda item: "+".join(item.required_reason_codes) or "NONE"),
             "by_repair_outcome": _safe_buckets(
                 items,
                 lambda item: labels_by_id[item.case_id].expected_strategy_outcome,
@@ -497,9 +483,7 @@ def score_external_blind_run_group_v2(
             "external_bundle_sha256": expected_hash,
             "labels_canonical_sha256": seal["labels_canonical_sha256"],
             "case_ids_sha256": seal["case_ids_sha256"],
-            "materializations_content_sha256": seal[
-                "materializations_content_sha256"
-            ],
+            "materializations_content_sha256": seal["materializations_content_sha256"],
             "schema_contract_sha256": seal["schema_contract_sha256"],
         },
         "case_count": 90,
@@ -520,9 +504,7 @@ def _atomic_write(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False
-        ) as handle:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=f".{path.name}.", delete=False) as handle:
             temporary = Path(handle.name)
             handle.write(canonical_bytes(value) + b"\n")
             handle.flush()
@@ -545,9 +527,7 @@ def _invalid_receipt(reason_code: str) -> dict[str, Any]:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        prog="python -m evals.trip_check_v1.p5.final_blind_scorer_v2"
-    )
+    parser = argparse.ArgumentParser(prog="python -m evals.trip_check_v1.p5.final_blind_scorer_v2")
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--dataset-manifest", type=Path, required=True)

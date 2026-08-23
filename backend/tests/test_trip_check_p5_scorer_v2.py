@@ -14,6 +14,7 @@ from evals.trip_check_v1.p5.contracts_v2 import (
     TerminalStatusV2,
     VARIANT_IDS_V2,
 )
+from evals.trip_check_v1.p5.concurrency_materialization_v2 import build_concurrency_fault_script
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.scorer_v2 import (
     P5V2ScoringError,
@@ -45,8 +46,48 @@ def _oracle(**updates: object) -> P5OracleV2:
     return P5OracleV2.model_validate(payload)
 
 
+def _candidate_artifact(case_id: str) -> dict:
+    candidate_set = {
+        "candidate_set_id": f"candidate-set-{case_id}",
+        "candidates": [
+            {
+                "canonical_place_id": "poi-1",
+                "display_name": "故宫博物院",
+                "place_receipt_id": "place-receipt-1",
+                "route_receipt_ids": ["route-receipt-1"],
+            }
+        ],
+    }
+    candidate_set["content_hash"] = digest(candidate_set)
+    body = {
+        "artifact_id": f"candidate-set-{case_id}",
+        "schema_version": "trip-check-p5-candidate-set-v2",
+        "candidate_set": candidate_set,
+    }
+    return {**body, "content_sha256": digest(body)}
+
+
+def _fault_artifact(case_id: str) -> dict:
+    script = build_concurrency_fault_script(
+        case_id=case_id,
+        workspace_id=f"workspace-{case_id}",
+        repair_id=f"repair-{case_id}",
+        base_revision=1,
+        fault_profile_id="duplicate_apply",
+    )
+    body = {
+        "artifact_id": f"fault-{case_id}",
+        "schema_version": "trip-check-p5-fault-artifact-v2",
+        "fault_profile_id": "duplicate_apply",
+        "script": script,
+    }
+    return {**body, "content_sha256": digest(body)}
+
+
 def _case(case_id: str = "p5.dev.bj.001", *, split: str = "dev") -> P5CaseV2:
     oracle = None if split == "frozen_blind" else _oracle()
+    candidate_artifact = _candidate_artifact(case_id)
+    fault_artifact = _fault_artifact(case_id)
     materialization_row = {
         "schema_version": "trip-check-p5-materialization-v2",
         "materialization_id": f"materialization-{case_id}",
@@ -68,28 +109,27 @@ def _case(case_id: str = "p5.dev.bj.001", *, split: str = "dev") -> P5CaseV2:
             "schema_version": "evidence-v2",
             "content_sha256": "5" * 64,
         },
-        "candidate_sets": [
-            {
-                "artifact_id": "candidate",
-                "schema_version": "candidate-v2",
-                "content_sha256": "6" * 64,
-            }
-        ],
-        "fault_script": {
-            "artifact_id": "fault",
-            "schema_version": "fault-v2",
-            "content_sha256": "7" * 64,
-        },
+        "candidate_sets": [candidate_artifact],
+        "fault_script": fault_artifact,
         "receipts": [],
     }
     materialization_hash = digest(materialization_row)
+
+    def binding(artifact: dict) -> dict:
+        return {key: artifact[key] for key in ("artifact_id", "schema_version", "content_sha256")}
+
     materialization = {
-        key: value
-        for key, value in materialization_row.items()
-        if key not in {"case_id", "receipts"}
+        "schema_version": "trip-check-p5-materialization-binding-v2",
+        "materialization_id": materialization_row["materialization_id"],
+        "materialization_sha256": materialization_hash,
+        "source_payload": materialization_row["source_payload"],
+        "render_receipt": None,
+        "ocr_baseline_receipt": None,
+        "provider_snapshot": materialization_row["provider_snapshot"],
+        "evidence_snapshot": materialization_row["evidence_snapshot"],
+        "candidate_sets": [binding(candidate_artifact)],
+        "fault_script": binding(fault_artifact),
     }
-    materialization["schema_version"] = "trip-check-p5-materialization-binding-v2"
-    materialization["materialization_sha256"] = materialization_hash
     payload = {
         "schema_version": "trip-check-p5-eval-case-v2",
         "case_id": case_id,
@@ -125,8 +165,8 @@ def _materialization_row(case: P5CaseV2) -> dict:
         "ocr_baseline_receipt": binding["ocr_baseline_receipt"],
         "provider_snapshot": binding["provider_snapshot"],
         "evidence_snapshot": binding["evidence_snapshot"],
-        "candidate_sets": binding["candidate_sets"],
-        "fault_script": binding["fault_script"],
+        "candidate_sets": [_candidate_artifact(case.case_id)],
+        "fault_script": _fault_artifact(case.case_id),
         "receipts": [],
     }
     assert digest(row) == binding["materialization_sha256"]
@@ -161,16 +201,35 @@ def _spec(case: P5CaseV2, variant_id: str, dataset_hash: str) -> P5VariantRunSpe
     )
 
 
-def _concurrency_receipt() -> dict:
-    return {
+def _concurrency_receipt(case: P5CaseV2) -> dict:
+    script = _fault_artifact(case.case_id)["script"]
+    attempts = [
+        {key: attempt[key] for key in ("attempt_id", "ordinal", "repair_id", "idempotency_key")}
+        for attempt in script["attempts"]
+    ]
+    projection = {
+        "case_id": case.case_id,
+        "fault_profile_id": "duplicate_apply",
+        "script_sha256": script["script_sha256"],
+        "outcome_counts": {"APPLIED": 1, "IDEMPOTENT_REPLAY": 1},
+        "all_invariants_passed": True,
+    }
+    receipt = {
+        "type": "concurrency",
         "schema_version": "trip-check-p5-apply-fault-receipt-v2",
         "status": "PASS",
+        "case_id": case.case_id,
+        "workspace_id": script["workspace_id"],
         "fault_profile_id": "duplicate_apply",
-        "semantic_projection": {
-            "outcome_counts": {"APPLIED": 1, "IDEMPOTENT_REPLAY": 1},
-            "all_invariants_passed": True,
-        },
+        "script_sha256": script["script_sha256"],
+        "barrier": script["barrier"],
+        "attempts": attempts,
+        "side_effects": {},
+        "error_categories": [],
+        "semantic_projection": projection,
+        "semantic_hash": digest(projection),
     }
+    return {**receipt, "receipt_sha256": digest(receipt)}
 
 
 def _output(case: P5CaseV2, spec: P5VariantRunSpecV2) -> P5TerminalOutputV2:
@@ -185,7 +244,7 @@ def _output(case: P5CaseV2, spec: P5VariantRunSpecV2) -> P5TerminalOutputV2:
         "ocr_receipt_hash": None,
         "provider_snapshot_hash": case.materialization.provider_snapshot.content_sha256,
         "evidence_snapshot_hash": case.materialization.evidence_snapshot.content_sha256,
-        "candidate_set_hashes": ["6" * 64],
+        "candidate_set_hashes": [case.materialization.candidate_sets[0].content_sha256],
         "fault_script_hash": case.materialization.fault_script.content_sha256,
         "run_spec_hash": spec.run_spec_hash,
         "variant_id": spec.variant_id,
@@ -216,7 +275,11 @@ def _output(case: P5CaseV2, spec: P5VariantRunSpecV2) -> P5TerminalOutputV2:
             "overall_status": "VIOLATED",
             "new_blocker_high_unknown_count": 0,
         },
-        "receipts": [_concurrency_receipt()],
+        "receipts": [
+            {"receipt_id": "place-receipt-1", "status": "SUCCEEDED"},
+            {"receipt_id": "route-receipt-1", "status": "SUCCEEDED"},
+            _concurrency_receipt(case),
+        ],
         "latency_ms": 1.0,
         "token_count": 0,
         "cost_usd": 0,
@@ -227,9 +290,7 @@ def _output(case: P5CaseV2, spec: P5VariantRunSpecV2) -> P5TerminalOutputV2:
     }
     output = P5TerminalOutputV2.model_validate(payload)
     semantic_hash = semantic_output_hash_v2(output)
-    return output.model_copy(
-        update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash}
-    )
+    return output.model_copy(update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash})
 
 
 def _write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -278,10 +339,7 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     dataset["manifest_hash"] = digest(dataset)
     dataset_path = tmp_path / "dataset.json"
     dataset_path.write_text(json.dumps(dataset) + "\n", encoding="utf-8")
-    specs = {
-        variant_id: _spec(case, variant_id, dataset["manifest_hash"])
-        for variant_id in VARIANT_IDS_V2
-    }
+    specs = {variant_id: _spec(case, variant_id, dataset["manifest_hash"]) for variant_id in VARIANT_IDS_V2}
     outputs = [_output(case, specs[variant_id]) for variant_id in VARIANT_IDS_V2]
     run_dir = tmp_path / "run"
     run_dir.mkdir()
@@ -308,9 +366,7 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "run_specs": {key: value.model_dump(mode="json") for key, value in specs.items()},
         "terminal_outputs_path": terminal_path.name,
         "terminal_outputs_file_sha256": hashlib.sha256(terminal_path.read_bytes()).hexdigest(),
-        "terminal_outputs_content_sha256": digest(
-            [item.model_dump(mode="json") for item in outputs]
-        ),
+        "terminal_outputs_content_sha256": digest([item.model_dump(mode="json") for item in outputs]),
         "variant_output_sha256": variant_output_hashes_v2(outputs),
         "replay_executed": True,
         "replay_match_count": 3,
@@ -320,16 +376,14 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "human_evidence": False,
     }
     manifest["manifest_hash"] = digest(manifest)
-    (run_dir / "run_group_manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    (run_dir / "run_group_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False) + "\n", encoding="utf-8")
     return run_dir, cases_path, materializations_path, dataset_path
 
 
 def test_v2_case_score_passes_complete_deterministic_receipts() -> None:
     case = _case()
     spec = _spec(case, "core_b", "e" * 64)
-    score = score_case_v2(case, _output(case, spec))
+    score = score_case_v2(case, _output(case, spec), materialization=_materialization_row(case))
 
     assert score.task_success is True
     assert score.deterministic_failure_codes == []
@@ -369,9 +423,7 @@ def test_v2_exact_three_variant_group_is_hash_bound(tmp_path: Path) -> None:
     manifest_path = run_dir / "run_group_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["run_specs"]["solver_c"]["budget"]["timeout_seconds"] = 31
-    manifest["manifest_hash"] = digest(
-        {key: value for key, value in manifest.items() if key != "manifest_hash"}
-    )
+    manifest["manifest_hash"] = digest({key: value for key, value in manifest.items() if key != "manifest_hash"})
     manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
     with pytest.raises(P5V2ScoringError, match="RUN_SPEC_VARIANT_WHITELIST_VIOLATION"):
         score_run_group_v2(

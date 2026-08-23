@@ -58,9 +58,7 @@ RUN_GROUP_FIELDS_V2 = frozenset(
         "manifest_hash",
     }
 )
-RUN_SPEC_VARIANT_WHITELIST_V2 = frozenset(
-    {"variant_id", "adapter_version", "repair_strategy"}
-)
+RUN_SPEC_VARIANT_WHITELIST_V2 = frozenset({"variant_id", "adapter_version", "repair_strategy"})
 
 
 class P5V2ScoringError(ValueError):
@@ -104,11 +102,7 @@ class P5CaseScoreV2(BaseModel):
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     try:
-        rows = [
-            json.loads(line)
-            for line in path.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
+        rows = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise P5V2ScoringError("JSONL_INVALID") from exc
     if any(not isinstance(row, dict) for row in rows):
@@ -131,6 +125,18 @@ def _sha256_file(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as exc:
         raise P5V2ScoringError("ARTIFACT_UNREADABLE") from exc
+
+
+def _contains_symlink_or_junction(path: Path) -> bool:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current /= part
+        try:
+            if current.is_symlink() or (hasattr(current, "is_junction") and current.is_junction()):
+                return True
+        except OSError:
+            return True
+    return False
 
 
 def case_set_hash_v2(cases: Sequence[P5CaseV2]) -> str:
@@ -220,9 +226,7 @@ def _materialization_rows_by_id(
     }
     result: dict[str, P5MaterializationBindingV2] = {}
 
-    def artifact_binding(
-        value: Any, *, case_id: str, synthetic_prefix: str | None = None
-    ) -> dict[str, Any] | None:
+    def artifact_binding(value: Any, *, case_id: str, synthetic_prefix: str | None = None) -> dict[str, Any] | None:
         if value is None:
             return None
         if not isinstance(value, dict):
@@ -263,17 +267,13 @@ def _materialization_rows_by_id(
             "materialization_id": row["materialization_id"],
             "materialization_sha256": materialization_hash,
             "source_payload": artifact_binding(row["source_payload"], case_id=case_id),
-            "render_receipt": artifact_binding(
-                row["render_receipt"], case_id=case_id, synthetic_prefix="render"
-            ),
+            "render_receipt": artifact_binding(row["render_receipt"], case_id=case_id, synthetic_prefix="render"),
             "ocr_baseline_receipt": artifact_binding(
                 row["ocr_baseline_receipt"], case_id=case_id, synthetic_prefix="ocr"
             ),
             "provider_snapshot": artifact_binding(row["provider_snapshot"], case_id=case_id),
             "evidence_snapshot": artifact_binding(row["evidence_snapshot"], case_id=case_id),
-            "candidate_sets": [
-                artifact_binding(item, case_id=case_id) for item in row["candidate_sets"]
-            ],
+            "candidate_sets": [artifact_binding(item, case_id=case_id) for item in row["candidate_sets"]],
             "fault_script": artifact_binding(row["fault_script"], case_id=case_id),
         }
         try:
@@ -289,6 +289,17 @@ def _finding_reason_codes(output: P5TerminalOutputV2) -> set[str]:
         for item in output.findings
         if isinstance(item.get("reason_code"), str) and item["reason_code"]
     }
+
+
+def _contains_unknown_or_unavailable_status(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key in ("status", "source_status", "evidence_status", "fact_status"):
+            if value.get(key) in {"UNKNOWN", "UNAVAILABLE"}:
+                return True
+        return any(_contains_unknown_or_unavailable_status(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_unknown_or_unavailable_status(item) for item in value)
+    return False
 
 
 def _unknown_promoted_to_pass(value: Any) -> bool:
@@ -356,14 +367,84 @@ def _concurrency_receipt(output: P5TerminalOutputV2) -> dict[str, Any] | None:
     return None
 
 
-def _concurrency_result(output: P5TerminalOutputV2, expectation: str) -> str:
+def _concurrency_result(
+    output: P5TerminalOutputV2,
+    expectation: str,
+    materialization: Mapping[str, Any] | None,
+) -> str:
     if expectation == "NONE":
         return "NOT_REQUIRED"
+    if materialization is None:
+        return "FAIL"
+    fault_artifact = materialization.get("fault_script")
+    if not isinstance(fault_artifact, dict):
+        return "FAIL"
+    script = fault_artifact.get("script")
+    if not isinstance(script, dict):
+        return "FAIL"
+    script_hash = script.get("script_sha256")
+    if (
+        not isinstance(script_hash, str)
+        or digest({key: value for key, value in script.items() if key != "script_sha256"}) != script_hash
+        or fault_artifact.get("content_sha256") != output.fault_script_hash
+    ):
+        return "FAIL"
     receipt = _concurrency_receipt(output)
     if not receipt or receipt.get("status") != "PASS":
         return "FAIL"
+    expected_receipt_fields = {
+        "type",
+        "schema_version",
+        "status",
+        "case_id",
+        "workspace_id",
+        "fault_profile_id",
+        "script_sha256",
+        "barrier",
+        "attempts",
+        "side_effects",
+        "error_categories",
+        "semantic_projection",
+        "semantic_hash",
+        "receipt_sha256",
+    }
+    if set(receipt) != expected_receipt_fields:
+        return "FAIL"
+    if (
+        receipt.get("type") != "concurrency"
+        or receipt.get("case_id") != output.case_id
+        or receipt.get("workspace_id") != script.get("workspace_id")
+        or receipt.get("fault_profile_id") != script.get("fault_profile_id")
+        or receipt.get("script_sha256") != script_hash
+        or receipt.get("receipt_sha256")
+        != digest({key: value for key, value in receipt.items() if key != "receipt_sha256"})
+    ):
+        return "FAIL"
     projection = receipt.get("semantic_projection")
-    if not isinstance(projection, dict) or projection.get("all_invariants_passed") is not True:
+    if (
+        not isinstance(projection, dict)
+        or projection.get("all_invariants_passed") is not True
+        or projection.get("case_id") != output.case_id
+        or projection.get("fault_profile_id") != script.get("fault_profile_id")
+        or projection.get("script_sha256") != script_hash
+        or receipt.get("semantic_hash") != digest(projection)
+    ):
+        return "FAIL"
+    expected_attempts = script.get("attempts")
+    actual_attempts = receipt.get("attempts")
+    if not isinstance(expected_attempts, list) or not isinstance(actual_attempts, list):
+        return "FAIL"
+    expected_attempt_bindings = [
+        {key: attempt.get(key) for key in ("attempt_id", "ordinal", "repair_id", "idempotency_key")}
+        for attempt in sorted(expected_attempts, key=lambda item: item.get("ordinal", -1))
+        if isinstance(attempt, dict)
+    ]
+    actual_attempt_bindings = [
+        {key: attempt.get(key) for key in ("attempt_id", "ordinal", "repair_id", "idempotency_key")}
+        for attempt in sorted(actual_attempts, key=lambda item: item.get("ordinal", -1))
+        if isinstance(attempt, dict)
+    ]
+    if len(expected_attempt_bindings) != 2 or actual_attempt_bindings != expected_attempt_bindings:
         return "FAIL"
     counts = projection.get("outcome_counts")
     if not isinstance(counts, dict):
@@ -388,11 +469,7 @@ def _concurrency_result(output: P5TerminalOutputV2, expectation: str) -> str:
 
 
 def _terminal_is_ok(output: P5TerminalOutputV2, oracle: P5OracleV2) -> bool:
-    expected = (
-        TerminalStatusV2.NEEDS_USER_RESOLUTION
-        if oracle.requires_user_resolution
-        else TerminalStatusV2.SUCCEEDED
-    )
+    expected = TerminalStatusV2.NEEDS_USER_RESOLUTION if oracle.requires_user_resolution else TerminalStatusV2.SUCCEEDED
     return output.terminal_status == expected
 
 
@@ -447,6 +524,7 @@ def _candidate_status(
     case: P5CaseV2,
     oracle: P5OracleV2,
     output: P5TerminalOutputV2,
+    materialization: Mapping[str, Any] | None,
 ) -> str:
     projection = output.evaluation_projection
     selected = projection.get("selected_place_ids")
@@ -458,15 +536,58 @@ def _candidate_status(
     if not oracle.specific_place_allowed and selected_ids != []:
         return "FAIL"
     if oracle.candidate_receipt_mode == "REQUIRED":
-        return (
-            "PASS"
-            if selected_ids
-            and materialized_hashes
-            and isinstance(coverage, (int, float))
-            and not isinstance(coverage, bool)
-            and float(coverage) == 1.0
-            else "FAIL"
-        )
+        if (
+            not selected_ids
+            or not materialized_hashes
+            or materialization is None
+            or not isinstance(coverage, (int, float))
+            or isinstance(coverage, bool)
+            or float(coverage) != 1.0
+        ):
+            return "FAIL"
+        raw_sets = materialization.get("candidate_sets")
+        if not isinstance(raw_sets, list):
+            return "FAIL"
+        candidates: dict[str, Mapping[str, Any]] = {}
+        for artifact in raw_sets:
+            if not isinstance(artifact, Mapping):
+                return "FAIL"
+            candidate_set = artifact.get("candidate_set")
+            raw_candidates = candidate_set.get("candidates") if isinstance(candidate_set, Mapping) else None
+            if not isinstance(raw_candidates, list):
+                return "FAIL"
+            for candidate in raw_candidates:
+                if not isinstance(candidate, Mapping):
+                    return "FAIL"
+                candidate_id = candidate.get("canonical_place_id")
+                if not isinstance(candidate_id, str) or candidate_id in candidates:
+                    return "FAIL"
+                candidates[candidate_id] = candidate
+        successful_receipt_ids = {
+            receipt["receipt_id"]
+            for receipt in output.receipts
+            if isinstance(receipt, dict)
+            and isinstance(receipt.get("receipt_id"), str)
+            and receipt.get("status") in {"PASS", "SUCCEEDED"}
+        }
+        for selected_id in selected_ids:
+            candidate = candidates.get(selected_id) if isinstance(selected_id, str) else None
+            if candidate is None:
+                return "FAIL"
+            place_receipt_id = candidate.get("place_receipt_id")
+            route_receipt_ids = candidate.get("route_receipt_ids")
+            if (
+                not isinstance(place_receipt_id, str)
+                or place_receipt_id not in successful_receipt_ids
+                or not isinstance(route_receipt_ids, list)
+                or not route_receipt_ids
+                or any(
+                    not isinstance(receipt_id, str) or receipt_id not in successful_receipt_ids
+                    for receipt_id in route_receipt_ids
+                )
+            ):
+                return "FAIL"
+        return "PASS"
     if oracle.candidate_receipt_mode == "FORBIDDEN":
         return "PASS" if selected_ids == [] and not materialized_hashes else "FAIL"
     return "NOT_REQUIRED" if selected_ids is not None else "FAIL"
@@ -477,6 +598,7 @@ def score_case_v2(
     output: P5TerminalOutputV2,
     *,
     oracle_override: P5OracleV2 | None = None,
+    materialization: Mapping[str, Any] | None = None,
 ) -> P5CaseScoreV2:
     oracle = oracle_override or case.oracle
     if oracle is None:
@@ -486,12 +608,13 @@ def score_case_v2(
     wrong = projection.get("wrong_city_or_poi_count")
     wrong_count = wrong if isinstance(wrong, int) and not isinstance(wrong, bool) and wrong >= 0 else None
     terminal_ok = _terminal_is_ok(output, oracle)
-    resolution_match = (
-        projection.get("requires_user_resolution") is oracle.requires_user_resolution
-    )
+    resolution_match = projection.get("requires_user_resolution") is oracle.requires_user_resolution
+    authoritative_unknown_present = _contains_unknown_or_unavailable_status(output.findings)
     unknown_status = (
         "PASS"
-        if oracle.unknown_must_be_preserved and projection.get("unknown_preserved") is True
+        if oracle.unknown_must_be_preserved
+        and projection.get("unknown_preserved") is True
+        and authoritative_unknown_present
         else "FAIL"
         if oracle.unknown_must_be_preserved
         else "NOT_REQUIRED"
@@ -501,12 +624,14 @@ def score_case_v2(
     ):
         unknown_status = "FAIL"
     advice_status = (
-        "PASS" if oracle.advice_required and bool(output.advice) else "FAIL"
+        "PASS"
+        if oracle.advice_required and bool(output.advice)
+        else "FAIL"
         if oracle.advice_required
         else "NOT_REQUIRED"
     )
-    candidate_status = _candidate_status(case, oracle, output)
-    concurrency_status = _concurrency_result(output, oracle.concurrency_expectation)
+    candidate_status = _candidate_status(case, oracle, output, materialization)
+    concurrency_status = _concurrency_result(output, oracle.concurrency_expectation, materialization)
     strategy_match = _strategy_matches(output, oracle.expected_strategy_outcome)
     missing = [
         code
@@ -543,7 +668,9 @@ def score_case_v2(
         and projection.get("replay_side_effect_counts_equal") is True
     )
     ocr_status = (
-        "PASS" if oracle.ocr_required and output.ocr_receipt_hash is not None else "FAIL"
+        "PASS"
+        if oracle.ocr_required and output.ocr_receipt_hash is not None
+        else "FAIL"
         if oracle.ocr_required
         else "NOT_REQUIRED"
     )
@@ -619,9 +746,7 @@ def _validate_case_output_binding(
             materialization.render_receipt.content_sha256 if materialization.render_receipt else None
         ),
         "ocr_receipt_hash": (
-            materialization.ocr_baseline_receipt.content_sha256
-            if materialization.ocr_baseline_receipt
-            else None
+            materialization.ocr_baseline_receipt.content_sha256 if materialization.ocr_baseline_receipt else None
         ),
         "provider_snapshot_hash": materialization.provider_snapshot.content_sha256,
         "evidence_snapshot_hash": materialization.evidence_snapshot.content_sha256,
@@ -633,9 +758,7 @@ def _validate_case_output_binding(
     actual = {key: getattr(output, key) for key in expected}
     if actual != expected:
         raise P5V2ScoringError("TERMINAL_ARTIFACT_BINDING_MISMATCH")
-    if sorted(output.candidate_set_hashes) != sorted(
-        item.content_sha256 for item in materialization.candidate_sets
-    ):
+    if sorted(output.candidate_set_hashes) != sorted(item.content_sha256 for item in materialization.candidate_sets):
         raise P5V2ScoringError("TERMINAL_CANDIDATE_SET_BINDING_MISMATCH")
     if (
         output.split != case.split
@@ -693,8 +816,7 @@ def validate_run_group_v2(
         case_rows = load_jsonl(cases_path)
         if any(
             not isinstance(row.get("case_hash"), str)
-            or digest({key: value for key, value in row.items() if key != "case_hash"})
-            != row["case_hash"]
+            or digest({key: value for key, value in row.items() if key != "case_hash"}) != row["case_hash"]
             for row in case_rows
         ):
             raise P5V2ScoringError("CASE_HASH_MISMATCH")
@@ -722,13 +844,9 @@ def validate_run_group_v2(
     file_prefix = "nonblind" if expected_lane == "nonblind" else "blind"
     dataset_files = dataset_manifest.get("files")
     dataset_lane = dataset_manifest.get("lanes", {}).get(expected_lane)
-    case_file_binding = (
-        dataset_files.get(f"{file_prefix}_cases") if isinstance(dataset_files, dict) else None
-    )
+    case_file_binding = dataset_files.get(f"{file_prefix}_cases") if isinstance(dataset_files, dict) else None
     materialization_file_binding = (
-        dataset_files.get(f"{file_prefix}_materializations")
-        if isinstance(dataset_files, dict)
-        else None
+        dataset_files.get(f"{file_prefix}_materializations") if isinstance(dataset_files, dict) else None
     )
     if (
         not isinstance(case_file_binding, dict)
@@ -738,14 +856,12 @@ def validate_run_group_v2(
         or case_file_binding.get("file_sha256") != manifest["cases_file_sha256"]
         or case_file_binding.get("content_sha256") != digest(case_rows)
         or materialization_file_binding.get("row_count") != len(materialization_rows)
-        or materialization_file_binding.get("file_sha256")
-        != manifest["materializations_file_sha256"]
+        or materialization_file_binding.get("file_sha256") != manifest["materializations_file_sha256"]
         or materialization_file_binding.get("content_sha256") != digest(materialization_rows)
         or dataset_lane.get("case_count") != len(cases)
         or dataset_lane.get("materialization_count") != len(materialization_rows)
         or dataset_lane.get("case_set_hash") != manifest["case_set_hash"]
-        or dataset_lane.get("materialization_set_hash")
-        != manifest["materialization_set_hash"]
+        or dataset_lane.get("materialization_set_hash") != manifest["materialization_set_hash"]
     ):
         raise P5V2ScoringError("DATASET_LANE_BINDING_MISMATCH")
     formal_count = 270 if expected_lane == "nonblind" else 90
@@ -756,10 +872,7 @@ def validate_run_group_v2(
     if not isinstance(raw_specs, dict) or set(raw_specs) != set(VARIANT_IDS_V2):
         raise P5V2ScoringError("RUN_SPEC_SET_INVALID")
     try:
-        specs = {
-            variant_id: P5VariantRunSpecV2.model_validate(raw_specs[variant_id])
-            for variant_id in VARIANT_IDS_V2
-        }
+        specs = {variant_id: P5VariantRunSpecV2.model_validate(raw_specs[variant_id]) for variant_id in VARIANT_IDS_V2}
     except ValidationError as exc:
         raise P5V2ScoringError("RUN_SPEC_SCHEMA_INVALID") from exc
     common = []
@@ -785,6 +898,8 @@ def validate_run_group_v2(
         raise P5V2ScoringError("RUN_SPEC_VARIANT_WHITELIST_VIOLATION")
 
     terminal_path = run_dir / str(manifest["terminal_outputs_path"])
+    if _contains_symlink_or_junction(terminal_path.absolute()):
+        raise P5V2ScoringError("TERMINAL_OUTPUT_SYMLINK_FORBIDDEN")
     try:
         if terminal_path.resolve().relative_to(run_dir.resolve()) is None:
             raise AssertionError
@@ -796,13 +911,9 @@ def validate_run_group_v2(
         outputs = [P5TerminalOutputV2.model_validate(row) for row in load_jsonl(terminal_path)]
     except ValidationError as exc:
         raise P5V2ScoringError("TERMINAL_OUTPUT_SCHEMA_INVALID") from exc
-    if digest([output.model_dump(mode="json") for output in outputs]) != manifest[
-        "terminal_outputs_content_sha256"
-    ]:
+    if digest([output.model_dump(mode="json") for output in outputs]) != manifest["terminal_outputs_content_sha256"]:
         raise P5V2ScoringError("TERMINAL_OUTPUT_CONTENT_HASH_MISMATCH")
-    expected_keys = {
-        (case.case_id, variant_id) for case in cases for variant_id in VARIANT_IDS_V2
-    }
+    expected_keys = {(case.case_id, variant_id) for case in cases for variant_id in VARIANT_IDS_V2}
     actual_keys = [(output.case_id, output.variant_id) for output in outputs]
     if len(actual_keys) != len(set(actual_keys)) or set(actual_keys) != expected_keys:
         raise P5V2ScoringError("TERMINAL_OUTPUT_EXACT_KEY_SET_MISMATCH")
@@ -846,18 +957,14 @@ def aggregate_scores_v2(scores: Iterable[P5CaseScoreV2]) -> dict[str, Any]:
         "wrong_city_or_poi_count": sum(item.wrong_city_or_poi_count or 0 for item in items),
         "hard_finding_miss_count": sum(len(item.missing_reason_codes) for item in items),
         "unknown_failure_count": sum(item.unknown_preservation == "FAIL" for item in items),
-        "candidate_receipt_failure_count": sum(
-            item.candidate_receipt_coverage == "FAIL" for item in items
-        ),
+        "candidate_receipt_failure_count": sum(item.candidate_receipt_coverage == "FAIL" for item in items),
         "concurrency_failure_count": sum(item.concurrency_result == "FAIL" for item in items),
         "postcheck_failure_count": sum(item.repair_postcheck == "FAIL" for item in items),
         "replay_failure_count": sum(not item.replay_hash_match for item in items),
     }
 
 
-def _buckets(
-    scores: Sequence[P5CaseScoreV2], key: Callable[[P5CaseScoreV2], str]
-) -> dict[str, Any]:
+def _buckets(scores: Sequence[P5CaseScoreV2], key: Callable[[P5CaseScoreV2], str]) -> dict[str, Any]:
     grouped: dict[str, list[P5CaseScoreV2]] = defaultdict(list)
     for score in scores:
         grouped[key(score)].append(score)
@@ -867,10 +974,7 @@ def _buckets(
 def _paired(core: Mapping[str, P5CaseScoreV2], challenger: Mapping[str, P5CaseScoreV2]) -> dict[str, Any]:
     if set(core) != set(challenger):
         raise P5V2ScoringError("PAIRED_CASE_SET_MISMATCH")
-    differences = [
-        int(challenger[case_id].task_success) - int(core[case_id].task_success)
-        for case_id in sorted(core)
-    ]
+    differences = [int(challenger[case_id].task_success) - int(core[case_id].task_success) for case_id in sorted(core)]
     improvement = mean(differences) if differences else 0.0
     if len(differences) > 1:
         variance = sum((item - improvement) ** 2 for item in differences) / (len(differences) - 1)
@@ -896,9 +1000,17 @@ def build_score_report_v2(
     cases: Sequence[P5CaseV2],
     outputs: Sequence[P5TerminalOutputV2],
     include_case_scores: bool,
+    materializations: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     case_by_id = {case.case_id: case for case in cases}
-    scores = [score_case_v2(case_by_id[output.case_id], output) for output in outputs]
+    scores = [
+        score_case_v2(
+            case_by_id[output.case_id],
+            output,
+            materialization=(materializations or {}).get(output.case_id),
+        )
+        for output in outputs
+    ]
     outputs_by_key = {(output.case_id, output.variant_id): output for output in outputs}
     variant_metrics: dict[str, Any] = {}
     score_maps: dict[str, dict[str, P5CaseScoreV2]] = {}
@@ -911,9 +1023,7 @@ def build_score_report_v2(
             {
                 "latency_p50_ms": median(latencies),
                 "latency_p95_ms": _percentile(latencies, 0.95),
-                "terminal_status_counts": dict(
-                    sorted(Counter(item.terminal_status.value for item in items).items())
-                ),
+                "terminal_status_counts": dict(sorted(Counter(item.terminal_status.value for item in items).items())),
             }
         )
         variant_metrics[variant_id] = {
@@ -922,9 +1032,7 @@ def build_score_report_v2(
             "by_input_kind": _buckets(items, lambda item: item.input_kind),
             "by_difficulty": _buckets(items, lambda item: item.difficulty),
             "by_fault_profile": _buckets(items, lambda item: item.fault_profile_id),
-            "by_finding": _buckets(
-                items, lambda item: "+".join(item.required_reason_codes) or "NONE"
-            ),
+            "by_finding": _buckets(items, lambda item: "+".join(item.required_reason_codes) or "NONE"),
             "by_repair_outcome": _buckets(
                 items,
                 lambda item: case_by_id[item.case_id].oracle.expected_strategy_outcome
@@ -956,8 +1064,7 @@ def build_score_report_v2(
         "terminal_count": len(outputs),
         "variant_metrics": variant_metrics,
         "paired_comparisons": {
-            variant_id: _paired(score_maps["core_b"], score_maps[variant_id])
-            for variant_id in ("legacy_a", "solver_c")
+            variant_id: _paired(score_maps["core_b"], score_maps[variant_id]) for variant_id in ("legacy_a", "solver_c")
         },
         "core_gate_checks": core_gate_checks,
         "promotion_decision": "KEEP_CORE_B" if passed else "REJECT_ALL_CANDIDATES",
@@ -995,4 +1102,5 @@ def score_run_group_v2(
         cases=cases,
         outputs=outputs,
         include_case_scores=True,
+        materializations={row["case_id"]: row for row in load_jsonl(materializations_path)},
     )

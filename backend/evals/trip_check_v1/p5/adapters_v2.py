@@ -148,6 +148,32 @@ def validate_materialization_v2(case: P5CaseV2, value: Mapping[str, Any]) -> dic
         ):
             raise ValueError("materialization artifact binding mismatch")
 
+    receipts = materialization["receipts"]
+    if not isinstance(receipts, list):
+        raise ValueError("materialization receipts must be a list")
+    cleanup_receipts = [
+        receipt
+        for receipt in receipts
+        if isinstance(receipt, Mapping) and receipt.get("schema_version") == "trip-check-p5-cleanup-receipt-v2"
+    ]
+    provider_receipts = [receipt for receipt in receipts if receipt not in cleanup_receipts]
+    if any(not isinstance(receipt, Mapping) for receipt in provider_receipts):
+        raise ValueError("materialization contains an unsupported receipt type")
+    if binding.ocr_baseline_receipt is None:
+        if cleanup_receipts:
+            raise ValueError("text materialization contains an OCR cleanup receipt")
+    else:
+        if len(cleanup_receipts) != 1:
+            raise ValueError("screenshot materialization requires one cleanup receipt")
+        cleanup = cleanup_receipts[0]
+        if (
+            cleanup.get("cleanup_status") != "DELETED"
+            or cleanup.get("original_removed") is not True
+            or cleanup.get("asset_hash") != materialization["render_receipt"].get("image_sha256")
+            or cleanup.get("asset_hash") != materialization["ocr_baseline_receipt"].get("asset_hash")
+        ):
+            raise ValueError("screenshot cleanup receipt is not fail-closed")
+
     evidence_payload = {
         "schema_version": "trip-check-p5-evidence-materialization-v2",
         "case_id": case.case_id,
@@ -155,7 +181,7 @@ def validate_materialization_v2(case: P5CaseV2, value: Mapping[str, Any]) -> dic
         "provider_snapshot": materialization["provider_snapshot"],
         "evidence_snapshot": materialization["evidence_snapshot"],
         "candidate_sets": materialization["candidate_sets"],
-        "receipts": materialization["receipts"],
+        "receipts": provider_receipts,
     }
     evidence_payload["evidence_materialization_hash"] = digest(evidence_payload)
     validate_evidence_materialization(evidence_payload)
@@ -674,7 +700,19 @@ async def _execute_product_harness(
     stable_receipts = [
         {"type": "materialized_provider", "receipt_id": item["receipt_id"], "status": item["status"]}
         for item in materialization["receipts"]
+        if item.get("schema_version") != "trip-check-p5-cleanup-receipt-v2"
     ]
+    stable_receipts.extend(
+        {
+            "type": "ocr_cleanup",
+            "receipt_id": item["receipt_id"],
+            "cleanup_status": item["cleanup_status"],
+            "original_removed": item["original_removed"],
+            "asset_hash": item["asset_hash"],
+        }
+        for item in materialization["receipts"]
+        if item.get("schema_version") == "trip-check-p5-cleanup-receipt-v2"
+    )
     if concurrency_receipt is not None:
         for attempt in concurrency_receipt["attempts"]:
             if attempt.get("result") is not None:

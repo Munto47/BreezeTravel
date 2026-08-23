@@ -190,7 +190,11 @@ def _case_set_hash(cases: list[P5CaseV2]) -> str:
 def _materialization_set_hash(materializations: list[dict[str, Any]]) -> str:
     return digest(
         [
-            {"case_id": item["case_id"], "materialization_hash": item["materialization_hash"]}
+            {
+                "case_id": item["case_id"],
+                "materialization_id": item["materialization_id"],
+                "materialization_hash": item["materialization_hash"],
+            }
             for item in sorted(materializations, key=lambda x: x["case_id"])
         ]
     )

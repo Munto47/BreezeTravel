@@ -60,9 +60,7 @@ def _rewrite_manifest(run_dir: Path, **updates: object) -> dict:
     path = run_dir / "run_group_manifest.json"
     manifest = _load(path)
     manifest.update(updates)
-    manifest["manifest_hash"] = digest(
-        {key: value for key, value in manifest.items() if key != "manifest_hash"}
-    )
+    manifest["manifest_hash"] = digest({key: value for key, value in manifest.items() if key != "manifest_hash"})
     _write(path, manifest)
     return manifest
 
@@ -105,9 +103,7 @@ def _score_run_group(fixture: tuple[Path, Path, Path, Path]) -> dict:
         ("replay_executed", False, "RUN_GROUP_REPLAY_INVALID"),
     ],
 )
-def test_run_group_rejects_rehashed_contract_tamper(
-    tmp_path: Path, field: str, value: object, reason: str
-) -> None:
+def test_run_group_rejects_rehashed_contract_tamper(tmp_path: Path, field: str, value: object, reason: str) -> None:
     fixture = _write_run_group(tmp_path)
     _rewrite_manifest(fixture[0], **{field: value})
 
@@ -125,18 +121,14 @@ def test_run_group_rejects_unrehashed_manifest_and_extra_field(tmp_path: Path) -
         _score_run_group(fixture)
 
     manifest["attacker_note"] = "hidden detail"
-    manifest["manifest_hash"] = digest(
-        {key: value for key, value in manifest.items() if key != "manifest_hash"}
-    )
+    manifest["manifest_hash"] = digest({key: value for key, value in manifest.items() if key != "manifest_hash"})
     _write(manifest_path, manifest)
     with pytest.raises(P5V2ScoringError, match="RUN_GROUP_MANIFEST_FIELDS_INVALID"):
         _score_run_group(fixture)
 
 
 @pytest.mark.parametrize("mutation", ["missing", "duplicate", "extra"])
-def test_run_group_rejects_missing_duplicate_or_extra_terminal_rows(
-    tmp_path: Path, mutation: str
-) -> None:
+def test_run_group_rejects_missing_duplicate_or_extra_terminal_rows(tmp_path: Path, mutation: str) -> None:
     fixture = _write_run_group(tmp_path)
     terminal_path = fixture[0] / "terminal_outputs.jsonl"
     rows = [json.loads(line) for line in terminal_path.read_text(encoding="utf-8").splitlines()]
@@ -206,10 +198,6 @@ def test_run_group_rejects_path_escape_and_stale_case_materialization_bytes(tmp_
         _score_run_group(fixture)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="terminal output symlinks inside run_dir are resolved and accepted",
-)
 def test_run_group_terminal_output_symlink_must_be_rejected(tmp_path: Path) -> None:
     fixture = _write_run_group(tmp_path)
     run_dir = fixture[0]
@@ -254,13 +242,7 @@ def test_blind_bundle_rejects_path_escape_symlink_and_conflicting_sources(
         _blind_score(fixture, bundle_path=link)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Windows junction components are not rejected by the bundle path guard",
-)
-def test_blind_bundle_parent_junction_must_be_rejected(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_blind_bundle_parent_junction_must_be_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fixture = _blind_fixture(tmp_path, monkeypatch)
     junction = fixture["repo"] / "external-bundle-junction"
     completed = subprocess.run(
@@ -299,9 +281,7 @@ def test_blind_bundle_rejects_rehashed_schema_case_set_and_label_tamper(
     elif mutation == "duplicate_label":
         payload["labels"][0]["case_id"] = payload["labels"][1]["case_id"]
     else:
-        payload["labels"][0]["oracle"]["advice_required"] = not payload["labels"][0]["oracle"][
-            "advice_required"
-        ]
+        payload["labels"][0]["oracle"]["advice_required"] = not payload["labels"][0]["oracle"]["advice_required"]
     changed_hash = _rebind_bundle_hash(fixture, payload)
 
     with pytest.raises(P5BlindScoringErrorV2, match=reason):
@@ -348,20 +328,13 @@ def test_blind_seal_inputs_materializations_template_and_schema_are_byte_bound(
         _blind_score(fixture)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="candidate membership and place/route receipts are not proven by scorer_v2",
-)
 def test_candidate_outside_set_or_missing_place_route_receipts_must_fail() -> None:
     case = _case()
     output = _output(case, _spec(case, "core_b", "e" * 64))
     payload = output.model_dump(mode="json")
     payload["evaluation_projection"]["selected_place_ids"] = ["outside-frozen-candidate-set"]
     payload["evaluation_projection"]["candidate_receipt_coverage"] = 1.0
-    assert not any(
-        receipt.get("type") in {"place_receipt", "route_receipt"}
-        for receipt in payload["receipts"]
-    )
+    assert not any(receipt.get("type") in {"place_receipt", "route_receipt"} for receipt in payload["receipts"])
     changed = P5TerminalOutputV2.model_validate(payload)
     semantic_hash = semantic_output_hash_v2(changed)
     changed = changed.model_copy(update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash})
@@ -371,10 +344,6 @@ def test_candidate_outside_set_or_missing_place_route_receipts_must_fail() -> No
     assert score.task_success is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="concurrency result trusts an unbound self-authored terminal receipt",
-)
 def test_forged_concurrency_receipt_must_not_prove_real_execution() -> None:
     case = _case()
     output = _output(case, _spec(case, "core_b", "e" * 64))
@@ -400,10 +369,6 @@ def test_forged_concurrency_receipt_must_not_prove_real_execution() -> None:
     assert score.task_success is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="UNKNOWN can be relabeled PASS when source_status is omitted",
-)
 def test_unknown_finding_relabelled_pass_without_source_status_must_fail() -> None:
     case = _case()
     output = _output(case, _spec(case, "core_b", "e" * 64))
@@ -478,9 +443,7 @@ def test_v1_blind_scorer_must_remain_superseded_after_v2_is_ready(
     strict=True,
     reason="v1 Gate proceeds once the v2-ready guard succeeds",
 )
-def test_v1_gate_must_remain_superseded_after_v2_is_ready(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_v1_gate_must_remain_superseded_after_v2_is_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(v1_gate, "require_v2_formal_ready", lambda: {"formal_evidence_status": "READY"})
 
     def proceeded(**_kwargs: object) -> dict:
