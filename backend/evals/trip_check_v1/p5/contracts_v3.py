@@ -8,6 +8,7 @@ they do not relabel those historical receipts as fresh v3 OCR evidence.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from enum import Enum
 from pathlib import PurePosixPath
@@ -25,6 +26,30 @@ Sha256V3 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 CommitShaV3 = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$")]
 NonNegativeIntV3 = Annotated[int, Field(ge=0)]
 NonNegativeFloatV3 = Annotated[float, Field(ge=0)]
+_FORBIDDEN_CASE_METADATA_KEYS_V3 = {
+    "answer",
+    "blind_label",
+    "expected",
+    "ground_truth",
+    "human_label",
+    "label",
+    "oracle",
+    "oracle_sha256",
+}
+
+
+def _forbidden_metadata_paths_v3(value: Any, *, path: str) -> list[str]:
+    found: list[str] = []
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            child = f"{path}.{key}"
+            if str(key).casefold() in _FORBIDDEN_CASE_METADATA_KEYS_V3:
+                found.append(child)
+            found.extend(_forbidden_metadata_paths_v3(item, path=child))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            found.extend(_forbidden_metadata_paths_v3(item, path=f"{path}[{index}]"))
+    return found
 
 
 class TerminalStatusV3(str, Enum):
@@ -155,6 +180,18 @@ class P5CaseV3(BaseModel):
 
     @model_validator(mode="after")
     def split_truth_screenshot_and_hash_are_bound(self) -> "P5CaseV3":
+        metadata = {
+            "product_input": self.product_input,
+            "runner_control": self.runner_control,
+            "lineage": self.lineage,
+            "source_ref": self.source_ref,
+            "provenance": self.provenance,
+        }
+        forbidden_paths = _forbidden_metadata_paths_v3(metadata, path="case")
+        if forbidden_paths:
+            raise ValueError(
+                f"case metadata contains forbidden label fields: {sorted(forbidden_paths)}"
+            )
         if self.split == "frozen_blind":
             if self.oracle is not None or self.oracle_sha256 is not None:
                 raise ValueError("frozen blind cases cannot contain oracle fields")
@@ -412,6 +449,56 @@ class P5GateManifestV3(BaseModel):
         return self
 
 
+class P5BlindSealV3(BaseModel):
+    """Repository seal envelope produced by the isolated blind custodian."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["trip-check-p5-blind-seal-v3"] = (
+        "trip-check-p5-blind-seal-v3"
+    )
+    split: Literal["frozen_blind"] = "frozen_blind"
+    case_count: Literal[90] = 90
+    candidate_freeze_commit: CommitShaV3
+    candidate_dataset_manifest_hash: Sha256V3
+    case_ids_sha256: Sha256V3
+    inputs_file_sha256: Sha256V3
+    inputs_content_sha256: Sha256V3
+    materializations_file_sha256: Sha256V3
+    materializations_content_sha256: Sha256V3
+    case_set_hash: Sha256V3
+    materialization_set_hash: Sha256V3
+    contracts_v3_sha256: Sha256V3
+    run_spec_template_sha256: Sha256V3
+    rubric_sha256: Sha256V3
+    variant_ids_sha256: Sha256V3
+    labels_canonical_sha256: Sha256V3
+    external_bundle_sha256: Sha256V3
+    review_receipt_sha256: Sha256V3
+    label_storage: Literal["external_bundle_only"] = "external_bundle_only"
+    label_access: Literal["isolated_scorer_only"] = "isolated_scorer_only"
+    scoring_payload_present: Literal[False] = False
+    human_evidence: Literal[False] = False
+
+
+class P5SealingCommitmentV3(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["trip-check-p5-sealing-commitment-v3"] = (
+        "trip-check-p5-sealing-commitment-v3"
+    )
+    status: Literal["SEALED"] = "SEALED"
+    candidate_freeze_commit: CommitShaV3
+    candidate_dataset_manifest_hash: Sha256V3
+    blind_seal_path: Literal[
+        "backend/evals/trip_check_v1/p5/sealed/frozen_blind.v3.seal.json"
+    ]
+    blind_seal_file_sha256: Sha256V3
+    labels_canonical_sha256: Sha256V3
+    external_bundle_sha256: Sha256V3
+    review_receipt_sha256: Sha256V3
+
+
 __all__ = [
     "GateStatusV3",
     "P5ArtifactBindingV3",
@@ -419,12 +506,14 @@ __all__ = [
     "P5ArtifactIndexV3",
     "P5CaseV3",
     "P5CaseResultV3",
+    "P5BlindSealV3",
     "P5FailureRecordV3",
     "P5GateCheckV3",
     "P5GateManifestV3",
     "P5MaterializationBindingV3",
     "P5OcrSourceBindingV3",
     "P5RunBudgetV3",
+    "P5SealingCommitmentV3",
     "P5TerminalOutputV3",
     "P5VariantRunSpecV3",
     "TerminalStatusV3",

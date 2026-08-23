@@ -7,6 +7,8 @@ from functools import lru_cache
 
 import pytest
 
+from evals.trip_check_v1.p5.adapters_v3 import validate_materialization_v3
+from evals.trip_check_v1.p5.contracts_v3 import P5CaseV3
 from evals.trip_check_v1.p5.data_contract import digest, file_sha256, load_jsonl
 from evals.trip_check_v1.p5.data_contract_v2 import (
     BLIND_INPUT_PATH_V2,
@@ -18,6 +20,7 @@ from evals.trip_check_v1.p5.data_contract_v2 import (
 )
 from evals.trip_check_v1.p5.data_contract_v3 import (
     build_dataset_v3,
+    build_manifest_v3,
     evidence_projection_v3,
     materialization_input_projection_v3,
     validate_v2_source_anchor,
@@ -172,3 +175,52 @@ def test_v2_source_anchor_is_ready_and_sealed() -> None:
     assert len(anchor["candidate_freeze_commit"]) == 40
     assert anchor["manifest_file_sha256"] == file_sha256(MANIFEST_PATH_V2)
     assert anchor["blind_seal_file_sha256"] == file_sha256(BLIND_SEAL_PATH_V2)
+
+
+def test_all_360_outer_materializations_are_strictly_case_bound() -> None:
+    nonblind, blind, nonblind_materializations, blind_materializations = _build()
+
+    for case_row, materialization in zip(
+        [*nonblind, *blind],
+        [*nonblind_materializations, *blind_materializations],
+        strict=True,
+    ):
+        case = P5CaseV3.model_validate(case_row)
+        assert validate_materialization_v3(case, materialization) == materialization
+
+
+def test_outer_materialization_rejects_independently_rehashed_ocr_source_binding() -> None:
+    nonblind, _blind, materializations, _blind_materializations = _build()
+    index = next(
+        index for index, row in enumerate(materializations) if row["ocr_source_binding"] is not None
+    )
+    case = P5CaseV3.model_validate(nonblind[index])
+    tampered = deepcopy(materializations[index])
+    tampered["ocr_source_binding"]["source_materialization_hash"] = "f" * 64
+    tampered["materialization_hash"] = digest(
+        {key: value for key, value in tampered.items() if key != "materialization_hash"}
+    )
+
+    with pytest.raises(ValueError, match="binding mismatch"):
+        validate_materialization_v3(case, tampered)
+
+
+@pytest.mark.parametrize(
+    "fake_commitment",
+    [
+        {},
+        {"status": "NOT_RUN"},
+        {"candidate_freeze_commit": "bad"},
+    ],
+)
+def test_manifest_cannot_promote_an_unvalidated_sealing_commitment(fake_commitment) -> None:
+    nonblind, blind, nonblind_materializations, blind_materializations = _build()
+
+    with pytest.raises(ValueError):
+        build_manifest_v3(
+            nonblind_cases=nonblind,
+            blind_cases=blind,
+            nonblind_materializations=nonblind_materializations,
+            blind_materializations=blind_materializations,
+            sealing_commitment=fake_commitment,
+        )

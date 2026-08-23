@@ -1,9 +1,12 @@
 {
   "contract_hashes": {
+    "contracts_v3_path": "evals/trip_check_v1/p5/contracts_v3.py",
+    "contracts_v3_sha256": "2270f3df6a7c1d83beddd17188a66b1f3a17c710791c3cecebbfe4a8bf1bb3bd",
     "judge_rubric_path": "evals/trip_check_v1/p5/judge_rubric_v2.json",
     "judge_rubric_semantics_changed": false,
     "judge_rubric_sha256": "0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b",
-    "run_spec_template_v3": "NOT_YET_FROZEN"
+    "run_spec_template_path": "evals/trip_check_v1/p5/run_spec_template_v3.json",
+    "run_spec_template_sha256": "fd6f93916c61f6229c03eb97c97c2885dfb6ace2545cc2d8d58d4ef1f920bdf2"
   },
   "counts": {
     "by_city": {
@@ -90,7 +93,7 @@
       "oracle_schema_version": "trip-check-p5-oracle-v2"
     }
   },
-  "manifest_hash": "bf972393febf9422c7715e2798bc09c75891e29a379a1254b49433fe93fd4f73",
+  "manifest_hash": "bc3eba395b1cd8ed9d4c1227bd7044638d603183fc7abbddfdcc49ca86e2376c",
   "schema_version": "trip-check-p5-dataset-manifest-v3",
   "seal_status": "PENDING_V3_SEAL",
   "source_v2_anchor": {

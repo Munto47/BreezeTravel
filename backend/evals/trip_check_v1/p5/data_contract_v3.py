@@ -23,7 +23,12 @@ from evals.trip_check_v1.p5.data_contract import (
     write_json,
     write_jsonl,
 )
-from evals.trip_check_v1.p5.contracts_v3 import P5CaseV3
+from evals.trip_check_v1.p5.contracts_v3 import (
+    P5BlindSealV3,
+    P5CaseV3,
+    P5SealingCommitmentV3,
+    VARIANT_IDS_V3,
+)
 from evals.trip_check_v1.p5.data_contract_v2 import (
     BLIND_INPUT_PATH_V2,
     BLIND_MATERIALIZATIONS_PATH_V2,
@@ -57,6 +62,8 @@ NONBLIND_MATERIALIZATIONS_PATH_V3 = P5_ROOT / "materializations_nonblind_v3.json
 BLIND_MATERIALIZATIONS_PATH_V3 = P5_ROOT / "frozen_blind.v3.materializations.jsonl"
 MANIFEST_PATH_V3 = P5_ROOT / "dataset_v3.manifest.json"
 BLIND_SEAL_PATH_V3 = P5_ROOT / "sealed" / "frozen_blind.v3.seal.json"
+RUN_SPEC_TEMPLATE_PATH_V3 = P5_ROOT / "run_spec_template_v3.json"
+CONTRACTS_PATH_V3 = P5_ROOT / "contracts_v3.py"
 ACTIVE_CONTRACT_PATH = P5_ROOT / "active_contract.json"
 
 _EXPECTED_V2_PATHS = {
@@ -222,7 +229,7 @@ def materialization_input_projection_v3(
     return projected
 
 
-def _outer_ocr_source_binding(inner: Mapping[str, Any]) -> dict[str, Any] | None:
+def ocr_source_binding_projection_v3(inner: Mapping[str, Any]) -> dict[str, Any] | None:
     source = inner["source_payload"].get("ocr_source_binding")
     if source is None:
         return None
@@ -265,7 +272,7 @@ def build_materialization_v3(
         "render_receipt": inner["render_receipt"],
         "ocr_baseline_receipt": inner["ocr_baseline_receipt"],
         "cleanup_receipt": inner["cleanup_receipt"],
-        "ocr_source_binding": _outer_ocr_source_binding(inner),
+        "ocr_source_binding": ocr_source_binding_projection_v3(inner),
         "provider_snapshot": inner["provider_snapshot"],
         "evidence_snapshot": inner["evidence_snapshot"],
         "candidate_sets": inner["candidate_sets"],
@@ -463,6 +470,50 @@ def _file_entry(path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _validated_sealing_commitment_v3(
+    commitment_payload: Mapping[str, Any],
+    *,
+    candidate_manifest_hash: str,
+    blind_cases: list[dict[str, Any]],
+    blind_materializations: list[dict[str, Any]],
+) -> dict[str, Any]:
+    commitment = P5SealingCommitmentV3.model_validate(commitment_payload)
+    if commitment.candidate_dataset_manifest_hash != candidate_manifest_hash:
+        raise ValueError("P5 v3 sealing commitment candidate manifest hash mismatch")
+    if not BLIND_SEAL_PATH_V3.is_file():
+        raise ValueError("P5 v3 sealing commitment requires the blind seal file")
+    if commitment.blind_seal_file_sha256 != file_sha256(BLIND_SEAL_PATH_V3):
+        raise ValueError("P5 v3 sealing commitment blind seal file hash mismatch")
+    seal = P5BlindSealV3.model_validate(_load_json(BLIND_SEAL_PATH_V3))
+    expected = {
+        "case_count": len(blind_cases),
+        "case_ids_sha256": digest(sorted(row["case_id"] for row in blind_cases)),
+        "inputs_file_sha256": file_sha256(BLIND_INPUT_PATH_V3),
+        "inputs_content_sha256": digest(blind_cases),
+        "materializations_file_sha256": file_sha256(BLIND_MATERIALIZATIONS_PATH_V3),
+        "materializations_content_sha256": digest(blind_materializations),
+        "case_set_hash": case_set_hash_v3(blind_cases),
+        "materialization_set_hash": materialization_set_hash_v3(blind_materializations),
+        "contracts_v3_sha256": file_sha256(CONTRACTS_PATH_V3),
+        "run_spec_template_sha256": file_sha256(RUN_SPEC_TEMPLATE_PATH_V3),
+        "rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
+        "variant_ids_sha256": digest(list(VARIANT_IDS_V3)),
+    }
+    seal_payload = seal.model_dump(mode="json")
+    if any(seal_payload[key] != value for key, value in expected.items()):
+        raise ValueError("P5 v3 blind seal differs from frozen candidate bytes/contracts")
+    if (
+        commitment.candidate_freeze_commit != seal.candidate_freeze_commit
+        or commitment.candidate_dataset_manifest_hash
+        != seal.candidate_dataset_manifest_hash
+        or commitment.labels_canonical_sha256 != seal.labels_canonical_sha256
+        or commitment.external_bundle_sha256 != seal.external_bundle_sha256
+        or commitment.review_receipt_sha256 != seal.review_receipt_sha256
+    ):
+        raise ValueError("P5 v3 sealing commitment differs from blind custodian receipts")
+    return commitment.model_dump(mode="json")
+
+
 def build_manifest_v3(
     *,
     nonblind_cases: list[dict[str, Any]],
@@ -484,9 +535,9 @@ def build_manifest_v3(
     manifest: dict[str, Any] = {
         "schema_version": MANIFEST_SCHEMA_VERSION_V3,
         "dataset_id": DATASET_ID_V3,
-        "frozen": sealing_commitment is not None,
-        "formal_validation_eligible": sealing_commitment is not None,
-        "seal_status": "SEALED" if sealing_commitment is not None else "PENDING_V3_SEAL",
+        "frozen": False,
+        "formal_validation_eligible": False,
+        "seal_status": "PENDING_V3_SEAL",
         "generation": {
             "builder_version": GENERATOR_VERSION_V3,
             "mode": "SEALED_V2_SOURCE_REBIND",
@@ -541,10 +592,13 @@ def build_manifest_v3(
         },
         "source_v2_anchor": source_anchor,
         "contract_hashes": {
+            "contracts_v3_path": CONTRACTS_PATH_V3.relative_to(BACKEND_ROOT).as_posix(),
+            "contracts_v3_sha256": file_sha256(CONTRACTS_PATH_V3),
             "judge_rubric_path": JUDGE_RUBRIC_PATH_V2.relative_to(BACKEND_ROOT).as_posix(),
             "judge_rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
             "judge_rubric_semantics_changed": False,
-            "run_spec_template_v3": "NOT_YET_FROZEN",
+            "run_spec_template_path": RUN_SPEC_TEMPLATE_PATH_V3.relative_to(BACKEND_ROOT).as_posix(),
+            "run_spec_template_sha256": file_sha256(RUN_SPEC_TEMPLATE_PATH_V3),
         },
         "evidence_boundary": {
             "controlled_fixture": "MATERIALIZED_V3",
@@ -556,9 +610,20 @@ def build_manifest_v3(
             "human_evidence": "NOT_RUN",
         },
     }
-    if sealing_commitment is not None:
-        manifest["sealing_commitment"] = dict(sealing_commitment)
     manifest["manifest_hash"] = digest(manifest)
+    if sealing_commitment is not None:
+        manifest["sealing_commitment"] = _validated_sealing_commitment_v3(
+            sealing_commitment,
+            candidate_manifest_hash=manifest["manifest_hash"],
+            blind_cases=blind_cases,
+            blind_materializations=blind_materializations,
+        )
+        manifest["frozen"] = True
+        manifest["formal_validation_eligible"] = True
+        manifest["seal_status"] = "SEALED"
+        manifest["manifest_hash"] = digest(
+            {key: value for key, value in manifest.items() if key != "manifest_hash"}
+        )
     return manifest
 
 
@@ -599,6 +664,7 @@ __all__ = [
     "MANIFEST_PATH_V3",
     "NONBLIND_MATERIALIZATIONS_PATH_V3",
     "NONBLIND_PATH_V3",
+    "RUN_SPEC_TEMPLATE_PATH_V3",
     "build_case_v3",
     "build_dataset_v3",
     "build_manifest_v3",
@@ -607,6 +673,7 @@ __all__ = [
     "evidence_projection_v3",
     "materialization_input_projection_v3",
     "materialization_set_hash_v3",
+    "ocr_source_binding_projection_v3",
     "validate_v2_source_anchor",
     "write_dataset_v3",
 ]

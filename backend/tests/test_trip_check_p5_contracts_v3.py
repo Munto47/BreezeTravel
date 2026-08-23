@@ -234,6 +234,29 @@ def test_v3_blind_case_is_label_free_and_hash_bound() -> None:
         P5CaseV3.model_validate(leaked)
 
 
+@pytest.mark.parametrize(
+    ("container", "key"),
+    [
+        ("provenance", "blind_label"),
+        ("product_input", "ground_truth"),
+        ("runner_control", "oracle"),
+        ("lineage", "label"),
+        ("source_ref", "answer"),
+    ],
+)
+def test_v3_case_rejects_rehashed_nested_label_leaks(container: str, key: str) -> None:
+    payload = _case_payload(split="frozen_blind")
+    nested = dict(payload[container])  # type: ignore[arg-type]
+    nested[key] = "secret blind truth"
+    payload[container] = nested
+    payload["case_hash"] = digest(
+        {name: value for name, value in payload.items() if name != "case_hash"}
+    )
+
+    with pytest.raises(ValidationError, match="forbidden label fields"):
+        P5CaseV3.model_validate(payload)
+
+
 def test_v3_nonblind_requires_exact_oracle_and_case_hashes() -> None:
     missing_oracle = _case_payload()
     missing_oracle.pop("oracle")
