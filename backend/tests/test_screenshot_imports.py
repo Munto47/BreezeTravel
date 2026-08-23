@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -266,3 +268,26 @@ async def test_paddle_ocr_adapter_maps_boxes_and_low_confidence_without_runtime(
     assert lines[0].box == OcrBoundingBox(x_min=1, y_min=2, x_max=120, y_max=30)
     assert lines[0].requires_confirmation is False
     assert lines[1].requires_confirmation is True
+
+
+def test_paddle_ocr_adapter_disables_unstable_windows_onednn(monkeypatch, tmp_path):
+    captured: dict[str, object] = {}
+
+    class FakePipeline:
+        def predict(self, image_path: str):
+            captured["image_path"] = image_path
+            return []
+
+    def fake_paddle_ocr(**kwargs):
+        captured.update(kwargs)
+        return FakePipeline()
+
+    monkeypatch.setitem(sys.modules, "paddleocr", SimpleNamespace(PaddleOCR=fake_paddle_ocr))
+    image = tmp_path / "controlled.png"
+    image.write_bytes(PNG)
+
+    result = PaddleOcrEngine()._predict(image)
+
+    assert result == []
+    assert captured["enable_mkldnn"] is False
+    assert captured["image_path"] == str(image)

@@ -364,6 +364,10 @@ class PaddleOcrEngine:
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,
+                # PaddlePaddle 3.3.1 on Windows CPU can fail before the first
+                # prediction in the oneDNN executor while converting PIR array
+                # attributes. The plain Paddle CPU path is slower but stable.
+                enable_mkldnn=False,
             )
         return self._pipeline.predict(str(image_path))
 
