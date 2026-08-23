@@ -1,7 +1,7 @@
 {
   "contract_hashes": {
     "contracts_v3_path": "evals/trip_check_v1/p5/contracts_v3.py",
-    "contracts_v3_sha256": "2270f3df6a7c1d83beddd17188a66b1f3a17c710791c3cecebbfe4a8bf1bb3bd",
+    "contracts_v3_sha256": "832e0434a01434e01ae19d66f92312744571f9f314ca1d2556f32e63fa5a5c1d",
     "judge_rubric_path": "evals/trip_check_v1/p5/judge_rubric_v2.json",
     "judge_rubric_semantics_changed": false,
     "judge_rubric_sha256": "0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b",
@@ -93,7 +93,7 @@
       "oracle_schema_version": "trip-check-p5-oracle-v2"
     }
   },
-  "manifest_hash": "bc3eba395b1cd8ed9d4c1227bd7044638d603183fc7abbddfdcc49ca86e2376c",
+  "manifest_hash": "4dbdd4cf47b2bf4afe317d94737203060b1f2196373709bb946499a030a62bc2",
   "schema_version": "trip-check-p5-dataset-manifest-v3",
   "seal_status": "PENDING_V3_SEAL",
   "source_v2_anchor": {

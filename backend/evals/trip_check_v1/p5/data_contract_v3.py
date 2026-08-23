@@ -7,6 +7,7 @@ label-free evidence layer is rebuilt under the stricter v3 semantic contract.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import Counter
 from collections.abc import Mapping
@@ -82,6 +83,13 @@ _LABEL_KEYS = {
     "oracle",
     "oracle_sha256",
 }
+
+
+def _canonical_text_file_sha256(path: Path) -> str:
+    """Hash the LF-normalized Git text blob rather than checkout-specific CRLF."""
+
+    content = path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(content).hexdigest()
 
 
 def _walk_keys(value: Any) -> set[str]:
@@ -494,7 +502,7 @@ def _validated_sealing_commitment_v3(
         "materializations_content_sha256": digest(blind_materializations),
         "case_set_hash": case_set_hash_v3(blind_cases),
         "materialization_set_hash": materialization_set_hash_v3(blind_materializations),
-        "contracts_v3_sha256": file_sha256(CONTRACTS_PATH_V3),
+        "contracts_v3_sha256": _canonical_text_file_sha256(CONTRACTS_PATH_V3),
         "run_spec_template_sha256": file_sha256(RUN_SPEC_TEMPLATE_PATH_V3),
         "rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
         "variant_ids_sha256": digest(list(VARIANT_IDS_V3)),
@@ -593,7 +601,7 @@ def build_manifest_v3(
         "source_v2_anchor": source_anchor,
         "contract_hashes": {
             "contracts_v3_path": CONTRACTS_PATH_V3.relative_to(BACKEND_ROOT).as_posix(),
-            "contracts_v3_sha256": file_sha256(CONTRACTS_PATH_V3),
+            "contracts_v3_sha256": _canonical_text_file_sha256(CONTRACTS_PATH_V3),
             "judge_rubric_path": JUDGE_RUBRIC_PATH_V2.relative_to(BACKEND_ROOT).as_posix(),
             "judge_rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
             "judge_rubric_semantics_changed": False,
