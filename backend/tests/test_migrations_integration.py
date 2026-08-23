@@ -29,6 +29,8 @@ async def test_fresh_and_existing_database_migrations():
     if os.getenv("RUN_SERVICE_INTEGRATION") != "1":
         pytest.skip("set RUN_SERVICE_INTEGRATION=1 with controlled PostgreSQL")
     name = f"breezetravel_migration_{uuid4().hex[:12]}"
+    migration_files = sorted(Path("app/db/migrations").glob("*.sql"))
+    expected_migrations = {path.name for path in migration_files}
     assert re.fullmatch(r"[a-z0-9_]+", name)
     admin = await asyncpg.connect(_admin_dsn())
     try:
@@ -46,7 +48,7 @@ async def test_fresh_and_existing_database_migrations():
                 )
                 """
             )
-            for path in sorted(Path("app/db/migrations").glob("*.sql")):
+            for path in migration_files:
                 if path.name == "013_idempotent_creation_commands.sql":
                     break
                 await conn.execute(path.read_text(encoding="utf-8"))
@@ -98,7 +100,16 @@ async def test_fresh_and_existing_database_migrations():
         assert first.returncode == 0, first.stderr
         check = await asyncpg.connect(database_url)
         try:
-            assert await check.fetchval("SELECT COUNT(*) FROM applied_migrations") == 21
+            applied = {
+                row["filename"]
+                for row in await check.fetch("SELECT filename FROM applied_migrations")
+            }
+            assert applied == expected_migrations
+            assert {
+                "022_trip_brief_revisions.sql",
+                "023_trip_check_runs.sql",
+                "024_advice_bundles.sql",
+            } <= applied
             assert await check.fetchval("SELECT to_regclass('public.verification_reports') IS NOT NULL")
             assert await check.fetchval("SELECT to_regclass('public.trip_workspaces') IS NOT NULL")
             assert await check.fetchval("SELECT to_regclass('public.itinerary_revisions') IS NOT NULL")
@@ -160,7 +171,8 @@ async def test_fresh_and_existing_database_migrations():
         assert second.returncode == 0, second.stderr
         check = await asyncpg.connect(database_url)
         try:
-            assert await check.fetchval("SELECT COUNT(*) FROM applied_migrations") == 21
+            applied = await check.fetch("SELECT filename FROM applied_migrations")
+            assert {row["filename"] for row in applied} == expected_migrations
         finally:
             await check.close()
     finally:

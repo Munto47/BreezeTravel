@@ -156,13 +156,18 @@ export default function ImportItineraryPage() {
   const loadRunArtifacts = async (current: TripCheckRun) => {
     setTripCheckRun(current)
     if (!current.report_id) return
-    const [auditReport, snapshot, options] = await Promise.all([
+    const [auditReport, snapshot] = await Promise.all([
       api.get<AuditReport>(`/api/audits/${current.report_id}`),
       api.get<EvidenceSnapshot>(`/api/audits/${current.report_id}/evidence`),
-      api.get<RepairOption[]>(`/api/audits/${current.report_id}/repairs`),
     ])
     setReport(auditReport)
     setEvidence(snapshot)
+    // A completed Run points at the postcheck report while its immutable
+    // Advice bundle remains bound to the source report through lineage.
+    // Resume state already returns that source Advice and the applied Repair;
+    // do not query either resource with the postcheck report id.
+    if (current.stage === 'POSTCHECK') return
+    const options = await api.get<RepairOption[]>(`/api/audits/${current.report_id}/repairs`)
     setRepairOptions(options)
     if (current.advice_bundle_id) {
       const bundle = await api.get<AdviceBundle>(

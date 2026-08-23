@@ -121,6 +121,18 @@ def test_run_create_read_events_resume_and_idempotency(monkeypatch):
     assert run["completed_stages"] == ["PARSE", "WAIT_BRIEF_CONFIRMATION", "RESOLVE_PLACES"]
     assert run["status"] == "WAITING"
 
+    changed_body = {
+        **body,
+        "run_spec": _run_spec(provider_version="fixture-v2").model_dump(mode="json"),
+    }
+    reused = client.post(
+        "/api/trip-workspaces/run-workspace/trip-check-runs",
+        headers=headers,
+        json=changed_body,
+    )
+    assert reused.status_code == 409
+    assert reused.json()["detail"]["code"] == "IDEMPOTENCY_KEY_REUSED"
+
     read = client.get(f"/api/trip-check-runs/{run['run_id']}")
     assert read.status_code == 200
     assert read.headers["etag"] == '"1"'
@@ -143,6 +155,14 @@ def test_run_create_read_events_resume_and_idempotency(monkeypatch):
     assert mismatch.status_code == 409
     assert mismatch.json()["detail"]["code"] == "RUN_CONFIG_MISMATCH"
 
+    missing_if_match = client.post(
+        f"/api/trip-check-runs/{run['run_id']}/resume",
+        headers={"Idempotency-Key": "resume-without-if-match"},
+        json={"config_hash": run["config_hash"]},
+    )
+    assert missing_if_match.status_code == 428
+    assert missing_if_match.json()["detail"]["code"] == "IF_MATCH_REQUIRED"
+
     resume_headers = {"If-Match": '"1"', "Idempotency-Key": "resume-run"}
     resumed = client.post(
         f"/api/trip-check-runs/{run['run_id']}/resume",
@@ -160,6 +180,14 @@ def test_run_create_read_events_resume_and_idempotency(monkeypatch):
     assert resumed.json()["lease_owner"].startswith("worker:")
     assert resumed_replay.json() == resumed.json()
     assert resumed_replay.headers["Idempotency-Replayed"] == "true"
+
+    stale = client.post(
+        f"/api/trip-check-runs/{run['run_id']}/resume",
+        headers={"If-Match": '"1"', "Idempotency-Key": "resume-stale-version"},
+        json={"config_hash": run["config_hash"]},
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "TRIP_CHECK_RUN_CONFLICT"
 
 
 def test_run_rejects_unconfirmed_brief_and_active_lease_resume(monkeypatch):
