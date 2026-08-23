@@ -86,19 +86,19 @@
     "regression_oracle_hashes_overlapping_dev": 72,
     "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
   },
-  "manifest_hash": "2a60041793af15061d319b77cefe6ec2d97aab7e5299cedd7b79128a45554a19",
+  "manifest_hash": "fb5eb9ee384f0e5837787e939fbedebea678f9cf936dbc39b276e1537ecc136a",
   "schema_version": "trip-check-p5-dataset-manifest-v2",
   "source_artifacts": {
     "p4_dev": {
-      "file_sha256": "2020bebc84d42320e6e75a2168b06e8a36a7fb8b7b2a5b69ef273cf89d32a74b",
+      "file_sha256": "d8db5b394475df6c4c6c7d89e2ce112c2cb31ac09273b821a9dcb0d58d99c6dd",
       "path": "evals/trip_check_v1/p4/dev_v1.jsonl"
     },
     "p4_manifest": {
-      "file_sha256": "a6fb6c259b1a1ab7461cb23eff3e35915239fbf68adb1b384c3c8804f84e8a45",
+      "file_sha256": "896dd2751cb67e5dbb3e4da8177a288a72efe446a34aa384f8027e1a461137e3",
       "path": "evals/trip_check_v1/p4/dataset_v1.manifest.json"
     },
     "p4_regression": {
-      "file_sha256": "8862b098e9951c71ccdfea52a55079f05de11019d090d4b3b4e8519507e4b976",
+      "file_sha256": "e2282d78a371d3a7390eec6414fc4145ce79eaf0cf6254c5f180ba5cce9516ae",
       "path": "evals/trip_check_v1/p4/regression_v1.jsonl"
     },
     "pilot": {

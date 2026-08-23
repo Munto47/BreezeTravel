@@ -2,3 +2,7 @@
 backend/evidence/trip_check_v1/p2/** -text
 backend/evidence/trip_check_v1/p3/** -text
 backend/evidence/trip_check_v1/p4/** -text
+backend/evals/trip_check_v1/p4/** -text
+backend/evals/trip_check_v1/pilot.jsonl -text
+backend/evals/trip_check_v1/p5/*.jsonl -text
+backend/evals/trip_check_v1/p5/*.json -text
