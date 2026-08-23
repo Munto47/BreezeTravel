@@ -86,8 +86,19 @@
     "regression_oracle_hashes_overlapping_dev": 72,
     "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
   },
-  "manifest_hash": "2797c644c7f37d6401e299b3102997476ead9ae1757333d2e0153171aa849ff0",
+  "manifest_hash": "19e5a2cf01260809b845d4eb93ff0bc0734b7b6c96769db043b83e3cea45eeba",
   "schema_version": "trip-check-p5-dataset-manifest-v2",
+  "sealing_commitment": {
+    "blind_seal_path": "backend/evals/trip_check_v1/p5/sealed/frozen_blind.v2.seal.json",
+    "blind_seal_v2_sha256": "8e7770be5f99aebe5bfed2f37c87c3bd15b312052585e76697dcb7a5fa1c3c82",
+    "candidate_dataset_manifest_hash": "2797c644c7f37d6401e299b3102997476ead9ae1757333d2e0153171aa849ff0",
+    "candidate_freeze_commit": "cfc6670ffeae2e2f385e56c7fc7debe59f8183f9",
+    "external_bundle_sha256": "8125e4a75a52dda540587b134c6baff9551c654b5e373be300dcdd24c0be5b94",
+    "labels_canonical_sha256": "cea9504b9fc908cec82c49b4e267fac17a2eb01bdaee0d911051ba213c7eed3f",
+    "review_receipt_sha256": "d5df169ed175be86610722cbe353edc0dce3b1b68bff01522d0c0f8306091728",
+    "schema_version": "trip-check-p5-sealing-commitment-v2",
+    "status": "SEALED"
+  },
   "source_artifacts": {
     "p4_dev": {
       "file_sha256": "d8db5b394475df6c4c6c7d89e2ce112c2cb31ac09273b821a9dcb0d58d99c6dd",

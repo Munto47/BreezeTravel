@@ -1,5 +1,8 @@
 {
   "active_contract": "trip-check-p5-v2",
+  "blind_seal_v2_sha256": "8e7770be5f99aebe5bfed2f37c87c3bd15b312052585e76697dcb7a5fa1c3c82",
+  "candidate_freeze_commit": "cfc6670ffeae2e2f385e56c7fc7debe59f8183f9",
+  "dataset_manifest_hash": "19e5a2cf01260809b845d4eb93ff0bc0734b7b6c96769db043b83e3cea45eeba",
   "deprecated_contracts": [
     {
       "contract_id": "trip-check-p5-v1",
@@ -7,6 +10,6 @@
       "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2"
     }
   ],
-  "formal_evidence_status": "PENDING_V2_SEAL",
+  "formal_evidence_status": "READY",
   "schema_version": "trip-check-p5-active-contract-v1"
 }
