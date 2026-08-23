@@ -19,11 +19,24 @@ def candidate_confidence(
 ) -> tuple[float, list[str]]:
     raw = normalize_place_name(raw_name)
     candidate_name = normalize_place_name(str(candidate.get("name") or ""))
+    raw_aliases = candidate.get("aliases")
+    aliases = (
+        {
+            normalize_place_name(item)
+            for item in raw_aliases
+            if isinstance(item, str) and normalize_place_name(item)
+        }
+        if isinstance(raw_aliases, list)
+        else set()
+    )
     ratio = SequenceMatcher(None, raw, candidate_name).ratio() if raw and candidate_name else 0.0
     reasons: list[str] = []
     if raw == candidate_name and raw:
         name_score = 0.78
         reasons.append("NAME_EXACT")
+    elif raw and raw in aliases:
+        name_score = 0.78
+        reasons.append("NAME_ALIAS_EXACT")
     elif raw and candidate_name and (raw in candidate_name or candidate_name in raw):
         name_score = 0.68
         reasons.append("NAME_CONTAINS")
@@ -45,4 +58,3 @@ def candidate_confidence(
         score += 0.02
         reasons.append("DISTRICT_AVAILABLE")
     return min(round(score, 6), 1.0), reasons
-
