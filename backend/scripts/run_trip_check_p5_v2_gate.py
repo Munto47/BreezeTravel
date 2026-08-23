@@ -1,4 +1,4 @@
-"""Build the P5 Evaluation Gate manifest from sealed run and score artifacts."""
+"""Build the P5 v2 Evaluation Gate from sealed run, score, and Judge artifacts."""
 
 from __future__ import annotations
 
@@ -6,12 +6,19 @@ import argparse
 import json
 from pathlib import Path
 
-from evals.trip_check_v1.p5.gate import build_p5_gate_manifest
-from evals.trip_check_v1.p5.active_contract import reject_v1_formal
+from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
+from evals.trip_check_v1.p5.gate_v2 import build_p5_gate_manifest_v2
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = REPO_ROOT / "backend" / "evidence" / "trip_check_v1" / "p5" / "p5_gate_manifest.json"
+DEFAULT_OUTPUT = (
+    REPO_ROOT
+    / "backend"
+    / "evidence"
+    / "trip_check_v1"
+    / "p5"
+    / "p5_gate_manifest_v2.json"
+)
 
 
 def main() -> None:
@@ -23,8 +30,8 @@ def main() -> None:
     parser.add_argument("--judge-panel", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
-    reject_v1_formal()
-    manifest = build_p5_gate_manifest(
+    require_v2_formal_ready()
+    manifest = build_p5_gate_manifest_v2(
         repo_root=REPO_ROOT,
         nonblind_run_dir=args.nonblind_run_dir,
         nonblind_score_path=args.nonblind_score,

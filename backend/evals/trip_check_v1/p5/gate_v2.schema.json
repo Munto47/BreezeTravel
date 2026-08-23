@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-gate-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "goal_id", "status", "subject_commit", "dirty_tree", "dataset_manifest_hash", "counts", "checks", "failure_priority", "promotion_decision", "default_runtime_strategy", "solver_admission", "evidence_boundaries", "secret_scan", "artifact_index", "manifest_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-gate-manifest-v2"},
+    "goal_id": {"const": "TC-P5-G01-evaluation-ablation"},
+    "status": {"enum": ["PASS", "REJECT"]},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "dirty_tree": {"const": false},
+    "dataset_manifest_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "counts": {"type": "object"},
+    "checks": {"type": "object"},
+    "failure_priority": {"const": ["NONBLIND_DETERMINISTIC", "BLIND_DETERMINISTIC", "JUDGE_SEMANTIC"]},
+    "promotion_decision": {"enum": ["KEEP_CORE_B", "REJECT_ALL_CANDIDATES"]},
+    "default_runtime_strategy": {"const": "bounded_repair_v1"},
+    "solver_admission": {"type": "object"},
+    "evidence_boundaries": {"type": "object"},
+    "secret_scan": {"type": "object"},
+    "artifact_index": {"type": "array"},
+    "manifest_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-judge-panel-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "evidence_class", "human_calibration_performed", "round_count", "candidate_count", "agreement_threshold", "verdict_agreement_rate", "per_dimension_agreement_rate", "variant_metrics", "provenance", "mapping_sha256", "run_group_manifest_hash", "terminal_outputs_content_sha256", "deterministic_scorer_priority", "judge_may_override_deterministic_failure", "report_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-judge-panel-v2"},
+    "status": {"enum": ["PASS", "BLOCKED"]},
+    "evidence_class": {"const": "automated_proxy_judge"},
+    "human_calibration_performed": {"const": false},
+    "round_count": {"const": 3},
+    "candidate_count": {"const": 270},
+    "agreement_threshold": {"const": 0.85},
+    "verdict_agreement_rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "per_dimension_agreement_rate": {"type": "object"},
+    "variant_metrics": {"type": "object"},
+    "provenance": {"type": "array", "minItems": 3, "maxItems": 3},
+    "mapping_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "run_group_manifest_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "terminal_outputs_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "deterministic_scorer_priority": {"const": true},
+    "judge_may_override_deterministic_failure": {"const": false},
+    "report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
