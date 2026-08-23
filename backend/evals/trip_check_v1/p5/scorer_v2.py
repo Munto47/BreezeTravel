@@ -913,6 +913,72 @@ def validate_run_group_v2(
         raise P5V2ScoringError("TERMINAL_OUTPUT_SCHEMA_INVALID") from exc
     if digest([output.model_dump(mode="json") for output in outputs]) != manifest["terminal_outputs_content_sha256"]:
         raise P5V2ScoringError("TERMINAL_OUTPUT_CONTENT_HASH_MISMATCH")
+    artifact_index = _load_json(run_dir / "artifact_index.json", "RUN_ARTIFACT_INDEX_INVALID")
+    claimed_index_hash = artifact_index.get("index_hash")
+    if (
+        artifact_index.get("schema_version") != "trip-check-p5-artifact-index-v1"
+        or artifact_index.get("status") != "PASS"
+        or artifact_index.get("run_id") != manifest["run_id"]
+        or artifact_index.get("subject_commit") != manifest["subject_commit"]
+        or not isinstance(claimed_index_hash, str)
+        or claimed_index_hash
+        != digest({key: value for key, value in artifact_index.items() if key != "index_hash"})
+    ):
+        raise P5V2ScoringError("RUN_ARTIFACT_INDEX_BINDING_INVALID")
+    indexed_artifacts = artifact_index.get("artifacts")
+    if not isinstance(indexed_artifacts, list) or {
+        item.get("path") for item in indexed_artifacts if isinstance(item, dict)
+    } != {"terminal_outputs.jsonl", "failure_records.jsonl"}:
+        raise P5V2ScoringError("RUN_ARTIFACT_INDEX_SET_INVALID")
+    for item in indexed_artifacts:
+        artifact_path = run_dir / str(item["path"])
+        try:
+            artifact_path.resolve().relative_to(run_dir.resolve())
+        except (ValueError, OSError) as exc:
+            raise P5V2ScoringError("RUN_ARTIFACT_PATH_ESCAPE") from exc
+        if (
+            _contains_symlink_or_junction(artifact_path.absolute())
+            or not artifact_path.is_file()
+            or item.get("byte_size") != artifact_path.stat().st_size
+            or item.get("sha256") != _sha256_file(artifact_path)
+            or item.get("generated_by") != "scripts.run_trip_check_p5_v2_eval"
+            or not isinstance(item.get("generated_at"), str)
+        ):
+            raise P5V2ScoringError("RUN_ARTIFACT_INDEX_ENTRY_INVALID")
+    failure_rows = load_jsonl(run_dir / "failure_records.jsonl")
+    expected_failures = {
+        (output.case_id, output.variant_id, output.terminal_status.value)
+        for output in outputs
+        if output.terminal_status.value in {"ERROR", "TIMEOUT", "UNSUPPORTED_CAPABILITY"}
+    }
+    actual_failures = {
+        (row.get("case_id"), row.get("variant_id"), row.get("terminal_status"))
+        for row in failure_rows
+        if isinstance(row, dict)
+    }
+    if expected_failures != actual_failures or any(
+        set(row)
+        != {
+            "schema_version",
+            "record_status",
+            "run_id",
+            "lane",
+            "case_id",
+            "variant_id",
+            "terminal_status",
+            "failure_category",
+            "first_receipt",
+            "reproduce_command",
+            "retry_allowed",
+        }
+        or row.get("schema_version") != "trip-check-p5-failure-record-v1"
+        or row.get("record_status") != "PASS"
+        or row.get("run_id") != manifest["run_id"]
+        or row.get("lane") != expected_lane
+        or row.get("retry_allowed") is not False
+        for row in failure_rows
+    ):
+        raise P5V2ScoringError("RUN_FAILURE_RECORDS_INVALID")
 
     try:
         case_rows = load_jsonl(cases_path)

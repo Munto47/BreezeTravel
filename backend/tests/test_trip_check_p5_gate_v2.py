@@ -201,6 +201,15 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
         run_dir.mkdir()
         terminal = run_dir / "terminal_outputs.jsonl"
         terminal.write_text("{}\n", encoding="utf-8")
+        (run_dir / "failure_records.jsonl").write_text("", encoding="utf-8")
+        _write(
+            run_dir / "artifact_index.json",
+            {
+                "schema_version": "trip-check-p5-artifact-index-v1",
+                "status": "PASS",
+                "lane": lane,
+            },
+        )
         manifest = {
             "subject_commit": "a" * 40,
             "manifest_hash": ("b" if lane == "nonblind" else "c") * 64,

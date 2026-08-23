@@ -346,6 +346,30 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     run_dir.mkdir()
     terminal_path = run_dir / "terminal_outputs.jsonl"
     _write_jsonl(terminal_path, [item.model_dump(mode="json") for item in outputs])
+    failure_path = run_dir / "failure_records.jsonl"
+    failure_path.write_bytes(b"")
+    generated_at = "2026-08-24T00:00:00+00:00"
+    artifact_index = {
+        "schema_version": "trip-check-p5-artifact-index-v1",
+        "status": "PASS",
+        "run_id": "test-v2",
+        "subject_commit": "a" * 40,
+        "generated_at": generated_at,
+        "artifacts": [
+            {
+                "path": path.name,
+                "byte_size": path.stat().st_size,
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "generated_by": "scripts.run_trip_check_p5_v2_eval",
+                "generated_at": generated_at,
+            }
+            for path in (terminal_path, failure_path)
+        ],
+    }
+    artifact_index["index_hash"] = digest(artifact_index)
+    (run_dir / "artifact_index.json").write_text(
+        json.dumps(artifact_index, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     manifest = {
         "schema_version": "trip-check-p5-run-group-v2",
         "run_id": "test-v2",

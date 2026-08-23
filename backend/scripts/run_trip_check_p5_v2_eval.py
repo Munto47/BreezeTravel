@@ -272,6 +272,10 @@ def _run_spec(
 def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
     if set(value) != RUN_GROUP_FIELDS:
         raise ValueError("run group manifest fields differ from v2 contract")
+    _write_dict_atomic(path, value)
+
+
+def _write_dict_atomic(path: Path, value: dict[str, Any]) -> None:
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_text(
         json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -279,6 +283,59 @@ def _write_json_atomic(path: Path, value: dict[str, Any]) -> None:
         newline="\n",
     )
     temporary.replace(path)
+
+
+def _write_rows_atomic(path: Path, rows: list[dict[str, Any]]) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    payload = b"".join(
+        json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8") + b"\n"
+        for row in rows
+    )
+    temporary.write_bytes(payload)
+    temporary.replace(path)
+
+
+def _failure_records(
+    *, outputs: list[P5TerminalOutputV2], lane: str, run_id: str
+) -> list[dict[str, Any]]:
+    failure_terminals = {"ERROR", "TIMEOUT", "UNSUPPORTED_CAPABILITY"}
+    records = []
+    for output in outputs:
+        terminal_status = output.terminal_status.value
+        if terminal_status not in failure_terminals:
+            continue
+        records.append(
+            {
+                "schema_version": "trip-check-p5-failure-record-v1",
+                "record_status": "PASS",
+                "run_id": run_id,
+                "lane": lane,
+                "case_id": output.case_id,
+                "variant_id": output.variant_id,
+                "terminal_status": terminal_status,
+                "failure_category": output.error_category or terminal_status,
+                "first_receipt": output.receipts[0] if output.receipts else None,
+                "reproduce_command": (
+                    "REPRODUCTION_RESTRICTED_TO_BLIND_CUSTODIAN"
+                    if lane == "frozen_blind"
+                    else "python -m scripts.run_trip_check_p5_v2_eval "
+                    f"--lane nonblind --variants {output.variant_id} --case-id {output.case_id} "
+                    "--replay --output-dir <EXTERNAL_OUTPUT_DIR>"
+                ),
+                "retry_allowed": False,
+            }
+        )
+    return records
+
+
+def _artifact_entry(path: Path, *, generated_at: str) -> dict[str, Any]:
+    return {
+        "path": path.name,
+        "byte_size": path.stat().st_size,
+        "sha256": _sha256_file(path),
+        "generated_by": "scripts.run_trip_check_p5_v2_eval",
+        "generated_at": generated_at,
+    }
 
 
 async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
@@ -464,6 +521,23 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
     validate_exact_terminal_set_v2(outputs, case_ids={item.case_id for item in cases}, variant_ids=set(variants))
     terminal_path = run_dir / "terminal_outputs.jsonl"
     content_hash = write_jsonl_atomic_v2(terminal_path, outputs)
+    failure_records_path = run_dir / "failure_records.jsonl"
+    failure_records = _failure_records(outputs=outputs, lane=lane, run_id=run_id)
+    _write_rows_atomic(failure_records_path, failure_records)
+    generated_at = datetime.now(timezone.utc).isoformat()
+    artifact_index = {
+        "schema_version": "trip-check-p5-artifact-index-v1",
+        "status": "PASS",
+        "run_id": run_id,
+        "subject_commit": subject_commit,
+        "generated_at": generated_at,
+        "artifacts": [
+            _artifact_entry(terminal_path, generated_at=generated_at),
+            _artifact_entry(failure_records_path, generated_at=generated_at),
+        ],
+    }
+    artifact_index["index_hash"] = digest(artifact_index)
+    _write_dict_atomic(run_dir / "artifact_index.json", artifact_index)
     variant_hashes = {
         variant_id: digest(
             [

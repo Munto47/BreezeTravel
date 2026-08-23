@@ -860,6 +860,19 @@ async def test_run_script_writes_exact_v2_manifest_and_variant_hashes(
     assert manifest["manifest_hash"] == digest(
         {key: value for key, value in manifest.items() if key != "manifest_hash"}
     )
+    artifact_index = json.loads((Path(result["run_dir"]) / "artifact_index.json").read_text(encoding="utf-8"))
+    assert artifact_index["status"] == "PASS"
+    assert {item["path"] for item in artifact_index["artifacts"]} == {
+        "terminal_outputs.jsonl",
+        "failure_records.jsonl",
+    }
+    failure_rows = [
+        json.loads(line)
+        for line in (Path(result["run_dir"]) / "failure_records.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert len(failure_rows) == 1
+    assert failure_rows[0]["terminal_status"] == "UNSUPPORTED_CAPABILITY"
+    assert failure_rows[0]["retry_allowed"] is False
 
     tampered_dataset = deepcopy(dataset)
     tampered_dataset["manifest_hash"] = "0" * 64
