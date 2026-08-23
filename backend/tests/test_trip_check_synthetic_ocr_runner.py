@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.importing.screenshots import OcrBoundingBox, OcrTextLine
+from evals.trip_check_v1 import synthetic_ocr_runner
 from evals.trip_check_v1.synthetic_ocr_runner import _field_matches, _safe_cleanup, run_synthetic_ocr
 
 
@@ -69,9 +70,44 @@ async def test_synthetic_ocr_runner_scores_fields_and_cleans_images(tmp_path):
     assert manifest["metrics"]["key_field_f1"] >= 0.95
     assert manifest["metrics"]["low_confidence_confirmation_recall"] == 1.0
     assert manifest["metrics"]["original_image_leak_hits"] == 0
+    assert manifest["schema_version"] == "trip-check-p3-synthetic-ocr-manifest-v2"
+    assert len(manifest["render_set_sha256"]) == 64
+    assert manifest["cleanup_receipt"] == {
+        "status": "DELETED",
+        "reason": "terminal_ocr_run",
+        "run_dir_removed": True,
+    }
     assert manifest["non_claims"]
     assert output.is_file()
     assert not list(work_root.glob("*"))
+
+
+@pytest.mark.asyncio
+async def test_synthetic_ocr_runner_marks_cleanup_failure_privacy_blocked(monkeypatch, tmp_path):
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    texts = {
+        case["case_id"]: "\n".join(block["text"] for block in case["text_blocks"])
+        for case in payload["cases"]
+    }
+    work_root = tmp_path / "work"
+
+    def fail_cleanup(*_args):
+        raise PermissionError("controlled cleanup failure")
+
+    monkeypatch.setattr(synthetic_ocr_runner, "_safe_cleanup", fail_cleanup)
+    manifest = await run_synthetic_ocr(
+        spec_path=FIXTURE,
+        output=tmp_path / "manifest.json",
+        work_root=work_root,
+        subject_commit="b" * 40,
+        engine=FixtureOcrEngine(texts),
+        visual_review_approved=True,
+    )
+
+    assert manifest["status"] == "PRIVACY_BLOCKED"
+    assert manifest["cleanup_receipt"]["status"] == "CLEANUP_FAILED"
+    assert manifest["cleanup_receipt"]["error_category"] == "PermissionError"
+    assert manifest["metrics"]["original_image_leak_hits"] == 12
 
 
 def test_safe_cleanup_refuses_root_or_outside(tmp_path):

@@ -16,6 +16,7 @@ from typing import Any, Protocol
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from app.importing.errors import PrivacyBlockedError
 from app.importing.parser import ItineraryTextParser
 from app.importing.screenshots import OcrTextLine, PaddleOcrEngine
 
@@ -346,22 +347,33 @@ def _safe_cleanup(run_dir: Path, work_root: Path) -> None:
     shutil.rmtree(resolved)
 
 
-def _leak_hits(image_hashes: set[str], *, run_dir: Path, output: Path) -> list[str]:
+def _leak_hits(
+    image_hashes: set[str],
+    *,
+    work_root: Path,
+    output: Path,
+) -> list[str]:
     findings: list[str] = []
     tracked = subprocess.check_output(
         ["git", "ls-files", "-z"],
         cwd=REPO_ROOT,
     ).split(b"\0")
-    candidates = [REPO_ROOT / raw.decode("utf-8") for raw in tracked if raw]
+    candidates = {REPO_ROOT / raw.decode("utf-8") for raw in tracked if raw}
     if output.parent.is_dir():
-        candidates.extend(path for path in output.parent.rglob("*") if path.is_file())
+        candidates.update(path for path in output.parent.rglob("*") if path.is_file())
+    if work_root.is_dir():
+        candidates.update(path for path in work_root.rglob("*") if path.is_file())
     for path in candidates:
         if not path.is_file() or path == output:
             continue
         try:
-            if _sha256(path) in image_hashes and not path.is_relative_to(run_dir):
-                findings.append(path.relative_to(REPO_ROOT).as_posix())
-        except (OSError, ValueError):
+            if _sha256(path) in image_hashes:
+                try:
+                    label = path.relative_to(REPO_ROOT).as_posix()
+                except ValueError:
+                    label = f"work_root/{path.relative_to(work_root).as_posix()}"
+                findings.append(label)
+        except OSError:
             continue
     return findings
 
@@ -425,6 +437,20 @@ async def run_synthetic_ocr(
     confirm_required = 0
     confirm_caught = 0
     image_hashes = {receipt["image_sha256"] for receipt in render_receipts.values()}
+    render_set_sha256 = hashlib.sha256(
+        json.dumps(
+            [
+                {
+                    "case_id": case_id,
+                    "image_sha256": render_receipts[case_id]["image_sha256"],
+                }
+                for case_id in sorted(render_receipts)
+            ],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    cleanup_attempted = False
     try:
         for case, source_path in zip(spec["cases"], image_paths, strict=True):
             staging_dir.mkdir(parents=True, exist_ok=True)
@@ -472,7 +498,33 @@ async def run_synthetic_ocr(
                     "fields": field_results,
                 }
             )
-        leak_paths = _leak_hits(image_hashes, run_dir=run_dir, output=output)
+        cleanup_attempted = True
+        if keep_artifacts:
+            cleanup_receipt = {
+                "status": "RETAINED",
+                "reason": "explicit_keep_artifacts",
+                "run_dir_removed": False,
+            }
+        else:
+            try:
+                _safe_cleanup(run_dir, work_root)
+                cleanup_receipt = {
+                    "status": "DELETED",
+                    "reason": "terminal_ocr_run",
+                    "run_dir_removed": not run_dir.exists(),
+                }
+            except Exception as exc:  # cleanup failure is evidence, not a hidden retry
+                cleanup_receipt = {
+                    "status": "CLEANUP_FAILED",
+                    "reason": "terminal_ocr_run",
+                    "run_dir_removed": not run_dir.exists(),
+                    "error_category": type(exc).__name__,
+                }
+        leak_paths = _leak_hits(
+            image_hashes,
+            work_root=work_root,
+            output=output,
+        )
         precision = true_positive / (true_positive + false_negative) if true_positive + false_negative else 0.0
         recall = precision
         key_field_f1 = precision
@@ -493,12 +545,14 @@ async def run_synthetic_ocr(
             and metrics["low_confidence_confirmation_recall"] == 1.0
             and metrics["original_image_leak_hits"] == 0
             and visual_review_approved
+            and cleanup_receipt["status"] == "DELETED"
         )
+        privacy_blocked = cleanup_receipt["status"] != "DELETED"
         manifest = {
-            "schema_version": "trip-check-p3-synthetic-ocr-manifest-v1",
+            "schema_version": "trip-check-p3-synthetic-ocr-manifest-v2",
             "subject_commit": subject,
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "status": "PASS" if passed else "FAIL",
+            "status": "PRIVACY_BLOCKED" if privacy_blocked else "PASS" if passed else "FAIL",
             "evidence_class": "synthetic_stress",
             "provenance": "high_fidelity_synthetic",
             "non_claims": [
@@ -508,6 +562,7 @@ async def run_synthetic_ocr(
             "spec_path": spec_path.relative_to(REPO_ROOT).as_posix(),
             "spec_sha256": _sha256(spec_path),
             "renderer_version": RENDERER_VERSION,
+            "render_set_sha256": render_set_sha256,
             "font_sha256": _sha256(selected_font),
             "ocr_engine": {"name": current_engine.name, "version": current_engine.version},
             "metrics": metrics,
@@ -519,13 +574,17 @@ async def run_synthetic_ocr(
                 "themes": dict(Counter(case["theme"] for case in case_results)),
             },
             "leak_paths": leak_paths,
+            "cleanup_receipt": cleanup_receipt,
             "cases": case_results,
         }
         _write_json(output, manifest)
         return manifest
     finally:
-        if not keep_artifacts and run_dir.exists():
-            _safe_cleanup(run_dir, work_root)
+        if not cleanup_attempted and not keep_artifacts and run_dir.exists():
+            try:
+                _safe_cleanup(run_dir, work_root)
+            except Exception as exc:
+                raise PrivacyBlockedError("synthetic OCR temporary image cleanup failed") from exc
 
 
 def run(**kwargs: Any) -> dict[str, Any]:
