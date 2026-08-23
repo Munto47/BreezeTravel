@@ -3,7 +3,7 @@
 > 更新时间：2026-08-23
 > 本表只报告当前状态，不构成产品授权或发布证明。
 
-`TC-P1-G01-text-vertical-slice` 已完成，D1 在受控 fixture、真实 PostgreSQL 和本地受控浏览器三个独立证明层级上为 `PASS`。18 条 pilot 已实际执行为 18/18，三城各 6 条，错城/错 POI 自动接受为 0，Repair 后新增 `BLOCKER/HIGH/UNKNOWN` 为 0。当前只生成了 `TC-P2-G01-reliable-run-and-trace` 的 `DRAFT` 合同，尚未批准或开始 P2。
+`TC-P1-G01-text-vertical-slice` 与 `TC-P2-G01-reliable-run-and-trace` 已完成。D1 和 Reliability Gate 分别证明受控文本闭环与六类可靠运行故障；P2 使用真实 PostgreSQL、受控 Provider fixture 和本地受控浏览器，六类 canonical case 为 6/6，领域 Trace 覆盖/关联为 100%，敏感属性命中为 0。当前只生成了 `TC-P3-G01-input-provider-integrity` 的 `DRAFT`，尚未批准或开始 P3。
 
 状态词固定为 `planned / implemented / unit_verified / integration_verified / snapshot_verified / live_verified / publicly_verified / user_validated`。只能使用当前 commit 对应证据达到的最高等级；更高等级不从低等级推断。
 
@@ -25,10 +25,11 @@
 | AdviceBundle 行动建议覆盖 | snapshot_verified | D1 受控 Finding 已映射行动、预期影响和不确定性；具体地点只来自冻结 CandidateSet，live 数据未验证 |
 | 受控 CandidateSet、路线变化与 receipt | snapshot_verified | D1 候选与路线 receipt 绑定并参与完整 postcheck；不宣称为 live CandidateSet |
 | 采纳 → 新 revision → 完整 postcheck | snapshot_verified | Advice/Repair 采纳创建新 revision、旧报告 stale、完整 postcheck 与零新增高风险门禁已通过 18 pilot |
-| TripCheckRun 阶段持久化、SSE 与重启恢复 | integration_verified | migration 023、RunSpec/config hash、lease/CAS、幂等、SSE 续传和副作用 receipt 已通过真实 PostgreSQL、终止恢复与受控浏览器 D1；六类 Reliability Gate 尚未完整闭合 |
-| 18 pilot / 360 条目标数据集 | integration_verified | 18 条已实际执行为 18/18、6/6/6；180 dev / 72 regression / 90 frozen blind 尚未建设 |
+| TripCheckRun 阶段持久化、SSE 与重启恢复 | integration_verified | 六类 Reliability PostgreSQL 矩阵 6/6；实际 worker 终止、lease 接管、幂等、并发 revision、config drift、SSE 重连与乱序去重均通过；不代表公网或生产 SLO |
+| 脱敏 OTel 与 PostgreSQL 领域 Trace | integration_verified | `run → stage → provider_attempt` 与 Run/Event/Attempt/Receipt 领域 Trace 关联率 100%，敏感属性命中 0；OTel 不替代 PostgreSQL 权威状态 |
+| 18 pilot / 360 条目标数据集 | integration_verified | P2 对 P1 18 条重新执行为 18/18、6/6/6；180 dev / 72 regression / 90 frozen blind 尚未建设 |
 | 无 API 独立自动 Judge | planned | 历史 synthetic proxy/LLM Judge 不等于目标 `automated_proxy_judge` |
-| V1 受控浏览器主链与 D1 manifest | integration_verified | 北京、上海、杭州主链及 BJ-02 歧义确认共 4 条通过，D1 manifest 可回读；公网、P95 与候选版 G0～G6 仍未运行 |
+| V1 受控浏览器主链与 D1/Reliability manifest | integration_verified | 三城主链、BJ-02、刷新恢复、SSE 游标续传及重复/乱序事件去重通过，两个 manifest 可回读；公网、P95 与候选版 G0～G6 仍未运行 |
 | 真人内测 | planned | V1 候选版之后的独立阶段，当前为 0 |
 | 拖拽 Builder、Planner、RAG、多 Agent、LoRA、Yjs | frozen_legacy_asset | 保留代码和最低回归；不在当前开发范围，不作为 V1 能力声明 |
 

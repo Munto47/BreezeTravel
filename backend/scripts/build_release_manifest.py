@@ -39,6 +39,9 @@ M1_DEV_PROXY_GATE = BACKEND / "results" / "auditor_simulated" / "m1_dev_proxy_ga
 DUAL_ENTRY_DATASET = BACKEND / "eval_data" / "dual_entry_v1" / "manifest.json"
 G5_RESTART_EVIDENCE = BACKEND / "evidence" / "full_stack" / "dual_user_backend_yjs_restart_2026-08-20.json"
 FULL_BACKEND_JUNIT = BACKEND / "results" / "closure_checkpoint_20260822" / "backend-pytest.xml"
+P2_RELIABILITY_GATE = (
+    BACKEND / "evidence" / "trip_check_v1" / "p2" / "reliability_gate_manifest.json"
+)
 
 
 def sha256_file(path: Path) -> str | None:
@@ -212,7 +215,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     if not import_summary["same_worktree_binding"] or not builder_summary["same_worktree_binding"]:
         legacy_release_blockers.append("LEGACY_HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING")
     trip_check_release_blockers = [
-        "TRIP_CHECK_V1_P2_RELIABILITY_NOT_PASSED",
+        "TRIP_CHECK_V1_P3_INPUT_PROVIDER_NOT_PASSED",
         "TRIP_CHECK_V1_DATASET_360_NOT_BUILT",
         "G1_OFFLINE_NOT_RUN_FOR_CANDIDATE",
         "G2_POSTGRES_NOT_RUN_FOR_CANDIDATE",
@@ -225,7 +228,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     payload = {
         "schema_version": "4.0",
-        "release_status": "trip_check_v1_p2_reliability_in_progress",
+        "release_status": "trip_check_v1_p3_input_provider_draft",
         "release_approval_granted": False,
         "local_delivery_test_execution": "not_run_by_manifest",
         "manifest_generation_executes_tests": False,
@@ -250,7 +253,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "target_cases_per_city": 120,
             "target_total_cases": 360,
             "target_splits": {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90},
-            "dataset_status": "pilot_18_executed_d1_pass_dev_not_started",
+            "dataset_status": "pilot_18_revalidated_p2_pass_dev_not_started",
             "expanded_city_claims": False,
         },
         "product_authority": {
@@ -283,12 +286,14 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "g4_live_providers": "NOT_RUN",
             "g5_browser_recovery_performance": "NOT_RUN",
             "g6_release_manifest": "BASELINE_ONLY",
+            "p2_reliability_gate": evidence_reference(P2_RELIABILITY_GATE),
+            "p2_reliability_status": "PASS_CONTROLLED_POSTGRES_BROWSER",
             "automated_proxy_judge": "NOT_RUN",
             "human_validation": "OUT_OF_SCOPE_UNTIL_SEPARATELY_APPROVED",
             "overall_release_decision": "REJECT",
             "release_blockers": trip_check_release_blockers,
             "claim_boundary": (
-                "This manifest records P1 D1 as historical controlled evidence while P2 Reliability is in progress. "
+                "This manifest records P1 D1 and P2 Reliability as controlled evidence while P3 remains DRAFT. "
                 "It does not prove candidate-commit G0-G6, live-provider behavior, public browser acceptance, "
                 "human validation, or release approval."
             ),

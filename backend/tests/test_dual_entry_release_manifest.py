@@ -17,7 +17,7 @@ def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
     latest = json.loads((tmp_path / "latest.json").read_text(encoding="utf-8"))
 
     assert payload["schema_version"] == "4.0"
-    assert payload["release_status"] == "trip_check_v1_p2_reliability_in_progress"
+    assert payload["release_status"] == "trip_check_v1_p3_input_provider_draft"
     assert payload["release_approval_granted"] is False
     assert payload["latest_migration"] == "024_advice_bundles.sql"
     assert payload["configuration"]["required_migration"] == "024_advice_bundles.sql"
@@ -47,7 +47,7 @@ def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
         "regression": 72,
         "frozen_blind": 90,
     }
-    assert scope["dataset_status"] == "pilot_18_executed_d1_pass_dev_not_started"
+    assert scope["dataset_status"] == "pilot_18_revalidated_p2_pass_dev_not_started"
 
     gates = payload["trip_check_v1_release_gate_evidence"]
     assert gates["overall_release_decision"] == "REJECT"
@@ -56,7 +56,10 @@ def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
     assert gates["g6_release_manifest"] == "BASELINE_ONLY"
     assert gates["automated_proxy_judge"] == "NOT_RUN"
     assert "TRIP_CHECK_V1_P1_D1_NOT_PASSED" not in gates["release_blockers"]
-    assert "TRIP_CHECK_V1_P2_RELIABILITY_NOT_PASSED" in gates["release_blockers"]
+    assert "TRIP_CHECK_V1_P2_RELIABILITY_NOT_PASSED" not in gates["release_blockers"]
+    assert "TRIP_CHECK_V1_P3_INPUT_PROVIDER_NOT_PASSED" in gates["release_blockers"]
+    assert gates["p2_reliability_gate"]["exists"] is True
+    assert gates["p2_reliability_status"] == "PASS_CONTROLLED_POSTGRES_BROWSER"
 
     legacy = payload["legacy_dual_entry_delivery_evidence"]
     assert legacy["archived_final_plan"]["exists"] is True

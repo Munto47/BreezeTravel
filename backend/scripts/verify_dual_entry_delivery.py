@@ -52,8 +52,8 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
 
     if payload.get("schema_version") != "4.0":
         raise ValueError("expected Trip Check V1 baseline manifest schema 4.0")
-    if payload.get("release_status") != "trip_check_v1_p2_reliability_in_progress":
-        raise ValueError("manifest is not a Trip Check V1 P2 Reliability in-progress record")
+    if payload.get("release_status") != "trip_check_v1_p3_input_provider_draft":
+        raise ValueError("manifest is not a Trip Check V1 P3 input/provider draft record")
     if payload.get("latest_migration") != EXPECTED_MIGRATION:
         raise ValueError(f"manifest does not bind migration {EXPECTED_MIGRATION}")
     if payload.get("release_approval_granted") is not False:
@@ -92,6 +92,14 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
         raise ValueError("automated proxy Judge state was overstated")
     if not gates.get("release_blockers"):
         raise ValueError("in-progress manifest must carry release blockers")
+    reliability = gates.get("p2_reliability_gate")
+    if not isinstance(reliability, dict) or not reliability.get("exists"):
+        raise ValueError("P2 Reliability Gate evidence is missing")
+    reliability_path = ROOT / str(reliability.get("path", ""))
+    if reliability.get("sha256") != sha256_file(reliability_path):
+        raise ValueError("P2 Reliability Gate evidence hash mismatch")
+    if gates.get("p2_reliability_status") != "PASS_CONTROLLED_POSTGRES_BROWSER":
+        raise ValueError("P2 Reliability Gate state was not preserved")
 
     legacy = payload.get("legacy_dual_entry_delivery_evidence")
     if not isinstance(legacy, dict):
