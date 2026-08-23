@@ -1,0 +1,225 @@
+[
+  {
+    "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+    "workspace_id": "pilot-tc-p1-bj-03",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "075c47d6-7a9b-5473-9338-88f99ac34af8",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-tiananmen",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-tiananmen",
+          "name": "天安门广场",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.903
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e67c1ba74acdf71d49aab2c8f60699e12ba03f1e233cc3ffa49a17ee43c8a66b",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "222cfcbd-0ca5-5d5e-8711-9f9fe4f9c251",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-tiananmen",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "bc80700875d7f50faa745d39fc66ce2da26b707866db610e31b93b1665d53617",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "11296dc7-62ef-5dac-be83-24b0b30282b6",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2c021429636a656a62915ed848e57a1ac877369da1188c8322686193fa57e10a",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "bb321a68-1ac9-5007-b78d-d1d7404006bf",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "65ee7bd1b1693ad1ede81ec75cb58577329a0fe54ab630151e14655988f8cbdc",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "d56cba63-85d6-5872-928c-b25d190d878a",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-badaling",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2588116c9a083fa8fc9dbcdcb99732397043ca14d4632454f6c4050bc6b47df1",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "f526684b-47e6-5fea-8c21-1f2205840dbb",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-badaling",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "7ae2c6b0e39e41347c639e2c11faecb2e1108ef7e95f3ba3845fea303fdbf33d",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "98251f28-a165-502d-96c6-12902e8b1f0f",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e367bfe717343b970725aedb47569845a0a4b4ba587fdbd2ebfb2d9c22056aaa",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "a2c3d88d-1302-5fe4-932f-20b9db107f54",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "0cc76b9fbbd45f794396da45648504385c8923808cb83ae4575393a8ac7012a2",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "dee4119d-269e-5f90-bd26-abaeca9ab154",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "cfa877bb-1843-4081-b174-dabbc3664b3b->736ba0f4-8907-4397-9e18-fd78891816da",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 25
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T02:25:45.395642Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T02:25:45.395642Z",
+        "response_hash": "084a72300b9915abeb53c30cde6d1d821decaa91881c1a217c61f040614f82fb",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "c5803aeb-fe4f-5539-9f21-91f8db1456f2",
+        "snapshot_id": "7d22a0e5-5634-55cf-997c-69a3f971dc45",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "f475a496-4a0c-4eb4-87b5-bb867a51efca",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 4,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T02:25:45.395642Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T02:25:45.395642Z",
+        "response_hash": "703c728dec05e423e946236b5dd034849eec6ce9ce19c1546836d3044258848e",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T02:25:45.395642Z",
+    "supersedes_snapshot_id": null
+  }
+]

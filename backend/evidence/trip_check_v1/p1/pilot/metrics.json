@@ -1,0 +1,16 @@
+{
+  "case_count": 18,
+  "passed_count": 18,
+  "failed_count": 0,
+  "city_counts": {
+    "上海": 6,
+    "北京": 6,
+    "杭州": 6
+  },
+  "resolution_required_count": 6,
+  "run_count": 12,
+  "succeeded_run_count": 3,
+  "wrong_poi_auto_accept_count": 0,
+  "repair_new_high_count": 0,
+  "repair_new_unknown_count": 0
+}

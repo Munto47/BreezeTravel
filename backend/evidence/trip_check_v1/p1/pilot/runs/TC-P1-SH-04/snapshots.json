@@ -1,0 +1,182 @@
+[
+  {
+    "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+    "workspace_id": "pilot-tc-p1-sh-04",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "ee7b1328-22c5-5c4d-addc-f1aea78ea67c",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-disney",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "7b7f11a401f85b4681b8746ae3732131cffc5dd90dd0ec1b064e502633966e10",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "14be4c46-6d20-53e4-878a-2ffeb1d0e471",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-disney",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "a9eb031535b501319f1e2140bbf4416a19989e4c64d8c252a1856821fa1d7377",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "6288fb07-6e06-5dcb-a90d-11fb27f06a17",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-yuyuan",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "a050ddf7586d52337d30432c48a89bb348266b3c9ccea6c3afdb57af3f79675e",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "683f629d-c57d-5d49-98ab-b4ea774c826a",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-yuyuan",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "8e10571decc8300e1a2ce617f172505b486e087b0932381d80530d8a55b606c1",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "c7f75994-727e-5437-b95b-7217b22417d3",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-tianzifang",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "sh-tianzifang",
+          "name": "田子坊",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 121.475,
+            "lat": 31.211
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "48da96765ae78a72086761dc9be57337caa805827ae54184e19012201a12d5c5",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "f53a9157-6db8-5520-891c-a6732a0efabc",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "PLACE",
+        "subject_id": "sh-tianzifang",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "f35882fd2b9cb2ab671862eab6dfc155504438d3581f2fd6396e8084da69b68a",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "80bad19a-57a1-517a-9ef9-2b2e850d9fa1",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "d68e0ff5-76b4-44b4-a5bb-8c233ab4e119->1c3cf865-863d-4d01-a163-4f8aa62c22ee",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 90
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T02:25:45.526397Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T02:25:45.526397Z",
+        "response_hash": "83229b4bf141b7618bc1d9cdb0af0a4268d7397a97536e0cf4368c8dc317ba32",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "4c252858-2a99-5d9d-a303-58f49f0dc7a1",
+        "snapshot_id": "bb9765e7-f4a3-5993-a8d2-3f5dca8a336e",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "248d3afc-b630-4268-b922-c2d5c79a1b94",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 5,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T02:25:45.526397Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T02:25:45.526397Z",
+        "response_hash": "0ad21e1ed89a16cbf17e953df474fa44e6098a637e0ac72e40578b496a6765e4",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T02:25:45.526397Z",
+    "supersedes_snapshot_id": null
+  }
+]

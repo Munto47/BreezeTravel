@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "baseline_commit": "acacc946",
+  "subject_commit": "dd70870a817b84f6364804a5701950c754728f4e",
+  "patterns": [
+    "aws_access_key",
+    "escaped_windows_user_profile",
+    "github_token",
+    "openai_key",
+    "private_key",
+    "windows_user_profile"
+  ],
+  "finding_count": 0,
+  "findings": []
+}

@@ -1,0 +1,299 @@
+[
+  {
+    "itinerary_id": "75480b82-c76f-4c38-9adc-c25628ada0a0",
+    "workspace_id": "pilot-tc-p1-bj-05",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "北京",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-05"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "3f50a369-b9f4-4027-ae74-a156082621ae",
+            "place_id": "bj-forbidden-city",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "故宫博物院",
+            "source_raw_stop_id": "3f50a369-b9f4-4027-ae74-a156082621ae",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "fa30c1d1-856b-4ce2-a3f7-5b9bdc3a4f3b",
+            "place_id": "bj-summer-palace",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "颐和园",
+            "source_raw_stop_id": "fa30c1d1-856b-4ce2-a3f7-5b9bdc3a4f3b",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 2,
+        "date": "2026-10-03",
+        "stops": [
+          {
+            "stop_id": "55ce249e-f6d2-40dc-a4e1-f25e9c80a664",
+            "place_id": "bj-temple-of-heaven",
+            "day_index": 2,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "天坛公园",
+            "source_raw_stop_id": "55ce249e-f6d2-40dc-a4e1-f25e9c80a664",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 3,
+        "date": "2026-10-04",
+        "stops": [
+          {
+            "stop_id": "6a229451-3f00-4caa-b080-3504a694d48c",
+            "place_id": "bj-nanluoguxiang",
+            "day_index": 3,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "南锣鼓巷",
+            "source_raw_stop_id": "6a229451-3f00-4caa-b080-3504a694d48c",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 4,
+        "date": "2026-10-05",
+        "stops": [
+          {
+            "stop_id": "48b4a85b-798e-4e70-8c0e-9ee7da261fef",
+            "place_id": "bj-sanlitun",
+            "day_index": 4,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "三里屯太古里",
+            "source_raw_stop_id": "48b4a85b-798e-4e70-8c0e-9ee7da261fef",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "d35c4732-2c11-4b8b-94cd-40b4b5e62ba4",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "3f50a369-b9f4-4027-ae74-a156082621ae": {
+          "place_id": "bj-forbidden-city",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7f3a3063a3a02a107223bfb2fbd85a8ba80357c968784cc3e17d2ab025426d3e",
+          "canonical_name": "故宫博物院"
+        },
+        "fa30c1d1-856b-4ce2-a3f7-5b9bdc3a4f3b": {
+          "place_id": "bj-summer-palace",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7039b32774766152cb78905c17b478a91cde2413f347c6bd28d6edd0a677958b",
+          "canonical_name": "颐和园"
+        },
+        "55ce249e-f6d2-40dc-a4e1-f25e9c80a664": {
+          "place_id": "bj-temple-of-heaven",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7ebefbdf15b58195db87677e6c849141d0e043319dffa5338c5d5d5b0ce93940",
+          "canonical_name": "天坛公园"
+        },
+        "6a229451-3f00-4caa-b080-3504a694d48c": {
+          "place_id": "bj-nanluoguxiang",
+          "coords": {
+            "lng": 116.404,
+            "lat": 39.937
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "28dc9203afd1c520021bf2c27151220bc152030971443645f0675fa7d73aedef",
+          "canonical_name": "南锣鼓巷"
+        },
+        "48b4a85b-798e-4e70-8c0e-9ee7da261fef": {
+          "place_id": "bj-sanlitun",
+          "coords": {
+            "lng": 116.455,
+            "lat": 39.933
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "786505769cd28951244408df55fbc3be882d2b36810fdac52467f7e80145e874",
+          "canonical_name": "三里屯太古里"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "bj-forbidden-city",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.397,
+          "latitude": 39.918,
+          "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+          "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-summer-palace",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.273,
+          "latitude": 39.999,
+          "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+          "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-temple-of-heaven",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.417,
+          "latitude": 39.883,
+          "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+          "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-nanluoguxiang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-nanluoguxiang",
+          "name": "南锣鼓巷",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.404,
+          "latitude": 39.937,
+          "request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+          "response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-sanlitun",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-sanlitun",
+          "name": "三里屯太古里",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.455,
+          "latitude": 39.933,
+          "request_hash": "b9c2b8931d89dd757712b52968bf403aa840a85ac422a14aa623dde6f7da832b",
+          "response_hash": "34ac6d54b6b30d4f5b03641b45c3539047d19387f93de8b506336a720cfdb979",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "028c71f2a20ba5e9abce3e9533ff0b69eaabced97ac0f8bd6f106c4ee19d8c69"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T02:25:45.443194Z",
+    "content_hash": "ce6d32f580f21e444449b6bd62415b00c999ff4b889ae5cbfc625a9012346b3b"
+  }
+]

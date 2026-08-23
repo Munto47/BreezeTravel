@@ -1,0 +1,38 @@
+[
+  {
+    "query": "天安门广场",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-tiananmen",
+    "request_hash": "48141ecf2e8d7f3d7fd6ed264c4f8e9ec9e756af8c393c4e817d0f479f38e655",
+    "response_hash": "4348a0739321ca4b129c3e6aacfe83bba8170dbf4975b6bcad8856a7b6d62584",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "故宫博物院",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-forbidden-city",
+    "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+    "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "长城（八达岭）",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-badaling",
+    "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+    "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "天坛公园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-temple-of-heaven",
+    "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+    "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+    "execution_mode": "fixture"
+  }
+]

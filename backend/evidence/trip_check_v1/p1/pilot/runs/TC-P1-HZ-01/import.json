@@ -1,0 +1,238 @@
+{
+  "import_id": "7e30e472-7493-4aaa-a2c3-9d02550f0215",
+  "workspace_id": "pilot-tc-p1-hz-01",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "杭州2人。第1天 09:00-12:00 西湖风景名胜区，12:00-13:00 灵隐寺；第2天 09:00 雷峰塔。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "a62b7b19-ba0a-438b-ba08-b0ef160e4f6b",
+      "import_id": "7e30e472-7493-4aaa-a2c3-9d02550f0215",
+      "day_index": 0,
+      "raw_name": "西湖风景名胜区",
+      "raw_time": "09:00-12:00",
+      "source_span": {
+        "start": 9,
+        "end": 28
+      },
+      "source_sentence": "09:00-12:00 西湖风景名胜区",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "2090a84f-b993-48a0-b2db-c55c2d4a82ef",
+      "import_id": "7e30e472-7493-4aaa-a2c3-9d02550f0215",
+      "day_index": 0,
+      "raw_name": "灵隐寺",
+      "raw_time": "12:00-13:00",
+      "source_span": {
+        "start": 29,
+        "end": 44
+      },
+      "source_sentence": "12:00-13:00 灵隐寺",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "e80408d5-8206-489e-9287-200df84c745a",
+      "import_id": "7e30e472-7493-4aaa-a2c3-9d02550f0215",
+      "day_index": 1,
+      "raw_name": "雷峰塔",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 49,
+        "end": 58
+      },
+      "source_sentence": "09:00 雷峰塔",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "a62b7b19-ba0a-438b-ba08-b0ef160e4f6b",
+      "canonical_place_id": "hz-west-lake",
+      "candidates": [
+        {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "retrieval_response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-west-lake",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-west-lake",
+            "name": "西湖风景名胜区",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.148,
+            "latitude": 30.244,
+            "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+            "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "2090a84f-b993-48a0-b2db-c55c2d4a82ef",
+      "canonical_place_id": "hz-lingyin",
+      "candidates": [
+        {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+          "retrieval_response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-lingyin",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-lingyin",
+            "name": "灵隐寺",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.102,
+            "latitude": 30.24,
+            "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+            "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "e80408d5-8206-489e-9287-200df84c745a",
+      "canonical_place_id": "hz-leifeng",
+      "candidates": [
+        {
+          "place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+          "retrieval_response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-leifeng",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-leifeng",
+            "name": "雷峰塔",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.149,
+            "latitude": 30.231,
+            "request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+            "response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T02:25:45.571735Z",
+  "updated_at": "2026-08-23T02:25:45.571735Z"
+}

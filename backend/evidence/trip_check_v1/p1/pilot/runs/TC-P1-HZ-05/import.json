@@ -1,0 +1,384 @@
+{
+  "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+  "workspace_id": "pilot-tc-p1-hz-05",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "杭州2人5天。第1天西湖风景名胜区；第2天灵隐寺；第3天雷峰塔；第4天西溪湿地国家公园；第5天河坊街·清河坊。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "f8437bfc-cc7c-4a23-84a7-99191c056c29",
+      "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+      "day_index": 0,
+      "raw_name": "西湖风景名胜区",
+      "raw_time": null,
+      "source_span": {
+        "start": 10,
+        "end": 17
+      },
+      "source_sentence": "西湖风景名胜区",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "f35699c3-679c-4532-b79e-01014b21f8fa",
+      "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+      "day_index": 1,
+      "raw_name": "灵隐寺",
+      "raw_time": null,
+      "source_span": {
+        "start": 21,
+        "end": 24
+      },
+      "source_sentence": "灵隐寺",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "c5ab9279-ce46-4191-b4ca-84a840b2b319",
+      "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+      "day_index": 2,
+      "raw_name": "雷峰塔",
+      "raw_time": null,
+      "source_span": {
+        "start": 28,
+        "end": 31
+      },
+      "source_sentence": "雷峰塔",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "e06d580c-b3b0-4951-99a7-916a17e4afd3",
+      "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+      "day_index": 3,
+      "raw_name": "西溪湿地国家公园",
+      "raw_time": null,
+      "source_span": {
+        "start": 35,
+        "end": 43
+      },
+      "source_sentence": "西溪湿地国家公园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "cbf65a27-cd85-41c8-9b7e-1c1ecfe43ebb",
+      "import_id": "710d26e3-3ede-452d-86de-6298fcf3f54b",
+      "day_index": 4,
+      "raw_name": "河坊街·清河坊",
+      "raw_time": null,
+      "source_span": {
+        "start": 47,
+        "end": 54
+      },
+      "source_sentence": "河坊街·清河坊",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "f8437bfc-cc7c-4a23-84a7-99191c056c29",
+      "canonical_place_id": "hz-west-lake",
+      "candidates": [
+        {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "retrieval_response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-west-lake",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-west-lake",
+            "name": "西湖风景名胜区",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.148,
+            "latitude": 30.244,
+            "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+            "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "f35699c3-679c-4532-b79e-01014b21f8fa",
+      "canonical_place_id": "hz-lingyin",
+      "candidates": [
+        {
+          "place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+          "retrieval_response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-lingyin",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-lingyin",
+            "name": "灵隐寺",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.102,
+            "latitude": 30.24,
+            "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+            "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "c5ab9279-ce46-4191-b4ca-84a840b2b319",
+      "canonical_place_id": "hz-leifeng",
+      "candidates": [
+        {
+          "place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+          "retrieval_response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-leifeng",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-leifeng",
+            "name": "雷峰塔",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.149,
+            "latitude": 30.231,
+            "request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+            "response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "e06d580c-b3b0-4951-99a7-916a17e4afd3",
+      "canonical_place_id": "hz-xixi",
+      "candidates": [
+        {
+          "place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "retrieval_response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-xixi",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-xixi",
+            "name": "西溪湿地国家公园",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.063,
+            "latitude": 30.268,
+            "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+            "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "cbf65a27-cd85-41c8-9b7e-1c1ecfe43ebb",
+      "canonical_place_id": "hz-hefang",
+      "candidates": [
+        {
+          "place_id": "hz-hefang",
+          "name": "河坊街·清河坊",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.174,
+            "lat": 30.238
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+          "retrieval_response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-hefang",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-hefang",
+            "name": "河坊街·清河坊",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.174,
+            "latitude": 30.238,
+            "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+            "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T02:25:45.642936Z",
+  "updated_at": "2026-08-23T02:25:45.642936Z"
+}

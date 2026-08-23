@@ -1,0 +1,81 @@
+[
+  {
+    "receipt_id": "d5ce6a1b-62a0-5099-81a6-169fa7795623",
+    "run_id": "aee29677-3606-4497-8c94-da709c13744a",
+    "stage": "COLLECT_EVIDENCE",
+    "side_effect_key": "trip-check:aee29677-3606-4497-8c94-da709c13744a:COLLECT_EVIDENCE:9324c225efa6f83b0ac5bcd63275702fbba19aa19d616b975562d7cef0fdc4cf",
+    "effect_type": "CONTROLLED_FIXTURE_EVIDENCE",
+    "request_hash": "2bd463b4dcb1f16f1cb8053910dfa0732abb091b130329aaa28dbe14bf568ef8",
+    "response_hash": "654a9cff0c4cb12032c0005d94d2eddc7fb0e1fe89889fe6d72c7461743f968d",
+    "provider": "controlled_fixture",
+    "status": "SUCCEEDED",
+    "receipt": {
+      "execution_mode": "fixture",
+      "provider_version": "controlled-fixture-v1",
+      "snapshot_id": "a200cb7a-a46c-592c-94d7-2b866aae8a7a",
+      "fact_count": 8,
+      "route_fact_count": 1,
+      "brief_fact_count": 1
+    },
+    "created_at": "2026-08-23T02:25:45.469920Z"
+  },
+  {
+    "receipt_id": "04cebebc-9721-51fc-b050-20d9c5304976",
+    "run_id": "aee29677-3606-4497-8c94-da709c13744a",
+    "stage": "AUDIT",
+    "side_effect_key": "trip-check:aee29677-3606-4497-8c94-da709c13744a:AUDIT:9324c225efa6f83b0ac5bcd63275702fbba19aa19d616b975562d7cef0fdc4cf",
+    "effect_type": "AUTHORITATIVE_AUDIT",
+    "request_hash": "75f8449a2d8ecac1b2defd63b8281cdfc070159f0130ab98bf2fb8993cfcd977",
+    "response_hash": "e294312d9b81e80eb3cf3fafd325949bba4fa6303373bf634afaf036dbc37707",
+    "provider": null,
+    "status": "SUCCEEDED",
+    "receipt": {
+      "report_id": "def00ee0-d7eb-4973-8a20-82f45aa5dba3",
+      "report_input_hash": "1e867ac7a50d98fd7f67e04509d3f5f279c8330477d6c3372c3c408b4d3d8748",
+      "finding_count": 22,
+      "overall_status": "VIOLATED"
+    },
+    "created_at": "2026-08-23T02:25:45.469920Z"
+  },
+  {
+    "receipt_id": "a09f0a28-e487-50e1-aa26-c5ceba7f932e",
+    "run_id": "aee29677-3606-4497-8c94-da709c13744a",
+    "stage": "BUILD_ADVICE",
+    "side_effect_key": "trip-check:aee29677-3606-4497-8c94-da709c13744a:BUILD_ADVICE:9324c225efa6f83b0ac5bcd63275702fbba19aa19d616b975562d7cef0fdc4cf",
+    "effect_type": "DETERMINISTIC_ADVICE",
+    "request_hash": "7f6f97178f40a91181d7d86f035ca3c7b2101ffd8cb6f58a6fd16788d345ca2b",
+    "response_hash": "34a23f77dd58d76347fcdb8cf80908bec7970a9556210fe99c0c26d3837d70f7",
+    "provider": null,
+    "status": "SUCCEEDED",
+    "receipt": {
+      "advice_bundle_id": "36679a65-3c00-5b60-bb97-60328759a320",
+      "action_count": 12,
+      "repair_ids": [
+        "2f216090-5ba6-48c9-979e-21abb7febdbd",
+        "e7880c05-49b6-4921-a377-8b1c24fa41ce"
+      ]
+    },
+    "created_at": "2026-08-23T02:25:45.469920Z"
+  },
+  {
+    "receipt_id": "0b60fa49-72b8-58e3-948c-172c7b36eef0",
+    "run_id": "aee29677-3606-4497-8c94-da709c13744a",
+    "stage": "POSTCHECK",
+    "side_effect_key": "trip-check:aee29677-3606-4497-8c94-da709c13744a:POSTCHECK:e7880c05-49b6-4921-a377-8b1c24fa41ce",
+    "effect_type": "REPAIR_ADOPTION_POSTCHECK",
+    "request_hash": "c822d63b5ffdcc41d1ef3bd80194da990a2ac95dee49d14d0d438be9d2d5282a",
+    "response_hash": "a751d783db9c118f7804f52c8ea2a25c130a773fb1c9f4ba58640ca2553f7ffd",
+    "provider": null,
+    "status": "SUCCEEDED",
+    "receipt": {
+      "repair_id": "e7880c05-49b6-4921-a377-8b1c24fa41ce",
+      "source_report_id": "def00ee0-d7eb-4973-8a20-82f45aa5dba3",
+      "result_itinerary_revision": 2,
+      "postcheck_report_id": "ccafb245-4ee9-473c-9b97-5d93059eb520",
+      "postcheck_snapshot_id": "4e26202d-bfbd-4f83-ae0c-a9b7b1e5856e",
+      "new_high_count": 0,
+      "new_unknown_count": 0
+    },
+    "created_at": "2026-08-23T02:25:45.469920Z"
+  }
+]

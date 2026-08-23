@@ -1,0 +1,72 @@
+{
+  "schema_version": "trip-check-p1-fault-matrix-v1",
+  "subject_commit": "dd70870a817b84f6364804a5701950c754728f4e",
+  "status": "PASS",
+  "evidence_class": [
+    "POSTGRESQL_INTEGRATION",
+    "CONTROLLED_FIXTURE",
+    "CONTROLLED_BROWSER_FIXTURE"
+  ],
+  "cases": [
+    {
+      "fault": "terminate_after_evidence",
+      "proof": [
+        "test_trip_check_executor.py",
+        "test_trip_check_postgres_integration.py"
+      ]
+    },
+    {
+      "fault": "same_idempotency_request_replay",
+      "proof": [
+        "test_trip_check_executor.py",
+        "test_trip_check_postgres_integration.py"
+      ]
+    },
+    {
+      "fault": "different_payload_reuses_idempotency_key",
+      "proof": [
+        "test_trip_check_runs_api.py",
+        "test_trip_check_postgres_integration.py"
+      ]
+    },
+    {
+      "fault": "concurrent_revision_or_repair",
+      "proof": [
+        "test_repair_concurrency_postgres.py",
+        "test_import_mobile_postgres.py"
+      ]
+    },
+    {
+      "fault": "missing_or_stale_if_match",
+      "proof": [
+        "test_trip_check_runs_api.py",
+        "test_import_mobile_postgres.py"
+      ]
+    },
+    {
+      "fault": "config_hash_drift",
+      "proof": [
+        "test_trip_check_runs_api.py",
+        "test_trip_check_postgres_integration.py"
+      ]
+    },
+    {
+      "fault": "expired_lease_takeover_and_competing_claim",
+      "proof": [
+        "test_trip_check_postgres_integration.py"
+      ]
+    },
+    {
+      "fault": "sse_last_event_id_reconnect",
+      "proof": [
+        "test_trip_check_runs_api.py",
+        "trip-check-p1.spec.js"
+      ]
+    }
+  ],
+  "gate_logs": {
+    "postgres_fault_matrix": "evidence/trip_check_v1/p1/logs/postgres_fault_matrix.log",
+    "trip_check_fault_contracts": "evidence/trip_check_v1/p1/logs/trip_check_fault_contracts.log",
+    "browser_three_city": "evidence/trip_check_v1/p1/logs/browser_three_city.log"
+  }
+}
