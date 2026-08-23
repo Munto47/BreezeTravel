@@ -1,0 +1,10 @@
+{
+  "deprecated_at": "2026-08-23",
+  "external_bundle_sha256": "9d8bf0722066d5ad2ac64473b2e2a9ff5e85530c94b4d49937979e3d7d8832de",
+  "formal_evidence_eligible": false,
+  "labels_canonical_sha256": "83c1b4ad8a29c0a69d638f43d4dfc84255956683360db61c064c8794fb8339c8",
+  "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
+  "schema_version": "trip-check-p5-contract-deprecation-v1",
+  "seal_sha256": "c90401a73a4a06611063b9087e70718e4f4fdd287c6a9b1723b52232a502555d",
+  "successor_contract": "trip-check-p5-v2"
+}

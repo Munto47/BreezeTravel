@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from evals.trip_check_v1.p5.adapters import ADAPTERS
+from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
 from evals.trip_check_v1.p5.contracts import P5TerminalOutput, P5VariantRunSpec
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.runner import (
@@ -100,6 +101,8 @@ def _run_spec(
 
 
 async def _execute(args: argparse.Namespace) -> dict[str, Any]:
+    if args.require_formal:
+        require_v2_formal_ready()
     subject_commit = _git("rev-parse", "HEAD")
     dirty_tree = bool(_git("status", "--short"))
     if dirty_tree and not args.allow_dirty:

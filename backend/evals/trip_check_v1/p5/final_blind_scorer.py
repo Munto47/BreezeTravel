@@ -20,6 +20,7 @@ from statistics import mean
 from typing import Any, Mapping, Sequence
 
 from evals.trip_check_v1.p5.contracts import P5TerminalOutput, VARIANT_IDS
+from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
 from evals.trip_check_v1.p5.data_contract import canonical_bytes, digest
 from evals.trip_check_v1.p5.scorer import P5CaseScore, score_case
 
@@ -28,6 +29,13 @@ class P5BlindScoringError(RuntimeError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+def _require_active_contract() -> None:
+    try:
+        require_v2_formal_ready()
+    except RuntimeError as exc:
+        raise P5BlindScoringError("P5_V2_FORMAL_CONTRACT_NOT_READY") from exc
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -402,6 +410,8 @@ def score_external_blind_run_group(
     require_current_subject: bool = True,
     minimum_bucket_size: int = 3,
 ) -> dict[str, Any]:
+    if require_current_subject:
+        _require_active_contract()
     root = repo_root.resolve()
     inputs, seal = _validate_inputs_and_seal(root)
     expected_hash = _require_sha256(

@@ -1,0 +1,12 @@
+{
+  "active_contract": "trip-check-p5-v2",
+  "deprecated_contracts": [
+    {
+      "contract_id": "trip-check-p5-v1",
+      "formal_evidence_eligible": false,
+      "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2"
+    }
+  ],
+  "formal_evidence_status": "PENDING_V2_SEAL",
+  "schema_version": "trip-check-p5-active-contract-v1"
+}

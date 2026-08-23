@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 from evals.trip_check_v1.p5.gate import build_p5_gate_manifest
+from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +23,7 @@ def main() -> None:
     parser.add_argument("--judge-panel", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
+    require_v2_formal_ready()
     manifest = build_p5_gate_manifest(
         repo_root=REPO_ROOT,
         nonblind_run_dir=args.nonblind_run_dir,

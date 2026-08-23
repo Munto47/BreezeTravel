@@ -13,7 +13,7 @@
 - Predecessor gate：P4 phase `PASS`；CP-SAT admission `REJECT`
 - Required gate：`Evaluation Gate`
 
-本 Goal 已获授权进入 P5 实现与测试；授权不包含修改 frozen blind/oracle、进入 P6、公网或真人阶段。
+本 Goal 已获授权进入 P5 v2 实现、重新物化与重新封存。用户于 2026-08-23 明确批准废止 P5 v1 blind seal，并在候选输出产生前重新生成 v2 blind inputs/oracle/bundle；授权仍不包含进入 P6、公网、真人阶段或合并 `main`。
 
 ## Outcome
 
@@ -80,14 +80,15 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 ## Contract versions
 
-- Case contract：`trip-check-p5-eval-case-v1`；
-- Dataset manifest：`trip-check-p5-dataset-manifest-v1`；
-- RunSpec：`trip-check-p5-run-spec-v1`；
-- Variant adapter：`trip-check-p5-variant-adapter-v1`；
-- Deterministic score：`trip-check-p5-score-v1`；
-- Judge bundle：`trip-check-p5-judge-bundle-v1`；
-- Blind seal / external bundle：`trip-check-p5-blind-seal-v1` / `trip-check-p5-blind-bundle-v1`；
-- Gate manifest：`trip-check-p5-gate-manifest-v1`；
+- Case contract：`trip-check-p5-eval-case-v2`；
+- Dataset manifest：`trip-check-p5-dataset-manifest-v2`；
+- RunSpec：`trip-check-p5-run-spec-v2`；
+- Variant adapter：`trip-check-p5-variant-adapter-v2`；
+- Deterministic score：`trip-check-p5-score-v2`；
+- Judge bundle：`trip-check-p5-judge-bundle-v2`；
+- Blind seal / external bundle：`trip-check-p5-blind-seal-v2` / `trip-check-p5-blind-bundle-v2`；
+- Gate manifest：`trip-check-p5-gate-manifest-v2`；
+- P5 v1：`SUPERSEDED`，只保留审计资格，任何 formal runner/scorer/Gate 必须拒绝；
 - Dataset increment：`+90 frozen_blind`，总计 `360`；
 - Evidence output：`backend/evidence/trip_check_v1/p5/`。
 
