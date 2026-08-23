@@ -344,6 +344,7 @@ class TripBriefParser:
         workspace: TripWorkspace,
         itinerary_import: ItineraryImport,
         actor_user_id: str,
+        source_confidence: float | None = None,
     ) -> TripBriefRevision:
         raw_text = itinerary_import.raw_text
         traveler_match = re.search(r"([2-5])\s*人", raw_text)
@@ -381,7 +382,7 @@ class TripBriefParser:
             spans = self._span(raw_text, text_patterns[field_name], source_id)
             metadata[field_name] = BriefFieldProvenance(
                 source_spans=spans,
-                confidence=0.85 if spans else 0.5,
+                confidence=min(0.85 if spans else 0.5, 1.0 if source_confidence is None else source_confidence),
                 origin=BriefFieldOrigin.PARSER if spans else BriefFieldOrigin.INFERRED,
             )
         for field_name in (
@@ -450,6 +451,7 @@ class TripBriefApplicationService:
         itinerary_import: ItineraryImport,
         actor_user_id: str,
         conn: Any | None = None,
+        source_confidence: float | None = None,
     ) -> TripBriefRevision:
         if workspace.current_trip_brief_revision is None:
             latest = await self.repository.get_latest_brief(workspace.workspace_id)
@@ -464,6 +466,7 @@ class TripBriefApplicationService:
             workspace=workspace,
             itinerary_import=itinerary_import,
             actor_user_id=actor_user_id,
+            source_confidence=source_confidence,
         )
         return await self.repository.save_import_brief(brief, conn=conn)
 

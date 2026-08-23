@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+from email import policy
+from email.parser import BytesParser
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field, model_validator
 
 from app.importing.entity_resolver import AmapEntityCandidateProvider, EntityCandidateProvider, EntityResolver
 from app.importing.models import ImportApplyResult, ImportSourceType, ItineraryImport
 from app.importing.repositories import ImportRepository, PostgresImportRepository
 from app.importing.service import ImportApplicationService
+from app.importing.screenshots import (
+    MAX_MULTIPART_BYTES,
+    OcrEngine,
+    PaddleOcrEngine,
+    PostgresScreenshotAssetRepository,
+    ScreenshotAssetRepository,
+    ScreenshotImportResult,
+    ScreenshotImportService,
+    ScreenshotUpload,
+)
 from app.itineraries.errors import ItineraryDomainError
 from app.itineraries.repositories import ItineraryRepository, PostgresItineraryRepository
 from app.operations.http import require_idempotency_key
@@ -44,6 +56,14 @@ def get_trip_brief_repository() -> TripBriefRepository:
     return PostgresTripBriefRepository()
 
 
+def get_screenshot_asset_repository() -> ScreenshotAssetRepository:
+    return PostgresScreenshotAssetRepository()
+
+
+def get_ocr_engine():
+    return PaddleOcrEngine()
+
+
 ImportRepositoryDep = Annotated[ImportRepository, Depends(get_import_repository)]
 ItineraryRepositoryDep = Annotated[ItineraryRepository, Depends(get_itinerary_repository)]
 EntityProviderDep = Annotated[EntityCandidateProvider, Depends(get_entity_candidate_provider)]
@@ -53,6 +73,11 @@ CreationCommandRepositoryDep = Annotated[
     Depends(get_creation_command_repository),
 ]
 TripBriefRepositoryDep = Annotated[TripBriefRepository, Depends(get_trip_brief_repository)]
+ScreenshotAssetRepositoryDep = Annotated[
+    ScreenshotAssetRepository,
+    Depends(get_screenshot_asset_repository),
+]
+OcrEngineDep = Annotated[OcrEngine, Depends(get_ocr_engine)]
 
 
 class CreateImportRequest(BaseModel):
@@ -140,6 +165,59 @@ async def _workspace_access(workspace_id: str, user_id: str, repository: Itinera
     return workspace
 
 
+async def _read_screenshot_multipart(request: Request) -> list[ScreenshotUpload]:
+    content_type = request.headers.get("content-type", "")
+    if not content_type.casefold().startswith("multipart/form-data"):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail={"code": "MULTIPART_REQUIRED", "message": "multipart/form-data is required"},
+        )
+    raw_length = request.headers.get("content-length")
+    if raw_length:
+        try:
+            content_length = int(raw_length)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INVALID_CONTENT_LENGTH", "message": "Content-Length must be an integer"},
+            ) from exc
+        if content_length > MAX_MULTIPART_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail={"code": "SCREENSHOT_BATCH_TOO_LARGE", "message": "screenshot batch exceeds 61MB"},
+            )
+    body = await request.body()
+    if len(body) > MAX_MULTIPART_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail={"code": "SCREENSHOT_BATCH_TOO_LARGE", "message": "screenshot batch exceeds 61MB"},
+        )
+    message = BytesParser(policy=policy.default).parsebytes(
+        f"Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n".encode("ascii") + body
+    )
+    if not message.is_multipart():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_MULTIPART", "message": "multipart body is malformed"},
+        )
+    uploads: list[ScreenshotUpload] = []
+    for part in message.iter_parts():
+        if part.get_content_disposition() != "form-data":
+            continue
+        if part.get_param("name", header="content-disposition") not in {"screenshots", "files"}:
+            continue
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            payload = b""
+        uploads.append(
+            ScreenshotUpload(
+                media_type=part.get_content_type().casefold(),
+                content=payload,
+            )
+        )
+    return uploads
+
+
 async def _import_access(
     workspace_id: str,
     import_id: str,
@@ -189,6 +267,51 @@ async def create_itinerary_import(
             command_repository=command_repository,
         )
         _set_import_headers(response, result)
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+        return result
+    except ItineraryDomainError as exc:
+        _domain_error(exc)
+
+
+@router.post(
+    "/trip-workspaces/{workspace_id}/imports/screenshots",
+    response_model=ScreenshotImportResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_screenshot_import(
+    workspace_id: str,
+    request: Request,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    import_repository: ImportRepositoryDep,
+    entity_provider: EntityProviderDep,
+    command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
+    asset_repository: ScreenshotAssetRepositoryDep,
+    ocr_engine: OcrEngineDep,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    await _workspace_access(workspace_id, current_user, itinerary_repository)
+    required_key = require_idempotency_key(idempotency_key)
+    uploads = await _read_screenshot_multipart(request)
+    try:
+        result, replayed = await ScreenshotImportService(
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_resolver=EntityResolver(entity_provider),
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ).create_import(
+            workspace_id=workspace_id,
+            uploads=uploads,
+            actor_user_id=current_user,
+            idempotency_key=required_key,
+        )
+        _set_import_headers(response, result.itinerary_import)
         if replayed:
             response.headers["Idempotency-Replayed"] = "true"
         return result

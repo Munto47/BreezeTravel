@@ -24,3 +24,18 @@ class InvalidImportStateError(ItineraryDomainError):
 class ImportStateConflictError(ItineraryDomainError):
     code = "IMPORT_STATE_CONFLICT"
     status_code = 409
+
+
+class ScreenshotBatchInvalidError(ItineraryDomainError):
+    code = "SCREENSHOT_BATCH_INVALID"
+    status_code = 422
+
+
+class OcrProcessingError(ItineraryDomainError):
+    code = "OCR_PROCESSING_FAILED"
+    status_code = 503
+
+
+class PrivacyBlockedError(ItineraryDomainError):
+    code = "PRIVACY_BLOCKED"
+    status_code = 500

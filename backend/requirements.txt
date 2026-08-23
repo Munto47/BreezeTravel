@@ -21,6 +21,10 @@ langgraph==1.2.2
 opentelemetry-api==1.44.0
 opentelemetry-sdk==1.44.0
 
+# Trip Check P3：本地截图 OCR（原图仅进入临时存储）
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+
 # OpenAI SDK（RAG Embedding + LLM 调用，兼容 DeepSeek / SiliconFlow）
 openai==2.38.0
 

@@ -26,6 +26,7 @@ from app.suggestions.frozen_snapshot import (
     suggestion_provider_health,
     validate_suggestion_provider_configuration,
 )
+from app.importing.screenshots import PostgresScreenshotAssetRepository, ScreenshotAssetCleanupService
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI):
         await db_connection.run_migrations()
     elif cfg.require_schema_check and not (cfg.demo_mode or cfg.runtime_profile == "test"):
         await db_connection.check_schema_version()
+    await ScreenshotAssetCleanupService(PostgresScreenshotAssetRepository()).recover_expired()
     if cfg.checkpoint_bootstrap_on_start:
         await agent_graph.init_persistent_graph()
     yield
