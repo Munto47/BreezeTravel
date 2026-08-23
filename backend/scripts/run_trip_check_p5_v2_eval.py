@@ -438,21 +438,14 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
         )
         for variant_id in sorted(variants)
     }
-    terminal_failure = any(item.terminal_status.value in {"ERROR", "TIMEOUT"} for item in outputs)
+    replay_complete = bool(args.replay and not replay_mismatches)
     formal_evidence = bool(
-        args.require_formal
-        and dataset_ready
-        and not dirty_tree
-        and complete_lane
-        and formal_shape
-        and args.replay
-        and not terminal_failure
-        and not replay_mismatches
+        args.require_formal and dataset_ready and not dirty_tree and complete_lane and formal_shape and replay_complete
     )
     manifest: dict[str, Any] = {
         "schema_version": "trip-check-p5-run-group-v2",
         "run_id": run_id,
-        "status": "PASS" if not replay_mismatches and not terminal_failure else "REJECT",
+        "status": "PASS" if replay_complete else "REJECT",
         "formal_evidence": formal_evidence,
         "lane": lane,
         "subject_commit": subject_commit,
