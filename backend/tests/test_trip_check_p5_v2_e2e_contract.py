@@ -66,9 +66,7 @@ def test_dataset_360_exact_byte_and_canonical_readback() -> None:
     assert len(cases) == len(materializations) == 360
     assert Counter(row["split"] for row in cases) == EXPECTED_SPLITS
     assert Counter(row["city"] for row in cases) == EXPECTED_CITIES
-    assert Counter(
-        row["split"] for row in cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT"
-    ) == EXPECTED_SCREENSHOTS
+    assert Counter(row["split"] for row in cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT") == EXPECTED_SCREENSHOTS
     assert manifest["counts"] == {
         "total": 360,
         "by_split": EXPECTED_SPLITS,
@@ -80,8 +78,7 @@ def test_dataset_360_exact_byte_and_canonical_readback() -> None:
     assert len({case.case_id for case in validated}) == 360
     assert {row["case_id"] for row in materializations} == {case.case_id for case in validated}
     assert all(
-        row["case_hash"] == digest({key: value for key, value in row.items() if key != "case_hash"})
-        for row in cases
+        row["case_hash"] == digest({key: value for key, value in row.items() if key != "case_hash"}) for row in cases
     )
     assert all(
         row["materialization_hash"]
@@ -96,9 +93,7 @@ def test_dataset_360_exact_byte_and_canonical_readback() -> None:
         assert binding["case_count"] == len(lane_cases)
         assert binding["materialization_count"] == len(lane_materializations)
         assert binding["case_set_hash"] == case_set_hash(lane_cases)
-        assert binding["materialization_set_hash"] == materialization_set_hash(
-            lane_materializations
-        )
+        assert binding["materialization_set_hash"] == materialization_set_hash(lane_materializations)
 
 
 def test_exact_abc_terminal_cardinality_is_810_plus_270() -> None:
@@ -116,16 +111,10 @@ def test_exact_abc_terminal_cardinality_is_810_plus_270() -> None:
         ("frozen_blind", BLIND_MATERIALIZATIONS_PATH),
     ),
 )
-@pytest.mark.xfail(
-    strict=True,
-    reason="runner omits materialization_id from its set hash, so an exact lane cannot start",
-)
 def test_runner_full_lane_materialization_set_hash_matches_dataset(lane: str, path: Path) -> None:
     manifest = load_json(DATASET_MANIFEST_PATH)
     rows = load_jsonl(path)
-    assert run_cli._materialization_set_hash(rows) == manifest["lanes"][lane][
-        "materialization_set_hash"
-    ]
+    assert run_cli._materialization_set_hash(rows) == manifest["lanes"][lane]["materialization_set_hash"]
 
 
 def test_all_171_screenshot_receipts_are_bound_and_privacy_closed() -> None:
@@ -135,9 +124,7 @@ def test_all_171_screenshot_receipts_are_bound_and_privacy_closed() -> None:
     ]
     case_by_id = {row["case_id"]: P5CaseV2.model_validate(row) for row in cases}
     rows = materializations_by_case()
-    screenshot_ids = {
-        row["case_id"] for row in cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT"
-    }
+    screenshot_ids = {row["case_id"] for row in cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT"}
     assert len(screenshot_ids) == 171
     engines = Counter()
     for case_id in screenshot_ids:
@@ -169,10 +156,6 @@ def test_all_171_screenshot_receipts_are_bound_and_privacy_closed() -> None:
         assert engines == {"p5-development-ocr": 171}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="adapter sends the appended cleanup receipt through ProviderCallReceipt validation",
-)
 def test_screenshot_materialization_passes_adapter_readback() -> None:
     cases = [
         *load_jsonl(NONBLIND_CASES_PATH),

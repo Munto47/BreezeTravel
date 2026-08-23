@@ -80,9 +80,7 @@ def pilot_abc_replay(tmp_path_factory: pytest.TempPathFactory) -> PilotRun:
         P5TerminalOutputV2.model_validate(json.loads(line))
         for line in (run_dir / "terminal_outputs.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    materializations = {
-        row["case_id"]: row for row in load_jsonl(NONBLIND_MATERIALIZATIONS_PATH)
-    }
+    materializations = {row["case_id"]: row for row in load_jsonl(NONBLIND_MATERIALIZATIONS_PATH)}
     return PilotRun(
         result=result,
         run_dir=run_dir,
@@ -113,14 +111,9 @@ def test_pilot_18_by_abc_has_exact_terminals_and_full_replay(pilot_abc_replay: P
 def test_pilot_run_specs_only_differ_on_the_frozen_whitelist(
     pilot_abc_replay: PilotRun,
 ) -> None:
-    specs = [
-        P5VariantRunSpecV2.model_validate(value)
-        for value in pilot_abc_replay.result["run_specs"].values()
-    ]
+    specs = [P5VariantRunSpecV2.model_validate(value) for value in pilot_abc_replay.result["run_specs"].values()]
     validate_run_spec_whitelist_v2(specs)
-    tampered = specs[1].model_copy(
-        update={"budget": {**specs[1].budget, "timeout_seconds": 31}}
-    )
+    tampered = specs[1].model_copy(update={"budget": {**specs[1].budget, "timeout_seconds": 31}})
     with pytest.raises(ValueError, match="outside the P5 variant whitelist"):
         validate_run_spec_whitelist_v2([specs[0], tampered])
 
@@ -146,11 +139,6 @@ def test_pilot_readback_scores_all_terminal_rows_without_claiming_promotion(
     assert report["report_hash"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=P5V2ScoringError,
-    reason="partial runner binds full files while scorer requires those files to equal the selected 18",
-)
 def test_partial_pilot_run_group_can_be_read_back_by_scorer(
     pilot_abc_replay: PilotRun,
 ) -> None:
@@ -204,6 +192,4 @@ def test_adapter_exception_is_a_hash_bound_terminal_row(pilot_abc_replay: PilotR
     assert output.error_category == "RuntimeError"
     assert output.receipts == [{"type": "runner_error", "category": "RuntimeError"}]
     assert output.semantic_output_hash == output.replay_hash
-    validate_exact_terminal_set_v2(
-        [output], case_ids={case.case_id}, variant_ids={"core_b"}
-    )
+    validate_exact_terminal_set_v2([output], case_ids={case.case_id}, variant_ids={"core_b"})

@@ -812,6 +812,23 @@ def validate_run_group_v2(
     if manifest["materializations_file_sha256"] != _sha256_file(materializations_path):
         raise P5V2ScoringError("RUN_GROUP_MATERIALIZATIONS_FILE_HASH_MISMATCH")
 
+    terminal_path = run_dir / str(manifest["terminal_outputs_path"])
+    if _contains_symlink_or_junction(terminal_path.absolute()):
+        raise P5V2ScoringError("TERMINAL_OUTPUT_SYMLINK_FORBIDDEN")
+    try:
+        if terminal_path.resolve().relative_to(run_dir.resolve()) is None:
+            raise AssertionError
+    except (ValueError, OSError, AssertionError) as exc:
+        raise P5V2ScoringError("TERMINAL_OUTPUT_PATH_ESCAPE") from exc
+    if manifest["terminal_outputs_file_sha256"] != _sha256_file(terminal_path):
+        raise P5V2ScoringError("TERMINAL_OUTPUT_FILE_HASH_MISMATCH")
+    try:
+        outputs = [P5TerminalOutputV2.model_validate(row) for row in load_jsonl(terminal_path)]
+    except ValidationError as exc:
+        raise P5V2ScoringError("TERMINAL_OUTPUT_SCHEMA_INVALID") from exc
+    if digest([output.model_dump(mode="json") for output in outputs]) != manifest["terminal_outputs_content_sha256"]:
+        raise P5V2ScoringError("TERMINAL_OUTPUT_CONTENT_HASH_MISMATCH")
+
     try:
         case_rows = load_jsonl(cases_path)
         if any(
@@ -835,12 +852,6 @@ def validate_run_group_v2(
         raise P5V2ScoringError("MATERIALIZATION_CASE_SET_MISMATCH")
     if any(materializations[case.case_id] != case.materialization for case in cases):
         raise P5V2ScoringError("CASE_MATERIALIZATION_BINDING_MISMATCH")
-    if (
-        manifest["case_count"] != len(cases)
-        or manifest["case_set_hash"] != case_set_hash_v2(cases)
-        or manifest["materialization_set_hash"] != materialization_set_hash_v2(cases)
-    ):
-        raise P5V2ScoringError("RUN_GROUP_CASE_SET_BINDING_MISMATCH")
     file_prefix = "nonblind" if expected_lane == "nonblind" else "blind"
     dataset_files = dataset_manifest.get("files")
     dataset_lane = dataset_manifest.get("lanes", {}).get(expected_lane)
@@ -860,10 +871,23 @@ def validate_run_group_v2(
         or materialization_file_binding.get("content_sha256") != digest(materialization_rows)
         or dataset_lane.get("case_count") != len(cases)
         or dataset_lane.get("materialization_count") != len(materialization_rows)
-        or dataset_lane.get("case_set_hash") != manifest["case_set_hash"]
-        or dataset_lane.get("materialization_set_hash") != manifest["materialization_set_hash"]
+        or dataset_lane.get("case_set_hash") != case_set_hash_v2(cases)
+        or dataset_lane.get("materialization_set_hash") != materialization_set_hash_v2(cases)
     ):
         raise P5V2ScoringError("DATASET_LANE_BINDING_MISMATCH")
+
+    if not require_formal:
+        selected_case_ids = {output.case_id for output in outputs}
+        all_case_ids = {case.case_id for case in cases}
+        if not selected_case_ids or not selected_case_ids.issubset(all_case_ids):
+            raise P5V2ScoringError("TERMINAL_OUTPUT_EXACT_KEY_SET_MISMATCH")
+        cases = [case for case in cases if case.case_id in selected_case_ids]
+    if (
+        manifest["case_count"] != len(cases)
+        or manifest["case_set_hash"] != case_set_hash_v2(cases)
+        or manifest["materialization_set_hash"] != materialization_set_hash_v2(cases)
+    ):
+        raise P5V2ScoringError("RUN_GROUP_CASE_SET_BINDING_MISMATCH")
     formal_count = 270 if expected_lane == "nonblind" else 90
     if require_formal and len(cases) != formal_count:
         raise P5V2ScoringError("FORMAL_CASE_COUNT_INVALID")
@@ -897,22 +921,6 @@ def validate_run_group_v2(
     if any(item != common[0] for item in common[1:]):
         raise P5V2ScoringError("RUN_SPEC_VARIANT_WHITELIST_VIOLATION")
 
-    terminal_path = run_dir / str(manifest["terminal_outputs_path"])
-    if _contains_symlink_or_junction(terminal_path.absolute()):
-        raise P5V2ScoringError("TERMINAL_OUTPUT_SYMLINK_FORBIDDEN")
-    try:
-        if terminal_path.resolve().relative_to(run_dir.resolve()) is None:
-            raise AssertionError
-    except (ValueError, OSError, AssertionError) as exc:
-        raise P5V2ScoringError("TERMINAL_OUTPUT_PATH_ESCAPE") from exc
-    if manifest["terminal_outputs_file_sha256"] != _sha256_file(terminal_path):
-        raise P5V2ScoringError("TERMINAL_OUTPUT_FILE_HASH_MISMATCH")
-    try:
-        outputs = [P5TerminalOutputV2.model_validate(row) for row in load_jsonl(terminal_path)]
-    except ValidationError as exc:
-        raise P5V2ScoringError("TERMINAL_OUTPUT_SCHEMA_INVALID") from exc
-    if digest([output.model_dump(mode="json") for output in outputs]) != manifest["terminal_outputs_content_sha256"]:
-        raise P5V2ScoringError("TERMINAL_OUTPUT_CONTENT_HASH_MISMATCH")
     expected_keys = {(case.case_id, variant_id) for case in cases for variant_id in VARIANT_IDS_V2}
     actual_keys = [(output.case_id, output.variant_id) for output in outputs]
     if len(actual_keys) != len(set(actual_keys)) or set(actual_keys) != expected_keys:
