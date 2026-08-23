@@ -324,7 +324,7 @@ def main() -> int:
         and pilot is not None
         and pilot.get("status") == "PASS"
         and pilot.get("commit_sha") == subject
-        and pilot.get("metrics", {}).get("total_cases") == 18
+        and pilot.get("metrics", {}).get("case_count") == 18
         and browser is not None
         and browser_stats.get("expected") == 4
         and browser_stats.get("unexpected") == 0
