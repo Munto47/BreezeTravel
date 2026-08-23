@@ -18,6 +18,31 @@
     "terminal_outputs_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "api_usage_count": {"const": 0},
     "tool_usage_count": {"const": 0},
-    "scores": {"type": "array", "minItems": 270, "maxItems": 270}
+    "scores": {
+      "type": "array",
+      "minItems": 270,
+      "maxItems": 270,
+      "items": {"$ref": "#/$defs/score"}
+    }
+  },
+  "$defs": {
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["blind_item_id", "slot_id", "clarity", "actionability", "evidence_boundary_expression", "unsupported_claim_candidate_ids", "derived_verdict"],
+      "properties": {
+        "blind_item_id": {"type": "string", "minLength": 1},
+        "slot_id": {"enum": ["slot_1", "slot_2", "slot_3"]},
+        "clarity": {"type": "integer", "minimum": 0, "maximum": 4},
+        "actionability": {"type": "integer", "minimum": 0, "maximum": 4},
+        "evidence_boundary_expression": {"type": "integer", "minimum": 0, "maximum": 4},
+        "unsupported_claim_candidate_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "derived_verdict": {"enum": ["PASS", "NEEDS_REVISION"]}
+      }
+    }
   }
 }
