@@ -24,7 +24,7 @@
   },
   "dataset_id": "trip-check-p5-360-v2",
   "evidence_boundary": {
-    "actual_ocr": "NOT_RUN",
+    "actual_ocr": "PASS",
     "controlled_fixture": "MATERIALIZED",
     "human_evidence": "NOT_RUN",
     "live_provider": "NOT_RUN",
@@ -32,52 +32,52 @@
   },
   "files": {
     "blind_cases": {
-      "content_sha256": "ef63c085a508e034b7d5ee3ca18cdd3504fca3dd8fb7816c36770e5038226440",
-      "file_sha256": "924380e2f6c910dcb056107af36ba01a55cbab37de0036722184c4b9147b52d4",
+      "content_sha256": "4076a2ec2bae1ad5f7e3765bf55ee9b158a29449a579d7360b99fb2065d02fe3",
+      "file_sha256": "5e1ae133e17bbee49e58383a63f0c7b7df899a3042ae8ae5fc865939984c3b7f",
       "path": "evals/trip_check_v1/p5/frozen_blind.v2.inputs.jsonl",
       "row_count": 90
     },
     "blind_materializations": {
-      "content_sha256": "1325b21a5c7c880132ec98288a7ecb4def987d70f4dff027d71ba4ccd09fb279",
-      "file_sha256": "b9f8b54b875b320a78cac4b231647dd726a8516d7ad253c71e6e21ab2a651f6d",
+      "content_sha256": "e6aae98fced47bb479f1ede526e49ee5bc05be458f92c64db75fc6d25f335807",
+      "file_sha256": "1587250f119ded21f1346d8abe7e63f8eedba3ac079c5222d27b9ef13bcc0f7b",
       "path": "evals/trip_check_v1/p5/frozen_blind.v2.materializations.jsonl",
       "row_count": 90
     },
     "nonblind_cases": {
-      "content_sha256": "d7161055e7938340093a31609ff698de8858721d53abf6ff795131d7f52e5606",
-      "file_sha256": "2475534686af918e25a192079bbbd6bc518dd91b1dd4385a0e83bc2febda3e26",
+      "content_sha256": "e57066d53f5e67a876ee2bba57b625f109bd7841e6a39ca25b2203e8a9ce427d",
+      "file_sha256": "56e6dc167b1ff80bee55042e7bdfdbe321e5231ab92868030578757e9d0b0156",
       "path": "evals/trip_check_v1/p5/cases_nonblind_v2.jsonl",
       "row_count": 270
     },
     "nonblind_materializations": {
-      "content_sha256": "cc00b26960f66abbaf05e560e394188424ec92cd1ce72f2d5cc1f482ff45fea6",
-      "file_sha256": "569320d6cf674f5bd856916400a54f9d790bb022655d818e4822748ce298ad55",
+      "content_sha256": "c794e5d6b70cfcdcb1b20452838e17e266f932865c6ae435d9a09e41d4470139",
+      "file_sha256": "fd1f4bbb4b98111614596855ad42f19c932b12dcb6e7f493fe448570b66ce084",
       "path": "evals/trip_check_v1/p5/materializations_nonblind_v2.jsonl",
       "row_count": 270
     }
   },
-  "frozen": false,
+  "frozen": true,
   "generation": {
     "builder_version": "p5-dataset-builder-v2",
-    "formal_validation_eligible": false,
-    "ocr_mode": "development"
+    "formal_validation_eligible": true,
+    "ocr_mode": "actual"
   },
   "hash_policy_version": "p5-canonical-json-nfc-lf-v2",
   "lanes": {
     "frozen_blind": {
       "case_count": 90,
-      "case_set_hash": "fd7b8dfe53d629d4551bf65fe5c822fe40270b94f8ec62f1f5adfc1a447de7ca",
+      "case_set_hash": "14294aa2cb91fbc8b2164b306d76ef279ac486017a8e5b1e9f18514ab1c36f82",
       "label_access": "isolated_scorer_only",
       "label_payload_present": false,
       "label_storage": "external_bundle_only",
       "materialization_count": 90,
-      "materialization_set_hash": "6baea9054dfe177ae3cd38cbb976dded651c4e28832081d63f9895651ac7fd1c"
+      "materialization_set_hash": "9cb9fff8e171662eaf8c5c4c2b67073a18be43b50bf9e700106e594bce94cb14"
     },
     "nonblind": {
       "case_count": 270,
-      "case_set_hash": "f0d0e25842fffc1f9717c7117ae3bda18cadb3dbfb73ca76d55c92d4d6c95fd5",
+      "case_set_hash": "fcdef0477efbd8bb381c01ce0662978bbe728f3a09868dcaac64b3c3999f6cc1",
       "materialization_count": 270,
-      "materialization_set_hash": "c96b8dbf0cd4c0b7c1d6d6dd2e551324ed24c10f4d1529c75643a591d33a9fb0"
+      "materialization_set_hash": "81242dcf9107f1126cb2cde09b347a2ac4000e3117d1a201038206805c0b047b"
     }
   },
   "legacy_overlap_debt": {
@@ -86,7 +86,7 @@
     "regression_oracle_hashes_overlapping_dev": 72,
     "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
   },
-  "manifest_hash": "fb5eb9ee384f0e5837787e939fbedebea678f9cf936dbc39b276e1537ecc136a",
+  "manifest_hash": "57f79e3fcd0373b1f58a143bf27e1a96d9867670fa8c8991a5afa6141f54201d",
   "schema_version": "trip-check-p5-dataset-manifest-v2",
   "source_artifacts": {
     "p4_dev": {

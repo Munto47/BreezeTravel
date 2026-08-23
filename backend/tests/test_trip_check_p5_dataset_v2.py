@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import json
 from collections.abc import Iterator, Mapping
 from pathlib import Path
@@ -21,9 +22,10 @@ from evals.trip_check_v1.p5.data_contract_v2 import (
     materialization_set_hash,
 )
 from scripts.validate_trip_check_p5_dataset_v2 import validate
+import scripts.validate_trip_check_p5_dataset_v2 as validator_v2
 
 
-def test_checked_in_v2_development_dataset_has_complete_contract_and_distribution() -> None:
+def test_checked_in_v2_dataset_has_complete_contract_and_distribution() -> None:
     result = validate(formal=False)
 
     assert result["status"] == "PASS", result["errors"]
@@ -39,12 +41,29 @@ def test_checked_in_v2_development_dataset_has_complete_contract_and_distributio
     assert result["legacy_overlap_debt"]["regression_oracle_hashes_overlapping_dev"] == 72
 
 
-def test_formal_validator_rejects_development_ocr_receipts() -> None:
+def test_formal_validator_accepts_frozen_actual_ocr_receipts() -> None:
     result = validate(formal=True)
 
-    assert result["status"] == "FAIL"
-    assert "formal validation rejects development OCR artifacts" in result["errors"]
-    assert sum("requires actual paddleocr 3.7.0" in item for item in result["errors"]) == 171
+    assert result["status"] == "PASS", result["errors"]
+    assert result["formal"] is True
+
+
+def test_formal_materialization_validation_rejects_development_ocr_receipt() -> None:
+    case = next(item for item in load_jsonl(NONBLIND_PATH_V2) if item["input_kind"] == "SYNTHETIC_SCREENSHOT")
+    materialization = deepcopy(
+        next(
+            item
+            for item in load_jsonl(NONBLIND_MATERIALIZATIONS_PATH_V2)
+            if item["case_id"] == case["case_id"]
+        )
+    )
+    materialization["ocr_baseline_receipt"]["engine"] = "p5-development-ocr"
+    materialization["ocr_baseline_receipt"]["engine_version"] = "2.0.0"
+    errors: list[str] = []
+
+    validator_v2._validate_case_materialization(case, materialization, formal=True, errors=errors)
+
+    assert f"{case['case_id']}: formal validation requires actual paddleocr 3.7.0 receipt" in errors
 
 
 def test_manifest_exposes_strict_file_and_lane_set_hashes() -> None:
@@ -142,13 +161,13 @@ def test_resumable_checkpoint_is_hash_bound_and_skips_completed_materialization(
         draft=draft,
         case=case,
         materialization=materialization,
-        ocr_mode="development",
+        ocr_mode="actual",
         checkpoint_root=checkpoint_root,
     )
 
     cached = data_v2._load_checkpoint_pair(
         draft=draft,
-        ocr_mode="development",
+        ocr_mode="actual",
         checkpoint_root=checkpoint_root,
     )
     assert cached == (case, materialization)
@@ -162,7 +181,7 @@ def test_resumable_checkpoint_is_hash_bound_and_skips_completed_materialization(
     monkeypatch.setattr(data_v2, "_materialize_one", must_not_materialize)
     nonblind_cases, blind_cases, nonblind_materializations, blind_materializations = asyncio.run(
         data_v2.build_dataset_v2(
-            ocr_mode="development",
+            ocr_mode="actual",
             work_root=tmp_path / "work",
             checkpoint_root=checkpoint_root,
         )
