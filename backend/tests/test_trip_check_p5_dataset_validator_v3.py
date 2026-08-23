@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 
 from evals.trip_check_v1.p5.data_contract import load_jsonl
 from evals.trip_check_v1.p5.data_contract_v3 import BLIND_INPUT_PATH_V3
 import scripts.validate_trip_check_p5_dataset_v3 as validator_v3
 
 
-def test_checked_in_v3_candidate_passes_nonformal_validation() -> None:
+def test_checked_in_v3_sealed_dataset_passes_nonformal_validation() -> None:
     result = validator_v3.validate(formal=False)
 
     assert result["status"] == "PASS", result["errors"]
@@ -18,10 +19,28 @@ def test_checked_in_v3_candidate_passes_nonformal_validation() -> None:
         "unique_image_hashes": 171,
         "fresh_actual_ocr_execution": "NOT_RUN",
     }
-    assert result["seal_status"] == "PENDING_V3_SEAL"
+    assert result["seal_status"] == "SEALED"
 
 
-def test_checked_in_v3_candidate_is_not_formal_before_blind_seal() -> None:
+def test_checked_in_v3_sealed_dataset_passes_formal_validation() -> None:
+    result = validator_v3.validate(formal=True)
+
+    assert result["status"] == "PASS", result["errors"]
+    assert result["formal"] is True
+    assert result["seal_status"] == "SEALED"
+
+
+def test_formal_validation_still_rejects_a_pending_manifest_fixture(monkeypatch) -> None:
+    manifest = json.loads(validator_v3.MANIFEST_PATH_V3.read_text(encoding="utf-8"))
+    manifest.pop("sealing_commitment")
+    manifest["formal_validation_eligible"] = False
+    manifest["frozen"] = False
+    manifest["seal_status"] = "PENDING_V3_SEAL"
+    manifest["manifest_hash"] = validator_v3.digest(
+        {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    )
+    monkeypatch.setattr(validator_v3, "_load_manifest", lambda: manifest)
+
     result = validator_v3.validate(formal=True)
 
     assert result["status"] == "REJECT"

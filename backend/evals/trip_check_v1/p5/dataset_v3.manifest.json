@@ -65,8 +65,8 @@
       "row_count": 270
     }
   },
-  "formal_validation_eligible": false,
-  "frozen": false,
+  "formal_validation_eligible": true,
+  "frozen": true,
   "generation": {
     "blind_labels_read": false,
     "builder_version": "p5-dataset-rebinder-v3",
@@ -93,9 +93,20 @@
       "oracle_schema_version": "trip-check-p5-oracle-v2"
     }
   },
-  "manifest_hash": "abea247124dc42de643de6536d0a40062046f7260e6a7e2552c4c94b136259b3",
+  "manifest_hash": "e59889cfd700474115b105f7720bf673ea640a549dac3d243b7aafb1507e143e",
   "schema_version": "trip-check-p5-dataset-manifest-v3",
-  "seal_status": "PENDING_V3_SEAL",
+  "seal_status": "SEALED",
+  "sealing_commitment": {
+    "blind_seal_file_sha256": "eba4dced8c6818da97f7648dd1cc53f9fee0a0477ffe8ab19ff2c5b3c0466fe2",
+    "blind_seal_path": "backend/evals/trip_check_v1/p5/sealed/frozen_blind.v3.seal.json",
+    "candidate_dataset_manifest_hash": "abea247124dc42de643de6536d0a40062046f7260e6a7e2552c4c94b136259b3",
+    "candidate_freeze_commit": "401cddaafeae07b3ed39f4ee9b5863796e0cd982",
+    "external_bundle_sha256": "8125e4a75a52dda540587b134c6baff9551c654b5e373be300dcdd24c0be5b94",
+    "labels_canonical_sha256": "cea9504b9fc908cec82c49b4e267fac17a2eb01bdaee0d911051ba213c7eed3f",
+    "review_receipt_sha256": "d5df169ed175be86610722cbe353edc0dce3b1b68bff01522d0c0f8306091728",
+    "schema_version": "trip-check-p5-sealing-commitment-v3",
+    "status": "SEALED"
+  },
   "source_v2_anchor": {
     "active_contract_file_sha256": "54e83618ff4c979646ca303196f246c477e3997c9091fc62f2ba14fb237ac455",
     "active_contract_sha256": "9a1ce82ae2cf559d3db0b757cbf1c4e3a40dc6e680c963a80fbae98dcb11d89d",
