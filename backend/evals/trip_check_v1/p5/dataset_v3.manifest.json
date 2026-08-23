@@ -1,0 +1,105 @@
+{
+  "contract_hashes": {
+    "judge_rubric_path": "evals/trip_check_v1/p5/judge_rubric_v2.json",
+    "judge_rubric_semantics_changed": false,
+    "judge_rubric_sha256": "0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b",
+    "run_spec_template_v3": "NOT_YET_FROZEN"
+  },
+  "counts": {
+    "by_city": {
+      "上海": 120,
+      "北京": 120,
+      "杭州": 120
+    },
+    "by_split": {
+      "dev": 180,
+      "frozen_blind": 90,
+      "pilot": 18,
+      "regression": 72
+    },
+    "screenshot_receipts_total": 171,
+    "screenshots_by_split": {
+      "dev": 90,
+      "frozen_blind": 45,
+      "regression": 36
+    },
+    "total": 360,
+    "unique_screenshot_image_hashes": 171
+  },
+  "dataset_id": "trip-check-p5-360-v3",
+  "evidence_boundary": {
+    "actual_ocr_materialization": "PASS_HISTORICAL_V2_RECEIPT",
+    "controlled_fixture": "MATERIALIZED_V3",
+    "fresh_actual_ocr_execution": "NOT_RUN",
+    "human_evidence": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "public_e2e": "NOT_RUN",
+    "v3_receipt_rebinding": "PASS"
+  },
+  "files": {
+    "blind_cases": {
+      "content_sha256": "50702bf06c884febe480f8e5aa9c245ae5728747490eb050a4c4ace84fba126a",
+      "file_sha256": "d2080f1ecd83ddd659630c5e833fdca25238e55972b114da8a0e180c1c3f2729",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v3.inputs.jsonl",
+      "row_count": 90
+    },
+    "blind_materializations": {
+      "content_sha256": "3f9268e1975bdfc03572d5c59f877ec2e2931823a668ac1e752d90208ff6032d",
+      "file_sha256": "ec1111c01ccd3e794200cff0fd0a406851a9db97ca4b9bdb369e7c886bb2a25c",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v3.materializations.jsonl",
+      "row_count": 90
+    },
+    "nonblind_cases": {
+      "content_sha256": "3cfae9b90b4c5202877708f035a22f02d9953d64a6d63b20e7a3d513cc82b3e7",
+      "file_sha256": "b44c99af5df3899c4c428d8879a0c3b06fffa85f9cc9e70af2da2619b90d58fd",
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v3.jsonl",
+      "row_count": 270
+    },
+    "nonblind_materializations": {
+      "content_sha256": "4539f02915bc4f9f24dd019257d52861bf5adaef2929263718a5cc3cf3c9ca19",
+      "file_sha256": "44c5a1680a8aa6a5134db4474fe2c80566a9dc323fcc75dc9090036a3bbb1736",
+      "path": "evals/trip_check_v1/p5/materializations_nonblind_v3.jsonl",
+      "row_count": 270
+    }
+  },
+  "formal_validation_eligible": false,
+  "frozen": false,
+  "generation": {
+    "blind_labels_read": false,
+    "builder_version": "p5-dataset-rebinder-v3",
+    "mode": "SEALED_V2_SOURCE_REBIND",
+    "ocr_executed": false
+  },
+  "hash_policy_version": "p5-canonical-json-nfc-lf-v3",
+  "lanes": {
+    "frozen_blind": {
+      "case_count": 90,
+      "case_set_hash": "596c78cab45e9acd8372f521b963a07937bad2cdb5de35509d2515dfc088ac7d",
+      "label_access": "isolated_custodian_only",
+      "label_payload_present": false,
+      "label_storage": "external_bundle_only",
+      "materialization_count": 90,
+      "materialization_set_hash": "261f644de927dfe444f8dd339b85bf02165749b26983f1fc32eab5d8c11dac09"
+    },
+    "nonblind": {
+      "case_count": 270,
+      "case_set_hash": "626dbfd245e0725be6eba334f095b09010f60d44c921687e59fe51bf339c1e54",
+      "materialization_count": 270,
+      "materialization_set_hash": "2236a70c6566fb3c3c39b5aeaac78df6e834004409ab61921e53de54c2ab6c74",
+      "oracle_content_changed": false,
+      "oracle_schema_version": "trip-check-p5-oracle-v2"
+    }
+  },
+  "manifest_hash": "bf972393febf9422c7715e2798bc09c75891e29a379a1254b49433fe93fd4f73",
+  "schema_version": "trip-check-p5-dataset-manifest-v3",
+  "seal_status": "PENDING_V3_SEAL",
+  "source_v2_anchor": {
+    "active_contract_file_sha256": "54e83618ff4c979646ca303196f246c477e3997c9091fc62f2ba14fb237ac455",
+    "active_contract_sha256": "9a1ce82ae2cf559d3db0b757cbf1c4e3a40dc6e680c963a80fbae98dcb11d89d",
+    "blind_seal_file_sha256": "8e7770be5f99aebe5bfed2f37c87c3bd15b312052585e76697dcb7a5fa1c3c82",
+    "candidate_freeze_commit": "cfc6670ffeae2e2f385e56c7fc7debe59f8183f9",
+    "dataset_id": "trip-check-p5-360-v2",
+    "manifest_file_sha256": "dd6ca27b444b0be308041e645ba930b79a3ce2d99bb7fbc05a954a1528b910a7",
+    "manifest_hash": "19e5a2cf01260809b845d4eb93ff0bc0734b7b6c96769db043b83e3cea45eeba"
+  }
+}
