@@ -6,7 +6,17 @@ from copy import deepcopy
 from collections.abc import Mapping
 from typing import Any
 
-from evals.trip_check_v1.p5.contracts_v3 import P5CaseV3
+from evals.trip_check_v1.p5.adapters_v2 import (
+    EvaluationCachingPaddleOcrEngine,
+    LegacyAdapterV2,
+    _HarnessResult,
+    _execute_product_harness,
+)
+from evals.trip_check_v1.p5.contracts_v3 import (
+    P5CaseV3,
+    P5VariantRunSpecV3,
+    TerminalStatusV3,
+)
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.data_contract_v2 import _fault_artifact
 from evals.trip_check_v1.p5.data_contract_v3 import (
@@ -193,4 +203,145 @@ class MaterializedResolutionProviderV3:
         return deepcopy(self._responses.get((query, city), []))
 
 
-__all__ = ["MaterializedResolutionProviderV3", "validate_materialization_v3"]
+ADAPTER_VERSIONS_V3 = {
+    "legacy_a": ("legacy-a-v3", "legacy_native_only"),
+    "core_b": ("core-b-v3", "bounded_repair_v1"),
+    "solver_c": ("solver-c-v3", "cp_sat_v1"),
+}
+
+
+def _as_v3_result(result: _HarnessResult) -> _HarnessResult:
+    """Retain the production-harness payload while upgrading terminal semantics."""
+
+    return _HarnessResult(
+        terminal_status=TerminalStatusV3(result.terminal_status.value),  # type: ignore[arg-type]
+        native_output=deepcopy(result.native_output),
+        evaluation_projection=deepcopy(result.evaluation_projection),
+        findings=deepcopy(result.findings),
+        advice=deepcopy(result.advice),
+        postcheck=deepcopy(result.postcheck),
+        receipts=deepcopy(result.receipts),
+        raw_artifact=deepcopy(result.raw_artifact),
+    )
+
+
+def _resolution_provider_from_outer_v3(
+    materialization: Mapping[str, Any],
+) -> MaterializedResolutionProviderV3:
+    return MaterializedResolutionProviderV3(evidence_projection_v3(materialization))
+
+
+class EvaluationCachingPaddleOcrEngineV3(EvaluationCachingPaddleOcrEngine):
+    """Receipt-only OCR replay with explicit v3 provenance and no fallback path."""
+
+    def provenance(self) -> dict[str, Any]:
+        value = super().provenance()
+        value.update(
+            {
+                "actual_ocr_materialization": "PASS_HISTORICAL_V2_RECEIPT",
+                "v3_receipt_rebinding": "PASS",
+                "cache_implementation_version": "p5-evaluation-ocr-cache-v3",
+                "source_dataset_id": "trip-check-p5-360-v2",
+            }
+        )
+        return value
+
+
+class LegacyAdapterV3:
+    variant_id = "legacy_a"
+    adapter_version = "legacy-a-v3"
+    repair_strategy = "legacy_native_only"
+
+    def __init__(self) -> None:
+        self._delegate = LegacyAdapterV2(
+            materialization_validator=validate_materialization_v3,
+            contract_version="v3",
+        )
+
+    async def execute(
+        self,
+        case: P5CaseV3,
+        materialization: Mapping[str, Any],
+        run_spec: P5VariantRunSpecV3,
+    ) -> _HarnessResult:
+        # The v3 runner validates the complete outer envelope before entering
+        # this adapter.  The legacy screenshot boundary still executes without
+        # any OCR cache or product screenshot access.
+        return _as_v3_result(await self._delegate.execute(case, materialization, run_spec))  # type: ignore[arg-type]
+
+
+class CoreAdapterV3:
+    variant_id = "core_b"
+    adapter_version = "core-b-v3"
+    repair_strategy = "bounded_repair_v1"
+
+    def __init__(self, *, ocr_engine: EvaluationCachingPaddleOcrEngineV3 | None = None) -> None:
+        self._ocr_engine = ocr_engine
+
+    async def execute(
+        self,
+        case: P5CaseV3,
+        materialization: Mapping[str, Any],
+        run_spec: P5VariantRunSpecV3,
+    ) -> _HarnessResult:
+        validated = validate_materialization_v3(case, materialization)
+        if case.input_kind == "SYNTHETIC_SCREENSHOT" and self._ocr_engine is None:
+            raise ValueError("P5 v3 screenshots require the fail-closed frozen OCR cache")
+        result = await _execute_product_harness(
+            case,
+            validated,
+            run_spec,
+            strategy=self.repair_strategy,
+            ocr_engine=self._ocr_engine,
+            candidate_provider_factory=_resolution_provider_from_outer_v3,
+            contract_version="v3",
+        )
+        return _as_v3_result(result)
+
+
+class SolverAdapterV3:
+    variant_id = "solver_c"
+    adapter_version = "solver-c-v3"
+    repair_strategy = "cp_sat_v1"
+
+    def __init__(self, *, ocr_engine: EvaluationCachingPaddleOcrEngineV3 | None = None) -> None:
+        self._ocr_engine = ocr_engine
+
+    async def execute(
+        self,
+        case: P5CaseV3,
+        materialization: Mapping[str, Any],
+        run_spec: P5VariantRunSpecV3,
+    ) -> _HarnessResult:
+        validated = validate_materialization_v3(case, materialization)
+        if case.input_kind == "SYNTHETIC_SCREENSHOT" and self._ocr_engine is None:
+            raise ValueError("P5 v3 screenshots require the fail-closed frozen OCR cache")
+        result = await _execute_product_harness(
+            case,
+            validated,
+            run_spec,
+            strategy=self.repair_strategy,
+            ocr_engine=self._ocr_engine,
+            candidate_provider_factory=_resolution_provider_from_outer_v3,
+            contract_version="v3",
+        )
+        return _as_v3_result(result)
+
+
+ADAPTERS_V3 = {
+    "legacy_a": LegacyAdapterV3,
+    "core_b": CoreAdapterV3,
+    "solver_c": SolverAdapterV3,
+}
+
+
+__all__ = [
+    "ADAPTERS_V3",
+    "ADAPTER_VERSIONS_V3",
+    "CoreAdapterV3",
+    "EvaluationCachingPaddleOcrEngineV3",
+    "LegacyAdapterV3",
+    "MaterializedResolutionProviderV3",
+    "SolverAdapterV3",
+    "validate_materialization_v3",
+]
