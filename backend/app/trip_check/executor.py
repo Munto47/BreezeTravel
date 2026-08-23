@@ -18,7 +18,7 @@ from app.repairs.candidates import FrozenRepairCandidateSet, candidate_binding_f
 from app.repairs.errors import RepairNoFeasibleOptionError
 from app.repairs.models import RepairOption
 from app.repairs.models import RepairApplyResult
-from app.repairs.objective import introduces_new_high_violation, new_unknown_count
+from app.repairs.objective import assert_repair_postcheck_safe
 from app.repairs.search import BoundedRepairSearch
 from app.trip_check.advice import AdviceRepository
 from app.trip_check.briefs import TripBriefRepository
@@ -701,13 +701,11 @@ class TripCheckAdoptionReconciler:
             raise RuntimeError("TripCheck adoption lineage inputs are missing")
         if result.new_revision != postcheck.itinerary_revision:
             raise RuntimeError("TripCheck adoption result does not bind the postcheck revision")
-        if introduces_new_high_violation(source, postcheck) or new_unknown_count(source, postcheck) > 0:
-            from app.trip_check.errors import TripCheckRunConflictError
-
-            raise TripCheckRunConflictError(
-                "postcheck introduced a new HIGH or UNKNOWN finding",
-                context={"run_id": run.run_id, "repair_id": result.repair.repair_id},
-            )
+        assert_repair_postcheck_safe(
+            source,
+            postcheck,
+            targeted_finding_ids=result.repair.targeted_finding_ids,
+        )
         lineage = TripCheckPostcheckLineage(
             lineage_id=str(
                 uuid5(

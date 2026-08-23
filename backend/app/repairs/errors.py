@@ -19,3 +19,8 @@ class InvalidRepairDecisionError(ItineraryDomainError):
 class UnverifiedCandidateRejectedError(ItineraryDomainError):
     code = "UNVERIFIED_CANDIDATE_REJECTED"
     status_code = 422
+
+
+class RepairUnsafePostcheckError(ItineraryDomainError):
+    code = "REPAIR_POSTCHECK_UNSAFE"
+    status_code = 409

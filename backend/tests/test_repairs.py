@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 import pytest
 
 from app.audit.evidence_service import EvidenceObservation
-from app.audit.models import AuditSeverity, AuditStatus
+from app.audit.models import AuditFinding, AuditSeverity, AuditStatus
 from app.audit.repositories import InMemoryAuditRepository
 from app.audit.service import AuditApplicationService
 from app.itineraries.hash_service import canonical_json, with_content_hash
@@ -20,7 +20,8 @@ from app.itineraries.models import (
 )
 from app.itineraries.repositories import InMemoryItineraryRepository
 from app.constraints.geo_routes import RouteResult
-from app.repairs.errors import RepairNoFeasibleOptionError
+from app.repairs.errors import RepairNoFeasibleOptionError, RepairUnsafePostcheckError
+from app.repairs.models import RepairStatus
 from app.repairs.repositories import InMemoryRepairRepository
 from app.repairs.search import BoundedRepairSearch, ProviderRepairRouteEvidenceRefresher
 
@@ -403,6 +404,44 @@ async def test_apply_is_append_only_idempotent_and_advances_to_postcheck_report(
     assert workspace.current_itinerary_revision == 2
     assert workspace.current_report_id == option.postcheck_report_id
     assert audit_repository.current_reports[base.workspace_id] == option.postcheck_report_id
+
+
+@pytest.mark.asyncio
+async def test_unsafe_postcheck_is_rejected_before_revision_mutation():
+    itinerary_repository, audit_repository, repair_repository, search, base, source_report = (
+        await _repair_context()
+    )
+    option = (await search.propose(source_report.report_id))[0]
+    postcheck = await audit_repository.get_report(option.postcheck_report_id)
+    assert postcheck is not None
+    unsafe = AuditFinding(
+        finding_id="new-unsafe-finding",
+        rule_id="audit.unsafe",
+        rule_version="1",
+        status=AuditStatus.VIOLATED,
+        severity=AuditSeverity.HIGH,
+        reason_code="NEW_UNSAFE_CONDITION",
+        message="repair introduced a new high-severity condition",
+    )
+    audit_repository.reports[postcheck.report_id] = postcheck.model_copy(update={
+        "findings": [*postcheck.findings, unsafe],
+        "overall_status": AuditStatus.VIOLATED,
+    })
+
+    with pytest.raises(RepairUnsafePostcheckError) as captured:
+        await repair_repository.apply_option(
+            option.repair_id,
+            actor_user_id="repair-user",
+            if_match_revision=1,
+            idempotency_key="unsafe-postcheck",
+        )
+
+    assert captured.value.code == "REPAIR_POSTCHECK_UNSAFE"
+    assert len(await itinerary_repository.list_revisions(base.workspace_id)) == 1
+    workspace = await itinerary_repository.get_workspace(base.workspace_id)
+    assert workspace.current_itinerary_revision == 1
+    stored = await repair_repository.get_option(option.repair_id)
+    assert stored is not None and stored.status == RepairStatus.PROPOSED
 
 
 @pytest.mark.asyncio

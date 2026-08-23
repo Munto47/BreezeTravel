@@ -545,6 +545,15 @@ class PostgresAuditRepository:
             supersedes_report_id=row["supersedes_report_id"],
         )
 
+    async def get_report_with_connection(
+        self,
+        conn: Any,
+        report_id: str,
+    ) -> AuditReport | None:
+        """Read one immutable report inside a caller-owned transaction."""
+
+        return await self._get_report_with_conn(conn, report_id)
+
     async def get_report(self, report_id: str) -> AuditReport | None:
         pool = await self._get_pool()
         async with pool.acquire() as conn:

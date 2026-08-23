@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from app.audit.models import (
     AuditReport,
     AuditSeverity,
@@ -9,6 +11,7 @@ from app.audit.models import (
 )
 from app.itineraries.hash_service import canonical_json
 from app.itineraries.models import ItineraryRevision
+from app.repairs.errors import RepairUnsafePostcheckError
 from app.repairs.models import RepairOperation, RepairOperationType, RepairOption
 
 
@@ -228,3 +231,41 @@ def introduces_new_high_violation(source: AuditReport, candidate: AuditReport) -
         and _risk_identity(item) not in source_keys
         for item in candidate.findings
     )
+
+
+def assert_repair_postcheck_safe(
+    source: AuditReport,
+    candidate: AuditReport,
+    *,
+    targeted_finding_ids: Iterable[str] = (),
+) -> None:
+    """Reject an apply before mutation when its immutable postcheck is unsafe."""
+
+    reasons: list[str] = []
+    if introduces_new_high_violation(source, candidate):
+        reasons.append("NEW_BLOCKER_OR_HIGH")
+    unknown_count = new_unknown_count(source, candidate)
+    if unknown_count:
+        reasons.append("NEW_UNKNOWN")
+    targeted_ids = set(targeted_finding_ids)
+    targeted = {
+        _risk_identity(finding)
+        for finding in source.findings
+        if finding.finding_id in targeted_ids
+    }
+    if any(
+        finding.status != AuditStatus.SATISFIED
+        and _risk_identity(finding) in targeted
+        for finding in candidate.findings
+    ):
+        reasons.append("TARGET_FINDING_UNRESOLVED")
+    if reasons:
+        raise RepairUnsafePostcheckError(
+            "repair postcheck introduced a new serious or unknown finding",
+            context={
+                "source_report_id": source.report_id,
+                "postcheck_report_id": candidate.report_id,
+                "reasons": reasons,
+                "new_unknown_count": unknown_count,
+            },
+        )

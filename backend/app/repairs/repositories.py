@@ -5,7 +5,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from app.audit.repositories import InMemoryAuditRepository
+from app.audit.repositories import InMemoryAuditRepository, PostgresAuditRepository
 from app.db.connection import get_pool
 from app.itineraries.errors import IdempotencyKeyReusedError, ResourceNotFound, RevisionConflictError
 from app.itineraries.hash_service import compute_command_request_hash
@@ -13,7 +13,7 @@ from app.itineraries.models import WorkspaceStatus
 from app.itineraries.repositories import InMemoryItineraryRepository, insert_revision_record
 from app.repairs.errors import InvalidRepairDecisionError, RepairStaleError
 from app.repairs.models import RepairApplyResult, RepairOperation, RepairOption, RepairStatus
-from app.repairs.objective import repair_option_sort_key
+from app.repairs.objective import assert_repair_postcheck_safe, repair_option_sort_key
 
 
 class RepairRepository(Protocol):
@@ -314,6 +314,22 @@ class PostgresRepairRepository:
                 or row["postcheck_revision"] != if_match_revision + 1
             ):
                 raise RepairStaleError("repair postcheck is not bound to the preview revision")
+            audit_repository = PostgresAuditRepository(self._pool)
+            source_report = await audit_repository.get_report_with_connection(
+                conn,
+                row["source_report_id"],
+            )
+            postcheck_report = await audit_repository.get_report_with_connection(
+                conn,
+                row["postcheck_report_id"],
+            )
+            if source_report is None or postcheck_report is None:
+                raise RepairStaleError("repair postcheck lineage is incomplete")
+            assert_repair_postcheck_safe(
+                source_report,
+                postcheck_report,
+                targeted_finding_ids=list(row["targeted_finding_ids"] or []),
+            )
             revision_data = _json_value(row["result_preview_json"])
             revision_data["created_by"] = actor_user_id
             revision_data["created_at"] = datetime.now(timezone.utc).isoformat()
@@ -536,6 +552,14 @@ class InMemoryRepairRepository:
             or postcheck.itinerary_revision != if_match_revision + 1
         ):
             raise RepairStaleError("repair postcheck is not bound to the preview revision")
+        source_report = await self.audit_repository.get_report(option.source_report_id)
+        if source_report is None:
+            raise RepairStaleError("repair source report is missing")
+        assert_repair_postcheck_safe(
+            source_report,
+            postcheck,
+            targeted_finding_ids=option.targeted_finding_ids,
+        )
         revision = option.result_preview.model_copy(
             update={
                 "created_by": actor_user_id,
