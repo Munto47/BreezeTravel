@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from enum import Enum
+import json
+from pathlib import Path
+import subprocess
 import sys
 from time import perf_counter
 from typing import Protocol
@@ -190,73 +193,40 @@ class CpSatRepairStrategy:
                 status=StrategyStatus.UNSAT,
                 failure_reason="REQUIRED_EVIDENCE_UNAVAILABLE",
             )
-        # OR-Tools imports pandas for dataframe helpers.  A broken optional
-        # pyarrow installation must not crash this isolated solver experiment.
-        previous_pyarrow = sys.modules.get("pyarrow", ...)
-        sys.modules["pyarrow"] = None
+        backend_root = Path(__file__).resolve().parents[2]
+        worker = backend_root / "scripts" / "p4_cp_sat_worker.py"
         try:
-            from ortools.sat.python import cp_model
-        finally:
-            if previous_pyarrow is ...:
-                sys.modules.pop("pyarrow", None)
-            else:
-                sys.modules["pyarrow"] = previous_pyarrow
-
-        model = cp_model.CpModel()
-        starts = {
-            stop.stop_id: model.new_int_var(
-                stop.earliest_start,
-                stop.latest_end - stop.duration_minutes,
-                f"start:{stop.stop_id}",
+            completed = subprocess.run(
+                [sys.executable, str(worker), "--solver-timeout-ms", str(int(timeout_ms * 0.65))],
+                cwd=backend_root,
+                input=problem.model_dump_json(),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout_ms / 1000,
+                check=False,
             )
-            for stop in problem.stops
-        }
-        deviations = []
-        for stop in problem.stops:
-            if stop.locked_start is not None:
-                model.add(starts[stop.stop_id] == stop.locked_start)
-            deviation = model.new_int_var(0, 24 * 60, f"deviation:{stop.stop_id}")
-            model.add_abs_equality(deviation, starts[stop.stop_id] - stop.original_start)
-            deviations.append(deviation)
-        by_day = {
-            day: [stop for stop in problem.stops if stop.day_index == day]
-            for day in range(5)
-        }
-        for day_stops in by_day.values():
-            for left_index, left in enumerate(day_stops):
-                for right in day_stops[left_index + 1:]:
-                    left_before = model.new_bool_var(f"before:{left.stop_id}:{right.stop_id}")
-                    model.add(
-                        starts[right.stop_id]
-                        >= starts[left.stop_id] + left.duration_minutes + problem.travel_minutes
-                    ).only_enforce_if(left_before)
-                    model.add(
-                        starts[left.stop_id]
-                        >= starts[right.stop_id] + right.duration_minutes + problem.travel_minutes
-                    ).only_enforce_if(left_before.negated())
-        model.minimize(sum(deviations))
-        solver = cp_model.CpSolver()
-        # Reserve 10% for model/result orchestration so the end-to-end strategy
-        # receipt, rather than only CpSolver wall time, stays inside RunSpec.
-        solver.parameters.max_time_in_seconds = max(0.001, timeout_ms * 0.9 / 1000)
-        solver.parameters.num_search_workers = 1
-        solver.parameters.random_seed = 20260823
-        solver.parameters.stop_after_first_solution = True
-        status = solver.solve(model)
-        if status in {cp_model.OPTIMAL, cp_model.FEASIBLE}:
-            return _schedule_result(
-                problem,
-                {stop.stop_id: solver.value(starts[stop.stop_id]) for stop in problem.stops},
-            )
-        if status == cp_model.INFEASIBLE:
+        except subprocess.TimeoutExpired:
             return RepairStrategyResult(
-                status=StrategyStatus.UNSAT,
-                failure_reason="CP_SAT_INFEASIBLE",
+                status=StrategyStatus.TIMEOUT,
+                failure_reason="CP_SAT_PROCESS_DEADLINE_EXCEEDED",
             )
-        return RepairStrategyResult(
-            status=StrategyStatus.TIMEOUT,
-            failure_reason="CP_SAT_DEADLINE_EXCEEDED",
-        )
+        if completed.returncode != 0:
+            return RepairStrategyResult(
+                status=StrategyStatus.ERROR,
+                failure_reason="CP_SAT_WORKER_FAILED",
+            )
+        try:
+            payload = json.loads(completed.stdout)
+        except json.JSONDecodeError:
+            return RepairStrategyResult(
+                status=StrategyStatus.ERROR,
+                failure_reason="CP_SAT_WORKER_OUTPUT_INVALID",
+            )
+        if payload.get("status") == StrategyStatus.SUCCESS.value:
+            return _schedule_result(problem, payload["starts"])
+        return RepairStrategyResult.model_validate(payload)
 
 
 def execute_strategy(
