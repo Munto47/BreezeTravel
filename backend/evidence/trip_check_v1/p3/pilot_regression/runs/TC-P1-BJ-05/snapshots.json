@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+    "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
     "workspace_id": "pilot-tc-p1-bj-05",
     "itinerary_revision": 1,
     "provider_set": [
@@ -10,8 +10,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "a332ecad-788a-5a2e-8842-3c5ab5b96d7f",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "fcc650a8-11e2-5599-8f5a-174409664fb3",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "POI_IDENTITY",
@@ -37,8 +37,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "f0d4f917-ddba-55d2-ade7-6ea30a673e20",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "9d2cebb0-0dc0-59d0-b67a-e25f4e67326b",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "OPENING_HOURS",
@@ -53,8 +53,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "71518d15-dd05-5d26-b43f-d6fa6bd90fe8",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "18310589-6271-5c82-80dd-0043a1228cc7",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "POI_IDENTITY",
@@ -80,8 +80,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "8f34c162-5780-5b29-9088-a2bb65f0aab3",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "fd9dcf98-fda4-5bd7-bb78-3c48508aef28",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "OPENING_HOURS",
@@ -96,8 +96,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "1456a544-28c8-56b2-9243-0882cce043f1",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "3fc1e436-c3c1-56d2-83ad-1f1c2a7af739",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "POI_IDENTITY",
@@ -123,8 +123,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "78a4d6af-e804-5b81-a403-e732ec20249e",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "61fc0332-91f3-5175-870d-108b8ba33aa7",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "OPENING_HOURS",
@@ -139,8 +139,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "c2a4590b-5bb9-5546-9761-8fa5abf68a6b",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "245f3230-b155-597f-a7f6-a88a99934454",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-nanluoguxiang",
         "fact_type": "POI_IDENTITY",
@@ -166,8 +166,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "120db078-0534-53d0-a3cc-d7e957fcbd08",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "e9ee8e8c-6fc2-5c42-9446-405fb250831e",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-nanluoguxiang",
         "fact_type": "OPENING_HOURS",
@@ -182,8 +182,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "884129c1-78ce-52a2-b28a-9b4e03c8f26a",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "90332847-d556-59db-ae59-23ae21dabfc4",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-sanlitun",
         "fact_type": "POI_IDENTITY",
@@ -209,8 +209,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "3e0a8325-3fd2-5019-b968-e2562ac9c3ed",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "82e4136b-b931-54f0-9b50-2d6e43e1eb70",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "PLACE",
         "subject_id": "bj-sanlitun",
         "fact_type": "OPENING_HOURS",
@@ -225,24 +225,24 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "359c6e65-cc34-580c-beeb-05d9e8deda61",
-        "snapshot_id": "e0dadfe5-afbc-5a4f-aa4d-a900096f8842",
+        "fact_id": "0ce41e8a-4b7f-5bf2-bda6-24ca840a59a5",
+        "snapshot_id": "7ddf196e-6755-53d4-ad1b-4c1c65afe629",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "7b92a663-1c26-4aa4-9e98-e4a07a7613e6",
+        "subject_id": "bfa7c5aa-67d2-4358-bf83-6f32a97a4f13",
         "fact_type": "TRAVELER_COUNT",
         "value": 2,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.070792Z",
+        "observed_at": "2026-08-23T07:51:30.578287Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.070792Z",
-        "response_hash": "41b7ea05ffc5aea5b71dbb11b1a135aa9ef30db503e881122b6e16bd6eb84c8f",
+        "valid_until": "2036-08-20T07:51:30.578287Z",
+        "response_hash": "d9d3bebd8066ea09a8532941d6233fc7a8345ccdd0dc6d3ee5c3d531297160f2",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.070792Z",
+    "created_at": "2026-08-23T07:51:30.578287Z",
     "supersedes_snapshot_id": null
   }
 ]

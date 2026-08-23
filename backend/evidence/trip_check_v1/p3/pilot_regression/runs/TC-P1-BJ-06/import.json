@@ -1,5 +1,5 @@
 {
-  "import_id": "d726f5b3-c8a0-4112-aef8-d43ad86c10af",
+  "import_id": "3daf9675-b608-4870-a09b-220a7b0bc03f",
   "workspace_id": "pilot-tc-p1-bj-06",
   "source_type": "MANUAL_TEXT",
   "raw_text": "北京2人。第1天 09:00 东方明珠广播电视塔；第2天 09:00 故宫博物院。",
@@ -7,8 +7,8 @@
   "status": "NEEDS_RESOLUTION",
   "raw_stops": [
     {
-      "raw_stop_id": "5e11eaa9-c7a7-4c45-ba78-3292d611385f",
-      "import_id": "d726f5b3-c8a0-4112-aef8-d43ad86c10af",
+      "raw_stop_id": "b6da7b47-4059-4639-ab1f-55d3f3bb9a55",
+      "import_id": "3daf9675-b608-4870-a09b-220a7b0bc03f",
       "day_index": 0,
       "raw_name": "东方明珠广播电视塔",
       "raw_time": "09:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "955721f1-3509-42a0-a61d-404fcda1c58c",
-      "import_id": "d726f5b3-c8a0-4112-aef8-d43ad86c10af",
+      "raw_stop_id": "9706a8e2-6233-4ef3-9128-8102b332699f",
+      "import_id": "3daf9675-b608-4870-a09b-220a7b0bc03f",
       "day_index": 1,
       "raw_name": "故宫博物院",
       "raw_time": "09:00",
@@ -37,7 +37,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "5e11eaa9-c7a7-4c45-ba78-3292d611385f",
+      "raw_stop_id": "b6da7b47-4059-4639-ab1f-55d3f3bb9a55",
       "canonical_place_id": null,
       "candidates": [],
       "rejected_candidates": [
@@ -74,7 +74,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "955721f1-3509-42a0-a61d-404fcda1c58c",
+      "raw_stop_id": "9706a8e2-6233-4ef3-9128-8102b332699f",
       "canonical_place_id": "bj-forbidden-city",
       "candidates": [
         {
@@ -138,6 +138,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.081117Z",
-  "updated_at": "2026-08-23T04:58:32.081117Z"
+  "created_at": "2026-08-23T07:51:30.589816Z",
+  "updated_at": "2026-08-23T07:51:30.589816Z"
 }

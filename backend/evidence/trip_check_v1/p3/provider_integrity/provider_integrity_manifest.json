@@ -1,8 +1,8 @@
 {
   "schema_version": "trip-check-p3-provider-integrity-manifest-v1",
   "goal_id": "TC-P3-G01-input-provider-integrity",
-  "subject_commit": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
-  "generated_at": "2026-08-23T04:58:20.904072+00:00",
+  "subject_commit": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
+  "generated_at": "2026-08-23T07:51:17.131997+00:00",
   "execution_mode": "snapshot",
   "status": "PASS",
   "canonical_case_count": 6,
@@ -124,12 +124,12 @@
     },
     {
       "path": "cases/上海-snapshot/revision.json",
-      "sha256": "8106911c006ca2c32d8f06ba167ab11a1d501dd6ce8ae08ff0a28c3098ecbc10",
+      "sha256": "7b2db7d07f69d34ab10cb48d8fa48fefc1948e5a6800ce4ed3be85a1b08dc6b0",
       "bytes": 2044
     },
     {
       "path": "cases/上海-snapshot/run_spec.json",
-      "sha256": "a9ec567869056c214dee885d4b282aa84f17a57afe341d0baac01728f190285a",
+      "sha256": "67b675e802e7c926ebbe6b4bd1e1b2be43573c3908a6eddc47d45828fc36314e",
       "bytes": 650
     },
     {
@@ -154,12 +154,12 @@
     },
     {
       "path": "cases/北京-risk_unavailable/revision.json",
-      "sha256": "38b4ff77b5a7f788734e4b3cd80216925198f7b8d58c3c0db17ed4cccb336a95",
+      "sha256": "e7ead79dea51fca9bb03a5b939e9defdc3f3ede2a9cdd8fb9ff854d6f5af2d93",
       "bytes": 2045
     },
     {
       "path": "cases/北京-risk_unavailable/run_spec.json",
-      "sha256": "ce87d762aa2e5a5e2d5b969bc86816f2be3b4cd4bd4bc89b859bca8a18803e67",
+      "sha256": "bd2b122d0acbe9ba722daddffd60728016370d523a951b2ca27e6abd3fde3e2b",
       "bytes": 662
     },
     {
@@ -184,12 +184,12 @@
     },
     {
       "path": "cases/北京-route_mode_unavailable/revision.json",
-      "sha256": "16c0ba976fcd7b6ad7472584bd4f37906429656d18cfbeeb4a378db1a6e1fd1f",
+      "sha256": "ef22eb581d69c945b25dab15ffd3ec458ed5a9397f0023bbee30ce0fc7639e4f",
       "bytes": 2045
     },
     {
       "path": "cases/北京-route_mode_unavailable/run_spec.json",
-      "sha256": "6e04817631b0cf2fa9ad8025a497ab567ba3a338d581a1672f2a863b5d849a3a",
+      "sha256": "fd6b891e58c8e79f363e42a5d4995973de837ca79c1be69f2b579aa65e0b7968",
       "bytes": 668
     },
     {
@@ -214,12 +214,12 @@
     },
     {
       "path": "cases/北京-snapshot/revision.json",
-      "sha256": "b5f41b0bd7b0a7dd44cbcdd06d9aa2e266ad1a52c6ae658abcd4e1829be31c09",
+      "sha256": "7b11eb58a243545c6cbf3da5047de21cb5e088aabe2898b425aec952893f7d06",
       "bytes": 2045
     },
     {
       "path": "cases/北京-snapshot/run_spec.json",
-      "sha256": "a9ec567869056c214dee885d4b282aa84f17a57afe341d0baac01728f190285a",
+      "sha256": "67b675e802e7c926ebbe6b4bd1e1b2be43573c3908a6eddc47d45828fc36314e",
       "bytes": 650
     },
     {
@@ -244,12 +244,12 @@
     },
     {
       "path": "cases/北京-weather_unavailable/revision.json",
-      "sha256": "b654358509f350b87bc574d728c4b0a7ee3cebc05ceaa0d24fd71cf488bfe219",
+      "sha256": "a90d7d35ea9b3a7886242788d8ec996a58f3cecae8edfbdd307acc5fef8a09c6",
       "bytes": 2045
     },
     {
       "path": "cases/北京-weather_unavailable/run_spec.json",
-      "sha256": "b629530a2246e6b1f1dabf4abc6d09519da7b3ebf6bd08663bbc068702561334",
+      "sha256": "df5c188e352b545c18f427dcc34c071477aa9bc643a1bbf4684f388771ba7349",
       "bytes": 665
     },
     {
@@ -274,12 +274,12 @@
     },
     {
       "path": "cases/杭州-snapshot/revision.json",
-      "sha256": "ef1c4508a04f62337b2b8ae844043aace0344c6b84e3580b92e970ea528d9271",
+      "sha256": "b4cf32c7883f8c662b9feea9526509423ebb9e3abbd17024956e678c4acff1ce",
       "bytes": 2044
     },
     {
       "path": "cases/杭州-snapshot/run_spec.json",
-      "sha256": "a9ec567869056c214dee885d4b282aa84f17a57afe341d0baac01728f190285a",
+      "sha256": "67b675e802e7c926ebbe6b4bd1e1b2be43573c3908a6eddc47d45828fc36314e",
       "bytes": 650
     }
   ],

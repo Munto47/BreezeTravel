@@ -1,6 +1,6 @@
 {
   "schema_version": "trip-check-run-spec-v1",
-  "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+  "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
   "prompt_version": "none-p3",
   "model_version": "none-p3",
   "provider_version": "p3-provider-integrity-v1",

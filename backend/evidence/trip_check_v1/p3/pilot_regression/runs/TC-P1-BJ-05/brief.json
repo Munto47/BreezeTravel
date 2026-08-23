@@ -1,9 +1,9 @@
 {
-  "brief_id": "7b92a663-1c26-4aa4-9e98-e4a07a7613e6",
+  "brief_id": "bfa7c5aa-67d2-4358-bf83-6f32a97a4f13",
   "workspace_id": "pilot-tc-p1-bj-05",
   "revision": 2,
   "parent_revision": 1,
-  "content_hash": "9f3ae241432280b06359a2e0e3ad120e73295ae141be45c513ad5f9f5c82922c",
+  "content_hash": "bfdb758684370039698c8e9e5aa04cd3a83d28937b4304aa77b8ceeb23669e18",
   "city": "北京",
   "date_range": {
     "start": "2026-10-01",
@@ -39,7 +39,7 @@
     "city": {
       "source_spans": [
         {
-          "source_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+          "source_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
           "start": 0,
           "end": 2
         }
@@ -59,7 +59,7 @@
     "traveler_count": {
       "source_spans": [
         {
-          "source_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+          "source_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
           "start": 2,
           "end": 4
         }
@@ -149,7 +149,7 @@
   },
   "status": "CONFIRMED",
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.069632Z",
+  "created_at": "2026-08-23T07:51:30.576761Z",
   "confirmed_by": "controlled-pilot-runner",
-  "confirmed_at": "2026-08-23T04:58:32.069632Z"
+  "confirmed_at": "2026-08-23T07:51:30.576761Z"
 }

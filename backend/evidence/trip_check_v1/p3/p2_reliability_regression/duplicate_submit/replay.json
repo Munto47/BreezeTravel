@@ -1,0 +1,20 @@
+{
+  "run_replayed": true,
+  "run_payload_conflict": "IdempotencyKeyReusedError",
+  "repair_replayed": true,
+  "repair_payload_conflict": "IdempotencyKeyReusedError",
+  "counts_before": {
+    "runs": 1,
+    "revisions": 2,
+    "snapshots": 3,
+    "receipts": 3,
+    "repairs": 2
+  },
+  "counts_after": {
+    "runs": 1,
+    "revisions": 2,
+    "snapshots": 3,
+    "receipts": 3,
+    "repairs": 2
+  }
+}

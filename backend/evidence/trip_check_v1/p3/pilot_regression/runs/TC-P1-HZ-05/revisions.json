@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "602c2356-c76d-4105-82b8-6cf2e9a75c46",
+    "itinerary_id": "6939e3c5-11da-4a35-8eb3-e35615202cfa",
     "workspace_id": "pilot-tc-p1-hz-05",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "8bbe0211-d930-4b7c-aced-6acfa0e3e325",
+            "stop_id": "f57b37e8-0283-427d-b367-dda8cce9ef0b",
             "place_id": "hz-west-lake",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "西湖风景名胜区",
-            "source_raw_stop_id": "8bbe0211-d930-4b7c-aced-6acfa0e3e325",
+            "source_raw_stop_id": "f57b37e8-0283-427d-b367-dda8cce9ef0b",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -40,7 +40,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "8cda95e1-a53d-41d1-9e37-26e7ca0675a9",
+            "stop_id": "587f0280-5845-46d9-a554-a54163b65a42",
             "place_id": "hz-lingyin",
             "day_index": 1,
             "order_index": 0,
@@ -49,7 +49,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "灵隐寺",
-            "source_raw_stop_id": "8cda95e1-a53d-41d1-9e37-26e7ca0675a9",
+            "source_raw_stop_id": "587f0280-5845-46d9-a554-a54163b65a42",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -64,7 +64,7 @@
         "date": "2026-10-03",
         "stops": [
           {
-            "stop_id": "3ede34e4-5200-44b3-bf64-a0de2ea8c775",
+            "stop_id": "432bdf37-99bf-4213-8d83-2909acd0e977",
             "place_id": "hz-leifeng",
             "day_index": 2,
             "order_index": 0,
@@ -73,7 +73,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "雷峰塔",
-            "source_raw_stop_id": "3ede34e4-5200-44b3-bf64-a0de2ea8c775",
+            "source_raw_stop_id": "432bdf37-99bf-4213-8d83-2909acd0e977",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -88,7 +88,7 @@
         "date": "2026-10-04",
         "stops": [
           {
-            "stop_id": "d22893cc-ac1e-4815-8397-c48570d1c733",
+            "stop_id": "0d85e8c9-76b6-4bee-8120-7981895db643",
             "place_id": "hz-xixi",
             "day_index": 3,
             "order_index": 0,
@@ -97,7 +97,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "西溪湿地国家公园",
-            "source_raw_stop_id": "d22893cc-ac1e-4815-8397-c48570d1c733",
+            "source_raw_stop_id": "0d85e8c9-76b6-4bee-8120-7981895db643",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -112,7 +112,7 @@
         "date": "2026-10-05",
         "stops": [
           {
-            "stop_id": "ccd6baa1-9bba-4b69-ad71-2aae54f8d2b3",
+            "stop_id": "d932429c-f1e4-4ac2-8a84-2a3c875704a1",
             "place_id": "hz-hefang",
             "day_index": 4,
             "order_index": 0,
@@ -121,7 +121,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "河坊街·清河坊",
-            "source_raw_stop_id": "ccd6baa1-9bba-4b69-ad71-2aae54f8d2b3",
+            "source_raw_stop_id": "d932429c-f1e4-4ac2-8a84-2a3c875704a1",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -134,10 +134,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "8bbe0211-d930-4b7c-aced-6acfa0e3e325": {
+        "f57b37e8-0283-427d-b367-dda8cce9ef0b": {
           "place_id": "hz-west-lake",
           "coords": {
             "lng": 120.148,
@@ -148,7 +148,7 @@
           "receipt_hash": "b7d8660a821fbfaa2a38be0ad1f06c63b33dd568cd3ab77345c96a209141f4e3",
           "canonical_name": "西湖风景名胜区"
         },
-        "8cda95e1-a53d-41d1-9e37-26e7ca0675a9": {
+        "587f0280-5845-46d9-a554-a54163b65a42": {
           "place_id": "hz-lingyin",
           "coords": {
             "lng": 120.102,
@@ -159,7 +159,7 @@
           "receipt_hash": "4c1c805c85b263be8f3e6d25ffd4097fd1183f22f85b03b45c60de43d2bdcac0",
           "canonical_name": "灵隐寺"
         },
-        "3ede34e4-5200-44b3-bf64-a0de2ea8c775": {
+        "432bdf37-99bf-4213-8d83-2909acd0e977": {
           "place_id": "hz-leifeng",
           "coords": {
             "lng": 120.149,
@@ -170,7 +170,7 @@
           "receipt_hash": "d3a7bd8165f7c2011cd55705b1f7c8d7dea690b78ddf75c45afd313169e5e304",
           "canonical_name": "雷峰塔"
         },
-        "d22893cc-ac1e-4815-8397-c48570d1c733": {
+        "0d85e8c9-76b6-4bee-8120-7981895db643": {
           "place_id": "hz-xixi",
           "coords": {
             "lng": 120.063,
@@ -181,7 +181,7 @@
           "receipt_hash": "e7ee29b15349294e8d6f0301f98bb1b8b51795a6789adc1335a2f5b804991edb",
           "canonical_name": "西溪湿地国家公园"
         },
-        "ccd6baa1-9bba-4b69-ad71-2aae54f8d2b3": {
+        "d932429c-f1e4-4ac2-8a84-2a3c875704a1": {
           "place_id": "hz-hefang",
           "coords": {
             "lng": 120.174,
@@ -290,10 +290,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "7e9782731ac59d9ca76cd11301cfef1c460b4400dc54bbf3bd427ae6d90d9419"
+      "materialization_hash": "d2d850e3e01024665ccdad671915a9ef495cca45fb9d9f4abc5b0504cc3e8719"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.179785Z",
-    "content_hash": "11b4d77637d3f9d1e3652e595ae2085b4e92adb9d4dc5f39425ca8aef930d5ce"
+    "created_at": "2026-08-23T07:51:30.693354Z",
+    "content_hash": "6f3b4c6701efebca5c079775f640e6e24b9a3d09e17c7948b618cfece1676f94"
   }
 ]

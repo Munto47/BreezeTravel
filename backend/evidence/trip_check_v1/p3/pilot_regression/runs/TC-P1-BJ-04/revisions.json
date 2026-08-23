@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "f54e9483-3705-4e31-9e43-2b49c075f955",
+    "itinerary_id": "7049e190-ce23-42e9-ae9e-8c617ae78153",
     "workspace_id": "pilot-tc-p1-bj-04",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+            "stop_id": "75d2e441-d00a-4fad-8122-c374220ab8f1",
             "place_id": "bj-summer-palace",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "颐和园",
-            "source_raw_stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+            "source_raw_stop_id": "75d2e441-d00a-4fad-8122-c374220ab8f1",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -34,7 +34,7 @@
             "notes": ""
           },
           {
-            "stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+            "stop_id": "7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a",
             "place_id": "bj-badaling",
             "day_index": 0,
             "order_index": 1,
@@ -43,7 +43,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "长城（八达岭）",
-            "source_raw_stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+            "source_raw_stop_id": "7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -58,7 +58,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+            "stop_id": "7208b55e-5431-48dd-92d6-efef325e1690",
             "place_id": "bj-nanluoguxiang",
             "day_index": 1,
             "order_index": 0,
@@ -67,7 +67,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "南锣鼓巷",
-            "source_raw_stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+            "source_raw_stop_id": "7208b55e-5431-48dd-92d6-efef325e1690",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -80,10 +80,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+      "import_id": "e13f33c2-f5e0-4a27-ac8d-576f9a244673",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "3dca0430-104d-4e73-8366-3cef186edd59": {
+        "75d2e441-d00a-4fad-8122-c374220ab8f1": {
           "place_id": "bj-summer-palace",
           "coords": {
             "lng": 116.273,
@@ -94,7 +94,7 @@
           "receipt_hash": "7039b32774766152cb78905c17b478a91cde2413f347c6bd28d6edd0a677958b",
           "canonical_name": "颐和园"
         },
-        "59376f0c-7250-4e08-b3ad-1c03c3c69a58": {
+        "7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a": {
           "place_id": "bj-badaling",
           "coords": {
             "lng": 116.017,
@@ -105,7 +105,7 @@
           "receipt_hash": "c67026944b2780b3c88531aeba35753e074f6988794383d248ac3e4aa4f65809",
           "canonical_name": "长城（八达岭）"
         },
-        "2b16a117-8232-4774-a9d8-5913dfea9a53": {
+        "7208b55e-5431-48dd-92d6-efef325e1690": {
           "place_id": "bj-nanluoguxiang",
           "coords": {
             "lng": 116.404,
@@ -176,10 +176,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "b93368069db3333c8c72b642695e99a5b5f0158ac28d4b8cf968bad6445705ae"
+      "materialization_hash": "79ec0c23f8c096245e666e784965feaaf1825864e1b0a5f1d0c7730c1d62b3f7"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.059477Z",
-    "content_hash": "6e85793e3db187465e7280f669d71969e150696549da2a1c89443768d9bbf706"
+    "created_at": "2026-08-23T07:51:30.565230Z",
+    "content_hash": "4a184b311b047f335889dcdca2c19047f8b85332902d154c2708505ffd222f75"
   }
 ]

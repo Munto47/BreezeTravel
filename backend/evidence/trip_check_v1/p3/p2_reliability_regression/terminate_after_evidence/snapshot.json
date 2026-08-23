@@ -1,0 +1,137 @@
+{
+  "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+  "workspace_id": "p2-terminate-after-evidence-workspace",
+  "itinerary_revision": 1,
+  "provider_set": [
+    "confirmed_trip_brief_revision",
+    "controlled_reliability_fixture",
+    "controlled_route_fixture_v1"
+  ],
+  "policy_version": "evidence-policy-v1",
+  "facts": [
+    {
+      "fact_id": "2eaba982-afc3-5a3a-b0f8-dfcde6c61b33",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "TRIP_BRIEF",
+      "subject_id": "6da6d076-6b58-4026-a45f-984f1e3682c2",
+      "fact_type": "TRAVELER_COUNT",
+      "value": 2,
+      "provider": "confirmed_trip_brief_revision",
+      "source_url": null,
+      "observed_at": "2026-08-23T07:53:40.928205Z",
+      "valid_from": null,
+      "valid_until": "2036-08-20T07:53:40.928205Z",
+      "response_hash": "595712bef9dfcc98ab25ba9387fb4477a860f5065cd21b27d4760baad2eb9c75",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "49559139-a677-5f2f-8db8-ece0778b9e71",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-1",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "616f3cdcb0f887eb7e892f9a022b4f76b47e693b37b1848d76745ccd8a6099b7",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "4a4e2ec2-c11f-53cd-9ac7-0a1b38ee275b",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-2",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "21ff6d8f460cedc18e5edfb7e93fb7746b736d6801c44f7fb7b0fe41d41f509f",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "a354a622-14a6-55a6-98fa-498968a3ce33",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-2",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点乙",
+        "coords": {
+          "lat": 39.925,
+          "lng": 116.396
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "terminate-after-evidence-place-2"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "e1ea572893290573ed718a6a872024c268bc02f8ad9ff631ee6fd64c15f3e7de",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "c405c237-7643-5192-9019-a28d789a74b1",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-1",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点甲",
+        "coords": {
+          "lat": 39.916,
+          "lng": 116.397
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "terminate-after-evidence-place-1"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "7f22ccce56bd1fe9dffbdaac2a6b81ef06b7d3b22fc09622f18dd4b7f308bac1",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "e9d43ad2-c43a-53b5-8f61-f71af02fa55e",
+      "snapshot_id": "c65ad6b7-0e47-5d23-987f-0a2e985e469b",
+      "subject_type": "ROUTE_EDGE",
+      "subject_id": "terminate-after-evidence-stop-1->terminate-after-evidence-stop-2",
+      "fact_type": "ROUTE_TIME",
+      "value": {
+        "mode": "driving",
+        "duration_minutes": 25
+      },
+      "provider": "controlled_route_fixture_v1",
+      "source_url": null,
+      "observed_at": "2026-08-23T07:53:40.928205Z",
+      "valid_from": null,
+      "valid_until": "2027-08-23T07:53:40.928205Z",
+      "response_hash": "ac832b7bc3c2f06ad31556be2556f1d459d58970d5e34b3b39f66b5469f3c7cf",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    }
+  ],
+  "provider_failures": [],
+  "created_at": "2026-08-23T07:53:40.928205Z",
+  "supersedes_snapshot_id": null
+}

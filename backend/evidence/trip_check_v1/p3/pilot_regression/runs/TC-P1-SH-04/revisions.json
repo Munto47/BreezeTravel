@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "3a244e14-ac37-4e34-8719-c7afb3b57869",
+    "itinerary_id": "aa3855fe-66c5-4c14-a7fd-efaa42d0bed3",
     "workspace_id": "pilot-tc-p1-sh-04",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "b387c858-868a-4b72-b948-920398495001",
+            "stop_id": "8c9ad25c-e006-4710-a014-e4da67d823db",
             "place_id": "sh-disney",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "上海迪士尼乐园",
-            "source_raw_stop_id": "b387c858-868a-4b72-b948-920398495001",
+            "source_raw_stop_id": "8c9ad25c-e006-4710-a014-e4da67d823db",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -34,7 +34,7 @@
             "notes": ""
           },
           {
-            "stop_id": "1754acb2-e341-4b0d-8ec3-a658ccdbdb8c",
+            "stop_id": "24a6d2da-d730-4f57-9bf3-da7ffe73fc0f",
             "place_id": "sh-yuyuan",
             "day_index": 0,
             "order_index": 1,
@@ -43,7 +43,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "豫园",
-            "source_raw_stop_id": "1754acb2-e341-4b0d-8ec3-a658ccdbdb8c",
+            "source_raw_stop_id": "24a6d2da-d730-4f57-9bf3-da7ffe73fc0f",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -58,7 +58,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "a331ac4f-ed9a-4300-a146-36eafd842891",
+            "stop_id": "1e9f48e0-daa4-4a8d-92be-a07cfbfea4a7",
             "place_id": "sh-tianzifang",
             "day_index": 1,
             "order_index": 0,
@@ -67,7 +67,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "田子坊",
-            "source_raw_stop_id": "a331ac4f-ed9a-4300-a146-36eafd842891",
+            "source_raw_stop_id": "1e9f48e0-daa4-4a8d-92be-a07cfbfea4a7",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -80,10 +80,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "c609673a-bdc2-4ebe-9431-a80b62e505b9",
+      "import_id": "3aa6ef1c-e2b3-48a4-b171-a8b7327bd36f",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "b387c858-868a-4b72-b948-920398495001": {
+        "8c9ad25c-e006-4710-a014-e4da67d823db": {
           "place_id": "sh-disney",
           "coords": {
             "lng": 121.657,
@@ -94,7 +94,7 @@
           "receipt_hash": "a04e0a53c09baef7878817d070fd05a3a5fb93aadc80b344b2b4aacc5116bb5b",
           "canonical_name": "上海迪士尼乐园"
         },
-        "1754acb2-e341-4b0d-8ec3-a658ccdbdb8c": {
+        "24a6d2da-d730-4f57-9bf3-da7ffe73fc0f": {
           "place_id": "sh-yuyuan",
           "coords": {
             "lng": 121.493,
@@ -105,7 +105,7 @@
           "receipt_hash": "eaa6c8865e7cc28920468fbce814f296f8f7bd1c032459a9216985c3974ea242",
           "canonical_name": "豫园"
         },
-        "a331ac4f-ed9a-4300-a146-36eafd842891": {
+        "1e9f48e0-daa4-4a8d-92be-a07cfbfea4a7": {
           "place_id": "sh-tianzifang",
           "coords": {
             "lng": 121.475,
@@ -176,10 +176,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "f63f3d784cc13db4956181a2d7eb74f06d6fbcf4dd8769eafdef57f320133408"
+      "materialization_hash": "14f181160f099fad397197dafd0d12fe2acf56710c4ed30dbd4dcfab9fa81386"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.109898Z",
-    "content_hash": "7c2f7848161d05566167950b5fec7bbb6e21f9df424188df73a8f848e82d1ffd"
+    "created_at": "2026-08-23T07:51:30.622738Z",
+    "content_hash": "9fa5c0eba24a0f2fd910546c4d8abb9f1a380d44d799ba5bb2308e06ba38f486"
   }
 ]

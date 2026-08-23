@@ -1,19 +1,19 @@
 [
   {
-    "report_id": "b1fcdf04-2ffa-435f-b5c0-43c1ad21f61a",
+    "report_id": "de6ce827-d366-4ea9-a583-dfc88c84c664",
     "workspace_id": "pilot-tc-p1-sh-03",
-    "itinerary_id": "4fab6b93-99c5-4d97-8e52-07c80ae26cae",
+    "itinerary_id": "b2edb1c9-2fe7-42d8-89f2-76c843b10f09",
     "itinerary_revision": 1,
     "task_id": "workspace:pilot-tc-p1-sh-03:default",
     "task_revision": 1,
     "member_constraint_revision_set": {},
-    "evidence_snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+    "evidence_snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
     "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
-    "report_input_hash": "716ea03308fe8a8b324099fd3e4485346c01b5031fba5ee776d436e3c819590a",
+    "report_input_hash": "56e1d895ab48bb8bbb5181f79aa307a1108c5bc042d6f1f98bed0364d1c40e86",
     "overall_status": "VIOLATED",
     "findings": [
       {
-        "finding_id": "2c8bc961-d0b1-435d-8f3e-ac41cec44667",
+        "finding_id": "6302103f-11dc-463e-96fc-1685b958a4b3",
         "rule_id": "audit.input_completeness",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -29,7 +29,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "52388fef-fbe5-4a0d-9c0e-deabdb6a5692",
+        "finding_id": "fd6e0df4-6b45-4dec-89e0-513793b25282",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -37,7 +37,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "外滩 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+          "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
           "place_id": "sh-bund",
           "target_city": "上海",
           "observed_cities": [
@@ -52,17 +52,17 @@
           0
         ],
         "affected_stop_ids": [
-          "21052e02-61ae-4020-b847-5c3cc21788f7"
+          "1f7a110c-5bc1-4c74-b44f-c76179fec330"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "77a8998b-f5f2-571b-a7f5-3dc3c834711d"
+          "d302b507-ea21-58f4-a493-2bb3380fc36a"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "b544075e-68ea-479d-87c6-642112d47d06",
+        "finding_id": "ce02ef6a-6b32-4c38-bd9e-c0a3a1cc2ba7",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -70,7 +70,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "上海迪士尼乐园 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+          "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
           "place_id": "sh-disney",
           "target_city": "上海",
           "observed_cities": [
@@ -85,17 +85,17 @@
           1
         ],
         "affected_stop_ids": [
-          "99e681d5-f323-410e-b69c-001f366a0ca9"
+          "be106a3c-503b-4f33-9d26-ec2c97663280"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "fe079363-44f8-5abe-ba70-024fdf8da554"
+          "75a35eae-2b1b-5dc7-9af5-45c322a44da9"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "f1729924-2c53-42dd-bfab-5b3152acb7b0",
+        "finding_id": "9a132244-05d3-4087-ac7d-5a7ece2c58aa",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -103,7 +103,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "田子坊 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+          "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
           "place_id": "sh-tianzifang",
           "target_city": "上海",
           "observed_cities": [
@@ -118,17 +118,17 @@
           2
         ],
         "affected_stop_ids": [
-          "1a4b8261-64d3-4e45-9305-4d17fcd129b7"
+          "52e60604-2214-4929-8166-a8c801b73d7d"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "1d4109be-89c4-5ebb-bab4-59406b7eaf0d"
+          "f06b51c4-63c9-56b8-aef5-6d423f7ba6ce"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "90fc844e-5d94-4010-97d0-8f6552d5a8b2",
+        "finding_id": "5ae1b1e6-09d7-415b-ae5f-12f18c454ba0",
         "rule_id": "constraint.duplicate",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -148,7 +148,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "cf46380e-0636-4bc5-8d58-6aa8eef2d843",
+        "finding_id": "b49cb5aa-4125-4059-a62d-9b98ec4dff11",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -160,7 +160,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -179,7 +179,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "e27af1f9-3e58-400e-82ef-01cc3fa1bbb8",
+        "finding_id": "451338ab-175c-466a-b5c9-2a52604e46da",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -191,7 +191,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -210,7 +210,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "92653810-0439-44be-93da-d3f4ceb8d4fc",
+        "finding_id": "a4f918a3-8379-4abe-9fb5-dbf7dd1b5e47",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -222,7 +222,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -241,7 +241,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "6782db2e-6c1d-4f7a-bba6-2d1b639ee8e1",
+        "finding_id": "a42f3a59-c33f-4bb6-931b-fec309affe0e",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -253,7 +253,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -272,7 +272,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "85305e3f-cb91-4b5c-90b4-d3d31d4525ab",
+        "finding_id": "2fe20d8f-ada6-4efa-b13d-a1a3e4c1ce46",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -284,7 +284,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -303,7 +303,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "e515e8ad-6943-4ebe-a4e5-164d5121c638",
+        "finding_id": "568b89b0-7c51-499e-b19d-7c74dcd1ba38",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -315,7 +315,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -334,7 +334,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "67eebcc7-3cfd-4397-a64f-e07bc98dcb5f",
+        "finding_id": "401a91be-d88f-48b5-981b-9dd15faa1d4e",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -346,7 +346,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -365,7 +365,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "56136b3d-4347-4b1b-8621-21053eae4150",
+        "finding_id": "75fedab5-7414-48b7-aaf1-55f586448a6a",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -377,7 +377,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -396,7 +396,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "a15cdb7a-fff2-421b-91ce-1a38828a7f54",
+        "finding_id": "4f031d45-602a-470b-82c8-3885c9296576",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -408,7 +408,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -427,7 +427,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "6c928e95-a3da-4e49-a15f-a8e853337985",
+        "finding_id": "4b74884c-33af-45b6-ac55-8b2192f05bab",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -439,7 +439,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -458,7 +458,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "14f3f30d-90c4-4b90-a96c-39149d7dc226",
+        "finding_id": "5ba2b60d-6e73-4165-90a9-11652368a624",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -470,7 +470,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -489,7 +489,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "00ea8a82-57d5-4d5b-815f-df5c7cf95848",
+        "finding_id": "1081fbd9-aa52-41d1-8d70-ecf378fa4f8e",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -501,7 +501,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -520,7 +520,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "99b4a968-fcc5-4263-859e-8bfc8047795e",
+        "finding_id": "bafcae76-cfcf-4675-af06-973596d50d3a",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -532,7 +532,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -551,7 +551,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "63251eed-3305-42f3-a9d8-604dac88a14b",
+        "finding_id": "d702f11d-b43d-4307-882e-ad336a4b9021",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -563,7 +563,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -582,7 +582,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "800051b1-94be-46e1-8a99-7e69af6c4aad",
+        "finding_id": "e5cd440a-763f-4759-b8b2-ccd949b519e5",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -594,7 +594,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -613,7 +613,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "781d7405-4282-40f8-b2c2-51ea8f694c9f",
+        "finding_id": "2b904867-147b-45c6-887d-190efd8e43aa",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -625,7 +625,7 @@
           "place_id": "sh-bund",
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -638,18 +638,18 @@
           0
         ],
         "affected_stop_ids": [
-          "21052e02-61ae-4020-b847-5c3cc21788f7"
+          "1f7a110c-5bc1-4c74-b44f-c76179fec330"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "77a8998b-f5f2-571b-a7f5-3dc3c834711d",
-          "20fbbd01-6226-5515-81ec-fee28054171a"
+          "d302b507-ea21-58f4-a493-2bb3380fc36a",
+          "96e65177-5b20-5afb-a6e8-1f6641f92ddd"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "50600aa1-19e2-4133-a080-a788bb7573be",
+        "finding_id": "39fa2644-669a-41b8-97ab-db86d07a09c1",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -661,7 +661,7 @@
           "place_id": "sh-disney",
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -674,18 +674,18 @@
           1
         ],
         "affected_stop_ids": [
-          "99e681d5-f323-410e-b69c-001f366a0ca9"
+          "be106a3c-503b-4f33-9d26-ec2c97663280"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "fe079363-44f8-5abe-ba70-024fdf8da554",
-          "65397197-4556-5850-8e07-536cdf7e7b83"
+          "75a35eae-2b1b-5dc7-9af5-45c322a44da9",
+          "51a4112f-f392-52d4-8468-bd371b321280"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "f993ff2c-f4ff-4c48-b28e-0e1c2872555d",
+        "finding_id": "d5c64bba-e71a-479d-b5d3-6cad1bb0b94b",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -697,7 +697,7 @@
           "place_id": "sh-tianzifang",
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -710,18 +710,18 @@
           2
         ],
         "affected_stop_ids": [
-          "1a4b8261-64d3-4e45-9305-4d17fcd129b7"
+          "52e60604-2214-4929-8166-a8c801b73d7d"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "1d4109be-89c4-5ebb-bab4-59406b7eaf0d",
-          "3cf0e769-7d91-5412-bb2a-5cab7441e0b1"
+          "f06b51c4-63c9-56b8-aef5-6d423f7ba6ce",
+          "b4d50937-9559-5a06-a7c1-cf64961b7823"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "f92c1546-b49c-4241-9e08-57f70a59a811",
+        "finding_id": "921b3b24-930b-4523-9caf-978541fcb60c",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -733,7 +733,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -752,7 +752,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "58c9e3ec-b81f-40cc-89d4-8886df8aa9eb",
+        "finding_id": "ae20b946-3e37-457e-9ef8-f57004864dc1",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -764,7 +764,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -783,7 +783,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "d3ac9a8e-1ccd-4364-b7f2-a40024f2b452",
+        "finding_id": "728f1df4-0b09-4f7b-bb9c-547b12861dd3",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -795,7 +795,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+              "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -814,7 +814,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "a32e95d1-e4d0-4622-9d81-1f8e4c7c21ed",
+        "finding_id": "91d44b3b-58c9-4110-85b0-ddefafc1c800",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -826,7 +826,7 @@
           "place_id": "sh-bund",
           "day_stops": [
             {
-              "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+              "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -839,18 +839,18 @@
           0
         ],
         "affected_stop_ids": [
-          "21052e02-61ae-4020-b847-5c3cc21788f7"
+          "1f7a110c-5bc1-4c74-b44f-c76179fec330"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "77a8998b-f5f2-571b-a7f5-3dc3c834711d",
-          "20fbbd01-6226-5515-81ec-fee28054171a"
+          "d302b507-ea21-58f4-a493-2bb3380fc36a",
+          "96e65177-5b20-5afb-a6e8-1f6641f92ddd"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "5ec4301a-3536-4c90-81d5-cbe8eae8126a",
+        "finding_id": "c8649981-f06b-4914-9889-4690759492c9",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -862,7 +862,7 @@
           "place_id": "sh-disney",
           "day_stops": [
             {
-              "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+              "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -875,18 +875,18 @@
           1
         ],
         "affected_stop_ids": [
-          "99e681d5-f323-410e-b69c-001f366a0ca9"
+          "be106a3c-503b-4f33-9d26-ec2c97663280"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "fe079363-44f8-5abe-ba70-024fdf8da554",
-          "65397197-4556-5850-8e07-536cdf7e7b83"
+          "75a35eae-2b1b-5dc7-9af5-45c322a44da9",
+          "51a4112f-f392-52d4-8468-bd371b321280"
         ],
         "repairable": false,
         "confirmation_action": null
       }
     ],
-    "created_at": "2026-08-23T04:58:32.098745Z",
+    "created_at": "2026-08-23T07:51:30.611189Z",
     "supersedes_report_id": null
   }
 ]

@@ -1,19 +1,19 @@
 [
   {
-    "report_id": "a65603a7-7962-48f0-af06-6f7e9a7f4ed8",
+    "report_id": "a4ed407b-161f-4225-b093-213e9e07a456",
     "workspace_id": "pilot-tc-p1-bj-03",
-    "itinerary_id": "04745c85-8a36-484d-8597-0affa0325849",
+    "itinerary_id": "aa4f71aa-4eeb-488e-a462-77fb1ac3987c",
     "itinerary_revision": 1,
     "task_id": "workspace:pilot-tc-p1-bj-03:default",
     "task_revision": 1,
     "member_constraint_revision_set": {},
-    "evidence_snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+    "evidence_snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
     "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
-    "report_input_hash": "386b18367c457a1b5112e4f3f6f3dd5fa89d8b3de227f068a0e77f026afdb5b6",
+    "report_input_hash": "c2cc19487b6f70687116a3ddcf82d90b2bfced9282bd0316ca7f26bbf07f760c",
     "overall_status": "VIOLATED",
     "findings": [
       {
-        "finding_id": "877274b3-e650-48b5-9c91-b2468266b687",
+        "finding_id": "aea0e14b-d064-4f73-9208-3b9fc9f1c216",
         "rule_id": "audit.input_completeness",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -29,7 +29,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "35f904a5-5d8d-4137-a6e8-8188c7cd01d3",
+        "finding_id": "8d9756b7-762e-4980-97bf-4e7b0b8d0dea",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -37,7 +37,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "天安门广场 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+          "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
           "place_id": "bj-tiananmen",
           "target_city": "北京",
           "observed_cities": [
@@ -52,17 +52,17 @@
           0
         ],
         "affected_stop_ids": [
-          "53cf2143-8371-435d-8626-1a039c7259ba"
+          "6e3cb6f6-d210-41eb-ac36-b3d556ecda72"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "66ad365f-40f4-5c7b-8fe9-66d3668d1018"
+          "7e06c9e3-5437-5d06-a293-f20317a923a1"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "d01fa12c-6e91-4e47-b59c-d62978436e3e",
+        "finding_id": "851f2d16-f4ca-4e11-adee-a678dd8ee02b",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -70,7 +70,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "故宫博物院 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+          "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
           "place_id": "bj-forbidden-city",
           "target_city": "北京",
           "observed_cities": [
@@ -85,17 +85,17 @@
           0
         ],
         "affected_stop_ids": [
-          "1a8ff06f-c686-4f31-a92a-504e106af80c"
+          "7415a5ee-bf65-45e9-98b1-b861ff134ae6"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "615d0044-e1a5-59f7-b6af-d7eb584f730e"
+          "d28aa0ac-d444-519e-a8f0-8f6a20c810a5"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "9fbd17d6-9c89-4d9b-8977-83f055a625d9",
+        "finding_id": "2d4e5ff3-e795-44f4-8e17-e5af9a16689d",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -103,7 +103,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "长城（八达岭） 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+          "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
           "place_id": "bj-badaling",
           "target_city": "北京",
           "observed_cities": [
@@ -118,17 +118,17 @@
           1
         ],
         "affected_stop_ids": [
-          "6b718e78-94a4-41ef-b83d-538f71969801"
+          "e76e6f05-0415-4924-9173-eb36ad7a6778"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "e800fab4-c509-5739-9ecf-bc6bd680423b"
+          "617ddb71-1fc1-55bb-9b7a-7a8c43b98ace"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "d4cc0d2a-33d7-4095-aaca-dbba5277c837",
+        "finding_id": "ca636ad5-5d66-47f8-8de5-4a6c0d4122b4",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -136,7 +136,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "天坛公园 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+          "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
           "place_id": "bj-temple-of-heaven",
           "target_city": "北京",
           "observed_cities": [
@@ -151,17 +151,17 @@
           2
         ],
         "affected_stop_ids": [
-          "e33546d1-93eb-4ec8-9a65-46086c3cbe91"
+          "7f6bed7f-56ea-41f4-b72b-8242f9098ab0"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "844f9dce-1371-5062-b3ba-2ca0d4a0f866"
+          "a717eca1-309d-5bd1-b905-0742d0cf2d96"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "365da31e-32c5-4325-89fc-bd9a8417315c",
+        "finding_id": "07214582-06a7-434b-b2ff-8afee630afa9",
         "rule_id": "audit.route_gap",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -169,9 +169,9 @@
         "reason_code": "ROUTE_GAP_TIME_UNKNOWN",
         "message": "天安门广场 到 故宫博物院 缺少可计算空档的时间",
         "input_values": {
-          "edge_id": "53cf2143-8371-435d-8626-1a039c7259ba->1a8ff06f-c686-4f31-a92a-504e106af80c",
-          "from_stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
-          "to_stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+          "edge_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72->7415a5ee-bf65-45e9-98b1-b861ff134ae6",
+          "from_stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
+          "to_stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
           "available_minutes": null,
           "route_duration_minutes": 25,
           "expected_mode": "driving",
@@ -185,18 +185,18 @@
           0
         ],
         "affected_stop_ids": [
-          "53cf2143-8371-435d-8626-1a039c7259ba",
-          "1a8ff06f-c686-4f31-a92a-504e106af80c"
+          "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
+          "7415a5ee-bf65-45e9-98b1-b861ff134ae6"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "b21a5e06-3a5d-5799-b483-81bcfe295f4d"
+          "2bc4edd9-dacb-5486-964f-8f05fc986be4"
         ],
         "repairable": false,
         "confirmation_action": "请补充相邻地点的结束和开始时间后重新审计"
       },
       {
-        "finding_id": "d5cf85b3-f5b7-4043-a5ca-53fc411c57fe",
+        "finding_id": "18372d8c-58d3-42a4-baf4-ac37fa7f8619",
         "rule_id": "constraint.duplicate",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -216,7 +216,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "2cae8730-85ec-48c5-b77a-fad0dba2809f",
+        "finding_id": "88a7e9b7-6101-4a66-93ea-5f70c6cb58b7",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -228,7 +228,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -236,7 +236,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -255,7 +255,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "de5b5d87-f23b-4134-ad54-f58741ca8a1c",
+        "finding_id": "486aee20-194a-47ea-ba9d-4fc769b8e3c3",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -267,7 +267,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -286,7 +286,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "6e4ee941-ba88-4b42-8678-5e17f7fa9796",
+        "finding_id": "2e121cc3-8b3f-488e-b57d-fc2d375351e7",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -298,7 +298,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -317,7 +317,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "6a55d5eb-f0be-420b-b2f4-c266adb701b0",
+        "finding_id": "bb0c0871-602c-4f71-a245-5dccc70f4906",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -329,7 +329,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -337,7 +337,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -356,7 +356,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "141acd95-57c8-487a-b2c5-d9501f9ab4eb",
+        "finding_id": "f125b555-fc99-4908-82c4-6e0cc64348ba",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -368,7 +368,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -376,7 +376,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -395,7 +395,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "2bee0d62-4016-4264-8737-39282db097d5",
+        "finding_id": "41398e69-a247-4ebb-83dc-82d730dc7a63",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -407,7 +407,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -426,7 +426,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "c3484adc-0a16-462e-be38-c4f8f39828d1",
+        "finding_id": "986c59f8-3117-40e1-8901-0fec50cefedb",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -438,7 +438,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -457,7 +457,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "09b96987-d385-4ea7-98bb-d1a089d8145c",
+        "finding_id": "7538e8ff-2104-4a14-8533-68bd56581090",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -469,7 +469,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -488,7 +488,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "36394c6e-f57d-41a8-ba85-ec6c13d0f288",
+        "finding_id": "a41d8bfe-6c67-4135-b9e4-5d6fba15599f",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -500,7 +500,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -519,7 +519,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "0e10eb67-d89c-4579-b3bc-d28e430135f2",
+        "finding_id": "a53414d1-6286-47b4-9857-044c29ce4bf9",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -531,7 +531,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -539,7 +539,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -558,7 +558,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "f4a89c8b-5f58-4f9b-bcbf-3ebe5210fb12",
+        "finding_id": "e54eeb03-c065-4148-9d4e-a70dc3ef016e",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -570,7 +570,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -578,7 +578,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -597,7 +597,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "c0aa03c8-b89d-430c-ab58-fb868a3d585c",
+        "finding_id": "987c08e1-d091-45a9-83fc-00fdf65852a7",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -609,7 +609,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -628,7 +628,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "200d2772-f1cd-4793-9336-7294f41426fd",
+        "finding_id": "ce323ed6-3250-4778-93b6-d6e42fbeef33",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -640,7 +640,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -659,7 +659,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "8c822ac1-8bec-4ee1-afce-2e09b0bdbf24",
+        "finding_id": "defef991-3fae-443b-8bac-82609023a0a7",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -671,7 +671,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -690,7 +690,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "7a2fb550-ffe4-4155-b3e8-dd15c5c1a569",
+        "finding_id": "3de17811-676a-485a-9511-730d74da0f0c",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -702,7 +702,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -721,7 +721,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "4badeca3-f888-44ed-9ad3-1446a62ccced",
+        "finding_id": "3efcc280-f4e2-40d0-90cc-e091cec399b4",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -733,7 +733,7 @@
           "place_id": "bj-tiananmen",
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -741,7 +741,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -754,18 +754,18 @@
           0
         ],
         "affected_stop_ids": [
-          "53cf2143-8371-435d-8626-1a039c7259ba"
+          "6e3cb6f6-d210-41eb-ac36-b3d556ecda72"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "66ad365f-40f4-5c7b-8fe9-66d3668d1018",
-          "350e0635-84e9-5ca1-99df-9903610ac611"
+          "7e06c9e3-5437-5d06-a293-f20317a923a1",
+          "37954f65-2c21-5d0e-9d04-bb167172c82e"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "5a35e20d-d802-48d2-b4be-36f37e97e49d",
+        "finding_id": "5b25c881-00c6-4f58-a107-41f7e85c4152",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -777,7 +777,7 @@
           "place_id": "bj-forbidden-city",
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -785,7 +785,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -798,18 +798,18 @@
           0
         ],
         "affected_stop_ids": [
-          "1a8ff06f-c686-4f31-a92a-504e106af80c"
+          "7415a5ee-bf65-45e9-98b1-b861ff134ae6"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "615d0044-e1a5-59f7-b6af-d7eb584f730e",
-          "6170129a-0219-5f9b-bd06-0432c3706821"
+          "d28aa0ac-d444-519e-a8f0-8f6a20c810a5",
+          "5de87e6b-0f1f-5c37-8882-e233a9556894"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "cddc7676-7260-4e2c-ba79-0c75ba5197cf",
+        "finding_id": "737c461a-565a-4da7-bdd4-9f0cb0849571",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -821,7 +821,7 @@
           "place_id": "bj-badaling",
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -834,18 +834,18 @@
           1
         ],
         "affected_stop_ids": [
-          "6b718e78-94a4-41ef-b83d-538f71969801"
+          "e76e6f05-0415-4924-9173-eb36ad7a6778"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "e800fab4-c509-5739-9ecf-bc6bd680423b",
-          "270a335c-4367-5dad-99b4-c0419ac98d83"
+          "617ddb71-1fc1-55bb-9b7a-7a8c43b98ace",
+          "42503b88-6581-5a28-8ef5-b8b68e04550b"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "59c39056-c7f3-4511-876f-d3d2d4dc87df",
+        "finding_id": "a501e171-c0b6-48e2-ad7a-76cc33a9f267",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -857,7 +857,7 @@
           "place_id": "bj-temple-of-heaven",
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -870,18 +870,18 @@
           2
         ],
         "affected_stop_ids": [
-          "e33546d1-93eb-4ec8-9a65-46086c3cbe91"
+          "7f6bed7f-56ea-41f4-b72b-8242f9098ab0"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "844f9dce-1371-5062-b3ba-2ca0d4a0f866",
-          "6a80adca-87c2-5d70-a7cc-f817d031e5ba"
+          "a717eca1-309d-5bd1-b905-0742d0cf2d96",
+          "43044d3a-dcf3-5441-89f1-b3d7af2fb2de"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "83ea15bc-3197-44f7-9714-67c0026ea072",
+        "finding_id": "4325d630-bb52-4152-b658-9dd1e3d81cf6",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -893,7 +893,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -901,7 +901,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -920,7 +920,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "e31e4760-22cb-4c9b-8117-0a648cd76c63",
+        "finding_id": "4233e644-c0d2-4229-8f85-20375c4ff8a8",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -932,7 +932,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -951,7 +951,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "60e527ac-61c2-46ae-a5b1-647f25b4a30a",
+        "finding_id": "714425a9-b3c3-4182-b507-004789cee830",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -963,7 +963,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+              "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
               "place_id": "bj-temple-of-heaven",
               "start_time": "09:00",
               "end_time": null,
@@ -982,7 +982,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "d4f85959-e68c-4fcc-a920-f4572421293f",
+        "finding_id": "2e3719f5-b873-4d35-b894-10d5f56f3731",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -994,7 +994,7 @@
           "place_id": "bj-forbidden-city",
           "day_stops": [
             {
-              "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+              "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
               "place_id": "bj-tiananmen",
               "start_time": "08:30",
               "end_time": null,
@@ -1002,7 +1002,7 @@
               "fixed_commitment": false
             },
             {
-              "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+              "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
               "place_id": "bj-forbidden-city",
               "start_time": "10:00",
               "end_time": null,
@@ -1015,18 +1015,18 @@
           0
         ],
         "affected_stop_ids": [
-          "1a8ff06f-c686-4f31-a92a-504e106af80c"
+          "7415a5ee-bf65-45e9-98b1-b861ff134ae6"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "615d0044-e1a5-59f7-b6af-d7eb584f730e",
-          "6170129a-0219-5f9b-bd06-0432c3706821"
+          "d28aa0ac-d444-519e-a8f0-8f6a20c810a5",
+          "5de87e6b-0f1f-5c37-8882-e233a9556894"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "0dffab42-e0ea-4c53-a33c-f1d0ed9a4504",
+        "finding_id": "767b53b6-cd18-4fc7-a7a2-3fc2f7fbc60f",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -1038,7 +1038,7 @@
           "place_id": "bj-badaling",
           "day_stops": [
             {
-              "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+              "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
               "place_id": "bj-badaling",
               "start_time": "07:30",
               "end_time": null,
@@ -1051,18 +1051,18 @@
           1
         ],
         "affected_stop_ids": [
-          "6b718e78-94a4-41ef-b83d-538f71969801"
+          "e76e6f05-0415-4924-9173-eb36ad7a6778"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "e800fab4-c509-5739-9ecf-bc6bd680423b",
-          "270a335c-4367-5dad-99b4-c0419ac98d83"
+          "617ddb71-1fc1-55bb-9b7a-7a8c43b98ace",
+          "42503b88-6581-5a28-8ef5-b8b68e04550b"
         ],
         "repairable": false,
         "confirmation_action": null
       }
     ],
-    "created_at": "2026-08-23T04:58:32.048232Z",
+    "created_at": "2026-08-23T07:51:30.551491Z",
     "supersedes_report_id": null
   }
 ]

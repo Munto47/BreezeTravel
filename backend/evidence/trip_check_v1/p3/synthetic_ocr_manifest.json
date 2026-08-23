@@ -1,7 +1,7 @@
 {
   "schema_version": "trip-check-p3-synthetic-ocr-manifest-v2",
-  "subject_commit": "8cb9417278004088e6c41a7b86c4b5f40813815c",
-  "generated_at": "2026-08-23T06:20:59.430281+00:00",
+  "subject_commit": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
+  "generated_at": "2026-08-23T07:51:10.250119+00:00",
   "status": "PASS",
   "evidence_class": "synthetic_stress",
   "provenance": "high_fidelity_synthetic",
@@ -9,10 +9,110 @@
     "This dataset is not real OCR, public E2E, human, or release evidence.",
     "A PASS only satisfies the approved P3 synthetic OCR phase exception."
   ],
-  "spec_path": "backend/evals/fixtures/trip_check_ocr_synthetic_v1.json",
-  "spec_sha256": "6989231f72a147f00c0932b333742ee46b3ede69c05437e7d0b0fabb257b3236",
+  "spec_path": "backend/evals/fixtures/trip_check_ocr_synthetic_v2.json",
+  "spec_sha256": "2d0dbfa255a351ad8ad6daf2b8bd98826c00653e58bab6cd9596a6011bb9006f",
+  "spec_receipt": {
+    "source_schema": "trip-check-ocr-synthetic-v2-overlay",
+    "overlay_sha256": "2d0dbfa255a351ad8ad6daf2b8bd98826c00653e58bab6cd9596a6011bb9006f",
+    "base_spec_sha256": "6989231f72a147f00c0932b333742ee46b3ede69c05437e7d0b0fabb257b3236",
+    "resolved_spec_sha256": "fbe95640a72a1c4c0800e797b52f9d693f35ed477a0b3903ef823cb8b0504b72"
+  },
   "renderer_version": "pillow-trip-check-ui-v1",
-  "render_set_sha256": "302e57752e732470c48fce52367129c2d3d8355ccc96d14301e10b8fc178e6df",
+  "render_set_sha256": "f1d79dd5959e4272bd3249032ce5ff0d4e8c50960dd69a1e41896d6354c70152",
+  "render_integrity": {
+    "status": "PASS",
+    "validator_version": "deterministic-render-integrity-v1",
+    "review_type": "deterministic_automated",
+    "case_count": 12,
+    "unique_render_count": 12,
+    "font_sha256": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f",
+    "cases": {
+      "TC-P3-OCR-BJ-01": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-BJ-02": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-BJ-03": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-BJ-04": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-SH-01": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-SH-02": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-SH-03": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-SH-04": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-HZ-01": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-HZ-02": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-HZ-03": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      },
+      "TC-P3-OCR-HZ-04": {
+        "status": "PASS",
+        "decoded": true,
+        "dimensions_match": true,
+        "non_empty": true,
+        "reproducible": true
+      }
+    }
+  },
   "font_sha256": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f",
   "ocr_engine": {
     "name": "paddleocr",
@@ -20,13 +120,14 @@
   },
   "metrics": {
     "case_count": 12,
-    "key_field_precision": 1.0,
-    "key_field_recall": 1.0,
-    "key_field_f1": 1.0,
+    "ocr_text_micro_precision": 0.999432,
+    "ocr_text_micro_recall": 0.998866,
+    "ocr_text_micro_f1": 0.999149,
+    "key_field_f1": 0.999149,
+    "key_field_exact_recall": 1.0,
     "low_confidence_confirmation_recall": 1.0,
     "must_confirm_field_count": 14,
-    "original_image_leak_hits": 0,
-    "visual_review_approved": true
+    "original_image_leak_hits": 0
   },
   "distribution": {
     "cities": {
@@ -68,7 +169,7 @@
       "layout": "chat",
       "difficulty": "clean",
       "theme": "light",
-      "image_sha256": "249a6954ea5e1b727be89e5fb2e0991b3266430e02ec4d98e0cf694792ece78e",
+      "image_sha256": "ab530bc98434d79483eb44c9dd177e17862353112c8853d1761944a2ecdf95cf",
       "ocr_line_count": 10,
       "min_line_confidence": 0.9995080828666687,
       "recognized_field_count": 12,
@@ -169,7 +270,7 @@
       "layout": "note",
       "difficulty": "medium",
       "theme": "dark",
-      "image_sha256": "986ea27ad09d1ea84bd7b7789405e38c5839c2536e82e44136777ff373dd58ba",
+      "image_sha256": "2392a3c55404a39d27a4e667b3b473cc46da411ac62dee8c56d40258608da6b3",
       "ocr_line_count": 14,
       "min_line_confidence": 0.9893547296524048,
       "recognized_field_count": 11,
@@ -263,12 +364,12 @@
       "layout": "guide_ai",
       "difficulty": "hard",
       "theme": "light",
-      "image_sha256": "4b3f1fbf8484cf9cc2fc4094027b30a40b639440dff2e70e34e8df605494a792",
+      "image_sha256": "8670558c907ef76752a40b601efd0db326bdff6278f713dc43a6adf30ca17591",
       "ocr_line_count": 16,
       "min_line_confidence": 0.6856899857521057,
       "recognized_field_count": 10,
       "expected_field_count": 10,
-      "parse_stop_count": 20,
+      "parse_stop_count": 21,
       "parse_errors": [],
       "fields": [
         {
@@ -318,14 +419,14 @@
           "type": "poi",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "bj03.driving",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "bj03.preference",
@@ -350,12 +451,12 @@
       "layout": "chat",
       "difficulty": "clean",
       "theme": "dark",
-      "image_sha256": "2956eedeed968167ef3879e4968138137feb41aa0a375c2bb723f028686ad629",
-      "ocr_line_count": 12,
-      "min_line_confidence": 0.999311625957489,
+      "image_sha256": "ae941a5c3c887f87934ecf4ca342bffa3e42760eea3d5a30b38219f55d54d6d8",
+      "ocr_line_count": 13,
+      "min_line_confidence": 0.9768005609512329,
       "recognized_field_count": 10,
       "expected_field_count": 10,
-      "parse_stop_count": 17,
+      "parse_stop_count": 19,
       "parse_errors": [],
       "fields": [
         {
@@ -437,7 +538,7 @@
       "layout": "note",
       "difficulty": "clean",
       "theme": "light",
-      "image_sha256": "8172a4b24dc0e2b21d64d91e7e6ad370df1dd44ef4b55ffc017518739ffef1c2",
+      "image_sha256": "dcd5138347368d5430d60a452e5215f6fb89b2b8f747d8bb3af558f5ced11e6b",
       "ocr_line_count": 12,
       "min_line_confidence": 0.9399071335792542,
       "recognized_field_count": 11,
@@ -531,9 +632,9 @@
       "layout": "guide_ai",
       "difficulty": "medium",
       "theme": "dark",
-      "image_sha256": "3b893f51c0fcaf24cb6155cece5c492c9b82af00e018ad992b540d6a469e5bb8",
+      "image_sha256": "4acda228b3d4ba057f114512fda5d11a38c5fb15202e75138f6d2bd74ea4edce",
       "ocr_line_count": 13,
-      "min_line_confidence": 0.9807901978492737,
+      "min_line_confidence": 0.9811457395553589,
       "recognized_field_count": 11,
       "expected_field_count": 11,
       "parse_stop_count": 15,
@@ -544,7 +645,7 @@
           "type": "city",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": false
+          "confirmation_required": true
         },
         {
           "field_id": "sh02.travelers",
@@ -586,21 +687,21 @@
           "type": "poi",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": false
+          "confirmation_required": true
         },
         {
           "field_id": "sh02.bicycling",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": false
+          "confirmation_required": true
         },
         {
           "field_id": "sh02.transit",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": false
+          "confirmation_required": true
         },
         {
           "field_id": "sh02.preference",
@@ -625,9 +726,9 @@
       "layout": "chat",
       "difficulty": "hard",
       "theme": "dark",
-      "image_sha256": "4fc435ab4e7a2a97b13b849cc18239a26abc576fbbea15f75ac6d486412fa423",
+      "image_sha256": "89d6a0c02209e9ea13c7e5f0bc1d8031937e12035e2ff1d8555f73ed9a9f2c16",
       "ocr_line_count": 16,
-      "min_line_confidence": 0.9996352791786194,
+      "min_line_confidence": 0.9996182322502136,
       "recognized_field_count": 11,
       "expected_field_count": 11,
       "parse_stop_count": 20,
@@ -719,7 +820,7 @@
       "layout": "note",
       "difficulty": "clean",
       "theme": "light",
-      "image_sha256": "c33f0a3e5df9dfc9a87362275ae393cf06f825d923a31adee5b7ff8afc686282",
+      "image_sha256": "7a50dc0bd599a1f3506c3ec05a208c8a0c7b98129ed02a2643346dc25132407a",
       "ocr_line_count": 13,
       "min_line_confidence": 0.9782110452651978,
       "recognized_field_count": 12,
@@ -820,9 +921,9 @@
       "layout": "guide_ai",
       "difficulty": "medium",
       "theme": "dark",
-      "image_sha256": "c2738987e6bf3751ad71d316ae7ae6f242709fa04cd6c1e8d2bdcca38dbf0139",
+      "image_sha256": "e297e6230739ccceb19835a3b360af9c98c77f6cf7be86f533f5425632ece039",
       "ocr_line_count": 14,
-      "min_line_confidence": 0.9847479462623596,
+      "min_line_confidence": 0.9845017790794373,
       "recognized_field_count": 11,
       "expected_field_count": 11,
       "parse_stop_count": 17,
@@ -914,7 +1015,7 @@
       "layout": "chat",
       "difficulty": "medium",
       "theme": "light",
-      "image_sha256": "d8262592ca426442d2bf970658858eb12b7f845546d4a259d3c5de587d6d8496",
+      "image_sha256": "445130b089a214d010eeebb3aa9c73faf8844c2eae3a7e0804ac9e3c3e92a573",
       "ocr_line_count": 13,
       "min_line_confidence": 0.7709671854972839,
       "recognized_field_count": 11,
@@ -927,77 +1028,77 @@
           "type": "city",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.travelers",
           "type": "traveler_count",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.days",
           "type": "day_count",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.arrival",
           "type": "arrival",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.departure",
           "type": "departure",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.lodging",
           "type": "lodging_area",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.poi1",
           "type": "poi",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.transit",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.bicycling",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.preference",
           "type": "preference",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz02.constraint",
           "type": "constraint",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         }
       ]
     },
@@ -1008,7 +1109,7 @@
       "layout": "note",
       "difficulty": "hard",
       "theme": "dark",
-      "image_sha256": "a238b698dd339b21ab6e31513e123ee0cd65682099fafcd4d7c016567e95a56b",
+      "image_sha256": "98ce4b42bc9cf43920cc68e2192b964d6bb589efca662a442ecce625d7d7ceed",
       "ocr_line_count": 15,
       "min_line_confidence": 0.9855670928955078,
       "recognized_field_count": 11,
@@ -1102,9 +1203,9 @@
       "layout": "guide_ai",
       "difficulty": "hard",
       "theme": "light",
-      "image_sha256": "f165f48551edab221daf5248a5fc09ca7f1d8400c749c9c753648ffcae246cec",
+      "image_sha256": "07756b362eb4a7c04b9139bbabfa934ca7b263badbad58f61b7698291f8032fe",
       "ocr_line_count": 16,
-      "min_line_confidence": 0.9668722748756409,
+      "min_line_confidence": 0.9738253355026245,
       "recognized_field_count": 11,
       "expected_field_count": 11,
       "parse_stop_count": 19,
@@ -1157,21 +1258,21 @@
           "type": "poi",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz04.transit",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz04.driving",
           "type": "transport_mode",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         },
         {
           "field_id": "hz04.preference",
@@ -1185,7 +1286,7 @@
           "type": "constraint",
           "matched": true,
           "must_confirm": false,
-          "confirmation_required": true
+          "confirmation_required": false
         }
       ]
     }

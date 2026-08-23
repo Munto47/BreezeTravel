@@ -1,5 +1,5 @@
 {
-  "import_id": "1b98368b-ef2d-414e-9b5f-f37ae5622624",
+  "import_id": "9867e5e1-8a6c-447c-aa1f-5c380c83273b",
   "workspace_id": "pilot-tc-p1-sh-02",
   "source_type": "MANUAL_TEXT",
   "raw_text": "上海3人。第1天 09:00 东方明珠，14:00 外滩；第2天 09:00 豫园。",
@@ -7,8 +7,8 @@
   "status": "NEEDS_RESOLUTION",
   "raw_stops": [
     {
-      "raw_stop_id": "4810e343-e06a-4160-aab6-b29d276b59fe",
-      "import_id": "1b98368b-ef2d-414e-9b5f-f37ae5622624",
+      "raw_stop_id": "9af95c7d-81d9-4d0a-b635-9fb035a250ef",
+      "import_id": "9867e5e1-8a6c-447c-aa1f-5c380c83273b",
       "day_index": 0,
       "raw_name": "东方明珠",
       "raw_time": "09:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "43c3659b-8a12-4e77-8819-e2bd0ba9baab",
-      "import_id": "1b98368b-ef2d-414e-9b5f-f37ae5622624",
+      "raw_stop_id": "4fdf9c92-5765-4630-9c4d-e7b2ec63c277",
+      "import_id": "9867e5e1-8a6c-447c-aa1f-5c380c83273b",
       "day_index": 0,
       "raw_name": "外滩",
       "raw_time": "14:00",
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "e0a1e1d6-8008-467f-8840-0befb299e880",
-      "import_id": "1b98368b-ef2d-414e-9b5f-f37ae5622624",
+      "raw_stop_id": "4e20a1f6-5e0b-419b-a6a4-1ccb6e2f1954",
+      "import_id": "9867e5e1-8a6c-447c-aa1f-5c380c83273b",
       "day_index": 1,
       "raw_name": "豫园",
       "raw_time": "09:00",
@@ -51,7 +51,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "4810e343-e06a-4160-aab6-b29d276b59fe",
+      "raw_stop_id": "9af95c7d-81d9-4d0a-b635-9fb035a250ef",
       "canonical_place_id": null,
       "candidates": [
         {
@@ -110,7 +110,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "43c3659b-8a12-4e77-8819-e2bd0ba9baab",
+      "raw_stop_id": "4fdf9c92-5765-4630-9c4d-e7b2ec63c277",
       "canonical_place_id": null,
       "candidates": [
         {
@@ -169,7 +169,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "e0a1e1d6-8008-467f-8840-0befb299e880",
+      "raw_stop_id": "4e20a1f6-5e0b-419b-a6a4-1ccb6e2f1954",
       "canonical_place_id": null,
       "candidates": [
         {
@@ -233,6 +233,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.095921Z",
-  "updated_at": "2026-08-23T04:58:32.095921Z"
+  "created_at": "2026-08-23T07:51:30.608432Z",
+  "updated_at": "2026-08-23T07:51:30.608432Z"
 }

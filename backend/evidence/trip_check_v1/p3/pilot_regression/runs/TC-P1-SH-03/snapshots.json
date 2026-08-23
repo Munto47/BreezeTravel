@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+    "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
     "workspace_id": "pilot-tc-p1-sh-03",
     "itinerary_revision": 1,
     "provider_set": [
@@ -10,8 +10,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "77a8998b-f5f2-571b-a7f5-3dc3c834711d",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "d302b507-ea21-58f4-a493-2bb3380fc36a",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-bund",
         "fact_type": "POI_IDENTITY",
@@ -37,8 +37,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "20fbbd01-6226-5515-81ec-fee28054171a",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "96e65177-5b20-5afb-a6e8-1f6641f92ddd",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-bund",
         "fact_type": "OPENING_HOURS",
@@ -53,8 +53,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "fe079363-44f8-5abe-ba70-024fdf8da554",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "75a35eae-2b1b-5dc7-9af5-45c322a44da9",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-disney",
         "fact_type": "POI_IDENTITY",
@@ -80,8 +80,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "65397197-4556-5850-8e07-536cdf7e7b83",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "51a4112f-f392-52d4-8468-bd371b321280",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-disney",
         "fact_type": "OPENING_HOURS",
@@ -96,8 +96,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "1d4109be-89c4-5ebb-bab4-59406b7eaf0d",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "f06b51c4-63c9-56b8-aef5-6d423f7ba6ce",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-tianzifang",
         "fact_type": "POI_IDENTITY",
@@ -123,8 +123,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "3cf0e769-7d91-5412-bb2a-5cab7441e0b1",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "b4d50937-9559-5a06-a7c1-cf64961b7823",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "PLACE",
         "subject_id": "sh-tianzifang",
         "fact_type": "OPENING_HOURS",
@@ -139,24 +139,24 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "892e9bac-3b33-5285-998c-d0b3246bf89b",
-        "snapshot_id": "f791ee7f-9606-5d58-9b17-b2bd31e8e076",
+        "fact_id": "6c2ccd23-8172-5370-80c7-ff77065e3a1c",
+        "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "a1e7bb10-800b-44ff-b8d0-1c9747781616",
+        "subject_id": "a96bfaa5-2cdf-43a4-962f-96e62b585ff8",
         "fact_type": "TRAVELER_COUNT",
         "value": 4,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.098745Z",
+        "observed_at": "2026-08-23T07:51:30.611189Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.098745Z",
-        "response_hash": "fd812fb6adbe3624a94c81fcb234b456cb00facd493faeb66cbe6a9a027a27d0",
+        "valid_until": "2036-08-20T07:51:30.611189Z",
+        "response_hash": "133c900c29fad2d5cc20fb64a10a3a0e0a0ea83127f3d4faeee15acf7dc2c18d",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.098745Z",
+    "created_at": "2026-08-23T07:51:30.611189Z",
     "supersedes_snapshot_id": null
   }
 ]

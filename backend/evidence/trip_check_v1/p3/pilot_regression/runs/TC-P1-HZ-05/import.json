@@ -1,5 +1,5 @@
 {
-  "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+  "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
   "workspace_id": "pilot-tc-p1-hz-05",
   "source_type": "MANUAL_TEXT",
   "raw_text": "杭州2人5天。第1天西湖风景名胜区；第2天灵隐寺；第3天雷峰塔；第4天西溪湿地国家公园；第5天河坊街·清河坊。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "8bbe0211-d930-4b7c-aced-6acfa0e3e325",
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "raw_stop_id": "f57b37e8-0283-427d-b367-dda8cce9ef0b",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "day_index": 0,
       "raw_name": "西湖风景名胜区",
       "raw_time": null,
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "8cda95e1-a53d-41d1-9e37-26e7ca0675a9",
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "raw_stop_id": "587f0280-5845-46d9-a554-a54163b65a42",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "day_index": 1,
       "raw_name": "灵隐寺",
       "raw_time": null,
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "3ede34e4-5200-44b3-bf64-a0de2ea8c775",
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "raw_stop_id": "432bdf37-99bf-4213-8d83-2909acd0e977",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "day_index": 2,
       "raw_name": "雷峰塔",
       "raw_time": null,
@@ -49,8 +49,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "d22893cc-ac1e-4815-8397-c48570d1c733",
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "raw_stop_id": "0d85e8c9-76b6-4bee-8120-7981895db643",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "day_index": 3,
       "raw_name": "西溪湿地国家公园",
       "raw_time": null,
@@ -63,8 +63,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "ccd6baa1-9bba-4b69-ad71-2aae54f8d2b3",
-      "import_id": "bf853235-8065-495a-8ece-7666cee41d01",
+      "raw_stop_id": "d932429c-f1e4-4ac2-8a84-2a3c875704a1",
+      "import_id": "9ffb9912-52c9-4a3d-a124-1c257558237c",
       "day_index": 4,
       "raw_name": "河坊街·清河坊",
       "raw_time": null,
@@ -79,7 +79,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "8bbe0211-d930-4b7c-aced-6acfa0e3e325",
+      "raw_stop_id": "f57b37e8-0283-427d-b367-dda8cce9ef0b",
       "canonical_place_id": "hz-west-lake",
       "candidates": [
         {
@@ -138,7 +138,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "8cda95e1-a53d-41d1-9e37-26e7ca0675a9",
+      "raw_stop_id": "587f0280-5845-46d9-a554-a54163b65a42",
       "canonical_place_id": "hz-lingyin",
       "candidates": [
         {
@@ -197,7 +197,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "3ede34e4-5200-44b3-bf64-a0de2ea8c775",
+      "raw_stop_id": "432bdf37-99bf-4213-8d83-2909acd0e977",
       "canonical_place_id": "hz-leifeng",
       "candidates": [
         {
@@ -256,7 +256,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "d22893cc-ac1e-4815-8397-c48570d1c733",
+      "raw_stop_id": "0d85e8c9-76b6-4bee-8120-7981895db643",
       "canonical_place_id": "hz-xixi",
       "candidates": [
         {
@@ -315,7 +315,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "ccd6baa1-9bba-4b69-ad71-2aae54f8d2b3",
+      "raw_stop_id": "d932429c-f1e4-4ac2-8a84-2a3c875704a1",
       "canonical_place_id": "hz-hefang",
       "candidates": [
         {
@@ -379,6 +379,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.178263Z",
-  "updated_at": "2026-08-23T04:58:32.178263Z"
+  "created_at": "2026-08-23T07:51:30.691602Z",
+  "updated_at": "2026-08-23T07:51:30.691602Z"
 }

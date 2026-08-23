@@ -1,8 +1,8 @@
 {
-  "run_id": "e9bad68d-36b2-43c9-a98f-28f1c3558ac1",
+  "run_id": "43b93cef-bd02-4e3e-9963-4ce1d87129f1",
   "workspace_id": "pilot-tc-p1-sh-01",
   "itinerary_revision": 1,
-  "brief_id": "4e7074c6-8d2f-4c1f-988b-2bcee39040c7",
+  "brief_id": "68ad0372-386d-4f29-9192-388ee4219b96",
   "brief_revision": 2,
   "stage": "POSTCHECK",
   "stage_attempt": 1,
@@ -10,7 +10,7 @@
   "lease_until": null,
   "run_spec": {
     "schema_version": "trip-check-run-spec-v1",
-    "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+    "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
     "prompt_version": "none-p1",
     "model_version": "none-p1",
     "provider_version": "controlled-fixture-v1",
@@ -28,7 +28,7 @@
       "max_cost_usd": 0.0
     }
   },
-  "config_hash": "76a60f81f0ad9736127cccc2c0fdf72b772fe266c3a858ba57fc2e65d98bcc3e",
+  "config_hash": "7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
   "completed_stages": [
     "PARSE",
     "WAIT_BRIEF_CONFIRMATION",
@@ -41,11 +41,11 @@
   ],
   "partial_failures": [],
   "status": "SUCCEEDED",
-  "evidence_snapshot_id": "782ba978-54c4-4e3f-b3b0-8bcb27c9dcf6",
-  "report_id": "cbf29793-a667-4213-bd19-880a8287e72f",
-  "advice_bundle_id": "fa0929c1-3c62-51a5-a7ac-cba38d691f99",
+  "evidence_snapshot_id": "982eb6bc-1afb-463c-96a1-54d064c09d3a",
+  "report_id": "8daa6748-0ffd-440d-adf7-3b60474e8710",
+  "advice_bundle_id": "28eb033f-bc9d-57c1-ae36-56a76b860262",
   "version": 6,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.083389Z",
-  "updated_at": "2026-08-23T04:58:32.095029Z"
+  "created_at": "2026-08-23T07:51:30.592637Z",
+  "updated_at": "2026-08-23T07:51:30.607420Z"
 }

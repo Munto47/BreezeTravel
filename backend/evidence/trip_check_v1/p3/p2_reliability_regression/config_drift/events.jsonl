@@ -1,0 +1,4 @@
+{"created_at": "2026-08-23T07:53:43.728487Z", "event_id": 42, "event_type": "run_created", "payload": {"status": "WAITING"}, "run_id": "100eafe4-e200-4a53-a3a8-d9e4392e89b3", "run_version": 1, "stage": "COLLECT_EVIDENCE"}
+{"created_at": "2026-08-23T07:53:43.741486Z", "event_id": 43, "event_type": "run_claimed", "payload": {"status": "RUNNING"}, "run_id": "100eafe4-e200-4a53-a3a8-d9e4392e89b3", "run_version": 2, "stage": "COLLECT_EVIDENCE"}
+{"created_at": "2026-08-23T07:53:43.755529Z", "event_id": 44, "event_type": "stage_started", "payload": {"attempt": 1}, "run_id": "100eafe4-e200-4a53-a3a8-d9e4392e89b3", "run_version": 2, "stage": "COLLECT_EVIDENCE"}
+{"created_at": "2026-08-23T07:53:43.792236Z", "event_id": 45, "event_type": "stage_completed", "payload": {"completed_stage": "COLLECT_EVIDENCE", "receipt_id": "0d09ddc2-0bc9-5de1-941c-352cc08cb0e4", "status": "RUNNING"}, "run_id": "100eafe4-e200-4a53-a3a8-d9e4392e89b3", "run_version": 3, "stage": "AUDIT"}

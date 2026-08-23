@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "4fab6b93-99c5-4d97-8e52-07c80ae26cae",
+    "itinerary_id": "b2edb1c9-2fe7-42d8-89f2-76c843b10f09",
     "workspace_id": "pilot-tc-p1-sh-03",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+            "stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
             "place_id": "sh-bund",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "外滩",
-            "source_raw_stop_id": "21052e02-61ae-4020-b847-5c3cc21788f7",
+            "source_raw_stop_id": "1f7a110c-5bc1-4c74-b44f-c76179fec330",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -40,7 +40,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+            "stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
             "place_id": "sh-disney",
             "day_index": 1,
             "order_index": 0,
@@ -49,7 +49,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "上海迪士尼乐园",
-            "source_raw_stop_id": "99e681d5-f323-410e-b69c-001f366a0ca9",
+            "source_raw_stop_id": "be106a3c-503b-4f33-9d26-ec2c97663280",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -64,7 +64,7 @@
         "date": "2026-10-03",
         "stops": [
           {
-            "stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+            "stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
             "place_id": "sh-tianzifang",
             "day_index": 2,
             "order_index": 0,
@@ -73,7 +73,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "田子坊",
-            "source_raw_stop_id": "1a4b8261-64d3-4e45-9305-4d17fcd129b7",
+            "source_raw_stop_id": "52e60604-2214-4929-8166-a8c801b73d7d",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -86,10 +86,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "947ae1fa-4742-4a64-9462-b772eae712ae",
+      "import_id": "bedd1b52-34c6-4e61-9870-1b64d339b11b",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "21052e02-61ae-4020-b847-5c3cc21788f7": {
+        "1f7a110c-5bc1-4c74-b44f-c76179fec330": {
           "place_id": "sh-bund",
           "coords": {
             "lng": 121.49,
@@ -100,7 +100,7 @@
           "receipt_hash": "68fe0cb47f69894518b09870cb9f1ae3570b30920661ff7df73bfd4377f72b64",
           "canonical_name": "外滩"
         },
-        "99e681d5-f323-410e-b69c-001f366a0ca9": {
+        "be106a3c-503b-4f33-9d26-ec2c97663280": {
           "place_id": "sh-disney",
           "coords": {
             "lng": 121.657,
@@ -111,7 +111,7 @@
           "receipt_hash": "a04e0a53c09baef7878817d070fd05a3a5fb93aadc80b344b2b4aacc5116bb5b",
           "canonical_name": "上海迪士尼乐园"
         },
-        "1a4b8261-64d3-4e45-9305-4d17fcd129b7": {
+        "52e60604-2214-4929-8166-a8c801b73d7d": {
           "place_id": "sh-tianzifang",
           "coords": {
             "lng": 121.475,
@@ -182,10 +182,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "cf18d6a4f683d854b1c2b6581ffa11db6d581b966fee925af076705b970f8536"
+      "materialization_hash": "10085e621852afa9bbde2e335d81da50f0aac85c5e004ea279659ffc8a2200d1"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.098542Z",
-    "content_hash": "6c9272b48ceeb9f192e66a0b6773da206a995a77669813a65dbd4227219b5fee"
+    "created_at": "2026-08-23T07:51:30.610972Z",
+    "content_hash": "4490f1456d7d05c214e74dd23078b4e2bcc794f1e92b13cc974e29e80d2744dc"
   }
 ]

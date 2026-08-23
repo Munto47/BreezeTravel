@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+    "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
     "workspace_id": "pilot-tc-p1-hz-03",
     "itinerary_revision": 1,
     "provider_set": [
@@ -10,8 +10,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "188e9d71-db89-547c-8b1b-de6d340f0179",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "deacd4e4-84c6-5f4b-921e-0ea311f9d203",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "POI_IDENTITY",
@@ -37,8 +37,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "0ba76c84-9a6d-50eb-b27c-ce7cedaa3885",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "33acdc92-1d85-5e6f-bb64-cb8a362076e3",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "OPENING_HOURS",
@@ -53,8 +53,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "d51fef07-cfb8-58cc-bed0-e15e04ea865d",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "4fb25ab1-c50e-5184-9f0a-b12e39373666",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-xixi",
         "fact_type": "POI_IDENTITY",
@@ -80,8 +80,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "f4676060-ffee-54f1-b0da-120cf51739c8",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "043d2a76-cb0d-5eff-bddb-c3dc8cfc1ebc",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-xixi",
         "fact_type": "OPENING_HOURS",
@@ -96,8 +96,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "a50250a0-4ee0-5832-868f-6c367d856ae4",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "237e1033-20ec-5082-a396-f2e67234f37f",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-hefang",
         "fact_type": "POI_IDENTITY",
@@ -123,8 +123,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "3db18f00-7f7f-546a-8b03-b0af1a793051",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "e537cd62-0d92-5de7-a2b7-32e4042ee25a",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "PLACE",
         "subject_id": "hz-hefang",
         "fact_type": "OPENING_HOURS",
@@ -139,24 +139,24 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "f1b29670-5391-5c4c-b652-98a9c5261cdd",
-        "snapshot_id": "3fabea4a-80e6-5a16-82b1-e8938fe399ba",
+        "fact_id": "40e8df6e-5b45-526f-afde-a4db5acf8a6c",
+        "snapshot_id": "5e820d8d-f712-51b7-b59f-57e87e6c22da",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "cf4de633-3124-454f-adb6-196f42703329",
+        "subject_id": "8cdf2c68-641c-49c2-aca4-f22fa90232cd",
         "fact_type": "TRAVELER_COUNT",
         "value": 4,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.156558Z",
+        "observed_at": "2026-08-23T07:51:30.669877Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.156558Z",
-        "response_hash": "3313cf275cc82e9407dd064eb364c7f669925db5f9597886fa35f39adb797f21",
+        "valid_until": "2036-08-20T07:51:30.669877Z",
+        "response_hash": "f80ec7bf51e6c12b8bc8be51d43822b8f5e0a3c2e97169864a659f95931ae544",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.156558Z",
+    "created_at": "2026-08-23T07:51:30.669877Z",
     "supersedes_snapshot_id": null
   }
 ]

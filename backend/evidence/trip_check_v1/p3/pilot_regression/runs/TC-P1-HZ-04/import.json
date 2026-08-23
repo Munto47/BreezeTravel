@@ -1,5 +1,5 @@
 {
-  "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+  "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
   "workspace_id": "pilot-tc-p1-hz-04",
   "source_type": "MANUAL_TEXT",
   "raw_text": "杭州5人，有长辈，少走路。第1天 08:00 灵隐寺，12:00 西溪湿地国家公园，15:00 龙井村（茶园）；第2天西湖风景名胜区。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
-      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "raw_stop_id": "69c73944-363c-476d-b094-56ae062539e0",
+      "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
       "day_index": 0,
       "raw_name": "灵隐寺",
       "raw_time": "08:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
-      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "raw_stop_id": "c76d8a4c-24ad-4a7e-ac6e-9af416fb6b46",
+      "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
       "day_index": 0,
       "raw_name": "西溪湿地国家公园",
       "raw_time": "12:00",
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
-      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "raw_stop_id": "4bbbff55-0378-4791-9553-65d3521b6f19",
+      "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
       "day_index": 0,
       "raw_name": "龙井村（茶园）",
       "raw_time": "15:00",
@@ -49,8 +49,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
-      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "raw_stop_id": "1127fee0-3a7f-41aa-9fb1-6c78be587959",
+      "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
       "day_index": 1,
       "raw_name": "西湖风景名胜区",
       "raw_time": null,
@@ -65,7 +65,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
+      "raw_stop_id": "69c73944-363c-476d-b094-56ae062539e0",
       "canonical_place_id": "hz-lingyin",
       "candidates": [
         {
@@ -124,7 +124,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
+      "raw_stop_id": "c76d8a4c-24ad-4a7e-ac6e-9af416fb6b46",
       "canonical_place_id": "hz-xixi",
       "candidates": [
         {
@@ -183,7 +183,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
+      "raw_stop_id": "4bbbff55-0378-4791-9553-65d3521b6f19",
       "canonical_place_id": "hz-longjing",
       "candidates": [
         {
@@ -242,7 +242,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
+      "raw_stop_id": "1127fee0-3a7f-41aa-9fb1-6c78be587959",
       "canonical_place_id": "hz-west-lake",
       "candidates": [
         {
@@ -308,6 +308,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.165905Z",
-  "updated_at": "2026-08-23T04:58:32.165905Z"
+  "created_at": "2026-08-23T07:51:30.680142Z",
+  "updated_at": "2026-08-23T07:51:30.680142Z"
 }

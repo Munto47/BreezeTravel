@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+    "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
     "workspace_id": "pilot-tc-p1-bj-01",
     "itinerary_revision": 1,
     "provider_set": [
@@ -11,8 +11,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "a6a558c0-486b-5cf1-9c3f-3dc1f413bf7b",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "cae420e4-7ff0-5d28-a9bb-aee2f4f6fa94",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "POI_IDENTITY",
@@ -38,8 +38,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "9535ac81-ea4e-5fed-a7bd-dd65fa6cf1cd",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "ad3dddde-d01a-597c-bb10-d6eea4c5b3cb",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "OPENING_HOURS",
@@ -54,8 +54,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "0393ba02-1f3d-594a-bcf5-eba6504b5237",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "b9a823d0-1f9d-5442-998f-b1cdcba904f1",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "POI_IDENTITY",
@@ -81,8 +81,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "1ec72800-1221-532a-91b4-17aeebbea0ac",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "e86bcc73-f146-5b4c-a08e-f52ff42550eb",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "OPENING_HOURS",
@@ -97,8 +97,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "55804869-66be-504f-9932-2a491b4ee2f5",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "d2c759c4-948b-5c39-b038-23e5a4b9e9fa",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "POI_IDENTITY",
@@ -124,8 +124,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "c4697217-8160-5fef-9d22-ae81d2ff49ca",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "745941c0-3ed7-5363-ab7e-c709f7791f92",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "OPENING_HOURS",
@@ -140,10 +140,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "e68e0c10-3e37-5da5-a44e-a1877a562297",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "563f8179-5cf4-5e96-84e5-540b32ab5786",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -151,36 +151,36 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.025143Z",
+        "observed_at": "2026-08-23T07:51:30.518812Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.025143Z",
-        "response_hash": "f478c6273797437f12a8c0d1ecde26ec7363340217461915abc6772d182395b4",
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "1c8eb446-f342-5ff5-9a23-c7ad50c0db3e",
-        "snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5",
+        "fact_id": "49428485-1dd1-5714-a003-e3ebd7407a91",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "34426271-19ad-464d-a953-534beda124b3",
+        "subject_id": "08d58b53-c497-4809-9567-62e128032e29",
         "fact_type": "TRAVELER_COUNT",
         "value": 2,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.025143Z",
+        "observed_at": "2026-08-23T07:51:30.518812Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.025143Z",
-        "response_hash": "0ad31827006652c43e1ab9c41864ed50ef3bdce2664c6927136328e603c97d8f",
+        "valid_until": "2036-08-20T07:51:30.518812Z",
+        "response_hash": "dbcffc30ea41115a523cdb70f3b65a07c915327e019467d3a3b66842b10a16b9",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.025143Z",
+    "created_at": "2026-08-23T07:51:30.518812Z",
     "supersedes_snapshot_id": null
   },
   {
-    "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+    "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
     "workspace_id": "pilot-tc-p1-bj-01",
     "itinerary_revision": 2,
     "provider_set": [
@@ -192,8 +192,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "ff4a639b-58cf-434f-9d5d-9e936684712f",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "caa3d337-41b3-4670-a1db-87834db75fe8",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "POI_IDENTITY",
@@ -219,8 +219,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "da55e688-ec58-4130-bd62-20e4df93851a",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "c7896bd8-2886-472e-a4e0-d690d9f77fd4",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "OPENING_HOURS",
@@ -235,8 +235,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "7fd3486f-d421-4c48-b22b-6d7c0a0aeefb",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "85a07b37-061d-489b-84ae-ab80d067cd09",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "POI_IDENTITY",
@@ -262,8 +262,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "cd7e2884-e12d-415e-8442-3d1de6ca0981",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "458c7e3e-7243-42b6-a978-ff27a88c2da4",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "OPENING_HOURS",
@@ -278,8 +278,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "e3130945-d5f6-43e3-86ca-d0a77a0d03b9",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "17b1ba4f-d086-4c0d-bb93-0382be282cb5",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "POI_IDENTITY",
@@ -305,8 +305,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "546fda8c-258f-4489-9d87-8fa2aa05fd4e",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "0ad269fa-eb57-4f24-abde-f9e0ab9f10a1",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "OPENING_HOURS",
@@ -321,10 +321,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "5ef6d0e9-cf6e-4611-b42d-85e288483d28",
-        "snapshot_id": "53ea44e5-cec4-4ed0-952d-0b56ed6ae806",
+        "fact_id": "de901939-6c1f-4479-a118-508cd16c0475",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -332,20 +332,20 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.025143Z",
+        "observed_at": "2026-08-23T07:51:30.518812Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.025143Z",
-        "response_hash": "f478c6273797437f12a8c0d1ecde26ec7363340217461915abc6772d182395b4",
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.025143Z",
-    "supersedes_snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5"
+    "created_at": "2026-08-23T07:51:30.518812Z",
+    "supersedes_snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be"
   },
   {
-    "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+    "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
     "workspace_id": "pilot-tc-p1-bj-01",
     "itinerary_revision": 2,
     "provider_set": [
@@ -357,8 +357,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "c4e59612-3b74-4ee1-975d-3a6d78121ff7",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "427259c9-4fa3-4327-9f75-503e3ecbae54",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "POI_IDENTITY",
@@ -384,8 +384,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "996d2e13-d905-49c2-8e63-bff018792bef",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "e06427b8-30a8-4394-830b-cfa091037b0a",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "OPENING_HOURS",
@@ -400,8 +400,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "e6de1ab1-7497-4efd-8512-d23f8e1c6cc3",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "ce6eb0a4-84de-453a-8e78-8914d54fcae2",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "POI_IDENTITY",
@@ -427,8 +427,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "a56c2970-f607-4223-8647-4072742223d4",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "5a907e6e-d79c-4a96-94b9-ab06d1239faf",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "OPENING_HOURS",
@@ -443,8 +443,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "42e0ab5f-a18e-401b-a3e0-aea80a9fd57e",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "391c7d85-db75-4799-b737-f595fe48e7ba",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "POI_IDENTITY",
@@ -470,8 +470,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "64c2f99f-ecd3-4f2f-816c-81ef8107418b",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "89a9870d-e460-45bc-87b1-b0000b320d4e",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "PLACE",
         "subject_id": "bj-summer-palace",
         "fact_type": "OPENING_HOURS",
@@ -486,10 +486,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "0aa14996-040a-425a-ab8b-2019fb67b130",
-        "snapshot_id": "cf3ed40b-55a2-42ed-91c0-cbab6af668d9",
+        "fact_id": "95328217-1bb2-4581-8ea3-5e1bdd4c0cd8",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "c38c881d-c300-4010-a552-42045fa3bfc4->e3530d17-5350-46c7-ade7-26ade683fe36",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -497,16 +497,16 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.025143Z",
+        "observed_at": "2026-08-23T07:51:30.518812Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.025143Z",
-        "response_hash": "f478c6273797437f12a8c0d1ecde26ec7363340217461915abc6772d182395b4",
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.025143Z",
-    "supersedes_snapshot_id": "eeb12a0b-dc1d-517f-830f-d4d4b543c7a5"
+    "created_at": "2026-08-23T07:51:30.518812Z",
+    "supersedes_snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be"
   }
 ]

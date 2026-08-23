@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+    "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
     "workspace_id": "pilot-tc-p1-sh-04",
     "itinerary_revision": 1,
     "provider_set": [
@@ -11,8 +11,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "9524c0d4-c907-5f23-966a-4fae49037f33",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "21c965da-85a3-575f-a9d7-a20961590287",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-disney",
         "fact_type": "POI_IDENTITY",
@@ -38,8 +38,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "7f54a408-f165-5077-86bf-c1e289f49784",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "06e84f89-9b82-5c54-ba4f-a1946dd18da5",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-disney",
         "fact_type": "OPENING_HOURS",
@@ -54,8 +54,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "68e81517-7989-59fe-9cb0-ad72462c595e",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "9dde6b6d-985b-5221-b014-209f4de76dfe",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-yuyuan",
         "fact_type": "POI_IDENTITY",
@@ -81,8 +81,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "8f9bc01a-47e2-5c6c-b28f-af2cb0b8cecb",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "88b8576f-4aa7-5f5a-b843-b19433eb6548",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-yuyuan",
         "fact_type": "OPENING_HOURS",
@@ -97,8 +97,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "b211dde8-a123-57f8-b63c-4ae3c179390b",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "333eba00-6e7d-5347-9e64-6255b76efcee",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-tianzifang",
         "fact_type": "POI_IDENTITY",
@@ -124,8 +124,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "5efd8409-8a0e-517d-ba82-9de605df41bf",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "001fc396-4bcc-5c03-a3dd-8b568f9c4c19",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "PLACE",
         "subject_id": "sh-tianzifang",
         "fact_type": "OPENING_HOURS",
@@ -140,10 +140,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "71f7b32e-eeb0-5165-8b4f-d2114097ee85",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "963bc93c-20b0-512f-882e-c9429cec1975",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "b387c858-868a-4b72-b948-920398495001->1754acb2-e341-4b0d-8ec3-a658ccdbdb8c",
+        "subject_id": "8c9ad25c-e006-4710-a014-e4da67d823db->24a6d2da-d730-4f57-9bf3-da7ffe73fc0f",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -151,32 +151,32 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.110253Z",
+        "observed_at": "2026-08-23T07:51:30.622971Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.110253Z",
-        "response_hash": "7a9193c6aee3d753c01c5b91255e8aa2f93e10fc9b8af4a018579c771b3e6416",
+        "valid_until": "2027-08-23T07:51:30.622971Z",
+        "response_hash": "ac7fd84ee5a191f0973b002180c6e8ff202fe7ec8ca675242c49e86a617fd619",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "4ce72580-4d52-5d82-9836-ec77ce170221",
-        "snapshot_id": "efa137ea-88e7-51fa-ad00-f2cf4f9e2e6f",
+        "fact_id": "0e8c5e16-404d-5c4e-8538-ffd3d9c6d8fc",
+        "snapshot_id": "332b9a90-fd55-5211-8e81-df58876d2ada",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "b64c2c9c-87f7-4fbd-8b75-947a7fafe25d",
+        "subject_id": "a19f3ba4-3777-4cc5-85bf-0f82ec1e279b",
         "fact_type": "TRAVELER_COUNT",
         "value": 5,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.110253Z",
+        "observed_at": "2026-08-23T07:51:30.622971Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.110253Z",
-        "response_hash": "5bacb8600b7cdf65598d0c7b7b93d738efd970bea5897873990bdd00e8a9db67",
+        "valid_until": "2036-08-20T07:51:30.622971Z",
+        "response_hash": "ec41e68044fbc11f411f999fc56b06b7dbaf19189d2b45c733ec4f75d587910d",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.110253Z",
+    "created_at": "2026-08-23T07:51:30.622971Z",
     "supersedes_snapshot_id": null
   }
 ]

@@ -1,18 +1,18 @@
 [
   {
-    "receipt_id": "71b9021a-02cf-538d-94b7-264c3304c7ef",
-    "run_id": "dfc0369e-c4ce-422b-913d-740c1719b644",
+    "receipt_id": "955939ad-90f9-5e21-8dce-2dabb76a7aee",
+    "run_id": "05ff8c6d-a68f-430d-a0ab-c055e7d6b252",
     "stage": "COLLECT_EVIDENCE",
-    "side_effect_key": "trip-check:dfc0369e-c4ce-422b-913d-740c1719b644:COLLECT_EVIDENCE:76a60f81f0ad9736127cccc2c0fdf72b772fe266c3a858ba57fc2e65d98bcc3e",
+    "side_effect_key": "trip-check:05ff8c6d-a68f-430d-a0ab-c055e7d6b252:COLLECT_EVIDENCE:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
     "effect_type": "CONTROLLED_FIXTURE_EVIDENCE",
-    "request_hash": "79cd6c66438d9fd736b31eb50810c0dc9fa2624626ca627b116826b21a2019da",
-    "response_hash": "9c778f0678f507d84e1287424e1b36c76dd7da017782e5ede707069449a617d6",
+    "request_hash": "6f181356152d5751a9c5465324549e008de651a0e516991ec394b4d09736af0e",
+    "response_hash": "9c78a42149d048c80fabeef34312297bce4ef5bc9bcc6326d2e9997e7e57272f",
     "provider": "controlled_fixture",
     "status": "SUCCEEDED",
     "receipt": {
       "execution_mode": "fixture",
       "provider_version": "controlled-fixture-v1",
-      "snapshot_id": "23ea5fbd-c8f0-5571-94df-23ada9e7f259",
+      "snapshot_id": "a513f3d2-6962-550d-bc70-d2684084f371",
       "fact_count": 11,
       "route_fact_count": 0,
       "brief_fact_count": 1,
@@ -24,41 +24,41 @@
       "failure_categories": [],
       "affected_fields": []
     },
-    "created_at": "2026-08-23T04:58:32.121313Z"
+    "created_at": "2026-08-23T07:51:30.634377Z"
   },
   {
-    "receipt_id": "6b5b7d64-1dcf-57d0-a1f4-11ab2993967c",
-    "run_id": "dfc0369e-c4ce-422b-913d-740c1719b644",
+    "receipt_id": "70673c2e-f6e0-5fa5-9dbe-87b4987c3329",
+    "run_id": "05ff8c6d-a68f-430d-a0ab-c055e7d6b252",
     "stage": "AUDIT",
-    "side_effect_key": "trip-check:dfc0369e-c4ce-422b-913d-740c1719b644:AUDIT:76a60f81f0ad9736127cccc2c0fdf72b772fe266c3a858ba57fc2e65d98bcc3e",
+    "side_effect_key": "trip-check:05ff8c6d-a68f-430d-a0ab-c055e7d6b252:AUDIT:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
     "effect_type": "AUTHORITATIVE_AUDIT",
-    "request_hash": "61634c1b7adc7e0b6032826cf0ba80894343b80b9fcede68eeca60fae8b95859",
-    "response_hash": "1dcdfac06594ff172f36bb74af485e75ea9c75f9197f0c0ddc5f0c376dc99dcc",
+    "request_hash": "fc478fe2774cd8d92645f2c06c79599baf608e88520d1c0e536d38e8680b3bd2",
+    "response_hash": "e9b88214fb82c07c8431dfe2ee5fe8dca47e5fef4a9f8e33fb97d53aab084428",
     "provider": null,
     "status": "SUCCEEDED",
     "receipt": {
-      "report_id": "17451028-0ab3-473e-9cef-9e3e19883bbe",
-      "report_input_hash": "615e62020e335df33c4199385e64a55f854e62d30cca549f7fc49e7a748019d2",
+      "report_id": "1ce7a297-d455-491d-b6bf-e28a77f55801",
+      "report_input_hash": "f3edba382ee732568cf25255f13b51450c74331cb6ee49bdbb49a1fe446f1b8b",
       "finding_count": 46,
       "overall_status": "VIOLATED"
     },
-    "created_at": "2026-08-23T04:58:32.121313Z"
+    "created_at": "2026-08-23T07:51:30.634377Z"
   },
   {
-    "receipt_id": "402bdb01-f09a-556f-8ac1-6a193c60bf23",
-    "run_id": "dfc0369e-c4ce-422b-913d-740c1719b644",
+    "receipt_id": "7ffe85ae-3097-5e85-a775-663499d98b13",
+    "run_id": "05ff8c6d-a68f-430d-a0ab-c055e7d6b252",
     "stage": "BUILD_ADVICE",
-    "side_effect_key": "trip-check:dfc0369e-c4ce-422b-913d-740c1719b644:BUILD_ADVICE:76a60f81f0ad9736127cccc2c0fdf72b772fe266c3a858ba57fc2e65d98bcc3e",
+    "side_effect_key": "trip-check:05ff8c6d-a68f-430d-a0ab-c055e7d6b252:BUILD_ADVICE:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
     "effect_type": "DETERMINISTIC_ADVICE",
-    "request_hash": "90414742ea8b0eb8bad66e127dd98e2ac82376e335269bfc7dbb4b57303f4370",
-    "response_hash": "437b90b35cb594be243fc3cc1b38b55cca94256b8c013cb1a5687519887679d5",
+    "request_hash": "0dd88a0bc19de07be1b3c94d37738086fce6d1962dc92c48305d53bb4b49ec3f",
+    "response_hash": "42d0cb9345c3ea74e65e4a392b1a252255b17461fe567a2772cd7bd6c2b1b139",
     "provider": null,
     "status": "SUCCEEDED",
     "receipt": {
-      "advice_bundle_id": "a76eabf8-4eb5-5ba5-a313-d79979672080",
+      "advice_bundle_id": "36c02085-c065-547d-b0cb-a8eb9b7a3a3d",
       "action_count": 34,
       "repair_ids": []
     },
-    "created_at": "2026-08-23T04:58:32.121313Z"
+    "created_at": "2026-08-23T07:51:30.634377Z"
   }
 ]

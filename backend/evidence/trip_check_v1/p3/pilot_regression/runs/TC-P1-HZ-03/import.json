@@ -1,5 +1,5 @@
 {
-  "import_id": "75084a19-7972-4772-85f3-b84638d50eab",
+  "import_id": "af997ae3-06d6-401b-9784-cf12ca49e519",
   "workspace_id": "pilot-tc-p1-hz-03",
   "source_type": "MANUAL_TEXT",
   "raw_text": "杭州4人住湖滨。第1天西湖风景名胜区；第2天西溪湿地国家公园；第3天河坊街·清河坊。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "3aaf8c07-2616-43a4-b2b6-40dbc171cccf",
-      "import_id": "75084a19-7972-4772-85f3-b84638d50eab",
+      "raw_stop_id": "c34907e2-c4c3-4a4c-b294-7f77fab52be4",
+      "import_id": "af997ae3-06d6-401b-9784-cf12ca49e519",
       "day_index": 0,
       "raw_name": "西湖风景名胜区",
       "raw_time": null,
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "0bab219d-a18f-41f5-bcb0-4cbc9f21588b",
-      "import_id": "75084a19-7972-4772-85f3-b84638d50eab",
+      "raw_stop_id": "4967ed53-0216-47cb-9257-8c682806bb10",
+      "import_id": "af997ae3-06d6-401b-9784-cf12ca49e519",
       "day_index": 1,
       "raw_name": "西溪湿地国家公园",
       "raw_time": null,
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "ddbeb28c-8246-4fd1-a1f5-d07d1aea1138",
-      "import_id": "75084a19-7972-4772-85f3-b84638d50eab",
+      "raw_stop_id": "78b79f3f-7822-4e0f-b764-96e50227c838",
+      "import_id": "af997ae3-06d6-401b-9784-cf12ca49e519",
       "day_index": 2,
       "raw_name": "河坊街·清河坊",
       "raw_time": null,
@@ -51,7 +51,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "3aaf8c07-2616-43a4-b2b6-40dbc171cccf",
+      "raw_stop_id": "c34907e2-c4c3-4a4c-b294-7f77fab52be4",
       "canonical_place_id": "hz-west-lake",
       "candidates": [
         {
@@ -110,7 +110,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "0bab219d-a18f-41f5-bcb0-4cbc9f21588b",
+      "raw_stop_id": "4967ed53-0216-47cb-9257-8c682806bb10",
       "canonical_place_id": "hz-xixi",
       "candidates": [
         {
@@ -169,7 +169,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "ddbeb28c-8246-4fd1-a1f5-d07d1aea1138",
+      "raw_stop_id": "78b79f3f-7822-4e0f-b764-96e50227c838",
       "canonical_place_id": "hz-hefang",
       "candidates": [
         {
@@ -233,6 +233,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.155268Z",
-  "updated_at": "2026-08-23T04:58:32.155268Z"
+  "created_at": "2026-08-23T07:51:30.668520Z",
+  "updated_at": "2026-08-23T07:51:30.668520Z"
 }

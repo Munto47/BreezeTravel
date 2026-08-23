@@ -11,7 +11,7 @@
     "grepInvert": null,
     "maxFailures": 0,
     "metadata": {
-      "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+      "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
       "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
       "input_cases": [
         "screenshot_cleanup_receipt",
@@ -46,7 +46,7 @@
         "repeatEach": 1,
         "retries": 0,
         "metadata": {
-          "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+          "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
           "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
           "input_cases": [
             "screenshot_cleanup_receipt",
@@ -80,7 +80,7 @@
       "env": {
         "NEXT_PUBLIC_API_URL": "http://127.0.0.1:8999",
         "NEXT_PUBLIC_Y_WEBSOCKET_URL": "ws://127.0.0.1:8998",
-        "NEXT_PUBLIC_TRIP_CHECK_COMMIT_SHA": "e3c46aa142be44bc97c4588b4e8aa73e8399befc"
+        "NEXT_PUBLIC_TRIP_CHECK_COMMIT_SHA": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa"
       }
     }
   },
@@ -107,12 +107,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 1460,
+                  "duration": 1587,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-23T04:58:28.191Z",
+                  "startTime": "2026-08-23T07:51:26.012Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -141,12 +141,12 @@
                   "workerIndex": 0,
                   "parallelIndex": 0,
                   "status": "passed",
-                  "duration": 596,
+                  "duration": 624,
                   "errors": [],
                   "stdout": [],
                   "stderr": [],
                   "retry": 0,
-                  "startTime": "2026-08-23T04:58:29.750Z",
+                  "startTime": "2026-08-23T07:51:27.758Z",
                   "annotations": [],
                   "attachments": []
                 }
@@ -164,8 +164,8 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-08-23T04:58:21.904Z",
-    "duration": 8972.211000000001,
+    "startTime": "2026-08-23T07:51:18.240Z",
+    "duration": 10841.541,
     "expected": 2,
     "skipped": 0,
     "unexpected": 0,

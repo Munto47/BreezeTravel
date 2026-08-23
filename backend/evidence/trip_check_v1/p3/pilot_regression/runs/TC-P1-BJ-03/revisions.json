@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "04745c85-8a36-484d-8597-0affa0325849",
+    "itinerary_id": "aa4f71aa-4eeb-488e-a462-77fb1ac3987c",
     "workspace_id": "pilot-tc-p1-bj-03",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+            "stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
             "place_id": "bj-tiananmen",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "天安门广场",
-            "source_raw_stop_id": "53cf2143-8371-435d-8626-1a039c7259ba",
+            "source_raw_stop_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -34,7 +34,7 @@
             "notes": ""
           },
           {
-            "stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+            "stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
             "place_id": "bj-forbidden-city",
             "day_index": 0,
             "order_index": 1,
@@ -43,7 +43,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "故宫博物院",
-            "source_raw_stop_id": "1a8ff06f-c686-4f31-a92a-504e106af80c",
+            "source_raw_stop_id": "7415a5ee-bf65-45e9-98b1-b861ff134ae6",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -58,7 +58,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+            "stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
             "place_id": "bj-badaling",
             "day_index": 1,
             "order_index": 0,
@@ -67,7 +67,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "长城（八达岭）",
-            "source_raw_stop_id": "6b718e78-94a4-41ef-b83d-538f71969801",
+            "source_raw_stop_id": "e76e6f05-0415-4924-9173-eb36ad7a6778",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -82,7 +82,7 @@
         "date": "2026-10-03",
         "stops": [
           {
-            "stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+            "stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
             "place_id": "bj-temple-of-heaven",
             "day_index": 2,
             "order_index": 0,
@@ -91,7 +91,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "天坛公园",
-            "source_raw_stop_id": "e33546d1-93eb-4ec8-9a65-46086c3cbe91",
+            "source_raw_stop_id": "7f6bed7f-56ea-41f4-b72b-8242f9098ab0",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -104,10 +104,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "05672d5f-2677-45b4-940c-4796905e2233",
+      "import_id": "4d5ad1f5-7983-44be-8531-46206fe95a09",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "53cf2143-8371-435d-8626-1a039c7259ba": {
+        "6e3cb6f6-d210-41eb-ac36-b3d556ecda72": {
           "place_id": "bj-tiananmen",
           "coords": {
             "lng": 116.397,
@@ -118,7 +118,7 @@
           "receipt_hash": "8506967648e1013e49c1b688f51aef1ae71464e74def72456bb314b72d7785e4",
           "canonical_name": "天安门广场"
         },
-        "1a8ff06f-c686-4f31-a92a-504e106af80c": {
+        "7415a5ee-bf65-45e9-98b1-b861ff134ae6": {
           "place_id": "bj-forbidden-city",
           "coords": {
             "lng": 116.397,
@@ -129,7 +129,7 @@
           "receipt_hash": "7f3a3063a3a02a107223bfb2fbd85a8ba80357c968784cc3e17d2ab025426d3e",
           "canonical_name": "故宫博物院"
         },
-        "6b718e78-94a4-41ef-b83d-538f71969801": {
+        "e76e6f05-0415-4924-9173-eb36ad7a6778": {
           "place_id": "bj-badaling",
           "coords": {
             "lng": 116.017,
@@ -140,7 +140,7 @@
           "receipt_hash": "c67026944b2780b3c88531aeba35753e074f6988794383d248ac3e4aa4f65809",
           "canonical_name": "长城（八达岭）"
         },
-        "e33546d1-93eb-4ec8-9a65-46086c3cbe91": {
+        "7f6bed7f-56ea-41f4-b72b-8242f9098ab0": {
           "place_id": "bj-temple-of-heaven",
           "coords": {
             "lng": 116.417,
@@ -230,10 +230,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "05fba1fe04a045ac200c200ef6d0e0899f0a41661a629ad345689e860dccf8bd"
+      "materialization_hash": "926b6f45638fb40444e3755f54a99c0140d7ffae2ae688134d6f70e17197762e"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.047999Z",
-    "content_hash": "a9b436c0ac57a955fee70c22acd5ee658b6365e355cb41d09ef7fbdaa8f5fc57"
+    "created_at": "2026-08-23T07:51:30.551198Z",
+    "content_hash": "c7c81ff79b25a9dcae0098ba91362c1aff44f86d80eaa5cbf8c8214f3a82c524"
   }
 ]

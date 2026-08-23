@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+    "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
     "workspace_id": "pilot-tc-p1-hz-01",
     "itinerary_revision": 1,
     "provider_set": [
@@ -11,8 +11,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "379aace6-9c17-580b-bcf8-89a514fc54b7",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "67cd5488-98f3-5027-b009-df10ee2d1e5f",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "POI_IDENTITY",
@@ -38,8 +38,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "45d02eec-8ab6-5182-bde3-4a50463425fe",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "68a345ee-5933-5ef8-bd4a-a650d487a850",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "OPENING_HOURS",
@@ -54,8 +54,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "b9aa04c4-cce7-5584-a737-2bee0b69ae58",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "275d6e3e-9db8-5276-9c93-3281d9af1739",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "POI_IDENTITY",
@@ -81,8 +81,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "eadb2e6d-4e2c-5f4e-b866-abfffc26eac7",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "ccdbcbc4-cf54-5619-a603-c664de6c1dfb",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "OPENING_HOURS",
@@ -97,8 +97,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "e1227c26-7ba2-5b79-b282-b15f047ff2ac",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "870c3ef0-0aa2-5b0e-b53a-d7f22df96dee",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "POI_IDENTITY",
@@ -124,8 +124,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "cbcd4eaa-c35b-57df-b2ab-b5c013793f13",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "e1f47a8f-9d6a-58c0-a2ed-c2b053748338",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "OPENING_HOURS",
@@ -140,10 +140,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "7beccaa6-ff88-5467-80b3-88d7cf9bbb94",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "05abc5d3-27f3-507d-be78-b5edc9746582",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "subject_id": "f680e471-fad8-428e-90f9-3cc0863a49f3->db532c6f-017d-46a1-bb11-9aaa8c256eed",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -151,36 +151,36 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "observed_at": "2026-08-23T07:51:30.652411Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.140304Z",
-        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "valid_until": "2027-08-23T07:51:30.652411Z",
+        "response_hash": "47ebf75f43c95e2393a10cd805f5c51b90acb23ec8e332de725751fa226c1d9e",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "d252cc5e-9bbb-5603-b34f-d26023fe08c7",
-        "snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec",
+        "fact_id": "6b49a885-8e18-5d1d-859a-5f244b1520f3",
+        "snapshot_id": "22823726-490c-50d8-9864-7c435d27147a",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "e45e591f-e1c7-47b2-8fd7-0aa9388120ed",
+        "subject_id": "1fe7a7c3-1311-4e6b-bff7-bb003eea17d8",
         "fact_type": "TRAVELER_COUNT",
         "value": 2,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "observed_at": "2026-08-23T07:51:30.652411Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.140304Z",
-        "response_hash": "07ac43d0144170870de4659796775e81b9b007ecf340325a7a84eb538b17b79e",
+        "valid_until": "2036-08-20T07:51:30.652411Z",
+        "response_hash": "67a3e3a513c911bc27fa8ea336f247fc99f36f12d1264f1cc98bce991bbb2b8b",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.140304Z",
+    "created_at": "2026-08-23T07:51:30.652411Z",
     "supersedes_snapshot_id": null
   },
   {
-    "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+    "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
     "workspace_id": "pilot-tc-p1-hz-01",
     "itinerary_revision": 2,
     "provider_set": [
@@ -192,8 +192,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "79637b87-5447-49f5-b4f8-cdf8be6bcaf9",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "4f659b50-77fd-4397-9e7c-424a1f0b1b1c",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "POI_IDENTITY",
@@ -219,8 +219,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "2415f33d-f901-4f80-8df2-376c972ba855",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "972b39b8-2586-489b-8793-897f47f5e3bd",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "OPENING_HOURS",
@@ -235,8 +235,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "aec7c964-5b59-43c5-9b14-25023cb5e704",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "9dd87125-b00b-4b53-8446-49e7be17527c",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "POI_IDENTITY",
@@ -262,8 +262,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "175a5164-9630-44ea-87dc-d88173eef022",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "b4acab4e-538d-49e6-a28e-c44c84b24c91",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "OPENING_HOURS",
@@ -278,8 +278,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "20f8ef9d-0ebe-415c-a701-70a504979cac",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "a9b06ef9-1283-4014-b191-e51bc0f16571",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "POI_IDENTITY",
@@ -305,8 +305,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "266d97df-b39b-4e6e-b233-f6a0a45bb552",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "0d128c4e-7079-45b9-997d-6cbf3ac2d2c2",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "OPENING_HOURS",
@@ -321,10 +321,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "06899a2b-8f8e-4168-9f62-c19e422d6afd",
-        "snapshot_id": "f426be99-34ec-4ec3-b8a9-5b7c5e839026",
+        "fact_id": "6f6a8be8-908b-456f-9781-a321a48a95fe",
+        "snapshot_id": "3325fabc-a15b-43af-b585-78d5f081bb5c",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "subject_id": "f680e471-fad8-428e-90f9-3cc0863a49f3->db532c6f-017d-46a1-bb11-9aaa8c256eed",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -332,20 +332,20 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "observed_at": "2026-08-23T07:51:30.652411Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.140304Z",
-        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "valid_until": "2027-08-23T07:51:30.652411Z",
+        "response_hash": "47ebf75f43c95e2393a10cd805f5c51b90acb23ec8e332de725751fa226c1d9e",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.140304Z",
-    "supersedes_snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec"
+    "created_at": "2026-08-23T07:51:30.652411Z",
+    "supersedes_snapshot_id": "22823726-490c-50d8-9864-7c435d27147a"
   },
   {
-    "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+    "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
     "workspace_id": "pilot-tc-p1-hz-01",
     "itinerary_revision": 2,
     "provider_set": [
@@ -357,8 +357,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "4d01cc47-77bd-41e4-82a8-f47dbc4a622a",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "62921ac1-3923-48c0-aaa1-77be2b0b11cd",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "POI_IDENTITY",
@@ -384,8 +384,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "50a6c2fe-ccbf-4930-8757-a6fb2fc6015f",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "a9982524-4ec4-4b82-9a85-43f76dd3be20",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-west-lake",
         "fact_type": "OPENING_HOURS",
@@ -400,8 +400,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "963659e3-e0ff-437b-9601-a15d01247908",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "f2f6c515-fa5c-4fb2-8682-f06acd39be5c",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "POI_IDENTITY",
@@ -427,8 +427,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "5bb55214-da54-459e-81af-721f84a747fa",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "d52232ec-b8ca-43d2-bdf4-f08f57b34dbe",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-lingyin",
         "fact_type": "OPENING_HOURS",
@@ -443,8 +443,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "9670462d-b8ba-46c9-8fbb-6fd9145a9561",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "93597c57-16b8-40d4-94f1-3fd94e111435",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "POI_IDENTITY",
@@ -470,8 +470,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "16a07492-d2b4-472a-81da-8f5d89b32def",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "56207795-67a4-44fa-b862-a09bfeeea60c",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "PLACE",
         "subject_id": "hz-leifeng",
         "fact_type": "OPENING_HOURS",
@@ -486,10 +486,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "66da751a-6b98-4130-903c-bc324010ecda",
-        "snapshot_id": "ab795dea-f0b2-4597-a4d8-581513ee2f7f",
+        "fact_id": "4b76f97a-eaff-437f-9993-832f2c5e43eb",
+        "snapshot_id": "b4ffc5f5-8727-4f7f-ba39-0f35e4b4f31a",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "926abc47-99c4-4b31-b0a3-77b2d4159051->3500c210-8aaf-4c36-8797-ca3562ce54dd",
+        "subject_id": "f680e471-fad8-428e-90f9-3cc0863a49f3->db532c6f-017d-46a1-bb11-9aaa8c256eed",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -497,16 +497,16 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.140304Z",
+        "observed_at": "2026-08-23T07:51:30.652411Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.140304Z",
-        "response_hash": "5013c350ee76c1d67c030c2a474d5e04a2adfd3cb007f1aaf60d3ade718ced3c",
+        "valid_until": "2027-08-23T07:51:30.652411Z",
+        "response_hash": "47ebf75f43c95e2393a10cd805f5c51b90acb23ec8e332de725751fa226c1d9e",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.140304Z",
-    "supersedes_snapshot_id": "d054d92e-57b9-5506-aa05-c8163b606fec"
+    "created_at": "2026-08-23T07:51:30.652411Z",
+    "supersedes_snapshot_id": "22823726-490c-50d8-9864-7c435d27147a"
   }
 ]

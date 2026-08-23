@@ -5,7 +5,7 @@
   "live_provider_evidence": false,
   "public_e2e_evidence": false,
   "human_evidence": false,
-  "commit_sha": "e3c46aa142be44bc97c4588b4e8aa73e8399befc",
+  "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
   "dataset_path": "evals/trip_check_v1/pilot.jsonl",
   "dataset_sha256": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
   "fixture_snapshot_sha256": "3307e65a4134b2659d79ea0b9bdea42586e93122593d16ddb73df5a2db1bcf47",
@@ -33,7 +33,7 @@
       "city": "北京",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "6f5ef977ee403f75a5a81bdf7d397ddd42e1eefdc84fb6a00091d63494bdbd4f",
-      "run_id": "ad736671-da7e-43dd-86b5-5eab3a4a6c51",
+      "run_id": "92206180-ea05-4a81-b632-436a998cc459",
       "terminal_state": "SUCCEEDED",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -78,7 +78,7 @@
       "city": "北京",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "7591a7be3ba2e70b9dc2c59ab7730b391843f3d23c50e75bc25f7b12f6f551ea",
-      "run_id": "7689a3e8-2bf4-4cd6-8f52-bcd0616b1c0d",
+      "run_id": "4630b826-185b-40df-adec-f9a4878b8eb3",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -106,7 +106,7 @@
       "city": "北京",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "31858c8e98f75ce29c7d93d45500d8e7dc9a63d0fdde90ec0f5bacb0ef0da7b4",
-      "run_id": "7ea0ef2b-8c6c-4106-a5f6-b51176a026cd",
+      "run_id": "f1623b05-37b6-4647-b8bc-19db7a305935",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -136,7 +136,7 @@
       "city": "北京",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "7ed34ef78ab800ed6c7d4b2fe4a68515bd48be0bc26c50ca1aa3498d0fa61c59",
-      "run_id": "36880745-f9a1-4399-a7dc-8cbf30f5e629",
+      "run_id": "2b4cb7a7-12e0-4530-95f7-ec751dfe65a7",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -181,7 +181,7 @@
       "city": "上海",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "12ecb74a94278d6492fcb2d3a37b0b12475775adfe3c54ef68b57fd76516c0a1",
-      "run_id": "e9bad68d-36b2-43c9-a98f-28f1c3558ac1",
+      "run_id": "43b93cef-bd02-4e3e-9963-4ce1d87129f1",
       "terminal_state": "SUCCEEDED",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -228,7 +228,7 @@
       "city": "上海",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "0f4e6c2ff9492ee160f04974543fc5dd1cfe15e6e747b014a797c380127ee348",
-      "run_id": "336c61f0-27fa-4303-870b-968643d4636a",
+      "run_id": "5c709af5-c779-4b03-af0d-fe11606b7757",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -255,7 +255,7 @@
       "city": "上海",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "5e9fc362f511705499a0b480c4c1b4ed76188de0330e4221b664275fbe8cc3a2",
-      "run_id": "63a3b074-98eb-4cfc-b055-6b30deb41697",
+      "run_id": "64704d14-b45d-4a7e-a07d-b3382310249f",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -285,7 +285,7 @@
       "city": "上海",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "d7862ba24be187b92f6c2b394c30aaf89b5ddbf95d5cf72183edb89bbbf4b7b8",
-      "run_id": "dfc0369e-c4ce-422b-913d-740c1719b644",
+      "run_id": "05ff8c6d-a68f-430d-a0ab-c055e7d6b252",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -330,7 +330,7 @@
       "city": "杭州",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "6b3263bf9164c9e2851a0e575aa51a273c099c74968ef920a1f04851cb642b53",
-      "run_id": "6bfa0fa6-1b01-4b8a-821f-8fd619a44ca8",
+      "run_id": "3e20f46c-dad1-400f-beec-31d0aaaaa6ba",
       "terminal_state": "SUCCEEDED",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -377,7 +377,7 @@
       "city": "杭州",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "098db9f522bb82360b4e27c26ea6b0f9e0d4eac2fde91b9b9b3995dd6da0a991",
-      "run_id": "8d5811b6-1cae-4884-a3e7-9833acc7b834",
+      "run_id": "683b9077-3b34-4b77-b558-5b6bc33546bd",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -404,7 +404,7 @@
       "city": "杭州",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "4f43bbb169d7af2af3b41cd6f1139beb3f538418d050b05f3915e905da4e0cab",
-      "run_id": "21b1c698-3a4d-41c8-984b-597080f3f610",
+      "run_id": "1a2d80d2-32ac-4469-bacd-db4d8157dcad",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -434,7 +434,7 @@
       "city": "杭州",
       "fixture_profile": "amap_mock_v1",
       "input_sha256": "c03cc6d40c96f9d0493b74a654027062a603c7f5494294ee8f3d570c40f44493",
-      "run_id": "dc1de556-de71-4c6c-a822-22424be969af",
+      "run_id": "26d4bea6-41bb-40c1-b2ba-647455e72a3b",
       "terminal_state": "WAITING:WAIT_ADOPTION",
       "requires_user_resolution": false,
       "observed_reason_codes": [
@@ -475,5 +475,5 @@
     }
   ],
   "manifest_path": "<repo>\\backend\\evidence\\trip_check_v1\\p3\\pilot_regression\\pilot_manifest.json",
-  "manifest_sha256": "da62c8242e01c01924280812d8988bad7b8d4444474280696cdae1bf3e6b4b2c"
+  "manifest_sha256": "ee0d9a7076b7fc1fb66093e4f2dd87c89d1e0a8262d71aaa756e3de6c9057fe2"
 }

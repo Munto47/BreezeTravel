@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "b237b8f3-e9cd-40e4-a08b-6b85cd7c2e3f",
+    "itinerary_id": "3ef01a51-2082-47f7-bb54-af0f72f22dc3",
     "workspace_id": "pilot-tc-p1-hz-04",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
+            "stop_id": "69c73944-363c-476d-b094-56ae062539e0",
             "place_id": "hz-lingyin",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "灵隐寺",
-            "source_raw_stop_id": "4cae3839-cc59-4ba9-bd67-831b5b694a2a",
+            "source_raw_stop_id": "69c73944-363c-476d-b094-56ae062539e0",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -34,7 +34,7 @@
             "notes": ""
           },
           {
-            "stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
+            "stop_id": "c76d8a4c-24ad-4a7e-ac6e-9af416fb6b46",
             "place_id": "hz-xixi",
             "day_index": 0,
             "order_index": 1,
@@ -43,7 +43,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "西溪湿地国家公园",
-            "source_raw_stop_id": "d87eb718-51f1-4064-85a0-f6e03ed81dea",
+            "source_raw_stop_id": "c76d8a4c-24ad-4a7e-ac6e-9af416fb6b46",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -52,7 +52,7 @@
             "notes": ""
           },
           {
-            "stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
+            "stop_id": "4bbbff55-0378-4791-9553-65d3521b6f19",
             "place_id": "hz-longjing",
             "day_index": 0,
             "order_index": 2,
@@ -61,7 +61,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "龙井村（茶园）",
-            "source_raw_stop_id": "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d",
+            "source_raw_stop_id": "4bbbff55-0378-4791-9553-65d3521b6f19",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -76,7 +76,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
+            "stop_id": "1127fee0-3a7f-41aa-9fb1-6c78be587959",
             "place_id": "hz-west-lake",
             "day_index": 1,
             "order_index": 0,
@@ -85,7 +85,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "西湖风景名胜区",
-            "source_raw_stop_id": "26d1a271-227f-4b55-900e-17516cfec495",
+            "source_raw_stop_id": "1127fee0-3a7f-41aa-9fb1-6c78be587959",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -98,10 +98,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "e4338a94-29e6-459d-8e50-034fa9a5fdf8",
+      "import_id": "e6f52dee-3341-4716-a2a5-9ccb04c2bfd3",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "4cae3839-cc59-4ba9-bd67-831b5b694a2a": {
+        "69c73944-363c-476d-b094-56ae062539e0": {
           "place_id": "hz-lingyin",
           "coords": {
             "lng": 120.102,
@@ -112,7 +112,7 @@
           "receipt_hash": "4c1c805c85b263be8f3e6d25ffd4097fd1183f22f85b03b45c60de43d2bdcac0",
           "canonical_name": "灵隐寺"
         },
-        "d87eb718-51f1-4064-85a0-f6e03ed81dea": {
+        "c76d8a4c-24ad-4a7e-ac6e-9af416fb6b46": {
           "place_id": "hz-xixi",
           "coords": {
             "lng": 120.063,
@@ -123,7 +123,7 @@
           "receipt_hash": "e7ee29b15349294e8d6f0301f98bb1b8b51795a6789adc1335a2f5b804991edb",
           "canonical_name": "西溪湿地国家公园"
         },
-        "b8cf47f8-f4e8-4f9e-ae2a-c33438da1d8d": {
+        "4bbbff55-0378-4791-9553-65d3521b6f19": {
           "place_id": "hz-longjing",
           "coords": {
             "lng": 120.101,
@@ -134,7 +134,7 @@
           "receipt_hash": "403365b733f9ac1c02b65c64a5d41ff7613a95afdb7f78ce62a9c01388f7144e",
           "canonical_name": "龙井村（茶园）"
         },
-        "26d1a271-227f-4b55-900e-17516cfec495": {
+        "1127fee0-3a7f-41aa-9fb1-6c78be587959": {
           "place_id": "hz-west-lake",
           "coords": {
             "lng": 120.148,
@@ -224,10 +224,10 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "bc35da1a6e808228b2d9017396f646bc88083511f44632a21392f82ff678def7"
+      "materialization_hash": "82130f866c6917659ebe9afe5e5812d3d61853ec9c87556bc6c517dfbccd07b9"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.167890Z",
-    "content_hash": "3ef061a4047eddd85e9ce35626c6907a5445a1b3973622626631f038efbab809"
+    "created_at": "2026-08-23T07:51:30.681543Z",
+    "content_hash": "c708ed689e34062233945f23adc365bb437534cb495b95a4bb2975350e7d5554"
   }
 ]

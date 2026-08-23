@@ -1,5 +1,5 @@
 {
-  "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+  "import_id": "e13f33c2-f5e0-4a27-ac8d-576f9a244673",
   "workspace_id": "pilot-tc-p1-bj-04",
   "source_type": "MANUAL_TEXT",
   "raw_text": "北京5人，有长辈，少走路。第1天 09:00 颐和园，13:00 长城（八达岭）；第2天 10:00 南锣鼓巷。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
-      "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+      "raw_stop_id": "75d2e441-d00a-4fad-8122-c374220ab8f1",
+      "import_id": "e13f33c2-f5e0-4a27-ac8d-576f9a244673",
       "day_index": 0,
       "raw_name": "颐和园",
       "raw_time": "09:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
-      "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+      "raw_stop_id": "7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a",
+      "import_id": "e13f33c2-f5e0-4a27-ac8d-576f9a244673",
       "day_index": 0,
       "raw_name": "长城（八达岭）",
       "raw_time": "13:00",
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
-      "import_id": "f59eece5-0a84-4d0b-9ea3-057c7b37da85",
+      "raw_stop_id": "7208b55e-5431-48dd-92d6-efef325e1690",
+      "import_id": "e13f33c2-f5e0-4a27-ac8d-576f9a244673",
       "day_index": 1,
       "raw_name": "南锣鼓巷",
       "raw_time": "10:00",
@@ -51,7 +51,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "3dca0430-104d-4e73-8366-3cef186edd59",
+      "raw_stop_id": "75d2e441-d00a-4fad-8122-c374220ab8f1",
       "canonical_place_id": "bj-summer-palace",
       "candidates": [
         {
@@ -110,7 +110,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "59376f0c-7250-4e08-b3ad-1c03c3c69a58",
+      "raw_stop_id": "7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a",
       "canonical_place_id": "bj-badaling",
       "candidates": [
         {
@@ -169,7 +169,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "2b16a117-8232-4774-a9d8-5913dfea9a53",
+      "raw_stop_id": "7208b55e-5431-48dd-92d6-efef325e1690",
       "canonical_place_id": "bj-nanluoguxiang",
       "candidates": [
         {
@@ -235,6 +235,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.058395Z",
-  "updated_at": "2026-08-23T04:58:32.058395Z"
+  "created_at": "2026-08-23T07:51:30.563796Z",
+  "updated_at": "2026-08-23T07:51:30.563796Z"
 }

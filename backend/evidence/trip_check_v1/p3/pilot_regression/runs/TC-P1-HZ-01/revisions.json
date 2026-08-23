@@ -1,6 +1,6 @@
 [
   {
-    "itinerary_id": "6bc5255d-2328-40fc-a4df-5415efa4f93f",
+    "itinerary_id": "89bd9ae2-9b52-4fd2-8ad5-975ae9fabbbd",
     "workspace_id": "pilot-tc-p1-hz-01",
     "revision": 1,
     "parent_revision": null,
@@ -16,7 +16,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "926abc47-99c4-4b31-b0a3-77b2d4159051",
+            "stop_id": "f680e471-fad8-428e-90f9-3cc0863a49f3",
             "place_id": "hz-west-lake",
             "day_index": 0,
             "order_index": 0,
@@ -25,7 +25,7 @@
             "visit_duration_minutes": 180,
             "transport_to_next": null,
             "raw_name": "西湖风景名胜区",
-            "source_raw_stop_id": "926abc47-99c4-4b31-b0a3-77b2d4159051",
+            "source_raw_stop_id": "f680e471-fad8-428e-90f9-3cc0863a49f3",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -34,7 +34,7 @@
             "notes": ""
           },
           {
-            "stop_id": "3500c210-8aaf-4c36-8797-ca3562ce54dd",
+            "stop_id": "db532c6f-017d-46a1-bb11-9aaa8c256eed",
             "place_id": "hz-lingyin",
             "day_index": 0,
             "order_index": 1,
@@ -43,7 +43,7 @@
             "visit_duration_minutes": 60,
             "transport_to_next": null,
             "raw_name": "灵隐寺",
-            "source_raw_stop_id": "3500c210-8aaf-4c36-8797-ca3562ce54dd",
+            "source_raw_stop_id": "db532c6f-017d-46a1-bb11-9aaa8c256eed",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -58,7 +58,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "b779c554-1027-4051-a788-9b24d02ef143",
+            "stop_id": "a53d74dd-68cb-47bf-9fd1-cec53220b4df",
             "place_id": "hz-leifeng",
             "day_index": 1,
             "order_index": 0,
@@ -67,7 +67,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "雷峰塔",
-            "source_raw_stop_id": "b779c554-1027-4051-a788-9b24d02ef143",
+            "source_raw_stop_id": "a53d74dd-68cb-47bf-9fd1-cec53220b4df",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -80,10 +80,10 @@
     ],
     "locked_commitments": [],
     "change_summary": {
-      "import_id": "656b3662-940d-438c-8fcc-6dcaeb8ce62a",
+      "import_id": "b4e4c4de-50b8-4e41-a68b-21aec1085f03",
       "operation": "APPLY_IMPORT",
       "map_stop_projections": {
-        "926abc47-99c4-4b31-b0a3-77b2d4159051": {
+        "f680e471-fad8-428e-90f9-3cc0863a49f3": {
           "place_id": "hz-west-lake",
           "coords": {
             "lng": 120.148,
@@ -94,7 +94,7 @@
           "receipt_hash": "b7d8660a821fbfaa2a38be0ad1f06c63b33dd568cd3ab77345c96a209141f4e3",
           "canonical_name": "西湖风景名胜区"
         },
-        "3500c210-8aaf-4c36-8797-ca3562ce54dd": {
+        "db532c6f-017d-46a1-bb11-9aaa8c256eed": {
           "place_id": "hz-lingyin",
           "coords": {
             "lng": 120.102,
@@ -105,7 +105,7 @@
           "receipt_hash": "4c1c805c85b263be8f3e6d25ffd4097fd1183f22f85b03b45c60de43d2bdcac0",
           "canonical_name": "灵隐寺"
         },
-        "b779c554-1027-4051-a788-9b24d02ef143": {
+        "a53d74dd-68cb-47bf-9fd1-cec53220b4df": {
           "place_id": "hz-leifeng",
           "coords": {
             "lng": 120.149,
@@ -176,14 +176,14 @@
           "source_url": null
         }
       ],
-      "materialization_hash": "444e9f9e4950ffadb1da66f80f655f42d5ee289c2543396a1ba914a985efb7f5"
+      "materialization_hash": "ba93fa28f4793d2eb29157d1519ef818511874c07e5f6ac46c2e3548a4529aa3"
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.139920Z",
-    "content_hash": "329828f73591bd35caee54a06c258ca8b14f9bc4229e59af595599857f0c7ac8"
+    "created_at": "2026-08-23T07:51:30.652194Z",
+    "content_hash": "ef93493a7d61a48d956f521dbc64fe38fada76c17b04d8ada494dd2939e37035"
   },
   {
-    "itinerary_id": "6bc5255d-2328-40fc-a4df-5415efa4f93f",
+    "itinerary_id": "89bd9ae2-9b52-4fd2-8ad5-975ae9fabbbd",
     "workspace_id": "pilot-tc-p1-hz-01",
     "revision": 2,
     "parent_revision": 1,
@@ -199,7 +199,7 @@
         "date": "2026-10-01",
         "stops": [
           {
-            "stop_id": "926abc47-99c4-4b31-b0a3-77b2d4159051",
+            "stop_id": "f680e471-fad8-428e-90f9-3cc0863a49f3",
             "place_id": "hz-west-lake",
             "day_index": 0,
             "order_index": 0,
@@ -208,7 +208,7 @@
             "visit_duration_minutes": 180,
             "transport_to_next": null,
             "raw_name": "西湖风景名胜区",
-            "source_raw_stop_id": "926abc47-99c4-4b31-b0a3-77b2d4159051",
+            "source_raw_stop_id": "f680e471-fad8-428e-90f9-3cc0863a49f3",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -217,7 +217,7 @@
             "notes": ""
           },
           {
-            "stop_id": "3500c210-8aaf-4c36-8797-ca3562ce54dd",
+            "stop_id": "db532c6f-017d-46a1-bb11-9aaa8c256eed",
             "place_id": "hz-lingyin",
             "day_index": 0,
             "order_index": 1,
@@ -226,7 +226,7 @@
             "visit_duration_minutes": 60,
             "transport_to_next": null,
             "raw_name": "灵隐寺",
-            "source_raw_stop_id": "3500c210-8aaf-4c36-8797-ca3562ce54dd",
+            "source_raw_stop_id": "db532c6f-017d-46a1-bb11-9aaa8c256eed",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -241,7 +241,7 @@
         "date": "2026-10-02",
         "stops": [
           {
-            "stop_id": "b779c554-1027-4051-a788-9b24d02ef143",
+            "stop_id": "a53d74dd-68cb-47bf-9fd1-cec53220b4df",
             "place_id": "hz-leifeng",
             "day_index": 1,
             "order_index": 0,
@@ -250,7 +250,7 @@
             "visit_duration_minutes": null,
             "transport_to_next": null,
             "raw_name": "雷峰塔",
-            "source_raw_stop_id": "b779c554-1027-4051-a788-9b24d02ef143",
+            "source_raw_stop_id": "a53d74dd-68cb-47bf-9fd1-cec53220b4df",
             "resolution_status": "AUTO_MATCHED",
             "commitment_kind": null,
             "fixed_commitment": false,
@@ -264,15 +264,15 @@
     "locked_commitments": [],
     "change_summary": {
       "kind": "repair_preview",
-      "repair_id": "945aa9c4-1890-4a40-a563-dd5fa2c47928",
-      "base_content_hash": "329828f73591bd35caee54a06c258ca8b14f9bc4229e59af595599857f0c7ac8",
+      "repair_id": "662f9161-6d8b-4409-8300-32e358a5150d",
+      "base_content_hash": "ef93493a7d61a48d956f521dbc64fe38fada76c17b04d8ada494dd2939e37035",
       "changed_days": [
         0
       ],
       "operation_count": 1
     },
     "created_by": "controlled-pilot-runner",
-    "created_at": "2026-08-23T04:58:32.152502Z",
-    "content_hash": "0291cab4be92560f044b95c80abb3c123ebaeed709b0a079f3ed3f58334f1eaf"
+    "created_at": "2026-08-23T07:51:30.665200Z",
+    "content_hash": "bf333405ee00ee6dcf793f32e9d3e932893e3cb18b64054eda367e0a88d7ac6b"
   }
 ]

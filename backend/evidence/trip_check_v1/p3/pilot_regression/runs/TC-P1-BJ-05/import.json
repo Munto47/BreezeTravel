@@ -1,5 +1,5 @@
 {
-  "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+  "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
   "workspace_id": "pilot-tc-p1-bj-05",
   "source_type": "MANUAL_TEXT",
   "raw_text": "北京2人5天。第1天故宫博物院；第2天颐和园；第3天天坛公园；第4天南锣鼓巷；第5天三里屯太古里。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "b096351b-6518-4d50-8d6f-0227eaab61be",
-      "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+      "raw_stop_id": "84409dfd-f221-4b24-9de8-08360be4572c",
+      "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
       "day_index": 0,
       "raw_name": "故宫博物院",
       "raw_time": null,
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "e95aa3e3-d838-4334-bb3c-5afa4e38b7dc",
-      "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+      "raw_stop_id": "2b84fd0d-8d2b-4781-acc7-9d0c3a2ed6f1",
+      "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
       "day_index": 1,
       "raw_name": "颐和园",
       "raw_time": null,
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "15eb0a8f-4df3-48d6-b99f-c052c44c95cc",
-      "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+      "raw_stop_id": "3ac838e9-aff3-453c-90e5-f11e56320f65",
+      "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
       "day_index": 2,
       "raw_name": "天坛公园",
       "raw_time": null,
@@ -49,8 +49,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "b23b1ba1-8610-4e16-816b-578416ad074c",
-      "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+      "raw_stop_id": "c96cf1b7-10c7-452d-9156-3b0731410fd2",
+      "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
       "day_index": 3,
       "raw_name": "南锣鼓巷",
       "raw_time": null,
@@ -63,8 +63,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "b2367cc2-75ed-440b-a6ff-23df899066d1",
-      "import_id": "f0de666f-af6f-4ea4-94a1-cec735880aca",
+      "raw_stop_id": "7b6b99fd-af94-4cfb-9341-a2215b03fc25",
+      "import_id": "bb71a1c9-918c-4f6e-be3d-a988faae6415",
       "day_index": 4,
       "raw_name": "三里屯太古里",
       "raw_time": null,
@@ -79,7 +79,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "b096351b-6518-4d50-8d6f-0227eaab61be",
+      "raw_stop_id": "84409dfd-f221-4b24-9de8-08360be4572c",
       "canonical_place_id": "bj-forbidden-city",
       "candidates": [
         {
@@ -138,7 +138,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "e95aa3e3-d838-4334-bb3c-5afa4e38b7dc",
+      "raw_stop_id": "2b84fd0d-8d2b-4781-acc7-9d0c3a2ed6f1",
       "canonical_place_id": "bj-summer-palace",
       "candidates": [
         {
@@ -197,7 +197,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "15eb0a8f-4df3-48d6-b99f-c052c44c95cc",
+      "raw_stop_id": "3ac838e9-aff3-453c-90e5-f11e56320f65",
       "canonical_place_id": "bj-temple-of-heaven",
       "candidates": [
         {
@@ -256,7 +256,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "b23b1ba1-8610-4e16-816b-578416ad074c",
+      "raw_stop_id": "c96cf1b7-10c7-452d-9156-3b0731410fd2",
       "canonical_place_id": "bj-nanluoguxiang",
       "candidates": [
         {
@@ -315,7 +315,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "b2367cc2-75ed-440b-a6ff-23df899066d1",
+      "raw_stop_id": "7b6b99fd-af94-4cfb-9341-a2215b03fc25",
       "canonical_place_id": "bj-sanlitun",
       "candidates": [
         {
@@ -379,6 +379,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.069086Z",
-  "updated_at": "2026-08-23T04:58:32.069086Z"
+  "created_at": "2026-08-23T07:51:30.576241Z",
+  "updated_at": "2026-08-23T07:51:30.576241Z"
 }

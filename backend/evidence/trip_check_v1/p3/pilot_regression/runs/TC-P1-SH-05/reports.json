@@ -1,19 +1,19 @@
 [
   {
-    "report_id": "17451028-0ab3-473e-9cef-9e3e19883bbe",
+    "report_id": "1ce7a297-d455-491d-b6bf-e28a77f55801",
     "workspace_id": "pilot-tc-p1-sh-05",
-    "itinerary_id": "94b98ecc-5dda-463b-9307-6124ed215e30",
+    "itinerary_id": "28314809-3c6c-414f-9798-962e5eeb05db",
     "itinerary_revision": 1,
     "task_id": "workspace:pilot-tc-p1-sh-05:default",
     "task_revision": 1,
     "member_constraint_revision_set": {},
-    "evidence_snapshot_id": "23ea5fbd-c8f0-5571-94df-23ada9e7f259",
+    "evidence_snapshot_id": "a513f3d2-6962-550d-bc70-d2684084f371",
     "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
-    "report_input_hash": "615e62020e335df33c4199385e64a55f854e62d30cca549f7fc49e7a748019d2",
+    "report_input_hash": "f3edba382ee732568cf25255f13b51450c74331cb6ee49bdbb49a1fe446f1b8b",
     "overall_status": "VIOLATED",
     "findings": [
       {
-        "finding_id": "f2180d5e-b775-4740-860c-a2a4042768cb",
+        "finding_id": "1f784b4b-8995-47ca-a496-b2e3946bde87",
         "rule_id": "audit.input_completeness",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -29,7 +29,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "76e33a92-de4c-491c-9c05-04efccd1b17a",
+        "finding_id": "60c2241f-7d41-4d6a-a54a-5598e9a10d1e",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -37,7 +37,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "外滩 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+          "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
           "place_id": "sh-bund",
           "target_city": "上海",
           "observed_cities": [
@@ -52,17 +52,17 @@
           0
         ],
         "affected_stop_ids": [
-          "e0612bee-b2a4-43a4-8b6c-cafea43191c1"
+          "d0b323d7-a6b1-43e5-be8a-b4144aff15db"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "cdc734a2-1899-572a-8818-4c373e09c832"
+          "77ce272a-6276-5565-a669-72c7c2f96df5"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "0c63073f-0dc3-4869-b948-8b98bba9a989",
+        "finding_id": "40d36bfd-b69e-41c2-893b-7c2665c4f6da",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -70,7 +70,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "豫园 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+          "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
           "place_id": "sh-yuyuan",
           "target_city": "上海",
           "observed_cities": [
@@ -85,17 +85,17 @@
           1
         ],
         "affected_stop_ids": [
-          "db25ce32-7fb1-4ccd-9239-97bcf7be2487"
+          "09236574-2adf-4e18-a7c8-699a188a93df"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "c9805ebd-c9de-5974-b49f-bfb1e739506f"
+          "7fdda51d-ba0a-5218-bea1-a50421e65123"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "47f8183b-40ba-487a-a976-6366e759f23e",
+        "finding_id": "f1afb027-7827-4f43-b14b-3f959a3841a6",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -103,7 +103,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "东方明珠广播电视塔 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+          "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
           "place_id": "sh-oriental-pearl",
           "target_city": "上海",
           "observed_cities": [
@@ -118,17 +118,17 @@
           2
         ],
         "affected_stop_ids": [
-          "a098dbdd-1d5b-4441-99d9-6076415386c3"
+          "814c1b4f-b405-4a81-a559-ed95d0357033"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "6d329f88-b7a4-5e98-9e51-694910337308"
+          "4dc3ae44-655a-5af6-8b2d-a3b47fb9fd77"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "53fa1868-e8b6-451d-993e-292931b86975",
+        "finding_id": "51ec0640-d43a-44b4-8e0a-c9714d5296e5",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -136,7 +136,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "田子坊 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+          "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
           "place_id": "sh-tianzifang",
           "target_city": "上海",
           "observed_cities": [
@@ -151,17 +151,17 @@
           3
         ],
         "affected_stop_ids": [
-          "9e6c2361-8a63-4af7-8048-16368a942a6f"
+          "60cf0ed3-aad4-45a7-8edc-b8f539d950e4"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "4b3408bc-984f-5e66-9be5-988c1217aa52"
+          "69162eb2-38a8-5bbe-92bb-d2e5fe57f610"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "358c5b10-6382-4571-9d4f-0d55992a19a6",
+        "finding_id": "75ac2c88-8cc3-4b0a-b4e1-6f1142a52c5f",
         "rule_id": "audit.place_city",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -169,7 +169,7 @@
         "reason_code": "PLACE_CITY_MATCH",
         "message": "上海迪士尼乐园 的地点身份城市与行程城市一致",
         "input_values": {
-          "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+          "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
           "place_id": "sh-disney",
           "target_city": "上海",
           "observed_cities": [
@@ -184,17 +184,17 @@
           4
         ],
         "affected_stop_ids": [
-          "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1"
+          "d3d4351c-4947-48a7-9f78-1ac4920ce8a0"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "dded74fc-5ccd-5082-828c-00fc9d798008"
+          "45df301f-f199-5066-aeb0-4a68c5a5b898"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "69ffc4f1-4bb1-4d99-8e01-969799efa410",
+        "finding_id": "7b0697d3-15e0-4372-9fb4-31961c30ccc2",
         "rule_id": "constraint.duplicate",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -214,7 +214,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "ed410499-bf00-4216-ac1e-da4a5fbc96a8",
+        "finding_id": "9f9f0304-9046-4bb7-b40e-f0401fb2c264",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -226,7 +226,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -245,7 +245,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "8c0e31ea-c864-436c-9a1b-9f8bd400ba3d",
+        "finding_id": "214816c7-9fc2-4495-b08e-7425627a11e7",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -257,7 +257,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -276,7 +276,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "48969f1a-0028-4664-91cc-51567cd2799c",
+        "finding_id": "b136ac2b-d411-432d-83ed-cf394ab14f9c",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -288,7 +288,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -307,7 +307,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "af271253-7f3d-4360-95e4-ab0f462bae0b",
+        "finding_id": "f646a40a-a6a4-475d-8d13-9a73aa0eee8d",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -319,7 +319,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -338,7 +338,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "b0462cae-4bc4-4a1e-b601-17224599a65f",
+        "finding_id": "4483194c-f36d-4ea8-96e0-e1a89549ba00",
         "rule_id": "constraint.time_chain",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -350,7 +350,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -369,7 +369,7 @@
         "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
       },
       {
-        "finding_id": "9c5d5af4-dc89-4159-90c4-5172121ff38f",
+        "finding_id": "3ff857d6-638f-487f-8e3c-1b709ef4a3bd",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -381,7 +381,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -400,7 +400,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "1ff1ce7f-3eae-4161-bcd2-ce500bbd434e",
+        "finding_id": "0866c9c7-808c-4a3f-9a7b-8173b800ec56",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -412,7 +412,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -431,7 +431,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "0ab0371a-bba1-40d5-92de-a24f1ba768a6",
+        "finding_id": "65fc1cd9-8da4-485a-a43c-c7c863a9a5d7",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -443,7 +443,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -462,7 +462,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "568075d8-0f02-4c5f-95ee-5325ee807163",
+        "finding_id": "3d00d58a-3179-440b-8e83-4471dd327e30",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -474,7 +474,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -493,7 +493,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "1333c2be-fdf2-447e-b112-ae295600b64c",
+        "finding_id": "2f578ee2-98b2-424b-bf48-0a5cc633a64c",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -505,7 +505,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -524,7 +524,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "f494bba7-ce33-4945-a56e-44b8017b80d7",
+        "finding_id": "f37ee170-c027-4f4d-9e34-ab4748f6f199",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -536,7 +536,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -555,7 +555,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "a2cafb5e-12c9-4e20-8988-eae0e7f9c13a",
+        "finding_id": "28253f31-0dea-4679-b83f-1bbbba9cfacc",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -567,7 +567,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -586,7 +586,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "70796e11-753e-4894-995d-8eff7d3fb83f",
+        "finding_id": "7df07fd0-de4b-4e8b-a991-c591fb9d3500",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -598,7 +598,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -617,7 +617,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "afe422ff-176a-4f53-96e2-c36adbd4ae72",
+        "finding_id": "6fb64470-0dea-421c-85f0-6b97b51d5460",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -629,7 +629,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -648,7 +648,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "8696bd86-f6f1-418f-9e64-6f420f685174",
+        "finding_id": "619a7618-3f98-440b-9aaa-5b62c97bddeb",
         "rule_id": "constraint.meal_window",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -660,7 +660,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -679,7 +679,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "97b02e95-ddea-4136-a694-6a05442d2e82",
+        "finding_id": "676acc21-8dbd-468f-9077-d344eccfd7ad",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -691,7 +691,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -710,7 +710,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "dbdd7bff-c18f-4279-826f-f06fc6bf15f8",
+        "finding_id": "bfcad2f7-4c2f-449c-aae4-353d4242cd62",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -722,7 +722,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -741,7 +741,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "b5f3d29f-cd84-4cdb-b969-06ab20164d1b",
+        "finding_id": "833dd7a1-1746-414a-8db4-d110c9912882",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -753,7 +753,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -772,7 +772,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "074809b8-3ee4-411f-a08d-af156e6ed419",
+        "finding_id": "b40be306-5cc9-48fd-9b3e-4f5cf729db77",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -784,7 +784,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -803,7 +803,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "1a3b4aa3-c9c2-4a30-a3c5-263ea518fed8",
+        "finding_id": "a2e4b59f-f0fb-4e2f-b677-a19710166d64",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -815,7 +815,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -834,7 +834,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "0ed6de1a-f8bd-4b7f-b193-cc6a0fe994b6",
+        "finding_id": "7f4aa769-0bea-4110-9849-526e7fb601fc",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -846,7 +846,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -865,7 +865,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "1d635baa-2f87-4d07-9c35-de2e27b20637",
+        "finding_id": "45dca3c1-a8d0-4bef-a613-2d2ddfa51d12",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -877,7 +877,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -896,7 +896,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "ecae076b-a4b7-4f7c-b667-6c559b9a1a5f",
+        "finding_id": "76b5e20a-c880-487c-9e57-49a2974de7e0",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -908,7 +908,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -927,7 +927,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "e121bef5-3854-45f7-a0ba-e494f0e9772b",
+        "finding_id": "e07f2103-9881-4052-ac55-937488d049e9",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -939,7 +939,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -958,7 +958,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "62675167-7c36-4e31-9a61-a835eba4a1b7",
+        "finding_id": "e0cc734e-4041-43e8-ae11-c0fa2c582bb4",
         "rule_id": "constraint.pacing",
         "rule_version": "1.0.0",
         "status": "SATISFIED",
@@ -970,7 +970,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -989,7 +989,7 @@
         "confirmation_action": null
       },
       {
-        "finding_id": "98c31dfb-c28b-4746-8712-71cf346bb06d",
+        "finding_id": "1f2a320f-e9ee-4ba2-bd2f-0f41dee33bf6",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1001,7 +1001,7 @@
           "place_id": "sh-bund",
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -1014,18 +1014,18 @@
           0
         ],
         "affected_stop_ids": [
-          "e0612bee-b2a4-43a4-8b6c-cafea43191c1"
+          "d0b323d7-a6b1-43e5-be8a-b4144aff15db"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "cdc734a2-1899-572a-8818-4c373e09c832",
-          "0ba7c487-8f2d-5122-b50f-7085f7f393ae"
+          "77ce272a-6276-5565-a669-72c7c2f96df5",
+          "ac7596d9-69ab-5d3c-8534-d4670bcd6aa3"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "b62fb98c-4636-4c4c-9d94-eb3b0d6a885b",
+        "finding_id": "766bb146-5db6-4d1d-809a-c3a1c091af9c",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1037,7 +1037,7 @@
           "place_id": "sh-yuyuan",
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -1050,18 +1050,18 @@
           1
         ],
         "affected_stop_ids": [
-          "db25ce32-7fb1-4ccd-9239-97bcf7be2487"
+          "09236574-2adf-4e18-a7c8-699a188a93df"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "c9805ebd-c9de-5974-b49f-bfb1e739506f",
-          "f83c9624-59fc-5ccc-acb0-12070a5623e6"
+          "7fdda51d-ba0a-5218-bea1-a50421e65123",
+          "0cafdd33-91ca-5de3-b673-d7d28f5a7cf7"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "7fd2465b-5e29-4648-9338-4d1a231ab13e",
+        "finding_id": "2ae864cf-4fb8-4fc2-885f-879fccbb6a56",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1073,7 +1073,7 @@
           "place_id": "sh-oriental-pearl",
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -1086,18 +1086,18 @@
           2
         ],
         "affected_stop_ids": [
-          "a098dbdd-1d5b-4441-99d9-6076415386c3"
+          "814c1b4f-b405-4a81-a559-ed95d0357033"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "6d329f88-b7a4-5e98-9e51-694910337308",
-          "1e53d125-a1ff-5c83-8f53-04dea5d09013"
+          "4dc3ae44-655a-5af6-8b2d-a3b47fb9fd77",
+          "e1cfe43e-051c-5d4a-950e-84bb65bf34fa"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "9560810b-82a6-47fa-a377-ea10fc79ecd3",
+        "finding_id": "ea530e40-4c06-4888-ab5b-1c65c3952996",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1109,7 +1109,7 @@
           "place_id": "sh-tianzifang",
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -1122,18 +1122,18 @@
           3
         ],
         "affected_stop_ids": [
-          "9e6c2361-8a63-4af7-8048-16368a942a6f"
+          "60cf0ed3-aad4-45a7-8edc-b8f539d950e4"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "4b3408bc-984f-5e66-9be5-988c1217aa52",
-          "9d8ffde3-56ea-5d6f-97fe-516ae6863733"
+          "69162eb2-38a8-5bbe-92bb-d2e5fe57f610",
+          "1e24c56e-5073-5650-867a-a3f7d85fd9ef"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "c5d8dacd-7626-46b6-b570-3667c4c51de9",
+        "finding_id": "07d7b2bf-dc1e-43ec-bc76-cdacbdb348f2",
         "rule_id": "constraint.opening_hours",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1145,7 +1145,7 @@
           "place_id": "sh-disney",
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -1158,18 +1158,18 @@
           4
         ],
         "affected_stop_ids": [
-          "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1"
+          "d3d4351c-4947-48a7-9f78-1ac4920ce8a0"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "dded74fc-5ccd-5082-828c-00fc9d798008",
-          "49c2c86b-82f7-5973-ae23-05c8e3db5f9e"
+          "45df301f-f199-5066-aeb0-4a68c5a5b898",
+          "d31749ad-488d-5bce-ba52-7b0cfea52c0b"
         ],
         "repairable": false,
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "6fa0f125-96b8-4ec1-b64c-c608aec7e010",
+        "finding_id": "4bc55938-5587-447d-8bae-4c3a0f5606ec",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1181,7 +1181,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -1200,7 +1200,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "f4834a3a-6d38-4807-917f-e075330e23e8",
+        "finding_id": "b93e0a2f-4a2b-42cf-b808-319347acb60f",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1212,7 +1212,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -1231,7 +1231,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "b94555b0-1746-4a80-ae56-39ef060f9835",
+        "finding_id": "6c17bd9f-ac37-4ee9-8507-09c51f6ce914",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1243,7 +1243,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -1262,7 +1262,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "4dd0f98b-8741-42f5-8a6b-ef3a4a2962a5",
+        "finding_id": "7a5044ac-a78b-41e0-91b7-917eb3ceb17f",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1274,7 +1274,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -1293,7 +1293,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "bca6245d-a200-486b-b56c-8cb6c25fa971",
+        "finding_id": "d895d599-18ad-4059-a7e5-777978f39dc0",
         "rule_id": "constraint.weather",
         "rule_version": "1.0.0",
         "status": "UNKNOWN",
@@ -1305,7 +1305,7 @@
           "place_id": null,
           "day_stops": [
             {
-              "stop_id": "4388d2c4-30e4-4c82-b4ae-3f4b59724ca1",
+              "stop_id": "d3d4351c-4947-48a7-9f78-1ac4920ce8a0",
               "place_id": "sh-disney",
               "start_time": null,
               "end_time": null,
@@ -1324,7 +1324,7 @@
         "confirmation_action": "请补充或刷新对应事实后重新审计"
       },
       {
-        "finding_id": "26af76b5-4682-4270-8afe-9710d88f2385",
+        "finding_id": "a4eac5ba-2dee-459f-ae05-e2b4ec860be2",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -1336,7 +1336,7 @@
           "place_id": "sh-bund",
           "day_stops": [
             {
-              "stop_id": "e0612bee-b2a4-43a4-8b6c-cafea43191c1",
+              "stop_id": "d0b323d7-a6b1-43e5-be8a-b4144aff15db",
               "place_id": "sh-bund",
               "start_time": null,
               "end_time": null,
@@ -1349,18 +1349,18 @@
           0
         ],
         "affected_stop_ids": [
-          "e0612bee-b2a4-43a4-8b6c-cafea43191c1"
+          "d0b323d7-a6b1-43e5-be8a-b4144aff15db"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "cdc734a2-1899-572a-8818-4c373e09c832",
-          "0ba7c487-8f2d-5122-b50f-7085f7f393ae"
+          "77ce272a-6276-5565-a669-72c7c2f96df5",
+          "ac7596d9-69ab-5d3c-8534-d4670bcd6aa3"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "a87e9bf7-2969-4a92-84a8-09e60bbe1899",
+        "finding_id": "04546ae4-f9f9-49b2-b479-cee14df6c58e",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -1372,7 +1372,7 @@
           "place_id": "sh-yuyuan",
           "day_stops": [
             {
-              "stop_id": "db25ce32-7fb1-4ccd-9239-97bcf7be2487",
+              "stop_id": "09236574-2adf-4e18-a7c8-699a188a93df",
               "place_id": "sh-yuyuan",
               "start_time": null,
               "end_time": null,
@@ -1385,18 +1385,18 @@
           1
         ],
         "affected_stop_ids": [
-          "db25ce32-7fb1-4ccd-9239-97bcf7be2487"
+          "09236574-2adf-4e18-a7c8-699a188a93df"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "c9805ebd-c9de-5974-b49f-bfb1e739506f",
-          "f83c9624-59fc-5ccc-acb0-12070a5623e6"
+          "7fdda51d-ba0a-5218-bea1-a50421e65123",
+          "0cafdd33-91ca-5de3-b673-d7d28f5a7cf7"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "5760a598-c32c-4c96-9d70-83b34673826d",
+        "finding_id": "489d0df2-862f-4eac-bf84-daf55efae0c3",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -1408,7 +1408,7 @@
           "place_id": "sh-oriental-pearl",
           "day_stops": [
             {
-              "stop_id": "a098dbdd-1d5b-4441-99d9-6076415386c3",
+              "stop_id": "814c1b4f-b405-4a81-a559-ed95d0357033",
               "place_id": "sh-oriental-pearl",
               "start_time": null,
               "end_time": null,
@@ -1421,18 +1421,18 @@
           2
         ],
         "affected_stop_ids": [
-          "a098dbdd-1d5b-4441-99d9-6076415386c3"
+          "814c1b4f-b405-4a81-a559-ed95d0357033"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "6d329f88-b7a4-5e98-9e51-694910337308",
-          "1e53d125-a1ff-5c83-8f53-04dea5d09013"
+          "4dc3ae44-655a-5af6-8b2d-a3b47fb9fd77",
+          "e1cfe43e-051c-5d4a-950e-84bb65bf34fa"
         ],
         "repairable": false,
         "confirmation_action": null
       },
       {
-        "finding_id": "bc6901f1-bc09-4601-83c3-203633ad3ae3",
+        "finding_id": "2bac6a94-2c12-488a-b480-75a4e9faf989",
         "rule_id": "constraint.daily_hotel",
         "rule_version": "1.0.0",
         "status": "VIOLATED",
@@ -1444,7 +1444,7 @@
           "place_id": "sh-tianzifang",
           "day_stops": [
             {
-              "stop_id": "9e6c2361-8a63-4af7-8048-16368a942a6f",
+              "stop_id": "60cf0ed3-aad4-45a7-8edc-b8f539d950e4",
               "place_id": "sh-tianzifang",
               "start_time": null,
               "end_time": null,
@@ -1457,18 +1457,18 @@
           3
         ],
         "affected_stop_ids": [
-          "9e6c2361-8a63-4af7-8048-16368a942a6f"
+          "60cf0ed3-aad4-45a7-8edc-b8f539d950e4"
         ],
         "affected_member_ids": [],
         "evidence_fact_ids": [
-          "4b3408bc-984f-5e66-9be5-988c1217aa52",
-          "9d8ffde3-56ea-5d6f-97fe-516ae6863733"
+          "69162eb2-38a8-5bbe-92bb-d2e5fe57f610",
+          "1e24c56e-5073-5650-867a-a3f7d85fd9ef"
         ],
         "repairable": false,
         "confirmation_action": null
       }
     ],
-    "created_at": "2026-08-23T04:58:32.121313Z",
+    "created_at": "2026-08-23T07:51:30.634377Z",
     "supersedes_report_id": null
   }
 ]

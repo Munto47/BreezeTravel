@@ -1,0 +1,20 @@
+{
+  "schema_version": "trip-check-run-spec-v1",
+  "commit_sha": "e13053ecce6d2e5aa6d2d5ecd57184a6a2d200aa",
+  "prompt_version": "none-p2",
+  "model_version": "none-p2",
+  "provider_version": "controlled-v2",
+  "rule_set_version": "audit-v1",
+  "execution_mode": "controlled_fixture",
+  "dataset_hash": "fad793b3088e85090cf5290a737b18f560f8dccab922c5c32bb3c066d3f928a3",
+  "snapshot_hash": "f4d14fbc02b76a7d474ab067a311cc6b696fe37ad868d15404619d84c22a44db",
+  "fault_profile": "partial_field_failure",
+  "random_seed": 23,
+  "budget": {
+    "max_tokens": 0,
+    "max_provider_queries": 3,
+    "max_retries": 2,
+    "timeout_seconds": 30,
+    "max_cost_usd": 0.0
+  }
+}

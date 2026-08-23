@@ -1,6 +1,6 @@
 [
   {
-    "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+    "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
     "workspace_id": "pilot-tc-p1-bj-03",
     "itinerary_revision": 1,
     "provider_set": [
@@ -11,8 +11,8 @@
     "policy_version": "evidence-policy-v1",
     "facts": [
       {
-        "fact_id": "66ad365f-40f4-5c7b-8fe9-66d3668d1018",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "7e06c9e3-5437-5d06-a293-f20317a923a1",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-tiananmen",
         "fact_type": "POI_IDENTITY",
@@ -38,8 +38,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "350e0635-84e9-5ca1-99df-9903610ac611",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "37954f65-2c21-5d0e-9d04-bb167172c82e",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-tiananmen",
         "fact_type": "OPENING_HOURS",
@@ -54,8 +54,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "615d0044-e1a5-59f7-b6af-d7eb584f730e",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "d28aa0ac-d444-519e-a8f0-8f6a20c810a5",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "POI_IDENTITY",
@@ -81,8 +81,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "6170129a-0219-5f9b-bd06-0432c3706821",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "5de87e6b-0f1f-5c37-8882-e233a9556894",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-forbidden-city",
         "fact_type": "OPENING_HOURS",
@@ -97,8 +97,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "e800fab4-c509-5739-9ecf-bc6bd680423b",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "617ddb71-1fc1-55bb-9b7a-7a8c43b98ace",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-badaling",
         "fact_type": "POI_IDENTITY",
@@ -124,8 +124,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "270a335c-4367-5dad-99b4-c0419ac98d83",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "42503b88-6581-5a28-8ef5-b8b68e04550b",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-badaling",
         "fact_type": "OPENING_HOURS",
@@ -140,8 +140,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "844f9dce-1371-5062-b3ba-2ca0d4a0f866",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "a717eca1-309d-5bd1-b905-0742d0cf2d96",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "POI_IDENTITY",
@@ -167,8 +167,8 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "6a80adca-87c2-5d70-a7cc-f817d031e5ba",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "43044d3a-dcf3-5441-89f1-b3d7af2fb2de",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "PLACE",
         "subject_id": "bj-temple-of-heaven",
         "fact_type": "OPENING_HOURS",
@@ -183,10 +183,10 @@
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "b21a5e06-3a5d-5799-b483-81bcfe295f4d",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "2bc4edd9-dacb-5486-964f-8f05fc986be4",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "ROUTE_EDGE",
-        "subject_id": "53cf2143-8371-435d-8626-1a039c7259ba->1a8ff06f-c686-4f31-a92a-504e106af80c",
+        "subject_id": "6e3cb6f6-d210-41eb-ac36-b3d556ecda72->7415a5ee-bf65-45e9-98b1-b861ff134ae6",
         "fact_type": "ROUTE_TIME",
         "value": {
           "mode": "driving",
@@ -194,32 +194,32 @@
         },
         "provider": "controlled_route_fixture_v1",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.048232Z",
+        "observed_at": "2026-08-23T07:51:30.551491Z",
         "valid_from": null,
-        "valid_until": "2027-08-23T04:58:32.048232Z",
-        "response_hash": "9d70caad1315f9645eceee3618f6fca65ebd3d2089cf5ca8875911c170189d92",
+        "valid_until": "2027-08-23T07:51:30.551491Z",
+        "response_hash": "5b90c4b105297a35e1e655fbd6974adb52ca8a207cb868091d75c05439314bdd",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       },
       {
-        "fact_id": "1c5edf96-80e2-5802-805f-56c0a0f79af0",
-        "snapshot_id": "758e141f-5522-54b6-a584-a525412e0efc",
+        "fact_id": "3ef41322-b7bc-5705-82e2-ec89cbaf552a",
+        "snapshot_id": "6b19d452-bd78-5af6-a327-849e9c4ee2a3",
         "subject_type": "TRIP_BRIEF",
-        "subject_id": "4d20854e-4e2a-499c-a725-942c5dbb35d2",
+        "subject_id": "b6baa78b-a337-44d5-9704-7ba20e04d130",
         "fact_type": "TRAVELER_COUNT",
         "value": 4,
         "provider": "confirmed_trip_brief_revision",
         "source_url": null,
-        "observed_at": "2026-08-23T04:58:32.048232Z",
+        "observed_at": "2026-08-23T07:51:30.551491Z",
         "valid_from": null,
-        "valid_until": "2036-08-20T04:58:32.048232Z",
-        "response_hash": "82fe4a5ba703353d393df113682114e1d41d3b6bef8570b7c63c652769137102",
+        "valid_until": "2036-08-20T07:51:30.551491Z",
+        "response_hash": "a825f1cfc8612db5cf214628b21db567ea804286751aef24f9914de34dd95a17",
         "confidence": 1.0,
         "freshness_status": "FRESH"
       }
     ],
     "provider_failures": [],
-    "created_at": "2026-08-23T04:58:32.048232Z",
+    "created_at": "2026-08-23T07:51:30.551491Z",
     "supersedes_snapshot_id": null
   }
 ]

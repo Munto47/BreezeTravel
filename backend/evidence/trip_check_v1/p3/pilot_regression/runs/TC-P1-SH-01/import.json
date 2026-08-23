@@ -1,5 +1,5 @@
 {
-  "import_id": "0eff5df8-643e-4cdb-ac4c-a1573e9a452b",
+  "import_id": "5e1ac6af-e1cb-4d0f-8c8d-e52beac0366e",
   "workspace_id": "pilot-tc-p1-sh-01",
   "source_type": "MANUAL_TEXT",
   "raw_text": "上海2人。第1天 09:00-12:00 外滩，12:00-13:00 上海迪士尼乐园；第2天 10:00 豫园。",
@@ -7,8 +7,8 @@
   "status": "READY",
   "raw_stops": [
     {
-      "raw_stop_id": "807df72e-42f2-4ded-933f-dcb08cf2b0cd",
-      "import_id": "0eff5df8-643e-4cdb-ac4c-a1573e9a452b",
+      "raw_stop_id": "982a728d-7b10-44ac-9cfb-c7c06873a3e2",
+      "import_id": "5e1ac6af-e1cb-4d0f-8c8d-e52beac0366e",
       "day_index": 0,
       "raw_name": "外滩",
       "raw_time": "09:00-12:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "b4e0c846-451f-4025-aa90-00d2980b10b4",
-      "import_id": "0eff5df8-643e-4cdb-ac4c-a1573e9a452b",
+      "raw_stop_id": "7ff236a9-652f-45ba-a708-c729cacca0f2",
+      "import_id": "5e1ac6af-e1cb-4d0f-8c8d-e52beac0366e",
       "day_index": 0,
       "raw_name": "上海迪士尼乐园",
       "raw_time": "12:00-13:00",
@@ -35,8 +35,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "0044342a-d513-415d-b5e4-95e2282aa7dd",
-      "import_id": "0eff5df8-643e-4cdb-ac4c-a1573e9a452b",
+      "raw_stop_id": "cda0eb8f-6feb-4c74-9565-1b527c613cc6",
+      "import_id": "5e1ac6af-e1cb-4d0f-8c8d-e52beac0366e",
       "day_index": 1,
       "raw_name": "豫园",
       "raw_time": "10:00",
@@ -51,7 +51,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "807df72e-42f2-4ded-933f-dcb08cf2b0cd",
+      "raw_stop_id": "982a728d-7b10-44ac-9cfb-c7c06873a3e2",
       "canonical_place_id": "sh-bund",
       "candidates": [
         {
@@ -110,7 +110,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "b4e0c846-451f-4025-aa90-00d2980b10b4",
+      "raw_stop_id": "7ff236a9-652f-45ba-a708-c729cacca0f2",
       "canonical_place_id": "sh-disney",
       "candidates": [
         {
@@ -169,7 +169,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "0044342a-d513-415d-b5e4-95e2282aa7dd",
+      "raw_stop_id": "cda0eb8f-6feb-4c74-9565-1b527c613cc6",
       "canonical_place_id": "sh-yuyuan",
       "candidates": [
         {
@@ -233,6 +233,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.082143Z",
-  "updated_at": "2026-08-23T04:58:32.082143Z"
+  "created_at": "2026-08-23T07:51:30.590942Z",
+  "updated_at": "2026-08-23T07:51:30.590942Z"
 }

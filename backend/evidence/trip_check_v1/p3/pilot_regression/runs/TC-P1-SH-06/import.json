@@ -1,5 +1,5 @@
 {
-  "import_id": "84006d19-0f6d-49e8-b4b6-0ad51f05e3cd",
+  "import_id": "8d7a08bb-e104-4828-906d-b072b83ba231",
   "workspace_id": "pilot-tc-p1-sh-06",
   "source_type": "MANUAL_TEXT",
   "raw_text": "上海2人。第1天 09:00 故宫博物院；第2天 09:00 外滩。",
@@ -7,8 +7,8 @@
   "status": "NEEDS_RESOLUTION",
   "raw_stops": [
     {
-      "raw_stop_id": "087807e5-3661-41ad-b04f-b26c71e865f6",
-      "import_id": "84006d19-0f6d-49e8-b4b6-0ad51f05e3cd",
+      "raw_stop_id": "2f25e164-b79e-48eb-9558-23d0b8698583",
+      "import_id": "8d7a08bb-e104-4828-906d-b072b83ba231",
       "day_index": 0,
       "raw_name": "故宫博物院",
       "raw_time": "09:00",
@@ -21,8 +21,8 @@
       "fixed_commitment": false
     },
     {
-      "raw_stop_id": "960e8ac5-e552-4824-b7c7-6395d67f84c6",
-      "import_id": "84006d19-0f6d-49e8-b4b6-0ad51f05e3cd",
+      "raw_stop_id": "2ea87652-6e82-43c6-b1ec-1102e59a8577",
+      "import_id": "8d7a08bb-e104-4828-906d-b072b83ba231",
       "day_index": 1,
       "raw_name": "外滩",
       "raw_time": "09:00",
@@ -37,7 +37,7 @@
   ],
   "resolutions": [
     {
-      "raw_stop_id": "087807e5-3661-41ad-b04f-b26c71e865f6",
+      "raw_stop_id": "2f25e164-b79e-48eb-9558-23d0b8698583",
       "canonical_place_id": null,
       "candidates": [],
       "rejected_candidates": [
@@ -74,7 +74,7 @@
       "confirmed_at": null
     },
     {
-      "raw_stop_id": "960e8ac5-e552-4824-b7c7-6395d67f84c6",
+      "raw_stop_id": "2ea87652-6e82-43c6-b1ec-1102e59a8577",
       "canonical_place_id": "sh-bund",
       "candidates": [
         {
@@ -138,6 +138,6 @@
   "state_version": 2,
   "applied_revision": null,
   "created_by": "controlled-pilot-runner",
-  "created_at": "2026-08-23T04:58:32.137282Z",
-  "updated_at": "2026-08-23T04:58:32.137282Z"
+  "created_at": "2026-08-23T07:51:30.649946Z",
+  "updated_at": "2026-08-23T07:51:30.649946Z"
 }
