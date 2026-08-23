@@ -298,6 +298,37 @@ def _group_buckets(scores: list[P5CaseScore], field: str) -> dict[str, Any]:
     return {key: _bucket(values) for key, values in sorted(groups.items())}
 
 
+def _paired_comparison(
+    *,
+    core_scores: dict[str, P5CaseScore],
+    challenger_scores: dict[str, P5CaseScore],
+) -> dict[str, Any]:
+    if set(core_scores) != set(challenger_scores):
+        raise ValueError("paired comparison case sets differ")
+    differences = [
+        int(challenger_scores[case_id].task_success) - int(core_scores[case_id].task_success)
+        for case_id in sorted(core_scores)
+    ]
+    count = len(differences)
+    improvement = mean(differences) if differences else 0.0
+    if count > 1:
+        variance = sum((value - improvement) ** 2 for value in differences) / (count - 1)
+        standard_error = math.sqrt(variance / count)
+    else:
+        standard_error = 0.0
+    lower = max(-1.0, improvement - 1.96 * standard_error)
+    upper = min(1.0, improvement + 1.96 * standard_error)
+    return {
+        "paired_case_count": count,
+        "challenger_wins": sum(value == 1 for value in differences),
+        "core_wins": sum(value == -1 for value in differences),
+        "ties": sum(value == 0 for value in differences),
+        "task_success_improvement_percentage_points": improvement * 100,
+        "confidence_interval_95_percentage_points": [lower * 100, upper * 100],
+        "confidence_interval_crosses_zero": lower <= 0 <= upper,
+    }
+
+
 def validate_run_group(
     *,
     run_dir: Path,
@@ -426,6 +457,22 @@ def score_run_group(
         "postcheck_failure_zero": core.get("postcheck_failure_count", 1) == 0,
         "replay_failure_zero": core.get("replay_failure_count", 1) == 0,
     }
+    score_maps = {
+        variant_id: {
+            score.case_id: score for score in scores if score.variant_id == variant_id
+        }
+        for variant_id in variants
+    }
+    paired_comparisons = {
+        variant_id: _paired_comparison(
+            core_scores=score_maps["core_b"], challenger_scores=score_maps[variant_id]
+        )
+        for variant_id in ("legacy_a", "solver_c")
+        if variant_id in score_maps and "core_b" in score_maps
+    }
+    promotion_decision = (
+        "KEEP_CORE_B" if all(core_gate_checks.values()) else "REJECT_ALL_CANDIDATES"
+    )
     report = {
         "schema_version": "trip-check-p5-nonblind-score-report-v1",
         "status": "PASS" if all(core_gate_checks.values()) else "REJECT",
@@ -435,7 +482,11 @@ def score_run_group(
         "case_count": len({score.case_id for score in scores}),
         "terminal_count": len(scores),
         "variant_metrics": variants,
+        "paired_comparisons": paired_comparisons,
         "core_gate_checks": core_gate_checks,
+        "promotion_decision": promotion_decision,
+        "solver_admission_inherited": "REJECT",
+        "solver_may_promote_from_p5_score": False,
         "case_scores": [score.model_dump(mode="json") for score in scores],
         "automated_proxy_judge": "NOT_RUN",
         "live_provider_evidence": False,

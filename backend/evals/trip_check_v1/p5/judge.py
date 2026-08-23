@@ -508,6 +508,7 @@ def aggregate_judge_rounds(
             for report in reports
         ],
         "mapping_sha256": mapping_sha256,
+        "run_group_manifest_hash": mapping["run_group_manifest_hash"],
         "deterministic_oracle_priority": True,
         "judge_may_override_deterministic_failure": False,
     }
