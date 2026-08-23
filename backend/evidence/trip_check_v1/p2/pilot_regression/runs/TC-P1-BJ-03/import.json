@@ -1,0 +1,311 @@
+{
+  "import_id": "687143c1-de1b-4bb9-ac9f-7fadb4d5bc33",
+  "workspace_id": "pilot-tc-p1-bj-03",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "北京4人住王府井。第1天 08:30 天安门广场，10:00 故宫博物院；第2天 07:30 长城（八达岭）；第3天 09:00 天坛公园。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "0e78e126-1cf9-421e-8c2c-b4eafb82bade",
+      "import_id": "687143c1-de1b-4bb9-ac9f-7fadb4d5bc33",
+      "day_index": 0,
+      "raw_name": "天安门广场",
+      "raw_time": "08:30",
+      "source_span": {
+        "start": 13,
+        "end": 24
+      },
+      "source_sentence": "08:30 天安门广场",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "2da61f92-27a9-4c5c-bf4f-8be1a55213cb",
+      "import_id": "687143c1-de1b-4bb9-ac9f-7fadb4d5bc33",
+      "day_index": 0,
+      "raw_name": "故宫博物院",
+      "raw_time": "10:00",
+      "source_span": {
+        "start": 25,
+        "end": 36
+      },
+      "source_sentence": "10:00 故宫博物院",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "259177e9-0a07-44b1-b9fe-e23d50fb537a",
+      "import_id": "687143c1-de1b-4bb9-ac9f-7fadb4d5bc33",
+      "day_index": 1,
+      "raw_name": "长城（八达岭）",
+      "raw_time": "07:30",
+      "source_span": {
+        "start": 41,
+        "end": 54
+      },
+      "source_sentence": "07:30 长城（八达岭）",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "2ebe0844-2ee0-42ab-93cb-8cef7fc31ba2",
+      "import_id": "687143c1-de1b-4bb9-ac9f-7fadb4d5bc33",
+      "day_index": 2,
+      "raw_name": "天坛公园",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 59,
+        "end": 69
+      },
+      "source_sentence": "09:00 天坛公园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "0e78e126-1cf9-421e-8c2c-b4eafb82bade",
+      "canonical_place_id": "bj-tiananmen",
+      "candidates": [
+        {
+          "place_id": "bj-tiananmen",
+          "name": "天安门广场",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.903
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "48141ecf2e8d7f3d7fd6ed264c4f8e9ec9e756af8c393c4e817d0f479f38e655",
+          "retrieval_response_hash": "4348a0739321ca4b129c3e6aacfe83bba8170dbf4975b6bcad8856a7b6d62584",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-tiananmen",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-tiananmen",
+            "name": "天安门广场",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.397,
+            "latitude": 39.903,
+            "request_hash": "48141ecf2e8d7f3d7fd6ed264c4f8e9ec9e756af8c393c4e817d0f479f38e655",
+            "response_hash": "4348a0739321ca4b129c3e6aacfe83bba8170dbf4975b6bcad8856a7b6d62584",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "2da61f92-27a9-4c5c-bf4f-8be1a55213cb",
+      "canonical_place_id": "bj-forbidden-city",
+      "candidates": [
+        {
+          "place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+          "retrieval_response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-forbidden-city",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-forbidden-city",
+            "name": "故宫博物院",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.397,
+            "latitude": 39.918,
+            "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+            "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "259177e9-0a07-44b1-b9fe-e23d50fb537a",
+      "canonical_place_id": "bj-badaling",
+      "candidates": [
+        {
+          "place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+          "retrieval_response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-badaling",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-badaling",
+            "name": "长城（八达岭）",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.017,
+            "latitude": 40.354,
+            "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+            "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "2ebe0844-2ee0-42ab-93cb-8cef7fc31ba2",
+      "canonical_place_id": "bj-temple-of-heaven",
+      "candidates": [
+        {
+          "place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+          "retrieval_response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-temple-of-heaven",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-temple-of-heaven",
+            "name": "天坛公园",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.417,
+            "latitude": 39.883,
+            "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+            "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T03:45:33.787679Z",
+  "updated_at": "2026-08-23T03:45:33.787679Z"
+}

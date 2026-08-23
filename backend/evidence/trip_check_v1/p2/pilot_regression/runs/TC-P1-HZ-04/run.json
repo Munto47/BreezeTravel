@@ -1,0 +1,49 @@
+{
+  "run_id": "ecdeecdd-cbc5-4257-939f-b93252c4e994",
+  "workspace_id": "pilot-tc-p1-hz-04",
+  "itinerary_revision": 1,
+  "brief_id": "bd689b7a-78f1-4b01-b5c3-499299f5ff00",
+  "brief_revision": 2,
+  "stage": "WAIT_ADOPTION",
+  "stage_attempt": 1,
+  "lease_owner": null,
+  "lease_until": null,
+  "run_spec": {
+    "schema_version": "trip-check-run-spec-v1",
+    "commit_sha": "920b165a404219b7f586296a37960920b1d17170",
+    "prompt_version": "none-p1",
+    "model_version": "none-p1",
+    "provider_version": "controlled-fixture-v1",
+    "rule_set_version": "audit-v1",
+    "execution_mode": "fixture",
+    "dataset_hash": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
+    "snapshot_hash": "3307e65a4134b2659d79ea0b9bdea42586e93122593d16ddb73df5a2db1bcf47",
+    "fault_profile": "none",
+    "random_seed": 7,
+    "budget": {
+      "max_tokens": 0,
+      "max_provider_queries": 0,
+      "max_retries": 1,
+      "timeout_seconds": 30,
+      "max_cost_usd": 0.0
+    }
+  },
+  "config_hash": "5b0f3c6eb20a969f3c8c0aaf2fcca5fe43b3d9eca2f0993c2dee8acec619ea95",
+  "completed_stages": [
+    "PARSE",
+    "WAIT_BRIEF_CONFIRMATION",
+    "RESOLVE_PLACES",
+    "COLLECT_EVIDENCE",
+    "AUDIT",
+    "BUILD_ADVICE"
+  ],
+  "partial_failures": [],
+  "status": "WAITING",
+  "evidence_snapshot_id": "eee0ce6e-32d3-599c-899b-a0b9d3e2757a",
+  "report_id": "a8b4a8cc-0c9d-484b-b734-f4d085928958",
+  "advice_bundle_id": "9efc09c4-70e1-5d8a-92f1-d46a5b9d05a0",
+  "version": 5,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T03:45:33.947110Z",
+  "updated_at": "2026-08-23T03:45:33.956077Z"
+}

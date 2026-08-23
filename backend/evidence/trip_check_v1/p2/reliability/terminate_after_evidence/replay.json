@@ -1,0 +1,20 @@
+{
+  "worker_returncode": 1,
+  "lease_expired_before_resume": true,
+  "counts_after_evidence": {
+    "runs": 1,
+    "revisions": 1,
+    "snapshots": 1,
+    "receipts": 1,
+    "repairs": 0
+  },
+  "counts_after_resume": {
+    "runs": 1,
+    "revisions": 1,
+    "snapshots": 3,
+    "receipts": 3,
+    "repairs": 2
+  },
+  "source_snapshot_count": 1,
+  "evidence_receipt_count": 1
+}

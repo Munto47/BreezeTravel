@@ -1,0 +1,299 @@
+[
+  {
+    "itinerary_id": "d8228f65-8c0e-456d-bb82-e115c1155568",
+    "workspace_id": "pilot-tc-p1-hz-05",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "杭州",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-05"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "99993ae7-0e13-4ac2-895a-79616a30c06b",
+            "place_id": "hz-west-lake",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西湖风景名胜区",
+            "source_raw_stop_id": "99993ae7-0e13-4ac2-895a-79616a30c06b",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "002543b0-387d-4bcf-beac-e94504fec11c",
+            "place_id": "hz-lingyin",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "灵隐寺",
+            "source_raw_stop_id": "002543b0-387d-4bcf-beac-e94504fec11c",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 2,
+        "date": "2026-10-03",
+        "stops": [
+          {
+            "stop_id": "4b039f6f-b072-4c19-896a-9ffd1c044433",
+            "place_id": "hz-leifeng",
+            "day_index": 2,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "雷峰塔",
+            "source_raw_stop_id": "4b039f6f-b072-4c19-896a-9ffd1c044433",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 3,
+        "date": "2026-10-04",
+        "stops": [
+          {
+            "stop_id": "dbbdf6a4-c029-448a-8545-be7b8bfd1d3f",
+            "place_id": "hz-xixi",
+            "day_index": 3,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西溪湿地国家公园",
+            "source_raw_stop_id": "dbbdf6a4-c029-448a-8545-be7b8bfd1d3f",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 4,
+        "date": "2026-10-05",
+        "stops": [
+          {
+            "stop_id": "8abfbfc0-13fe-45c4-ae70-0eb5d2563e5b",
+            "place_id": "hz-hefang",
+            "day_index": 4,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "河坊街·清河坊",
+            "source_raw_stop_id": "8abfbfc0-13fe-45c4-ae70-0eb5d2563e5b",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "3b1fca88-7f30-4fe6-a7e1-619724cc1f02",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "99993ae7-0e13-4ac2-895a-79616a30c06b": {
+          "place_id": "hz-west-lake",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "b7d8660a821fbfaa2a38be0ad1f06c63b33dd568cd3ab77345c96a209141f4e3",
+          "canonical_name": "西湖风景名胜区"
+        },
+        "002543b0-387d-4bcf-beac-e94504fec11c": {
+          "place_id": "hz-lingyin",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "4c1c805c85b263be8f3e6d25ffd4097fd1183f22f85b03b45c60de43d2bdcac0",
+          "canonical_name": "灵隐寺"
+        },
+        "4b039f6f-b072-4c19-896a-9ffd1c044433": {
+          "place_id": "hz-leifeng",
+          "coords": {
+            "lng": 120.149,
+            "lat": 30.231
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "d3a7bd8165f7c2011cd55705b1f7c8d7dea690b78ddf75c45afd313169e5e304",
+          "canonical_name": "雷峰塔"
+        },
+        "dbbdf6a4-c029-448a-8545-be7b8bfd1d3f": {
+          "place_id": "hz-xixi",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "e7ee29b15349294e8d6f0301f98bb1b8b51795a6789adc1335a2f5b804991edb",
+          "canonical_name": "西溪湿地国家公园"
+        },
+        "8abfbfc0-13fe-45c4-ae70-0eb5d2563e5b": {
+          "place_id": "hz-hefang",
+          "coords": {
+            "lng": 120.174,
+            "lat": 30.238
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "eb1651f3b28bf97f4c982a181c595e7913ff3eb3e62adbe897121ed7ae076801",
+          "canonical_name": "河坊街·清河坊"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "hz-west-lake",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.148,
+          "latitude": 30.244,
+          "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-lingyin",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.102,
+          "latitude": 30.24,
+          "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+          "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-leifeng",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-leifeng",
+          "name": "雷峰塔",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.149,
+          "latitude": 30.231,
+          "request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+          "response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-xixi",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.063,
+          "latitude": 30.268,
+          "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-hefang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-hefang",
+          "name": "河坊街·清河坊",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.174,
+          "latitude": 30.238,
+          "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+          "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "fbab852070039450ead09267bb2b5369c6b7716c6568ae7787eeab8910b12ce4"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T03:45:33.959424Z",
+    "content_hash": "e2a95c531584171a5407cfff6b0b7558f3485b180bbc360bb6372f8f1ed31485"
+  }
+]

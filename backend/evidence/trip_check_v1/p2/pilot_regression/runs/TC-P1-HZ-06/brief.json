@@ -1,0 +1,155 @@
+{
+  "brief_id": "e7f72fc1-eb83-4272-b7e0-4bfe491fc526",
+  "workspace_id": "pilot-tc-p1-hz-06",
+  "revision": 2,
+  "parent_revision": 1,
+  "content_hash": "7838461cf92ce3ad7dece7496641d5338e840b11faed0790feb2c1089bb11f85",
+  "city": "杭州",
+  "date_range": {
+    "start": "2026-10-01",
+    "end": "2026-10-02"
+  },
+  "traveler_count": 2,
+  "arrival": {
+    "location": null,
+    "at": null,
+    "notes": null
+  },
+  "departure": {
+    "location": null,
+    "at": null,
+    "notes": null
+  },
+  "accommodation": {
+    "hotel_name": null,
+    "area": null
+  },
+  "transport_modes": [
+    "WALKING",
+    "TRANSIT"
+  ],
+  "transport_restrictions": "NO_PREFERENCE",
+  "budget": "NO_PREFERENCE",
+  "dining_style": "NO_PREFERENCE",
+  "lodging_style": "NO_PREFERENCE",
+  "dietary_restrictions": "NO_PREFERENCE",
+  "daily_pace": "NO_PREFERENCE",
+  "activity_intensity": "NO_PREFERENCE",
+  "field_provenance": {
+    "city": {
+      "source_spans": [
+        {
+          "source_id": "7d8b3586-37f1-431f-9f6d-2906544bebf2",
+          "start": 0,
+          "end": 2
+        }
+      ],
+      "confidence": 0.85,
+      "origin": "PARSER",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "date_range": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "traveler_count": {
+      "source_spans": [
+        {
+          "source_id": "7d8b3586-37f1-431f-9f6d-2906544bebf2",
+          "start": 2,
+          "end": 4
+        }
+      ],
+      "confidence": 0.85,
+      "origin": "PARSER",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "arrival": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "departure": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "accommodation": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "transport_modes": {
+      "source_spans": [],
+      "confidence": 0.5,
+      "origin": "INFERRED",
+      "confirmation": "CONFIRMED",
+      "hardness": "SOFT"
+    },
+    "transport_restrictions": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "budget": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "dining_style": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "lodging_style": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "dietary_restrictions": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "daily_pace": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    },
+    "activity_intensity": {
+      "source_spans": [],
+      "confidence": 1.0,
+      "origin": "DEFAULT_NO_PREFERENCE",
+      "confirmation": "CONFIRMED",
+      "hardness": "NO_PREFERENCE"
+    }
+  },
+  "status": "CONFIRMED",
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T03:45:33.973383Z",
+  "confirmed_by": "controlled-pilot-runner",
+  "confirmed_at": "2026-08-23T03:45:33.973383Z"
+}

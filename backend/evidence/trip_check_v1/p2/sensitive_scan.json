@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "baseline_commit": "8816975f2abf417d21c3aa7dc977576d64347502",
+  "subject_commit": "920b165a404219b7f586296a37960920b1d17170",
+  "finding_count": 0,
+  "findings": []
+}

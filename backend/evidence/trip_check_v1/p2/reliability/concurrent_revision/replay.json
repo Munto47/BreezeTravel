@@ -1,0 +1,6 @@
+{
+  "winner_revision": 2,
+  "loser_error": "RepairStaleError",
+  "loser_http_status": 409,
+  "winner_revision_readback": 2
+}
