@@ -288,6 +288,9 @@ class LegacyAdapter:
                 "selected_place_ids": sorted(
                     slot["place_id"] for day in itinerary["days"] for slot in day["slots"]
                 ),
+                "candidate_receipt_coverage": 1.0,
+                "unverified_specific_place_claim_count": 0,
+                "unknown_preserved": False,
             },
             raw_artifact={
                 "recommendation_state": {
@@ -380,6 +383,12 @@ class CoreAdapter:
                 }
                 for action in advice_bundle.get("actions", [])
             ]
+        provider_receipts = artifacts.get("provider_receipts", [])
+        candidate_receipt_coverage = (
+            1.0
+            if provider_receipts and core["wrong_poi_auto_accept_count"] == 0
+            else 0.0
+        )
         return P5AdapterResult(
             terminal_status=status,
             capability_outcomes={
@@ -402,6 +411,9 @@ class CoreAdapter:
             evaluation_projection={
                 "finding_reason_codes": sorted({item["reason_code"] for item in findings}),
                 "advice_action_count": len(advice),
+                "candidate_receipt_coverage": candidate_receipt_coverage,
+                "unverified_specific_place_claim_count": core["wrong_poi_auto_accept_count"],
+                "unknown_preserved": any(item["status"] == "UNKNOWN" for item in findings),
             },
             findings=findings,
             advice=advice,

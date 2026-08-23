@@ -125,11 +125,12 @@ def validate_exact_terminal_set(
 def write_jsonl_atomic(path: Path, outputs: Sequence[P5TerminalOutput]) -> str:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp = path.with_suffix(path.suffix + ".tmp")
+    sorted_outputs = sorted(outputs, key=lambda value: (value.case_id, value.variant_id))
     lines = [
         json.dumps(item.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
-        for item in sorted(outputs, key=lambda value: (value.case_id, value.variant_id))
+        for item in sorted_outputs
     ]
     payload = ("\n".join(lines) + "\n").encode("utf-8")
     temp.write_bytes(payload)
     temp.replace(path)
-    return digest([item.model_dump(mode="json") for item in outputs])
+    return digest([item.model_dump(mode="json") for item in sorted_outputs])
