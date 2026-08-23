@@ -24,6 +24,10 @@ HIGH_CONFIDENCE_SECRET_PATTERNS = {
     "aws_access_key": re.compile(r"AKIA[0-9A-Z]{16}"),
     "private_key": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     "windows_user_profile": re.compile(r"[A-Za-z]:\\Users\\[^\\\s]+", re.IGNORECASE),
+    "escaped_windows_user_profile": re.compile(
+        r"[A-Za-z]:\\\\Users\\\\[^\\\s]+",
+        re.IGNORECASE,
+    ),
 }
 
 
@@ -54,7 +58,12 @@ def _portable_text(value: str) -> str:
     for source, target in replacements:
         portable = portable.replace(source, target)
         portable = portable.replace(source.replace("\\", "/"), target)
+        portable = portable.replace(source.replace("\\", "\\\\"), target)
     return portable
+
+
+def _normalized_log(value: str) -> str:
+    return "\n".join(line.rstrip() for line in _portable_text(value).splitlines()).rstrip() + "\n"
 
 
 def _portable_command(command: list[str]) -> list[str]:
@@ -110,7 +119,7 @@ def _run_gate(
         timed_out = True
     finished = datetime.now(timezone.utc)
     log_path = log_dir / f"{name}.log"
-    log_path.write_text(_portable_text(output), encoding="utf-8")
+    log_path.write_text(_normalized_log(output), encoding="utf-8")
     return {
         "name": name,
         "status": "PASS" if exit_code == 0 else "FAIL",
