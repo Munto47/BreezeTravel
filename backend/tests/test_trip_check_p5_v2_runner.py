@@ -23,6 +23,7 @@ from evals.trip_check_v1.p5.runner_v2 import (
     write_jsonl_atomic_v2,
 )
 from scripts.run_trip_check_p5_v2_eval import RUN_GROUP_FIELDS, execute_run
+import scripts.run_trip_check_p5_v2_eval as run_script_v2
 
 
 def _artifact(artifact_id: str, schema_version: str, content: dict) -> dict:
@@ -840,3 +841,128 @@ async def test_formal_run_rejects_pending_active_contract_before_execution(tmp_p
     with pytest.raises(RuntimeError, match="P5_V2_FORMAL_CONTRACT_NOT_READY"):
         await execute_run(args)
     assert not (tmp_path / "outputs").exists()
+
+
+@pytest.mark.asyncio
+async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case, materialization = _fixture()
+    materialization["source_payload"]["raw_text"] = "tampered after materialization hash"
+    cases_path = tmp_path / "cases.jsonl"
+    materials_path = tmp_path / "materializations.jsonl"
+    template_path = tmp_path / "run_spec.json"
+    rubric_path = tmp_path / "rubric.json"
+    dataset_path = tmp_path / "dataset.json"
+    active_path = tmp_path / "active.json"
+    cases_path.write_text(case.model_dump_json() + "\n", encoding="utf-8")
+    materials_path.write_text(json.dumps(materialization, ensure_ascii=False) + "\n", encoding="utf-8")
+    template = {
+        "allowed_variant_differences": ["variant_id", "adapter_version", "repair_strategy"],
+        "renderer": {"name": "fixture", "version": "2.0.0"},
+        "ocr_engine": {"name": "paddleocr", "version": "3.7.0"},
+        "evidence_policy_version": "v2",
+        "fault_registry_version": "v2",
+        "random_seed": 7,
+        "budget": {"timeout_seconds": 2, "max_cost_usd": 0},
+        "replay_hash_policy": "p5-semantic-projection-v2",
+        "variant_specs": {
+            variant: {"adapter_version": adapter, "repair_strategy": strategy}
+            for variant, (adapter, strategy) in {
+                "legacy_a": ("legacy-a-v2", "legacy_native_only"),
+                "core_b": ("core-b-v2", "bounded_repair_v1"),
+                "solver_c": ("solver-c-v2", "cp_sat_v1"),
+            }.items()
+        },
+    }
+    template_path.write_text(json.dumps(template), encoding="utf-8")
+    rubric_path.write_text('{"schema_version":"trip-check-p5-judge-rubric-v2"}', encoding="utf-8")
+    case_set_hash = digest([{"case_id": case.case_id, "case_hash": case.case_hash}])
+    materialization_set_hash = digest(
+        [{"case_id": case.case_id, "materialization_hash": materialization["materialization_hash"]}]
+    )
+    dataset = {
+        "schema_version": "trip-check-p5-dataset-manifest-v2",
+        "contract_hashes": {
+            "judge_rubric_sha256": hashlib.sha256(rubric_path.read_bytes()).hexdigest(),
+            "run_spec_template_sha256": hashlib.sha256(template_path.read_bytes()).hexdigest(),
+        },
+        "files": {
+            "nonblind_cases": {"file_sha256": hashlib.sha256(cases_path.read_bytes()).hexdigest()},
+            "nonblind_materializations": {"file_sha256": hashlib.sha256(materials_path.read_bytes()).hexdigest()},
+        },
+        "lanes": {
+            "nonblind": {
+                "case_count": 1,
+                "materialization_count": 1,
+                "case_set_hash": case_set_hash,
+                "materialization_set_hash": materialization_set_hash,
+            }
+        },
+        "frozen": True,
+        "generation": {"formal_validation_eligible": True},
+        "evidence_boundary": {"actual_ocr": "PASS"},
+    }
+    dataset["manifest_hash"] = digest(dataset)
+    dataset_path.write_text(json.dumps(dataset), encoding="utf-8")
+    active_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "trip-check-p5-active-contract-v1",
+                "active_contract": "trip-check-p5-v2",
+                "formal_evidence_status": "READY",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setitem(run_script_v2.DEFAULTS, "nonblind", (cases_path, materials_path, 1))
+    monkeypatch.setattr(
+        run_script_v2,
+        "_git",
+        lambda *args: "a" * 40 if args == ("rev-parse", "HEAD") else "",
+    )
+    args = SimpleNamespace(
+        lane="nonblind",
+        cases_file=str(cases_path),
+        materializations_file=str(materials_path),
+        dataset_manifest=str(dataset_path),
+        run_spec_template=str(template_path),
+        rubric=str(rubric_path),
+        active_contract=str(active_path),
+        blind_seal=None,
+        case_id=None,
+        limit=None,
+        variants="legacy,core,solver",
+        allow_dirty=False,
+        require_formal=True,
+        replay=True,
+        output_dir=str(tmp_path / "outputs"),
+        run_id="stable-errors",
+    )
+    stable = await execute_run(args)
+    rows = [
+        json.loads(line)
+        for line in (Path(stable["run_dir"]) / "terminal_outputs.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert {row["terminal_status"] for row in rows} == {"ERROR"}
+    assert stable["status"] == "PASS"
+    assert stable["formal_evidence"] is True
+    assert stable["replay_match_count"] == 3
+
+    original_execute = run_script_v2.execute_terminal_v2
+    call_count = 0
+
+    async def mismatching_replay(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        output = await original_execute(**kwargs)
+        if call_count % 2 == 0:
+            return output.model_copy(update={"replay_hash": "0" * 64})
+        return output
+
+    monkeypatch.setattr(run_script_v2, "execute_terminal_v2", mismatching_replay)
+    args.run_id = "mismatching-errors"
+    mismatch = await execute_run(args)
+    assert mismatch["status"] == "REJECT"
+    assert mismatch["formal_evidence"] is False
+    assert len(mismatch["replay_mismatches"]) == 3
