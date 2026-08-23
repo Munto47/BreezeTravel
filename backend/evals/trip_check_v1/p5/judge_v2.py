@@ -52,6 +52,14 @@ def _inside(path: Path, root: Path) -> bool:
     return True
 
 
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
 def _public_input(case: P5CaseV2, materialization: Mapping[str, Any]) -> dict[str, Any]:
     if case.input_kind == "TEXT":
         return {
@@ -85,10 +93,15 @@ def _candidate_expression(output: P5TerminalOutputV2) -> dict[str, Any]:
         "has_repair",
         "candidate_set_bound",
     }
-    for item in output.advice:
+    for index, item in enumerate(output.advice, 1):
         if not isinstance(item, dict):
             raise P5JudgeErrorV2("JUDGE_ADVICE_INVALID")
-        advice.append({key: item.get(key) for key in sorted(allowed_advice)})
+        advice.append(
+            {
+                "claim_id": f"claim_{index:03d}",
+                **{key: item.get(key) for key in sorted(allowed_advice)},
+            }
+        )
     return {
         "terminal_status": output.terminal_status.value,
         "advice": advice,
@@ -223,6 +236,7 @@ def export_judge_bundles_v2(
                 if output is None:
                     raise P5JudgeErrorV2("JUDGE_TERMINAL_KEY_MISSING")
                 slot_id = f"slot_{slot_index}"
+                candidate_expression = _candidate_expression(output)
                 items.append(
                     {
                         "blind_item_id": blind_ids[case.case_id],
@@ -230,7 +244,7 @@ def export_judge_bundles_v2(
                         "public_input": _public_input(
                             case, materializations[case.case_id]
                         ),
-                        "candidate_expression": _candidate_expression(output),
+                        "candidate_expression": candidate_expression,
                         "evidence_summary": _evidence_summary(
                             output, materializations[case.case_id]
                         ),
@@ -244,6 +258,10 @@ def export_judge_bundles_v2(
                         "case_id": case.case_id,
                         "variant_id": variant_id,
                         "runtime_generator_model": "none-controlled-runtime",
+                        "claim_ids": [
+                            item["claim_id"]
+                            for item in candidate_expression["advice"]
+                        ],
                     }
                 )
         round_items[round_index] = items
@@ -393,9 +411,17 @@ def _validate_round_report(
             raise P5JudgeErrorV2("JUDGE_SCORE_RANGE_INVALID")
         candidates = score.get("unsupported_claim_candidate_ids")
         if not isinstance(candidates, list) or any(
-            not isinstance(value, str) for value in candidates
+            not isinstance(value, str) or not value.strip() for value in candidates
         ):
             raise P5JudgeErrorV2("JUDGE_CLAIM_CANDIDATES_INVALID")
+        if len(candidates) != len(set(candidates)):
+            raise P5JudgeErrorV2("JUDGE_CLAIM_CANDIDATES_INVALID")
+        if (
+            not isinstance(score.get("blind_item_id"), str)
+            or not score["blind_item_id"]
+            or score.get("slot_id") not in {"slot_1", "slot_2", "slot_3"}
+        ):
+            raise P5JudgeErrorV2("JUDGE_SCORE_ID_INVALID")
         verdict = "PASS" if min(dimensions) >= 2 and not candidates else "NEEDS_REVISION"
         if score.get("derived_verdict") != verdict:
             raise P5JudgeErrorV2("JUDGE_DERIVED_VERDICT_INVALID")
@@ -440,13 +466,102 @@ def aggregate_judge_rounds_v2(
         or digest(rows) != mapping.get("mapping_commitment")
     ):
         raise P5JudgeErrorV2("JUDGE_MAPPING_CONTRACT_INVALID")
-    mapping_by_key = {
-        (row.get("round_index"), row.get("blind_item_id"), row.get("slot_id")): row
+    expected_receipt_fields = {
+        "round_index",
+        "path",
+        "sha256",
+        "rubric_sha256",
+        "terminal_outputs_content_sha256",
+        "item_count",
+    }
+    if (
+        not _is_sha256(mapping.get("run_group_manifest_hash"))
+        or not _is_sha256(mapping.get("terminal_outputs_content_sha256"))
+        or any(
+            not isinstance(receipt, dict)
+            or set(receipt) != expected_receipt_fields
+            or receipt.get("round_index") != round_index
+            or receipt.get("path") != f"judge_bundle_round_{round_index}.v2.json"
+            or not _is_sha256(receipt.get("sha256"))
+            or not _is_sha256(receipt.get("rubric_sha256"))
+            or receipt.get("terminal_outputs_content_sha256")
+            != mapping["terminal_outputs_content_sha256"]
+            or receipt.get("item_count") != 270
+            for round_index, receipt in enumerate(receipts, 1)
+        )
+        or len({receipt["rubric_sha256"] for receipt in receipts}) != 1
+    ):
+        raise P5JudgeErrorV2("JUDGE_BUNDLE_RECEIPT_INVALID")
+    expected_mapping_fields = {
+        "round_index",
+        "blind_item_id",
+        "slot_id",
+        "case_id",
+        "variant_id",
+        "runtime_generator_model",
+        "claim_ids",
+    }
+    if any(
+        not isinstance(row, dict)
+        or set(row) != expected_mapping_fields
+        or type(row.get("round_index")) is not int
+        or row["round_index"] not in {1, 2, 3}
+        or not isinstance(row.get("blind_item_id"), str)
+        or not row["blind_item_id"]
+        or row.get("slot_id") not in {"slot_1", "slot_2", "slot_3"}
+        or not isinstance(row.get("case_id"), str)
+        or not row["case_id"]
+        or row.get("variant_id") not in VARIANT_IDS_V2
+        or not isinstance(row.get("runtime_generator_model"), str)
+        or not row["runtime_generator_model"]
+        or not isinstance(row.get("claim_ids"), list)
+        or any(
+            not isinstance(claim_id, str) or not claim_id
+            for claim_id in row["claim_ids"]
+        )
+        or len(row["claim_ids"]) != len(set(row["claim_ids"]))
         for row in rows
-        if isinstance(row, dict)
+    ):
+        raise P5JudgeErrorV2("JUDGE_MAPPING_ROW_INVALID")
+    mapping_by_key = {
+        (row["round_index"], row["blind_item_id"], row["slot_id"]): row
+        for row in rows
     }
     if len(mapping_by_key) != 810:
         raise P5JudgeErrorV2("JUDGE_MAPPING_KEY_SET_INVALID")
+    blind_ids = {row["blind_item_id"] for row in rows}
+    case_ids = {row["case_id"] for row in rows}
+    blind_to_cases: dict[str, set[str]] = defaultdict(set)
+    for row in rows:
+        blind_to_cases[row["blind_item_id"]].add(row["case_id"])
+    if (
+        len(blind_ids) != 90
+        or len(case_ids) != 90
+        or any(len(values) != 1 for values in blind_to_cases.values())
+    ):
+        raise P5JudgeErrorV2("JUDGE_ANONYMOUS_MAPPING_NOT_CLOSED")
+    expected_round_keys = {
+        (blind_item_id, slot_id)
+        for blind_item_id in blind_ids
+        for slot_id in ("slot_1", "slot_2", "slot_3")
+    }
+    for round_index in (1, 2, 3):
+        round_rows = [row for row in rows if row["round_index"] == round_index]
+        round_keys = {(row["blind_item_id"], row["slot_id"]) for row in round_rows}
+        round_variants = Counter(
+            (row["blind_item_id"], row["variant_id"]) for row in round_rows
+        )
+        if (
+            len(round_rows) != 270
+            or round_keys != expected_round_keys
+            or set(round_variants) != {
+                (blind_item_id, variant_id)
+                for blind_item_id in blind_ids
+                for variant_id in VARIANT_IDS_V2
+            }
+            or set(round_variants.values()) != {1}
+        ):
+            raise P5JudgeErrorV2("JUDGE_MAPPING_ROUND_COVERAGE_INVALID")
 
     reports = []
     identities: dict[str, set[str]] = {
@@ -475,6 +590,10 @@ def aggregate_judge_rounds_v2(
             )
             if row is None:
                 raise P5JudgeErrorV2("JUDGE_SCORE_MAPPING_MISSING")
+            if not set(score["unsupported_claim_candidate_ids"]).issubset(
+                row["claim_ids"]
+            ):
+                raise P5JudgeErrorV2("JUDGE_CLAIM_ID_NOT_IN_CANDIDATE")
             if report["model_id"] == row.get("runtime_generator_model"):
                 raise P5JudgeErrorV2("JUDGE_RUNTIME_SELF_REVIEW")
             grouped[(score["blind_item_id"], row["variant_id"])].append(score)
@@ -507,6 +626,13 @@ def aggregate_judge_rounds_v2(
                     dimension: median(value[dimension] for value in values)
                     for dimension in dimensions
                 },
+                "unsupported_claim_candidate_count": len(
+                    {
+                        claim_id
+                        for value in values
+                        for claim_id in value["unsupported_claim_candidate_ids"]
+                    }
+                ),
             }
         )
     total = len(grouped)
@@ -539,6 +665,11 @@ def aggregate_judge_rounds_v2(
                 for dimension in dimensions
             },
         }
+    unsupported_claim_candidate_count = sum(
+        item["unsupported_claim_candidate_count"]
+        for values in variant_values.values()
+        for item in values
+    )
     panel = {
         "schema_version": "trip-check-p5-judge-panel-v2",
         "status": "PASS" if passed else "BLOCKED",
@@ -574,6 +705,7 @@ def aggregate_judge_rounds_v2(
         ],
         "deterministic_scorer_priority": True,
         "judge_may_override_deterministic_failure": False,
+        "unsupported_claim_candidate_count": unsupported_claim_candidate_count,
     }
     panel["report_hash"] = digest(panel)
     return panel

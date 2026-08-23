@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from jsonschema import Draft202012Validator, ValidationError
 
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.judge_v2 import (
@@ -14,6 +15,7 @@ from evals.trip_check_v1.p5.judge_v2 import (
     aggregate_judge_rounds_v2,
     export_judge_bundles_v2,
 )
+from scripts.aggregate_trip_check_p5_v2_judges import _validate_panel_schema
 
 
 def _sha(path: Path) -> str:
@@ -184,6 +186,7 @@ def test_export_is_exact_balanced_and_leak_free(tmp_path: Path, monkeypatch) -> 
     _, export_dir, mapping_path = _fixture(tmp_path, monkeypatch)
     mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
     assert len(mapping["rows"]) == 810
+    assert {tuple(row["claim_ids"]) for row in mapping["rows"]} == {("claim_001",)}
     for round_index in range(1, 4):
         rows = [row for row in mapping["rows"] if row["round_index"] == round_index]
         assert set(Counter((row["slot_id"], row["variant_id"]) for row in rows).values()) == {
@@ -198,6 +201,7 @@ def test_export_is_exact_balanced_and_leak_free(tmp_path: Path, monkeypatch) -> 
         assert '"label":' not in bundle_text
         assert "SECRET_RENDER_SOURCE" not in bundle_text
         assert "actual ocr 0" in bundle_text
+        assert '"claim_id":"claim_001"' in bundle_text
 
 
 def test_three_round_panel_enforces_identity_schema_and_zero_tools(tmp_path: Path, monkeypatch) -> None:
@@ -211,6 +215,7 @@ def test_three_round_panel_enforces_identity_schema_and_zero_tools(tmp_path: Pat
     )
     assert panel["status"] == "PASS"
     assert panel["candidate_count"] == 270
+    assert panel["unsupported_claim_candidate_count"] == 0
     assert panel["verdict_agreement_rate"] == 1
     assert panel["judge_may_override_deterministic_failure"] is False
     assert panel["report_hash"] == digest(
@@ -227,6 +232,140 @@ def test_three_round_panel_enforces_identity_schema_and_zero_tools(tmp_path: Pat
             mapping_sha256=_sha(mapping_path),
             round_paths=rounds,
         )
+
+
+def test_panel_aggregates_explicit_unsupported_claim_ids_without_hiding_them(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo, export_dir, mapping_path = _fixture(tmp_path, monkeypatch)
+    rounds = _rounds(export_dir)
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    blind_item_id = mapping["rows"][0]["blind_item_id"]
+    for round_index, path in enumerate(rounds, 1):
+        mapping_row = next(
+            row
+            for row in mapping["rows"]
+            if row["round_index"] == round_index
+            and row["blind_item_id"] == blind_item_id
+            and row["variant_id"] == "legacy_a"
+        )
+        report = json.loads(path.read_text(encoding="utf-8"))
+        score = next(
+            score
+            for score in report["scores"]
+            if score["blind_item_id"] == blind_item_id
+            and score["slot_id"] == mapping_row["slot_id"]
+        )
+        score["unsupported_claim_candidate_ids"] = ["claim_001"]
+        score["derived_verdict"] = "NEEDS_REVISION"
+        path.write_text(json.dumps(report), encoding="utf-8")
+
+    panel = aggregate_judge_rounds_v2(
+        repo_root=repo,
+        mapping_path=mapping_path,
+        mapping_sha256=_sha(mapping_path),
+        round_paths=rounds,
+    )
+
+    assert panel["status"] == "PASS"
+    assert panel["unsupported_claim_candidate_count"] == 1
+    assert panel["report_hash"] == digest(
+        {key: value for key, value in panel.items() if key != "report_hash"}
+    )
+
+
+def test_round_missing_claim_field_and_anonymous_id_drift_fail_closed(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo, export_dir, mapping_path = _fixture(tmp_path, monkeypatch)
+    rounds = _rounds(export_dir)
+    report = json.loads(rounds[0].read_text(encoding="utf-8"))
+    del report["scores"][0]["unsupported_claim_candidate_ids"]
+    rounds[0].write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(P5JudgeErrorV2, match="JUDGE_SCORE_SCHEMA_INVALID"):
+        aggregate_judge_rounds_v2(
+            repo_root=repo,
+            mapping_path=mapping_path,
+            mapping_sha256=_sha(mapping_path),
+            round_paths=rounds,
+        )
+
+    rounds = _rounds(export_dir)
+    report = json.loads(rounds[0].read_text(encoding="utf-8"))
+    report["scores"][0]["blind_item_id"] = "unmapped-anonymous-id"
+    rounds[0].write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(P5JudgeErrorV2, match="JUDGE_SCORE_MAPPING_MISSING"):
+        aggregate_judge_rounds_v2(
+            repo_root=repo,
+            mapping_path=mapping_path,
+            mapping_sha256=_sha(mapping_path),
+            round_paths=rounds,
+        )
+
+    rounds = _rounds(export_dir)
+    report = json.loads(rounds[0].read_text(encoding="utf-8"))
+    report["scores"][0]["unsupported_claim_candidate_ids"] = ["invented-claim-id"]
+    report["scores"][0]["derived_verdict"] = "NEEDS_REVISION"
+    rounds[0].write_text(json.dumps(report), encoding="utf-8")
+    with pytest.raises(P5JudgeErrorV2, match="JUDGE_CLAIM_ID_NOT_IN_CANDIDATE"):
+        aggregate_judge_rounds_v2(
+            repo_root=repo,
+            mapping_path=mapping_path,
+            mapping_sha256=_sha(mapping_path),
+            round_paths=rounds,
+        )
+
+
+def test_mapping_must_be_a_closed_three_round_anonymous_bijection(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo, export_dir, mapping_path = _fixture(tmp_path, monkeypatch)
+    rounds = _rounds(export_dir)
+    mapping = json.loads(mapping_path.read_text(encoding="utf-8"))
+    mapping["rows"][0]["case_id"] = mapping["rows"][3]["case_id"]
+    mapping["mapping_commitment"] = digest(mapping["rows"])
+    mapping_path.write_text(json.dumps(mapping), encoding="utf-8")
+
+    with pytest.raises(P5JudgeErrorV2, match="JUDGE_ANONYMOUS_MAPPING_NOT_CLOSED"):
+        aggregate_judge_rounds_v2(
+            repo_root=repo,
+            mapping_path=mapping_path,
+            mapping_sha256=_sha(mapping_path),
+            round_paths=rounds,
+        )
+
+
+def test_round_and_panel_schemas_reject_nested_extra_fields(
+    tmp_path: Path, monkeypatch
+) -> None:
+    repo, export_dir, mapping_path = _fixture(tmp_path, monkeypatch)
+    rounds = _rounds(export_dir)
+    schema_root = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5"
+    round_schema = json.loads(
+        (schema_root / "judge_round_v2.schema.json").read_text(encoding="utf-8")
+    )
+    round_payload = json.loads(rounds[0].read_text(encoding="utf-8"))
+    Draft202012Validator(round_schema).validate(round_payload)
+    round_payload["scores"][0]["unexpected"] = True
+    with pytest.raises(ValidationError):
+        Draft202012Validator(round_schema).validate(round_payload)
+
+    panel = aggregate_judge_rounds_v2(
+        repo_root=repo,
+        mapping_path=mapping_path,
+        mapping_sha256=_sha(mapping_path),
+        round_paths=rounds,
+    )
+    panel_schema = json.loads(
+        (schema_root / "judge_panel_v2.schema.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator(panel_schema).validate(panel)
+    _validate_panel_schema(panel)
+    panel["variant_metrics"]["legacy_a"]["unexpected"] = True
+    with pytest.raises(ValidationError):
+        Draft202012Validator(panel_schema).validate(panel)
+    with pytest.raises(RuntimeError, match="Judge panel schema validation failed"):
+        _validate_panel_schema(panel)
 
 
 def test_agreement_below_85_blocks_only_semantic_panel(tmp_path: Path, monkeypatch) -> None:

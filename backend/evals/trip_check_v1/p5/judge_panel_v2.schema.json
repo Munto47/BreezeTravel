@@ -3,7 +3,7 @@
   "$id": "trip-check-p5-judge-panel-v2.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "status", "evidence_class", "human_calibration_performed", "round_count", "candidate_count", "agreement_threshold", "verdict_agreement_rate", "per_dimension_agreement_rate", "variant_metrics", "provenance", "mapping_sha256", "run_group_manifest_hash", "terminal_outputs_content_sha256", "deterministic_scorer_priority", "judge_may_override_deterministic_failure", "report_hash"],
+  "required": ["schema_version", "status", "evidence_class", "human_calibration_performed", "round_count", "candidate_count", "agreement_threshold", "verdict_agreement_rate", "per_dimension_agreement_rate", "variant_metrics", "provenance", "mapping_sha256", "run_group_manifest_hash", "terminal_outputs_content_sha256", "deterministic_scorer_priority", "judge_may_override_deterministic_failure", "unsupported_claim_candidate_count", "report_hash"],
   "properties": {
     "schema_version": {"const": "trip-check-p5-judge-panel-v2"},
     "status": {"enum": ["PASS", "BLOCKED"]},
@@ -13,14 +13,73 @@
     "candidate_count": {"const": 270},
     "agreement_threshold": {"const": 0.85},
     "verdict_agreement_rate": {"type": "number", "minimum": 0, "maximum": 1},
-    "per_dimension_agreement_rate": {"type": "object"},
-    "variant_metrics": {"type": "object"},
-    "provenance": {"type": "array", "minItems": 3, "maxItems": 3},
+    "per_dimension_agreement_rate": {"$ref": "#/$defs/dimensionAgreement"},
+    "variant_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy_a", "core_b", "solver_c"],
+      "properties": {
+        "legacy_a": {"$ref": "#/$defs/variantMetric"},
+        "core_b": {"$ref": "#/$defs/variantMetric"},
+        "solver_c": {"$ref": "#/$defs/variantMetric"}
+      }
+    },
+    "provenance": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/provenance"}
+    },
     "mapping_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "run_group_manifest_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "terminal_outputs_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "deterministic_scorer_priority": {"const": true},
     "judge_may_override_deterministic_failure": {"const": false},
+    "unsupported_claim_candidate_count": {"type": "integer", "minimum": 0},
     "report_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "dimensionAgreement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["clarity", "actionability", "evidence_boundary_expression"],
+      "properties": {
+        "clarity": {"type": "number", "minimum": 0, "maximum": 1},
+        "actionability": {"type": "number", "minimum": 0, "maximum": 1},
+        "evidence_boundary_expression": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "variantMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_count", "majority_pass_count", "majority_pass_rate", "unanimous_rate", "per_dimension_agreement_rate", "median_clarity", "median_actionability", "median_evidence_boundary_expression"],
+      "properties": {
+        "candidate_count": {"const": 90},
+        "majority_pass_count": {"type": "integer", "minimum": 0, "maximum": 90},
+        "majority_pass_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "unanimous_rate": {"type": "number", "minimum": 0, "maximum": 1},
+        "per_dimension_agreement_rate": {"$ref": "#/$defs/dimensionAgreement"},
+        "median_clarity": {"type": "number", "minimum": 0, "maximum": 4},
+        "median_actionability": {"type": "number", "minimum": 0, "maximum": 4},
+        "median_evidence_boundary_expression": {"type": "number", "minimum": 0, "maximum": 4}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round_index", "evaluator_id", "agent_task_id", "agent_id", "model_id", "bundle_sha256", "rubric_sha256", "terminal_outputs_content_sha256", "api_usage_count", "tool_usage_count"],
+      "properties": {
+        "round_index": {"type": "integer", "minimum": 1, "maximum": 3},
+        "evaluator_id": {"type": "string", "minLength": 1},
+        "agent_task_id": {"type": "string", "minLength": 1},
+        "agent_id": {"type": "string", "minLength": 1},
+        "model_id": {"type": "string", "minLength": 1},
+        "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "rubric_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "terminal_outputs_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "api_usage_count": {"const": 0},
+        "tool_usage_count": {"const": 0}
+      }
+    }
   }
 }
