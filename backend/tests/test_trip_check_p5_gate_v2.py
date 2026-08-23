@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import hashlib
 from pathlib import Path
+import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -40,6 +42,42 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
     rubric = p5 / "judge_rubric_v2.json"
     run_spec.write_text('{"schema_version":"trip-check-p5-run-spec-v2"}\n', encoding="utf-8")
     rubric.write_text('{"schema_version":"trip-check-p5-judge-rubric-v2"}\n', encoding="utf-8")
+    formal_schema_source = (
+        Path(__file__).resolve().parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "dataset_formal_validation_receipt_v2.schema.json"
+    )
+    formal_schema = p5 / "dataset_formal_validation_receipt_v2.schema.json"
+    formal_schema.write_bytes(formal_schema_source.read_bytes())
+    validator_path = repo / "backend" / "scripts" / "validate_trip_check_p5_dataset_v2.py"
+    validator_path.parent.mkdir(parents=True, exist_ok=True)
+    validator_path.write_text("# frozen formal validator\n", encoding="utf-8")
+    dataset_files = {
+        "nonblind_cases": ("cases_nonblind_v2.jsonl", 270, "7" * 64),
+        "nonblind_materializations": (
+            "materializations_nonblind_v2.jsonl",
+            270,
+            "8" * 64,
+        ),
+        "blind_cases": ("frozen_blind.v2.inputs.jsonl", 90, "9" * 64),
+        "blind_materializations": (
+            "frozen_blind.v2.materializations.jsonl",
+            90,
+            "a" * 64,
+        ),
+    }
+    file_bindings = {}
+    for key, (name, row_count, content_sha256) in dataset_files.items():
+        path = p5 / name
+        path.write_text("{}\n", encoding="utf-8")
+        file_bindings[key] = {
+            "path": f"evals/trip_check_v1/p5/{name}",
+            "file_sha256": _sha(path),
+            "content_sha256": content_sha256,
+            "row_count": row_count,
+        }
     seal = {
         "schema_version": "trip-check-p5-blind-seal-v2",
         "schema_contract_sha256": schema_contract_sha256_v2(repo),
@@ -67,6 +105,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
                 },
                 "by_city": {"北京": 120, "上海": 120, "杭州": 120},
             },
+            "files": file_bindings,
             "contract_hashes": {
                 "run_spec_template_sha256": _sha(run_spec),
                 "judge_rubric_sha256": _sha(rubric),
@@ -96,29 +135,47 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
         "labels_canonical_sha256": seal["labels_canonical_sha256"],
         "review_receipt_sha256": seal["review_receipt_sha256"],
     }
-    formal_receipt = {
+    formal_receipt = _hashed({
         "schema_version": "trip-check-p5-dataset-validation-v2",
         "status": "PASS",
         "formal": True,
+        "subject_commit": "a" * 40,
         "errors": [],
         "manifest_hash": dataset["manifest_hash"],
+        "dataset_manifest": {
+            "path": "backend/evals/trip_check_v1/p5/dataset_v2.manifest.json",
+            "file_sha256": _sha(p5 / "dataset_v2.manifest.json"),
+            "manifest_hash": dataset["manifest_hash"],
+        },
+        "dataset_files": {
+            key: {
+                "path": f"backend/{entry['path']}",
+                "file_sha256": entry["file_sha256"],
+                "content_sha256": entry["content_sha256"],
+                "row_count": entry["row_count"],
+            }
+            for key, entry in file_bindings.items()
+        },
+        "validator": {
+            "path": "backend/scripts/validate_trip_check_p5_dataset_v2.py",
+            "code_sha256": _sha(validator_path),
+        },
         "counts": {
             "total": 360,
+            "screenshots": 171,
             "by_split": {"dev": 180, "frozen_blind": 90, "pilot": 18, "regression": 72},
             "by_city": {"上海": 120, "北京": 120, "杭州": 120},
+            "screenshots_by_split": {
+                "pilot": 0,
+                "dev": 90,
+                "regression": 36,
+                "frozen_blind": 45,
+            },
         },
-    }
-    _write(
-        repo / "backend/evidence/trip_check_v1/p5/dataset_v2_formal_validation_receipt.json",
-        formal_receipt,
-    )
-    for name in (
-        "cases_nonblind_v2.jsonl",
-        "materializations_nonblind_v2.jsonl",
-        "frozen_blind.v2.inputs.jsonl",
-        "frozen_blind.v2.materializations.jsonl",
-    ):
-        (p5 / name).write_text("{}\n", encoding="utf-8")
+        "created_at": "2026-08-23T12:00:00Z",
+    }, "receipt_hash")
+    formal_receipt_path = tmp_path / "formal-receipt.json"
+    _write(formal_receipt_path, formal_receipt)
     p4 = _hashed({
         "status": "PASS",
         "p4_phase_status": "PASS",
@@ -128,7 +185,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
     p4_path = repo / "backend" / "evidence" / "trip_check_v1" / "p4" / "p4_gate_manifest.json"
     _write(p4_path, p4)
     run_manifests = {}
-    paths: dict[str, Path] = {"repo": repo}
+    paths: dict[str, Path] = {"repo": repo, "formal_receipt": formal_receipt_path}
     for lane, count in (("nonblind", 810), ("frozen_blind", 270)):
         run_dir = tmp_path / f"{lane}-run"
         run_dir.mkdir()
@@ -322,6 +379,7 @@ def _build(paths: dict[str, Path]) -> dict:
         blind_run_dir=paths["frozen_blind_run"],
         blind_score_path=paths["blind_score"],
         judge_panel_path=paths["judge"],
+        formal_validation_receipt_path=paths["formal_receipt"],
         output_path=paths["output"],
         require_current_subject=False,
     )
@@ -338,6 +396,13 @@ def test_gate_binds_1080_and_keeps_all_external_evidence_not_run(tmp_path, monke
     assert gate["evidence_boundaries"]["public_e2e"] == "NOT_RUN"
     assert gate["evidence_boundaries"]["human_evidence"] == "NOT_RUN"
     assert gate["evidence_boundaries"]["p6_candidate_gate"] == "REJECT"
+    receipt_artifact = next(
+        item
+        for item in gate["artifact_index"]
+        if item["logical_name"] == "formal_dataset_validation_receipt"
+    )
+    assert receipt_artifact["storage"] == "external"
+    assert receipt_artifact["sha256"] == _sha(paths["formal_receipt"])
     assert {
         "active_contract",
         "blind_seal_v2",
@@ -346,6 +411,7 @@ def test_gate_binds_1080_and_keeps_all_external_evidence_not_run(tmp_path, monke
         "judge_rubric_v2",
         "external_blind_bundle_commitment",
         "external_blind_review_receipt_commitment",
+        "formal_dataset_validation_receipt_schema",
         "formal_dataset_validation_receipt",
     } <= {item["logical_name"] for item in gate["artifact_index"]}
 
@@ -447,14 +513,146 @@ def test_gate_rejects_p4_subject_and_self_hash_tampering(tmp_path, monkeypatch) 
         _build(paths)
 
 
-def test_gate_rejects_formal_dataset_receipt_drift(tmp_path, monkeypatch) -> None:
+def _mutate_receipt(paths: dict[str, Path], mutation, *, rehash: bool = True) -> None:
+    receipt = json.loads(paths["formal_receipt"].read_text(encoding="utf-8"))
+    mutation(receipt)
+    if rehash:
+        receipt.pop("receipt_hash", None)
+        receipt = _hashed(receipt, "receipt_hash")
+    _write(paths["formal_receipt"], receipt)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda value: value.pop("validator"),
+        lambda value: value.__setitem__("unexpected", True),
+        lambda value: value["counts"].__setitem__("total", 359),
+        lambda value: value.__setitem__("errors", ["controlled failure"]),
+        lambda value: value.__setitem__("formal", False),
+        lambda value: value.__setitem__("status", "FAIL"),
+    ],
+)
+def test_gate_rejects_formal_receipt_schema_drift(tmp_path, monkeypatch, mutation) -> None:
     paths = _fixture(tmp_path, monkeypatch)
-    receipt_path = (
-        paths["repo"]
-        / "backend/evidence/trip_check_v1/p5/dataset_v2_formal_validation_receipt.json"
-    )
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-    receipt["counts"]["total"] = 359
-    _write(receipt_path, receipt)
-    with pytest.raises(P5GateErrorV2, match="formal dataset validation rejected"):
+    _mutate_receipt(paths, mutation)
+    with pytest.raises(P5GateErrorV2, match="receipt schema rejected"):
         _build(paths)
+
+
+def test_gate_rejects_formal_receipt_bad_self_hash(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    _mutate_receipt(
+        paths,
+        lambda value: value.__setitem__("receipt_hash", "0" * 64),
+        rehash=False,
+    )
+    with pytest.raises(P5GateErrorV2, match="receipt hash mismatch"):
+        _build(paths)
+
+
+def test_gate_rejects_formal_receipt_wrong_run_subject(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    _mutate_receipt(paths, lambda value: value.__setitem__("subject_commit", "0" * 40))
+    with pytest.raises(P5GateErrorV2, match="receipt binding rejected"):
+        _build(paths)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [
+        (
+            lambda value: value.__setitem__("manifest_hash", "0" * 64),
+            "receipt binding rejected",
+        ),
+        (
+            lambda value: value["dataset_manifest"].__setitem__("file_sha256", "0" * 64),
+            "dataset manifest binding rejected",
+        ),
+        (
+            lambda value: value["validator"].__setitem__("code_sha256", "0" * 64),
+            "dataset validator binding rejected",
+        ),
+    ],
+)
+def test_gate_rejects_formal_receipt_contract_binding_drift(
+    tmp_path,
+    monkeypatch,
+    mutation,
+    message,
+) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    _mutate_receipt(paths, mutation)
+    with pytest.raises(P5GateErrorV2, match=message):
+        _build(paths)
+
+
+@pytest.mark.parametrize(
+    ("dataset_key", "field", "value"),
+    [
+        (
+            "nonblind_cases",
+            "path",
+            "backend/evals/trip_check_v1/p5/materializations_nonblind_v2.jsonl",
+        ),
+        ("nonblind_materializations", "file_sha256", "0" * 64),
+        ("blind_cases", "content_sha256", "0" * 64),
+        ("blind_materializations", "row_count", 89),
+    ],
+)
+def test_gate_rejects_each_formal_dataset_file_binding_drift(
+    tmp_path,
+    monkeypatch,
+    dataset_key,
+    field,
+    value,
+) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    _mutate_receipt(
+        paths,
+        lambda receipt: receipt["dataset_files"][dataset_key].__setitem__(field, value),
+    )
+    with pytest.raises(P5GateErrorV2, match="dataset file binding rejected"):
+        _build(paths)
+
+
+def test_gate_rejects_non_external_formal_receipt_paths(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    inside = paths["repo"] / "formal-receipt.json"
+    inside.write_bytes(paths["formal_receipt"].read_bytes())
+    paths["formal_receipt"] = inside
+    with pytest.raises(P5GateErrorV2, match="outside the repository"):
+        _build(paths)
+
+    paths = _fixture(tmp_path / "relative", monkeypatch)
+    paths["formal_receipt"] = Path("formal-receipt.json")
+    with pytest.raises(P5GateErrorV2, match="path must be absolute"):
+        _build(paths)
+
+
+def test_gate_cli_requires_formal_validation_receipt() -> None:
+    backend_root = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "scripts.run_trip_check_p5_v2_gate",
+            "--nonblind-run-dir",
+            "missing",
+            "--nonblind-score",
+            "missing",
+            "--blind-run-dir",
+            "missing",
+            "--blind-score",
+            "missing",
+            "--judge-panel",
+            "missing",
+        ],
+        cwd=backend_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert completed.returncode != 0
+    assert "--formal-validation-receipt" in completed.stderr

@@ -16,7 +16,12 @@ from scripts.validate_trip_check_p5_dataset_v2 import validate
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--subject-commit")
-    parser.add_argument("--output", type=Path, default=DEFAULT_RECEIPT_PATH)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=DEFAULT_RECEIPT_PATH,
+        help="absolute repository-external receipt path",
+    )
     args = parser.parse_args()
     receipt = generate_formal_validation_receipt(
         subject_commit=args.subject_commit,
