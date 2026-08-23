@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-dataset-formal-validation-receipt-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "formal",
+    "subject_commit",
+    "manifest_hash",
+    "dataset_manifest",
+    "dataset_files",
+    "validator",
+    "counts",
+    "errors",
+    "created_at",
+    "receipt_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-dataset-validation-v2"},
+    "status": {"const": "PASS"},
+    "formal": {"const": true},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "manifest_hash": {"$ref": "#/$defs/sha256"},
+    "dataset_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "file_sha256", "manifest_hash"],
+      "properties": {
+        "path": {"const": "backend/evals/trip_check_v1/p5/dataset_v2.manifest.json"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "manifest_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "dataset_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nonblind_cases",
+        "nonblind_materializations",
+        "blind_cases",
+        "blind_materializations"
+      ],
+      "properties": {
+        "nonblind_cases": {"$ref": "#/$defs/fileBinding"},
+        "nonblind_materializations": {"$ref": "#/$defs/fileBinding"},
+        "blind_cases": {"$ref": "#/$defs/fileBinding"},
+        "blind_materializations": {"$ref": "#/$defs/fileBinding"}
+      }
+    },
+    "validator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "code_sha256"],
+      "properties": {
+        "path": {"const": "backend/scripts/validate_trip_check_p5_dataset_v2.py"},
+        "code_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "screenshots", "by_split", "by_city", "screenshots_by_split"],
+      "properties": {
+        "total": {"const": 360},
+        "screenshots": {"const": 171},
+        "by_split": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pilot", "dev", "regression", "frozen_blind"],
+          "properties": {
+            "pilot": {"const": 18},
+            "dev": {"const": 180},
+            "regression": {"const": 72},
+            "frozen_blind": {"const": 90}
+          }
+        },
+        "by_city": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["北京", "上海", "杭州"],
+          "properties": {
+            "北京": {"const": 120},
+            "上海": {"const": 120},
+            "杭州": {"const": 120}
+          }
+        },
+        "screenshots_by_split": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["pilot", "dev", "regression", "frozen_blind"],
+          "properties": {
+            "pilot": {"const": 0},
+            "dev": {"const": 90},
+            "regression": {"const": 36},
+            "frozen_blind": {"const": 45}
+          }
+        }
+      }
+    },
+    "errors": {"type": "array", "maxItems": 0},
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "receipt_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "file_sha256", "content_sha256", "row_count"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^backend/evals/trip_check_v1/p5/[^/]+$"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "content_sha256": {"$ref": "#/$defs/sha256"},
+        "row_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
