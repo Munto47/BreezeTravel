@@ -9,6 +9,9 @@ expected fields.
 from __future__ import annotations
 
 import hashlib
+import json
+import os
+import tempfile
 from collections import Counter
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
@@ -73,6 +76,7 @@ _CITY_PLACES = {
 }
 
 OcrMode = Literal["development", "actual"]
+CHECKPOINT_SCHEMA_VERSION = "trip-check-p5-materialization-checkpoint-v1"
 
 
 class DevelopmentOcrEngine:
@@ -177,8 +181,7 @@ def _oracle_from_pilot(source: Mapping[str, Any], *, ocr_required: bool) -> dict
         requires_user_resolution=bool(expected["requires_user_resolution"]),
         required_reason_codes=list(expected["required_reason_codes"]),
         wrong_city_or_poi_max=int(expected["wrong_poi_auto_accept_max"]),
-        max_new_blocker_high_unknown=int(expected["repair_new_high_max"])
-        + int(expected["repair_new_unknown_max"]),
+        max_new_blocker_high_unknown=int(expected["repair_new_high_max"]) + int(expected["repair_new_unknown_max"]),
         unknown_must_be_preserved=False,
         advice_required=not bool(expected["requires_user_resolution"]),
         specific_place_allowed=True,
@@ -204,7 +207,11 @@ def _oracle_from_p4(source: Mapping[str, Any], *, ocr_required: bool) -> dict[st
         advice_required=bool(oracle["advice_required"]),
         specific_place_allowed=bool(oracle["specific_place_allowed"]),
         candidate_receipt_mode=(
-            "REQUIRED" if candidate_mode == "VALID" else "FORBIDDEN" if candidate_mode != "NOT_APPLICABLE" else "NOT_APPLICABLE"
+            "REQUIRED"
+            if candidate_mode == "VALID"
+            else "FORBIDDEN"
+            if candidate_mode != "NOT_APPLICABLE"
+            else "NOT_APPLICABLE"
         ),
         expected_strategy_outcome=str(oracle["expected_strategy_outcome"]),
         concurrency_expectation=_concurrency_expectation(fault_profile_id),
@@ -254,7 +261,11 @@ def _draft_case(
             "fault_profile_id": fault_profile_id,
             "fault_registry_version": FAULT_REGISTRY_VERSION,
             "candidate_set_mode": candidate_set_mode,
-            "evidence_freshness": "UNAVAILABLE" if unknown_required else "CONFLICTING" if fault_profile_id == "route_conflict" else "FRESH",
+            "evidence_freshness": "UNAVAILABLE"
+            if unknown_required
+            else "CONFLICTING"
+            if fault_profile_id == "route_conflict"
+            else "FRESH",
             "unknown_required": unknown_required,
             "seed": 20260823 + sequence,
             "budget_profile": "p5-zero-api-v2",
@@ -461,6 +472,31 @@ def _receipt_binding(receipt: Mapping[str, Any], *, artifact_id: str) -> dict[st
     }
 
 
+def _binding_for_materialization(draft: Mapping[str, Any], materialization: Mapping[str, Any]) -> dict[str, Any]:
+    binding: dict[str, Any] = {
+        "schema_version": "trip-check-p5-materialization-binding-v2",
+        "materialization_id": materialization["materialization_id"],
+        "materialization_sha256": materialization["materialization_hash"],
+        "source_payload": _artifact_binding(materialization["source_payload"]),
+        "render_receipt": None,
+        "ocr_baseline_receipt": None,
+        "provider_snapshot": _artifact_binding(materialization["provider_snapshot"]),
+        "evidence_snapshot": _artifact_binding(materialization["evidence_snapshot"]),
+        "candidate_sets": [_artifact_binding(item) for item in materialization["candidate_sets"]],
+        "fault_script": _artifact_binding(materialization["fault_script"]),
+    }
+    if materialization["ocr_baseline_receipt"] is not None:
+        binding["render_receipt"] = _receipt_binding(
+            materialization["render_receipt"],
+            artifact_id=f"render-{draft['case_id']}",
+        )
+        binding["ocr_baseline_receipt"] = _receipt_binding(
+            materialization["ocr_baseline_receipt"],
+            artifact_id=f"ocr-{draft['case_id']}",
+        )
+    return binding
+
+
 def _fault_artifact(draft: Mapping[str, Any]) -> dict[str, Any]:
     case_id = str(draft["case_id"])
     fault_profile_id = str(draft["runner_control"]["fault_profile_id"])
@@ -536,34 +572,185 @@ async def _materialize_one(
         "receipts": receipts,
     }
     materialization["materialization_hash"] = digest(materialization)
-    binding: dict[str, Any] = {
-        "schema_version": "trip-check-p5-materialization-binding-v2",
-        "materialization_id": materialization["materialization_id"],
-        "materialization_sha256": materialization["materialization_hash"],
-        "source_payload": _artifact_binding(materialization["source_payload"]),
-        "render_receipt": None,
-        "ocr_baseline_receipt": None,
-        "provider_snapshot": _artifact_binding(materialization["provider_snapshot"]),
-        "evidence_snapshot": _artifact_binding(materialization["evidence_snapshot"]),
-        "candidate_sets": [_artifact_binding(item) for item in materialization["candidate_sets"]],
-        "fault_script": _artifact_binding(materialization["fault_script"]),
-    }
-    if ocr is not None:
-        binding["render_receipt"] = _receipt_binding(
-            materialization["render_receipt"],
-            artifact_id=f"render-{draft['case_id']}",
-        )
-        binding["ocr_baseline_receipt"] = _receipt_binding(
-            materialization["ocr_baseline_receipt"],
-            artifact_id=f"ocr-{draft['case_id']}",
-        )
+    binding = _binding_for_materialization(draft, materialization)
     return materialization, binding
+
+
+def _case_from_materialization(draft: Mapping[str, Any], materialization: Mapping[str, Any]) -> dict[str, Any]:
+    case = {
+        **{key: value for key, value in draft.items() if key != "oracle"},
+        "materialization": _binding_for_materialization(draft, materialization),
+    }
+    oracle = draft.get("oracle")
+    if oracle is not None:
+        case["oracle"] = oracle
+        case["oracle_sha256"] = digest(oracle)
+    case["case_hash"] = "0" * 64
+    validated = P5CaseV2.model_validate(case).model_dump(mode="json", exclude_none=True)
+    validated["case_hash"] = digest({key: value for key, value in validated.items() if key != "case_hash"})
+    return P5CaseV2.model_validate(validated).model_dump(mode="json", exclude_none=True)
+
+
+def _checkpoint_path(checkpoint_root: Path, case_id: str) -> Path:
+    if any(character not in "abcdefghijklmnopqrstuvwxyz0123456789.-_" for character in case_id):
+        raise ValueError(f"unsafe checkpoint case_id: {case_id}")
+    return checkpoint_root / f"{case_id}.json"
+
+
+def _checkpoint_payload(
+    *,
+    draft: Mapping[str, Any],
+    case: Mapping[str, Any],
+    materialization: Mapping[str, Any],
+    ocr_mode: OcrMode,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": CHECKPOINT_SCHEMA_VERSION,
+        "ocr_mode": ocr_mode,
+        "case_id": draft["case_id"],
+        "draft_sha256": digest(draft),
+        "materialization_input_sha256": digest(materialization_input_projection(draft)),
+        "case": dict(case),
+        "materialization": dict(materialization),
+    }
+    payload["checkpoint_sha256"] = digest(payload)
+    return payload
+
+
+def _validate_checkpoint_artifacts(materialization: Mapping[str, Any], *, ocr_mode: OcrMode) -> None:
+    if materialization.get("materialization_hash") != digest(
+        {key: value for key, value in materialization.items() if key != "materialization_hash"}
+    ):
+        raise ValueError("checkpoint materialization hash mismatch")
+    artifacts = [
+        materialization.get("source_payload"),
+        materialization.get("provider_snapshot"),
+        materialization.get("evidence_snapshot"),
+        materialization.get("fault_script"),
+        *materialization.get("candidate_sets", []),
+    ]
+    for artifact in artifacts:
+        if not isinstance(artifact, Mapping) or artifact.get("content_sha256") != digest(
+            {key: value for key, value in artifact.items() if key != "content_sha256"}
+        ):
+            raise ValueError("checkpoint artifact hash mismatch")
+
+    ocr = materialization.get("ocr_baseline_receipt")
+    render = materialization.get("render_receipt")
+    cleanup = [
+        receipt
+        for receipt in materialization.get("receipts", [])
+        if isinstance(receipt, Mapping) and receipt.get("schema_version") == "trip-check-p5-cleanup-receipt-v2"
+    ]
+    if ocr is None:
+        if render is not None or cleanup:
+            raise ValueError("text checkpoint contains screenshot artifacts")
+        return
+    if not isinstance(ocr, Mapping) or not isinstance(render, Mapping) or len(cleanup) != 1:
+        raise ValueError("screenshot checkpoint is incomplete")
+    cleanup_receipt = cleanup[0]
+    if (
+        cleanup_receipt.get("cleanup_status") != "DELETED"
+        or cleanup_receipt.get("original_removed") is not True
+        or cleanup_receipt.get("asset_hash") != render.get("image_sha256")
+        or cleanup_receipt.get("asset_hash") != ocr.get("asset_hash")
+    ):
+        raise ValueError("screenshot checkpoint cleanup is not fail-closed")
+    expected_engine = ("paddleocr", "3.7.0") if ocr_mode == "actual" else ("p5-development-ocr", "2.0.0")
+    if (ocr.get("engine"), ocr.get("engine_version")) != expected_engine:
+        raise ValueError("checkpoint OCR engine binding mismatch")
+
+
+def _load_checkpoint_pair(
+    *, draft: Mapping[str, Any], ocr_mode: OcrMode, checkpoint_root: Path
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    path = _checkpoint_path(checkpoint_root, str(draft["case_id"]))
+    if not path.exists():
+        return None
+    if path.is_symlink():
+        raise ValueError(f"checkpoint symlink is forbidden: {path.name}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f"checkpoint is unreadable: {path.name}") from exc
+    expected_fields = {
+        "schema_version",
+        "ocr_mode",
+        "case_id",
+        "draft_sha256",
+        "materialization_input_sha256",
+        "case",
+        "materialization",
+        "checkpoint_sha256",
+    }
+    if not isinstance(payload, dict) or set(payload) != expected_fields:
+        raise ValueError(f"checkpoint schema mismatch: {path.name}")
+    if payload["checkpoint_sha256"] != digest(
+        {key: value for key, value in payload.items() if key != "checkpoint_sha256"}
+    ):
+        raise ValueError(f"checkpoint hash mismatch: {path.name}")
+    if (
+        payload["schema_version"] != CHECKPOINT_SCHEMA_VERSION
+        or payload["ocr_mode"] != ocr_mode
+        or payload["case_id"] != draft["case_id"]
+        or payload["draft_sha256"] != digest(draft)
+        or payload["materialization_input_sha256"] != digest(materialization_input_projection(draft))
+    ):
+        raise ValueError(f"checkpoint input binding mismatch: {path.name}")
+    case = payload["case"]
+    materialization = payload["materialization"]
+    if not isinstance(case, dict) or not isinstance(materialization, dict):
+        raise ValueError(f"checkpoint payload mismatch: {path.name}")
+    _validate_checkpoint_artifacts(materialization, ocr_mode=ocr_mode)
+    expected_case = _case_from_materialization(draft, materialization)
+    if case != expected_case:
+        raise ValueError(f"checkpoint case binding mismatch: {path.name}")
+    return case, materialization
+
+
+def _write_checkpoint_pair(
+    *,
+    draft: Mapping[str, Any],
+    case: Mapping[str, Any],
+    materialization: Mapping[str, Any],
+    ocr_mode: OcrMode,
+    checkpoint_root: Path,
+) -> None:
+    checkpoint_root.mkdir(parents=True, exist_ok=True)
+    path = _checkpoint_path(checkpoint_root, str(draft["case_id"]))
+    payload = _checkpoint_payload(
+        draft=draft,
+        case=case,
+        materialization=materialization,
+        ocr_mode=ocr_mode,
+    )
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            newline="\n",
+            dir=checkpoint_root,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            temporary = Path(handle.name)
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
 
 
 async def build_dataset_v2(
     *,
     ocr_mode: OcrMode,
     work_root: Path,
+    checkpoint_root: Path | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     if ocr_mode not in {"development", "actual"}:
         raise ValueError("ocr_mode must be development or actual")
@@ -572,27 +759,35 @@ async def build_dataset_v2(
     actual_engine: OcrEngine | None = PaddleOcrEngine() if ocr_mode == "actual" else None
 
     async def complete(draft: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+        if checkpoint_root is not None:
+            cached = _load_checkpoint_pair(
+                draft=draft,
+                ocr_mode=ocr_mode,
+                checkpoint_root=checkpoint_root,
+            )
+            if cached is not None:
+                return cached
         # Remove the label before any materialization helper receives the case.
         # This is a structural isolation boundary, not a convention enforced by
         # individual materializers.
-        oracle = draft.pop("oracle")
-        materialization, binding = await _materialize_one(
-            draft,
+        label_free_draft = dict(draft)
+        label_free_draft.pop("oracle")
+        materialization, _binding = await _materialize_one(
+            label_free_draft,
             ocr_mode=ocr_mode,
             work_root=work_root,
             actual_ocr_engine=actual_engine,
         )
-        case = {**draft, "materialization": binding}
-        if oracle is not None:
-            case["oracle"] = oracle
-            case["oracle_sha256"] = digest(oracle)
-        case["case_hash"] = "0" * 64
-        validated = P5CaseV2.model_validate(case).model_dump(mode="json", exclude_none=True)
-        validated["case_hash"] = digest(
-            {key: value for key, value in validated.items() if key != "case_hash"}
-        )
-        validated = P5CaseV2.model_validate(validated).model_dump(mode="json", exclude_none=True)
-        return validated, materialization
+        case = _case_from_materialization(draft, materialization)
+        if checkpoint_root is not None:
+            _write_checkpoint_pair(
+                draft=draft,
+                case=case,
+                materialization=materialization,
+                ocr_mode=ocr_mode,
+                checkpoint_root=checkpoint_root,
+            )
+        return case, materialization
 
     nonblind_pairs = [await complete(draft) for draft in nonblind_drafts]
     blind_pairs = [await complete(draft) for draft in blind_drafts]
@@ -648,9 +843,7 @@ def legacy_overlap_debt_v2() -> dict[str, Any]:
         "regression_fixture_hashes_overlapping_dev": sum(
             row["fixture_hash"] in dev_fixture_hashes for row in regression
         ),
-        "regression_oracle_hashes_overlapping_dev": sum(
-            row["oracle_hash"] in dev_oracle_hashes for row in regression
-        ),
+        "regression_oracle_hashes_overlapping_dev": sum(row["oracle_hash"] in dev_oracle_hashes for row in regression),
         "p5_v2_cross_split_overlap_allowed": 0,
     }
 
@@ -679,7 +872,9 @@ def build_manifest_v2(
             "by_split": dict(sorted(Counter(row["split"] for row in all_cases).items())),
             "by_city": dict(sorted(Counter(row["city"] for row in all_cases).items())),
             "screenshots_by_split": dict(
-                sorted(Counter(row["split"] for row in all_cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT").items())
+                sorted(
+                    Counter(row["split"] for row in all_cases if row["input_kind"] == "SYNTHETIC_SCREENSHOT").items()
+                )
             ),
         },
         "files": {

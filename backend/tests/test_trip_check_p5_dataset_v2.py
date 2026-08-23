@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Iterator, Mapping
+from pathlib import Path
+
+import pytest
 
 from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, P5OracleV2
 from evals.trip_check_v1.p5.data_contract import digest, file_sha256, load_jsonl
+import evals.trip_check_v1.p5.data_contract_v2 as data_v2
 from evals.trip_check_v1.p5.data_contract_v2 import (
     BLIND_INPUT_PATH_V2,
     BLIND_MATERIALIZATIONS_PATH_V2,
@@ -122,3 +127,79 @@ def test_materialization_projection_cannot_iterate_or_read_label_fields() -> Non
     }
     assert "oracle" not in str(projected).casefold()
     assert "expected" not in str(projected).casefold()
+
+
+def test_resumable_checkpoint_is_hash_bound_and_skips_completed_materialization(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    draft = next(item for item in data_v2.build_nonblind_drafts() if item["input_kind"] == "SYNTHETIC_SCREENSHOT")
+    case = next(item for item in load_jsonl(NONBLIND_PATH_V2) if item["case_id"] == draft["case_id"])
+    materialization = next(
+        item for item in load_jsonl(NONBLIND_MATERIALIZATIONS_PATH_V2) if item["case_id"] == draft["case_id"]
+    )
+    checkpoint_root = tmp_path / "checkpoints"
+    data_v2._write_checkpoint_pair(
+        draft=draft,
+        case=case,
+        materialization=materialization,
+        ocr_mode="development",
+        checkpoint_root=checkpoint_root,
+    )
+
+    cached = data_v2._load_checkpoint_pair(
+        draft=draft,
+        ocr_mode="development",
+        checkpoint_root=checkpoint_root,
+    )
+    assert cached == (case, materialization)
+
+    monkeypatch.setattr(data_v2, "build_nonblind_drafts", lambda: [draft])
+    monkeypatch.setattr(data_v2, "build_blind_drafts", lambda: [])
+
+    async def must_not_materialize(*_args: object, **_kwargs: object) -> tuple[dict, dict]:
+        raise AssertionError("completed checkpoint was materialized again")
+
+    monkeypatch.setattr(data_v2, "_materialize_one", must_not_materialize)
+    nonblind_cases, blind_cases, nonblind_materializations, blind_materializations = asyncio.run(
+        data_v2.build_dataset_v2(
+            ocr_mode="development",
+            work_root=tmp_path / "work",
+            checkpoint_root=checkpoint_root,
+        )
+    )
+    assert nonblind_cases == [case]
+    assert blind_cases == []
+    assert nonblind_materializations == [materialization]
+    assert blind_materializations == []
+
+
+def test_resumable_checkpoint_rejects_rehashed_case_binding_tamper(tmp_path: Path) -> None:
+    draft = next(item for item in data_v2.build_nonblind_drafts() if item["input_kind"] == "TEXT")
+    case = next(item for item in load_jsonl(NONBLIND_PATH_V2) if item["case_id"] == draft["case_id"])
+    materialization = next(
+        item for item in load_jsonl(NONBLIND_MATERIALIZATIONS_PATH_V2) if item["case_id"] == draft["case_id"]
+    )
+    checkpoint_root = tmp_path / "checkpoints"
+    data_v2._write_checkpoint_pair(
+        draft=draft,
+        case=case,
+        materialization=materialization,
+        ocr_mode="development",
+        checkpoint_root=checkpoint_root,
+    )
+    checkpoint_path = data_v2._checkpoint_path(checkpoint_root, draft["case_id"])
+    payload = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+    payload["case"]["city"] = "上海"
+    payload["checkpoint_sha256"] = digest({key: value for key, value in payload.items() if key != "checkpoint_sha256"})
+    checkpoint_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+    with pytest.raises(ValueError, match="checkpoint case binding mismatch"):
+        data_v2._load_checkpoint_pair(
+            draft=draft,
+            ocr_mode="development",
+            checkpoint_root=checkpoint_root,
+        )
