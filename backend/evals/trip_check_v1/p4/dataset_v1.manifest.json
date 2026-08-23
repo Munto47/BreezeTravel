@@ -1,0 +1,45 @@
+{
+  "fault_classes": [
+    "advice_completeness",
+    "empty_candidate_set",
+    "candidate_receipt_missing",
+    "route_conflict",
+    "duplicate_apply",
+    "concurrent_apply",
+    "solver_unsat",
+    "solver_timeout",
+    "solver_fallback"
+  ],
+  "frozen": true,
+  "manifest_hash": "1fbb76e5c1b68dd0099e069c911bbb16bb0f99a062b4597ae3c012d067c4864a",
+  "schema_version": "trip-check-p4-dataset-manifest-v1",
+  "splits": {
+    "dev": {
+      "city_counts": {
+        "上海": 60,
+        "北京": 60,
+        "杭州": 60
+      },
+      "count": 180,
+      "dataset_hash": "f014662eeec96d7b50c039d90d71f3916e4610d69ccd79b0e70e781225e2296a"
+    },
+    "frozen_blind": {
+      "count": 0,
+      "status": "NOT_RUN"
+    },
+    "pilot": {
+      "count": 18,
+      "sha256": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
+      "source": "../pilot.jsonl"
+    },
+    "regression": {
+      "city_counts": {
+        "上海": 24,
+        "北京": 24,
+        "杭州": 24
+      },
+      "count": 72,
+      "dataset_hash": "b5d95c402b5d7d40f65ef68b7c6a4fc58e21ae7d5f69cd1562e3fa4f57059fc3"
+    }
+  }
+}
