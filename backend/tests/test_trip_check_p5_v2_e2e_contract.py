@@ -13,7 +13,6 @@ from pathlib import Path
 import pytest
 
 from evals.trip_check_v1.p5.active_contract import (
-    P5ContractNotReadyError,
     require_v2_formal_ready,
 )
 from evals.trip_check_v1.p5.adapters_v2 import validate_materialization_v2
@@ -294,29 +293,28 @@ def test_blind_inputs_are_label_free_and_lineage_disjoint() -> None:
         )
 
 
-def test_formal_execution_fails_closed_before_active_contract_and_seal() -> None:
-    with pytest.raises(P5ContractNotReadyError, match="P5_V2_FORMAL_CONTRACT_NOT_READY"):
-        require_v2_formal_ready(P5_ROOT / "active_contract.json")
-    assert not (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").exists()
+def test_formal_execution_is_ready_only_after_active_contract_and_seal() -> None:
+    active = require_v2_formal_ready(P5_ROOT / "active_contract.json")
+    assert active["formal_evidence_status"] == "READY"
+    assert (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").is_file()
 
 
-def test_pending_seal_state_is_exact_and_not_formal_evidence() -> None:
+def test_sealed_state_is_exact_and_hash_only() -> None:
     active = load_json(P5_ROOT / "active_contract.json")
     manifest = load_json(DATASET_MANIFEST_PATH)
-    assert active == {
-        "active_contract": "trip-check-p5-v2",
-        "deprecated_contracts": [
-            {
-                "contract_id": "trip-check-p5-v1",
-                "formal_evidence_eligible": False,
-                "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
-            }
-        ],
-        "formal_evidence_status": "PENDING_V2_SEAL",
-        "schema_version": "trip-check-p5-active-contract-v1",
-    }
-    assert "sealing_commitment" not in manifest
-    assert not (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").exists()
+    seal_path = P5_ROOT / "sealed" / "frozen_blind.v2.seal.json"
+    seal = load_json(seal_path)
+    commitment = manifest["sealing_commitment"]
+    assert active["active_contract"] == "trip-check-p5-v2"
+    assert active["formal_evidence_status"] == "READY"
+    assert active["candidate_freeze_commit"] == commitment["candidate_freeze_commit"]
+    assert active["dataset_manifest_hash"] == manifest["manifest_hash"]
+    assert active["blind_seal_v2_sha256"] == file_sha256(seal_path)
+    assert commitment["blind_seal_v2_sha256"] == file_sha256(seal_path)
+    assert commitment["status"] == "SEALED"
+    assert seal["scoring_payload_present"] is False
+    assert seal["label_storage"] == "external_bundle_only"
+    assert "labels" not in seal and "oracle" not in seal
 
 
 @pytest.mark.parametrize(
@@ -357,6 +355,7 @@ def test_pending_seal_state_is_exact_and_not_formal_evidence() -> None:
                 "--blind-run-dir",
                 "--blind-score",
                 "--judge-panel",
+                "--formal-validation-receipt",
             ),
         ),
     ),
@@ -368,11 +367,12 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
 
 
 @pytest.mark.parametrize(
-    ("module", "args"),
+    ("module", "args", "expected_error"),
     (
         (
             "scripts.export_trip_check_p5_v2_judge",
             ("--run-dir", "missing", "--output-dir", "missing"),
+            "BLIND_JUDGE_EXPORT_INSIDE_REPOSITORY",
         ),
         (
             "scripts.aggregate_trip_check_p5_v2_judges",
@@ -386,6 +386,7 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "--output",
                 "missing",
             ),
+            "BLIND_JUDGE_MAPPING_INSIDE_REPOSITORY",
         ),
         (
             "scripts.run_trip_check_p5_v2_gate",
@@ -403,17 +404,18 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "--formal-validation-receipt",
                 "missing",
             ),
+            "RUN_GROUP_MANIFEST_INVALID",
         ),
     ),
 )
-def test_unsealed_v2_judge_and_gate_clis_fail_closed_before_artifact_read(
+def test_sealed_v2_judge_and_gate_clis_fail_closed_on_invalid_artifacts(
     module: str,
     args: tuple[str, ...],
+    expected_error: str,
 ) -> None:
     completed = _run_module(module, *args)
     assert completed.returncode != 0
-    assert "P5_V2_FORMAL_CONTRACT_NOT_READY" in completed.stderr
-    assert "FileNotFoundError" not in completed.stderr
+    assert expected_error in completed.stderr
 
 
 @pytest.mark.parametrize(
