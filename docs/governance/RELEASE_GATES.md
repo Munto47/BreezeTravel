@@ -54,7 +54,7 @@
 | G1 离线单测 | 规则、解析、隐私清理、状态机、幂等和失败语义 |
 | G2 PostgreSQL 集成 | migration、事务、并发、租约接管、重启回读、旧数据兼容 |
 | G3 固定快照 | 冻结 Provider snapshot 重放、hash 一致、无网络依赖 |
-| G4 真实 Provider | 高德、和风天气、Brave 的请求/响应/时间/配置回执与局部失败 |
+| G4 真实 Provider | 高德路线、和风天气预报与实时预警的请求/响应/时间/配置回执与局部失败；其他风险发现 Provider 必须先通过数据留存与来源准入 |
 | G5 浏览器与性能 | 主链、确认、刷新、断线、重启、采纳/postcheck 和 P95 |
 | G6 Release manifest | 同一 commit/config/dataset/model/rule/provider receipt 的不可变汇总 |
 

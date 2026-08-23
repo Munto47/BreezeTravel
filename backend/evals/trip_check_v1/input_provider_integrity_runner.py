@@ -299,8 +299,6 @@ def live_credentials_ready(settings: Settings | None = None) -> tuple[bool, list
         or (current.qweather_private_key and current.qweather_key_id and current.qweather_project_id)
     ):
         missing.append("QWEATHER_CREDENTIALS")
-    if not current.brave_api_key:
-        missing.append("BRAVE_API_KEY")
     return not missing, missing
 
 

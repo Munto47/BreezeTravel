@@ -110,4 +110,4 @@ cd ..
 python backend/scripts/validate_dual_entry_testset.py
 ```
 
-PostgreSQL、固定快照、真实高德/天气/Brave、浏览器恢复与性能、release manifest 必须各自实际重跑并绑定同一 commit/config/dataset/model/receipt，才能用于对应 Gate。
+PostgreSQL、固定快照、真实高德/和风天气预报与预警、浏览器恢复与性能、release manifest 必须各自实际重跑并绑定同一 commit/config/dataset/model/receipt，才能用于对应 Gate。未通过 Provider 准入与数据留存条款检查的搜索服务不得写入持久化 EvidenceSnapshot。

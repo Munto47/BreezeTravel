@@ -147,6 +147,33 @@ class FakeProviderSession:
                     ],
                 }
             )
+        if "/weatheralert/v1/current/" in url:
+            return FakeResponse(
+                {
+                    "metadata": {
+                        "zeroResult": False,
+                        "attributions": [
+                            "https://developer.qweather.com/attribution.html",
+                            "当前预警数据可能存在延迟或信息过时，以官方数据发布为准。",
+                        ],
+                    },
+                    "alerts": [
+                        {
+                            "id": "controlled-alert-1",
+                            "senderName": "受控气象台",
+                            "issuedTime": "2026-08-23T08:00+08:00",
+                            "effectiveTime": "2026-08-23T08:00+08:00",
+                            "expireTime": "2026-08-24T08:00+08:00",
+                            "eventType": {"name": "大风", "code": "1006"},
+                            "severity": "minor",
+                            "urgency": "future",
+                            "certainty": "likely",
+                            "headline": "受控大风预警",
+                            "description": "仅用于验证天气预警结构。",
+                        }
+                    ],
+                }
+            )
         return FakeResponse(
             {
                 "results": [
@@ -242,7 +269,7 @@ async def test_live_missing_credentials_never_calls_network_and_keeps_all_fields
 
     assert len(result.provider_receipts) == 6
     assert all(item.status == "UNAVAILABLE" for item in result.provider_receipts)
-    assert {item.provider for item in result.provider_failures} == {"amap", "qweather", "brave_news"}
+    assert {item.provider for item in result.provider_failures} == {"amap", "qweather", "qweather_alert"}
     assert all(item.freshness_status == EvidenceFreshness.UNAVAILABLE for item in result.observations)
 
 
@@ -254,7 +281,6 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
         amap_api_key="controlled-amap-secret",
         qweather_auth_type="apikey",
         qweather_api_key="controlled-weather-secret",
-        brave_api_key="controlled-brave-secret",
     )
     collector = TripCheckProviderIntegrityCollector(
         settings=settings,
@@ -275,11 +301,12 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
     assert all(item.execution_mode == "live" for item in result.provider_receipts)
     assert len([item for item in result.observations if item.fact_type == "WEATHER"]) == 2
     risk = next(item for item in result.observations if item.fact_type == "RISK_SOURCE")
-    assert risk.value["source_tier"] == "GOVERNMENT"
+    assert risk.value["source_tier"] == "OPERATOR"
+    assert risk.value["scope"] == "ACTIVE_WEATHER_ALERTS_ONLY"
+    assert risk.value["status"] == "ACTIVE"
     serialized = json.dumps(result.model_dump(mode="json"), ensure_ascii=False)
     assert "controlled-amap-secret" not in serialized
     assert "controlled-weather-secret" not in serialized
-    assert "controlled-brave-secret" not in serialized
     assert "route\": {" not in serialized
 
 
@@ -291,7 +318,6 @@ async def test_live_call_budget_blocks_before_the_extra_http_request():
         amap_api_key="controlled-amap-secret",
         qweather_auth_type="apikey",
         qweather_api_key="controlled-weather-secret",
-        brave_api_key="controlled-brave-secret",
     )
     collector = TripCheckProviderIntegrityCollector(
         settings=settings,
@@ -305,7 +331,7 @@ async def test_live_call_budget_blocks_before_the_extra_http_request():
     assert len(session.requests) == 5
     assert len(result.provider_receipts) == 6
     assert any(
-        item.failure_category == "BRAVE_PROVIDERQUERYBUDGETEXCEEDEDERROR"
+        item.failure_category == "QWEATHER_ALERT_PROVIDERQUERYBUDGETEXCEEDEDERROR"
         for item in result.provider_receipts
     )
 

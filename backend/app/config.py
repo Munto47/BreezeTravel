@@ -76,7 +76,10 @@ class Settings(BaseSettings):
     qweather_key_id: str = ""               # 控制台凭据 ID（kid）
     qweather_project_id: str = ""           # 控制台项目 ID（sub）
 
-    # ── Brave 风险来源 ────────────────────────────────────────────────
+    # ── Legacy Brave discovery key ────────────────────────────────────
+    # Standard Brave Search plans are not admitted to the persistent
+    # EvidenceSnapshot path. Keep the field only for configuration
+    # compatibility; see ADR-006.
     brave_api_key: str = ""
 
     # ── 数据库 ────────────────────────────────────────────────────────

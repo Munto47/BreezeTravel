@@ -25,11 +25,11 @@
 
 - PNG/JPEG/WebP 截图输入、OCR 版本/文本框/置信度和终态清理回执；
 - 驾车、步行、公交、骑行统一 Provider adapter 与字段级失败语义；
-- 天气与风险来源进入 EvidenceSnapshot，确定性事实与建议性判断分离；
+- 天气预报与实时天气预警进入 EvidenceSnapshot，确定性事实与建议性判断分离；非天气风险发现 Provider 在完成数据留存准入前不得进入持久化主链；
 - 受控 fixture、固定 snapshot 与 live Provider receipt 分层记录，不互相替代；
 - 继续固定北京、上海、杭州、单城市、2～5 人、2～5 天。
 - 复用 migration `022`～`024` 与现有公共 HTTP API/schema，不新增 migration 或公共字段；
-- live Provider 最小矩阵固定为三城各四种路线、一次天气和一次风险查询，最多 18 次调用；只允许既有免费额度/配额，增量付费预算为 0。
+- live Provider 最小矩阵固定为三城各四种路线、一次天气预报和一次实时天气预警查询，最多 18 次调用；只使用既有高德/和风凭据与免费额度，增量付费预算为 0。
 
 ## Non-goals
 
@@ -49,7 +49,7 @@
 ## Acceptance
 
 - 冻结 synthetic stress OCR 集的低置信关键字段 100% 进入确认，原图终态清理可回读；
-- 四种交通、天气和风险字段均有稳定 receipt、版本、时间和失败分类；
+- 四种交通、天气预报和实时天气预警字段均有稳定 receipt、版本、时间、归因和失败分类；无预警不得推广为无其他旅行风险；
 - 固定 snapshot replay hash 一致，网络禁用时可重放；
 - live Provider 子集只由实际请求/响应回执证明，不由 fixture 或 source prior 替代；
 - P2 六类 Reliability regression 与 P1 18 pilot 持续通过；

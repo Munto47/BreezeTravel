@@ -46,7 +46,7 @@ async def test_live_matrix_stays_not_run_without_all_credentials(tmp_path):
     )
 
     assert ready is False
-    assert set(missing) == {"AMAP_API_KEY", "QWEATHER_CREDENTIALS", "BRAVE_API_KEY"}
+    assert set(missing) == {"AMAP_API_KEY", "QWEATHER_CREDENTIALS"}
     assert manifest["status"] == "NOT_RUN"
     assert manifest["actual_network_call_count"] == 0
     assert manifest["actual_receipt_count"] == 0

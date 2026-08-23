@@ -27,7 +27,6 @@ AMAP_ROUTE_ENDPOINTS = {
     "driving": "https://restapi.amap.com/v5/direction/driving",
 }
 AMAP_CITY_CODES = {"北京": "010", "上海": "021", "杭州": "0571"}
-BRAVE_NEWS_ENDPOINT = "https://api.search.brave.com/res/v1/news/search"
 DEFAULT_SNAPSHOT_PATH = Path(__file__).parents[2] / "evals" / "fixtures" / "trip_check_provider_integrity_v1.json"
 
 
@@ -726,66 +725,115 @@ class TripCheckProviderIntegrityCollector:
                 )
             )
 
-            risk_request = {"city": revision.city, "query_profile": "trip_risk_v1", "count": 5}
+            risk_request = {
+                "city": revision.city,
+                "location": anchor.model_dump(mode="json") if anchor else None,
+                "risk_scope": "ACTIVE_WEATHER_ALERTS_ONLY",
+                "local_time": True,
+            }
             risk_payload: Any | None = None
             risk_category: str | None = None
-            if not self.settings.brave_api_key:
-                risk_category = "BRAVE_CREDENTIALS_MISSING"
+            risk_endpoint = None
+            if not credentials:
+                risk_category = "QWEATHER_CREDENTIALS_MISSING"
+            elif anchor is None:
+                risk_category = "WEATHER_ALERT_COORDINATES_MISSING"
             else:
                 try:
+                    host = self.settings.qweather_api_host.removeprefix("https://").removeprefix("http://").rstrip("/")
+                    risk_endpoint = (
+                        f"https://{host}/weatheralert/v1/current/"
+                        f"{anchor.lat:.2f}/{anchor.lng:.2f}"
+                    )
                     self._consume_live_call()
                     async with session.get(
-                        BRAVE_NEWS_ENDPOINT,
-                        params={"q": f"{revision.city} 旅游 交通 天气 风险", "count": 5, "search_lang": "zh"},
-                        headers={"X-Subscription-Token": self.settings.brave_api_key, "Accept": "application/json"},
+                        risk_endpoint,
+                        params={"lang": "zh", "localTime": "true"},
+                        headers=_qweather_headers(self.settings),
                         timeout=aiohttp.ClientTimeout(total=8),
                     ) as response:
                         response.raise_for_status()
                         risk_payload = await response.json()
-                    container = risk_payload.get("news") or risk_payload
-                    results = container.get("results") or []
-                    if not results:
-                        risk_category = "BRAVE_EMPTY_RESULTS"
-                    for index, item in enumerate(list(results)[:5]):
-                        url = str(item.get("url") or "")
+                    metadata = risk_payload.get("metadata") or {}
+                    alerts = list(risk_payload.get("alerts") or [])
+                    zero_result = metadata.get("zeroResult") is True
+                    attributions = list(metadata.get("attributions") or [])
+                    if not zero_result and not alerts:
+                        risk_category = "QWEATHER_ALERT_RESPONSE_INVALID"
+                    elif zero_result:
                         observations.append(
                             EvidenceObservation(
                                 subject_type="TRIP",
-                                subject_id=f"{run.workspace_id}:risk:{index}",
+                                subject_id=f"{run.workspace_id}:weather-alert-status",
                                 fact_type="RISK_SOURCE",
                                 value={
-                                    "title": str(item.get("title") or "")[:300],
-                                    "url": url,
-                                    "published_at": item.get("age") or item.get("page_age"),
+                                    "risk_type": "WEATHER_ALERT",
+                                    "status": "NONE_REPORTED",
+                                    "scope": "ACTIVE_WEATHER_ALERTS_ONLY",
                                     "retrieved_at": datetime.now(timezone.utc).isoformat(),
-                                    "snippet": str(item.get("description") or "")[:500],
-                                    "risk_type": "GENERAL_TRIP_RISK",
-                                    "source_tier": _source_tier(url),
-                                    "evidence_class": "ADVISORY_SOURCE",
+                                    "source_tier": "OPERATOR",
+                                    "evidence_class": "DETERMINISTIC_PROVIDER_FACT",
+                                    "attributions": attributions,
                                 },
-                                provider="brave_news",
-                                source_url=url or None,
+                                provider="qweather_alert",
+                                source_url=risk_endpoint,
                                 observed_at=datetime.now(timezone.utc),
-                                valid_until=datetime.now(timezone.utc) + timedelta(hours=24),
-                                confidence=0.7,
+                                valid_until=datetime.now(timezone.utc) + timedelta(hours=1),
+                                confidence=1,
                             )
                         )
+                    else:
+                        for index, item in enumerate(alerts[:5]):
+                            event_type = item.get("eventType") or {}
+                            observations.append(
+                                EvidenceObservation(
+                                    subject_type="TRIP",
+                                    subject_id=f"{run.workspace_id}:weather-alert:{index}",
+                                    fact_type="RISK_SOURCE",
+                                    value={
+                                        "risk_type": "WEATHER_ALERT",
+                                        "status": "ACTIVE",
+                                        "scope": "ACTIVE_WEATHER_ALERTS_ONLY",
+                                        "alert_id": str(item.get("id") or ""),
+                                        "sender_name": str(item.get("senderName") or "")[:200],
+                                        "event_name": str(event_type.get("name") or "")[:100],
+                                        "event_code": str(event_type.get("code") or "")[:50],
+                                        "severity": item.get("severity"),
+                                        "urgency": item.get("urgency"),
+                                        "certainty": item.get("certainty"),
+                                        "headline": str(item.get("headline") or "")[:300],
+                                        "description": str(item.get("description") or "")[:1000],
+                                        "issued_at": item.get("issuedTime"),
+                                        "effective_at": item.get("effectiveTime"),
+                                        "expires_at": item.get("expireTime"),
+                                        "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                                        "source_tier": "OPERATOR",
+                                        "evidence_class": "DETERMINISTIC_PROVIDER_FACT",
+                                        "attributions": attributions,
+                                    },
+                                    provider="qweather_alert",
+                                    source_url=risk_endpoint,
+                                    observed_at=datetime.now(timezone.utc),
+                                    valid_until=datetime.now(timezone.utc) + timedelta(hours=1),
+                                    confidence=1,
+                                )
+                            )
                 except Exception as exc:
-                    risk_category = f"BRAVE_{type(exc).__name__.upper()}"
+                    risk_category = f"QWEATHER_ALERT_{type(exc).__name__.upper()}"
             if risk_category:
                 observations.append(
                     EvidenceObservation(
                         subject_type="TRIP",
                         subject_id=run.workspace_id,
                         fact_type="RISK_SOURCE",
-                        provider="brave_news",
+                        provider="qweather_alert",
                         observed_at=datetime.now(timezone.utc),
                         confidence=0,
                         freshness_status=EvidenceFreshness.UNAVAILABLE,
                     )
                 )
                 failure, partial = self._partial(
-                    provider="brave_news",
+                    provider="qweather_alert",
                     category=risk_category,
                     fields=["risk.sources"],
                     retryable=True,
@@ -795,14 +843,14 @@ class TripCheckProviderIntegrityCollector:
             receipts.append(
                 self._receipt(
                     run=run,
-                    provider="brave_news",
-                    operation="risk.news_search",
+                    provider="qweather_alert",
+                    operation="risk.weather_alert",
                     execution_mode="live",
                     status="UNAVAILABLE" if risk_category else "SUCCEEDED",
                     request=risk_request,
                     response=risk_payload,
                     observed_at=datetime.now(timezone.utc),
-                    source_url=BRAVE_NEWS_ENDPOINT,
+                    source_url=risk_endpoint or "qweather://weatheralert/current",
                     affected_fields=["risk.sources"] if risk_category else [],
                     failure_category=risk_category,
                 )

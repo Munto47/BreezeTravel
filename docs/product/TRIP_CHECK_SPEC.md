@@ -75,7 +75,9 @@ Audit Engine 对有足够证据的字段判断：地点真实性、城市/区县
 
 ### 3.3 风险搜索
 
-仅对热门、节假日、天气异常或潜在风险地点触发 Brave Web/News：每个行程最多 3 个查询，每个查询最多 5 个来源；官方、政府、交通或运营方优先，正规媒体其次，社交内容只能触发「待确认」。搜索或模型失败不阻断其他核验。
+天气异常风险由和风天气实时预警接口提供，保存发布机构、签发/生效/过期时间、严重程度、查询时间和归因声明。零结果只能表达“本次查询未返回正在生效的天气预警”，不得表达“行程无风险”。
+
+景区关闭、节假日客流和临时交通管制等非天气风险使用通过准入的 `RiskDiscoveryAdapter` 发现候选来源，再回到原始官方、政府、交通或运营方页面形成 Evidence；正规媒体只能作为建议性来源，社交内容只能触发「待确认」。未取得结果存储权的搜索 API 不得进入持久化 EvidenceSnapshot。搜索或模型失败不阻断其他核验。
 
 DeepSeek 只把检索结果整理为结构化 `RiskEvidence`，必须包含 URL、标题、发布日期、检索时间、短原文片段和风险类型。它不能补造来源、日期或事实。
 
@@ -89,7 +91,7 @@ Finding 分为 `MUST_ADJUST`、`SHOULD_OPTIMIZE`、`NEEDS_CONFIRMATION`。每个
 
 `TripCheckRun` 绑定 itinerary revision、TripBrief revision、Prompt、模型、Provider、搜索、规则和配置 hash。阶段固定为 OCR、解析、地点消歧、事实采集、Audit、风险补充、Advice 生成和采纳后的 postcheck。
 
-长运行通过数据库状态和 SSE 展示进度，不引入消息队列。断线或重启后从同一配置下最后完成阶段恢复；阶段使用稳定幂等键。Provider 局部失败保留成功事实并标记受影响字段；Brave 不可用不得影响其他核验。
+长运行通过数据库状态和 SSE 展示进度，不引入消息队列。断线或重启后从同一配置下最后完成阶段恢复；阶段使用稳定幂等键。Provider 局部失败保留成功事实并标记受影响字段；风险发现或预警 Provider 不可用不得影响其他核验。
 
 LangGraph checkpoint 只保存可恢复计算进度；Provider 请求、数据库 mutation、建议采纳和 postcheck 必须分别使用稳定幂等键、事务边界和可回读回执。worker 只能接管过期 lease；config hash 不一致返回 `RUN_CONFIG_MISMATCH`，不得继续原 Run。
 
@@ -126,4 +128,5 @@ V1 截图/OCR、TripBriefRevision、TripCheckRun/进度、Advice 查询/应用�
 
 - [PaddleOCR 3.x Quick Start](https://www.paddleocr.ai/main/quick_start.html)
 - [高德路径规划 2.0](https://lbs.amap.com/api/webservice/guide/api/newroute)
-- [Brave News Search](https://api-dashboard.search.brave.com/app/documentation/news-search/get-started)
+- [和风天气实时天气预警](https://dev.qweather.com/docs/api/warning/weather-alert/)
+- [Brave Search API Terms（未取得结果存储权前不准入）](https://api-dashboard.search.brave.com/documentation/resources/terms-of-service)
