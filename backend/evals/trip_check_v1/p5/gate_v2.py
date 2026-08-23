@@ -9,6 +9,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from jsonschema import Draft202012Validator
+
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.final_blind_scorer_v2 import (
     schema_contract_sha256_v2,
@@ -37,6 +39,12 @@ _COMMITMENT_CHAIN_FIELDS = frozenset(
         "labels_canonical_sha256",
         "review_receipt_sha256",
     }
+)
+_FORMAL_DATASET_KEYS = (
+    "nonblind_cases",
+    "nonblind_materializations",
+    "blind_cases",
+    "blind_materializations",
 )
 
 
@@ -104,6 +112,163 @@ def _artifact(name: str, path: Path, root: Path) -> dict[str, Any]:
         "sha256": _sha256(resolved),
         "size_bytes": resolved.stat().st_size,
     }
+
+
+def _artifact_from_bytes(
+    name: str,
+    path: Path,
+    root: Path,
+    payload: bytes,
+) -> dict[str, Any]:
+    resolved = path.resolve()
+    try:
+        relative = resolved.relative_to(root.resolve()).as_posix()
+        storage = "repository"
+    except ValueError:
+        relative = resolved.name
+        storage = "external"
+    return {
+        "logical_name": name,
+        "storage": storage,
+        "path": relative,
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "size_bytes": len(payload),
+    }
+
+
+def _inside(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_link_or_junction(path: Path) -> bool:
+    try:
+        return path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction())
+    except OSError:
+        return True
+
+
+def _contains_link_or_junction(path: Path) -> bool:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current /= part
+        if current.exists() and _is_link_or_junction(current):
+            return True
+    return False
+
+
+def _read_external_json(
+    repo_root: Path,
+    path: Path,
+    label: str,
+) -> tuple[Path, dict[str, Any], bytes]:
+    if not path.is_absolute() or ".." in path.parts:
+        raise P5GateErrorV2(f"{label} path must be absolute without traversal")
+    absolute = path.absolute()
+    if _contains_link_or_junction(absolute):
+        raise P5GateErrorV2(f"{label} path cannot contain a symlink or junction")
+    try:
+        resolved = absolute.resolve(strict=True)
+    except OSError as exc:
+        raise P5GateErrorV2(f"{label} is unreadable") from exc
+    if not resolved.is_file() or _inside(resolved, repo_root.resolve(strict=True)):
+        raise P5GateErrorV2(f"{label} must be a file outside the repository")
+    try:
+        payload = resolved.read_bytes()
+        value = json.loads(payload.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise P5GateErrorV2(f"{label} is unreadable") from exc
+    if not isinstance(value, dict):
+        raise P5GateErrorV2(f"{label} must be an object")
+    return resolved, value, payload
+
+
+def _validate_formal_validation_receipt(
+    *,
+    repo_root: Path,
+    receipt_path: Path,
+    schema_path: Path,
+    dataset_path: Path,
+    dataset: dict[str, Any],
+    subject_commit: str,
+) -> tuple[Path, dict[str, Any], bytes]:
+    resolved, receipt, payload = _read_external_json(
+        repo_root,
+        receipt_path,
+        "P5 v2 formal dataset validation receipt",
+    )
+    schema = _load_json(schema_path, "P5 v2 formal dataset validation receipt schema")
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(receipt),
+        key=lambda item: list(item.path),
+    )
+    if errors:
+        raise P5GateErrorV2(
+            f"P5 v2 formal dataset validation receipt schema rejected: {errors[0].message}"
+        )
+    _validate_hash(receipt, "receipt_hash", "P5 v2 formal dataset validation receipt")
+
+    if (
+        receipt.get("subject_commit") != subject_commit
+        or receipt.get("schema_version") != "trip-check-p5-dataset-validation-v2"
+        or receipt.get("status") != "PASS"
+        or receipt.get("formal") is not True
+        or receipt.get("manifest_hash") != dataset.get("manifest_hash")
+        or receipt.get("errors") != []
+    ):
+        raise P5GateErrorV2("P5 v2 formal dataset validation receipt binding rejected")
+
+    expected_manifest = {
+        "path": "backend/evals/trip_check_v1/p5/dataset_v2.manifest.json",
+        "file_sha256": _sha256(dataset_path),
+        "manifest_hash": dataset["manifest_hash"],
+    }
+    if receipt.get("dataset_manifest") != expected_manifest:
+        raise P5GateErrorV2("P5 v2 formal dataset manifest binding rejected")
+
+    validator_path = repo_root / "backend" / "scripts" / "validate_trip_check_p5_dataset_v2.py"
+    expected_validator = {
+        "path": "backend/scripts/validate_trip_check_p5_dataset_v2.py",
+        "code_sha256": _sha256(validator_path),
+    }
+    if receipt.get("validator") != expected_validator:
+        raise P5GateErrorV2("P5 v2 formal dataset validator binding rejected")
+
+    manifest_files = dataset.get("files")
+    if not isinstance(manifest_files, dict) or set(manifest_files) != set(_FORMAL_DATASET_KEYS):
+        raise P5GateErrorV2("P5 v2 formal dataset manifest files rejected")
+    expected_files: dict[str, dict[str, Any]] = {}
+    backend_root = repo_root / "backend"
+    for key in _FORMAL_DATASET_KEYS:
+        entry = manifest_files[key]
+        if not isinstance(entry, dict):
+            raise P5GateErrorV2("P5 v2 formal dataset manifest files rejected")
+        relative_value = entry.get("path")
+        if not isinstance(relative_value, str):
+            raise P5GateErrorV2("P5 v2 formal dataset file path rejected")
+        relative = Path(relative_value)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise P5GateErrorV2("P5 v2 formal dataset file path rejected")
+        try:
+            source_path = (backend_root / relative).resolve(strict=True)
+        except OSError as exc:
+            raise P5GateErrorV2("P5 v2 formal dataset file unreadable") from exc
+        if not source_path.is_file() or not _inside(source_path, backend_root.resolve(strict=True)):
+            raise P5GateErrorV2("P5 v2 formal dataset file path rejected")
+        if _sha256(source_path) != entry.get("file_sha256"):
+            raise P5GateErrorV2("P5 v2 formal dataset file hash rejected")
+        expected_files[key] = {
+            "path": f"backend/{relative.as_posix()}",
+            "file_sha256": entry.get("file_sha256"),
+            "content_sha256": entry.get("content_sha256"),
+            "row_count": entry.get("row_count"),
+        }
+    if receipt.get("dataset_files") != expected_files:
+        raise P5GateErrorV2("P5 v2 formal dataset file binding rejected")
+    return resolved, receipt, payload
 
 
 def _commitment_artifact(name: str, sha256: str) -> dict[str, Any]:
@@ -366,6 +531,7 @@ def build_p5_gate_manifest_v2(
     blind_run_dir: Path,
     blind_score_path: Path,
     judge_panel_path: Path,
+    formal_validation_receipt_path: Path,
     output_path: Path,
     require_current_subject: bool = True,
 ) -> dict[str, Any]:
@@ -381,13 +547,8 @@ def build_p5_gate_manifest_v2(
     run_spec_path = p5_root / "run_spec_template_v2.json"
     rubric_path = p5_root / "judge_rubric_v2.json"
     seal_schema_path = p5_root / "blind_seal_v2.schema.json"
-    formal_validation_receipt_path = (
-        root
-        / "backend"
-        / "evidence"
-        / "trip_check_v1"
-        / "p5"
-        / "dataset_v2_formal_validation_receipt.json"
+    formal_validation_schema_path = (
+        p5_root / "dataset_formal_validation_receipt_v2.schema.json"
     )
     p4_path = (
         root
@@ -414,10 +575,6 @@ def build_p5_gate_manifest_v2(
         raise P5GateErrorV2("P5 v2 frozen dataset contract rejected")
     active_contract = _load_json(active_contract_path, "P5 v2 active contract")
     blind_seal = _load_json(blind_seal_path, "P5 v2 blind seal")
-    formal_validation = _load_json(
-        formal_validation_receipt_path,
-        "P5 v2 formal dataset validation receipt",
-    )
     sealing_commitment = dataset.get("sealing_commitment")
     if (
         active_contract.get("active_contract") != "trip-check-p5-v2"
@@ -450,21 +607,6 @@ def build_p5_gate_manifest_v2(
         )
     ):
         raise P5GateErrorV2("P5 v2 contract or external commitment binding rejected")
-    if (
-        formal_validation.get("schema_version")
-        != "trip-check-p5-dataset-validation-v2"
-        or formal_validation.get("status") != "PASS"
-        or formal_validation.get("formal") is not True
-        or formal_validation.get("manifest_hash") != dataset["manifest_hash"]
-        or formal_validation.get("counts", {}).get("total") != 360
-        or formal_validation.get("counts", {}).get("by_split")
-        != {"dev": 180, "frozen_blind": 90, "pilot": 18, "regression": 72}
-        or formal_validation.get("counts", {}).get("by_city")
-        != {"上海": 120, "北京": 120, "杭州": 120}
-        or formal_validation.get("errors") != []
-    ):
-        raise P5GateErrorV2("P5 v2 formal dataset validation rejected")
-
     nonblind_run, _, nonblind_outputs = validate_run_group_v2(
         run_dir=nonblind_run_dir.resolve(),
         cases_path=nonblind_cases,
@@ -486,6 +628,18 @@ def build_p5_gate_manifest_v2(
     if nonblind_run["subject_commit"] != blind_run["subject_commit"]:
         raise P5GateErrorV2("run-group subject commits differ")
     subject_commit = nonblind_run["subject_commit"]
+    (
+        formal_validation_receipt_path,
+        _,
+        formal_validation_receipt_bytes,
+    ) = _validate_formal_validation_receipt(
+        repo_root=root,
+        receipt_path=formal_validation_receipt_path,
+        schema_path=formal_validation_schema_path,
+        dataset_path=dataset_path,
+        dataset=dataset,
+        subject_commit=subject_commit,
+    )
     expected_commitment_chain = {
         "active_contract_file_sha256": _sha256(active_contract_path),
         "blind_seal_sha256": _sha256(blind_seal_path),
@@ -575,6 +729,7 @@ def build_p5_gate_manifest_v2(
         seal_schema_path,
         run_spec_path,
         rubric_path,
+        formal_validation_schema_path,
         formal_validation_receipt_path,
         nonblind_run_dir / "run_group_manifest.json",
         nonblind_run_dir / nonblind_run["terminal_outputs_path"],
@@ -626,7 +781,17 @@ def build_p5_gate_manifest_v2(
     gate_passed = deterministic_pass and all(checks.values())
     artifacts = [
         _artifact("dataset_manifest", dataset_path, root),
-        _artifact("formal_dataset_validation_receipt", formal_validation_receipt_path, root),
+        _artifact(
+            "formal_dataset_validation_receipt_schema",
+            formal_validation_schema_path,
+            root,
+        ),
+        _artifact_from_bytes(
+            "formal_dataset_validation_receipt",
+            formal_validation_receipt_path,
+            root,
+            formal_validation_receipt_bytes,
+        ),
         _artifact("active_contract", active_contract_path, root),
         _artifact("blind_seal_v2", blind_seal_path, root),
         _artifact("blind_seal_schema_contract", seal_schema_path, root),

@@ -23,7 +23,9 @@ MANIFEST_PATH = P5_ROOT / "dataset_v2.manifest.json"
 SCHEMA_PATH = P5_ROOT / "dataset_formal_validation_receipt_v2.schema.json"
 VALIDATOR_PATH = BACKEND_ROOT / "scripts" / "validate_trip_check_p5_dataset_v2.py"
 DEFAULT_RECEIPT_PATH = (
-    BACKEND_ROOT / "evidence" / "trip_check_v1" / "p5" / "dataset_v2_formal_validation_receipt.json"
+    REPO_ROOT.parent
+    / f"{REPO_ROOT.name}-formal-artifacts"
+    / "dataset_v2_formal_validation_receipt.json"
 )
 _DATASET_KEYS = (
     "nonblind_cases",
@@ -69,6 +71,38 @@ def _repo_path(path: Path, repo_root: Path) -> str:
         return path.resolve().relative_to(repo_root.resolve()).as_posix()
     except ValueError as exc:
         raise P5FormalValidationReceiptError("P5_FORMAL_VALIDATION_PATH_ESCAPE") from exc
+
+
+def _is_link_or_junction(path: Path) -> bool:
+    try:
+        return path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction())
+    except OSError:
+        return True
+
+
+def _contains_link_or_junction(path: Path) -> bool:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current /= part
+        if current.exists() and _is_link_or_junction(current):
+            return True
+    return False
+
+
+def _external_output_path(path: Path, repo_root: Path) -> Path:
+    if not path.is_absolute() or ".." in path.parts:
+        raise P5FormalValidationReceiptError(
+            "P5_FORMAL_VALIDATION_OUTPUT_MUST_BE_EXTERNAL_ABSOLUTE"
+        )
+    absolute = path.absolute()
+    if _contains_link_or_junction(absolute):
+        raise P5FormalValidationReceiptError("P5_FORMAL_VALIDATION_OUTPUT_LINK_FORBIDDEN")
+    resolved = absolute.resolve()
+    try:
+        resolved.relative_to(repo_root.resolve(strict=True))
+    except ValueError:
+        return resolved
+    raise P5FormalValidationReceiptError("P5_FORMAL_VALIDATION_OUTPUT_INSIDE_REPOSITORY")
 
 
 def _validate_receipt(payload: Mapping[str, Any]) -> None:
@@ -133,6 +167,7 @@ def generate_formal_validation_receipt(
     """Run the formal validator and atomically persist its commit-bound PASS receipt."""
 
     head = _assert_clean_subject(repo_root, subject_commit)
+    output_path = _external_output_path(output_path, repo_root)
     result = validator(formal=True)
     counts = result.get("counts", {})
     screenshots_by_split = counts.get("screenshots_by_split", {})
@@ -181,7 +216,6 @@ def generate_formal_validation_receipt(
     payload["receipt_hash"] = digest(payload)
     _validate_receipt(payload)
 
-    output_path = output_path.resolve()
     if output_path.exists():
         try:
             existing = json.loads(output_path.read_text(encoding="utf-8"))

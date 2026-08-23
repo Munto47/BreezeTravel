@@ -28,6 +28,7 @@ def main() -> None:
     parser.add_argument("--blind-run-dir", type=Path, required=True)
     parser.add_argument("--blind-score", type=Path, required=True)
     parser.add_argument("--judge-panel", type=Path, required=True)
+    parser.add_argument("--formal-validation-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     require_v2_formal_ready()
@@ -38,6 +39,7 @@ def main() -> None:
         blind_run_dir=args.blind_run_dir,
         blind_score_path=args.blind_score,
         judge_panel_path=args.judge_panel,
+        formal_validation_receipt_path=args.formal_validation_receipt,
         output_path=args.output,
     )
     print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))

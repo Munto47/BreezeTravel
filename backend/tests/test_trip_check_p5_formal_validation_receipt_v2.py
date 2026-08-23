@@ -12,6 +12,7 @@ from evals.trip_check_v1.p5.active_contract import P5ContractNotReadyError
 from evals.trip_check_v1.p5.data_contract import digest, file_sha256
 import evals.trip_check_v1.p5.formal_validation_receipt_v2 as receipt_v2
 from evals.trip_check_v1.p5.formal_validation_receipt_v2 import (
+    DEFAULT_RECEIPT_PATH,
     P5FormalValidationReceiptError,
     generate_formal_validation_receipt,
 )
@@ -26,6 +27,12 @@ def _formal_result() -> dict:
     result = validate(formal=True)
     assert result["status"] == "PASS", result["errors"]
     return result
+
+
+def test_formal_receipt_default_output_is_absolute_and_outside_repository() -> None:
+    assert DEFAULT_RECEIPT_PATH.is_absolute()
+    with pytest.raises(ValueError):
+        DEFAULT_RECEIPT_PATH.resolve().relative_to(receipt_v2.REPO_ROOT.resolve())
 
 
 def test_formal_receipt_binds_commit_dataset_validator_and_atomic_readback(tmp_path, monkeypatch) -> None:
@@ -91,6 +98,36 @@ def test_formal_receipt_rejects_dirty_and_mixed_subject_before_validation(tmp_pa
         generate_formal_validation_receipt(
             subject_commit="6" * 40,
             output_path=tmp_path / "mixed.json",
+            validator=validator,
+        )
+    assert calls == []
+
+
+def test_formal_receipt_rejects_relative_or_repository_output_before_validation(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    calls: list[bool] = []
+    monkeypatch.setattr(
+        receipt_v2,
+        "_assert_clean_subject",
+        lambda repo_root, subject_commit: SUBJECT,
+    )
+
+    def validator(*, formal: bool) -> dict:
+        calls.append(formal)
+        return _formal_result()
+
+    with pytest.raises(P5FormalValidationReceiptError, match="EXTERNAL_ABSOLUTE"):
+        generate_formal_validation_receipt(
+            subject_commit=SUBJECT,
+            output_path=Path("receipt.json"),
+            validator=validator,
+        )
+    with pytest.raises(P5FormalValidationReceiptError, match="INSIDE_REPOSITORY"):
+        generate_formal_validation_receipt(
+            subject_commit=SUBJECT,
+            output_path=receipt_v2.REPO_ROOT / "receipt.json",
             validator=validator,
         )
     assert calls == []

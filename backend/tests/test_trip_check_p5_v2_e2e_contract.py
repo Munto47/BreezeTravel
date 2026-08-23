@@ -400,6 +400,8 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "missing",
                 "--judge-panel",
                 "missing",
+                "--formal-validation-receipt",
+                "missing",
             ),
         ),
     ),
