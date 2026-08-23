@@ -15,6 +15,7 @@ from evals.trip_check_v1.p5.contracts_v2 import (
     P5VariantRunSpecV2,
     TerminalStatusV2,
 )
+from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.runner_v2 import (
     execute_terminal_v2,
     validate_exact_terminal_set_v2,
@@ -30,6 +31,7 @@ from tests.p5_v2_e2e_helpers import (
     DATASET_MANIFEST_PATH,
     NONBLIND_CASES_PATH,
     NONBLIND_MATERIALIZATIONS_PATH,
+    file_sha256,
     load_jsonl,
 )
 
@@ -106,6 +108,44 @@ def test_pilot_18_by_abc_has_exact_terminals_and_full_replay(pilot_abc_replay: P
         case_ids={case.case_id for case in run.cases},
         variant_ids={"legacy_a", "core_b", "solver_c"},
     )
+
+
+def test_run_group_readback_binds_subject_dataset_files_outputs_and_replay(
+    pilot_abc_replay: PilotRun,
+) -> None:
+    run = pilot_abc_replay
+    manifest = json.loads((run.run_dir / "run_group_manifest.json").read_text(encoding="utf-8"))
+    assert set(manifest) == run_cli.RUN_GROUP_FIELDS
+    assert manifest["manifest_hash"] == digest(
+        {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    )
+    assert len(manifest["subject_commit"]) == 40
+    int(manifest["subject_commit"], 16)
+    assert manifest["dataset_manifest_hash"] == run.result["dataset_manifest_hash"]
+    assert manifest["cases_file_sha256"] == file_sha256(NONBLIND_CASES_PATH)
+    assert manifest["materializations_file_sha256"] == file_sha256(
+        NONBLIND_MATERIALIZATIONS_PATH
+    )
+    terminal_path = run.run_dir / manifest["terminal_outputs_path"]
+    assert manifest["terminal_outputs_file_sha256"] == file_sha256(terminal_path)
+    assert manifest["terminal_outputs_content_sha256"] == digest(
+        [output.model_dump(mode="json") for output in run.outputs]
+    )
+    assert set(manifest["variant_output_sha256"]) == {
+        "legacy_a",
+        "core_b",
+        "solver_c",
+    }
+    assert manifest["replay_executed"] is True
+    assert manifest["replay_match_count"] == manifest["terminal_count"] == 54
+    assert manifest["replay_mismatches"] == []
+    for variant_id, spec in manifest["run_specs"].items():
+        assert spec["variant_id"] == variant_id
+        assert spec["subject_commit"] == manifest["subject_commit"]
+        assert spec["dataset_manifest_hash"] == manifest["dataset_manifest_hash"]
+        assert spec["case_set_hash"] == manifest["case_set_hash"]
+        assert spec["materialization_set_hash"] == manifest["materialization_set_hash"]
+        assert spec["replay_hash_policy"] == "p5-semantic-projection-v2"
 
 
 def test_pilot_run_specs_only_differ_on_the_frozen_whitelist(
