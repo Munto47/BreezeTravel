@@ -1,0 +1,238 @@
+{
+  "import_id": "0bcb934a-aa89-484a-84b9-e2a23ac9cc7a",
+  "workspace_id": "pilot-tc-p1-sh-02",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "上海3人。第1天 09:00 东方明珠，14:00 外滩；第2天 09:00 豫园。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "NEEDS_RESOLUTION",
+  "raw_stops": [
+    {
+      "raw_stop_id": "468bc273-9355-4c18-a04e-1754911e66ac",
+      "import_id": "0bcb934a-aa89-484a-84b9-e2a23ac9cc7a",
+      "day_index": 0,
+      "raw_name": "东方明珠",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 9,
+        "end": 19
+      },
+      "source_sentence": "09:00 东方明珠",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "1fe7ebf7-ed5a-4f29-b7f2-2acfbaf7d7fc",
+      "import_id": "0bcb934a-aa89-484a-84b9-e2a23ac9cc7a",
+      "day_index": 0,
+      "raw_name": "外滩",
+      "raw_time": "14:00",
+      "source_span": {
+        "start": 20,
+        "end": 28
+      },
+      "source_sentence": "14:00 外滩",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "6cadbb92-5d05-4164-bb3f-35f1fc5032c1",
+      "import_id": "0bcb934a-aa89-484a-84b9-e2a23ac9cc7a",
+      "day_index": 1,
+      "raw_name": "豫园",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 33,
+        "end": 41
+      },
+      "source_sentence": "09:00 豫园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "468bc273-9355-4c18-a04e-1754911e66ac",
+      "canonical_place_id": null,
+      "candidates": [
+        {
+          "place_id": "sh-oriental-pearl",
+          "name": "东方明珠",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.5,
+            "lat": 31.24
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "524949435cc635d8848946b65e9aacbe29c91fc17d274a2ba25ead5a5a8b1a48",
+          "retrieval_response_hash": "f15408db4bb913eee9302bac6cd56d24073749a76c97a01aa7c1b2e20953f533",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-oriental-pearl",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-oriental-pearl",
+            "name": "东方明珠",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.5,
+            "latitude": 31.24,
+            "request_hash": "524949435cc635d8848946b65e9aacbe29c91fc17d274a2ba25ead5a5a8b1a48",
+            "response_hash": "f15408db4bb913eee9302bac6cd56d24073749a76c97a01aa7c1b2e20953f533",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AMBIGUOUS",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "1fe7ebf7-ed5a-4f29-b7f2-2acfbaf7d7fc",
+      "canonical_place_id": null,
+      "candidates": [
+        {
+          "place_id": "sh-bund",
+          "name": "外滩",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.49,
+            "lat": 31.241
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "cb7b23c0159495d7964105a8338192877c22dba842d543d7ca548744d1aa902f",
+          "retrieval_response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-bund",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-bund",
+            "name": "外滩",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.49,
+            "latitude": 31.241,
+            "request_hash": "cb7b23c0159495d7964105a8338192877c22dba842d543d7ca548744d1aa902f",
+            "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AMBIGUOUS",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "6cadbb92-5d05-4164-bb3f-35f1fc5032c1",
+      "canonical_place_id": null,
+      "candidates": [
+        {
+          "place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "622e3c65139784e860ed6cfea43d5f961a63c674d23abbbc5b6f47e99ecc673d",
+          "retrieval_response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "sh-yuyuan",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "sh-yuyuan",
+            "name": "豫园",
+            "city": "上海",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 121.493,
+            "latitude": 31.227,
+            "request_hash": "622e3c65139784e860ed6cfea43d5f961a63c674d23abbbc5b6f47e99ecc673d",
+            "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AMBIGUOUS",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T08:37:58.701707Z",
+  "updated_at": "2026-08-23T08:37:58.701707Z"
+}

@@ -1,0 +1,137 @@
+{
+  "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+  "workspace_id": "p2-terminate-after-evidence-workspace",
+  "itinerary_revision": 1,
+  "provider_set": [
+    "confirmed_trip_brief_revision",
+    "controlled_reliability_fixture",
+    "controlled_route_fixture_v1"
+  ],
+  "policy_version": "evidence-policy-v1",
+  "facts": [
+    {
+      "fact_id": "26f082aa-54cd-5b96-8ec3-decb9ea58ae4",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-2",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点乙",
+        "coords": {
+          "lat": 39.925,
+          "lng": 116.396
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "terminate-after-evidence-place-2"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "e1ea572893290573ed718a6a872024c268bc02f8ad9ff631ee6fd64c15f3e7de",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "4ae12cb1-38a8-578b-82d0-3ebde4d0bb18",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-1",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点甲",
+        "coords": {
+          "lat": 39.916,
+          "lng": 116.397
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "terminate-after-evidence-place-1"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "7f22ccce56bd1fe9dffbdaac2a6b81ef06b7d3b22fc09622f18dd4b7f308bac1",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "614e2745-e295-5753-ad0a-eeb3b7d967d1",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "ROUTE_EDGE",
+      "subject_id": "terminate-after-evidence-stop-1->terminate-after-evidence-stop-2",
+      "fact_type": "ROUTE_TIME",
+      "value": {
+        "mode": "driving",
+        "duration_minutes": 25
+      },
+      "provider": "controlled_route_fixture_v1",
+      "source_url": null,
+      "observed_at": "2026-08-23T08:40:44.456050Z",
+      "valid_from": null,
+      "valid_until": "2027-08-23T08:40:44.456050Z",
+      "response_hash": "a9ee4827182c91e25aa2cc79bc6ac31c4bd0a024b8854e52d432e26a36d91b8c",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "c55b1058-69af-5331-bcb8-e4faca38d9df",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-1",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "616f3cdcb0f887eb7e892f9a022b4f76b47e693b37b1848d76745ccd8a6099b7",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "db77a541-f1c5-54d8-b3f1-7728a54aacf2",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "TRIP_BRIEF",
+      "subject_id": "84e31c32-7194-436b-9b91-096f9085f8f6",
+      "fact_type": "TRAVELER_COUNT",
+      "value": 2,
+      "provider": "confirmed_trip_brief_revision",
+      "source_url": null,
+      "observed_at": "2026-08-23T08:40:44.456050Z",
+      "valid_from": null,
+      "valid_until": "2036-08-20T08:40:44.456050Z",
+      "response_hash": "6832cf14cd604f7562144b8ee36c392d12cc605747d45da3db0c2f227b7594ee",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "ec2157a6-dc3f-5dc6-9d6b-ac5e6bd68e9b",
+      "snapshot_id": "796c8853-c643-549d-9962-c66f482bc536",
+      "subject_type": "PLACE",
+      "subject_id": "terminate-after-evidence-place-2",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "21ff6d8f460cedc18e5edfb7e93fb7746b736d6801c44f7fb7b0fe41d41f509f",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    }
+  ],
+  "provider_failures": [],
+  "created_at": "2026-08-23T08:40:44.456050Z",
+  "supersedes_snapshot_id": null
+}

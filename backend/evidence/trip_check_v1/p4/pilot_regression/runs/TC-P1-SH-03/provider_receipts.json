@@ -1,0 +1,29 @@
+[
+  {
+    "query": "外滩",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-bund",
+    "request_hash": "1afffd58160b7aeb055e321eb2172d88054620d6ad949229c8ba332e1da610f0",
+    "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "上海迪士尼乐园",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-disney",
+    "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+    "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "田子坊",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-tianzifang",
+    "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+    "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+    "execution_mode": "fixture"
+  }
+]

@@ -1,0 +1,12 @@
+{
+  "case_count": 36,
+  "city_counts": {
+    "上海": 12,
+    "北京": 12,
+    "杭州": 12
+  },
+  "dataset_hash": "d5414e30ef7e4469997eba544ab0cc69be1f56ebd223a53fc439a2e0b6f7a615",
+  "errors": [],
+  "frozen_blind_count": 0,
+  "status": "PASS"
+}

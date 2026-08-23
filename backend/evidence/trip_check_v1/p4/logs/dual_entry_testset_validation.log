@@ -1,0 +1,146 @@
+{
+  "schema_version": "dual-entry-testset-validation-v1",
+  "structurally_valid": true,
+  "release_ready": false,
+  "case_count": 96,
+  "label_count": 96,
+  "development_label_count": 78,
+  "sealed_blind_label_count": 18,
+  "city_counts": {
+    "北京": 32,
+    "上海": 32,
+    "杭州": 32
+  },
+  "entry_counts": {
+    "IMPORT": 55,
+    "BUILDER": 41
+  },
+  "split_counts": {
+    "pilot": 6,
+    "dev": 60,
+    "regression": 12,
+    "frozen_blind": 18
+  },
+  "run_spec_lanes": [
+    "nightly_snapshot",
+    "nightly_snapshot",
+    "nightly_snapshot",
+    "nightly_snapshot",
+    "pr_offline",
+    "pr_offline",
+    "release_blind",
+    "weekly_live"
+  ],
+  "pollution_contract": {
+    "normalized_hash_duplicates": 0,
+    "legacy_unbound_builder_subjects_before": 111,
+    "legacy_gap_classification": {
+      "real_amap_snapshot_exact_identity_overlap": 0,
+      "real_amap_snapshot_exact_receipt_binding": 0,
+      "controlled_fixture_execution": 90,
+      "unavailable_no_historical_call": 21
+    },
+    "static_subject_registry_records": 277,
+    "static_subject_evidence": {
+      "real_provider": 0,
+      "controlled_fixture_execution": 242,
+      "unavailable_no_historical_call": 35
+    },
+    "unavailable_subject_cases": 14,
+    "import_not_found_cases_requiring_runtime_rejected_candidate_receipts": 1,
+    "unavailable_family_lineage": {
+      "generator_family": 96,
+      "source_family": 90,
+      "template_family": 96
+    }
+  },
+  "metric_oracle_coverage": {
+    "parse_f1": {
+      "applicable": 20,
+      "not_applicable": 58
+    },
+    "entity_precision_recall": {
+      "applicable": 19,
+      "not_applicable": 59
+    },
+    "finding_precision_recall": {
+      "applicable": 31,
+      "not_applicable": 47
+    },
+    "repair_postcheck": {
+      "applicable": 10,
+      "not_applicable": 68
+    },
+    "builder_ndcg_at_5": {
+      "applicable": 11,
+      "not_applicable": 67
+    },
+    "builder_recall_at_5": {
+      "applicable": 13,
+      "not_applicable": 65
+    }
+  },
+  "human_ground_truth_case_count": 0,
+  "builder_contract_coverage": {
+    "development_builder_cases": 32,
+    "p5_contract_cases": 12,
+    "p5_contract_by_city": {
+      "北京": 4,
+      "上海": 4,
+      "杭州": 4
+    },
+    "g2_four_stop_seeds": 3,
+    "g5_recovery_seeds": 6,
+    "required_scenario_tags": [
+      "accept-rollback",
+      "anchor-query",
+      "button-equivalence",
+      "candidate-6",
+      "cross-workspace",
+      "diversity",
+      "drag",
+      "duplicate",
+      "event-chain",
+      "expired",
+      "far-other-day",
+      "four-stop",
+      "frozen-set",
+      "hard-leak",
+      "idempotency",
+      "insert-edge",
+      "multi-intent",
+      "new-anchor",
+      "replay",
+      "restart",
+      "reuse-conflict",
+      "route-tiers",
+      "stale",
+      "undo",
+      "unknown",
+      "wrong-category",
+      "wrong-city"
+    ],
+    "missing_scenario_tags": []
+  },
+  "errors": [],
+  "warnings": [
+    "G2_FOUR_STOP_BUILDER seeds 3/9 (SEED_ONLY_NOT_EXECUTED)",
+    "G5_BROWSER_RECOVERY seeds 6/9 (SEED_ONLY_NOT_EXECUTED)",
+    "release corpus: import 12/90",
+    "release corpus: builder 6/45",
+    "release corpus: fault/recovery 5/24",
+    "family lineage unavailable: generator_family=96, source_family=90, template_family=96",
+    "static subject evidence unavailable: 35 subjects in 14 frozen-blind cases; external Provider call artifacts are required",
+    "legacy Provider receipt gaps remaining unavailable: 21/111; 90 are explicitly controlled fixtures"
+  ],
+  "declared_release_blockers": [
+    "FROZEN_BLIND_CORPUS_BELOW_STATISTICAL_GATE",
+    "IMPORT_AND_RELEASE_PROVIDER_SNAPSHOT_COVERAGE_INCOMPLETE",
+    "FROZEN_BLIND_STATIC_SUBJECT_EVIDENCE_UNAVAILABLE",
+    "TEMPLATE_AND_GENERATOR_LINEAGE_UNAVAILABLE",
+    "FROZEN_BLIND_EXTERNAL_BUNDLE_NOT_PROVISIONED",
+    "G2_FOUR_STOP_PRODUCT_HTTP_NOT_PASSED",
+    "WEEKLY_LIVE_GATE_NOT_RUN",
+    "HUMAN_CALIBRATION_IS_0_OF_30"
+  ]
+}

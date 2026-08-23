@@ -1,0 +1,137 @@
+{
+  "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+  "workspace_id": "p2-duplicate-submit-workspace",
+  "itinerary_revision": 1,
+  "provider_set": [
+    "confirmed_trip_brief_revision",
+    "controlled_reliability_fixture",
+    "controlled_route_fixture_v1"
+  ],
+  "policy_version": "evidence-policy-v1",
+  "facts": [
+    {
+      "fact_id": "34700149-b528-5800-b721-fec13ea1dd0a",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "TRIP_BRIEF",
+      "subject_id": "bfe7c994-bbbd-464d-b77f-320b4003aeca",
+      "fact_type": "TRAVELER_COUNT",
+      "value": 2,
+      "provider": "confirmed_trip_brief_revision",
+      "source_url": null,
+      "observed_at": "2026-08-23T08:40:43.686644Z",
+      "valid_from": null,
+      "valid_until": "2036-08-20T08:40:43.686644Z",
+      "response_hash": "0deb7dec4ff5eeab1dac756968fe28c96fceaca8dff91d135da10a3a511f600e",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "67a9ee19-3044-5783-80f1-e68d0b8c17f2",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-1",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点甲",
+        "coords": {
+          "lat": 39.916,
+          "lng": 116.397
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "duplicate-submit-place-1"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "3894eb862a54095e373c5330bce38a3e6f78f7bf819dfc9786db13e8868fc9a4",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "a08a3802-9473-5fca-b4c8-49923f6406fb",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-2",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "064d3edcd93a10421211f909c756feac25d2f1c217f7750d3ff64c442cd8e168",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "bffe2f6c-fb95-551f-96b5-1aa05c1d0f7e",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-1",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "97e0488d2d9a7ff8e9db1215e8ab2197763764452d5c702915428cfcaafb8034",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "ce49488d-8e40-5839-abc3-d37a4a82420d",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-2",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点乙",
+        "coords": {
+          "lat": 39.925,
+          "lng": 116.396
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "duplicate-submit-place-2"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "3f3093a2cf42fb16f4b79ad2567b220afc502c930a625e9f44c2aada29fefc91",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "fbe678b9-da05-5f5b-a19c-7dc45ee72fcd",
+      "snapshot_id": "f2dd0cfc-ea5b-5654-956c-9a7f132b9d1a",
+      "subject_type": "ROUTE_EDGE",
+      "subject_id": "duplicate-submit-stop-1->duplicate-submit-stop-2",
+      "fact_type": "ROUTE_TIME",
+      "value": {
+        "mode": "driving",
+        "duration_minutes": 25
+      },
+      "provider": "controlled_route_fixture_v1",
+      "source_url": null,
+      "observed_at": "2026-08-23T08:40:43.686644Z",
+      "valid_from": null,
+      "valid_until": "2027-08-23T08:40:43.686644Z",
+      "response_hash": "1cfbf004903d953052d18b15012e8b2667055c2ac644b1b0b8cfb51fc20b1749",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    }
+  ],
+  "provider_failures": [],
+  "created_at": "2026-08-23T08:40:43.686644Z",
+  "supersedes_snapshot_id": null
+}

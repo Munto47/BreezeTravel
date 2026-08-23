@@ -1,0 +1,290 @@
+{
+  "schema_version": "trip-check-p3-provider-integrity-manifest-v1",
+  "goal_id": "TC-P3-G01-input-provider-integrity",
+  "subject_commit": "85368777ca8d2d4e77cf053fc9a74018f9f9fc9a",
+  "generated_at": "2026-08-23T08:37:59.744698+00:00",
+  "execution_mode": "snapshot",
+  "status": "PASS",
+  "canonical_case_count": 6,
+  "canonical_cases_passed": 6,
+  "cities": [
+    "北京",
+    "上海",
+    "杭州"
+  ],
+  "route_modes": [
+    "walking",
+    "transit",
+    "bicycling",
+    "driving"
+  ],
+  "snapshot_path": "evals/fixtures/trip_check_provider_integrity_v1.json",
+  "snapshot_sha256": "e2a368f8cc38122de12dfea136093f54f34a5b688f025538010ef065facfef53",
+  "network_call_count": 0,
+  "cases": [
+    {
+      "case_id": "北京-snapshot",
+      "city": "北京",
+      "fault_profile": "none",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "23a8be65badb6d61a219c260ed209f2a94c037e83a9e672aa96544b6535f5f31"
+    },
+    {
+      "case_id": "上海-snapshot",
+      "city": "上海",
+      "fault_profile": "none",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "f3795eed02f5acc0a8a7db6a3a1740b98000c4bca79607aae1cf2ca52c6aa9ce"
+    },
+    {
+      "case_id": "杭州-snapshot",
+      "city": "杭州",
+      "fault_profile": "none",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "17a90e6578484c97158b44f97a68395e382574181f367526dafd4b51192a20f9"
+    },
+    {
+      "case_id": "北京-route_mode_unavailable",
+      "city": "北京",
+      "fault_profile": "route_mode_unavailable",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "e3f21c1866ed15996a7673fbec2ee9418c31b9320f8d100aacfd5d6dc3bfc3d9"
+    },
+    {
+      "case_id": "北京-weather_unavailable",
+      "city": "北京",
+      "fault_profile": "weather_unavailable",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "3c0619de45118f0233dfdef57414a05370316ff23d3458702a062878a0e6aadb"
+    },
+    {
+      "case_id": "北京-risk_unavailable",
+      "city": "北京",
+      "fault_profile": "risk_unavailable",
+      "status": "PASS",
+      "failures": [],
+      "provider_attempt_count": 6,
+      "receipt_count": 6,
+      "observation_count": 8,
+      "network_call_count": 0,
+      "replay_equal": true,
+      "result_hash": "782136266ed42f1942d227313afd42e71191757ce49826a18437d560350c8d53"
+    }
+  ],
+  "artifact_index": [
+    {
+      "path": "cases/上海-snapshot/case_result.json",
+      "sha256": "cb35a000a662239728ee039dc14daf0d88e9cc696f85a2633ca696e01fc9d149",
+      "bytes": 335
+    },
+    {
+      "path": "cases/上海-snapshot/evidence_observations.json",
+      "sha256": "6eb88b05618bcae679cada95b6dcf8dd092410e5c551e9dc93cf0a8ad2ec5dbf",
+      "bytes": 4322
+    },
+    {
+      "path": "cases/上海-snapshot/partial_failures.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "cases/上海-snapshot/provider_receipts.json",
+      "sha256": "f897b183628cef78636fe16c80c2474cbc280c2cf23304b0270c06bab3590b48",
+      "bytes": 3391
+    },
+    {
+      "path": "cases/上海-snapshot/revision.json",
+      "sha256": "b86040461830ece74e16b14a7b6f2ce4d143d76aa698357f4ffc11e53d7e7867",
+      "bytes": 2044
+    },
+    {
+      "path": "cases/上海-snapshot/run_spec.json",
+      "sha256": "ffe16aee7d2905a6d4c50962b6b48ff09d5f6070f4700f002464e8c1f0484291",
+      "bytes": 650
+    },
+    {
+      "path": "cases/北京-risk_unavailable/case_result.json",
+      "sha256": "e128d2f2607694b3535469a18af6a6a763bcc57fe7184eb4fe7f70bb3a490638",
+      "bytes": 355
+    },
+    {
+      "path": "cases/北京-risk_unavailable/evidence_observations.json",
+      "sha256": "a78b8f2a47e469d1d2a0a6fc5bd6ec573f8d8d01278670bf7f4bf46dfcb5ec0e",
+      "bytes": 3893
+    },
+    {
+      "path": "cases/北京-risk_unavailable/partial_failures.json",
+      "sha256": "d1b78e4be04caae2b47d648fcb263f47a3920444e95f6c36c56b71394067129e",
+      "bytes": 213
+    },
+    {
+      "path": "cases/北京-risk_unavailable/provider_receipts.json",
+      "sha256": "b5f173cad4a43612b3730bbad0ae706cc47aff5307a2828e90328416632409ca",
+      "bytes": 3380
+    },
+    {
+      "path": "cases/北京-risk_unavailable/revision.json",
+      "sha256": "b6d88d4244032dc0c45fc13e21408dec73ff6406d4f701d41646bf2159c63547",
+      "bytes": 2045
+    },
+    {
+      "path": "cases/北京-risk_unavailable/run_spec.json",
+      "sha256": "b3f600dfd8f3f164161b431081296d507d9afa49e4279292997f2ccf95d2c871",
+      "bytes": 662
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/case_result.json",
+      "sha256": "38d1e2929f3217e2d10a3f0843326b9d39dfe13d1142e252066ae55fd64b0a33",
+      "bytes": 367
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/evidence_observations.json",
+      "sha256": "607a941f007bc079a3d50c8aa28659ca426b5acf4c0925e68df8c99dfc8da1ad",
+      "bytes": 4369
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/partial_failures.json",
+      "sha256": "a3781bd2f75237c8884f2dba5176080368d141f755699ea6b6e6bb1f2d26c857",
+      "bytes": 241
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/provider_receipts.json",
+      "sha256": "a4a896b21d3271f564653d04d5ec7662205e232e6603aaf8458c0dbaa2bce8d5",
+      "bytes": 3408
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/revision.json",
+      "sha256": "b1e175b64eaf30f3e71805be117dfc593d99629131482b646815ec1be2aca3eb",
+      "bytes": 2045
+    },
+    {
+      "path": "cases/北京-route_mode_unavailable/run_spec.json",
+      "sha256": "3b3e699d96c976e12aa3d240edabaff268887087987d808141896ff04fd6e910",
+      "bytes": 668
+    },
+    {
+      "path": "cases/北京-snapshot/case_result.json",
+      "sha256": "012a5c5889aab1338dd589a40d384bbaa298fbe92ef4098296f62816b131414d",
+      "bytes": 335
+    },
+    {
+      "path": "cases/北京-snapshot/evidence_observations.json",
+      "sha256": "cc4c7614e8911321ddf84d6454837be416a9405ab1a3be6eae0e1749948f9746",
+      "bytes": 4319
+    },
+    {
+      "path": "cases/北京-snapshot/partial_failures.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "cases/北京-snapshot/provider_receipts.json",
+      "sha256": "ca6464ce369da78a76fe3b3d7ebcb58728148120cf52bd6a32c52423383456bf",
+      "bytes": 3391
+    },
+    {
+      "path": "cases/北京-snapshot/revision.json",
+      "sha256": "35ecf56e96ebed8192204e582994de2e70a039981b27251fac585f5979ff9995",
+      "bytes": 2045
+    },
+    {
+      "path": "cases/北京-snapshot/run_spec.json",
+      "sha256": "ffe16aee7d2905a6d4c50962b6b48ff09d5f6070f4700f002464e8c1f0484291",
+      "bytes": 650
+    },
+    {
+      "path": "cases/北京-weather_unavailable/case_result.json",
+      "sha256": "6139940644b0e3e31d7206cd171bd850f9d93b60773114e8f246b731df6e1438",
+      "bytes": 361
+    },
+    {
+      "path": "cases/北京-weather_unavailable/evidence_observations.json",
+      "sha256": "7c8f31f16a9fcd64b4af2bf4ea88675afa125102d3ab4ee67892edc6bcccc24b",
+      "bytes": 3865
+    },
+    {
+      "path": "cases/北京-weather_unavailable/partial_failures.json",
+      "sha256": "18ca3aab3265f408d804009aca20dbaaf3f21f5f9870467e382ae73edf8b448b",
+      "bytes": 242
+    },
+    {
+      "path": "cases/北京-weather_unavailable/provider_receipts.json",
+      "sha256": "4343cb9d506524ecd78ad45d05af8ae648c1ded237769e85d154b11ca4c3f622",
+      "bytes": 3409
+    },
+    {
+      "path": "cases/北京-weather_unavailable/revision.json",
+      "sha256": "a6e7591dfee8d914c041e87c12c5342f716c69a9a723a2b8efe5ab63fd3d4c38",
+      "bytes": 2045
+    },
+    {
+      "path": "cases/北京-weather_unavailable/run_spec.json",
+      "sha256": "d160fd8ceb6fdd17fe83357572e4e54e4993401c6c6ae3ab4df19a515f9566cb",
+      "bytes": 665
+    },
+    {
+      "path": "cases/杭州-snapshot/case_result.json",
+      "sha256": "e51b6f5b0d1e4eba773f1e2ce94768544f35142428699a562e27c14bc27a8df0",
+      "bytes": 335
+    },
+    {
+      "path": "cases/杭州-snapshot/evidence_observations.json",
+      "sha256": "b72d29bab06f2cb6ecfd3321a0fe738f7464511a40619b155a7dffb919c1ab4f",
+      "bytes": 4304
+    },
+    {
+      "path": "cases/杭州-snapshot/partial_failures.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+      "bytes": 3
+    },
+    {
+      "path": "cases/杭州-snapshot/provider_receipts.json",
+      "sha256": "11a57af29c776de12145ead529907a7cd4520d77ec1245d5db425137c3284d3c",
+      "bytes": 3391
+    },
+    {
+      "path": "cases/杭州-snapshot/revision.json",
+      "sha256": "ce01e8e364064f3373e824ec50284df2f8415c319956c64b2daa706bfea115b2",
+      "bytes": 2044
+    },
+    {
+      "path": "cases/杭州-snapshot/run_spec.json",
+      "sha256": "ffe16aee7d2905a6d4c50962b6b48ff09d5f6070f4700f002464e8c1f0484291",
+      "bytes": 650
+    }
+  ],
+  "non_claims": [
+    "Snapshot replay is not live Provider evidence.",
+    "Risk fixture sources are controlled structure evidence, not current travel warnings."
+  ]
+}

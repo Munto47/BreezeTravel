@@ -1,0 +1,50 @@
+{
+  "dataset_hashes": {
+    "dev": "f014662eeec96d7b50c039d90d71f3916e4610d69ccd79b0e70e781225e2296a",
+    "regression": "b5d95c402b5d7d40f65ef68b7c6a4fc58e21ae7d5f69cd1562e3fa4f57059fc3"
+  },
+  "distribution": {
+    "dev": {
+      "city_counts": {
+        "上海": 60,
+        "北京": 60,
+        "杭州": 60
+      },
+      "count": 180,
+      "fault_counts": {
+        "advice_completeness": 21,
+        "candidate_receipt_missing": 21,
+        "concurrent_apply": 21,
+        "duplicate_apply": 21,
+        "empty_candidate_set": 21,
+        "route_conflict": 21,
+        "solver_fallback": 18,
+        "solver_timeout": 18,
+        "solver_unsat": 18
+      }
+    },
+    "regression": {
+      "city_counts": {
+        "上海": 24,
+        "北京": 24,
+        "杭州": 24
+      },
+      "count": 72,
+      "fault_counts": {
+        "advice_completeness": 9,
+        "candidate_receipt_missing": 9,
+        "concurrent_apply": 9,
+        "duplicate_apply": 9,
+        "empty_candidate_set": 9,
+        "route_conflict": 9,
+        "solver_fallback": 6,
+        "solver_timeout": 6,
+        "solver_unsat": 6
+      }
+    }
+  },
+  "errors": [],
+  "frozen_blind_count": 0,
+  "pilot_count": 18,
+  "status": "PASS"
+}

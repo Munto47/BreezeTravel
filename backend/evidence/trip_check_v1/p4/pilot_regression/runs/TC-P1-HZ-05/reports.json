@@ -1,0 +1,1474 @@
+[
+  {
+    "report_id": "2d2a9e4a-d944-4093-95be-0ca22ac52e7e",
+    "workspace_id": "pilot-tc-p1-hz-05",
+    "itinerary_id": "6e36a9fa-7cea-462d-b8de-439bd3f779e6",
+    "itinerary_revision": 1,
+    "task_id": "workspace:pilot-tc-p1-hz-05:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "401183d8-9cbb-5d8b-a940-272236eb5288",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "4aad62b21e6e5a5221d8187a8696a6cf18444d369b158b1230ea2c5872342451",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "fb8030ea-8af2-4d21-aec2-b049243cf665",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "2440756c-4993-48fc-88e3-f364dc1b7579",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "西湖风景名胜区 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+          "place_id": "hz-west-lake",
+          "target_city": "杭州",
+          "observed_cities": [
+            "杭州"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "杭州"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "78b81c2b-285a-4cb6-bae3-d60cb510177c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0d36173d-59d8-5649-8de7-f6cd650ddfb6"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "75f1cc9e-2a1f-4540-b98a-ba196bcde010",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "灵隐寺 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+          "place_id": "hz-lingyin",
+          "target_city": "杭州",
+          "observed_cities": [
+            "杭州"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "杭州"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "67fcff28-3d47-402d-822f-d1708cf5ee1c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "a9db5d72-b3ae-5778-824b-fdb1f3776354"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "89b80de4-6308-40c2-bba5-bc23107bbee4",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "雷峰塔 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+          "place_id": "hz-leifeng",
+          "target_city": "杭州",
+          "observed_cities": [
+            "杭州"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "杭州"
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [
+          "40dbd4a9-3e89-4b8b-80d4-078c9608e80e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "c61133c3-f8b9-5377-b007-8844bd10e7e7"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "99074840-586a-4bae-b3a9-44b6c07aa71d",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "西溪湿地国家公园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+          "place_id": "hz-xixi",
+          "target_city": "杭州",
+          "observed_cities": [
+            "杭州"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "杭州"
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [
+          "daac21f7-3ed6-4206-84ca-3304f979ba3e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4ce6d3cb-19ca-5109-9b1d-429571a54a2c"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "a34a1787-d8d2-4d91-b57c-38778acda0e0",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "河坊街·清河坊 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+          "place_id": "hz-hefang",
+          "target_city": "杭州",
+          "observed_cities": [
+            "杭州"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "杭州"
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [
+          "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "2b9c4db3-6c79-5ffb-9896-050c03b453d8"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "19d94e25-d71b-414a-85fe-251361854057",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "871316d2-aa45-442f-92b9-8084042b7560",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 1 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "0dfdda61-b2dd-40a6-a021-076c35778eb8",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 2 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "8f17626c-77ae-49af-9b10-a91cb6b4ae1a",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 3 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "a8fd7d1e-574a-444b-b32b-40308262cd9a",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 4 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "563a1911-7b33-4bfd-a86e-b39deea4c26f",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 5 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "c11c5b41-ad61-4c76-bcf3-b12ea6600082",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "caa33dc0-fd79-4b16-8f4a-ad9195a72773",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "dd535800-5bd8-4857-b1a7-718bca4c037c",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "026623c0-b0a5-479c-be1a-fd5a3562da05",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c64fa5c3-79d9-4352-93a0-9037d5587198",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 3 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "80b01813-acf1-4594-b7b0-679b80a923c2",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 3 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "25041ce2-69da-4a1b-a474-0a2c84f3d056",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 4 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "277a0f0f-a672-47ee-9004-6ec2b619fe49",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 4 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9cbfc13a-d506-4143-abbe-23f5d7036a96",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 5 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "12fb13e1-b2e2-4695-86e3-a4864ec0acb8",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 5 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c38ca9f5-d42a-4b21-898e-f70045d5454a",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "51198ed3-f56b-4c11-b068-ae1f67783251",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "e2de4112-5b68-4c83-b1df-b610017ed573",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9ae637ad-d14c-40b9-996c-00983c0ceaaa",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9cd00f57-62bd-4fa1-8e5b-4d98e0da85f4",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 3 天没有餐饮安排",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "ad470c60-f21e-44c2-932b-1304516877a5",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 3 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "4afd9ad8-46e2-42a6-9d57-1b57ea249bf5",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 4 天没有餐饮安排",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "45bff74a-54d9-4ebc-bde5-464d1975d4ce",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 4 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "92f60387-b3c1-4d2b-aa48-dbc0192f5f36",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 5 天没有餐饮安排",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9258b4a6-b37a-4761-93f7-1498464c42f3",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 5 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "6ed13408-601a-4054-b46b-23939f043dfa",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "西湖风景名胜区：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "hz-west-lake",
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "78b81c2b-285a-4cb6-bae3-d60cb510177c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0d36173d-59d8-5649-8de7-f6cd650ddfb6",
+          "3cc5b7cf-0d68-5fe5-94b8-ba662906e432"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "e82bb16c-d066-497c-ae81-3051ef4ecea7",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "灵隐寺：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "hz-lingyin",
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "67fcff28-3d47-402d-822f-d1708cf5ee1c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "a9db5d72-b3ae-5778-824b-fdb1f3776354",
+          "86926bf4-1bd7-5f87-b86b-a6dd996f36a3"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "ab86a31a-d001-40a0-96b4-76bca81073a3",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "雷峰塔：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 2,
+          "place_id": "hz-leifeng",
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [
+          "40dbd4a9-3e89-4b8b-80d4-078c9608e80e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "c61133c3-f8b9-5377-b007-8844bd10e7e7",
+          "6c3eafb4-ac07-5a34-aa13-74c79f4e2302"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "75c7a09f-8ab7-4e3c-9dc0-7a4b4e048c65",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "西溪湿地国家公园：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 3,
+          "place_id": "hz-xixi",
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [
+          "daac21f7-3ed6-4206-84ca-3304f979ba3e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4ce6d3cb-19ca-5109-9b1d-429571a54a2c",
+          "0082ad5b-86fb-54c6-ad96-8eecbede6c5a"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "c60ede22-f055-4427-8368-3b6fa583c93d",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "河坊街·清河坊：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 4,
+          "place_id": "hz-hefang",
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [
+          "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "2b9c4db3-6c79-5ffb-9896-050c03b453d8",
+          "a2a3c79c-4333-560f-8f60-5ad85d8476db"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "3b22b29d-4c38-4beb-bd52-a8d34676c93f",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "93c49bd8-427a-4da4-aa2c-c5c21332cad9",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "3cd72fe9-4d1b-44d5-9f24-44d0dfdfcfba",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 3 天缺少天气数据",
+        "input_values": {
+          "day_index": 2,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "2af2dd0c-8e19-4ae3-b48f-464cc1876b21",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 4 天缺少天气数据",
+        "input_values": {
+          "day_index": 3,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "de829cc9-fe33-47b7-bd84-60758d81adf9",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 5 天缺少天气数据",
+        "input_values": {
+          "day_index": 4,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "e1bc0e74-d00e-4ff2-9f0b-acc969fec84e",
+              "place_id": "hz-hefang",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          4
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "417f5ac8-7964-4252-bd0c-c3d3b78e48ff",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "hz-west-lake",
+          "day_stops": [
+            {
+              "stop_id": "78b81c2b-285a-4cb6-bae3-d60cb510177c",
+              "place_id": "hz-west-lake",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "78b81c2b-285a-4cb6-bae3-d60cb510177c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "0d36173d-59d8-5649-8de7-f6cd650ddfb6",
+          "3cc5b7cf-0d68-5fe5-94b8-ba662906e432"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "04db5f01-5c77-436b-b5df-ac6a96b4725f",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 2 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "hz-lingyin",
+          "day_stops": [
+            {
+              "stop_id": "67fcff28-3d47-402d-822f-d1708cf5ee1c",
+              "place_id": "hz-lingyin",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "67fcff28-3d47-402d-822f-d1708cf5ee1c"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "a9db5d72-b3ae-5778-824b-fdb1f3776354",
+          "86926bf4-1bd7-5f87-b86b-a6dd996f36a3"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "ae435455-71f4-4d77-a1d5-700393df762e",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 3 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 2,
+          "place_id": "hz-leifeng",
+          "day_stops": [
+            {
+              "stop_id": "40dbd4a9-3e89-4b8b-80d4-078c9608e80e",
+              "place_id": "hz-leifeng",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          2
+        ],
+        "affected_stop_ids": [
+          "40dbd4a9-3e89-4b8b-80d4-078c9608e80e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "c61133c3-f8b9-5377-b007-8844bd10e7e7",
+          "6c3eafb4-ac07-5a34-aa13-74c79f4e2302"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "3a09c0e6-125d-410a-900f-c8967a63efc7",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 4 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 3,
+          "place_id": "hz-xixi",
+          "day_stops": [
+            {
+              "stop_id": "daac21f7-3ed6-4206-84ca-3304f979ba3e",
+              "place_id": "hz-xixi",
+              "start_time": null,
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          3
+        ],
+        "affected_stop_ids": [
+          "daac21f7-3ed6-4206-84ca-3304f979ba3e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4ce6d3cb-19ca-5109-9b1d-429571a54a2c",
+          "0082ad5b-86fb-54c6-ad96-8eecbede6c5a"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T08:37:58.790846Z",
+    "supersedes_report_id": null
+  }
+]
