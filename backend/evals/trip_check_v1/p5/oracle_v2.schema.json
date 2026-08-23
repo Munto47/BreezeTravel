@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-oracle-v2",
+  "type": "object",
+  "required": ["schema_version", "task_success_required", "requires_user_resolution", "required_reason_codes", "wrong_city_or_poi_max", "max_new_blocker_high_unknown", "unknown_must_be_preserved", "advice_required", "specific_place_allowed", "candidate_receipt_mode", "expected_strategy_outcome", "concurrency_expectation", "ocr_required"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-oracle-v2"},
+    "task_success_required": {"type": "boolean"},
+    "requires_user_resolution": {"type": "boolean"},
+    "required_reason_codes": {"type": "array", "items": {"type": "string"}},
+    "wrong_city_or_poi_max": {"type": "integer", "minimum": 0},
+    "max_new_blocker_high_unknown": {"type": "integer", "minimum": 0},
+    "unknown_must_be_preserved": {"type": "boolean"},
+    "advice_required": {"type": "boolean"},
+    "specific_place_allowed": {"type": "boolean"},
+    "candidate_receipt_mode": {"enum": ["REQUIRED", "FORBIDDEN", "NOT_APPLICABLE"]},
+    "expected_strategy_outcome": {"enum": ["FEASIBLE", "UNSAT", "TIMEOUT", "FALLBACK"]},
+    "concurrency_expectation": {"enum": ["NONE", "IDEMPOTENT_REPLAY", "SINGLE_WINNER"]},
+    "ocr_required": {"type": "boolean"}
+  },
+  "additionalProperties": false
+}

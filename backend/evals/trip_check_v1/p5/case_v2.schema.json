@@ -20,7 +20,7 @@
     "lineage": {"type": "object"},
     "source_ref": {"type": "object"},
     "provenance": {"type": "object"},
-    "oracle": {"type": "object"},
+    "oracle": {"$ref": "oracle_v2.schema.json"},
     "oracle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "case_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
   },

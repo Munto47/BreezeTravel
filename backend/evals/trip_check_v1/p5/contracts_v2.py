@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from evals.trip_check_v1.p5.data_contract import digest
 
@@ -46,6 +46,24 @@ class P5MaterializationBindingV2(BaseModel):
     fault_script: P5ArtifactBindingV2
 
 
+class P5OracleV2(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    schema_version: Literal["trip-check-p5-oracle-v2"] = "trip-check-p5-oracle-v2"
+    task_success_required: bool
+    requires_user_resolution: bool
+    required_reason_codes: list[str]
+    wrong_city_or_poi_max: int = Field(ge=0)
+    max_new_blocker_high_unknown: int = Field(ge=0)
+    unknown_must_be_preserved: bool
+    advice_required: bool
+    specific_place_allowed: bool
+    candidate_receipt_mode: Literal["REQUIRED", "FORBIDDEN", "NOT_APPLICABLE"]
+    expected_strategy_outcome: Literal["FEASIBLE", "UNSAT", "TIMEOUT", "FALLBACK"]
+    concurrency_expectation: Literal["NONE", "IDEMPOTENT_REPLAY", "SINGLE_WINNER"]
+    ocr_required: bool
+
+
 class P5CaseV2(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -65,9 +83,21 @@ class P5CaseV2(BaseModel):
     lineage: dict[str, Any]
     source_ref: dict[str, Any]
     provenance: dict[str, Any]
-    oracle: dict[str, Any] | None = None
+    oracle: P5OracleV2 | None = None
     oracle_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     case_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def oracle_is_split_isolated(self) -> "P5CaseV2":
+        if self.split == "frozen_blind":
+            if self.oracle is not None or self.oracle_sha256 is not None:
+                raise ValueError("frozen blind cases cannot contain oracle fields")
+            return self
+        if self.oracle is None or self.oracle_sha256 is None:
+            raise ValueError("non-blind cases require a hash-bound oracle")
+        if self.oracle_sha256 != digest(self.oracle.model_dump(mode="json")):
+            raise ValueError("oracle_sha256 does not bind oracle")
+        return self
 
 
 class P5VariantRunSpecV2(BaseModel):
