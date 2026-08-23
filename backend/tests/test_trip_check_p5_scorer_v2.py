@@ -393,6 +393,53 @@ def test_v2_case_score_passes_complete_deterministic_receipts() -> None:
     assert score.concurrency_result == "PASS"
 
 
+def test_v2_score_rejects_deterministic_unsupported_claim_and_nonzero_usage() -> None:
+    case = _case()
+    spec = _spec(case, "core_b", "e" * 64)
+    output = _output(case, spec).model_copy(
+        update={
+            "advice": [{"unsupported_claim": True}],
+            "token_count": 1,
+            "cost_usd": 0.01,
+        }
+    )
+    semantic_hash = semantic_output_hash_v2(output)
+    output = output.model_copy(
+        update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash}
+    )
+
+    score = score_case_v2(
+        case,
+        output,
+        materialization=_materialization_row(case),
+    )
+
+    assert score.unsupported_claim_count == 1
+    assert score.usage_measurement == "FAIL"
+    assert "UNSUPPORTED_CLAIM" in score.deterministic_failure_codes
+    assert "USAGE_MEASUREMENT_INVALID" in score.deterministic_failure_codes
+
+
+def test_v2_score_measures_nonpass_finding_advice_coverage() -> None:
+    case = _case()
+    spec = _spec(case, "core_b", "e" * 64)
+    output = _output(case, spec).model_copy(update={"advice": []})
+    semantic_hash = semantic_output_hash_v2(output)
+    output = output.model_copy(
+        update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash}
+    )
+
+    score = score_case_v2(
+        case,
+        output,
+        materialization=_materialization_row(case),
+    )
+
+    assert score.nonpass_finding_count == 1
+    assert score.covered_nonpass_finding_count == 0
+    assert "NONPASS_FINDING_ADVICE_COVERAGE_INCOMPLETE" in score.deterministic_failure_codes
+
+
 def test_v2_unknown_unavailable_can_never_be_promoted_to_pass() -> None:
     case = _case()
     output = _output(case, _spec(case, "core_b", "e" * 64))
