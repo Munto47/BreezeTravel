@@ -480,14 +480,22 @@ def _candidate_status(
 def _required_obligation_satisfied(
     code: str,
     *,
+    case: P5CaseV3,
     output: P5TerminalOutputV3,
+    materialization: Mapping[str, Any] | None,
     resolution_match: bool,
     candidate_status: str,
     concurrency_status: str,
     strategy_match: bool,
 ) -> bool:
-    reason_codes = _finding_reason_codes(output)
+    reason_codes = _semantic_reason_codes_v3(output, materialization)
     if not code.startswith("P4_"):
+        if code == "PLACE_CITY_MISMATCH":
+            return code in reason_codes or _wrong_city_resolution_proven(
+                case=case,
+                output=output,
+                materialization=materialization,
+            )
         return code in reason_codes
     projection = output.evaluation_projection
     if code == "P4_ADVICE_COMPLETENESS":
@@ -524,6 +532,101 @@ def _required_obligation_satisfied(
         return concurrency_status == "PASS"
     if code in {"P4_SOLVER_UNSAT", "P4_SOLVER_TIMEOUT", "P4_SOLVER_FALLBACK"}:
         return strategy_match
+    return False
+
+
+def _semantic_reason_codes_v3(
+    output: P5TerminalOutputV3, materialization: Mapping[str, Any] | None
+) -> set[str]:
+    """Restore the frozen pilot taxonomy from authoritative Audit diagnostics."""
+
+    codes = _finding_reason_codes(output)
+    route_minutes: dict[str, int] = {}
+    if materialization is not None:
+        snapshot = materialization.get("evidence_snapshot")
+        snapshot_payload = snapshot.get("snapshot") if isinstance(snapshot, Mapping) else None
+        facts = snapshot_payload.get("facts") if isinstance(snapshot_payload, Mapping) else None
+        if isinstance(facts, list):
+            for fact in facts:
+                if not isinstance(fact, Mapping):
+                    continue
+                value = fact.get("value")
+                duration = value.get("duration_minutes") if isinstance(value, Mapping) else None
+                if (
+                    fact.get("subject_type") == "ROUTE_EDGE"
+                    and fact.get("fact_type") == "ROUTE_TIME"
+                    and isinstance(fact.get("subject_id"), str)
+                    and isinstance(duration, (int, float))
+                    and not isinstance(duration, bool)
+                ):
+                    route_minutes[str(fact["subject_id"])] = int(duration)
+    for finding in output.findings:
+        if not isinstance(finding, Mapping) or finding.get("reason_code") not in {
+            "ROUTE_GAP_INSUFFICIENT",
+            "ROUTE_GAP_TIME_UNKNOWN",
+        }:
+            continue
+        inputs = finding.get("input_values")
+        inputs = inputs if isinstance(inputs, Mapping) else {}
+        edge_id = inputs.get("edge_id")
+        bound_duration = route_minutes.get(edge_id) if isinstance(edge_id, str) else None
+        duration = inputs.get("route_duration_minutes")
+        if (
+            isinstance(duration, (int, float))
+            and not isinstance(duration, bool)
+            and bound_duration is not None
+            and float(duration) != float(bound_duration)
+        ):
+            continue
+        if not isinstance(duration, (int, float)) or isinstance(duration, bool):
+            duration = bound_duration
+        if not isinstance(duration, (int, float)) or isinstance(duration, bool):
+            continue
+        if duration >= 60:
+            codes.add("TRAVEL_TIME_GAP")
+        elif finding.get("reason_code") == "ROUTE_GAP_INSUFFICIENT":
+            codes.add("TIME_CHAIN_CONFLICT")
+    return codes
+
+
+def _wrong_city_resolution_proven(
+    *,
+    case: P5CaseV3,
+    output: P5TerminalOutputV3,
+    materialization: Mapping[str, Any] | None,
+) -> bool:
+    product_import = output.native_output.get("product_import")
+    projected_codes = (
+        product_import.get("resolution_reason_codes")
+        if isinstance(product_import, Mapping)
+        else None
+    )
+    if not isinstance(projected_codes, list) or "PLACE_CITY_MISMATCH" not in projected_codes:
+        return False
+    if (
+        output.terminal_status is not TerminalStatusV3.NEEDS_USER_RESOLUTION
+        or output.evaluation_projection.get("requires_user_resolution") is not True
+    ):
+        return False
+    receipt_ids = _successful_receipt_ids(output.receipts)
+    source = materialization.get("source_payload") if materialization is not None else None
+    resolutions = source.get("entity_resolutions") if isinstance(source, Mapping) else None
+    if not isinstance(resolutions, list):
+        return False
+    for resolution in resolutions:
+        if not isinstance(resolution, Mapping) or resolution.get("outcome") != "HARD_REJECTED":
+            continue
+        receipt_id = resolution.get("search_receipt_id")
+        candidates = resolution.get("candidates")
+        if not isinstance(receipt_id, str) or receipt_id not in receipt_ids:
+            continue
+        if isinstance(candidates, list) and any(
+            isinstance(candidate, Mapping)
+            and isinstance(candidate.get("city"), str)
+            and candidate.get("city") != case.city
+            for candidate in candidates
+        ):
+            return True
     return False
 
 
@@ -587,7 +690,9 @@ def score_case_v3(
         for code in required
         if not _required_obligation_satisfied(
             code,
+            case=case,
             output=output,
+            materialization=materialization,
             resolution_match=resolution_match,
             candidate_status=candidate_status,
             concurrency_status=concurrency_status,

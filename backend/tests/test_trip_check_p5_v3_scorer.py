@@ -187,6 +187,62 @@ def test_v3_postcheck_schema_is_native_not_v2() -> None:
     assert score_case_v3(case, changed, materialization=materialization).repair_postcheck == "FAIL"
 
 
+@pytest.mark.parametrize(
+    ("case_id", "required_code"),
+    (
+        ("p5.pilot.bj.001", "TIME_CHAIN_CONFLICT"),
+        ("p5.pilot.bj.006", "PLACE_CITY_MISMATCH"),
+        ("p5.pilot.sh.004", "DAILY_CAPACITY"),
+    ),
+)
+def test_frozen_pilot_semantic_obligations_are_proven(
+    case_id: str, required_code: str
+) -> None:
+    case, materialization, terminal = _execute_core(case_id)
+    score = score_case_v3(case, terminal, materialization=materialization)
+
+    assert required_code in score.required_reason_codes
+    assert required_code not in score.missing_reason_codes
+    assert score.deterministic_pass is True
+
+
+def test_travel_time_gap_requires_matching_bound_sixty_minute_route() -> None:
+    case, materialization, terminal = _execute_core("p5.pilot.bj.004")
+    current = score_case_v3(case, terminal, materialization=materialization)
+    assert "TRAVEL_TIME_GAP" in current.missing_reason_codes
+
+    changed_materialization = deepcopy(materialization)
+    route_fact = next(
+        fact
+        for fact in changed_materialization["evidence_snapshot"]["snapshot"]["facts"]
+        if fact["subject_type"] == "ROUTE_EDGE"
+    )
+    route_fact["value"]["duration_minutes"] = 60
+    findings = deepcopy(terminal.findings)
+    route_finding = next(
+        finding for finding in findings if finding["reason_code"] == "ROUTE_GAP_TIME_UNKNOWN"
+    )
+    route_finding["input_values"]["route_duration_minutes"] = 60
+    changed = _rehash_terminal(terminal, findings=findings)
+
+    unbound = score_case_v3(case, changed, materialization=materialization)
+    assert "TRAVEL_TIME_GAP" in unbound.missing_reason_codes
+
+    score = score_case_v3(case, changed, materialization=changed_materialization)
+    assert "TRAVEL_TIME_GAP" not in score.missing_reason_codes
+
+
+def test_wrong_city_obligation_rejects_unbound_native_claim() -> None:
+    case, materialization, terminal = _execute_core("p5.pilot.bj.006")
+    native = deepcopy(terminal.native_output)
+    native["product_import"]["resolution_reason_codes"] = []
+    changed = _rehash_terminal(terminal, native_output=native)
+
+    score = score_case_v3(case, changed, materialization=materialization)
+    assert "PLACE_CITY_MISMATCH" in score.missing_reason_codes
+    assert "HARD_FINDING_MISS" in score.deterministic_failure_codes
+
+
 def test_user_resolution_requires_terminal_candidate_receipts() -> None:
     case, materialization, terminal = _execute_core("p5.pilot.bj.002")
     assert terminal.evaluation_projection["selected_place_ids"] == []

@@ -46,7 +46,11 @@ from app.repairs.strategies import (
 )
 from app.trip_check.advice import InMemoryAdviceRepository
 from app.trip_check.briefs import InMemoryTripBriefRepository, TripBriefApplicationService
-from app.trip_check.executor import TripCheckAdoptionReconciler, TripCheckExecutor
+from app.trip_check.executor import (
+    TripCheckAdoptionReconciler,
+    TripCheckExecutor,
+    confirmed_brief_observations,
+)
 from app.trip_check.models import SideEffectReceipt, TripCheckRunStatus, TripCheckStage
 from app.trip_check.runs import InMemoryTripCheckRunRepository, TripCheckRunService
 from app.schemas.task_spec import DateRange, TripTaskSpec
@@ -246,7 +250,25 @@ class _MaterializedTripCheckExecutor(TripCheckExecutor):
 
     async def _collect_evidence(self, state):  # type: ignore[no-untyped-def]
         run = await self._start(state)
-        snapshot = await self.audit_repository.save_snapshot(self._frozen_snapshot)
+        brief = await self.brief_repository.get_brief(run.workspace_id, run.brief_revision)
+        if brief is None or brief.brief_id != run.brief_id or brief.status.value != "CONFIRMED":
+            raise RuntimeError("P5 materialized run has no bound confirmed Brief")
+        brief_snapshot = self.audit_service.evidence_service.create_snapshot(
+            workspace_id=self._frozen_snapshot.workspace_id,
+            itinerary_revision=self._frozen_snapshot.itinerary_revision,
+            observations=confirmed_brief_observations(run, brief.traveler_count),
+            snapshot_id=self._frozen_snapshot.snapshot_id,
+            now=run.created_at,
+        )
+        snapshot = self._frozen_snapshot.model_copy(
+            update={
+                "provider_set": sorted(
+                    set(self._frozen_snapshot.provider_set) | set(brief_snapshot.provider_set)
+                ),
+                "facts": [*self._frozen_snapshot.facts, *brief_snapshot.facts],
+            }
+        )
+        snapshot = await self.audit_repository.save_snapshot(snapshot)
         response_hash = sha256_canonical(snapshot.model_dump(mode="json"))
         receipt = SideEffectReceipt(
             receipt_id=str(
@@ -476,9 +498,20 @@ def _stable_findings(report: Any | None) -> list[dict[str, Any]]:
             "reason_code": item.reason_code,
             "affected_days": item.affected_days,
             "repairable": item.repairable,
+            "input_values": item.input_values,
         }
         for item in report.findings
     ]
+
+
+def _resolution_reason_codes(itinerary_import: Any) -> list[str]:
+    return sorted(
+        {
+            "PLACE_CITY_MISMATCH"
+            for resolution in itinerary_import.resolutions
+            if any(item.reason.value == "WRONG_CITY" for item in resolution.rejected_candidates)
+        }
+    )
 
 
 def _stable_advice(bundle: Any | None) -> list[dict[str, Any]]:
@@ -718,6 +751,7 @@ async def _execute_product_harness(
                 "product_import": {
                     "status": itinerary_import.status.value,
                     "raw_stop_count": len(itinerary_import.raw_stops),
+                    "resolution_reason_codes": _resolution_reason_codes(itinerary_import),
                 },
                 "run": None,
                 "advice": None,
@@ -968,6 +1002,7 @@ async def _execute_product_harness(
             "product_import": {
                 "status": itinerary_import.status.value,
                 "raw_stop_count": len(itinerary_import.raw_stops),
+                "resolution_reason_codes": _resolution_reason_codes(itinerary_import),
             },
             "run": {"status": run.status.value, "stage": run.stage.value},
             "advice": {"action_count": len(bundle.actions)} if bundle else None,
