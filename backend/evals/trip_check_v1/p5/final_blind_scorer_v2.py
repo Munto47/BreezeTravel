@@ -28,6 +28,13 @@ from evals.trip_check_v1.p5.scorer_v2 import (
 
 
 MINIMUM_BLIND_BUCKET_SIZE_V2 = 5
+SCHEMA_CONTRACT_PATHS_V2 = (
+    "backend/evals/trip_check_v1/p5/blind_bundle_v2.schema.json",
+    "backend/evals/trip_check_v1/p5/blind_seal_v2.schema.json",
+    "backend/evals/trip_check_v1/p5/case_v2.schema.json",
+    "backend/evals/trip_check_v1/p5/materialization_v2.schema.json",
+    "backend/evals/trip_check_v1/p5/oracle_v2.schema.json",
+)
 BLIND_SEAL_FIELDS_V2 = frozenset(
     {
         "schema_version",
@@ -38,6 +45,7 @@ BLIND_SEAL_FIELDS_V2 = frozenset(
         "inputs_content_sha256",
         "materializations_file_sha256",
         "materializations_content_sha256",
+        "schema_contract_sha256",
         "labels_canonical_sha256",
         "external_bundle_sha256",
         "rubric_sha256",
@@ -61,6 +69,7 @@ BLIND_DATASET_BINDING_FIELDS_V2 = frozenset(
         "inputs_content_sha256",
         "materializations_file_sha256",
         "materializations_content_sha256",
+        "schema_contract_sha256",
         "run_spec_template_sha256",
         "rubric_sha256",
         "variant_ids_sha256",
@@ -151,6 +160,22 @@ def canonical_labels_hash_v2(labels: Sequence[Mapping[str, Any]]) -> str:
     return _sha256_bytes(b"".join(canonical_bytes(item) + b"\n" for item in ordered))
 
 
+def schema_contract_sha256_v2(repo_root: Path) -> str:
+    """Bind the exact bytes of every frozen P5 v2 scoring schema."""
+
+    root = repo_root.resolve()
+    bindings = [
+        {
+            "path": relative_path,
+            "file_sha256": _sha256_file(
+                root / Path(relative_path), "BLIND_SCHEMA_CONTRACT_UNREADABLE"
+            ),
+        }
+        for relative_path in sorted(SCHEMA_CONTRACT_PATHS_V2)
+    ]
+    return digest(bindings)
+
+
 def _read_external_bundle(
     *,
     repo_root: Path,
@@ -218,6 +243,7 @@ def _repo_state(repo_root: Path) -> tuple[str, bool]:
 
 def _validate_seal_and_artifacts(
     *,
+    repo_root: Path,
     seal_path: Path,
     inputs_path: Path,
     materializations_path: Path,
@@ -243,6 +269,7 @@ def _validate_seal_and_artifacts(
         "inputs_content_sha256",
         "materializations_file_sha256",
         "materializations_content_sha256",
+        "schema_contract_sha256",
         "labels_canonical_sha256",
         "external_bundle_sha256",
         "rubric_sha256",
@@ -251,6 +278,8 @@ def _validate_seal_and_artifacts(
         "review_receipt_sha256",
     ):
         _require_sha256(seal.get(field), "BLIND_SEAL_HASH_INVALID")
+    if seal["schema_contract_sha256"] != schema_contract_sha256_v2(repo_root):
+        _fail_closed("BLIND_SCHEMA_CONTRACT_MISMATCH")
     inputs = _load_jsonl(inputs_path, "BLIND_INPUTS_INVALID")
     materializations = _load_jsonl(
         materializations_path, "BLIND_MATERIALIZATIONS_INVALID"
@@ -306,6 +335,7 @@ def _validate_bundle(
         "inputs_content_sha256": seal["inputs_content_sha256"],
         "materializations_file_sha256": seal["materializations_file_sha256"],
         "materializations_content_sha256": seal["materializations_content_sha256"],
+        "schema_contract_sha256": seal["schema_contract_sha256"],
         "run_spec_template_sha256": seal["run_spec_template_sha256"],
         "rubric_sha256": seal["rubric_sha256"],
         "variant_ids_sha256": seal["variant_ids_sha256"],
@@ -377,6 +407,7 @@ def score_external_blind_run_group_v2(
             _fail_closed("P5_V2_FORMAL_CONTRACT_NOT_READY", exc)
     root = repo_root.resolve()
     seal, raw_inputs = _validate_seal_and_artifacts(
+        repo_root=root,
         seal_path=seal_path,
         inputs_path=inputs_path,
         materializations_path=materializations_path,
@@ -469,6 +500,7 @@ def score_external_blind_run_group_v2(
             "materializations_content_sha256": seal[
                 "materializations_content_sha256"
             ],
+            "schema_contract_sha256": seal["schema_contract_sha256"],
         },
         "case_count": 90,
         "terminal_count": 270,

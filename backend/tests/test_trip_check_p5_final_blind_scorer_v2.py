@@ -11,7 +11,9 @@ from evals.trip_check_v1.p5.contracts_v2 import VARIANT_IDS_V2
 from evals.trip_check_v1.p5.data_contract import canonical_bytes, digest
 from evals.trip_check_v1.p5.final_blind_scorer_v2 import (
     P5BlindScoringErrorV2,
+    SCHEMA_CONTRACT_PATHS_V2,
     canonical_labels_hash_v2,
+    schema_contract_sha256_v2,
     score_external_blind_run_group_v2,
 )
 from tests.test_trip_check_p5_scorer_v2 import (
@@ -38,6 +40,11 @@ def _write_jsonl(path: Path, rows: list[dict]) -> None:
 def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     repo = tmp_path / "repo"
     repo.mkdir()
+    source_schema_root = Path(blind_v2.__file__).resolve().parent
+    for relative_path in SCHEMA_CONTRACT_PATHS_V2:
+        destination = repo / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((source_schema_root / destination.name).read_bytes())
     external = tmp_path / "external"
     external.mkdir()
     cases = [_case(f"p5.blind.bj.{index:03d}", split="frozen_blind") for index in range(90)]
@@ -66,6 +73,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         "inputs_content_sha256": digest(raw_inputs),
         "materializations_file_sha256": _sha(materializations_path),
         "materializations_content_sha256": digest(materialization_rows),
+        "schema_contract_sha256": schema_contract_sha256_v2(repo),
         "run_spec_template_sha256": _sha(template),
         "rubric_sha256": _sha(rubric),
         "variant_ids_sha256": digest(list(VARIANT_IDS_V2)),
@@ -167,6 +175,19 @@ def test_v2_label_commitment_sorts_case_id_and_hashes_each_lf_record() -> None:
     assert canonical_labels_hash_v2(labels) == expected
 
 
+def test_v2_schema_contract_sorts_exact_file_hash_bindings(tmp_path: Path) -> None:
+    bindings = []
+    for index, relative_path in enumerate(reversed(SCHEMA_CONTRACT_PATHS_V2)):
+        path = tmp_path / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(f"schema-{index}\n".encode())
+    for relative_path in sorted(SCHEMA_CONTRACT_PATHS_V2):
+        path = tmp_path / relative_path
+        bindings.append({"path": relative_path, "file_sha256": _sha(path)})
+
+    assert schema_contract_sha256_v2(tmp_path) == digest(bindings)
+
+
 def test_v2_formal_contract_blocks_before_external_bundle_read(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -239,6 +260,33 @@ def test_v2_blind_bundle_rejects_stale_materialization_binding(
     fixture = _fixture(tmp_path, monkeypatch)
     payload = json.loads(fixture["bundle"].read_text(encoding="utf-8"))
     payload["dataset_binding"]["materializations_content_sha256"] = "0" * 64
+    fixture["bundle"].write_bytes(canonical_bytes(payload) + b"\n")
+    changed_hash = _sha(fixture["bundle"])
+    seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
+    seal["external_bundle_sha256"] = changed_hash
+    fixture["seal"].write_text(json.dumps(seal) + "\n", encoding="utf-8")
+
+    with pytest.raises(P5BlindScoringErrorV2, match="BLIND_BUNDLE_STALE_DATASET_BINDING"):
+        _score(fixture, expected_bundle_sha256=changed_hash)
+
+
+def test_v2_blind_scorer_rejects_tampered_repo_schema_commitment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    oracle_schema = fixture["repo"] / SCHEMA_CONTRACT_PATHS_V2[-1]
+    oracle_schema.write_bytes(oracle_schema.read_bytes() + b"\n")
+
+    with pytest.raises(P5BlindScoringErrorV2, match="BLIND_SCHEMA_CONTRACT_MISMATCH"):
+        _score(fixture)
+
+
+def test_v2_blind_bundle_rejects_stale_schema_commitment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    payload = json.loads(fixture["bundle"].read_text(encoding="utf-8"))
+    payload["dataset_binding"]["schema_contract_sha256"] = "0" * 64
     fixture["bundle"].write_bytes(canonical_bytes(payload) + b"\n")
     changed_hash = _sha(fixture["bundle"])
     seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
