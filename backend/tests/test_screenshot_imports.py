@@ -17,6 +17,7 @@ from app.importing.screenshots import (
     InMemoryScreenshotAssetRepository,
     OcrBoundingBox,
     OcrTextLine,
+    PaddleOcrEngine,
     ScreenshotAssetCleanupService,
     TemporaryAssetRecord,
 )
@@ -243,3 +244,25 @@ async def test_expired_asset_recovery_deletes_file_and_is_idempotent(tmp_path):
     )
     assert repeated == []
     assert not path.exists()
+
+
+@pytest.mark.asyncio
+async def test_paddle_ocr_adapter_maps_boxes_and_low_confidence_without_runtime(monkeypatch, tmp_path):
+    engine = PaddleOcrEngine(confirmation_threshold=0.85)
+    payload = [{
+        "res": {
+            "rec_texts": ["北京2人", "颐和园"],
+            "rec_scores": [0.97, 0.72],
+            "rec_boxes": [[1, 2, 120, 30], [1, 32, 100, 60]],
+        }
+    }]
+    monkeypatch.setattr(engine, "_predict", lambda _: payload)
+    image = tmp_path / "controlled.png"
+    image.write_bytes(PNG)
+
+    lines = await engine.recognize(image)
+
+    assert [item.text for item in lines] == ["北京2人", "颐和园"]
+    assert lines[0].box == OcrBoundingBox(x_min=1, y_min=2, x_max=120, y_max=30)
+    assert lines[0].requires_confirmation is False
+    assert lines[1].requires_confirmation is True
