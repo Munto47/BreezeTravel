@@ -56,6 +56,7 @@ RUN_GROUP_FIELDS_V2 = frozenset(
         "blind_labels_read",
         "external_api_calls",
         "human_evidence",
+        "ocr_replay_provenance",
         *FORMAL_COMMITMENT_FIELDS_V2,
         "manifest_hash",
     }
@@ -883,6 +884,32 @@ def validate_run_group_v2(
         or (require_formal and manifest["formal_evidence"] is not True)
     ):
         raise P5V2ScoringError("RUN_GROUP_CONTRACT_INVALID")
+    ocr_provenance = manifest.get("ocr_replay_provenance")
+    if not isinstance(ocr_provenance, dict) or {
+        key: ocr_provenance.get(key)
+        for key in (
+            "mode",
+            "evidence_class",
+            "actual_ocr_materialization",
+            "fresh_actual_ocr_execution",
+            "fresh_model_inference",
+            "baseline_engine",
+            "baseline_engine_version",
+            "cache_implementation_version",
+            "cache_key_policy",
+        )
+    } != {
+        "mode": "FROZEN_ACTUAL_OCR_RECEIPT_REPLAY",
+        "evidence_class": "snapshot_replay",
+        "actual_ocr_materialization": "PASS",
+        "fresh_actual_ocr_execution": "NOT_RUN",
+        "fresh_model_inference": False,
+        "baseline_engine": "paddleocr",
+        "baseline_engine_version": "3.7.0",
+        "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+        "cache_key_policy": "image_bytes_sha256",
+    }:
+        raise P5V2ScoringError("RUN_OCR_REPLAY_PROVENANCE_INVALID")
 
     dataset_manifest = _load_json(dataset_manifest_path, "DATASET_MANIFEST_INVALID")
     dataset_hash = dataset_manifest.get("manifest_hash")
@@ -1039,6 +1066,72 @@ def validate_run_group_v2(
         or manifest["materialization_set_hash"] != materialization_set_hash_v2(cases)
     ):
         raise P5V2ScoringError("RUN_GROUP_CASE_SET_BINDING_MISMATCH")
+    screenshot_cases = {case.case_id: case for case in cases if case.input_kind == "SYNTHETIC_SCREENSHOT"}
+    selected_case_ids = {case.case_id for case in cases}
+    selected_materializations = {
+        row["case_id"]: row for row in materialization_rows if row["case_id"] in selected_case_ids
+    }
+    expected_unique_hashes = {
+        selected_materializations[case_id]["ocr_baseline_receipt"]["asset_hash"]
+        for case_id in screenshot_cases
+    }
+    replay_factor = 2 if manifest["replay_executed"] else 1
+    ocr_variant_count = len(set(manifest["variant_ids"]) & {"core_b", "solver_c"})
+    expected_lookups = len(screenshot_cases) * replay_factor * ocr_variant_count
+    expected_ocr_counts = {
+        "preload_receipt_count": len(screenshot_cases) if ocr_variant_count else 0,
+        "unique_hash_count": len(expected_unique_hashes) if ocr_variant_count else 0,
+        "lookup_count": expected_lookups,
+        "hit_count": expected_lookups,
+        "miss_count": 0,
+        "fallback_count": 0,
+        "fresh_prediction_count": 0,
+        "receipt_match_count": expected_lookups,
+        "cleanup_deleted_count": expected_lookups,
+    }
+    if any(ocr_provenance.get(key) != value for key, value in expected_ocr_counts.items()):
+        raise P5V2ScoringError("RUN_OCR_REPLAY_COUNTS_INVALID")
+    for output in outputs:
+        replay_receipts = [item for item in output.receipts if item.get("type") == "ocr_replay_provenance"]
+        requires_replay_receipt = output.case_id in screenshot_cases and output.variant_id in {"core_b", "solver_c"}
+        if not requires_replay_receipt:
+            if replay_receipts:
+                raise P5V2ScoringError("TERMINAL_OCR_REPLAY_PROVENANCE_UNEXPECTED")
+            continue
+        materialization = selected_materializations[output.case_id]
+        if len(replay_receipts) != 1:
+            raise P5V2ScoringError("TERMINAL_OCR_REPLAY_PROVENANCE_MISSING")
+        receipt = replay_receipts[0]
+        if {
+            "mode": receipt.get("mode"),
+            "evidence_class": receipt.get("evidence_class"),
+            "fresh_model_inference": receipt.get("fresh_model_inference"),
+            "baseline_engine": receipt.get("baseline_engine"),
+            "baseline_engine_version": receipt.get("baseline_engine_version"),
+            "cache_implementation_version": receipt.get("cache_implementation_version"),
+            "cache_key_policy": receipt.get("cache_key_policy"),
+            "image_sha256": receipt.get("image_sha256"),
+            "materialization_hash": receipt.get("materialization_hash"),
+            "receipt_match": receipt.get("receipt_match"),
+            "cleanup_status": receipt.get("cleanup_status"),
+            "cleanup_error_category": receipt.get("cleanup_error_category"),
+            "temporary_original_absent": receipt.get("temporary_original_absent"),
+        } != {
+            "mode": "FROZEN_ACTUAL_OCR_RECEIPT_REPLAY",
+            "evidence_class": "snapshot_replay",
+            "fresh_model_inference": False,
+            "baseline_engine": "paddleocr",
+            "baseline_engine_version": "3.7.0",
+            "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+            "cache_key_policy": "image_bytes_sha256",
+            "image_sha256": materialization["ocr_baseline_receipt"]["asset_hash"],
+            "materialization_hash": materialization["materialization_hash"],
+            "receipt_match": True,
+            "cleanup_status": "DELETED",
+            "cleanup_error_category": None,
+            "temporary_original_absent": True,
+        }:
+            raise P5V2ScoringError("TERMINAL_OCR_REPLAY_PROVENANCE_INVALID")
     formal_count = 270 if expected_lane == "nonblind" else 90
     if require_formal and len(cases) != formal_count:
         raise P5V2ScoringError("FORMAL_CASE_COUNT_INVALID")

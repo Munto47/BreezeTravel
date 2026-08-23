@@ -16,6 +16,7 @@ from evals.trip_check_v1.p5.adapters_v2 import (
     ADAPTERS_V2,
     ADAPTER_VERSIONS_V2,
     EvaluationCachingPaddleOcrEngine,
+    validate_materialization_v2,
 )
 from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, P5TerminalOutputV2, P5VariantRunSpecV2
 from evals.trip_check_v1.p5.data_contract import digest
@@ -82,6 +83,7 @@ RUN_GROUP_FIELDS = {
     "blind_labels_read",
     "external_api_calls",
     "human_evidence",
+    "ocr_replay_provenance",
     *FORMAL_COMMITMENT_FIELDS_V2,
     "manifest_hash",
 }
@@ -463,6 +465,17 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
             rubric_path=rubric_path,
             case_count=len(cases),
         )
+    shared_ocr_engine = EvaluationCachingPaddleOcrEngine()
+    if set(variants) & {"core_b", "solver_c"}:
+        for case in cases:
+            materialization = validate_materialization_v2(case, materialization_by_case[case.case_id])
+            receipt = materialization.get("ocr_baseline_receipt")
+            if case.input_kind == "SYNTHETIC_SCREENSHOT":
+                if not isinstance(receipt, dict):
+                    raise ValueError("screenshot case lacks frozen OCR replay receipt")
+                shared_ocr_engine.preload(receipt)
+            elif receipt is not None:
+                raise ValueError("text case unexpectedly binds an OCR replay receipt")
     run_id = args.run_id or datetime.now(timezone.utc).strftime("p5-v2-%Y%m%dT%H%M%SZ")
     run_dir = output_root / run_id
     if run_dir.exists():
@@ -472,7 +485,6 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
     replay_mismatches: list[dict[str, str]] = []
     specs: dict[str, Any] = {}
     spec_models: list[P5VariantRunSpecV2] = []
-    shared_ocr_engine = EvaluationCachingPaddleOcrEngine()
     for variant_id in variants:
         adapter = (
             ADAPTERS_V2[variant_id](ocr_engine=shared_ocr_engine)
@@ -583,6 +595,7 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
         "blind_labels_read": False,
         "external_api_calls": 0,
         "human_evidence": False,
+        "ocr_replay_provenance": shared_ocr_engine.provenance(),
         **formal_commitments,
     }
     manifest["manifest_hash"] = digest(manifest)

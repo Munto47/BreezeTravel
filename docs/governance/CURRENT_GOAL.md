@@ -155,6 +155,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 - 三个 variant 的 RunSpec 除 `variant_id / adapter_version / repair_strategy` 外完全一致；
 - 每个运行都绑定 commit、dirty tree、dataset、case IDs、config、model/prompt、rule、provider snapshot、fault、budget、seed 和 output hash；
 - 相同 snapshot 重放结果 hash 100% 一致；重复运行不会复用旧输出拼接新报告；
+- 截图 case 的正式执行固定为 `FROZEN_ACTUAL_OCR_RECEIPT_REPLAY`：actual PaddleOCR 3.7.0 只由冻结 materialization/formal receipt 证明；本轮仍执行 render、临时写入、图片字节 hash 命中、产品解析与本轮 cleanup，但 `fresh_actual_ocr_execution=NOT_RUN`、fresh prediction=0。run manifest 与 terminal 必须邻接记录精确 preload/hit/miss/fallback/receipt-match/cleanup 计数，任一 miss、fallback、fresh prediction 或计数漂移使 Gate REJECT；
 - Legacy A 的不支持项计为失败，并单独显示能力边界；不得通过预先喂入 Core B 结果伪装为 Legacy 能力。
 
 ### C. Core B 最低质量线

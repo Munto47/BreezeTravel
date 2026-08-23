@@ -20,6 +20,8 @@ from app.importing.models import ImportSourceType, ImportStatus
 from app.importing.repositories import InMemoryImportRepository
 from app.importing.screenshots import (
     InMemoryScreenshotAssetRepository,
+    OcrProcessingError,
+    OcrTextLine,
     PaddleOcrEngine,
     ScreenshotImportService,
     ScreenshotUpload,
@@ -454,6 +456,7 @@ async def _execute_product_harness(
         source_text, render_spec = _validate_product_input(case.product_input)
         image_bytes, _ = _render_image(source_text, render_spec, font_path=_font_path())
         with tempfile.TemporaryDirectory(prefix="p5-v2-") as temp_root:
+            temp_root_path = Path(temp_root)
             with patch("app.importing.parser.uuid4", side_effect=deterministic_stop_id):
                 result, _ = await ScreenshotImportService(
                     import_repository=import_repository,
@@ -463,14 +466,27 @@ async def _execute_product_harness(
                     command_repository=command_repository,
                     asset_repository=InMemoryScreenshotAssetRepository(),
                     ocr_engine=ocr_engine or PaddleOcrEngine(),
-                    temp_root=Path(temp_root),
+                    temp_root=temp_root_path,
                 ).create_import(
                     workspace_id=workspace_id,
                     uploads=[ScreenshotUpload(media_type=_media_type(render_spec["format"]), content=image_bytes)],
                     actor_user_id=actor,
                     idempotency_key=f"{case.case_id}:screenshot-import",
                 )
+            originals_absent = not any(temp_root_path.iterdir())
         _assert_frozen_ocr_receipt(result.ocr_receipts[0], materialization["ocr_baseline_receipt"], image_bytes)
+        if len(result.cleanup_receipts) != 1:
+            raise ValueError("runtime screenshot cleanup receipt rejected")
+        cleanup = result.cleanup_receipts[0]
+        if (
+            cleanup.cleanup_status != "DELETED"
+            or cleanup.asset_hash != hashlib.sha256(image_bytes).hexdigest()
+            or cleanup.cleanup_error_category is not None
+            or not originals_absent
+        ):
+            raise ValueError("runtime screenshot cleanup receipt rejected")
+        if isinstance(ocr_engine, EvaluationCachingPaddleOcrEngine):
+            ocr_engine.record_verified_replay(cleanup_deleted=True)
         itinerary_import = result.itinerary_import
         raw_screenshot_receipts = [item.model_dump(mode="json") for item in result.ocr_receipts]
         screenshot_receipts = [
@@ -485,6 +501,24 @@ async def _execute_product_harness(
             }
             for item in result.ocr_receipts
         ]
+        screenshot_receipts.append(
+            {
+                "type": "ocr_replay_provenance",
+                "mode": "FROZEN_ACTUAL_OCR_RECEIPT_REPLAY",
+                "evidence_class": "snapshot_replay",
+                "fresh_model_inference": False,
+                "baseline_engine": result.ocr_receipts[0].engine,
+                "baseline_engine_version": result.ocr_receipts[0].engine_version,
+                "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+                "cache_key_policy": "image_bytes_sha256",
+                "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
+                "materialization_hash": materialization["materialization_hash"],
+                "receipt_match": True,
+                "cleanup_status": cleanup.cleanup_status,
+                "cleanup_error_category": cleanup.cleanup_error_category,
+                "temporary_original_absent": originals_absent,
+            }
+        )
 
     brief = await brief_repository.get_latest_brief(workspace_id)
     if brief is None:
@@ -923,24 +957,95 @@ class LegacyAdapterV2:
 
 
 class EvaluationCachingPaddleOcrEngine(PaddleOcrEngine):
-    """Reuse one actual OCR result for identical screenshot bytes within a run."""
+    """Fail-closed replay of frozen actual-OCR receipts keyed by image bytes."""
 
     def __init__(self, *, confirmation_threshold: float = 0.85) -> None:
         super().__init__(confirmation_threshold=confirmation_threshold)
-        self._evaluation_cache: dict[str, tuple[Any, ...]] = {}
+        self._evaluation_cache: dict[str, tuple[OcrTextLine, ...]] = {}
+        self._evaluation_metadata: dict[str, tuple[str, int, str, str]] = {}
+        self.preload_receipt_count = 0
         self.actual_prediction_count = 0
         self.cache_hit_count = 0
+        self.cache_miss_count = 0
+        self.fallback_count = 0
+        self.lookup_count = 0
+        self.receipt_match_count = 0
+        self.cleanup_deleted_count = 0
 
-    async def recognize(self, image_path: Path) -> list[Any]:
+    def preload(self, receipt: Mapping[str, Any]) -> None:
+        required = {
+            "schema_version",
+            "asset_id",
+            "asset_hash",
+            "media_type",
+            "byte_size",
+            "engine",
+            "engine_version",
+            "observed_at",
+            "lines",
+        }
+        if (
+            set(receipt) != required
+            or receipt.get("schema_version") != "trip-check-p5-ocr-baseline-receipt-v2"
+            or receipt.get("engine") != self.name
+            or receipt.get("engine_version") != self.version
+            or not isinstance(receipt.get("asset_hash"), str)
+            or len(str(receipt["asset_hash"])) != 64
+        ):
+            raise ValueError("frozen OCR replay receipt rejected")
+        lines = tuple(OcrTextLine.model_validate(item) for item in receipt["lines"])
+        image_sha256 = str(receipt["asset_hash"])
+        metadata = (
+            str(receipt["media_type"]),
+            int(receipt["byte_size"]),
+            str(receipt["engine"]),
+            str(receipt["engine_version"]),
+        )
+        existing = self._evaluation_cache.get(image_sha256)
+        if existing is not None and (
+            existing != lines or self._evaluation_metadata.get(image_sha256) != metadata
+        ):
+            raise ValueError("conflicting frozen OCR receipts share an image hash")
+        self.preload_receipt_count += 1
+        self._evaluation_cache[image_sha256] = lines
+        self._evaluation_metadata[image_sha256] = metadata
+
+    def record_verified_replay(self, *, cleanup_deleted: bool) -> None:
+        self.receipt_match_count += 1
+        if cleanup_deleted:
+            self.cleanup_deleted_count += 1
+
+    async def recognize(self, image_path: Path) -> list[OcrTextLine]:
+        self.lookup_count += 1
         image_sha256 = hashlib.sha256(image_path.read_bytes()).hexdigest()
         cached = self._evaluation_cache.get(image_sha256)
         if cached is not None:
             self.cache_hit_count += 1
-            return list(cached)
-        lines = await super().recognize(image_path)
-        self.actual_prediction_count += 1
-        self._evaluation_cache[image_sha256] = tuple(lines)
-        return list(lines)
+            return [item.model_copy(deep=True) for item in cached]
+        self.cache_miss_count += 1
+        raise OcrProcessingError("frozen OCR replay cache miss")
+
+    def provenance(self) -> dict[str, Any]:
+        return {
+            "mode": "FROZEN_ACTUAL_OCR_RECEIPT_REPLAY",
+            "evidence_class": "snapshot_replay",
+            "actual_ocr_materialization": "PASS",
+            "fresh_actual_ocr_execution": "NOT_RUN",
+            "fresh_model_inference": False,
+            "baseline_engine": self.name,
+            "baseline_engine_version": self.version,
+            "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+            "cache_key_policy": "image_bytes_sha256",
+            "preload_receipt_count": self.preload_receipt_count,
+            "unique_hash_count": len(self._evaluation_cache),
+            "lookup_count": self.lookup_count,
+            "hit_count": self.cache_hit_count,
+            "miss_count": self.cache_miss_count,
+            "fallback_count": self.fallback_count,
+            "fresh_prediction_count": self.actual_prediction_count,
+            "receipt_match_count": self.receipt_match_count,
+            "cleanup_deleted_count": self.cleanup_deleted_count,
+        }
 
 
 class CoreAdapterV2:

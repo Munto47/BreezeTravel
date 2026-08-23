@@ -821,6 +821,8 @@ def build_p5_gate_manifest_v2(
         "cp_sat_admission_remains_reject": True,
         "secret_scan": secret_scan["status"] == "PASS",
         "same_subject_commit": True,
+        "frozen_actual_ocr_receipt_replay": True,
+        "fresh_actual_ocr_execution_not_run": True,
         **{f"nonblind_{key}": value for key, value in nonblind_acceptance.items()},
         **{f"blind_{key}": value for key, value in blind_acceptance.items()},
         "judge_unsupported_claim_candidate_count_zero": judge.get(
@@ -917,6 +919,9 @@ def build_p5_gate_manifest_v2(
         },
         "evidence_boundaries": {
             "controlled_fixture": "EVALUATED" if gate_passed else "REJECT",
+            "actual_ocr_materialization": "PASS",
+            "frozen_actual_ocr_receipt_replay": "EVALUATED" if gate_passed else "REJECT",
+            "fresh_actual_ocr_execution": "NOT_RUN",
             "automated_proxy_judge": judge.get("status", "BLOCKED"),
             "live_provider": "NOT_RUN",
             "public_e2e": "NOT_RUN",

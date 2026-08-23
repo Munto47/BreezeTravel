@@ -399,6 +399,26 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "blind_labels_read": False,
         "external_api_calls": 0,
         "human_evidence": False,
+        "ocr_replay_provenance": {
+            "mode": "FROZEN_ACTUAL_OCR_RECEIPT_REPLAY",
+            "evidence_class": "snapshot_replay",
+            "actual_ocr_materialization": "PASS",
+            "fresh_actual_ocr_execution": "NOT_RUN",
+            "fresh_model_inference": False,
+            "baseline_engine": "paddleocr",
+            "baseline_engine_version": "3.7.0",
+            "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+            "cache_key_policy": "image_bytes_sha256",
+            "preload_receipt_count": 0,
+            "unique_hash_count": 0,
+            "lookup_count": 0,
+            "hit_count": 0,
+            "miss_count": 0,
+            "fallback_count": 0,
+            "fresh_prediction_count": 0,
+            "receipt_match_count": 0,
+            "cleanup_deleted_count": 0,
+        },
         **not_applicable_commitments_v2(),
     }
     manifest["manifest_hash"] = digest(manifest)
@@ -499,6 +519,24 @@ def test_v2_exact_three_variant_group_is_hash_bound(tmp_path: Path) -> None:
     manifest["manifest_hash"] = digest({key: value for key, value in manifest.items() if key != "manifest_hash"})
     manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
     with pytest.raises(P5V2ScoringError, match="RUN_SPEC_VARIANT_WHITELIST_VIOLATION"):
+        score_run_group_v2(
+            run_dir=run_dir,
+            cases_path=cases_path,
+            materializations_path=materializations_path,
+            dataset_manifest_path=dataset_path,
+            require_formal=False,
+        )
+
+
+def test_v2_run_group_rejects_ocr_replay_count_drift(tmp_path: Path) -> None:
+    run_dir, cases_path, materializations_path, dataset_path = _write_run_group(tmp_path)
+    manifest_path = run_dir / "run_group_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["ocr_replay_provenance"]["miss_count"] = 1
+    manifest["manifest_hash"] = digest({key: value for key, value in manifest.items() if key != "manifest_hash"})
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    with pytest.raises(P5V2ScoringError, match="RUN_OCR_REPLAY_COUNTS_INVALID"):
         score_run_group_v2(
             run_dir=run_dir,
             cases_path=cases_path,

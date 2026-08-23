@@ -10,10 +10,16 @@ controlled-fixture pass is not a formal or human-evidence pass.
 - Screenshot materialization: all 171 render/OCR/cleanup receipts, receipt-to-case bindings, and
   original-image deletion. The candidate freeze binds PaddleOCR 3.7.0 actual materialization and
   records `actual_ocr=PASS`; no original screenshot bytes are tracked.
-- Runner: all 18 pilot cases through Legacy A, Core B, and Solver C, with 54 fresh replay matches,
+- Runner: all 18 pilot cases through Legacy A, Core B, and Solver C, with 54 replay matches,
   exact terminal keys, exception terminalization, RunSpec whitelist, zero API/token/cost claims,
   a 60-second local ceiling, and readback of subject, dataset, case/materialization, terminal,
   per-variant, RunSpec, and replay commitments.
+- OCR replay boundary: the formal runner preloads the frozen actual-PaddleOCR receipts by rendered
+  image SHA-256. It still executes render, temporary-file write, product import/parse, receipt
+  projection comparison, and current-run original deletion. The run and every screenshot terminal
+  declare `FROZEN_ACTUAL_OCR_RECEIPT_REPLAY`, `fresh_actual_ocr_execution=NOT_RUN`, zero cache
+  miss/fallback/fresh prediction, and exact hit/receipt-match/cleanup counts. This is snapshot replay,
+  not a claim that the formal eval reran Paddle inference.
 - Cardinality: formal nonblind is exactly 810 terminal rows, frozen blind is exactly 270, and the
   combined expectation is 1080. This is an executable cardinality contract, not a claim that the
   formal outputs already exist.
@@ -52,6 +58,10 @@ $env:RUN_EXTERNAL_TESTS = '1'
 $env:P5_V2_ACTUAL_OCR_SAMPLE = '1'
 & $py -m pytest tests/test_trip_check_p5_v2_e2e_contract.py -k actual_ocr -q -rxXs
 ```
+
+That opt-in check and the frozen dataset materialization prove fresh Paddle execution. The formal
+evaluation consumes their hash-bound receipts; P6 G1 separately requires 60 authorized real-source
+screenshots and cannot be replaced by this replay evidence.
 
 The runner CLI must be invoked as a module from `backend` so the `evals` package is importable:
 

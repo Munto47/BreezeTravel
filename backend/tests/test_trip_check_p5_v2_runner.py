@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.importing.errors import OcrProcessingError
 from app.importing.screenshots import PaddleOcrEngine
 from evals.trip_check_v1.p5.adapters_v2 import (
     CoreAdapterV2,
@@ -710,7 +711,9 @@ async def test_core_screenshot_replays_same_bytes_through_production_paddle_boun
     }
     case_payload["case_hash"] = digest({key: value for key, value in case_payload.items() if key != "case_hash"})
     case = P5CaseV2.model_validate(case_payload)
-    adapter = CoreAdapterV2()
+    replay_engine = EvaluationCachingPaddleOcrEngine()
+    replay_engine.preload(baseline)
+    adapter = CoreAdapterV2(ocr_engine=replay_engine)
     output = await execute_terminal_v2(
         case=case,
         materialization=materialization,
@@ -729,26 +732,21 @@ async def test_core_screenshot_replays_same_bytes_through_production_paddle_boun
     )
     assert replay.semantic_output_hash == output.semantic_output_hash
     assert adapter._ocr_engine is not None
+    assert replay_engine.provenance()["fresh_prediction_count"] == 0
+    assert replay_engine.provenance()["hit_count"] == 2
+    assert replay_engine.provenance()["receipt_match_count"] == 2
+    assert replay_engine.provenance()["cleanup_deleted_count"] == 2
+    provenance = next(item for item in output.receipts if item.get("type") == "ocr_replay_provenance")
+    assert provenance["fresh_model_inference"] is False
+    assert provenance["temporary_original_absent"] is True
 
 
 @pytest.mark.asyncio
 async def test_evaluation_ocr_cache_keys_reuse_by_screenshot_bytes(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    predictions = 0
-
     def fake_predict(self, image_path):
-        nonlocal predictions
-        predictions += 1
-        return [
-            {
-                "res": {
-                    "rec_texts": [Path(image_path).read_text(encoding="utf-8")],
-                    "rec_scores": [0.99],
-                    "rec_boxes": [[0, 0, 100, 20]],
-                }
-            }
-        ]
+        raise AssertionError("frozen receipt replay must not run Paddle prediction")
 
     monkeypatch.setattr(EvaluationCachingPaddleOcrEngine, "_predict", fake_predict)
     first = tmp_path / "first.png"
@@ -758,13 +756,44 @@ async def test_evaluation_ocr_cache_keys_reuse_by_screenshot_bytes(
     second.write_text("same bytes", encoding="utf-8")
     different.write_text("different bytes", encoding="utf-8")
     engine = EvaluationCachingPaddleOcrEngine()
+    same_hash = hashlib.sha256(first.read_bytes()).hexdigest()
+    receipt = {
+        "schema_version": "trip-check-p5-ocr-baseline-receipt-v2",
+        "asset_id": "baseline-asset",
+        "asset_hash": same_hash,
+        "media_type": "image/png",
+        "byte_size": first.stat().st_size,
+        "engine": "paddleocr",
+        "engine_version": "3.7.0",
+        "observed_at": "2026-08-24T00:00:00Z",
+        "lines": [
+            {
+                "text": "same bytes",
+                "confidence": 0.5,
+                "box": {"x_min": 0, "y_min": 0, "x_max": 100, "y_max": 20},
+                "requires_confirmation": True,
+            }
+        ],
+    }
+    engine.preload(receipt)
+    conflicting = deepcopy(receipt)
+    conflicting["lines"][0]["text"] = "conflict"
+    with pytest.raises(ValueError, match="conflicting"):
+        engine.preload(conflicting)
+    wrong_engine = deepcopy(receipt)
+    wrong_engine["asset_hash"] = "f" * 64
+    wrong_engine["engine_version"] = "0.0.0"
+    with pytest.raises(ValueError, match="receipt rejected"):
+        engine.preload(wrong_engine)
 
     assert await engine.recognize(first) == await engine.recognize(second)
-    await engine.recognize(different)
+    assert (await engine.recognize(first))[0].requires_confirmation is True
+    with pytest.raises(OcrProcessingError, match="cache miss"):
+        await engine.recognize(different)
 
-    assert predictions == 2
-    assert engine.actual_prediction_count == 2
-    assert engine.cache_hit_count == 1
+    assert engine.actual_prediction_count == 0
+    assert engine.cache_hit_count == 3
+    assert engine.cache_miss_count == 1
 
 
 @pytest.mark.asyncio
@@ -934,11 +963,10 @@ async def test_formal_run_rejects_pending_active_contract_before_execution(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
+async def test_formal_group_seals_rows_and_rejects_replay_mismatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     case, materialization = _fixture()
-    materialization["source_payload"]["raw_text"] = "tampered after materialization hash"
     cases_path = tmp_path / "cases.jsonl"
     materials_path = tmp_path / "materializations.jsonl"
     template_path = tmp_path / "run_spec.json"
@@ -1074,7 +1102,7 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
         json.loads(line)
         for line in (Path(stable["run_dir"]) / "terminal_outputs.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert {row["terminal_status"] for row in rows} == {"ERROR"}
+    assert len(rows) == 3
     assert stable["status"] == "PASS"
     assert stable["formal_evidence"] is True
     assert stable["replay_match_count"] == 3
