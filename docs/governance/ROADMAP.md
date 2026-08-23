@@ -15,7 +15,7 @@
 | P0-G02 | 当前 | 架构、API、数据、Gate 和自动推进无冲突 | Program、ADR、API 合同、文档权威迁移 | 文档 Gate |
 | P1 文本纵向闭环 | 第 3～6 周 | 文本行程完成确认、核验、修复、采纳和复验 | Brief、fixture Evidence、Audit、Advice adapter、Repair、恢复 | D1 |
 | P2 可靠运行 | 第 7～10 周 | 刷新、断线、重复提交、并发和重启可恢复 | TripCheckRun、lease、CAS、幂等、SSE、Trace | Reliability Gate |
-| P3 输入/Provider 完整性 | 第 11～14 周 | 截图、四种交通、天气和风险来源进入主链 | OCR 隐私、Provider adapter、RiskEvidence | G1～G4 子集 |
+| P3 输入/Provider 完整性 | 第 11～14 周 | 截图、四种交通、天气和风险来源进入主链 | OCR 隐私、Provider adapter、RiskEvidence | Synthetic OCR Phase Gate + G2 + G3；G1/G4 为候选证据债 |
 | P4 Advice/Repair | 第 15～18 周 | 每个问题有行动方式和安全候选 | AdviceBundle、CandidateSet、RepairEngine、OR-Tools bake-off | Solver Admission Gate |
 | P5 评测与消融 | 第 19～22 周 | 每次变更可与稳定基线比较 | 360 数据、Legacy/Core/Solver、snapshot、Judge | Evaluation Gate |
 | P6 候选与公网证据 | 第 23～24 周 | 可公开演示的 V1 内测候选版 | G0～G6、live receipts、性能、manifest、视频 | Candidate Gate |

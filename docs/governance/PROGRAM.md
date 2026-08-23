@@ -34,7 +34,7 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 | P0-G02 | 权威、架构、API、Roadmap 与 Gate 收口 | 文档/链接/冲突审计与基线检查 |
 | P1 | 第 6 周前文本纵向闭环、18 pilot、杀进程恢复 | D1 |
 | P2 | TripCheckRun、lease/CAS/幂等、SSE、领域 Trace | Reliability Gate |
-| P3 | OCR 隐私闭环、四种交通、天气与风险来源 | G1～G4 对应子集 |
+| P3 | OCR 隐私闭环、四种交通、天气与风险来源 | Synthetic OCR Phase Gate + G2 + G3；G1/G4 保留为候选证据债 |
 | P4 | Advice、CandidateSet、Repair 与 OR-Tools bake-off | Solver Admission Gate |
 | P5 | 360 数据、Legacy/Core/Solver 消融、独立 Judge | Evaluation Gate |
 | P6 | 同 commit G0～G6、公网候选与 release manifest | Candidate Gate |
@@ -50,6 +50,8 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 - 新增 TripBriefRevision、TripCheckRun、RunSpec、AdviceBundle 和约定的 API；
 - 在开发分支提交、推送，并在 Gate 通过后 fast-forward 到 `codex/trip-check-v1-program`；
 - 当前 Goal 完成后，按本文件固定顺序归档并生成下一 Goal。
+- 在 P1～P6 开发期使用子代理生成 synthetic/dev/regression 数据和截图、执行独立复核与故障诊断；这些产物不得标记为真实用户、人工或公开证据。
+- 自动启停隔离的本地 PostgreSQL 等既有依赖服务，并执行既有凭据、固定 18 次上限、零增量费用的高德/和风开发矩阵。
 
 ## 5. 自动推进
 
@@ -62,6 +64,7 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 - 下一 Goal 与本 Program 的阶段模板完全一致。
 
 自动推进只允许开发分支和 Program 集成分支。不得自动合并 `main`。
+P3 阶段通过与候选就绪分开计算：P3 不因 G1/G4/G5/G6 尚未运行而失败；这些项必须在 P6 候选 commit 上实际重跑并通过，不能被阶段证据替代。
 
 ## 6. 仍需现场批准
 

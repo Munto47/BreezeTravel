@@ -95,6 +95,8 @@ Trace 必须包含 `bt.run_id`、revision、brief、evidence、config、rule、p
 - spec、oracle、render 参数和 seed 必须在首次 OCR 前冻结，看到结果后不得修改标签或样本来消除失败；
 - 关键字段 micro-F1 ≥95%，预标记低置信关键字段确认召回率 100%，原图泄漏命中 0；
 - 阶段通过只能标记 `synthetic_ocr_stress=PASS`；`real_ocr_dataset` 与候选版 G1 继续为 `NOT_RUN`。
+- P3 phase status 只硬要求本 Gate、G2、G3 与对应离线回归；G4 live receipt、G5、G6 是候选证据债，保持 `NOT_RUN/REJECT` 不得反向把离线 P3 判为失败。
+- 合成图片必须有可回读的确定性 render-integrity receipt（解码、格式、尺寸、内容 hash、可复现性、非空/无溢出、字体与终态清理）；开发代理视觉复核只能标记 `automated_agent`，不得冒充人工证据。
 
 ### Solver Admission Gate
 

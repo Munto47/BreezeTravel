@@ -9,6 +9,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -138,6 +139,124 @@ def _postgres_preflight() -> tuple[bool, str]:
         return False, f"PostgreSQL is unreachable at {host}:{port}"
 
 
+def _ensure_postgres(mode: str, *, timeout_seconds: int = 60) -> dict[str, Any]:
+    ready, reason = _postgres_preflight()
+    if ready:
+        return {
+            "status": "READY",
+            "mode": mode,
+            "endpoint": reason,
+            "started_by_gate": False,
+        }
+    if mode == "skip":
+        return {
+            "status": "NOT_RUN",
+            "mode": mode,
+            "reason": "PostgreSQL startup was explicitly skipped",
+            "started_by_gate": False,
+        }
+    if mode == "external":
+        return {
+            "status": "UNAVAILABLE",
+            "mode": mode,
+            "reason": reason,
+            "started_by_gate": False,
+        }
+    try:
+        completed = subprocess.run(
+            ["docker", "compose", "up", "-d", "postgres"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return {
+            "status": "UNAVAILABLE",
+            "mode": mode,
+            "reason": _portable(str(exc)),
+            "started_by_gate": False,
+        }
+    if completed.returncode != 0:
+        return {
+            "status": "UNAVAILABLE",
+            "mode": mode,
+            "reason": _normalized_log(completed.stdout + completed.stderr).strip(),
+            "started_by_gate": False,
+        }
+    deadline = time.monotonic() + timeout_seconds
+    last_reason = reason
+    while time.monotonic() < deadline:
+        ready, last_reason = _postgres_preflight()
+        if ready:
+            return {
+                "status": "READY",
+                "mode": mode,
+                "endpoint": last_reason,
+                "started_by_gate": True,
+            }
+        time.sleep(1)
+    return {
+        "status": "UNAVAILABLE",
+        "mode": mode,
+        "reason": f"PostgreSQL did not become ready: {last_reason}",
+        "started_by_gate": True,
+    }
+
+
+def _stop_gate_postgres() -> dict[str, Any]:
+    try:
+        completed = subprocess.run(
+            ["docker", "compose", "stop", "postgres"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return {"status": "FAIL", "reason": _portable(str(exc))}
+    return {
+        "status": "PASS" if completed.returncode == 0 else "FAIL",
+        "exit_code": completed.returncode,
+        "output": _normalized_log(completed.stdout + completed.stderr).strip(),
+    }
+
+
+def _evaluate_phase_and_candidate(
+    *,
+    required_checks_pass: bool,
+    synthetic_phase_gate: str,
+    g2: str,
+    g3: str,
+    candidate_gates: dict[str, str],
+    phase_contracts: dict[str, bool],
+    candidate_contracts: dict[str, bool],
+    sensitive_scan_status: str,
+) -> tuple[str, str]:
+    phase_status = (
+        "PASS"
+        if required_checks_pass
+        and all(value == "PASS" for value in (synthetic_phase_gate, g2, g3))
+        and all(phase_contracts.values())
+        and sensitive_scan_status == "PASS"
+        else "REJECT"
+    )
+    candidate_status = (
+        "PASS"
+        if phase_status == "PASS"
+        and all(value == "PASS" for value in candidate_gates.values())
+        and all(candidate_contracts.values())
+        else "REJECT"
+    )
+    return phase_status, candidate_status
+
+
 def _real_ocr_evidence(path_value: str | None, *, subject: str) -> dict[str, Any]:
     if not path_value:
         return _not_run("real_ocr_dataset", "P3_REAL_OCR_MANIFEST is not configured")
@@ -238,6 +357,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--ocr-python", type=Path, default=Path(sys.executable))
     parser.add_argument("--synthetic-ocr-visual-review-approved", action="store_true")
+    parser.add_argument("--postgres-mode", choices=("auto", "external", "skip"), default="auto")
     parser.add_argument("--allow-live-provider", action="store_true")
     parser.add_argument("--live-env-file", type=Path, default=None)
     args = parser.parse_args()
@@ -368,36 +488,43 @@ def main() -> int:
         "real_ocr_dataset",
         "candidate G1 real OCR evidence remains required before P6 and was not run for the P3 phase gate",
     )
-    pg_ready, pg_reason = _postgres_preflight()
-    if pg_ready:
+    postgres_service = _ensure_postgres(args.postgres_mode)
+    if postgres_service["status"] != "READY" and postgres_service["started_by_gate"]:
+        postgres_service["stop_receipt"] = _stop_gate_postgres()
+    if postgres_service["status"] == "READY":
         pg_env = {**env, "RUN_SERVICE_INTEGRATION": "1"}
-        postgres = _run(
-            name="postgres_p3_integration",
-            command=[
-                python, "-m", "pytest",
-                "tests/test_migrations_integration.py",
-                "tests/test_screenshot_postgres_integration.py",
-                "tests/test_trip_check_postgres_integration.py",
-                "tests/test_trip_check_reliability_runner.py",
-                "-q",
-            ],
-            cwd=BACKEND_ROOT,
-            log_dir=log_dir,
-            env=pg_env,
-            timeout=900,
-        )
-        p2_reliability = _run(
-            name="p2_reliability_regression",
-            command=[
-                python, "-m", "scripts.run_trip_check_reliability", "--commit-sha", subject,
-                "--output", str(output / "p2_reliability_regression"),
-            ],
-            cwd=BACKEND_ROOT,
-            log_dir=log_dir,
-            env=pg_env,
-            timeout=600,
-        )
+        try:
+            postgres = _run(
+                name="postgres_p3_integration",
+                command=[
+                    python, "-m", "pytest",
+                    "tests/test_migrations_integration.py",
+                    "tests/test_screenshot_postgres_integration.py",
+                    "tests/test_trip_check_postgres_integration.py",
+                    "tests/test_trip_check_reliability_runner.py",
+                    "-q",
+                ],
+                cwd=BACKEND_ROOT,
+                log_dir=log_dir,
+                env=pg_env,
+                timeout=900,
+            )
+            p2_reliability = _run(
+                name="p2_reliability_regression",
+                command=[
+                    python, "-m", "scripts.run_trip_check_reliability", "--commit-sha", subject,
+                    "--output", str(output / "p2_reliability_regression"),
+                ],
+                cwd=BACKEND_ROOT,
+                log_dir=log_dir,
+                env=pg_env,
+                timeout=600,
+            )
+        finally:
+            if postgres_service["started_by_gate"]:
+                postgres_service["stop_receipt"] = _stop_gate_postgres()
     else:
+        pg_reason = postgres_service.get("reason", "PostgreSQL was not started")
         postgres = _not_run("postgres_p3_integration", pg_reason)
         p2_reliability = _not_run("p2_reliability_regression", pg_reason)
     if args.allow_live_provider:
@@ -445,8 +572,12 @@ def main() -> int:
         else "FAIL"
     )
     g1 = "NOT_RUN"
+    postgres_cleanup_ok = (
+        not postgres_service["started_by_gate"]
+        or postgres_service.get("stop_receipt", {}).get("status") == "PASS"
+    )
     g2 = (
-        "PASS" if postgres["status"] == "PASS" and p2_reliability["status"] == "PASS"
+        "PASS" if postgres["status"] == "PASS" and p2_reliability["status"] == "PASS" and postgres_cleanup_ok
         else "NOT_RUN" if "NOT_RUN" in {postgres["status"], p2_reliability["status"]}
         else "FAIL"
     )
@@ -462,7 +593,7 @@ def main() -> int:
     g4 = live_status if live_status in {"PASS", "NOT_RUN"} else "FAIL"
     browser_stats = browser.get("stats", {}) if browser else {}
     pilot_metrics = pilot.get("metrics", {}) if pilot else {}
-    contracts = {
+    phase_contracts = {
         "browser_cases_2_of_2": browser_stats.get("expected") == 2 and browser_stats.get("unexpected") == 0,
         "p1_pilot_18_of_18": pilot_metrics.get("case_count") == 18 and pilot_metrics.get("passed_count") == 18,
         "p1_city_distribution": pilot_metrics.get("city_counts") == {"北京": 6, "上海": 6, "杭州": 6},
@@ -472,8 +603,11 @@ def main() -> int:
             and p2_manifest.get("canonical_cases_passed") == 6
         ),
         "snapshot_six_of_six": g3 == "PASS",
+    }
+    candidate_contracts = {
         "live_receipts_18": (
             live_status == "PASS"
+            and live_manifest is not None
             and live_manifest.get("actual_receipt_count") == 18
             and live_manifest.get("actual_network_call_count") == 18
             and live_manifest.get("hidden_retry_count") == 0
@@ -482,13 +616,21 @@ def main() -> int:
     sensitive_scan = _scan(baseline=args.baseline_commit, subject=subject, output=output)
     _write_json(output / "sensitive_scan.json", sensitive_scan)
     required_checks_pass = all(item["status"] == "PASS" for item in checks)
-    status = (
-        "PASS"
-        if required_checks_pass
-        and all(value == "PASS" for value in (synthetic_phase_gate, g2, g3, g4))
-        and all(contracts.values())
-        and sensitive_scan["status"] == "PASS"
-        else "REJECT"
+    candidate_gates = {
+        "G1_REAL_OCR_CANDIDATE_GATE": g1,
+        "G4_LIVE_PROVIDER": g4,
+        "G5_PUBLIC_BROWSER_PERFORMANCE": "NOT_RUN",
+        "G6_RELEASE_MANIFEST": "NOT_RUN",
+    }
+    phase_status, candidate_status = _evaluate_phase_and_candidate(
+        required_checks_pass=required_checks_pass,
+        synthetic_phase_gate=synthetic_phase_gate,
+        g2=g2,
+        g3=g3,
+        candidate_gates=candidate_gates,
+        phase_contracts=phase_contracts,
+        candidate_contracts=candidate_contracts,
+        sensitive_scan_status=sensitive_scan["status"],
     )
     manifest = {
         "schema_version": "trip-check-p3-integrity-gate-manifest-v2",
@@ -497,17 +639,17 @@ def main() -> int:
         "upstream_commit_at_start": upstream,
         "baseline_commit": args.baseline_commit,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": status,
-        "p3_phase_status": status,
-        "goal_status": "COMPLETE" if status == "PASS" else "IN_PROGRESS",
+        "status": phase_status,
+        "p3_phase_status": phase_status,
+        "candidate_readiness_status": candidate_status,
+        "goal_status": "COMPLETE" if phase_status == "PASS" else "IN_PROGRESS",
         "gates": {"G1": g1, "G2": g2, "G3": g3, "G4": g4, "G5": "NOT_RUN", "G6": "NOT_RUN"},
         "phase_gates": {
             "P3_SYNTHETIC_OCR_PHASE_GATE": synthetic_phase_gate,
             "G2_POSTGRES_RELIABILITY": g2,
             "G3_SNAPSHOT_REPLAY": g3,
-            "G4_LIVE_PROVIDER": g4,
         },
-        "candidate_gates": {"G1_REAL_OCR_CANDIDATE_GATE": "NOT_RUN"},
+        "candidate_gates": candidate_gates,
         "proof_classes": {
             "controlled_fixture": "PASS" if required_checks_pass else "FAIL",
             "synthetic_ocr_stress": synthetic_ocr["status"],
@@ -525,7 +667,7 @@ def main() -> int:
             "real_ocr": real_ocr,
             "original_image_artifacts_in_git": 0,
         },
-        "postgresql": postgres,
+        "postgresql": {"service": postgres_service, "verification": postgres},
         "p2_reliability_regression": {
             "status": p2_reliability["status"],
             "manifest_path": p2_path.relative_to(BACKEND_ROOT).as_posix(),
@@ -550,7 +692,8 @@ def main() -> int:
             "report_sha256": _sha256(browser_path) if browser_path.exists() else None,
             "stats": browser_stats,
         },
-        "contracts": contracts,
+        "phase_required_contracts": phase_contracts,
+        "candidate_required_contracts": candidate_contracts,
         "verification_checks": checks + [postgres, p2_reliability, live],
         "sensitive_scan": sensitive_scan,
         "blockers": [
@@ -558,7 +701,14 @@ def main() -> int:
                 "TRIP_CHECK_V1_P3_SYNTHETIC_OCR_NOT_PASSED": synthetic_phase_gate,
                 "TRIP_CHECK_V1_P3_POSTGRES_NOT_PASSED": g2,
                 "TRIP_CHECK_V1_P3_SNAPSHOT_NOT_PASSED": g3,
-                "TRIP_CHECK_V1_P3_LIVE_PROVIDER_NOT_PASSED": g4,
+            }.items() if value != "PASS"
+        ],
+        "candidate_evidence_debt": [
+            item for item, value in {
+                "G1_REAL_OCR_NOT_RUN": g1,
+                "G4_LIVE_PROVIDER_NOT_PASSED": g4,
+                "G5_PUBLIC_BROWSER_PERFORMANCE_NOT_RUN": "NOT_RUN",
+                "G6_RELEASE_MANIFEST_NOT_RUN": "NOT_RUN",
             }.items() if value != "PASS"
         ],
         "non_claims": [
@@ -574,8 +724,13 @@ def main() -> int:
     _write_json(manifest_path, manifest)
     if json.loads(manifest_path.read_text("utf-8")) != manifest:
         raise RuntimeError("P3 integrity manifest readback mismatch")
-    print(json.dumps({"status": status, "gates": manifest["gates"], "manifest": str(manifest_path)}, ensure_ascii=False))
-    return 0 if status == "PASS" else 1
+    print(json.dumps({
+        "status": phase_status,
+        "candidate_readiness_status": candidate_status,
+        "gates": manifest["gates"],
+        "manifest": str(manifest_path),
+    }, ensure_ascii=False))
+    return 0 if phase_status == "PASS" else 1
 
 
 if __name__ == "__main__":

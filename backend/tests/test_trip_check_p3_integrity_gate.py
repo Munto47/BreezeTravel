@@ -7,6 +7,8 @@ import pytest
 from scripts.run_trip_check_p3_integrity_gate import (
     DEFAULT_OUTPUT,
     SECRET_PATTERNS,
+    _ensure_postgres,
+    _evaluate_phase_and_candidate,
     _normalized_log,
     _real_ocr_evidence,
     _safe_reset_output,
@@ -90,3 +92,51 @@ def test_gate_logs_are_portable_lf_and_strip_progress_whitespace():
     value = "one  \r\nD:\\munto\\code\\claudeProject\\agentTravel\\frontend  \r\n"
 
     assert _normalized_log(value) == "one\n<repo>\\frontend\n"
+
+
+def test_p3_phase_can_pass_while_live_candidate_gate_is_not_run():
+    phase, candidate = _evaluate_phase_and_candidate(
+        required_checks_pass=True,
+        synthetic_phase_gate="PASS",
+        g2="PASS",
+        g3="PASS",
+        candidate_gates={"G1": "NOT_RUN", "G4": "NOT_RUN", "G5": "NOT_RUN", "G6": "NOT_RUN"},
+        phase_contracts={"offline": True},
+        candidate_contracts={"live_receipts_18": False},
+        sensitive_scan_status="PASS",
+    )
+
+    assert phase == "PASS"
+    assert candidate == "REJECT"
+
+
+def test_p3_phase_still_rejects_missing_postgres_or_snapshot():
+    phase, candidate = _evaluate_phase_and_candidate(
+        required_checks_pass=True,
+        synthetic_phase_gate="PASS",
+        g2="NOT_RUN",
+        g3="PASS",
+        candidate_gates={"G1": "PASS", "G4": "PASS", "G5": "PASS", "G6": "PASS"},
+        phase_contracts={"offline": True},
+        candidate_contracts={"live_receipts_18": True},
+        sensitive_scan_status="PASS",
+    )
+
+    assert phase == "REJECT"
+    assert candidate == "REJECT"
+
+
+def test_postgres_auto_mode_reuses_an_existing_service(monkeypatch):
+    monkeypatch.setattr(
+        "scripts.run_trip_check_p3_integrity_gate._postgres_preflight",
+        lambda: (True, "127.0.0.1:5432"),
+    )
+
+    result = _ensure_postgres("auto")
+
+    assert result == {
+        "status": "READY",
+        "mode": "auto",
+        "endpoint": "127.0.0.1:5432",
+        "started_by_gate": False,
+    }

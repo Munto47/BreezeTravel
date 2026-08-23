@@ -12,7 +12,7 @@ BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程�
 → 预览/采纳 → 新 Revision → 完整 postcheck
 ```
 
-拖拽式路线 Builder、旧 Planner、RAG、多 Agent、LoRA、Yjs 等仅是保留的技术资产，不是当前产品目标。除最低回归和 Roadmap 记录外，不得主动扩建。
+拖拽式路线 Builder、旧 Planner、RAG、运行时多 Agent、LoRA、Yjs 等仅是保留的技术资产，不是当前产品目标。除最低回归和 Roadmap 记录外，不得主动扩建。开发期为生成 synthetic/dev/regression 数据、独立复核和故障诊断而使用的 Codex 子代理不属于产品运行时能力，允许在固定 Goal 范围内使用。
 
 ## 工程使命与架构
 
@@ -59,7 +59,7 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 
 - 只支持北京、上海、杭州；只支持单城市、2～5 人、2～5 天。
 - 输入只包括粘贴文本、手工文字和截图；截图限 PNG/JPEG/WebP，最多 6 张，每张不超过 10MB。
-- 不扩城、不支持跨城，不新增 Agent、消息队列、Kubernetes、GraphRAG，不重新微调模型。
+- 不扩城、不支持跨城，不新增产品运行时 Agent、消息队列、Kubernetes、GraphRAG，不重新微调模型。
 - 不启动拖拽 Builder，不把历史 RAGAS、LoRA、Planner 或推荐指标作为「行程查」放行证据。
 - 不承诺实时客流、医疗安全、自动订票、最低价、全国覆盖或跨城规划。
 
@@ -76,23 +76,24 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 
 ## 单一 Goal 合同
 
-任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 或 `IN_PROGRESS` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片不等于获准进入下一阶段。
+任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 或 `IN_PROGRESS` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片只允许按已批准 `PROGRAM.md` 的固定顺序自动生成并激活 P1～P6 下一阶段，不代表获准进入 H1、公开、发布或任何未预定义阶段。
 
 `PROGRAM.md` 已预定义的下一 Goal 可以在当前 Goal 验收、对应 Gate、clean tree、远端 checkpoint 和 evidence readback 全部通过后自动生成；任何时刻仍只允许一个 Goal 为 `APPROVED/IN_PROGRESS`。自动推进不得扩大 Program 范围，不得自动合并 `main`。
 
 第一个实现阶段必须交付文本纵向闭环，不得先批量建设 OCR、基础设施或评测后台。18 条 pilot 从 P1 同步建设；每个被修复的真实故障必须追加到 regression。新组件固定执行“实验 → 比较 → 达到预设门槛 → 进入运行时”，不得以技术存在或关键词价值代替准入。
 
-连续两个切片无法改善同一门禁、需要扩大范围或新增基础设施、需要修改 blind/oracle、出现证据矛盾或成本超限时，立即停止并请求人工决策。
+开发测试默认无人值守：合成/dev/regression 数据与截图由开发子代理生成、独立复核后冻结；本地依赖服务由 Gate 在隔离范围内自动启停；可修复的环境、fixture、测试和实现故障由开发代理诊断并继续，不要求用户代为操作。连续两个切片无法改善同一门禁时先执行一次独立故障诊断；只有确认需要扩大范围或新增基础设施、修改 blind/oracle、出现无法消解的证据矛盾或成本超限，才停止并请求人工决策。
 
 ## 必须人工批准
 
-- 合并分支、进入下一阶段、改变产品目标或降低 Gate；
-- 修改公共 schema/API、添加或执行 migration；
+- 合并 `main`、进入 H1/真人/公网阶段、改变产品目标或降低 Gate；
+- 修改公共 schema/API、添加或执行未被 Program/Goal 预批准的 migration；
 - 新增生产依赖、使用真实付费 Provider 或扩大外部数据范围；
 - 修改 frozen blind/oracle、晋级证据等级；
 - 开始真人内测、公网部署、发布或对外能力声明。
 
 开发分支内的小切片实现、离线测试、明确暂存、commit 和 push 按全局 Git 规则执行，无需逐文件审批。
+已在 Program/Goal 固定且不产生增量费用的现有高德/和风开发矩阵可自动执行；新账号、绑卡、付费额度、扩大来源和生产调用仍须人工批准。合成图片的确定性渲染完整性 receipt 可作为开发阶段证据，但不得标记为人工视觉验收。
 
 ## 默认验证命令
 

@@ -70,10 +70,11 @@
 ## Pre-approved actions
 
 列出 Program 已明确批准、无需逐文件重复请求的 migration、依赖、Provider 模式和开发分支动作。
+同时列出无人值守开发动作：synthetic/dev/regression 数据与截图的子代理生成/独立复核、本地依赖服务自动启停、定向/完整 Gate、故障诊断和 checkpoint commit/push。
 
 ## HITL
 
-列出本切片中需要人工批准的 schema、migration、依赖、真实 Provider、Gate 或晋级动作。
+只列出受保护边界：新增或付费 Provider、新账号/绑卡、扩大外部数据范围、未预批准 schema/migration/依赖、修改 frozen blind/oracle、证据晋级、H1/真人/公网、合并 `main`、release/deploy。不要把普通开发测试或既有零增量费用 Provider 矩阵写成人工阻塞。
 
 ## Auto-advance
 
