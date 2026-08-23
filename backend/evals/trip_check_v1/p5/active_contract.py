@@ -9,7 +9,9 @@ from typing import Any
 
 P5_ROOT = Path(__file__).resolve().parent
 ACTIVE_CONTRACT_PATH = P5_ROOT / "active_contract.json"
+SOURCE_V2_CONTRACT_PATH = P5_ROOT / "source_active_contract_v2.json"
 V2_CONTRACT_ID = "trip-check-p5-v2"
+V3_CONTRACT_ID = "trip-check-p5-v3"
 V1_CONTRACT_ID = "trip-check-p5-v1"
 
 
@@ -26,11 +28,23 @@ def load_active_contract(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
 
 def require_v2_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
     payload = load_active_contract(path)
+    if payload.get("active_contract") == V3_CONTRACT_ID:
+        raise P5ContractNotReadyError("P5_V2_FORMAL_CONTRACT_SUPERSEDED")
     if (
         payload.get("active_contract") != V2_CONTRACT_ID
         or payload.get("formal_evidence_status") != "READY"
     ):
         raise P5ContractNotReadyError("P5_V2_FORMAL_CONTRACT_NOT_READY")
+    return payload
+
+
+def require_v3_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
+    payload = load_active_contract(path)
+    if (
+        payload.get("active_contract") != V3_CONTRACT_ID
+        or payload.get("formal_evidence_status") != "READY"
+    ):
+        raise P5ContractNotReadyError("P5_V3_FORMAL_CONTRACT_NOT_READY")
     return payload
 
 

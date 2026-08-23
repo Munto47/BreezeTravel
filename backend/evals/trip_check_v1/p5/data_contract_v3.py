@@ -66,6 +66,7 @@ BLIND_SEAL_PATH_V3 = P5_ROOT / "sealed" / "frozen_blind.v3.seal.json"
 RUN_SPEC_TEMPLATE_PATH_V3 = P5_ROOT / "run_spec_template_v3.json"
 CONTRACTS_PATH_V3 = P5_ROOT / "contracts_v3.py"
 ACTIVE_CONTRACT_PATH = P5_ROOT / "active_contract.json"
+SOURCE_ACTIVE_CONTRACT_V2_PATH = P5_ROOT / "source_active_contract_v2.json"
 
 _EXPECTED_V2_PATHS = {
     "nonblind_cases": NONBLIND_PATH_V2,
@@ -112,12 +113,17 @@ def _load_json(path: Path) -> dict[str, Any]:
 def validate_v2_source_anchor() -> dict[str, Any]:
     """Fail closed unless the checked-in v2 dataset, seal, and active contract agree."""
 
-    for path in (*_EXPECTED_V2_PATHS.values(), MANIFEST_PATH_V2, BLIND_SEAL_PATH_V2, ACTIVE_CONTRACT_PATH):
+    for path in (
+        *_EXPECTED_V2_PATHS.values(),
+        MANIFEST_PATH_V2,
+        BLIND_SEAL_PATH_V2,
+        SOURCE_ACTIVE_CONTRACT_V2_PATH,
+    ):
         if not path.is_file():
             raise ValueError(f"P5 v2 source artifact is missing: {path.name}")
     manifest = _load_json(MANIFEST_PATH_V2)
     seal = _load_json(BLIND_SEAL_PATH_V2)
-    active = _load_json(ACTIVE_CONTRACT_PATH)
+    active = _load_json(SOURCE_ACTIVE_CONTRACT_V2_PATH)
     if manifest.get("manifest_hash") != digest(
         {key: value for key, value in manifest.items() if key != "manifest_hash"}
     ):
@@ -167,7 +173,7 @@ def validate_v2_source_anchor() -> dict[str, Any]:
         "manifest_file_sha256": file_sha256(MANIFEST_PATH_V2),
         "blind_seal_file_sha256": file_sha256(BLIND_SEAL_PATH_V2),
         "active_contract_sha256": digest(active),
-        "active_contract_file_sha256": file_sha256(ACTIVE_CONTRACT_PATH),
+        "active_contract_file_sha256": file_sha256(SOURCE_ACTIVE_CONTRACT_V2_PATH),
         "candidate_freeze_commit": active["candidate_freeze_commit"],
     }
 

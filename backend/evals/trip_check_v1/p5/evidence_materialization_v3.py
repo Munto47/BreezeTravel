@@ -329,7 +329,7 @@ def _sealed_v2_materialization_index() -> dict[
 ]:
     manifest_path = P5_ROOT / "dataset_v2.manifest.json"
     seal_path = P5_ROOT / "sealed" / "frozen_blind.v2.seal.json"
-    active_contract_path = P5_ROOT / "active_contract.json"
+    active_contract_path = P5_ROOT / "source_active_contract_v2.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest_hash = manifest.get("manifest_hash")
     if (

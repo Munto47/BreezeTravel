@@ -294,13 +294,13 @@ def test_blind_inputs_are_label_free_and_lineage_disjoint() -> None:
 
 
 def test_formal_execution_is_ready_only_after_active_contract_and_seal() -> None:
-    active = require_v2_formal_ready(P5_ROOT / "active_contract.json")
+    active = require_v2_formal_ready(P5_ROOT / "source_active_contract_v2.json")
     assert active["formal_evidence_status"] == "READY"
     assert (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").is_file()
 
 
 def test_sealed_state_is_exact_and_hash_only() -> None:
-    active = load_json(P5_ROOT / "active_contract.json")
+    active = load_json(P5_ROOT / "source_active_contract_v2.json")
     manifest = load_json(DATASET_MANIFEST_PATH)
     seal_path = P5_ROOT / "sealed" / "frozen_blind.v2.seal.json"
     seal = load_json(seal_path)
@@ -372,7 +372,7 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
         (
             "scripts.export_trip_check_p5_v2_judge",
             ("--run-dir", "missing", "--output-dir", "missing"),
-            "BLIND_JUDGE_EXPORT_INSIDE_REPOSITORY",
+            "P5_V2_FORMAL_CONTRACT_SUPERSEDED",
         ),
         (
             "scripts.aggregate_trip_check_p5_v2_judges",
@@ -386,7 +386,7 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "--output",
                 "missing",
             ),
-            "BLIND_JUDGE_MAPPING_INSIDE_REPOSITORY",
+            "P5_V2_FORMAL_CONTRACT_SUPERSEDED",
         ),
         (
             "scripts.run_trip_check_p5_v2_gate",
@@ -406,7 +406,7 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "--output",
                 "../.local-artifacts/p5-v2-formal/test-invalid-gate.json",
             ),
-            "RUN_GROUP_MANIFEST_INVALID",
+            "P5_V2_FORMAL_CONTRACT_SUPERSEDED",
         ),
     ),
 )
