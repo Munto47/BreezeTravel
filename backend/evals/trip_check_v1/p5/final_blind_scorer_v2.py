@@ -19,6 +19,10 @@ from pydantic import ValidationError
 from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
 from evals.trip_check_v1.p5.contracts_v2 import P5OracleV2, VARIANT_IDS_V2
 from evals.trip_check_v1.p5.data_contract import canonical_bytes, digest
+from evals.trip_check_v1.p5.runner_v2 import (
+    FORMAL_COMMITMENT_FIELDS_V2,
+    build_formal_commitments_v2,
+)
 from evals.trip_check_v1.p5.scorer_v2 import (
     P5CaseScoreV2,
     aggregate_scores_v2,
@@ -233,6 +237,24 @@ def _repo_state(repo_root: Path) -> tuple[str, bool]:
     return head, dirty
 
 
+def _git_is_ancestor(repo_root: Path, candidate_commit: str, subject_commit: str) -> bool:
+    try:
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", candidate_commit, subject_commit],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        _fail_closed("BLIND_RUN_CANDIDATE_ANCESTRY_UNAVAILABLE", exc)
+    if completed.returncode not in (0, 1):
+        _fail_closed("BLIND_RUN_CANDIDATE_ANCESTRY_UNAVAILABLE")
+    return completed.returncode == 0
+
+
 def _validate_seal_and_artifacts(
     *,
     repo_root: Path,
@@ -385,13 +407,18 @@ def score_external_blind_run_group_v2(
     bundle_path: Path | None = None,
     bundle_bytes: bytes | None = None,
     require_current_subject: bool = True,
+    active_contract_path: Path | None = None,
 ) -> dict[str, Any]:
-    if require_current_subject:
-        try:
-            require_v2_formal_ready()
-        except RuntimeError as exc:
-            _fail_closed("P5_V2_FORMAL_CONTRACT_NOT_READY", exc)
     root = repo_root.resolve()
+    active_path = (
+        active_contract_path.resolve()
+        if active_contract_path is not None
+        else root / "backend" / "evals" / "trip_check_v1" / "p5" / "active_contract.json"
+    )
+    try:
+        active = require_v2_formal_ready(active_path)
+    except Exception as exc:
+        _fail_closed("P5_V2_FORMAL_CONTRACT_NOT_READY", exc)
     seal, raw_inputs, raw_materializations = _validate_seal_and_artifacts(
         repo_root=root,
         seal_path=seal_path,
@@ -415,10 +442,25 @@ def score_external_blind_run_group_v2(
     except Exception as exc:
         reason = getattr(exc, "reason_code", "BLIND_RUN_GROUP_INVALID")
         _fail_closed(str(reason), exc)
+    try:
+        current_commitments = build_formal_commitments_v2(
+            active=active,
+            active_contract_file_sha256=_sha256_file(active_path, "P5_V2_ACTIVE_CONTRACT_UNREADABLE"),
+            seal=seal,
+            blind_seal_sha256=_sha256_file(seal_path, "BLIND_SEAL_UNREADABLE"),
+            dataset_manifest_hash=str(manifest["dataset_manifest_hash"]),
+        )
+    except ValueError as exc:
+        _fail_closed("P5_V2_ACTIVE_CONTRACT_BINDING_MISMATCH", exc)
+    run_commitments = {field: manifest.get(field) for field in FORMAL_COMMITMENT_FIELDS_V2}
+    if run_commitments != current_commitments:
+        _fail_closed("BLIND_RUN_COMMITMENT_MISMATCH")
     if require_current_subject:
         head, dirty = _repo_state(root)
         if dirty or head != manifest["subject_commit"]:
             _fail_closed("BLIND_RUN_SUBJECT_STATE_MISMATCH")
+        if not _git_is_ancestor(root, str(active["candidate_freeze_commit"]), head):
+            _fail_closed("BLIND_RUN_CANDIDATE_ANCESTRY_MISMATCH")
     bundle = _read_external_bundle(
         repo_root=root,
         bundle_path=bundle_path,
@@ -480,8 +522,7 @@ def score_external_blind_run_group_v2(
             "dataset_manifest_hash": manifest["dataset_manifest_hash"],
             "run_group_manifest_hash": manifest["manifest_hash"],
             "terminal_outputs_file_sha256": manifest["terminal_outputs_file_sha256"],
-            "external_bundle_sha256": expected_hash,
-            "labels_canonical_sha256": seal["labels_canonical_sha256"],
+            **run_commitments,
             "case_ids_sha256": seal["case_ids_sha256"],
             "materializations_content_sha256": seal["materializations_content_sha256"],
             "schema_contract_sha256": seal["schema_contract_sha256"],

@@ -23,6 +23,7 @@ from evals.trip_check_v1.p5.contracts_v2 import (
     VARIANT_IDS_V2,
 )
 from evals.trip_check_v1.p5.data_contract import digest
+from evals.trip_check_v1.p5.runner_v2 import FORMAL_COMMITMENT_FIELDS_V2
 
 
 RUN_GROUP_FIELDS_V2 = frozenset(
@@ -55,6 +56,7 @@ RUN_GROUP_FIELDS_V2 = frozenset(
         "blind_labels_read",
         "external_api_calls",
         "human_evidence",
+        *FORMAL_COMMITMENT_FIELDS_V2,
         "manifest_hash",
     }
 )

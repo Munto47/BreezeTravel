@@ -878,6 +878,7 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
     rubric_path = tmp_path / "rubric.json"
     dataset_path = tmp_path / "dataset.json"
     active_path = tmp_path / "active.json"
+    seal_path = tmp_path / "seal.json"
     cases_path.write_text(case.model_dump_json() + "\n", encoding="utf-8")
     materials_path.write_text(json.dumps(materialization, ensure_ascii=False) + "\n", encoding="utf-8")
     template = {
@@ -934,12 +935,44 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
     }
     dataset["manifest_hash"] = digest(dataset)
     dataset_path.write_text(json.dumps(dataset), encoding="utf-8")
+    seal = {
+        "schema_version": "trip-check-p5-blind-seal-v2",
+        "split": "frozen_blind",
+        "case_count": 90,
+        "case_ids_sha256": "1" * 64,
+        "inputs_file_sha256": "2" * 64,
+        "inputs_content_sha256": "3" * 64,
+        "materializations_file_sha256": "4" * 64,
+        "materializations_content_sha256": "5" * 64,
+        "schema_contract_sha256": "6" * 64,
+        "external_bundle_sha256": "b" * 64,
+        "labels_canonical_sha256": "c" * 64,
+        "rubric_sha256": "7" * 64,
+        "run_spec_template_sha256": "8" * 64,
+        "variant_ids_sha256": "a" * 64,
+        "review_receipt_sha256": "d" * 64,
+        "label_storage": "external_bundle_only",
+        "label_access": "isolated_scorer_only",
+        "scoring_payload_present": False,
+        "human_evidence": False,
+    }
+    seal_path.write_text(json.dumps(seal), encoding="utf-8")
     active_path.write_text(
         json.dumps(
             {
                 "schema_version": "trip-check-p5-active-contract-v1",
                 "active_contract": "trip-check-p5-v2",
                 "formal_evidence_status": "READY",
+                "candidate_freeze_commit": "9" * 40,
+                "blind_seal_v2_sha256": hashlib.sha256(seal_path.read_bytes()).hexdigest(),
+                "dataset_manifest_hash": dataset["manifest_hash"],
+                "deprecated_contracts": [
+                    {
+                        "contract_id": "trip-check-p5-v1",
+                        "formal_evidence_eligible": False,
+                        "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
+                    }
+                ],
             }
         ),
         encoding="utf-8",
@@ -950,6 +983,7 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
         "_git",
         lambda *args: "a" * 40 if args == ("rev-parse", "HEAD") else "",
     )
+    monkeypatch.setattr(run_script_v2, "_git_is_ancestor", lambda candidate, subject: True)
     args = SimpleNamespace(
         lane="nonblind",
         cases_file=str(cases_path),
@@ -958,7 +992,7 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
         run_spec_template=str(template_path),
         rubric=str(rubric_path),
         active_contract=str(active_path),
-        blind_seal=None,
+        blind_seal=str(seal_path),
         case_id=None,
         limit=None,
         variants="legacy,core,solver",
@@ -977,6 +1011,9 @@ async def test_formal_group_seals_stable_error_rows_but_rejects_replay_mismatch(
     assert stable["status"] == "PASS"
     assert stable["formal_evidence"] is True
     assert stable["replay_match_count"] == 3
+    assert stable["blind_seal_sha256"] == hashlib.sha256(seal_path.read_bytes()).hexdigest()
+    assert stable["external_bundle_sha256"] == "b" * 64
+    assert "formal_subject_commit" not in stable
 
     original_execute = run_script_v2.execute_terminal_v2
     call_count = 0
