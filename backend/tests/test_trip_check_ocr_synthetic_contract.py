@@ -1,29 +1,31 @@
-import json
 import re
 from collections import Counter
 from pathlib import Path
+
+from evals.trip_check_v1.synthetic_ocr_runner import _load_spec
 
 
 FIXTURE = (
     Path(__file__).parents[1]
     / "evals"
     / "fixtures"
-    / "trip_check_ocr_synthetic_v1.json"
+    / "trip_check_ocr_synthetic_v2.json"
 )
 
 
 def _load_fixture() -> dict:
-    return json.loads(FIXTURE.read_text(encoding="utf-8"))
+    return _load_spec(FIXTURE)[0]
 
 
 def test_synthetic_ocr_fixture_has_frozen_provenance_and_privacy_contract():
     payload = _load_fixture()
 
-    assert payload["schema_version"] == "trip-check-ocr-synthetic-v1"
+    assert payload["schema_version"] == "trip-check-ocr-synthetic-v2"
     assert payload["provenance"] == "high_fidelity_synthetic"
     assert payload["evidence_class"] == "synthetic_stress"
-    assert payload["generator_model"] == "gpt-5.6-sol"
-    assert payload["freeze_policy"]["status"] == "FROZEN_BEFORE_FIRST_OCR"
+    assert payload["generator"]["type"] == "automated_agent"
+    assert payload["independent_review"]["type"] == "automated_agent"
+    assert payload["freeze_policy"]["status"] == "FROZEN_BEFORE_FIRST_V2_OCR"
     assert payload["freeze_policy"]["post_hoc_label_changes_forbidden"] is True
     assert payload["privacy_contract"]["contains_real_personal_information"] is False
     assert payload["privacy_contract"]["contains_human_labels"] is False
@@ -131,3 +133,23 @@ def test_synthetic_ocr_fixture_has_no_contact_or_network_identifiers():
     assert re.search(r"https?://|www\.", rendered_text, flags=re.IGNORECASE) is None
     assert re.search(r"(?<!\d)1[3-9]\d{9}(?!\d)", rendered_text) is None
     assert re.search(r"(?:账号|账户|邮箱|微信号|身份证)", rendered_text) is None
+
+
+def test_v2_repairs_known_v1_semantic_oracle_conflicts_without_mutating_v1():
+    payload = _load_fixture()
+    cases = {case["case_id"]: case for case in payload["cases"]}
+    bj03_fields = {
+        field["field_id"]: field
+        for field in cases["TC-P3-OCR-BJ-03"]["oracle"]["key_fields"]
+    }
+    sh02_fields = {
+        field["field_id"]: field
+        for field in cases["TC-P3-OCR-SH-02"]["oracle"]["key_fields"]
+    }
+
+    assert bj03_fields["bj03.preference"]["value"] == "现代艺术"
+    assert "喜欢现代艺术" in "".join(
+        block["text"] for block in cases["TC-P3-OCR-BJ-03"]["text_blocks"]
+    )
+    assert cases["TC-P3-OCR-SH-02"]["day_count"] == 2
+    assert sh02_fields["sh02.departure"]["value"] == "2027-04-11 19:10 上海站"

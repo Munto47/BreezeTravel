@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import hashlib
 import json
 import os
@@ -23,10 +24,11 @@ from app.importing.screenshots import OcrTextLine, PaddleOcrEngine
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
-DEFAULT_SPEC = BACKEND_ROOT / "evals" / "fixtures" / "trip_check_ocr_synthetic_v1.json"
+DEFAULT_SPEC = BACKEND_ROOT / "evals" / "fixtures" / "trip_check_ocr_synthetic_v2.json"
 DEFAULT_OUTPUT = BACKEND_ROOT / "evidence" / "trip_check_v1" / "p3" / "synthetic_ocr_manifest.json"
 DEFAULT_WORK_ROOT = REPO_ROOT / ".local-artifacts" / "p3-synthetic-ocr"
 RENDERER_VERSION = "pillow-trip-check-ui-v1"
+RENDER_VALIDATOR_VERSION = "deterministic-render-integrity-v1"
 CONFIDENCE_THRESHOLD = 0.85
 
 
@@ -78,6 +80,59 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
+def _load_spec(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "trip-check-ocr-synthetic-v2-overlay":
+        return payload, {
+            "source_schema": payload.get("schema_version"),
+            "overlay_sha256": _sha256(path),
+            "resolved_spec_sha256": hashlib.sha256(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
+        }
+    base_path = (path.parent / payload["base_spec"]).resolve()
+    if _sha256(base_path) != payload["base_spec_sha256"]:
+        raise ValueError("synthetic OCR v2 base spec hash mismatch")
+    resolved = copy.deepcopy(json.loads(base_path.read_text(encoding="utf-8")))
+    cases = {case["case_id"]: case for case in resolved["cases"]}
+    for patch in payload["case_patches"]:
+        case = cases.get(patch["case_id"])
+        if case is None:
+            raise ValueError(f"unknown synthetic OCR case patch: {patch['case_id']}")
+        blocks = {block["block_id"]: block for block in case["text_blocks"]}
+        for block_id, text in patch.get("text_blocks", {}).items():
+            if block_id not in blocks:
+                raise ValueError(f"unknown synthetic OCR block patch: {patch['case_id']}/{block_id}")
+            blocks[block_id]["text"] = text
+        fields = {field["field_id"]: field for field in case["oracle"]["key_fields"]}
+        for field_id, changes in patch.get("fields", {}).items():
+            if field_id not in fields:
+                raise ValueError(f"unknown synthetic OCR field patch: {patch['case_id']}/{field_id}")
+            fields[field_id].update(changes)
+    resolved.update(
+        {
+            "schema_version": "trip-check-ocr-synthetic-v2",
+            "dataset_id": payload["dataset_id"],
+            "generated_at": payload["generated_at"],
+            "generator": payload["generator"],
+            "independent_review": payload["independent_review"],
+            "freeze_policy": payload["freeze_policy"],
+        }
+    )
+    resolved_bytes = json.dumps(
+        resolved,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return resolved, {
+        "source_schema": payload["schema_version"],
+        "overlay_sha256": _sha256(path),
+        "base_spec_sha256": payload["base_spec_sha256"],
+        "resolved_spec_sha256": hashlib.sha256(resolved_bytes).hexdigest(),
+    }
+
+
 def _wrap(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.FreeTypeFont, width: int) -> list[str]:
     lines: list[str] = []
     current = ""
@@ -126,6 +181,7 @@ def render_case(case: dict[str, Any], output: Path, *, font_path: Path) -> dict[
     title = ImageFont.truetype(str(font_path), max(40, width // 21))
     margin = max(42, width // 18)
     y = margin
+    block_boxes: list[dict[str, Any]] = []
 
     draw.rounded_rectangle(
         (margin, y, width - margin, y + title.size * 2),
@@ -182,6 +238,15 @@ def render_case(case: dict[str, Any], output: Path, *, font_path: Path) -> dict[
             fill=fill,
             outline=palette["line"],
             width=2,
+        )
+        block_boxes.append(
+            {
+                "block_id": block["block_id"],
+                "x_min": x,
+                "y_min": y,
+                "x_max": x + bubble_width,
+                "y_max": y + bubble_height,
+            }
         )
         draw.text((x + inner, y + inner // 2), role_label, font=small, fill=palette["accent"])
         text_y = y + small.size * 1.7
@@ -241,6 +306,35 @@ def render_case(case: dict[str, Any], output: Path, *, font_path: Path) -> dict[
         "width": width,
         "height": height,
         "format": image_format,
+        "block_boxes": block_boxes,
+    }
+
+
+def _validate_render(
+    case: dict[str, Any],
+    image_path: Path,
+    *,
+    font_path: Path,
+    validation_dir: Path,
+) -> dict[str, Any]:
+    with Image.open(image_path) as decoded:
+        decoded.load()
+        expected_format = {"PNG": "PNG", "JPEG": "JPEG", "WebP": "WEBP"}[case["image"]["format"]]
+        decoded_ok = decoded.format == expected_format
+        dimensions_ok = decoded.size == (int(case["image"]["width"]), int(case["image"]["height"]))
+        extrema = decoded.convert("RGB").getextrema()
+        non_empty = any(low != high for low, high in extrema)
+    extension = image_path.suffix
+    replay_path = validation_dir / f"{case['case_id']}{extension}"
+    replay = render_case(case, replay_path, font_path=font_path)
+    reproducible = replay["image_sha256"] == _sha256(image_path)
+    replay_path.unlink(missing_ok=True)
+    return {
+        "status": "PASS" if decoded_ok and dimensions_ok and non_empty and reproducible else "FAIL",
+        "decoded": decoded_ok,
+        "dimensions_match": dimensions_ok,
+        "non_empty": non_empty,
+        "reproducible": reproducible,
     }
 
 
@@ -330,13 +424,73 @@ def _field_matches(field: dict[str, Any], ocr_text: str) -> bool:
     return all(re.search(fragment, normalized) is not None for fragment in fragments)
 
 
-def _field_confirmation_required(field: dict[str, Any], lines: list[OcrTextLine]) -> bool:
+def _field_confirmation_required(
+    field: dict[str, Any],
+    lines: list[OcrTextLine],
+    *,
+    source_blocks: list[dict[str, Any]] | None = None,
+    rendered_block_boxes: list[dict[str, Any]] | None = None,
+) -> bool:
+    values = field["value"] if isinstance(field["value"], list) else [field["value"]]
+    value_tokens = [_normalized(str(value)) for value in values]
+    fragments, _ = _field_fragments(field)
+    relevant_indexes = {
+        index
+        for index, line in enumerate(lines)
+        if any(re.search(fragment, _normalized(line.text)) is not None for fragment in fragments)
+    }
+    expanded_indexes = set(relevant_indexes)
+    if source_blocks is not None and rendered_block_boxes is not None:
+        source_block_ids = {
+            block["block_id"]
+            for block in source_blocks
+            if any(re.search(fragment, _normalized(block["text"])) is not None for fragment in fragments)
+        }
+        source_boxes = [box for box in rendered_block_boxes if box["block_id"] in source_block_ids]
+        for index, line in enumerate(lines):
+            center_x = (line.box.x_min + line.box.x_max) / 2
+            center_y = (line.box.y_min + line.box.y_max) / 2
+            if any(
+                box["x_min"] <= center_x <= box["x_max"]
+                and box["y_min"] <= center_y <= box["y_max"]
+                for box in source_boxes
+            ):
+                expanded_indexes.add(index)
+    for index in relevant_indexes:
+        anchor = lines[index].box
+        anchor_height = max(1, anchor.y_max - anchor.y_min)
+        for neighbor_index, neighbor_line in enumerate(lines):
+            neighbor = neighbor_line.box
+            neighbor_height = max(1, neighbor.y_max - neighbor.y_min)
+            vertical_gap = max(0, neighbor.y_min - anchor.y_max, anchor.y_min - neighbor.y_max)
+            horizontal_overlap = min(anchor.x_max, neighbor.x_max) - max(anchor.x_min, neighbor.x_min)
+            if vertical_gap <= 1.5 * max(anchor_height, neighbor_height) and horizontal_overlap > 0:
+                expanded_indexes.add(neighbor_index)
+    relevant_lines = [line for index, line in enumerate(lines) if index in expanded_indexes]
+    if not relevant_lines:
+        return False
+    if any(line.requires_confirmation for line in relevant_lines):
+        return True
+    relevant_text = "\n".join(line.text for line in relevant_lines)
+    ambiguity = bool(
+        re.search(
+            r"待确认|未确认|未定|没定|冲突|两版|备选|左右|早班|究竟|还是|"
+            r"具体.{0,6}(?:待|没|尚未)|早上|中午|下午|傍晚|晚上",
+            relevant_text,
+        )
+    )
     if isinstance(field["value"], list):
-        return True
-    if any(line.requires_confirmation for line in lines):
-        return True
-    text = "\n".join(line.text for line in lines)
-    return bool(re.search(r"待确认|未确认|未定|冲突|两版|备选|左右|早班|具体.{0,6}(?:待|没)", text))
+        alternatives_present = sum(token in _normalized(relevant_text) for token in value_tokens) >= 2
+        return alternatives_present and ambiguity
+    return ambiguity
+
+
+def _expected_visible_text(case: dict[str, Any]) -> str:
+    values = ["行程记录", case["case_id"]]
+    values.extend(case["render_profile"].get("chat_noise") or [])
+    for block in case["text_blocks"]:
+        values.extend((str(block["role"]).upper(), block["text"]))
+    return "\n".join(values)
 
 
 def _safe_cleanup(run_dir: Path, work_root: Path) -> None:
@@ -388,13 +542,12 @@ async def run_synthetic_ocr(
     engine: OcrEngine | None = None,
     keep_artifacts: bool = False,
     render_only: bool = False,
-    visual_review_approved: bool = False,
 ) -> dict[str, Any]:
     spec_path = spec_path.resolve()
     output = output.resolve()
     work_root = work_root.resolve()
     subject = subject_commit or _git_head()
-    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec, spec_receipt = _load_spec(spec_path)
     run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{subject[:12]}"
     run_dir = work_root / run_id
     source_dir = run_dir / "source"
@@ -402,25 +555,48 @@ async def run_synthetic_ocr(
     selected_font = _font_path(font_path)
     image_paths: list[Path] = []
     render_receipts: dict[str, dict[str, Any]] = {}
+    render_validations: dict[str, dict[str, Any]] = {}
     extension_by_format = {"PNG": ".png", "JPEG": ".jpg", "WebP": ".webp"}
     for case in spec["cases"]:
         image_path = source_dir / f"{case['case_id']}{extension_by_format[case['image']['format']]}"
         render_receipts[case["case_id"]] = render_case(case, image_path, font_path=selected_font)
+        render_validations[case["case_id"]] = _validate_render(
+            case,
+            image_path,
+            font_path=selected_font,
+            validation_dir=run_dir / "render-validation",
+        )
         image_paths.append(image_path)
+    unique_render_count = len({receipt["image_sha256"] for receipt in render_receipts.values()})
+    render_integrity = {
+        "status": (
+            "PASS"
+            if all(item["status"] == "PASS" for item in render_validations.values())
+            and unique_render_count == len(spec["cases"])
+            else "FAIL"
+        ),
+        "validator_version": RENDER_VALIDATOR_VERSION,
+        "review_type": "deterministic_automated",
+        "case_count": len(spec["cases"]),
+        "unique_render_count": unique_render_count,
+        "font_sha256": _sha256(selected_font),
+        "cases": render_validations,
+    }
     contact_sheet = run_dir / "contact-sheet.png"
     build_contact_sheet(image_paths, contact_sheet)
 
     if render_only:
         if not keep_artifacts:
             _safe_cleanup(run_dir, work_root)
-            raise ValueError("--render-only requires --keep-artifacts for visual review")
+            raise ValueError("--render-only requires --keep-artifacts for automated inspection")
         manifest = {
-            "schema_version": "trip-check-p3-synthetic-ocr-manifest-v1",
+            "schema_version": "trip-check-p3-synthetic-ocr-render-manifest-v2",
             "subject_commit": subject,
             "status": "RENDERED_NOT_SCORED",
             "evidence_class": "synthetic_stress",
             "provenance": "high_fidelity_synthetic",
-            "spec_sha256": _sha256(spec_path),
+            "spec_sha256": spec_receipt["overlay_sha256"],
+            "spec_receipt": spec_receipt,
             "renderer_version": RENDERER_VERSION,
             "font_sha256": _sha256(selected_font),
             "case_count": len(spec["cases"]),
@@ -432,8 +608,11 @@ async def run_synthetic_ocr(
 
     current_engine = engine or PaddleOcrEngine(confirmation_threshold=CONFIDENCE_THRESHOLD)
     case_results: list[dict[str, Any]] = []
-    true_positive = 0
-    false_negative = 0
+    text_true_positive = 0
+    text_false_positive = 0
+    text_false_negative = 0
+    field_matched = 0
+    field_expected = 0
     confirm_required = 0
     confirm_caught = 0
     image_hashes = {receipt["image_sha256"] for receipt in render_receipts.values()}
@@ -461,13 +640,24 @@ async def run_synthetic_ocr(
             finally:
                 staged.unlink(missing_ok=True)
             raw_text = "\n".join(line.text for line in lines)
+            expected_text = _expected_visible_text(case)
+            expected_counts = Counter(_normalized(expected_text))
+            actual_counts = Counter(_normalized(raw_text))
+            text_true_positive += sum((expected_counts & actual_counts).values())
+            text_false_positive += sum((actual_counts - expected_counts).values())
+            text_false_negative += sum((expected_counts - actual_counts).values())
             parsed = ItineraryTextParser().parse(raw_text, import_id=f"synthetic-{case['case_id']}")
             field_results: list[dict[str, Any]] = []
             for field in case["oracle"]["key_fields"]:
                 matched = _field_matches(field, raw_text)
-                true_positive += int(matched)
-                false_negative += int(not matched)
-                confirmation = _field_confirmation_required(field, lines)
+                field_matched += int(matched)
+                field_expected += 1
+                confirmation = _field_confirmation_required(
+                    field,
+                    lines,
+                    source_blocks=case["text_blocks"],
+                    rendered_block_boxes=render_receipts[case["case_id"]]["block_boxes"],
+                )
                 if field["must_confirm"]:
                     confirm_required += 1
                     confirm_caught += int(confirmation)
@@ -525,26 +715,35 @@ async def run_synthetic_ocr(
             work_root=work_root,
             output=output,
         )
-        precision = true_positive / (true_positive + false_negative) if true_positive + false_negative else 0.0
-        recall = precision
-        key_field_f1 = precision
+        precision = (
+            text_true_positive / (text_true_positive + text_false_positive)
+            if text_true_positive + text_false_positive
+            else 0.0
+        )
+        recall = (
+            text_true_positive / (text_true_positive + text_false_negative)
+            if text_true_positive + text_false_negative
+            else 0.0
+        )
+        key_field_f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
         confirmation_recall = confirm_caught / confirm_required if confirm_required else 0.0
         metrics = {
             "case_count": len(case_results),
-            "key_field_precision": round(precision, 6),
-            "key_field_recall": round(recall, 6),
+            "ocr_text_micro_precision": round(precision, 6),
+            "ocr_text_micro_recall": round(recall, 6),
+            "ocr_text_micro_f1": round(key_field_f1, 6),
             "key_field_f1": round(key_field_f1, 6),
+            "key_field_exact_recall": round(field_matched / field_expected, 6) if field_expected else 0.0,
             "low_confidence_confirmation_recall": round(confirmation_recall, 6),
             "must_confirm_field_count": confirm_required,
             "original_image_leak_hits": len(leak_paths),
-            "visual_review_approved": visual_review_approved,
         }
         passed = (
             metrics["case_count"] == 12
             and metrics["key_field_f1"] >= 0.95
             and metrics["low_confidence_confirmation_recall"] == 1.0
             and metrics["original_image_leak_hits"] == 0
-            and visual_review_approved
+            and render_integrity["status"] == "PASS"
             and cleanup_receipt["status"] == "DELETED"
         )
         privacy_blocked = cleanup_receipt["status"] != "DELETED"
@@ -560,9 +759,11 @@ async def run_synthetic_ocr(
                 "A PASS only satisfies the approved P3 synthetic OCR phase exception.",
             ],
             "spec_path": spec_path.relative_to(REPO_ROOT).as_posix(),
-            "spec_sha256": _sha256(spec_path),
+            "spec_sha256": spec_receipt["overlay_sha256"],
+            "spec_receipt": spec_receipt,
             "renderer_version": RENDERER_VERSION,
             "render_set_sha256": render_set_sha256,
+            "render_integrity": render_integrity,
             "font_sha256": _sha256(selected_font),
             "ocr_engine": {"name": current_engine.name, "version": current_engine.version},
             "metrics": metrics,

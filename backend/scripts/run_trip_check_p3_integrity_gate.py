@@ -288,6 +288,8 @@ def _synthetic_ocr_evidence(path: Path, *, subject: str) -> dict[str, Any]:
     payload = json.loads(path.read_text(encoding="utf-8"))
     metrics = payload.get("metrics", {})
     cleanup = payload.get("cleanup_receipt", {})
+    render_integrity = payload.get("render_integrity", {})
+    spec_receipt = payload.get("spec_receipt", {})
     accepted = (
         payload.get("schema_version") == "trip-check-p3-synthetic-ocr-manifest-v2"
         and payload.get("evidence_class") == "synthetic_stress"
@@ -299,6 +301,12 @@ def _synthetic_ocr_evidence(path: Path, *, subject: str) -> dict[str, Any]:
         and metrics.get("original_image_leak_hits") == 0
         and cleanup.get("status") == "DELETED"
         and cleanup.get("run_dir_removed") is True
+        and render_integrity.get("status") == "PASS"
+        and render_integrity.get("review_type") == "deterministic_automated"
+        and render_integrity.get("case_count") == 12
+        and render_integrity.get("unique_render_count") == 12
+        and spec_receipt.get("source_schema") == "trip-check-ocr-synthetic-v2-overlay"
+        and re.fullmatch(r"[0-9a-f]{64}", str(spec_receipt.get("resolved_spec_sha256") or "")) is not None
         and re.fullmatch(r"[0-9a-f]{64}", str(payload.get("spec_sha256") or "")) is not None
         and re.fullmatch(r"[0-9a-f]{64}", str(payload.get("render_set_sha256") or "")) is not None
     )
@@ -313,6 +321,8 @@ def _synthetic_ocr_evidence(path: Path, *, subject: str) -> dict[str, Any]:
         "manifest_path": manifest_path,
         "metrics": metrics,
         "cleanup_receipt": cleanup,
+        "render_integrity": render_integrity,
+        "spec_receipt": spec_receipt,
         "spec_sha256": payload.get("spec_sha256"),
         "render_set_sha256": payload.get("render_set_sha256"),
     }
@@ -356,7 +366,6 @@ def main() -> int:
     parser.add_argument("--baseline-commit", default=DEFAULT_BASELINE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--ocr-python", type=Path, default=Path(sys.executable))
-    parser.add_argument("--synthetic-ocr-visual-review-approved", action="store_true")
     parser.add_argument("--postgres-mode", choices=("auto", "external", "skip"), default="auto")
     parser.add_argument("--allow-live-provider", action="store_true")
     parser.add_argument("--live-env-file", type=Path, default=None)
@@ -400,8 +409,6 @@ def main() -> int:
         "--output",
         str(synthetic_path),
     ]
-    if args.synthetic_ocr_visual_review_approved:
-        synthetic_command.append("--visual-review-approved")
 
     checks = [
         _run(

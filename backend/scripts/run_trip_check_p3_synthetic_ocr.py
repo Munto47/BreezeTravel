@@ -21,7 +21,6 @@ def main() -> int:
     parser.add_argument("--font", type=Path, default=None)
     parser.add_argument("--render-only", action="store_true")
     parser.add_argument("--keep-artifacts", action="store_true")
-    parser.add_argument("--visual-review-approved", action="store_true")
     args = parser.parse_args()
     manifest = run(
         spec_path=args.spec,
@@ -31,7 +30,6 @@ def main() -> int:
         font_path=args.font,
         render_only=args.render_only,
         keep_artifacts=args.keep_artifacts,
-        visual_review_approved=args.visual_review_approved,
     )
     print(json.dumps({"status": manifest["status"], "output": str(args.output)}, ensure_ascii=False))
     return 0 if manifest["status"] in {"PASS", "RENDERED_NOT_SCORED"} else 1

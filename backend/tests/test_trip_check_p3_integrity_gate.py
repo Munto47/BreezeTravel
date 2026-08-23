@@ -55,6 +55,16 @@ def test_synthetic_ocr_evidence_requires_v2_cleanup_and_subject_binding(tmp_path
             "subject_commit": "a" * 40,
             "spec_sha256": "b" * 64,
             "render_set_sha256": "c" * 64,
+            "render_integrity": {
+                "status": "PASS",
+                "review_type": "deterministic_automated",
+                "case_count": 12,
+                "unique_render_count": 12,
+            },
+            "spec_receipt": {
+                "source_schema": "trip-check-ocr-synthetic-v2-overlay",
+                "resolved_spec_sha256": "d" * 64,
+            },
             "cleanup_receipt": {"status": "DELETED", "run_dir_removed": True},
             "metrics": {
                 "case_count": 12,
