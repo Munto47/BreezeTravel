@@ -37,6 +37,7 @@ SUPPORTED_MEDIA_TYPES = {
 }
 _DECORATIVE_REFERENCE_LINE = re.compile(r"^#\d{1,12}$")
 _DECORATIVE_ITINERARY_TITLE = re.compile(r"^行程(?:备忘|群聊|说明)$")
+_DECORATIVE_SINGLE_ASCII_NOISE = re.compile(r"^[A-Za-z0-9]$")
 _DAY_OR_BULLET_LINE = re.compile(r"^(?:第\s*\d+\s*天|[•●▪-])")
 _TIME_LINE = re.compile(r"^\d{1,2}:\d{2}")
 
@@ -47,6 +48,7 @@ def _receipt_text_block(receipt: "ScreenshotOcrReceipt") -> str:
         for line in receipt.lines
         if not _DECORATIVE_REFERENCE_LINE.fullmatch(line.text.strip())
         and not _DECORATIVE_ITINERARY_TITLE.fullmatch(line.text.strip())
+        and not _DECORATIVE_SINGLE_ASCII_NOISE.fullmatch(line.text.strip())
     ]
     if not lines:
         return ""

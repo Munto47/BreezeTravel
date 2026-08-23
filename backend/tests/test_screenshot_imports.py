@@ -45,12 +45,14 @@ class FakeOcrEngine:
         decorative_footer: bool = False,
         decorative_header: bool = False,
         wrapped_place: bool = False,
+        single_ascii_noise: str | None = None,
     ):
         self.confidence = confidence
         self.fail = fail
         self.decorative_footer = decorative_footer
         self.decorative_header = decorative_header
         self.wrapped_place = wrapped_place
+        self.single_ascii_noise = single_ascii_noise
         self.calls = 0
 
     async def recognize(self, image_path: Path) -> list[OcrTextLine]:
@@ -91,6 +93,15 @@ class FakeOcrEngine:
                 )
             )
         if self.decorative_footer:
+            if self.single_ascii_noise is not None:
+                lines.append(
+                    OcrTextLine(
+                        text=self.single_ascii_noise,
+                        confidence=0.51,
+                        box=OcrBoundingBox(x_min=1, y_min=1000, x_max=30, y_max=1038),
+                        requires_confirmation=True,
+                    )
+                )
             lines.append(
                 OcrTextLine(
                     text="#1826",
@@ -208,6 +219,7 @@ def test_screenshot_import_retains_decorative_footer_receipt_but_does_not_parse_
         decorative_footer=True,
         decorative_header=True,
         wrapped_place=True,
+        single_ascii_noise="a",
     )
     client, _, _, _, _ = _client(monkeypatch, engine=engine)
 
@@ -223,6 +235,7 @@ def test_screenshot_import_retains_decorative_footer_receipt_but_does_not_parse_
         "行程备忘",
         "第1天：北京 2人 地铁 09:00-11:00 颐和",
         "园",
+        "a",
         "#1826",
     ]
     assert body["itinerary_import"]["raw_text"] == "第1天：北京 2人 地铁 09:00-11:00 颐和园"
