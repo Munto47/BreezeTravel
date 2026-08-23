@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from evals.trip_check_v1.p5.scorer import score_run_group
-from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
+from evals.trip_check_v1.p5.active_contract import reject_v1_formal
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -22,7 +22,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if not args.allow_partial_development_run:
-        require_v2_formal_ready()
+        reject_v1_formal()
     report = score_run_group(
         run_dir=args.run_dir.resolve(),
         cases_path=args.cases.resolve(),

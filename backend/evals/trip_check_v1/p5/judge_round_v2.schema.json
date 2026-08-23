@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-judge-round-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "round_index", "evaluator_id", "agent_task_id", "agent_id", "model_id", "started_at", "ended_at", "bundle_sha256", "rubric_sha256", "terminal_outputs_content_sha256", "api_usage_count", "tool_usage_count", "scores"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-judge-round-v2"},
+    "round_index": {"type": "integer", "minimum": 1, "maximum": 3},
+    "evaluator_id": {"type": "string", "minLength": 1},
+    "agent_task_id": {"type": "string", "minLength": 1},
+    "agent_id": {"type": "string", "minLength": 1},
+    "model_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "minLength": 1},
+    "ended_at": {"type": "string", "minLength": 1},
+    "bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rubric_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "terminal_outputs_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "api_usage_count": {"const": 0},
+    "tool_usage_count": {"const": 0},
+    "scores": {"type": "array", "minItems": 270, "maxItems": 270}
+  }
+}

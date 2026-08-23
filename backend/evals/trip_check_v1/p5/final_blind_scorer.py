@@ -20,7 +20,7 @@ from statistics import mean
 from typing import Any, Mapping, Sequence
 
 from evals.trip_check_v1.p5.contracts import P5TerminalOutput, VARIANT_IDS
-from evals.trip_check_v1.p5.active_contract import require_v2_formal_ready
+from evals.trip_check_v1.p5.active_contract import reject_v1_formal
 from evals.trip_check_v1.p5.data_contract import canonical_bytes, digest
 from evals.trip_check_v1.p5.scorer import P5CaseScore, score_case
 
@@ -33,9 +33,9 @@ class P5BlindScoringError(RuntimeError):
 
 def _require_active_contract() -> None:
     try:
-        require_v2_formal_ready()
+        reject_v1_formal()
     except RuntimeError as exc:
-        raise P5BlindScoringError("P5_V2_FORMAL_CONTRACT_NOT_READY") from exc
+        raise P5BlindScoringError(str(exc)) from exc
 
 
 def _sha256_bytes(payload: bytes) -> str:
