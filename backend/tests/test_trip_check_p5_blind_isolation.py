@@ -1,5 +1,6 @@
 import copy
 import json
+from pathlib import Path
 
 from evals.trip_check_v1.p5.data_contract import BLIND_INPUT_PATH, digest, load_jsonl
 from scripts.validate_trip_check_p5_dataset import _BLIND_FORBIDDEN_KEYS, _walk_keys
@@ -27,3 +28,15 @@ def test_blind_inputs_are_jsonl_objects_without_external_bundle_path():
 
     assert all(isinstance(row, dict) for row in rows)
     assert all("bundle_path" not in _walk_keys(row) for row in rows)
+
+
+def test_product_runner_source_cannot_import_isolated_blind_scorer():
+    backend_root = Path(__file__).resolve().parents[1]
+    product_runner_sources = (
+        backend_root / "evals" / "trip_check_v1" / "p5" / "adapters.py",
+        backend_root / "evals" / "trip_check_v1" / "p5" / "runner.py",
+        backend_root / "scripts" / "run_trip_check_p5_eval.py",
+    )
+
+    for path in product_runner_sources:
+        assert "final_blind_scorer" not in path.read_text(encoding="utf-8")
