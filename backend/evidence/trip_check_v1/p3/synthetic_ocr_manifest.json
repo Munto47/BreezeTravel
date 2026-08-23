@@ -1,0 +1,1193 @@
+{
+  "schema_version": "trip-check-p3-synthetic-ocr-manifest-v2",
+  "subject_commit": "8cb9417278004088e6c41a7b86c4b5f40813815c",
+  "generated_at": "2026-08-23T06:20:59.430281+00:00",
+  "status": "PASS",
+  "evidence_class": "synthetic_stress",
+  "provenance": "high_fidelity_synthetic",
+  "non_claims": [
+    "This dataset is not real OCR, public E2E, human, or release evidence.",
+    "A PASS only satisfies the approved P3 synthetic OCR phase exception."
+  ],
+  "spec_path": "backend/evals/fixtures/trip_check_ocr_synthetic_v1.json",
+  "spec_sha256": "6989231f72a147f00c0932b333742ee46b3ede69c05437e7d0b0fabb257b3236",
+  "renderer_version": "pillow-trip-check-ui-v1",
+  "render_set_sha256": "302e57752e732470c48fce52367129c2d3d8355ccc96d14301e10b8fc178e6df",
+  "font_sha256": "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f",
+  "ocr_engine": {
+    "name": "paddleocr",
+    "version": "3.7.0"
+  },
+  "metrics": {
+    "case_count": 12,
+    "key_field_precision": 1.0,
+    "key_field_recall": 1.0,
+    "key_field_f1": 1.0,
+    "low_confidence_confirmation_recall": 1.0,
+    "must_confirm_field_count": 14,
+    "original_image_leak_hits": 0,
+    "visual_review_approved": true
+  },
+  "distribution": {
+    "cities": {
+      "北京": 4,
+      "上海": 4,
+      "杭州": 4
+    },
+    "formats": {
+      "PNG": 4,
+      "JPEG": 4,
+      "WebP": 4
+    },
+    "layouts": {
+      "chat": 4,
+      "note": 4,
+      "guide_ai": 4
+    },
+    "difficulties": {
+      "clean": 4,
+      "medium": 4,
+      "hard": 4
+    },
+    "themes": {
+      "light": 6,
+      "dark": 6
+    }
+  },
+  "leak_paths": [],
+  "cleanup_receipt": {
+    "status": "DELETED",
+    "reason": "terminal_ocr_run",
+    "run_dir_removed": true
+  },
+  "cases": [
+    {
+      "case_id": "TC-P3-OCR-BJ-01",
+      "city": "北京",
+      "format": "PNG",
+      "layout": "chat",
+      "difficulty": "clean",
+      "theme": "light",
+      "image_sha256": "249a6954ea5e1b727be89e5fb2e0991b3266430e02ec4d98e0cf694792ece78e",
+      "ocr_line_count": 10,
+      "min_line_confidence": 0.9995080828666687,
+      "recognized_field_count": 12,
+      "expected_field_count": 12,
+      "parse_stop_count": 10,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "bj01.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.arrival_date",
+          "type": "date",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.departure_date",
+          "type": "date",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.time1",
+          "type": "time",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.walking",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj01.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-02",
+      "city": "北京",
+      "format": "JPEG",
+      "layout": "note",
+      "difficulty": "medium",
+      "theme": "dark",
+      "image_sha256": "986ea27ad09d1ea84bd7b7789405e38c5839c2536e82e44136777ff373dd58ba",
+      "ocr_line_count": 14,
+      "min_line_confidence": 0.9893547296524048,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 17,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "bj02.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.bicycling",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj02.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-03",
+      "city": "北京",
+      "format": "WebP",
+      "layout": "guide_ai",
+      "difficulty": "hard",
+      "theme": "light",
+      "image_sha256": "4b3f1fbf8484cf9cc2fc4094027b30a40b639440dff2e70e34e8df605494a792",
+      "ocr_line_count": 16,
+      "min_line_confidence": 0.6856899857521057,
+      "recognized_field_count": 10,
+      "expected_field_count": 10,
+      "parse_stop_count": 20,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "bj03.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.departure_time",
+          "type": "time",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.hotel",
+          "type": "hotel",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.driving",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "bj03.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-04",
+      "city": "北京",
+      "format": "PNG",
+      "layout": "chat",
+      "difficulty": "clean",
+      "theme": "dark",
+      "image_sha256": "2956eedeed968167ef3879e4968138137feb41aa0a375c2bb723f028686ad629",
+      "ocr_line_count": 12,
+      "min_line_confidence": 0.999311625957489,
+      "recognized_field_count": 10,
+      "expected_field_count": 10,
+      "parse_stop_count": 17,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "bj04.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.walking",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "bj04.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-01",
+      "city": "上海",
+      "format": "JPEG",
+      "layout": "note",
+      "difficulty": "clean",
+      "theme": "light",
+      "image_sha256": "8172a4b24dc0e2b21d64d91e7e6ad370df1dd44ef4b55ffc017518739ffef1c2",
+      "ocr_line_count": 12,
+      "min_line_confidence": 0.9399071335792542,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 16,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "sh01.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.walking",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh01.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-02",
+      "city": "上海",
+      "format": "WebP",
+      "layout": "guide_ai",
+      "difficulty": "medium",
+      "theme": "dark",
+      "image_sha256": "3b893f51c0fcaf24cb6155cece5c492c9b82af00e018ad992b540d6a469e5bb8",
+      "ocr_line_count": 13,
+      "min_line_confidence": 0.9807901978492737,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 15,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "sh02.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.bicycling",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh02.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-03",
+      "city": "上海",
+      "format": "PNG",
+      "layout": "chat",
+      "difficulty": "hard",
+      "theme": "dark",
+      "image_sha256": "4fc435ab4e7a2a97b13b849cc18239a26abc576fbbea15f75ac6d486412fa423",
+      "ocr_line_count": 16,
+      "min_line_confidence": 0.9996352791786194,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 20,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "sh03.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.hotel",
+          "type": "hotel",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.meeting_time",
+          "type": "time",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.driving",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "sh03.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-04",
+      "city": "上海",
+      "format": "JPEG",
+      "layout": "note",
+      "difficulty": "clean",
+      "theme": "light",
+      "image_sha256": "c33f0a3e5df9dfc9a87362275ae393cf06f825d923a31adee5b7ff8afc686282",
+      "ocr_line_count": 13,
+      "min_line_confidence": 0.9782110452651978,
+      "recognized_field_count": 12,
+      "expected_field_count": 12,
+      "parse_stop_count": 17,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "sh04.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.driving",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.walking",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "sh04.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-01",
+      "city": "杭州",
+      "format": "WebP",
+      "layout": "guide_ai",
+      "difficulty": "medium",
+      "theme": "dark",
+      "image_sha256": "c2738987e6bf3751ad71d316ae7ae6f242709fa04cd6c1e8d2bdcca38dbf0139",
+      "ocr_line_count": 14,
+      "min_line_confidence": 0.9847479462623596,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 17,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "hz01.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.bicycling",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        },
+        {
+          "field_id": "hz01.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": false
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-02",
+      "city": "杭州",
+      "format": "PNG",
+      "layout": "chat",
+      "difficulty": "medium",
+      "theme": "light",
+      "image_sha256": "d8262592ca426442d2bf970658858eb12b7f845546d4a259d3c5de587d6d8496",
+      "ocr_line_count": 13,
+      "min_line_confidence": 0.7709671854972839,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 17,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "hz02.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.lodging",
+          "type": "lodging_area",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.bicycling",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz02.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-03",
+      "city": "杭州",
+      "format": "JPEG",
+      "layout": "note",
+      "difficulty": "hard",
+      "theme": "dark",
+      "image_sha256": "a238b698dd339b21ab6e31513e123ee0cd65682099fafcd4d7c016567e95a56b",
+      "ocr_line_count": 15,
+      "min_line_confidence": 0.9855670928955078,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 19,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "hz03.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.departure",
+          "type": "departure",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.hotel",
+          "type": "hotel",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.meeting_time",
+          "type": "time",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.walking",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.driving",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz03.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        }
+      ]
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-04",
+      "city": "杭州",
+      "format": "WebP",
+      "layout": "guide_ai",
+      "difficulty": "hard",
+      "theme": "light",
+      "image_sha256": "f165f48551edab221daf5248a5fc09ca7f1d8400c749c9c753648ffcae246cec",
+      "ocr_line_count": 16,
+      "min_line_confidence": 0.9668722748756409,
+      "recognized_field_count": 11,
+      "expected_field_count": 11,
+      "parse_stop_count": 19,
+      "parse_errors": [],
+      "fields": [
+        {
+          "field_id": "hz04.city",
+          "type": "city",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.travelers",
+          "type": "traveler_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.days",
+          "type": "day_count",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.arrival",
+          "type": "arrival",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.departure_time",
+          "type": "time",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.hotel",
+          "type": "hotel",
+          "matched": true,
+          "must_confirm": true,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.poi1",
+          "type": "poi",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.transit",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.driving",
+          "type": "transport_mode",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.preference",
+          "type": "preference",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        },
+        {
+          "field_id": "hz04.constraint",
+          "type": "constraint",
+          "matched": true,
+          "must_confirm": false,
+          "confirmation_required": true
+        }
+      ]
+    }
+  ]
+}
