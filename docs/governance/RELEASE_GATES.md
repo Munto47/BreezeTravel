@@ -30,7 +30,7 @@
 
 ## 3. 功能质量硬门槛
 
-- OCR/解析关键字段 F1 ≥95%，低置信关键字段 100% 进入确认；
+- OCR/解析关键字段 F1 ≥95%，低置信关键字段 100% 进入确认；候选版 G1 必须由真实来源 OCR 数据集证明，synthetic stress 只能用于开发阶段回归；
 - 路线问题 precision 和 recall 均 ≥90%；
 - 备选地点与路线 receipt 绑定率 100%；
 - 非 PASS Finding 的行动建议覆盖率 100%；
@@ -85,6 +85,16 @@ G0～G6 必须在候选 commit 上重新运行。旧 manifest、历史报告或�
 | config 漂移 | `RUN_CONFIG_MISMATCH`，禁止拼接恢复 |
 
 Trace 必须包含 `bt.run_id`、revision、brief、evidence、config、rule、provider、execution mode 和失败类别，且敏感字段扫描为 0 命中。
+
+### P3 Synthetic OCR Phase Gate
+
+本条是经现场批准的 P3 开发阶段例外，不改变候选版 G1：
+
+- 冻结 12 例 `synthetic_stress`，北京、上海、杭州各 4 例；
+- PNG/JPEG/WebP、聊天/备忘录/攻略或 AI 回复、clean/medium/hard 各 4 例，明暗主题各 6 例；
+- spec、oracle、render 参数和 seed 必须在首次 OCR 前冻结，看到结果后不得修改标签或样本来消除失败；
+- 关键字段 micro-F1 ≥95%，预标记低置信关键字段确认召回率 100%，原图泄漏命中 0；
+- 阶段通过只能标记 `synthetic_ocr_stress=PASS`；`real_ocr_dataset` 与候选版 G1 继续为 `NOT_RUN`。
 
 ### Solver Admission Gate
 
