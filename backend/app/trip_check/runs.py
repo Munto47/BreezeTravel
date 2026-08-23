@@ -24,6 +24,7 @@ from app.trip_check.models import (
     TripCheckRun,
     TripCheckRunEvent,
     TripCheckRunStatus,
+    TripCheckStageAttemptRecord,
     TripCheckStage,
 )
 
@@ -90,6 +91,20 @@ def _receipt_from_row(row: Any) -> SideEffectReceipt:
     )
 
 
+def _attempt_from_row(row: Any) -> TripCheckStageAttemptRecord:
+    return TripCheckStageAttemptRecord(
+        run_id=row["run_id"],
+        stage=row["stage"],
+        attempt=row["attempt"],
+        state=row["state"],
+        stage_input_hash=row["stage_input_hash"].strip(),
+        stage_output_hash=row["stage_output_hash"].strip() if row["stage_output_hash"] else None,
+        failure_category=row["failure_category"],
+        started_at=row["started_at"],
+        finished_at=row["finished_at"],
+    )
+
+
 class TripCheckRunRepository(Protocol):
     async def create_run(
         self,
@@ -114,6 +129,10 @@ class TripCheckRunRepository(Protocol):
     ) -> tuple[TripCheckRun, bool]: ...
 
     async def list_events(self, run_id: str, *, after_event_id: int = 0) -> list[TripCheckRunEvent]: ...
+
+    async def list_stage_attempts(self, run_id: str) -> list[TripCheckStageAttemptRecord]: ...
+
+    async def list_receipts(self, run_id: str) -> list[SideEffectReceipt]: ...
 
     async def save_receipt(self, receipt: SideEffectReceipt) -> tuple[SideEffectReceipt, bool]: ...
 
@@ -373,6 +392,30 @@ class PostgresTripCheckRunRepository:
                 after_event_id,
             )
         return [_event_from_row(row) for row in rows]
+
+    async def list_stage_attempts(self, run_id: str) -> list[TripCheckStageAttemptRecord]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM trip_check_stage_attempts
+                WHERE run_id = $1 ORDER BY started_at, stage, attempt
+                """,
+                run_id,
+            )
+        return [_attempt_from_row(row) for row in rows]
+
+    async def list_receipts(self, run_id: str) -> list[SideEffectReceipt]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM trip_check_side_effect_receipts
+                WHERE run_id = $1 ORDER BY created_at, receipt_id
+                """,
+                run_id,
+            )
+        return [_receipt_from_row(row) for row in rows]
 
     async def save_receipt(self, receipt: SideEffectReceipt) -> tuple[SideEffectReceipt, bool]:
         pool = await self._get_pool()
@@ -915,6 +958,32 @@ class InMemoryTripCheckRunRepository:
 
     async def list_events(self, run_id: str, *, after_event_id: int = 0) -> list[TripCheckRunEvent]:
         return [item for item in self.events.get(run_id, []) if item.event_id > after_event_id]
+
+    async def list_stage_attempts(self, run_id: str) -> list[TripCheckStageAttemptRecord]:
+        records: list[TripCheckStageAttemptRecord] = []
+        for (attempt_run_id, stage, attempt), item in self.attempts.items():
+            if attempt_run_id != run_id:
+                continue
+            records.append(
+                TripCheckStageAttemptRecord(
+                    run_id=run_id,
+                    stage=stage,
+                    attempt=attempt,
+                    state=item["state"],
+                    stage_input_hash=item["stage_input_hash"],
+                    stage_output_hash=item.get("stage_output_hash"),
+                    failure_category=item.get("failure_category"),
+                    started_at=item["started_at"],
+                    finished_at=item.get("finished_at"),
+                )
+            )
+        return sorted(records, key=lambda item: (item.started_at, item.stage.value, item.attempt))
+
+    async def list_receipts(self, run_id: str) -> list[SideEffectReceipt]:
+        return sorted(
+            [item for (receipt_run_id, _), item in self.receipts.items() if receipt_run_id == run_id],
+            key=lambda item: (item.created_at, item.receipt_id),
+        )
 
     async def save_receipt(self, receipt: SideEffectReceipt) -> tuple[SideEffectReceipt, bool]:
         key = (receipt.run_id, receipt.side_effect_key)

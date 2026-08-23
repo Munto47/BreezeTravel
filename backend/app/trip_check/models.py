@@ -273,6 +273,20 @@ class TripCheckRunEvent(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class TripCheckStageAttemptRecord(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str = Field(min_length=1)
+    stage: TripCheckStage
+    attempt: int = Field(gt=0)
+    state: str = Field(pattern=r"^(STARTED|SUCCEEDED|FAILED_RETRYABLE|FAILED_FINAL)$")
+    stage_input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    stage_output_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    failure_category: str | None = None
+    started_at: datetime
+    finished_at: datetime | None = None
+
+
 class SideEffectReceipt(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -287,6 +301,36 @@ class SideEffectReceipt(BaseModel):
     status: str = Field(pattern=r"^(SUCCEEDED|PARTIAL|FAILED)$")
     receipt: dict[str, Any]
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class TripCheckDomainTraceRecord(BaseModel):
+    """Redacted, deterministic read model assembled from PostgreSQL authority."""
+
+    model_config = ConfigDict(frozen=True)
+
+    schema_version: str = "trip-check-domain-trace-v1"
+    sequence: int = Field(gt=0)
+    record_type: str = Field(pattern=r"^(RUN_EVENT|STAGE_ATTEMPT|SIDE_EFFECT_RECEIPT)$")
+    run_id: str = Field(min_length=1)
+    itinerary_revision: int = Field(gt=0)
+    brief_revision: int = Field(gt=0)
+    evidence_snapshot_id: str | None = None
+    config_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    rule_set_version: str = Field(min_length=1)
+    provider_version: str = Field(min_length=1)
+    execution_mode: str = Field(min_length=1)
+    stage: TripCheckStage
+    stage_attempt: int = Field(gt=0)
+    event_id: int | None = Field(default=None, gt=0)
+    event_type: str | None = None
+    run_version: int | None = Field(default=None, gt=0)
+    attempt_state: str | None = None
+    receipt_id: str | None = None
+    effect_type: str | None = None
+    receipt_status: str | None = None
+    failure_category: str | None = None
+    payload_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    occurred_at: datetime
 
 
 class AdviceAction(BaseModel):

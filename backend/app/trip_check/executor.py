@@ -31,6 +31,7 @@ from app.trip_check.models import (
     TripCheckStage,
 )
 from app.trip_check.runs import TripCheckRunRepository
+from app.trip_check.trace import TripCheckTelemetry
 
 
 class TripCheckExecutionState(TypedDict):
@@ -189,6 +190,7 @@ class TripCheckExecutor:
         brief_repository: TripBriefRepository,
         repair_search: BoundedRepairSearch,
         command_repository: CreationCommandRepository,
+        telemetry: TripCheckTelemetry | None = None,
     ):
         self.run_repository = run_repository
         self.itinerary_repository = itinerary_repository
@@ -197,6 +199,7 @@ class TripCheckExecutor:
         self.brief_repository = brief_repository
         self.repair_search = repair_search
         self.command_repository = command_repository
+        self.telemetry = telemetry or TripCheckTelemetry()
         self.audit_service = AuditApplicationService(
             itinerary_repository=itinerary_repository,
             audit_repository=audit_repository,
@@ -205,9 +208,9 @@ class TripCheckExecutor:
 
     def _build_graph(self):
         graph = StateGraph(TripCheckExecutionState)
-        graph.add_node("collect_evidence", self._collect_evidence)
-        graph.add_node("audit", self._audit)
-        graph.add_node("build_advice", self._build_advice)
+        graph.add_node("collect_evidence", self._collect_evidence_traced)
+        graph.add_node("audit", self._audit_traced)
+        graph.add_node("build_advice", self._build_advice_traced)
         destinations = {
             TripCheckStage.COLLECT_EVIDENCE.value: "collect_evidence",
             TripCheckStage.AUDIT.value: "audit",
@@ -242,27 +245,49 @@ class TripCheckExecutor:
             from app.trip_check.errors import TripCheckRunConflictError
 
             raise TripCheckRunConflictError("trip check executor does not own the active lease")
-        try:
-            await self.graph.ainvoke(
-                TripCheckExecutionState(
-                    run_id=run_id,
-                    lease_owner=lease_owner,
-                    stage=run.stage.value,
-                    terminated_after_evidence=False,
+        with self.telemetry.run_span(run) as span:
+            try:
+                await self.graph.ainvoke(
+                    TripCheckExecutionState(
+                        run_id=run_id,
+                        lease_owner=lease_owner,
+                        stage=run.stage.value,
+                        terminated_after_evidence=False,
+                    )
                 )
-            )
-        except Exception as exc:
-            await self.run_repository.fail_stage(
-                run_id,
-                lease_owner=lease_owner,
-                category=type(exc).__name__,
-                now=datetime.now(timezone.utc),
-            )
-            raise
+            except Exception as exc:
+                self.telemetry.mark_failure(span, type(exc).__name__)
+                await self.run_repository.fail_stage(
+                    run_id,
+                    lease_owner=lease_owner,
+                    category=type(exc).__name__,
+                    now=datetime.now(timezone.utc),
+                )
+                raise
         final = await self.run_repository.get_run(run_id)
         if final is None:
             raise RuntimeError("trip check run disappeared after execution")
         return final
+
+    async def _trace_stage(self, state: TripCheckExecutionState, handler) -> TripCheckExecutionState:
+        run = await self.run_repository.get_run(state["run_id"])
+        if run is None:
+            raise RuntimeError("trip check run disappeared before tracing stage")
+        with self.telemetry.stage_span(run) as span:
+            try:
+                return await handler(state)
+            except Exception as exc:
+                self.telemetry.mark_failure(span, type(exc).__name__)
+                raise
+
+    async def _collect_evidence_traced(self, state: TripCheckExecutionState) -> TripCheckExecutionState:
+        return await self._trace_stage(state, self._collect_evidence)
+
+    async def _audit_traced(self, state: TripCheckExecutionState) -> TripCheckExecutionState:
+        return await self._trace_stage(state, self._audit)
+
+    async def _build_advice_traced(self, state: TripCheckExecutionState) -> TripCheckExecutionState:
+        return await self._trace_stage(state, self._build_advice)
 
     async def _start(self, state: TripCheckExecutionState) -> TripCheckRun:
         run = await self.run_repository.get_run(state["run_id"])
