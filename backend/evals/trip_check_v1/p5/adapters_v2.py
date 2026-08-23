@@ -400,6 +400,7 @@ async def _execute_product_harness(
     run_spec: P5VariantRunSpecV2,
     *,
     strategy: str,
+    ocr_engine: PaddleOcrEngine | None = None,
 ) -> _HarnessResult:
     workspace_id = f"eval-workspace-{case.case_id}"
     actor = "p5-v2-eval-runner"
@@ -461,7 +462,7 @@ async def _execute_product_harness(
                     entity_resolver=resolver,
                     command_repository=command_repository,
                     asset_repository=InMemoryScreenshotAssetRepository(),
-                    ocr_engine=PaddleOcrEngine(),
+                    ocr_engine=ocr_engine or PaddleOcrEngine(),
                     temp_root=Path(temp_root),
                 ).create_import(
                     workspace_id=workspace_id,
@@ -921,14 +922,46 @@ class LegacyAdapterV2:
         )
 
 
+class EvaluationCachingPaddleOcrEngine(PaddleOcrEngine):
+    """Reuse one actual OCR result for identical screenshot bytes within a run."""
+
+    def __init__(self, *, confirmation_threshold: float = 0.85) -> None:
+        super().__init__(confirmation_threshold=confirmation_threshold)
+        self._evaluation_cache: dict[str, tuple[Any, ...]] = {}
+        self.actual_prediction_count = 0
+        self.cache_hit_count = 0
+
+    async def recognize(self, image_path: Path) -> list[Any]:
+        image_sha256 = hashlib.sha256(image_path.read_bytes()).hexdigest()
+        cached = self._evaluation_cache.get(image_sha256)
+        if cached is not None:
+            self.cache_hit_count += 1
+            return list(cached)
+        lines = await super().recognize(image_path)
+        self.actual_prediction_count += 1
+        self._evaluation_cache[image_sha256] = tuple(lines)
+        return list(lines)
+
+
 class CoreAdapterV2:
     variant_id = "core_b"
     adapter_version = "core-b-v2"
     repair_strategy = "bounded_repair_v1"
 
+    def __init__(self, *, ocr_engine: PaddleOcrEngine | None = None) -> None:
+        self._ocr_engine = ocr_engine
+
     async def execute(self, case: P5CaseV2, materialization: Mapping[str, Any], run_spec: P5VariantRunSpecV2):
         validated = validate_materialization_v2(case, materialization)
-        return await _execute_product_harness(case, validated, run_spec, strategy=self.repair_strategy)
+        if case.input_kind == "SYNTHETIC_SCREENSHOT" and self._ocr_engine is None:
+            self._ocr_engine = PaddleOcrEngine()
+        return await _execute_product_harness(
+            case,
+            validated,
+            run_spec,
+            strategy=self.repair_strategy,
+            ocr_engine=self._ocr_engine,
+        )
 
 
 class SolverAdapterV2:
@@ -936,9 +969,20 @@ class SolverAdapterV2:
     adapter_version = "solver-c-v2"
     repair_strategy = "cp_sat_v1"
 
+    def __init__(self, *, ocr_engine: PaddleOcrEngine | None = None) -> None:
+        self._ocr_engine = ocr_engine
+
     async def execute(self, case: P5CaseV2, materialization: Mapping[str, Any], run_spec: P5VariantRunSpecV2):
         validated = validate_materialization_v2(case, materialization)
-        return await _execute_product_harness(case, validated, run_spec, strategy=self.repair_strategy)
+        if case.input_kind == "SYNTHETIC_SCREENSHOT" and self._ocr_engine is None:
+            self._ocr_engine = PaddleOcrEngine()
+        return await _execute_product_harness(
+            case,
+            validated,
+            run_spec,
+            strategy=self.repair_strategy,
+            ocr_engine=self._ocr_engine,
+        )
 
 
 ADAPTERS_V2 = {
@@ -952,6 +996,7 @@ __all__ = [
     "ADAPTERS_V2",
     "ADAPTER_VERSIONS_V2",
     "CoreAdapterV2",
+    "EvaluationCachingPaddleOcrEngine",
     "LegacyAdapterV2",
     "SolverAdapterV2",
     "validate_materialization_v2",

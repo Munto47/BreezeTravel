@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from evals.trip_check_v1.p5.active_contract import ACTIVE_CONTRACT_PATH, require_v2_formal_ready
-from evals.trip_check_v1.p5.adapters_v2 import ADAPTERS_V2, ADAPTER_VERSIONS_V2
+from evals.trip_check_v1.p5.adapters_v2 import (
+    ADAPTERS_V2,
+    ADAPTER_VERSIONS_V2,
+    EvaluationCachingPaddleOcrEngine,
+)
 from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, P5TerminalOutputV2, P5VariantRunSpecV2
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.runner_v2 import (
@@ -411,7 +415,13 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
     replay_mismatches: list[dict[str, str]] = []
     specs: dict[str, Any] = {}
     spec_models: list[P5VariantRunSpecV2] = []
+    shared_ocr_engine = EvaluationCachingPaddleOcrEngine()
     for variant_id in variants:
+        adapter = (
+            ADAPTERS_V2[variant_id](ocr_engine=shared_ocr_engine)
+            if variant_id in {"core_b", "solver_c"}
+            else ADAPTERS_V2[variant_id]()
+        )
         spec = _run_spec(
             lane=lane,
             subject_commit=subject_commit,
@@ -431,7 +441,7 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
                 case=case,
                 materialization=materialization_by_case[case.case_id],
                 run_spec=spec,
-                adapter=ADAPTERS_V2[variant_id](),
+                adapter=adapter,
             )
             outputs.append(first)
             if args.replay:
@@ -439,7 +449,7 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
                     case=case,
                     materialization=materialization_by_case[case.case_id],
                     run_spec=spec,
-                    adapter=ADAPTERS_V2[variant_id](),
+                    adapter=adapter,
                 )
                 if replay.replay_hash != first.replay_hash:
                     replay_mismatches.append(

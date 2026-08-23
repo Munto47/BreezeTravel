@@ -10,7 +10,12 @@ from types import SimpleNamespace
 import pytest
 
 from app.importing.screenshots import PaddleOcrEngine
-from evals.trip_check_v1.p5.adapters_v2 import CoreAdapterV2, LegacyAdapterV2, SolverAdapterV2
+from evals.trip_check_v1.p5.adapters_v2 import (
+    CoreAdapterV2,
+    EvaluationCachingPaddleOcrEngine,
+    LegacyAdapterV2,
+    SolverAdapterV2,
+)
 from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, P5VariantRunSpecV2, TerminalStatusV2
 from evals.trip_check_v1.p5.concurrency_materialization_v2 import build_concurrency_fault_script
 from evals.trip_check_v1.p5.data_contract import digest
@@ -705,11 +710,12 @@ async def test_core_screenshot_replays_same_bytes_through_production_paddle_boun
     }
     case_payload["case_hash"] = digest({key: value for key, value in case_payload.items() if key != "case_hash"})
     case = P5CaseV2.model_validate(case_payload)
+    adapter = CoreAdapterV2()
     output = await execute_terminal_v2(
         case=case,
         materialization=materialization,
         run_spec=_spec("core_b", timeout=10),
-        adapter=CoreAdapterV2(),
+        adapter=adapter,
     )
     assert output.error_category is None
     assert output.render_receipt_hash == digest(render)
@@ -719,13 +725,60 @@ async def test_core_screenshot_replays_same_bytes_through_production_paddle_boun
         case=case,
         materialization=materialization,
         run_spec=_spec("core_b", timeout=10),
-        adapter=CoreAdapterV2(),
+        adapter=adapter,
     )
     assert replay.semantic_output_hash == output.semantic_output_hash
+    assert adapter._ocr_engine is not None
 
 
 @pytest.mark.asyncio
-async def test_run_script_writes_exact_v2_manifest_and_variant_hashes(tmp_path: Path) -> None:
+async def test_evaluation_ocr_cache_keys_reuse_by_screenshot_bytes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    predictions = 0
+
+    def fake_predict(self, image_path):
+        nonlocal predictions
+        predictions += 1
+        return [
+            {
+                "res": {
+                    "rec_texts": [Path(image_path).read_text(encoding="utf-8")],
+                    "rec_scores": [0.99],
+                    "rec_boxes": [[0, 0, 100, 20]],
+                }
+            }
+        ]
+
+    monkeypatch.setattr(EvaluationCachingPaddleOcrEngine, "_predict", fake_predict)
+    first = tmp_path / "first.png"
+    second = tmp_path / "second.png"
+    different = tmp_path / "different.png"
+    first.write_text("same bytes", encoding="utf-8")
+    second.write_text("same bytes", encoding="utf-8")
+    different.write_text("different bytes", encoding="utf-8")
+    engine = EvaluationCachingPaddleOcrEngine()
+
+    assert await engine.recognize(first) == await engine.recognize(second)
+    await engine.recognize(different)
+
+    assert predictions == 2
+    assert engine.actual_prediction_count == 2
+    assert engine.cache_hit_count == 1
+
+
+@pytest.mark.asyncio
+async def test_run_script_writes_exact_v2_manifest_and_variant_hashes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    adapter_creations = 0
+
+    class CountingLegacyAdapter(LegacyAdapterV2):
+        def __init__(self) -> None:
+            nonlocal adapter_creations
+            adapter_creations += 1
+
+    monkeypatch.setitem(run_script_v2.ADAPTERS_V2, "legacy_a", CountingLegacyAdapter)
     case, materialization = _fixture("SYNTHETIC_SCREENSHOT")
     cases_path = tmp_path / "cases.jsonl"
     materials_path = tmp_path / "materializations.jsonl"
@@ -797,6 +850,7 @@ async def test_run_script_writes_exact_v2_manifest_and_variant_hashes(tmp_path: 
         run_id="local-fixture-run",
     )
     result = await execute_run(args)
+    assert adapter_creations == 1
     manifest = json.loads((Path(result["run_dir"]) / "run_group_manifest.json").read_text(encoding="utf-8"))
     assert set(manifest) == RUN_GROUP_FIELDS
     assert manifest["case_count"] == 1
