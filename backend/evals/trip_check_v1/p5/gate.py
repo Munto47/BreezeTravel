@@ -101,6 +101,7 @@ def _validate_run_manifest(
     if (
         manifest.get("status") != "PASS"
         or manifest.get("formal_evidence") is not True
+        or manifest.get("executable_evidence_status") != "PASS"
         or manifest.get("lane") != lane
         or manifest.get("dirty_tree") is not False
         or manifest.get("case_count") != case_count

@@ -125,6 +125,20 @@ async def _execute(args: argparse.Namespace) -> dict[str, Any]:
             variant_ids.append(variant_id)
     case_ids = {case["case_id"] for case in cases}
     case_set_hash = digest(sorted(case_ids))
+    dataset_manifest = _load_json(P5_ROOT / "dataset_v1.manifest.json")
+    executable_evidence_status = dataset_manifest.get("evidence_boundary", {}).get(
+        "executable_evidence", "UNPROVEN"
+    )
+    complete_lane = args.limit is None and not args.case_id
+    if args.require_formal and (
+        dirty_tree
+        or not complete_lane
+        or executable_evidence_status != "PASS"
+        or not args.replay
+    ):
+        raise RuntimeError(
+            "run is not formal evidence: executable materialization, clean full lane, and replay are required"
+        )
     outputs: list[P5TerminalOutput] = []
     run_specs = {}
     replay_mismatches = []
@@ -163,11 +177,19 @@ async def _execute(args: argparse.Namespace) -> dict[str, Any]:
     terminal_path = run_dir / "terminal_outputs.jsonl"
     output_content_hash = write_jsonl_atomic(terminal_path, outputs)
     terminal_file_hash = _sha256_file(terminal_path)
+    formal_evidence = (
+        not dirty_tree
+        and complete_lane
+        and executable_evidence_status == "PASS"
+        and args.replay
+        and not replay_mismatches
+    )
     manifest = {
         "schema_version": "trip-check-p5-run-group-v1",
         "run_id": run_id,
         "status": "PASS" if not replay_mismatches else "REJECT",
-        "formal_evidence": not dirty_tree and args.limit is None and not args.case_id,
+        "formal_evidence": formal_evidence,
+        "executable_evidence_status": executable_evidence_status,
         "lane": args.lane,
         "subject_commit": subject_commit,
         "dirty_tree": dirty_tree,
@@ -206,6 +228,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--replay", action="store_true")
     parser.add_argument("--allow-dirty", action="store_true")
+    parser.add_argument("--require-formal", action="store_true")
     parser.add_argument("--run-id")
     parser.add_argument("--output-dir")
     return parser
@@ -221,4 +244,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

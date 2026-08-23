@@ -28,6 +28,7 @@ def _run_dir(root: Path, lane: str, cases: int, terminals: int) -> tuple[Path, d
         "schema_version": "trip-check-p5-run-group-v1",
         "status": "PASS",
         "formal_evidence": True,
+        "executable_evidence_status": "PASS",
         "lane": lane,
         "subject_commit": "a" * 40,
         "dirty_tree": False,
