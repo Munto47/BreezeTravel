@@ -1111,7 +1111,14 @@ class LegacyAdapterV2:
             run_spec_template_hash=run_spec.run_spec_template_hash,
             provider_snapshot_id=materialization["provider_snapshot"]["artifact_id"],
             random_seed=run_spec.random_seed,
-            budget=run_spec.budget,
+            # Pydantic v2 does not coerce one BaseModel instance into another
+            # model type.  The v3 runner has an equivalent, stricter budget
+            # contract, so cross the frozen legacy boundary as plain data.
+            budget=(
+                run_spec.budget.model_dump(mode="json")
+                if hasattr(run_spec.budget, "model_dump")
+                else run_spec.budget
+            ),
             variant_id="legacy_a",
             adapter_version="legacy-a-v1",
             repair_strategy="legacy_native_only",

@@ -211,6 +211,23 @@ def test_legacy_v3_screenshot_never_accesses_ocr_cache() -> None:
     assert not any(row.get("type") == "ocr_replay_provenance" for row in terminal.receipts)
 
 
+def test_legacy_v3_text_converts_budget_across_frozen_contract_boundary() -> None:
+    case, materialization = _case_and_materialization("p5.pilot.bj.001")
+    terminal = asyncio.run(
+        execute_terminal_v3(
+            case=case,
+            materialization=materialization,
+            run_spec=_spec(case, materialization, variant_id="legacy_a"),
+            adapter=LegacyAdapterV3(),
+        )
+    )
+
+    assert terminal.terminal_status is not TerminalStatusV3.ERROR
+    assert terminal.error_category is None
+    assert terminal.evaluation_projection["import_status"] == "LEGACY_NATIVE_TEXT"
+    assert any(row.get("type") == "legacy_isolation" for row in terminal.receipts)
+
+
 def test_v3_nonblind_run_writes_three_strict_results_and_four_ocr_replays(
     tmp_path,
 ) -> None:
