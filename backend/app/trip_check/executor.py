@@ -7,7 +7,7 @@ from uuid import NAMESPACE_URL, uuid5
 from langgraph.graph import END, START, StateGraph
 
 from app.audit.evidence_service import EvidenceObservation
-from app.audit.models import AuditReport, AuditStatus, EvidenceSnapshot
+from app.audit.models import AuditReport, AuditStatus, EvidenceFreshness, EvidenceSnapshot, ProviderFailure
 from app.audit.repositories import AuditRepository
 from app.audit.service import AuditApplicationService
 from app.itineraries.hash_service import sha256_canonical
@@ -24,6 +24,7 @@ from app.trip_check.briefs import TripBriefRepository
 from app.trip_check.models import (
     AdviceAction,
     AdviceBundle,
+    RunPartialFailure,
     SideEffectReceipt,
     TripCheckRun,
     TripCheckPostcheckLineage,
@@ -39,6 +40,13 @@ class TripCheckExecutionState(TypedDict):
     lease_owner: str
     stage: str
     terminated_after_evidence: bool
+
+
+class ControlledProviderCollectionResult(TypedDict):
+    observations: list[EvidenceObservation]
+    provider_failures: list[ProviderFailure]
+    partial_failures: list[RunPartialFailure]
+    provider_attempt_count: int
 
 
 def _stage_side_effect_key(run: TripCheckRun, stage: TripCheckStage) -> str:
@@ -72,6 +80,26 @@ def _route_duration(left_name: str, right_name: str) -> int:
     return 25
 
 
+def _controlled_route_observation(left, right, *, observed_at: datetime) -> EvidenceObservation:
+    mode = left.transport_to_next.mode if left.transport_to_next else "driving"
+    return EvidenceObservation(
+        subject_type="ROUTE_EDGE",
+        subject_id=f"{left.stop_id}->{right.stop_id}",
+        fact_type="ROUTE_TIME",
+        value={
+            "mode": mode,
+            "duration_minutes": _route_duration(
+                left.raw_name or left.place_id,
+                right.raw_name or right.place_id,
+            ),
+        },
+        provider="controlled_route_fixture_v1",
+        observed_at=observed_at,
+        valid_until=observed_at + timedelta(days=365),
+        confidence=1.0,
+    )
+
+
 def controlled_route_observations(
     revision: ItineraryRevision,
     *,
@@ -82,26 +110,28 @@ def controlled_route_observations(
     observations: list[EvidenceObservation] = []
     for day in revision.days:
         for left, right in zip(day.stops, day.stops[1:]):
-            mode = left.transport_to_next.mode if left.transport_to_next else "driving"
-            observations.append(
-                EvidenceObservation(
-                    subject_type="ROUTE_EDGE",
-                    subject_id=f"{left.stop_id}->{right.stop_id}",
-                    fact_type="ROUTE_TIME",
-                    value={
-                        "mode": mode,
-                        "duration_minutes": _route_duration(
-                            left.raw_name or left.place_id,
-                            right.raw_name or right.place_id,
-                        ),
-                    },
-                    provider="controlled_route_fixture_v1",
-                    observed_at=observed_at,
-                    valid_until=observed_at + timedelta(days=365),
-                    confidence=1.0,
-                )
-            )
+            observations.append(_controlled_route_observation(left, right, observed_at=observed_at))
     return observations
+
+
+def _unavailable_route_observation(
+    left,
+    right,
+    *,
+    observed_at: datetime,
+    category: str,
+) -> EvidenceObservation:
+    mode = left.transport_to_next.mode if left.transport_to_next else "driving"
+    return EvidenceObservation(
+        subject_type="ROUTE_EDGE",
+        subject_id=f"{left.stop_id}->{right.stop_id}",
+        fact_type="ROUTE_TIME",
+        value={"mode": mode, "duration_minutes": None, "reason_code": category},
+        provider="controlled_route_fixture_v2",
+        observed_at=observed_at,
+        confidence=0,
+        freshness_status=EvidenceFreshness.UNAVAILABLE,
+    )
 
 
 def confirmed_brief_observations(run: TripCheckRun, traveler_count: int) -> list[EvidenceObservation]:
@@ -300,6 +330,71 @@ class TripCheckExecutor:
             now=datetime.now(timezone.utc),
         )
 
+    async def _collect_controlled_provider_evidence(
+        self,
+        run: TripCheckRun,
+        revision: ItineraryRevision,
+    ) -> ControlledProviderCollectionResult:
+        observations: list[EvidenceObservation] = []
+        provider_failures: list[ProviderFailure] = []
+        partial_failures: list[RunPartialFailure] = []
+        provider_attempt_count = 0
+        fault_injected = False
+        for day in revision.days:
+            for left, right in zip(day.stops, day.stops[1:]):
+                edge_id = f"{left.stop_id}->{right.stop_id}"
+                fault = run.run_spec.fault_profile if not fault_injected else "none"
+                if fault == "provider_timeout":
+                    attempts = 1 + min(run.run_spec.budget.max_retries, 2)
+                    for attempt in range(1, attempts + 1):
+                        provider_attempt_count += 1
+                        with self.telemetry.provider_attempt_span(run, attempt=attempt) as span:
+                            self.telemetry.mark_failure(span, "PROVIDER_TIMEOUT")
+                    category = "PROVIDER_TIMEOUT"
+                elif fault == "partial_field_failure":
+                    provider_attempt_count += 1
+                    with self.telemetry.provider_attempt_span(run, attempt=1) as span:
+                        self.telemetry.mark_failure(span, "PROVIDER_PARTIAL_FIELD_FAILURE")
+                    category = "PROVIDER_PARTIAL_FIELD_FAILURE"
+                else:
+                    provider_attempt_count += 1
+                    with self.telemetry.provider_attempt_span(run, attempt=1):
+                        pass
+                    observations.append(_controlled_route_observation(left, right, observed_at=run.created_at))
+                    continue
+                fault_injected = True
+                observations.append(
+                    _unavailable_route_observation(
+                        left,
+                        right,
+                        observed_at=run.created_at,
+                        category=category,
+                    )
+                )
+                provider_failures.append(
+                    ProviderFailure(
+                        provider="controlled_route_fixture_v2",
+                        error_category=category,
+                        retryable=False,
+                        detail=f"controlled fault for route edge {edge_id}",
+                    )
+                )
+                partial_failures.append(
+                    RunPartialFailure(
+                        stage=TripCheckStage.COLLECT_EVIDENCE,
+                        provider="controlled_route_fixture_v2",
+                        category=category,
+                        affected_fields=[f"route_edges.{edge_id}.duration_minutes"],
+                        retryable=False,
+                    )
+                )
+        return {
+            "observations": observations,
+            "provider_failures": provider_failures,
+            "partial_failures": partial_failures,
+            "provider_attempt_count": provider_attempt_count,
+        }
+
     async def _collect_evidence(self, state: TripCheckExecutionState) -> TripCheckExecutionState:
         run = await self._start(state)
         revision = await self.itinerary_repository.get_revision(run.workspace_id, run.itinerary_revision)
@@ -308,12 +403,14 @@ class TripCheckExecutor:
         brief = await self.brief_repository.get_brief(run.workspace_id, run.brief_revision)
         if brief is None or brief.brief_id != run.brief_id or brief.status.value != "CONFIRMED":
             raise RuntimeError("trip check confirmed Brief binding is missing")
+        provider_result = await self._collect_controlled_provider_evidence(run, revision)
         observations = [
-            *controlled_route_observations(revision, observed_at=run.created_at),
+            *provider_result["observations"],
             *confirmed_brief_observations(run, brief.traveler_count),
         ]
         _, snapshot, _ = await self.audit_service.prepare_current_evidence(
             run.workspace_id,
+            provider_failures=provider_result["provider_failures"],
             extra_observations=observations,
             snapshot_id=str(uuid5(NAMESPACE_URL, f"breezetravel:{run.run_id}:evidence")),
             now=run.created_at,
@@ -336,7 +433,7 @@ class TripCheckExecutor:
             ),
             response_hash=response_hash,
             provider="controlled_fixture",
-            status="SUCCEEDED",
+            status="PARTIAL" if provider_result["partial_failures"] else "SUCCEEDED",
             receipt={
                 "execution_mode": run.run_spec.execution_mode,
                 "provider_version": run.run_spec.provider_version,
@@ -344,6 +441,13 @@ class TripCheckExecutor:
                 "fact_count": len(snapshot.facts),
                 "route_fact_count": sum(item.subject_type == "ROUTE_EDGE" for item in observations),
                 "brief_fact_count": sum(item.subject_type == "TRIP_BRIEF" for item in observations),
+                "provider_attempt_count": provider_result["provider_attempt_count"],
+                "failure_categories": [item.category for item in provider_result["partial_failures"]],
+                "affected_fields": [
+                    field
+                    for item in provider_result["partial_failures"]
+                    for field in item.affected_fields
+                ],
             },
             created_at=run.created_at,
         )
@@ -355,6 +459,7 @@ class TripCheckExecutor:
             status=TripCheckRunStatus.RUNNING,
             receipt=receipt,
             evidence_snapshot_id=snapshot.snapshot_id,
+            partial_failures=provider_result["partial_failures"],
             now=datetime.now(timezone.utc),
         )
         terminated = run.run_spec.fault_profile == "terminate_after_evidence"
@@ -483,7 +588,11 @@ class TripCheckExecutor:
             lease_owner=state["lease_owner"],
             expected_stage=TripCheckStage.BUILD_ADVICE,
             next_stage=TripCheckStage.WAIT_ADOPTION,
-            status=TripCheckRunStatus.WAITING,
+            status=(
+                TripCheckRunStatus.PARTIAL
+                if run.partial_failures
+                else TripCheckRunStatus.WAITING
+            ),
             receipt=receipt,
             advice_bundle_id=bundle.advice_bundle_id,
             now=datetime.now(timezone.utc),

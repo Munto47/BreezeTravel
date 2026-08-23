@@ -154,7 +154,7 @@ class TripCheckDomainTraceAssembler:
                         **common,
                         "record_type": "RUN_EVENT",
                         "stage": event.stage,
-                        "stage_attempt": 1,
+                        "stage_attempt": int(event.payload.get("attempt") or 1),
                         "event_id": event.event_id,
                         "event_type": event.event_type,
                         "run_version": event.run_version,

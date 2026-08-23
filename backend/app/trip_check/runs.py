@@ -161,6 +161,7 @@ class TripCheckRunRepository(Protocol):
         evidence_snapshot_id: str | None = None,
         report_id: str | None = None,
         advice_bundle_id: str | None = None,
+        partial_failures: list[RunPartialFailure] | None = None,
         now: datetime,
     ) -> tuple[TripCheckRun, bool]: ...
 
@@ -570,6 +571,7 @@ class PostgresTripCheckRunRepository:
         evidence_snapshot_id: str | None = None,
         report_id: str | None = None,
         advice_bundle_id: str | None = None,
+        partial_failures: list[RunPartialFailure] | None = None,
         now: datetime,
     ) -> tuple[TripCheckRun, bool]:
         pool = await self._get_pool()
@@ -639,6 +641,13 @@ class PostgresTripCheckRunRepository:
             if expected_stage not in completed:
                 completed.append(expected_stage)
             keep_lease = status == TripCheckRunStatus.RUNNING
+            failures = list(current.partial_failures)
+            known_failures = {sha256_canonical(item.model_dump(mode="json")) for item in failures}
+            for failure in partial_failures or []:
+                failure_hash = sha256_canonical(failure.model_dump(mode="json"))
+                if failure_hash not in known_failures:
+                    failures.append(failure)
+                    known_failures.add(failure_hash)
             updated = current.model_copy(
                 update={
                     "stage": next_stage,
@@ -650,6 +659,7 @@ class PostgresTripCheckRunRepository:
                     "evidence_snapshot_id": evidence_snapshot_id or current.evidence_snapshot_id,
                     "report_id": report_id or current.report_id,
                     "advice_bundle_id": advice_bundle_id or current.advice_bundle_id,
+                    "partial_failures": failures,
                     "version": current.version + 1,
                     "updated_at": now,
                 }
@@ -660,8 +670,9 @@ class PostgresTripCheckRunRepository:
                 SET stage = $2, stage_attempt = $3, status = $4,
                     lease_owner = $5, lease_until = $6,
                     completed_stages_json = $7::jsonb,
-                    evidence_snapshot_id = $8, report_id = $9,
-                    advice_bundle_id = $10, version = $11, updated_at = $12
+                    partial_failures_json = $8::jsonb,
+                    evidence_snapshot_id = $9, report_id = $10,
+                    advice_bundle_id = $11, version = $12, updated_at = $13
                 WHERE run_id = $1 RETURNING *
                 """,
                 run_id,
@@ -671,6 +682,7 @@ class PostgresTripCheckRunRepository:
                 updated.lease_owner,
                 updated.lease_until,
                 json.dumps([item.value for item in updated.completed_stages]),
+                json.dumps([item.model_dump(mode="json") for item in updated.partial_failures]),
                 updated.evidence_snapshot_id,
                 updated.report_id,
                 updated.advice_bundle_id,
@@ -1060,6 +1072,7 @@ class InMemoryTripCheckRunRepository:
         evidence_snapshot_id: str | None = None,
         report_id: str | None = None,
         advice_bundle_id: str | None = None,
+        partial_failures: list[RunPartialFailure] | None = None,
         now: datetime,
     ) -> tuple[TripCheckRun, bool]:
         current = self.runs.get(run_id)
@@ -1090,6 +1103,13 @@ class InMemoryTripCheckRunRepository:
         if expected_stage not in completed:
             completed.append(expected_stage)
         keep_lease = status == TripCheckRunStatus.RUNNING
+        failures = list(current.partial_failures)
+        known_failures = {sha256_canonical(item.model_dump(mode="json")) for item in failures}
+        for failure in partial_failures or []:
+            failure_hash = sha256_canonical(failure.model_dump(mode="json"))
+            if failure_hash not in known_failures:
+                failures.append(failure)
+                known_failures.add(failure_hash)
         updated = current.model_copy(
             update={
                 "stage": next_stage,
@@ -1101,6 +1121,7 @@ class InMemoryTripCheckRunRepository:
                 "evidence_snapshot_id": evidence_snapshot_id or current.evidence_snapshot_id,
                 "report_id": report_id or current.report_id,
                 "advice_bundle_id": advice_bundle_id or current.advice_bundle_id,
+                "partial_failures": failures,
                 "version": current.version + 1,
                 "updated_at": now,
             }

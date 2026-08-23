@@ -51,7 +51,7 @@ def _run_spec(*, fault_profile: str = "none") -> RunSpec:
         snapshot_hash="b" * 64,
         fault_profile=fault_profile,
         random_seed=7,
-        budget=RunBudget(timeout_seconds=30),
+        budget=RunBudget(timeout_seconds=30, max_retries=2),
     )
 
 
@@ -247,6 +247,53 @@ def test_terminate_after_evidence_resumes_without_duplicate_snapshot_or_receipt(
         ) == 1
         assert len(runs.receipts) == 3
         assert len(await itineraries.list_revisions(created.workspace_id)) == 1
+
+    asyncio.run(scenario())
+
+
+def test_provider_timeout_exhausts_two_retries_and_preserves_unknown_evidence():
+    async def scenario():
+        executor, runs, audits, advice, _, _, _, created = await _setup(fault_profile="provider_timeout")
+        finished = await executor.execute(created.run_id)
+        assert finished.stage == TripCheckStage.WAIT_ADOPTION
+        assert finished.status == TripCheckRunStatus.PARTIAL
+        assert [(item.category, item.retryable) for item in finished.partial_failures] == [
+            ("PROVIDER_TIMEOUT", False)
+        ]
+        snapshot = await audits.get_snapshot(finished.evidence_snapshot_id)
+        report = await audits.get_report(finished.report_id)
+        bundle = await advice.get_bundle(finished.advice_bundle_id)
+        assert snapshot is not None and report is not None and bundle is not None
+        route_facts = [item for item in snapshot.facts if item.subject_type == "ROUTE_EDGE"]
+        brief_facts = [item for item in snapshot.facts if item.subject_type == "TRIP_BRIEF"]
+        assert len(route_facts) == 1
+        assert route_facts[0].freshness_status.value == "UNAVAILABLE"
+        assert brief_facts[0].freshness_status.value == "FRESH"
+        assert any(item.status.value == "UNKNOWN" for item in report.findings)
+        receipt = next(item for item in runs.receipts.values() if item.stage == TripCheckStage.COLLECT_EVIDENCE)
+        assert receipt.status == "PARTIAL"
+        assert receipt.receipt["provider_attempt_count"] == 3
+        assert receipt.receipt["failure_categories"] == ["PROVIDER_TIMEOUT"]
+
+    asyncio.run(scenario())
+
+
+def test_partial_field_failure_does_not_retry_or_discard_successful_brief_fact():
+    async def scenario():
+        executor, runs, audits, _, _, _, _, created = await _setup(fault_profile="partial_field_failure")
+        finished = await executor.execute(created.run_id)
+        assert finished.status == TripCheckRunStatus.PARTIAL
+        assert finished.partial_failures[0].category == "PROVIDER_PARTIAL_FIELD_FAILURE"
+        snapshot = await audits.get_snapshot(finished.evidence_snapshot_id)
+        assert snapshot is not None
+        assert len(snapshot.provider_failures) == 1
+        assert any(
+            item.subject_type == "TRIP_BRIEF" and item.freshness_status.value == "FRESH"
+            for item in snapshot.facts
+        )
+        receipt = next(item for item in runs.receipts.values() if item.stage == TripCheckStage.COLLECT_EVIDENCE)
+        assert receipt.receipt["provider_attempt_count"] == 1
+        assert receipt.status == "PARTIAL"
 
     asyncio.run(scenario())
 
