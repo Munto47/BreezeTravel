@@ -10,6 +10,7 @@ from scripts.run_trip_check_p3_integrity_gate import (
     _normalized_log,
     _real_ocr_evidence,
     _safe_reset_output,
+    _synthetic_ocr_evidence,
     _write_json,
 )
 
@@ -39,6 +40,35 @@ def test_real_ocr_evidence_requires_bound_metrics(tmp_path):
     assert _real_ocr_evidence(str(path), subject="b" * 40)["status"] == "FAIL"
     assert _real_ocr_evidence(None, subject="a" * 40)["status"] == "NOT_RUN"
     assert json.loads(path.read_text("utf-8"))["metrics"]["case_count"] == 12
+
+
+def test_synthetic_ocr_evidence_requires_v2_cleanup_and_subject_binding(tmp_path):
+    path = tmp_path / "synthetic-ocr.json"
+    _write_json(
+        path,
+        {
+            "schema_version": "trip-check-p3-synthetic-ocr-manifest-v2",
+            "evidence_class": "synthetic_stress",
+            "status": "PASS",
+            "subject_commit": "a" * 40,
+            "spec_sha256": "b" * 64,
+            "render_set_sha256": "c" * 64,
+            "cleanup_receipt": {"status": "DELETED", "run_dir_removed": True},
+            "metrics": {
+                "case_count": 12,
+                "key_field_f1": 0.95,
+                "low_confidence_confirmation_recall": 1.0,
+                "original_image_leak_hits": 0,
+            },
+        },
+    )
+
+    assert _synthetic_ocr_evidence(path, subject="a" * 40)["status"] == "PASS"
+    assert _synthetic_ocr_evidence(path, subject="d" * 40)["status"] == "FAIL"
+    payload = json.loads(path.read_text("utf-8"))
+    payload["cleanup_receipt"]["status"] = "CLEANUP_FAILED"
+    _write_json(path, payload)
+    assert _synthetic_ocr_evidence(path, subject="a" * 40)["status"] == "FAIL"
 
 
 def test_p3_default_output_is_isolated_from_historical_evidence():

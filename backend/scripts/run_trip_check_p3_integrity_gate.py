@@ -163,6 +163,42 @@ def _real_ocr_evidence(path_value: str | None, *, subject: str) -> dict[str, Any
     }
 
 
+def _synthetic_ocr_evidence(path: Path, *, subject: str) -> dict[str, Any]:
+    if not path.is_file():
+        return {"name": "synthetic_ocr_stress", "status": "FAIL", "reason": "manifest missing"}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    metrics = payload.get("metrics", {})
+    cleanup = payload.get("cleanup_receipt", {})
+    accepted = (
+        payload.get("schema_version") == "trip-check-p3-synthetic-ocr-manifest-v2"
+        and payload.get("evidence_class") == "synthetic_stress"
+        and payload.get("status") == "PASS"
+        and payload.get("subject_commit") == subject
+        and metrics.get("case_count") == 12
+        and float(metrics.get("key_field_f1", 0)) >= 0.95
+        and float(metrics.get("low_confidence_confirmation_recall", 0)) == 1.0
+        and metrics.get("original_image_leak_hits") == 0
+        and cleanup.get("status") == "DELETED"
+        and cleanup.get("run_dir_removed") is True
+        and re.fullmatch(r"[0-9a-f]{64}", str(payload.get("spec_sha256") or "")) is not None
+        and re.fullmatch(r"[0-9a-f]{64}", str(payload.get("render_set_sha256") or "")) is not None
+    )
+    try:
+        manifest_path = path.relative_to(BACKEND_ROOT).as_posix()
+    except ValueError:
+        manifest_path = "<external-synthetic-ocr-manifest>"
+    return {
+        "name": "synthetic_ocr_stress",
+        "status": "PASS" if accepted else "FAIL",
+        "manifest_sha256": _sha256(path),
+        "manifest_path": manifest_path,
+        "metrics": metrics,
+        "cleanup_receipt": cleanup,
+        "spec_sha256": payload.get("spec_sha256"),
+        "render_set_sha256": payload.get("render_set_sha256"),
+    }
+
+
 def _scan(*, baseline: str, subject: str, output: Path) -> dict[str, Any]:
     changed = subprocess.check_output(
         ["git", "diff", "--unified=0", baseline, subject, "--", "."],
@@ -200,7 +236,15 @@ def main() -> int:
     parser.add_argument("--subject-commit", default=None)
     parser.add_argument("--baseline-commit", default=DEFAULT_BASELINE)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--ocr-python", type=Path, default=Path(sys.executable))
+    parser.add_argument("--synthetic-ocr-visual-review-approved", action="store_true")
+    parser.add_argument("--allow-live-provider", action="store_true")
+    parser.add_argument("--live-env-file", type=Path, default=None)
     args = parser.parse_args()
+    if args.allow_live_provider and (args.live_env_file is None or not args.live_env_file.resolve().is_file()):
+        parser.error("--allow-live-provider requires an existing --live-env-file")
+    if not args.ocr_python.resolve().is_file():
+        parser.error("--ocr-python must point to an existing interpreter")
     subject = args.subject_commit or _git("rev-parse", "HEAD")
     if _git("rev-parse", "HEAD") != subject:
         raise RuntimeError("P3 subject must be the checked-out HEAD")
@@ -221,8 +265,33 @@ def main() -> int:
     npm = "npm.cmd" if os.name == "nt" else "npm"
     env = os.environ.copy()
     env.pop("RUN_SERVICE_INTEGRATION", None)
+    ocr_env = {
+        **env,
+        "PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK": "True",
+        "PADDLE_PDX_MODEL_SOURCE": "BOS",
+    }
+    synthetic_path = output / "synthetic_ocr_manifest.json"
+    synthetic_command = [
+        str(args.ocr_python.resolve()),
+        "-m",
+        "scripts.run_trip_check_p3_synthetic_ocr",
+        "--subject-commit",
+        subject,
+        "--output",
+        str(synthetic_path),
+    ]
+    if args.synthetic_ocr_visual_review_approved:
+        synthetic_command.append("--visual-review-approved")
 
     checks = [
+        _run(
+            name="synthetic_ocr_stress",
+            command=synthetic_command,
+            cwd=BACKEND_ROOT,
+            log_dir=log_dir,
+            env=ocr_env,
+            timeout=900,
+        ),
         _run(
             name="screenshot_controlled_contract",
             command=[python, "-m", "pytest", "tests/test_screenshot_imports.py", "-q"],
@@ -294,7 +363,11 @@ def main() -> int:
             timeout=180,
         ),
     ]
-    real_ocr = _real_ocr_evidence(os.getenv("P3_REAL_OCR_MANIFEST"), subject=subject)
+    synthetic_ocr = _synthetic_ocr_evidence(synthetic_path, subject=subject)
+    real_ocr = _not_run(
+        "real_ocr_dataset",
+        "candidate G1 real OCR evidence remains required before P6 and was not run for the P3 phase gate",
+    )
     pg_ready, pg_reason = _postgres_preflight()
     if pg_ready:
         pg_env = {**env, "RUN_SERVICE_INTEGRATION": "1"}
@@ -327,20 +400,34 @@ def main() -> int:
     else:
         postgres = _not_run("postgres_p3_integration", pg_reason)
         p2_reliability = _not_run("p2_reliability_regression", pg_reason)
-    live = _run(
-        name="live_provider_matrix",
-        command=[
-            python, "-m", "scripts.run_trip_check_p3_integrity", "--live", "--commit-sha", subject,
-            "--output", str(output),
-        ],
-        cwd=BACKEND_ROOT,
-        log_dir=log_dir,
-        env=env,
-        timeout=300,
-    )
+    if args.allow_live_provider:
+        live = _run(
+            name="live_provider_matrix",
+            command=[
+                python,
+                "-m",
+                "scripts.run_trip_check_p3_integrity",
+                "--live",
+                "--allow-live-provider",
+                "--live-env-file",
+                str(args.live_env_file.resolve()),
+                "--max-live-calls",
+                "18",
+                "--commit-sha",
+                subject,
+                "--output",
+                str(output),
+            ],
+            cwd=BACKEND_ROOT,
+            log_dir=log_dir,
+            env=env,
+            timeout=300,
+        )
+    else:
+        live = _not_run("live_provider_matrix", "explicit --allow-live-provider was not supplied")
     live_manifest_path = output / "live_provider_manifest.json"
     live_manifest = json.loads(live_manifest_path.read_text("utf-8")) if live_manifest_path.exists() else None
-    live_status = live_manifest.get("status") if live_manifest else "FAIL"
+    live_status = live_manifest.get("status") if live_manifest else live["status"]
     snapshot_path = output / "provider_integrity" / "provider_integrity_manifest.json"
     snapshot = json.loads(snapshot_path.read_text("utf-8")) if snapshot_path.exists() else None
     browser_path = output / "browser-playwright.json"
@@ -352,11 +439,12 @@ def main() -> int:
     p2_path = output / "p2_reliability_regression" / "reliability_manifest.json"
     p2_manifest = json.loads(p2_path.read_text("utf-8")) if p2_path.exists() else None
     check_by_name = {item["name"]: item for item in checks}
-    g1 = (
-        "PASS" if check_by_name["screenshot_controlled_contract"]["status"] == "PASS" and real_ocr["status"] == "PASS"
-        else "NOT_RUN" if check_by_name["screenshot_controlled_contract"]["status"] == "PASS" and real_ocr["status"] == "NOT_RUN"
+    synthetic_phase_gate = (
+        "PASS"
+        if check_by_name["synthetic_ocr_stress"]["status"] == "PASS" and synthetic_ocr["status"] == "PASS"
         else "FAIL"
     )
+    g1 = "NOT_RUN"
     g2 = (
         "PASS" if postgres["status"] == "PASS" and p2_reliability["status"] == "PASS"
         else "NOT_RUN" if "NOT_RUN" in {postgres["status"], p2_reliability["status"]}
@@ -371,7 +459,7 @@ def main() -> int:
         and snapshot.get("network_call_count") == 0
         else "FAIL"
     )
-    g4 = live_status if live["status"] == "PASS" else "FAIL"
+    g4 = live_status if live_status in {"PASS", "NOT_RUN"} else "FAIL"
     browser_stats = browser.get("stats", {}) if browser else {}
     pilot_metrics = pilot.get("metrics", {}) if pilot else {}
     contracts = {
@@ -384,7 +472,12 @@ def main() -> int:
             and p2_manifest.get("canonical_cases_passed") == 6
         ),
         "snapshot_six_of_six": g3 == "PASS",
-        "live_receipts_18": live_status == "PASS" and live_manifest.get("actual_receipt_count") == 18,
+        "live_receipts_18": (
+            live_status == "PASS"
+            and live_manifest.get("actual_receipt_count") == 18
+            and live_manifest.get("actual_network_call_count") == 18
+            and live_manifest.get("hidden_retry_count") == 0
+        ),
     }
     sensitive_scan = _scan(baseline=args.baseline_commit, subject=subject, output=output)
     _write_json(output / "sensitive_scan.json", sensitive_scan)
@@ -392,23 +485,32 @@ def main() -> int:
     status = (
         "PASS"
         if required_checks_pass
-        and all(value == "PASS" for value in (g1, g2, g3, g4))
+        and all(value == "PASS" for value in (synthetic_phase_gate, g2, g3, g4))
         and all(contracts.values())
         and sensitive_scan["status"] == "PASS"
         else "REJECT"
     )
     manifest = {
-        "schema_version": "trip-check-p3-integrity-gate-manifest-v1",
+        "schema_version": "trip-check-p3-integrity-gate-manifest-v2",
         "goal_id": "TC-P3-G01-input-provider-integrity",
         "subject_commit": subject,
         "upstream_commit_at_start": upstream,
         "baseline_commit": args.baseline_commit,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": status,
+        "p3_phase_status": status,
         "goal_status": "COMPLETE" if status == "PASS" else "IN_PROGRESS",
         "gates": {"G1": g1, "G2": g2, "G3": g3, "G4": g4, "G5": "NOT_RUN", "G6": "NOT_RUN"},
+        "phase_gates": {
+            "P3_SYNTHETIC_OCR_PHASE_GATE": synthetic_phase_gate,
+            "G2_POSTGRES_RELIABILITY": g2,
+            "G3_SNAPSHOT_REPLAY": g3,
+            "G4_LIVE_PROVIDER": g4,
+        },
+        "candidate_gates": {"G1_REAL_OCR_CANDIDATE_GATE": "NOT_RUN"},
         "proof_classes": {
             "controlled_fixture": "PASS" if required_checks_pass else "FAIL",
+            "synthetic_ocr_stress": synthetic_ocr["status"],
             "real_ocr_dataset": real_ocr["status"],
             "postgresql_integration": postgres["status"],
             "provider_snapshot": g3,
@@ -418,7 +520,11 @@ def main() -> int:
             "human_evidence": "NOT_RUN",
         },
         "scope": {"cities": list(("北京", "上海", "杭州")), "traveler_count": "2-5", "days": "2-5"},
-        "input": {"real_ocr": real_ocr, "original_image_artifacts_in_git": 0},
+        "input": {
+            "synthetic_ocr": synthetic_ocr,
+            "real_ocr": real_ocr,
+            "original_image_artifacts_in_git": 0,
+        },
         "postgresql": postgres,
         "p2_reliability_regression": {
             "status": p2_reliability["status"],
@@ -449,14 +555,15 @@ def main() -> int:
         "sensitive_scan": sensitive_scan,
         "blockers": [
             item for item, value in {
-                "TRIP_CHECK_V1_P3_REAL_OCR_NOT_PASSED": g1,
+                "TRIP_CHECK_V1_P3_SYNTHETIC_OCR_NOT_PASSED": synthetic_phase_gate,
                 "TRIP_CHECK_V1_P3_POSTGRES_NOT_PASSED": g2,
                 "TRIP_CHECK_V1_P3_SNAPSHOT_NOT_PASSED": g3,
                 "TRIP_CHECK_V1_P3_LIVE_PROVIDER_NOT_PASSED": g4,
             }.items() if value != "PASS"
         ],
         "non_claims": [
-            "Controlled OCR mocks are not real PaddleOCR accuracy evidence.",
+            "Synthetic OCR stress evidence is not real OCR candidate evidence.",
+            "Candidate G1 remains NOT_RUN and must be satisfied with real OCR evidence before P6.",
             "Snapshot Provider facts are not live Provider receipts.",
             "Controlled browser fixtures are not public E2E or human evidence.",
             "G5, public deployment and human evaluation were not run.",

@@ -304,7 +304,15 @@ def live_credentials_ready(settings: Settings | None = None) -> tuple[bool, list
     return not missing, missing
 
 
-async def run_live_matrix(*, commit_sha: str, output: Path, settings: Settings | None = None) -> dict[str, Any]:
+async def run_live_matrix(
+    *,
+    commit_sha: str,
+    output: Path,
+    settings: Settings | None = None,
+    max_live_calls: int = 18,
+) -> dict[str, Any]:
+    if max_live_calls != 18:
+        raise ValueError("the P3 live Provider matrix budget is fixed at 18 calls")
     current = settings or get_settings()
     ready, missing = live_credentials_ready(current)
     if not ready:
@@ -315,11 +323,12 @@ async def run_live_matrix(*, commit_sha: str, output: Path, settings: Settings |
             "reason": "LIVE_PROVIDER_CREDENTIALS_MISSING",
             "missing_credentials": missing,
             "query_budget": 18,
+            "actual_network_call_count": 0,
             "actual_receipt_count": 0,
         }
         _write_json(output / "live_provider_manifest.json", manifest)
         return manifest
-    collector = TripCheckProviderIntegrityCollector(settings=current)
+    collector = TripCheckProviderIntegrityCollector(settings=current, max_live_calls=max_live_calls)
     cases: list[dict[str, Any]] = []
     receipt_count = 0
     for city in CITIES:
@@ -349,9 +358,17 @@ async def run_live_matrix(*, commit_sha: str, output: Path, settings: Settings |
         "schema_version": "trip-check-p3-live-provider-manifest-v1",
         "subject_commit": commit_sha,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "status": "PASS" if receipt_count == 18 and all(item["status"] == "PASS" for item in cases) else "FAIL",
+        "status": (
+            "PASS"
+            if receipt_count == 18
+            and collector.live_call_count == 18
+            and all(item["status"] == "PASS" for item in cases)
+            else "FAIL"
+        ),
         "query_budget": 18,
+        "actual_network_call_count": collector.live_call_count,
         "actual_receipt_count": receipt_count,
+        "hidden_retry_count": max(0, collector.live_call_count - receipt_count),
         "cases": cases,
     }
     _write_json(output / "live_provider_manifest.json", manifest)

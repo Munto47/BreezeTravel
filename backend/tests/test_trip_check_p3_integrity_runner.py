@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import sys
 
 import pytest
 
 from app.config import Settings
+from scripts import run_trip_check_p3_integrity as integrity_cli
 from evals.trip_check_v1.input_provider_integrity_runner import (
     live_credentials_ready,
     run_live_matrix,
@@ -46,4 +48,36 @@ async def test_live_matrix_stays_not_run_without_all_credentials(tmp_path):
     assert ready is False
     assert set(missing) == {"AMAP_API_KEY", "QWEATHER_CREDENTIALS", "BRAVE_API_KEY"}
     assert manifest["status"] == "NOT_RUN"
+    assert manifest["actual_network_call_count"] == 0
     assert manifest["actual_receipt_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_live_matrix_rejects_any_budget_other_than_eighteen(tmp_path):
+    with pytest.raises(ValueError, match="fixed at 18"):
+        await run_live_matrix(
+            commit_sha="c" * 40,
+            output=tmp_path / "live",
+            settings=Settings(runtime_profile="test"),
+            max_live_calls=17,
+        )
+
+
+def test_live_cli_requires_explicit_authorization(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "run_trip_check_p3_integrity",
+            "--live",
+            "--commit-sha",
+            "d" * 40,
+            "--output",
+            str(tmp_path),
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        integrity_cli.main()
+
+    assert exc.value.code == 2

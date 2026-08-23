@@ -256,16 +256,19 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
         qweather_api_key="controlled-weather-secret",
         brave_api_key="controlled-brave-secret",
     )
-    result = await TripCheckProviderIntegrityCollector(
+    collector = TripCheckProviderIntegrityCollector(
         settings=settings,
         session_factory=lambda: session,
-    ).collect(
+        max_live_calls=6,
+    )
+    result = await collector.collect(
         _run(mode="live"),
         _revision(),
         {},
     )
 
     assert len(session.requests) == 6
+    assert collector.live_call_count == 6
     assert result.provider_failures == []
     assert result.partial_failures == []
     assert all(item.status == "SUCCEEDED" for item in result.provider_receipts)
@@ -278,6 +281,33 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
     assert "controlled-weather-secret" not in serialized
     assert "controlled-brave-secret" not in serialized
     assert "route\": {" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_live_call_budget_blocks_before_the_extra_http_request():
+    session = FakeProviderSession()
+    settings = Settings(
+        runtime_profile="local_real",
+        amap_api_key="controlled-amap-secret",
+        qweather_auth_type="apikey",
+        qweather_api_key="controlled-weather-secret",
+        brave_api_key="controlled-brave-secret",
+    )
+    collector = TripCheckProviderIntegrityCollector(
+        settings=settings,
+        session_factory=lambda: session,
+        max_live_calls=5,
+    )
+
+    result = await collector.collect(_run(mode="live"), _revision(), {})
+
+    assert collector.live_call_count == 5
+    assert len(session.requests) == 5
+    assert len(result.provider_receipts) == 6
+    assert any(
+        item.failure_category == "BRAVE_PROVIDERQUERYBUDGETEXCEEDEDERROR"
+        for item in result.provider_receipts
+    )
 
 
 @pytest.mark.asyncio

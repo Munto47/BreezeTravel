@@ -6,6 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from app.config import Settings
 from evals.trip_check_v1.input_provider_integrity_runner import (
     DEFAULT_OUTPUT,
     run_live_matrix,
@@ -30,10 +31,23 @@ def main() -> int:
     parser.add_argument("--commit-sha", default=None)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--live", action="store_true")
+    parser.add_argument("--allow-live-provider", action="store_true")
+    parser.add_argument("--live-env-file", type=Path, default=None)
+    parser.add_argument("--max-live-calls", type=int, default=18)
     args = parser.parse_args()
     commit_sha = args.commit_sha or _head()
+    if args.live and not args.allow_live_provider:
+        parser.error("--live requires explicit --allow-live-provider")
+    if args.live and (args.live_env_file is None or not args.live_env_file.resolve().is_file()):
+        parser.error("--live requires an existing --live-env-file")
+    live_settings = Settings(_env_file=args.live_env_file.resolve()) if args.live else None
     manifest = asyncio.run(
-        run_live_matrix(commit_sha=commit_sha, output=args.output)
+        run_live_matrix(
+            commit_sha=commit_sha,
+            output=args.output,
+            settings=live_settings,
+            max_live_calls=args.max_live_calls,
+        )
         if args.live
         else run_snapshot_matrix(commit_sha=commit_sha, output=args.output)
     )

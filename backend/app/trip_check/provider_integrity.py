@@ -136,10 +136,22 @@ class TripCheckProviderIntegrityCollector:
         settings: Settings | None = None,
         snapshot_path: Path = DEFAULT_SNAPSHOT_PATH,
         session_factory: Any = aiohttp.ClientSession,
+        max_live_calls: int | None = None,
     ):
+        if max_live_calls is not None and max_live_calls < 1:
+            raise ValueError("max_live_calls must be positive when configured")
         self.settings = settings or get_settings()
         self.snapshot_path = snapshot_path
         self.session_factory = session_factory
+        self.max_live_calls = max_live_calls
+        self.live_call_count = 0
+
+    def _consume_live_call(self) -> None:
+        if self.max_live_calls is not None and self.live_call_count >= self.max_live_calls:
+            raise ProviderQueryBudgetExceededError(
+                f"live Provider call budget exhausted at {self.max_live_calls} calls"
+            )
+        self.live_call_count += 1
 
     def _load_snapshot(self, run: TripCheckRun) -> dict[str, Any]:
         raw = self.snapshot_path.read_bytes()
@@ -499,6 +511,7 @@ class TripCheckProviderIntegrityCollector:
                 params["city1"] = AMAP_CITY_CODES[city]
                 params["city2"] = AMAP_CITY_CODES[city]
             try:
+                self._consume_live_call()
                 async with session.get(endpoint, params=params, timeout=aiohttp.ClientTimeout(total=8)) as response:
                     response.raise_for_status()
                     response_payload = await response.json()
@@ -608,6 +621,7 @@ class TripCheckProviderIntegrityCollector:
                     host = self.settings.qweather_api_host.removeprefix("https://").removeprefix("http://").rstrip("/")
                     url = f"https://{host}/v7/weather/7d"
                     headers = _qweather_headers(self.settings)
+                    self._consume_live_call()
                     async with session.get(
                         url,
                         params={"location": f"{anchor.lng:.2f},{anchor.lat:.2f}", "lang": "zh"},
@@ -719,6 +733,7 @@ class TripCheckProviderIntegrityCollector:
                 risk_category = "BRAVE_CREDENTIALS_MISSING"
             else:
                 try:
+                    self._consume_live_call()
                     async with session.get(
                         BRAVE_NEWS_ENDPOINT,
                         params={"q": f"{revision.city} 旅游 交通 天气 风险", "count": 5, "search_lang": "zh"},
