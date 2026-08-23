@@ -26,7 +26,9 @@ SECRET_PATTERNS = {
     "openai_key": re.compile(r"sk-[A-Za-z0-9_-]{16,}"),
     "github_token": re.compile(r"gh[opsu]_[A-Za-z0-9]{20,}"),
     "aws_access_key": re.compile(r"AKIA[0-9A-Z]{16}"),
-    "private_key": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    "private_key": re.compile(
+        r"-----BEGIN [A-Z ]*PRIVATE KEY-----\s+[A-Za-z0-9+/=\r\n]{64,}\s+-----END [A-Z ]*PRIVATE KEY-----"
+    ),
     "windows_user_profile": re.compile(r"[A-Za-z]:\\Users\\[^\\\s]+", re.IGNORECASE),
     "escaped_windows_user_profile": re.compile(r"[A-Za-z]:\\\\Users\\\\[^\\\s]+", re.IGNORECASE),
 }

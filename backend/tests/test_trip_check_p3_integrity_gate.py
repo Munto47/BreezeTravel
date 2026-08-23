@@ -6,6 +6,7 @@ import pytest
 
 from scripts.run_trip_check_p3_integrity_gate import (
     DEFAULT_OUTPUT,
+    SECRET_PATTERNS,
     _real_ocr_evidence,
     _safe_reset_output,
     _write_json,
@@ -41,3 +42,14 @@ def test_real_ocr_evidence_requires_bound_metrics(tmp_path):
 
 def test_p3_default_output_is_isolated_from_historical_evidence():
     assert DEFAULT_OUTPUT.as_posix().endswith("backend/evidence/trip_check_v1/p3")
+
+
+def test_private_key_scan_requires_an_actual_pem_body():
+    pattern = SECRET_PATTERNS["private_key"]
+
+    assert pattern.search('f"-----BEGIN PRIVATE KEY-----\\n{private_key}\\n-----END PRIVATE KEY-----"') is None
+    assert pattern.search(
+        "-----BEGIN PRIVATE KEY-----\n"
+        + "A" * 80
+        + "\n-----END PRIVATE KEY-----"
+    )

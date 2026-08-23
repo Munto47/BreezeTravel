@@ -61,12 +61,15 @@ async def lifespan(app: FastAPI):
     # service dependency.  Each Suggestion request validates it again, so a
     # post-startup file replacement also fails closed.
     validate_suggestion_provider_configuration(cfg)
-    await db_connection.get_pool()
+    pool = await db_connection.get_pool()
     if cfg.auto_migrate:
         await db_connection.run_migrations()
     elif cfg.require_schema_check and not (cfg.demo_mode or cfg.runtime_profile == "test"):
         await db_connection.check_schema_version()
-    await ScreenshotAssetCleanupService(PostgresScreenshotAssetRepository()).recover_expired()
+    # Reuse the startup pool instead of resolving a separately imported
+    # connection function. This keeps cleanup on the same authoritative
+    # transaction boundary and preserves the existing test/dependency seam.
+    await ScreenshotAssetCleanupService(PostgresScreenshotAssetRepository(pool)).recover_expired()
     if cfg.checkpoint_bootstrap_on_start:
         await agent_graph.init_persistent_graph()
     yield
