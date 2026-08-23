@@ -384,14 +384,9 @@ def test_unknown_finding_relabelled_pass_without_source_status_must_fail() -> No
     assert score.task_success is False
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="v1 formal runner proceeds once the v2-ready guard succeeds",
-)
 def test_v1_formal_runner_must_remain_superseded_after_v2_is_ready(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(v1_runner, "require_v2_formal_ready", lambda: {"formal_evidence_status": "READY"})
     monkeypatch.setattr(v1_runner, "_git", lambda *args: "a" * 40 if args[-1] == "HEAD" else "")
 
     def proceeded(_lane: str) -> list[dict]:
@@ -403,15 +398,9 @@ def test_v1_formal_runner_must_remain_superseded_after_v2_is_ready(
         asyncio.run(v1_runner._execute(args))
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="v1 formal scorer proceeds once the v2-ready guard succeeds",
-)
 def test_v1_formal_scorer_must_remain_superseded_after_v2_is_ready(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(v1_scorer, "require_v2_formal_ready", lambda: {"formal_evidence_status": "READY"})
-
     def proceeded(**_kwargs: object) -> dict:
         raise AssertionError("superseded v1 scorer proceeded past its formal guard")
 
@@ -421,14 +410,9 @@ def test_v1_formal_scorer_must_remain_superseded_after_v2_is_ready(
         v1_scorer.main()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="v1 blind scorer proceeds once the v2-ready guard succeeds",
-)
 def test_v1_blind_scorer_must_remain_superseded_after_v2_is_ready(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(blind_v1, "require_v2_formal_ready", lambda: {"formal_evidence_status": "READY"})
     with pytest.raises(blind_v1.P5BlindScoringError, match="P5_V1_FORMAL_CONTRACT_SUPERSEDED"):
         blind_v1.score_external_blind_run_group(
             repo_root=tmp_path,
@@ -439,13 +423,7 @@ def test_v1_blind_scorer_must_remain_superseded_after_v2_is_ready(
         )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="v1 Gate proceeds once the v2-ready guard succeeds",
-)
 def test_v1_gate_must_remain_superseded_after_v2_is_ready(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(v1_gate, "require_v2_formal_ready", lambda: {"formal_evidence_status": "READY"})
-
     def proceeded(**_kwargs: object) -> dict:
         raise AssertionError("superseded v1 Gate proceeded past its formal guard")
 
