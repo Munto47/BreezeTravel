@@ -24,6 +24,8 @@ from app.itineraries.models import (
 from app.itineraries.repositories import InMemoryItineraryRepository
 from app.operations.repositories import InMemoryCreationCommandRepository
 from app.repairs.repositories import InMemoryRepairRepository
+from app.trip_check.advice import InMemoryAdviceRepository
+from app.trip_check.runs import InMemoryTripCheckRunRepository
 from app.utils.auth import get_current_user
 
 
@@ -131,7 +133,7 @@ def _client(monkeypatch, *, route_provider=None):
         report = await AuditApplicationService(
             itinerary_repository=itinerary_repository,
             audit_repository=audit_repository,
-        ).run_current_audit(workspace.workspace_id, now=datetime(2026, 8, 20, tzinfo=timezone.utc))
+        ).run_current_audit(workspace.workspace_id, now=datetime.now(timezone.utc))
         itinerary_repository.workspaces[workspace.workspace_id] = workspace.model_copy(
             update={
                 "current_report_id": report.report_id,
@@ -143,12 +145,16 @@ def _client(monkeypatch, *, route_provider=None):
 
     itinerary_repository, audit_repository, repair_repository, report = asyncio.run(setup())
     command_repository = InMemoryCreationCommandRepository()
+    advice_repository = InMemoryAdviceRepository()
+    run_repository = InMemoryTripCheckRunRepository()
     app = FastAPI()
     app.include_router(repairs_api.router, prefix="/api")
     app.dependency_overrides[repairs_api.get_itinerary_repository] = lambda: itinerary_repository
     app.dependency_overrides[repairs_api.get_audit_repository] = lambda: audit_repository
     app.dependency_overrides[repairs_api.get_repair_repository] = lambda: repair_repository
     app.dependency_overrides[repairs_api.get_creation_command_repository] = lambda: command_repository
+    app.dependency_overrides[repairs_api.get_advice_repository] = lambda: advice_repository
+    app.dependency_overrides[repairs_api.get_trip_check_run_repository] = lambda: run_repository
     app.dependency_overrides[repairs_api.get_route_evidence_provider] = lambda: (
         route_provider or ControlledRepairRouteProvider()
     )
@@ -164,7 +170,7 @@ def test_repair_api_preview_apply_and_idempotent_replay(monkeypatch):
         f"/api/audits/{report.report_id}/repairs",
         headers={"Idempotency-Key": "repair-propose"},
     )
-    assert proposed.status_code == 201
+    assert proposed.status_code == 201, proposed.json()
     options = proposed.json()
     assert len(options) == 2
     assert all(item["postcheck_report_id"] for item in options)

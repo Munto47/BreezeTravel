@@ -17,6 +17,7 @@ from app.trip_check.errors import (
     TripCheckRunNotResumableError,
 )
 from app.trip_check.models import (
+    RunPartialFailure,
     RunSpec,
     SideEffectReceipt,
     TripBriefStatus,
@@ -117,6 +118,52 @@ class TripCheckRunRepository(Protocol):
     async def save_receipt(self, receipt: SideEffectReceipt) -> tuple[SideEffectReceipt, bool]: ...
 
     async def get_receipt(self, run_id: str, side_effect_key: str) -> SideEffectReceipt | None: ...
+
+    async def claim_for_execution(self, run_id: str, *, now: datetime) -> TripCheckRun: ...
+
+    async def start_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        stage_input_hash: str,
+        now: datetime,
+    ) -> TripCheckRun: ...
+
+    async def complete_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        expected_stage: TripCheckStage,
+        next_stage: TripCheckStage,
+        status: TripCheckRunStatus,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str | None = None,
+        report_id: str | None = None,
+        advice_bundle_id: str | None = None,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]: ...
+
+    async def fail_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        category: str,
+        now: datetime,
+    ) -> TripCheckRun: ...
+
+    async def complete_postcheck(
+        self,
+        run_id: str,
+        *,
+        repair_id: str,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str,
+        report_id: str,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]: ...
 
 
 class PostgresTripCheckRunRepository:
@@ -370,6 +417,426 @@ class PostgresTripCheckRunRepository:
             )
         return _receipt_from_row(row) if row else None
 
+    async def claim_for_execution(self, run_id: str, *, now: datetime) -> TripCheckRun:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow("SELECT * FROM trip_check_runs WHERE run_id = $1 FOR UPDATE", run_id)
+            if row is None:
+                raise ResourceNotFound("trip check run does not exist")
+            current = _run_from_row(row)
+            lease_active = current.lease_until is not None and current.lease_until > now
+            if (
+                current.status != TripCheckRunStatus.WAITING
+                or lease_active
+                or current.stage == TripCheckStage.WAIT_ADOPTION
+            ):
+                raise TripCheckRunNotResumableError(
+                    "trip check run is not ready for execution",
+                    context={"run_status": current.status.value, "stage": current.stage.value},
+                )
+            claimed = current.model_copy(
+                update={
+                    "status": TripCheckRunStatus.RUNNING,
+                    "lease_owner": f"worker:{uuid4()}",
+                    "lease_until": now + timedelta(seconds=self.lease_seconds),
+                    "version": current.version + 1,
+                    "updated_at": now,
+                }
+            )
+            row = await conn.fetchrow(
+                """
+                UPDATE trip_check_runs
+                SET status = $2, lease_owner = $3, lease_until = $4,
+                    version = $5, updated_at = $6
+                WHERE run_id = $1 RETURNING *
+                """,
+                run_id,
+                claimed.status.value,
+                claimed.lease_owner,
+                claimed.lease_until,
+                claimed.version,
+                claimed.updated_at,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_run_events (run_id, event_type, stage, run_version, payload_json)
+                VALUES ($1, 'run_claimed', $2, $3, $4::jsonb)
+                """,
+                run_id,
+                claimed.stage.value,
+                claimed.version,
+                json.dumps({"status": claimed.status.value}),
+            )
+        return _run_from_row(row)
+
+    async def start_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        stage_input_hash: str,
+        now: datetime,
+    ) -> TripCheckRun:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow("SELECT * FROM trip_check_runs WHERE run_id = $1 FOR UPDATE", run_id)
+            if row is None:
+                raise ResourceNotFound("trip check run does not exist")
+            current = _run_from_row(row)
+            if current.status != TripCheckRunStatus.RUNNING or current.lease_owner != lease_owner:
+                raise TripCheckRunConflictError(
+                    "trip check stage lease is no longer owned by this worker",
+                    context={"run_id": run_id, "stage": current.stage.value},
+                )
+            inserted = await conn.fetchval(
+                """
+                INSERT INTO trip_check_stage_attempts (
+                    run_id, stage, attempt, state, stage_input_hash, started_at
+                ) VALUES ($1, $2, $3, 'STARTED', $4, $5)
+                ON CONFLICT (run_id, stage, attempt) DO NOTHING
+                RETURNING attempt
+                """,
+                run_id,
+                current.stage.value,
+                current.stage_attempt,
+                stage_input_hash,
+                now,
+            )
+            if inserted is not None:
+                await conn.execute(
+                    """
+                    INSERT INTO trip_check_run_events (run_id, event_type, stage, run_version, payload_json)
+                    VALUES ($1, 'stage_started', $2, $3, $4::jsonb)
+                    """,
+                    run_id,
+                    current.stage.value,
+                    current.version,
+                    json.dumps({"attempt": current.stage_attempt}),
+                )
+        return current
+
+    async def complete_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        expected_stage: TripCheckStage,
+        next_stage: TripCheckStage,
+        status: TripCheckRunStatus,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str | None = None,
+        report_id: str | None = None,
+        advice_bundle_id: str | None = None,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow("SELECT * FROM trip_check_runs WHERE run_id = $1 FOR UPDATE", run_id)
+            if row is None:
+                raise ResourceNotFound("trip check run does not exist")
+            current = _run_from_row(row)
+            existing_row = await conn.fetchrow(
+                """
+                SELECT * FROM trip_check_side_effect_receipts
+                WHERE run_id = $1 AND side_effect_key = $2
+                """,
+                run_id,
+                receipt.side_effect_key,
+            )
+            if existing_row is not None:
+                existing = _receipt_from_row(existing_row)
+                if existing.request_hash != receipt.request_hash:
+                    raise IdempotencyKeyReusedError("side-effect key was already used with a different request")
+                return current, True
+            if (
+                current.stage != expected_stage
+                or current.status != TripCheckRunStatus.RUNNING
+                or current.lease_owner != lease_owner
+            ):
+                raise TripCheckRunConflictError(
+                    "trip check stage changed before completion",
+                    context={
+                        "expected_stage": expected_stage.value,
+                        "actual_stage": current.stage.value,
+                        "run_status": current.status.value,
+                    },
+                )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_side_effect_receipts (
+                    receipt_id, run_id, stage, side_effect_key, effect_type,
+                    request_hash, response_hash, provider, status, receipt_json, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+                """,
+                receipt.receipt_id,
+                receipt.run_id,
+                receipt.stage.value,
+                receipt.side_effect_key,
+                receipt.effect_type,
+                receipt.request_hash,
+                receipt.response_hash,
+                receipt.provider,
+                receipt.status,
+                json.dumps(receipt.receipt, ensure_ascii=False),
+                receipt.created_at,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_check_stage_attempts
+                SET state = 'SUCCEEDED', stage_output_hash = $4, finished_at = $5
+                WHERE run_id = $1 AND stage = $2 AND attempt = $3
+                """,
+                run_id,
+                expected_stage.value,
+                current.stage_attempt,
+                receipt.response_hash,
+                now,
+            )
+            completed = list(current.completed_stages)
+            if expected_stage not in completed:
+                completed.append(expected_stage)
+            keep_lease = status == TripCheckRunStatus.RUNNING
+            updated = current.model_copy(
+                update={
+                    "stage": next_stage,
+                    "stage_attempt": 1,
+                    "status": status,
+                    "lease_owner": lease_owner if keep_lease else None,
+                    "lease_until": now + timedelta(seconds=self.lease_seconds) if keep_lease else None,
+                    "completed_stages": completed,
+                    "evidence_snapshot_id": evidence_snapshot_id or current.evidence_snapshot_id,
+                    "report_id": report_id or current.report_id,
+                    "advice_bundle_id": advice_bundle_id or current.advice_bundle_id,
+                    "version": current.version + 1,
+                    "updated_at": now,
+                }
+            )
+            row = await conn.fetchrow(
+                """
+                UPDATE trip_check_runs
+                SET stage = $2, stage_attempt = $3, status = $4,
+                    lease_owner = $5, lease_until = $6,
+                    completed_stages_json = $7::jsonb,
+                    evidence_snapshot_id = $8, report_id = $9,
+                    advice_bundle_id = $10, version = $11, updated_at = $12
+                WHERE run_id = $1 RETURNING *
+                """,
+                run_id,
+                updated.stage.value,
+                updated.stage_attempt,
+                updated.status.value,
+                updated.lease_owner,
+                updated.lease_until,
+                json.dumps([item.value for item in updated.completed_stages]),
+                updated.evidence_snapshot_id,
+                updated.report_id,
+                updated.advice_bundle_id,
+                updated.version,
+                updated.updated_at,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_run_events (run_id, event_type, stage, run_version, payload_json)
+                VALUES ($1, $2, $3, $4, $5::jsonb)
+                """,
+                run_id,
+                "run_succeeded" if status == TripCheckRunStatus.SUCCEEDED else "stage_completed",
+                updated.stage.value,
+                updated.version,
+                json.dumps(
+                    {
+                        "completed_stage": expected_stage.value,
+                        "status": updated.status.value,
+                        "receipt_id": receipt.receipt_id,
+                    }
+                ),
+            )
+        return _run_from_row(row), False
+
+    async def fail_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        category: str,
+        now: datetime,
+    ) -> TripCheckRun:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow("SELECT * FROM trip_check_runs WHERE run_id = $1 FOR UPDATE", run_id)
+            if row is None:
+                raise ResourceNotFound("trip check run does not exist")
+            current = _run_from_row(row)
+            if current.status != TripCheckRunStatus.RUNNING or current.lease_owner != lease_owner:
+                return current
+            failure = RunPartialFailure(
+                stage=current.stage,
+                category=category,
+                affected_fields=[],
+                retryable=True,
+            )
+            failures = [*current.partial_failures, failure]
+            updated = current.model_copy(
+                update={
+                    "status": TripCheckRunStatus.FAILED,
+                    "lease_owner": None,
+                    "lease_until": None,
+                    "partial_failures": failures,
+                    "version": current.version + 1,
+                    "updated_at": now,
+                }
+            )
+            await conn.execute(
+                """
+                UPDATE trip_check_stage_attempts
+                SET state = 'FAILED_RETRYABLE', failure_category = $4, finished_at = $5
+                WHERE run_id = $1 AND stage = $2 AND attempt = $3
+                """,
+                run_id,
+                current.stage.value,
+                current.stage_attempt,
+                category,
+                now,
+            )
+            row = await conn.fetchrow(
+                """
+                UPDATE trip_check_runs
+                SET status = 'FAILED', lease_owner = NULL, lease_until = NULL,
+                    partial_failures_json = $2::jsonb, version = $3, updated_at = $4
+                WHERE run_id = $1 RETURNING *
+                """,
+                run_id,
+                json.dumps([item.model_dump(mode="json") for item in failures]),
+                updated.version,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_run_events (run_id, event_type, stage, run_version, payload_json)
+                VALUES ($1, 'stage_failed', $2, $3, $4::jsonb)
+                """,
+                run_id,
+                current.stage.value,
+                updated.version,
+                json.dumps({"category": category, "retryable": True}),
+            )
+        return _run_from_row(row)
+
+    async def complete_postcheck(
+        self,
+        run_id: str,
+        *,
+        repair_id: str,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str,
+        report_id: str,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            row = await conn.fetchrow("SELECT * FROM trip_check_runs WHERE run_id = $1 FOR UPDATE", run_id)
+            if row is None:
+                raise ResourceNotFound("trip check run does not exist")
+            current = _run_from_row(row)
+            existing_row = await conn.fetchrow(
+                """
+                SELECT * FROM trip_check_side_effect_receipts
+                WHERE run_id = $1 AND side_effect_key = $2
+                """,
+                run_id,
+                receipt.side_effect_key,
+            )
+            if existing_row is not None:
+                existing = _receipt_from_row(existing_row)
+                if existing.request_hash != receipt.request_hash:
+                    raise IdempotencyKeyReusedError("postcheck key was already used with a different request")
+                return current, True
+            if current.stage != TripCheckStage.WAIT_ADOPTION or current.status != TripCheckRunStatus.WAITING:
+                raise TripCheckRunConflictError(
+                    "trip check run is not waiting for adoption",
+                    context={"stage": current.stage.value, "status": current.status.value},
+                )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_side_effect_receipts (
+                    receipt_id, run_id, stage, side_effect_key, effect_type,
+                    request_hash, response_hash, provider, status, receipt_json, created_at
+                ) VALUES ($1, $2, 'POSTCHECK', $3, $4, $5, $6, $7, $8, $9::jsonb, $10)
+                """,
+                receipt.receipt_id,
+                run_id,
+                receipt.side_effect_key,
+                receipt.effect_type,
+                receipt.request_hash,
+                receipt.response_hash,
+                receipt.provider,
+                receipt.status,
+                json.dumps(receipt.receipt, ensure_ascii=False),
+                receipt.created_at,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_stage_attempts (
+                    run_id, stage, attempt, state, stage_input_hash,
+                    stage_output_hash, started_at, finished_at
+                ) VALUES ($1, 'POSTCHECK', 1, 'SUCCEEDED', $2, $3, $4, $4)
+                ON CONFLICT (run_id, stage, attempt) DO NOTHING
+                """,
+                run_id,
+                receipt.request_hash,
+                receipt.response_hash,
+                now,
+            )
+            completed = list(current.completed_stages)
+            for stage in (TripCheckStage.WAIT_ADOPTION, TripCheckStage.POSTCHECK):
+                if stage not in completed:
+                    completed.append(stage)
+            updated = current.model_copy(
+                update={
+                    "stage": TripCheckStage.POSTCHECK,
+                    "stage_attempt": 1,
+                    "status": TripCheckRunStatus.SUCCEEDED,
+                    "completed_stages": completed,
+                    "evidence_snapshot_id": evidence_snapshot_id,
+                    "report_id": report_id,
+                    "version": current.version + 1,
+                    "updated_at": now,
+                }
+            )
+            row = await conn.fetchrow(
+                """
+                UPDATE trip_check_runs
+                SET stage = 'POSTCHECK', stage_attempt = 1, status = 'SUCCEEDED',
+                    completed_stages_json = $2::jsonb,
+                    evidence_snapshot_id = $3, report_id = $4,
+                    version = $5, updated_at = $6
+                WHERE run_id = $1 RETURNING *
+                """,
+                run_id,
+                json.dumps([item.value for item in completed]),
+                evidence_snapshot_id,
+                report_id,
+                updated.version,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_check_run_events (run_id, event_type, stage, run_version, payload_json)
+                VALUES ($1, 'run_succeeded', 'POSTCHECK', $2, $3::jsonb)
+                """,
+                run_id,
+                updated.version,
+                json.dumps(
+                    {
+                        "repair_id": repair_id,
+                        "report_id": report_id,
+                        "receipt_id": receipt.receipt_id,
+                        "status": TripCheckRunStatus.SUCCEEDED.value,
+                    }
+                ),
+            )
+        return _run_from_row(row), False
+
 
 class InMemoryTripCheckRunRepository:
     def __init__(self, *, lease_seconds: int = 60):
@@ -377,6 +844,7 @@ class InMemoryTripCheckRunRepository:
         self.commands: dict[tuple[str, str], tuple[str, str]] = {}
         self.events: dict[str, list[TripCheckRunEvent]] = {}
         self.receipts: dict[tuple[str, str], SideEffectReceipt] = {}
+        self.attempts: dict[tuple[str, TripCheckStage, int], dict[str, Any]] = {}
         self.lease_seconds = lease_seconds
 
     def _append_event(self, run: TripCheckRun, event_type: str) -> None:
@@ -461,6 +929,201 @@ class InMemoryTripCheckRunRepository:
     async def get_receipt(self, run_id: str, side_effect_key: str) -> SideEffectReceipt | None:
         return self.receipts.get((run_id, side_effect_key))
 
+    async def claim_for_execution(self, run_id: str, *, now: datetime) -> TripCheckRun:
+        current = self.runs.get(run_id)
+        if current is None:
+            raise ResourceNotFound("trip check run does not exist")
+        lease_active = current.lease_until is not None and current.lease_until > now
+        if (
+            current.status != TripCheckRunStatus.WAITING
+            or lease_active
+            or current.stage == TripCheckStage.WAIT_ADOPTION
+        ):
+            raise TripCheckRunNotResumableError(
+                "trip check run is not ready for execution",
+                context={"run_status": current.status.value, "stage": current.stage.value},
+            )
+        claimed = current.model_copy(
+            update={
+                "status": TripCheckRunStatus.RUNNING,
+                "lease_owner": f"worker:{uuid4()}",
+                "lease_until": now + timedelta(seconds=self.lease_seconds),
+                "version": current.version + 1,
+                "updated_at": now,
+            }
+        )
+        self.runs[run_id] = claimed
+        self._append_event(claimed, "run_claimed")
+        return claimed
+
+    async def start_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        stage_input_hash: str,
+        now: datetime,
+    ) -> TripCheckRun:
+        current = self.runs.get(run_id)
+        if current is None:
+            raise ResourceNotFound("trip check run does not exist")
+        if current.status != TripCheckRunStatus.RUNNING or current.lease_owner != lease_owner:
+            raise TripCheckRunConflictError("trip check stage lease is no longer owned by this worker")
+        key = (run_id, current.stage, current.stage_attempt)
+        if key not in self.attempts:
+            self.attempts[key] = {
+                "state": "STARTED",
+                "stage_input_hash": stage_input_hash,
+                "started_at": now,
+            }
+            self._append_event(current, "stage_started")
+        return current
+
+    async def complete_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        expected_stage: TripCheckStage,
+        next_stage: TripCheckStage,
+        status: TripCheckRunStatus,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str | None = None,
+        report_id: str | None = None,
+        advice_bundle_id: str | None = None,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]:
+        current = self.runs.get(run_id)
+        if current is None:
+            raise ResourceNotFound("trip check run does not exist")
+        existing = self.receipts.get((run_id, receipt.side_effect_key))
+        if existing is not None:
+            if existing.request_hash != receipt.request_hash:
+                raise IdempotencyKeyReusedError("side-effect key was already used with a different request")
+            return current, True
+        if (
+            current.stage != expected_stage
+            or current.status != TripCheckRunStatus.RUNNING
+            or current.lease_owner != lease_owner
+        ):
+            raise TripCheckRunConflictError("trip check stage changed before completion")
+        self.receipts[(run_id, receipt.side_effect_key)] = receipt
+        attempt = self.attempts.get((run_id, current.stage, current.stage_attempt))
+        if attempt is not None:
+            attempt.update(
+                {
+                    "state": "SUCCEEDED",
+                    "stage_output_hash": receipt.response_hash,
+                    "finished_at": now,
+                }
+            )
+        completed = list(current.completed_stages)
+        if expected_stage not in completed:
+            completed.append(expected_stage)
+        keep_lease = status == TripCheckRunStatus.RUNNING
+        updated = current.model_copy(
+            update={
+                "stage": next_stage,
+                "stage_attempt": 1,
+                "status": status,
+                "lease_owner": lease_owner if keep_lease else None,
+                "lease_until": now + timedelta(seconds=self.lease_seconds) if keep_lease else None,
+                "completed_stages": completed,
+                "evidence_snapshot_id": evidence_snapshot_id or current.evidence_snapshot_id,
+                "report_id": report_id or current.report_id,
+                "advice_bundle_id": advice_bundle_id or current.advice_bundle_id,
+                "version": current.version + 1,
+                "updated_at": now,
+            }
+        )
+        self.runs[run_id] = updated
+        self._append_event(updated, "run_succeeded" if status == TripCheckRunStatus.SUCCEEDED else "stage_completed")
+        return updated, False
+
+    async def fail_stage(
+        self,
+        run_id: str,
+        *,
+        lease_owner: str,
+        category: str,
+        now: datetime,
+    ) -> TripCheckRun:
+        current = self.runs.get(run_id)
+        if current is None:
+            raise ResourceNotFound("trip check run does not exist")
+        if current.status != TripCheckRunStatus.RUNNING or current.lease_owner != lease_owner:
+            return current
+        failure = RunPartialFailure(
+            stage=current.stage,
+            category=category,
+            affected_fields=[],
+            retryable=True,
+        )
+        updated = current.model_copy(
+            update={
+                "status": TripCheckRunStatus.FAILED,
+                "lease_owner": None,
+                "lease_until": None,
+                "partial_failures": [*current.partial_failures, failure],
+                "version": current.version + 1,
+                "updated_at": now,
+            }
+        )
+        self.runs[run_id] = updated
+        attempt = self.attempts.get((run_id, current.stage, current.stage_attempt))
+        if attempt is not None:
+            attempt.update({"state": "FAILED_RETRYABLE", "failure_category": category, "finished_at": now})
+        self._append_event(updated, "stage_failed")
+        return updated
+
+    async def complete_postcheck(
+        self,
+        run_id: str,
+        *,
+        repair_id: str,
+        receipt: SideEffectReceipt,
+        evidence_snapshot_id: str,
+        report_id: str,
+        now: datetime,
+    ) -> tuple[TripCheckRun, bool]:
+        current = self.runs.get(run_id)
+        if current is None:
+            raise ResourceNotFound("trip check run does not exist")
+        existing = self.receipts.get((run_id, receipt.side_effect_key))
+        if existing is not None:
+            if existing.request_hash != receipt.request_hash:
+                raise IdempotencyKeyReusedError("postcheck key was already used with a different request")
+            return current, True
+        if current.stage != TripCheckStage.WAIT_ADOPTION or current.status != TripCheckRunStatus.WAITING:
+            raise TripCheckRunConflictError("trip check run is not waiting for adoption")
+        self.receipts[(run_id, receipt.side_effect_key)] = receipt
+        self.attempts[(run_id, TripCheckStage.POSTCHECK, 1)] = {
+            "state": "SUCCEEDED",
+            "stage_input_hash": receipt.request_hash,
+            "stage_output_hash": receipt.response_hash,
+            "started_at": now,
+            "finished_at": now,
+        }
+        completed = list(current.completed_stages)
+        for stage in (TripCheckStage.WAIT_ADOPTION, TripCheckStage.POSTCHECK):
+            if stage not in completed:
+                completed.append(stage)
+        updated = current.model_copy(
+            update={
+                "stage": TripCheckStage.POSTCHECK,
+                "stage_attempt": 1,
+                "status": TripCheckRunStatus.SUCCEEDED,
+                "completed_stages": completed,
+                "evidence_snapshot_id": evidence_snapshot_id,
+                "report_id": report_id,
+                "version": current.version + 1,
+                "updated_at": now,
+            }
+        )
+        self.runs[run_id] = updated
+        self._append_event(updated, "run_succeeded")
+        return updated, False
+
 
 def _resumed_run(
     current: TripCheckRun,
@@ -483,6 +1146,7 @@ def _resumed_run(
     lease_active = current.lease_until is not None and current.lease_until > now
     if current.status not in {
         TripCheckRunStatus.WAITING,
+        TripCheckRunStatus.RUNNING,
         TripCheckRunStatus.PARTIAL,
         TripCheckRunStatus.FAILED,
     } or lease_active:

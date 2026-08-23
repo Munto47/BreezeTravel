@@ -315,7 +315,7 @@ class AdviceBundle(BaseModel):
     itinerary_revision: int = Field(gt=0)
     brief_revision: int = Field(gt=0)
     evidence_snapshot_id: str = Field(min_length=1)
-    actions: list[AdviceAction] = Field(min_length=1)
+    actions: list[AdviceAction] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @model_validator(mode="after")
@@ -323,4 +323,25 @@ class AdviceBundle(BaseModel):
         ids = [item.advice_id for item in self.actions]
         if len(ids) != len(set(ids)):
             raise ValueError("advice ids must be unique within a bundle")
+        return self
+
+
+class TripCheckPostcheckLineage(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    lineage_id: str = Field(min_length=1)
+    run_id: str = Field(min_length=1)
+    advice_bundle_id: str = Field(min_length=1)
+    repair_id: str = Field(min_length=1)
+    source_report_id: str = Field(min_length=1)
+    source_itinerary_revision: int = Field(gt=0)
+    result_itinerary_revision: int = Field(gt=0)
+    postcheck_report_id: str = Field(min_length=1)
+    postcheck_snapshot_id: str = Field(min_length=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @model_validator(mode="after")
+    def result_revision_must_advance(self) -> "TripCheckPostcheckLineage":
+        if self.result_itinerary_revision <= self.source_itinerary_revision:
+            raise ValueError("postcheck lineage must advance the itinerary revision")
         return self

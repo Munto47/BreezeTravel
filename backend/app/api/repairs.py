@@ -12,6 +12,9 @@ from app.itineraries.route_refresh import AmapRouteEvidenceProvider, RouteEviden
 from app.repairs.models import RepairApplyResult, RepairOption
 from app.repairs.repositories import PostgresRepairRepository, RepairRepository
 from app.repairs.search import BoundedRepairSearch, ProviderRepairRouteEvidenceRefresher
+from app.trip_check.advice import AdviceRepository, PostgresAdviceRepository
+from app.trip_check.executor import TripCheckAdoptionReconciler
+from app.trip_check.runs import PostgresTripCheckRunRepository, TripCheckRunRepository
 from app.operations.http import require_idempotency_key
 from app.operations.repositories import (
     CreationCommandRepository,
@@ -44,6 +47,14 @@ def get_route_evidence_provider() -> RouteEvidenceProvider:
     return AmapRouteEvidenceProvider()
 
 
+def get_trip_check_run_repository() -> TripCheckRunRepository:
+    return PostgresTripCheckRunRepository()
+
+
+def get_advice_repository() -> AdviceRepository:
+    return PostgresAdviceRepository()
+
+
 ItineraryRepositoryDep = Annotated[ItineraryRepository, Depends(get_itinerary_repository)]
 AuditRepositoryDep = Annotated[AuditRepository, Depends(get_audit_repository)]
 RepairRepositoryDep = Annotated[RepairRepository, Depends(get_repair_repository)]
@@ -53,6 +64,8 @@ CreationCommandRepositoryDep = Annotated[
     Depends(get_creation_command_repository),
 ]
 RouteEvidenceProviderDep = Annotated[RouteEvidenceProvider, Depends(get_route_evidence_provider)]
+TripCheckRunRepositoryDep = Annotated[TripCheckRunRepository, Depends(get_trip_check_run_repository)]
+AdviceRepositoryDep = Annotated[AdviceRepository, Depends(get_advice_repository)]
 
 
 class ApplyRepairRequest(BaseModel):
@@ -195,6 +208,8 @@ async def apply_repair(
     itinerary_repository: ItineraryRepositoryDep,
     audit_repository: AuditRepositoryDep,
     repair_repository: RepairRepositoryDep,
+    trip_check_run_repository: TripCheckRunRepositoryDep,
+    advice_repository: AdviceRepositoryDep,
     response: Response,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
@@ -225,6 +240,11 @@ async def apply_repair(
             if_match_revision=revision,
             idempotency_key=idempotency_key,
         )
+        await TripCheckAdoptionReconciler(
+            run_repository=trip_check_run_repository,
+            audit_repository=audit_repository,
+            advice_repository=advice_repository,
+        ).reconcile(result)
         response.headers["ETag"] = f'"{result.new_revision}"'
         return result
     except ItineraryDomainError as exc:

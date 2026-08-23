@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from pydantic import BaseModel, Field
 
@@ -197,20 +197,21 @@ class EvidenceService:
         observations: list[EvidenceObservation],
         provider_failures: list[ProviderFailure] | None = None,
         supersedes_snapshot_id: str | None = None,
+        snapshot_id: str | None = None,
         now: datetime | None = None,
     ) -> EvidenceSnapshot:
         now = now or datetime.now(timezone.utc)
-        snapshot_id = str(uuid4())
+        snapshot_id = snapshot_id or str(uuid4())
         conflicting_keys: set[tuple[str, str, str]] = set()
         grouped: dict[tuple[str, str, str], set[str]] = {}
-        for observation in observations:
+        for index, observation in enumerate(observations):
             key = (observation.subject_type, observation.subject_id, observation.fact_type)
             if observation.freshness_status not in {EvidenceFreshness.UNAVAILABLE, EvidenceFreshness.STALE}:
                 grouped.setdefault(key, set()).add(sha256_canonical(observation.value))
         conflicting_keys.update(key for key, values in grouped.items() if len(values) > 1)
 
         facts: list[EvidenceFact] = []
-        for observation in observations:
+        for index, observation in enumerate(observations):
             key = (observation.subject_type, observation.subject_id, observation.fact_type)
             status = observation.freshness_status
             valid_until = observation.valid_until
@@ -222,7 +223,15 @@ class EvidenceService:
                     valid_until = observation.observed_at + ttl
                 status = EvidenceFreshness.STALE if valid_until is not None and valid_until < now else EvidenceFreshness.FRESH
             facts.append(EvidenceFact(
-                fact_id=str(uuid4()),
+                fact_id=str(
+                    uuid5(
+                        NAMESPACE_URL,
+                        (
+                            f"breezetravel:{snapshot_id}:{index}:"
+                            f"{observation.subject_type}:{observation.subject_id}:{observation.fact_type}"
+                        ),
+                    )
+                ),
                 snapshot_id=snapshot_id,
                 subject_type=observation.subject_type,
                 subject_id=observation.subject_id,

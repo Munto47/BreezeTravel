@@ -162,6 +162,16 @@ class PostgresAuditRepository:
     async def save_snapshot(self, snapshot: EvidenceSnapshot) -> EvidenceSnapshot:
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            existing = await self.get_snapshot_with_conn(conn, snapshot.snapshot_id)
+            if existing is not None:
+                if sha256_canonical(existing.model_dump(mode="json")) != sha256_canonical(
+                    snapshot.model_dump(mode="json")
+                ):
+                    raise AuditInputStaleError(
+                        "evidence snapshot id already exists with different content",
+                        context={"snapshot_id": snapshot.snapshot_id},
+                    )
+                return existing
             await self._insert_snapshot(conn, snapshot)
         return snapshot
 
@@ -864,6 +874,16 @@ class InMemoryAuditRepository:
         self.task_specs: dict[str, TripTaskSpec] = {}
 
     async def save_snapshot(self, snapshot: EvidenceSnapshot) -> EvidenceSnapshot:
+        existing = self.snapshots.get(snapshot.snapshot_id)
+        if existing is not None:
+            if sha256_canonical(existing.model_dump(mode="json")) != sha256_canonical(
+                snapshot.model_dump(mode="json")
+            ):
+                raise AuditInputStaleError(
+                    "evidence snapshot id already exists with different content",
+                    context={"snapshot_id": snapshot.snapshot_id},
+                )
+            return existing
         self.snapshots[snapshot.snapshot_id] = snapshot
         return snapshot
 

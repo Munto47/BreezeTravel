@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Annotated
 
@@ -7,12 +8,21 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.audit.repositories import PostgresAuditRepository
+from app.config import get_settings
 from app.itineraries.errors import ItineraryDomainError
+from app.itineraries.route_refresh import AmapRouteEvidenceProvider
 from app.itineraries.repositories import ItineraryRepository, PostgresItineraryRepository
 from app.operations.http import require_idempotency_key
+from app.operations.repositories import PostgresCreationCommandRepository
+from app.repairs.repositories import PostgresRepairRepository
+from app.repairs.search import BoundedRepairSearch, ProviderRepairRouteEvidenceRefresher
+from app.services.background_tasks import schedule
 from app.services.room_access import require_room_member
+from app.trip_check.advice import PostgresAdviceRepository
 from app.trip_check.briefs import PostgresTripBriefRepository, TripBriefRepository
-from app.trip_check.models import RunSpec, TripCheckRun
+from app.trip_check.executor import TripCheckExecutor
+from app.trip_check.models import RunSpec, TripCheckRun, TripCheckRunStatus, TripCheckStage
 from app.trip_check.runs import (
     PostgresTripCheckRunRepository,
     TripCheckRunRepository,
@@ -36,9 +46,28 @@ def get_trip_check_run_repository() -> TripCheckRunRepository:
     return PostgresTripCheckRunRepository()
 
 
+def get_trip_check_executor() -> TripCheckExecutor:
+    itinerary_repository = PostgresItineraryRepository()
+    audit_repository = PostgresAuditRepository()
+    return TripCheckExecutor(
+        run_repository=PostgresTripCheckRunRepository(),
+        itinerary_repository=itinerary_repository,
+        audit_repository=audit_repository,
+        advice_repository=PostgresAdviceRepository(),
+        repair_search=BoundedRepairSearch(
+            itinerary_repository=itinerary_repository,
+            audit_repository=audit_repository,
+            repair_repository=PostgresRepairRepository(),
+            route_refresher=ProviderRepairRouteEvidenceRefresher(AmapRouteEvidenceProvider()),
+        ),
+        command_repository=PostgresCreationCommandRepository(),
+    )
+
+
 ItineraryRepositoryDep = Annotated[ItineraryRepository, Depends(get_itinerary_repository)]
 TripBriefRepositoryDep = Annotated[TripBriefRepository, Depends(get_trip_brief_repository)]
 TripCheckRunRepositoryDep = Annotated[TripCheckRunRepository, Depends(get_trip_check_run_repository)]
+TripCheckExecutorDep = Annotated[TripCheckExecutor, Depends(get_trip_check_executor)]
 CurrentUserDep = Annotated[str, Depends(get_current_user)]
 
 
@@ -85,6 +114,15 @@ def _raise_domain(exc: ItineraryDomainError):
     raise HTTPException(status_code=exc.status_code, detail=exc.detail()) from exc
 
 
+def _schedule_execution(run: TripCheckRun, executor: TripCheckExecutor) -> None:
+    if get_settings().runtime_profile != "local_fixture":
+        return
+    schedule(
+        lambda: executor.execute(run.run_id, lease_owner=run.lease_owner),
+        timeout_seconds=float(run.run_spec.budget.timeout_seconds),
+    )
+
+
 async def _authorize_workspace(workspace_id: str, user_id: str, repository: ItineraryRepository):
     workspace = await repository.get_workspace(workspace_id)
     if workspace is None:
@@ -119,6 +157,7 @@ async def create_trip_check_run(
     itinerary_repository: ItineraryRepositoryDep,
     trip_brief_repository: TripBriefRepositoryDep,
     run_repository: TripCheckRunRepositoryDep,
+    executor: TripCheckExecutorDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     await _authorize_workspace(workspace_id, current_user, itinerary_repository)
@@ -138,6 +177,7 @@ async def create_trip_check_run(
     except ItineraryDomainError as exc:
         _raise_domain(exc)
     _set_headers(response, run, replayed=replayed)
+    _schedule_execution(run, executor)
     return run
 
 
@@ -170,16 +210,38 @@ async def get_trip_check_run_events(
             status_code=400,
             detail={"code": "INVALID_LAST_EVENT_ID", "message": "Last-Event-ID must be an integer"},
         ) from exc
-    events = await run_repository.list_events(run_id, after_event_id=max(0, after))
-
     async def stream():
-        for event in events:
-            payload = event.model_dump(mode="json")
-            yield (
-                f"id: {event.event_id}\n"
-                f"event: {event.event_type}\n"
-                f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        cursor = max(0, after)
+        idle_polls = 0
+        while True:
+            events = await run_repository.list_events(run_id, after_event_id=cursor)
+            for event in events:
+                cursor = event.event_id
+                payload = event.model_dump(mode="json")
+                yield (
+                    f"id: {event.event_id}\n"
+                    f"event: {event.event_type}\n"
+                    f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                )
+            current = await run_repository.get_run(run_id)
+            if current is None:
+                return
+            terminal = current.status in {
+                TripCheckRunStatus.SUCCEEDED,
+                TripCheckRunStatus.FAILED,
+                TripCheckRunStatus.PRIVACY_BLOCKED,
+                TripCheckRunStatus.CANCELLED,
+            }
+            waiting_for_user = (
+                current.status == TripCheckRunStatus.WAITING
+                and current.stage == TripCheckStage.WAIT_ADOPTION
             )
+            if terminal or waiting_for_user or get_settings().runtime_profile == "test":
+                return
+            idle_polls += 1
+            if idle_polls % 75 == 0:
+                yield ": heartbeat\n\n"
+            await asyncio.sleep(0.2)
 
     return StreamingResponse(
         stream(),
@@ -197,6 +259,7 @@ async def resume_trip_check_run(
     itinerary_repository: ItineraryRepositoryDep,
     trip_brief_repository: TripBriefRepositoryDep,
     run_repository: TripCheckRunRepositoryDep,
+    executor: TripCheckExecutorDep,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
@@ -216,4 +279,5 @@ async def resume_trip_check_run(
     except ItineraryDomainError as exc:
         _raise_domain(exc)
     _set_headers(response, run, replayed=replayed)
+    _schedule_execution(run, executor)
     return run
