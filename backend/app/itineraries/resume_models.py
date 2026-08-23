@@ -10,6 +10,7 @@ from app.itineraries.hash_service import sha256_canonical
 from app.itineraries.models import ItineraryRevision, TripWorkspace
 from app.itineraries.tips_models import FinalTipsArtifact
 from app.repairs.models import RepairOption
+from app.trip_check.models import AdviceBundle, TripBriefRevision, TripCheckRun
 
 
 class TipsState(str, Enum):
@@ -37,6 +38,9 @@ class WorkspaceResume(BaseModel):
     workspace: TripWorkspace
     current_revision: ItineraryRevision | None = None
     current_import: ItineraryImport | None = None
+    current_brief: TripBriefRevision | None = None
+    current_trip_check_run: TripCheckRun | None = None
+    current_advice: AdviceBundle | None = None
     current_report: AuditReport | None = None
     current_evidence: EvidenceSnapshot | None = None
     proposed_repairs: list[RepairOption] = Field(default_factory=list)

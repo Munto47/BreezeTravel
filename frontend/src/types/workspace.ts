@@ -10,6 +10,9 @@ export interface TripWorkspace {
   trip_date_range: { start: string; end: string }
   current_itinerary_revision: number | null
   current_import_id: string | null
+  current_brief_id?: string | null
+  current_trip_brief_revision?: number | null
+  current_trip_check_run_id?: string | null
   current_report_id: string | null
   current_member_constraint_revision: number | null
   status: 'DRAFT' | 'AUDITING' | 'NEEDS_CONFIRMATION' | 'CONFIRMED'
@@ -526,11 +529,154 @@ export interface FinalTipsArtifact {
 
 export type TipsState = 'NOT_APPLICABLE' | 'INELIGIBLE' | 'NOT_GENERATED' | 'READY'
 
+export type TripBriefStatus = 'DRAFT' | 'NEEDS_CONFIRMATION' | 'CONFIRMED'
+
+export interface BriefFieldProvenance {
+  source_spans: Array<{ source_id: string; start: number; end: number }>
+  confidence: number
+  origin: 'USER_TEXT' | 'PARSER' | 'USER_CONFIRMED' | 'INFERRED' | 'DEFAULT_NO_PREFERENCE'
+  confirmation: 'UNCONFIRMED' | 'CONFIRMED'
+  hardness: 'HARD' | 'SOFT' | 'NO_PREFERENCE'
+}
+
+export interface TripBriefRevision {
+  brief_id: string
+  workspace_id: string
+  revision: number
+  parent_revision: number | null
+  content_hash: string
+  city: string
+  date_range: { start: string; end: string }
+  traveler_count: number
+  arrival: { location: string | null; at: string | null; notes: string | null }
+  departure: { location: string | null; at: string | null; notes: string | null }
+  accommodation: { hotel_name: string | null; area: string | null }
+  transport_modes: Array<'WALKING' | 'TRANSIT' | 'BICYCLING' | 'DRIVING'>
+  transport_restrictions: string[] | string
+  budget: Record<string, unknown> | string
+  dining_style: string[] | string
+  lodging_style: string[] | string
+  dietary_restrictions: string[] | string
+  daily_pace: string
+  activity_intensity: string
+  field_provenance: Record<string, BriefFieldProvenance>
+  status: TripBriefStatus
+  confirmed_by: string | null
+  confirmed_at: string | null
+}
+
+export interface RunSpec {
+  schema_version: 'trip-check-run-spec-v1'
+  commit_sha: string
+  prompt_version: string
+  model_version: string
+  provider_version: string
+  rule_set_version: string
+  execution_mode: string
+  dataset_hash: string
+  snapshot_hash: string
+  fault_profile: string
+  random_seed: number
+  budget: {
+    max_tokens: number
+    max_provider_queries: number
+    max_retries: number
+    timeout_seconds: number
+    max_cost_usd: number
+  }
+}
+
+export type TripCheckStage =
+  | 'PARSE'
+  | 'WAIT_BRIEF_CONFIRMATION'
+  | 'RESOLVE_PLACES'
+  | 'COLLECT_EVIDENCE'
+  | 'AUDIT'
+  | 'BUILD_ADVICE'
+  | 'WAIT_ADOPTION'
+  | 'POSTCHECK'
+
+export type TripCheckRunStatus =
+  | 'WAITING'
+  | 'RUNNING'
+  | 'PARTIAL'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'PRIVACY_BLOCKED'
+  | 'CANCELLED'
+
+export interface TripCheckRun {
+  run_id: string
+  workspace_id: string
+  itinerary_revision: number
+  brief_id: string
+  brief_revision: number
+  stage: TripCheckStage
+  stage_attempt: number
+  lease_owner: string | null
+  lease_until: string | null
+  run_spec: RunSpec
+  config_hash: string
+  completed_stages: TripCheckStage[]
+  partial_failures: Array<{
+    stage: TripCheckStage
+    category: string
+    affected_fields: string[]
+    retryable: boolean
+  }>
+  status: TripCheckRunStatus
+  evidence_snapshot_id: string | null
+  report_id: string | null
+  advice_bundle_id: string | null
+  version: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AdviceAction {
+  advice_id: string
+  finding_id: string
+  action: string
+  expected_impact: string
+  uncertainty: string
+  candidate_set_id: string | null
+  evidence_fact_ids: string[]
+  provider_receipt_ids: string[]
+  route_delta: Record<string, unknown> | null
+  repair_id: string | null
+  tradeoffs: string[]
+}
+
+export interface AdviceBundle {
+  advice_bundle_id: string
+  workspace_id: string
+  run_id: string
+  report_id: string
+  itinerary_revision: number
+  brief_revision: number
+  evidence_snapshot_id: string
+  actions: AdviceAction[]
+  created_at: string
+}
+
+export interface TripCheckRunEvent {
+  event_id: number
+  run_id: string
+  event_type: string
+  stage: TripCheckStage
+  run_version: number
+  payload: Record<string, unknown>
+  created_at: string
+}
+
 export interface WorkspaceResume {
   schema_version: '1.0'
   workspace: TripWorkspace
   current_revision: ItineraryRevision | null
   current_import: ItineraryImport | null
+  current_brief: TripBriefRevision | null
+  current_trip_check_run: TripCheckRun | null
+  current_advice: AdviceBundle | null
   current_report: AuditReport | null
   current_evidence: EvidenceSnapshot | null
   proposed_repairs: RepairOption[]

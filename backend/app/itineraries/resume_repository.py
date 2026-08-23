@@ -22,6 +22,14 @@ from app.itineraries.tips_models import FinalTipsArtifact
 from app.itineraries.tips_repositories import PostgresFinalTipsRepository
 from app.repairs.models import RepairOperation, RepairOption
 from app.repairs.objective import repair_option_sort_key
+from app.trip_check.models import (
+    AdviceBundle,
+    TripBriefRevision,
+    TripCheckRun,
+    TripCheckRunStatus,
+    TripCheckStage,
+)
+from app.trip_check.runs import _run_from_row
 
 
 class WorkspaceResumeNotFound(Exception):
@@ -85,6 +93,8 @@ class PostgresWorkspaceResumeRepository:
         workspace_id = workspace.workspace_id
         revision = await self._load_revision(conn, workspace)
         itinerary_import = await self._load_import(conn, workspace)
+        brief = await self._load_brief(conn, workspace)
+        trip_check_run, advice = await self._load_trip_check_run(conn, workspace)
         report, evidence = await self._load_report_and_evidence(conn, workspace, revision)
         proposed_repairs = await self._load_proposed_repairs(conn, workspace_id, report)
         applied_repair = await self._load_applied_repair(
@@ -100,6 +110,9 @@ class PostgresWorkspaceResumeRepository:
             workspace=workspace,
             current_revision=revision,
             current_import=itinerary_import,
+            current_brief=brief,
+            current_trip_check_run=trip_check_run,
+            current_advice=advice,
             current_report=report,
             current_evidence=evidence,
             proposed_repairs=proposed_repairs,
@@ -111,6 +124,87 @@ class PostgresWorkspaceResumeRepository:
                 import_=f'"{itinerary_import.state_version}"' if itinerary_import is not None else None,
             ),
         )
+
+    async def _load_brief(
+        self,
+        conn: Any,
+        workspace: TripWorkspace,
+    ) -> TripBriefRevision | None:
+        brief_id = workspace.current_brief_id
+        brief_revision = workspace.current_trip_brief_revision
+        if brief_id is None and brief_revision is None:
+            return None
+        if brief_id is None or brief_revision is None:
+            raise _inconsistent("workspace brief pointer is incomplete")
+        row = await conn.fetchrow(
+            """
+            SELECT content_json
+            FROM trip_brief_revisions
+            WHERE workspace_id = $1 AND brief_id = $2 AND revision = $3
+            """,
+            workspace.workspace_id,
+            brief_id,
+            brief_revision,
+        )
+        if row is None:
+            raise _inconsistent("workspace points to a missing TripBrief revision")
+        brief = TripBriefRevision.model_validate(_json_value(row["content_json"]))
+        if brief.workspace_id != workspace.workspace_id or brief.brief_id != brief_id:
+            raise _inconsistent("current TripBrief does not belong to the workspace")
+        return brief
+
+    async def _load_trip_check_run(
+        self,
+        conn: Any,
+        workspace: TripWorkspace,
+    ) -> tuple[TripCheckRun | None, AdviceBundle | None]:
+        run_id = workspace.current_trip_check_run_id
+        if run_id is None:
+            return None, None
+        row = await conn.fetchrow(
+            "SELECT * FROM trip_check_runs WHERE workspace_id = $1 AND run_id = $2",
+            workspace.workspace_id,
+            run_id,
+        )
+        if row is None:
+            raise _inconsistent("workspace points to a missing TripCheck run")
+        run = _run_from_row(row)
+        if run.advice_bundle_id is None:
+            return run, None
+        advice_json = await conn.fetchval(
+            """
+            SELECT bundle_json
+            FROM advice_bundles
+            WHERE workspace_id = $1 AND run_id = $2 AND advice_bundle_id = $3
+            """,
+            workspace.workspace_id,
+            run.run_id,
+            run.advice_bundle_id,
+        )
+        if advice_json is None:
+            raise _inconsistent("TripCheck run points to a missing Advice bundle")
+        advice = AdviceBundle.model_validate(_json_value(advice_json))
+        postchecked = run.stage == TripCheckStage.POSTCHECK and run.status == TripCheckRunStatus.SUCCEEDED
+        if postchecked:
+            lineage = await conn.fetchrow(
+                """
+                SELECT source_report_id, postcheck_report_id, postcheck_snapshot_id
+                FROM trip_check_postcheck_lineage
+                WHERE run_id = $1 AND advice_bundle_id = $2
+                """,
+                run.run_id,
+                advice.advice_bundle_id,
+            )
+            if (
+                lineage is None
+                or lineage["source_report_id"] != advice.report_id
+                or lineage["postcheck_report_id"] != run.report_id
+                or lineage["postcheck_snapshot_id"] != run.evidence_snapshot_id
+            ):
+                raise _inconsistent("TripCheck postcheck lineage does not match the current run")
+        elif advice.report_id != run.report_id or advice.evidence_snapshot_id != run.evidence_snapshot_id:
+            raise _inconsistent("TripCheck Advice lineage does not match the run")
+        return run, advice
 
     async def _load_revision(
         self,

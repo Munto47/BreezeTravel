@@ -31,6 +31,12 @@ export class ApiRequestError extends Error {
   }
 }
 
+export interface ServerSentEvent<T> {
+  id: string | null
+  event: string
+  data: T
+}
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null
   return localStorage.getItem('authToken')
@@ -69,6 +75,70 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
+async function streamEvents<T>(
+  path: string,
+  options: {
+    lastEventId?: string | null
+    signal?: AbortSignal
+    onEvent: (event: ServerSentEvent<T>) => void
+  },
+): Promise<void> {
+  const token = getToken()
+  const headers: Record<string, string> = { Accept: 'text/event-stream' }
+  if (token) headers.Authorization = `Bearer ${token}`
+  if (options.lastEventId) headers['Last-Event-ID'] = options.lastEventId
+  const response = await fetch(`${API_BASE}${path}`, { headers, signal: options.signal })
+  if (response.status === 401) {
+    if (typeof window !== 'undefined') window.location.href = '/login'
+    throw new Error('Unauthorized')
+  }
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({})) as {
+      detail?: string | ApiErrorContext
+    }
+    const detail = body.detail
+    throw new ApiRequestError(
+      typeof detail === 'string' ? detail : detail?.message || detail?.code || `HTTP ${response.status}`,
+      {
+        status: response.status,
+        context: typeof detail === 'object' && detail !== null ? detail : {},
+      },
+    )
+  }
+  if (!response.body) throw new Error('SSE response does not expose a readable body')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  const dispatch = (frame: string) => {
+    if (!frame || frame.startsWith(':')) return
+    let id: string | null = null
+    let event = 'message'
+    const data: string[] = []
+    for (const line of frame.split('\n')) {
+      if (line.startsWith('id:')) id = line.slice(3).trim()
+      else if (line.startsWith('event:')) event = line.slice(6).trim()
+      else if (line.startsWith('data:')) data.push(line.slice(5).trimStart())
+    }
+    if (data.length > 0) {
+      options.onEvent({ id, event, data: JSON.parse(data.join('\n')) as T })
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done }).replaceAll('\r\n', '\n')
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary >= 0) {
+      dispatch(buffer.slice(0, boundary))
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+    }
+    if (done) break
+  }
+  if (buffer.trim()) dispatch(buffer.trim())
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
@@ -82,6 +152,7 @@ export const api = {
   patchWithHeaders: <T>(path: string, body: unknown, headers: Record<string, string>) =>
     request<T>(path, { method: 'PATCH', headers, body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  streamEvents,
 
   /** 下载文件（带 Auth header） */
   download: async (path: string, filename: string) => {

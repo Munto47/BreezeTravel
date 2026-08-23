@@ -8,20 +8,55 @@ import AuditDrawer from '@/components/workspace/AuditDrawer'
 import ImportResolutionPanel from '@/components/workspace/ImportResolutionPanel'
 import PreTripRecheckDiff from '@/components/workspace/PreTripRecheckDiff'
 import RepairCompare from '@/components/workspace/RepairCompare'
+import TripBriefConfirmationPanel from '@/components/workspace/TripBriefConfirmationPanel'
+import TripCheckRunPanel from '@/components/workspace/TripCheckRunPanel'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/authStore'
 import type {
   AuditReport,
+  AdviceBundle,
   EvidenceSnapshot,
   FinalTipsArtifact,
   ItineraryImport,
   ItineraryRevision,
   RepairApplyResult,
   RepairOption,
+  RunSpec,
   PreTripRecheckResult,
+  TripBriefRevision,
+  TripCheckRun,
+  TripCheckRunEvent,
   TripWorkspace,
   WorkspaceResume,
 } from '@/types/workspace'
+
+
+const P1_DATASET_HASH = '18322d96f3bc2e3315be6f6c0b38842d2dbc9eb81a270ea60d4a1e72824385f4'
+const CONTROLLED_SNAPSHOT_HASH = '3307e65a4134b2659d79ea0b9bdea42586e93122593d16ddb73df5a2db1bcf47'
+
+
+function controlledRunSpec(): RunSpec {
+  return {
+    schema_version: 'trip-check-run-spec-v1',
+    commit_sha: process.env.NEXT_PUBLIC_TRIP_CHECK_COMMIT_SHA || 'eb65f7a',
+    prompt_version: 'none-p1',
+    model_version: 'none-p1',
+    provider_version: 'controlled-fixture-v1',
+    rule_set_version: 'audit-v1',
+    execution_mode: 'fixture',
+    dataset_hash: process.env.NEXT_PUBLIC_TRIP_CHECK_DATASET_HASH || P1_DATASET_HASH,
+    snapshot_hash: process.env.NEXT_PUBLIC_TRIP_CHECK_SNAPSHOT_HASH || CONTROLLED_SNAPSHOT_HASH,
+    fault_profile: 'none',
+    random_seed: 7,
+    budget: {
+      max_tokens: 0,
+      max_provider_queries: 0,
+      max_retries: 1,
+      timeout_seconds: 30,
+      max_cost_usd: 0,
+    },
+  }
+}
 
 
 function todayPlus(days: number): string {
@@ -52,7 +87,11 @@ export default function ImportItineraryPage() {
   const [rawText, setRawText] = useState('')
   const [workspace, setWorkspace] = useState<TripWorkspace | null>(null)
   const [itineraryImport, setItineraryImport] = useState<ItineraryImport | null>(null)
+  const [brief, setBrief] = useState<TripBriefRevision | null>(null)
   const [revision, setRevision] = useState<ItineraryRevision | null>(null)
+  const [tripCheckRun, setTripCheckRun] = useState<TripCheckRun | null>(null)
+  const [runEvents, setRunEvents] = useState<TripCheckRunEvent[]>([])
+  const [advice, setAdvice] = useState<AdviceBundle | null>(null)
   const [report, setReport] = useState<AuditReport | null>(null)
   const [evidence, setEvidence] = useState<EvidenceSnapshot | null>(null)
   const [repairOptions, setRepairOptions] = useState<RepairOption[]>([])
@@ -63,6 +102,7 @@ export default function ImportItineraryPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const idempotencyKeys = useRef(new Map<string, { fingerprint: string; key: string }>())
+  const lastRunEventId = useRef(0)
 
   const commandKey = (scope: string, payload: unknown): string => {
     const fingerprint = JSON.stringify(payload)
@@ -82,6 +122,54 @@ export default function ImportItineraryPage() {
     if (values.workspaceId) params.set('workspaceId', values.workspaceId)
     if (values.importId) params.set('importId', values.importId)
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`)
+  }
+
+  const applyResumeState = (resumed: WorkspaceResume) => {
+    const restoredWorkspace = resumed.workspace
+    setWorkspace(restoredWorkspace)
+    setRoomId(restoredWorkspace.room_id)
+    setCity(restoredWorkspace.city)
+    setStartDate(restoredWorkspace.trip_date_range.start)
+    const start = new Date(`${restoredWorkspace.trip_date_range.start}T00:00:00`)
+    const end = new Date(`${restoredWorkspace.trip_date_range.end}T00:00:00`)
+    setDays(Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1)
+    setItineraryImport(resumed.current_import)
+    if (resumed.current_import) setRawText(resumed.current_import.raw_text)
+    setBrief(resumed.current_brief)
+    setRevision(resumed.current_revision)
+    setTripCheckRun(resumed.current_trip_check_run)
+    setAdvice(resumed.current_advice)
+    setReport(resumed.current_report)
+    setEvidence(resumed.current_evidence)
+    setRepairOptions([
+      ...resumed.proposed_repairs,
+      ...(resumed.applied_repair ? [resumed.applied_repair] : []),
+    ])
+    setFinalTips(resumed.current_tips)
+    setTipsNotice(
+      resumed.tips_state === 'INELIGIBLE'
+        ? 'Tips 尚未生成：当前报告仍有 BLOCKER/HIGH 风险'
+        : null,
+    )
+  }
+
+  const loadRunArtifacts = async (current: TripCheckRun) => {
+    setTripCheckRun(current)
+    if (!current.report_id) return
+    const [auditReport, snapshot, options] = await Promise.all([
+      api.get<AuditReport>(`/api/audits/${current.report_id}`),
+      api.get<EvidenceSnapshot>(`/api/audits/${current.report_id}/evidence`),
+      api.get<RepairOption[]>(`/api/audits/${current.report_id}/repairs`),
+    ])
+    setReport(auditReport)
+    setEvidence(snapshot)
+    setRepairOptions(options)
+    if (current.advice_bundle_id) {
+      const bundle = await api.get<AdviceBundle>(
+        `/api/trip-workspaces/${current.workspace_id}/reports/${current.report_id}/advice`,
+      )
+      setAdvice(bundle)
+    }
   }
 
   useEffect(() => { hydrate() }, [hydrate])
@@ -109,14 +197,7 @@ export default function ImportItineraryPage() {
         const resumed = await api.get<WorkspaceResume>(
           `/api/trip-workspaces/${requestedWorkspaceId}/resume`,
         )
-        const restoredWorkspace = resumed.workspace
-        setWorkspace(restoredWorkspace)
-        setRoomId(restoredWorkspace.room_id)
-        setCity(restoredWorkspace.city)
-        setStartDate(restoredWorkspace.trip_date_range.start)
-        const start = new Date(`${restoredWorkspace.trip_date_range.start}T00:00:00`)
-        const end = new Date(`${restoredWorkspace.trip_date_range.end}T00:00:00`)
-        setDays(Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1)
+        applyResumeState(resumed)
 
         let restoredImport = resumed.current_import
         if (!restoredImport && requestedImportId) {
@@ -128,19 +209,6 @@ export default function ImportItineraryPage() {
           setItineraryImport(restoredImport)
           setRawText(restoredImport.raw_text)
         }
-        setRevision(resumed.current_revision)
-        setReport(resumed.current_report)
-        setEvidence(resumed.current_evidence)
-        setRepairOptions([
-          ...resumed.proposed_repairs,
-          ...(resumed.applied_repair ? [resumed.applied_repair] : []),
-        ])
-        setFinalTips(resumed.current_tips)
-        setTipsNotice(
-          resumed.tips_state === 'INELIGIBLE'
-            ? 'Tips 尚未生成：当前报告仍有 BLOCKER/HIGH 风险'
-            : null,
-        )
         if (resumed.current_import) {
           updateResumeUrl({
             workspaceId: requestedWorkspaceId,
@@ -155,6 +223,60 @@ export default function ImportItineraryPage() {
     }
     void restore()
   }, [isHydrated, router, user])
+
+  useEffect(() => {
+    const runId = tripCheckRun?.run_id
+    if (!runId) return
+    const cursorKey = `trip-check-last-event:${runId}`
+    const storedCursor = Number(sessionStorage.getItem(cursorKey) ?? '0')
+    if (Number.isInteger(storedCursor) && storedCursor > lastRunEventId.current) {
+      lastRunEventId.current = storedCursor
+    }
+    const controller = new AbortController()
+    let stopped = false
+
+    const watch = async () => {
+      while (!stopped) {
+        try {
+          await api.streamEvents<TripCheckRunEvent>(
+            `/api/trip-check-runs/${runId}/events`,
+            {
+              lastEventId: lastRunEventId.current ? String(lastRunEventId.current) : null,
+              signal: controller.signal,
+              onEvent: message => {
+                const event = message.data
+                lastRunEventId.current = event.event_id
+                sessionStorage.setItem(cursorKey, String(event.event_id))
+                setRunEvents(current => (
+                  current.some(item => item.event_id === event.event_id)
+                    ? current
+                    : [...current, event].slice(-20)
+                ))
+              },
+            },
+          )
+          if (stopped) return
+          const current = await api.get<TripCheckRun>(`/api/trip-check-runs/${runId}`)
+          await loadRunArtifacts(current)
+          const terminal = ['SUCCEEDED', 'FAILED', 'PRIVACY_BLOCKED', 'CANCELLED'].includes(current.status)
+          const waitingForAdoption = current.status === 'WAITING' && current.stage === 'WAIT_ADOPTION'
+          if (terminal || waitingForAdoption) return
+        } catch (caught) {
+          if (controller.signal.aborted) return
+          setError(`Run 事件流暂时中断，正在从事件 ${lastRunEventId.current} 重连：${caught instanceof Error ? caught.message : String(caught)}`)
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 600))
+      }
+    }
+    void watch()
+    return () => {
+      stopped = true
+      controller.abort()
+    }
+    // Reconnect only when the authoritative run identity changes. Run state is
+    // refreshed inside the stream loop to keep Last-Event-ID monotonic.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripCheckRun?.run_id])
 
   const unresolved = useMemo(() => (
     itineraryImport?.resolutions.filter(item => ['AMBIGUOUS', 'NOT_FOUND'].includes(item.resolution_status)) ?? []
@@ -201,9 +323,12 @@ export default function ImportItineraryPage() {
         { 'Idempotency-Key': commandKey(scope, body) },
       )
       completeCommand(scope)
-      setItineraryImport(created)
       setSelections({})
       updateResumeUrl({ workspaceId: target.workspace_id, importId: created.import_id })
+      const resumed = await api.get<WorkspaceResume>(
+        `/api/trip-workspaces/${target.workspace_id}/resume`,
+      )
+      applyResumeState(resumed)
       return created
     })
   }
@@ -259,6 +384,43 @@ export default function ImportItineraryPage() {
     return auditReport
   }
 
+  const patchBrief = async (updates: Record<string, unknown>) => {
+    if (!workspace || !brief || Object.keys(updates).length === 0) return
+    await run('brief-patch', async () => {
+      const scope = `patch-brief:${brief.brief_id}:${brief.revision}`
+      const body = { updates }
+      const updated = await api.patchWithHeaders<TripBriefRevision>(
+        `/api/trip-workspaces/${workspace.workspace_id}/trip-briefs/${brief.revision}`,
+        body,
+        {
+          'If-Match': `"${brief.revision}"`,
+          'Idempotency-Key': commandKey(scope, body),
+        },
+      )
+      completeCommand(scope)
+      setBrief(updated)
+      return updated
+    })
+  }
+
+  const confirmBrief = async () => {
+    if (!workspace || !brief) return
+    await run('brief-confirm', async () => {
+      const scope = `confirm-brief:${brief.brief_id}:${brief.revision}`
+      const confirmed = await api.postWithHeaders<TripBriefRevision>(
+        `/api/trip-workspaces/${workspace.workspace_id}/trip-briefs/${brief.revision}/confirm`,
+        {},
+        {
+          'If-Match': `"${brief.revision}"`,
+          'Idempotency-Key': commandKey(scope, {}),
+        },
+      )
+      completeCommand(scope)
+      setBrief(confirmed)
+      return confirmed
+    })
+  }
+
   const generateFinalTips = async (auditReport: AuditReport) => {
     try {
       const artifact = await api.postWithHeaders<FinalTipsArtifact>(
@@ -279,9 +441,40 @@ export default function ImportItineraryPage() {
     }
   }
 
-  const applyImportAndAudit = async () => {
-    if (!workspace || !itineraryImport) return
-    await run('audit', async () => {
+  const createTripCheckRun = async (
+    targetRevision: ItineraryRevision,
+    confirmedBrief: TripBriefRevision,
+  ) => {
+    if (!workspace) return null
+    const runSpec = controlledRunSpec()
+    const body = {
+      itinerary_revision: targetRevision.revision,
+      brief_revision: confirmedBrief.revision,
+      run_spec: runSpec,
+    }
+    const scope = `create-trip-check:${workspace.workspace_id}:${targetRevision.revision}:${confirmedBrief.revision}`
+    const created = await api.postWithHeaders<TripCheckRun>(
+      `/api/trip-workspaces/${workspace.workspace_id}/trip-check-runs`,
+      body,
+      { 'Idempotency-Key': commandKey(scope, body) },
+    )
+    completeCommand(scope)
+    setTripCheckRun(created)
+    setRunEvents([])
+    setAdvice(null)
+    setReport(null)
+    setEvidence(null)
+    setRepairOptions([])
+    return created
+  }
+
+  const applyImportAndRun = async () => {
+    if (!workspace || !itineraryImport || !brief) return
+    if (brief.status !== 'CONFIRMED') {
+      setError('TripBrief 尚未确认，不能进入权威核验')
+      return
+    }
+    await run('trip-check', async () => {
       const applyScope = `apply-import:${itineraryImport.import_id}`
       const applyBody = { state_version: itineraryImport.state_version }
       const applied = await api.postWithHeaders<{ itinerary_import: ItineraryImport; revision: ItineraryRevision }>(
@@ -295,21 +488,42 @@ export default function ImportItineraryPage() {
       completeCommand(applyScope)
       setItineraryImport(applied.itinerary_import)
       setRevision(applied.revision)
-      const auditScope = `create-audit:${workspace.workspace_id}:${applied.revision.revision}`
-      const auditReport = await api.postWithHeaders<AuditReport>(
-        `/api/trip-workspaces/${workspace.workspace_id}/audits`,
-        {},
-        { 'Idempotency-Key': commandKey(auditScope, {}) },
+      return createTripCheckRun(applied.revision, brief)
+    })
+  }
+
+  const startTripCheckForCurrentRevision = async () => {
+    if (!revision || !brief || brief.status !== 'CONFIRMED') return
+    await run('trip-check', () => createTripCheckRun(revision, brief))
+  }
+
+  const resumeTripCheck = async () => {
+    if (!tripCheckRun) return
+    await run('resume-run', async () => {
+      const body = { config_hash: tripCheckRun.config_hash }
+      const scope = `resume-trip-check:${tripCheckRun.run_id}:${tripCheckRun.version}`
+      const resumed = await api.postWithHeaders<TripCheckRun>(
+        `/api/trip-check-runs/${tripCheckRun.run_id}/resume`,
+        body,
+        {
+          'If-Match': `"${tripCheckRun.version}"`,
+          'Idempotency-Key': commandKey(scope, body),
+        },
       )
-      completeCommand(auditScope)
-      await loadAudit(auditReport)
-      return auditReport
+      completeCommand(scope)
+      setTripCheckRun(resumed)
+      return resumed
     })
   }
 
   const proposeRepairs = async () => {
     if (!report) return
     await run('propose', async () => {
+      if (advice) {
+        const existing = await api.get<RepairOption[]>(`/api/audits/${report.report_id}/repairs`)
+        setRepairOptions(existing)
+        return existing
+      }
       const scope = `propose-repairs:${report.report_id}`
       const options = await api.postWithHeaders<RepairOption[]>(
         `/api/audits/${report.report_id}/repairs`,
@@ -355,8 +569,14 @@ export default function ImportItineraryPage() {
       )
       completeCommand(scope)
       setRevision(option.result_preview)
+      setReport(null)
+      setEvidence(null)
       const postcheck = await api.get<AuditReport>(`/api/audits/${result.postcheck_report_id}`)
       await loadAudit(postcheck)
+      if (tripCheckRun) {
+        const completedRun = await api.get<TripCheckRun>(`/api/trip-check-runs/${tripCheckRun.run_id}`)
+        setTripCheckRun(completedRun)
+      }
       await generateFinalTips(postcheck)
       setRepairOptions(current => current.map(item => (
         item.repair_id === option.repair_id
@@ -389,7 +609,7 @@ export default function ImportItineraryPage() {
           </button>
           <div className="h-4 w-px bg-slate-200" />
           <FileSearch className="h-4 w-4 text-coral-500" />
-          <h1 className="text-sm font-semibold text-slate-900">导入 → 消歧 → 排雷 → Repair</h1>
+          <h1 className="text-sm font-semibold text-slate-900">文本 → Brief → Evidence → Audit → Repair → Postcheck</h1>
           {workspace && <span className="ml-auto font-mono text-[10px] text-slate-400">workspace {workspace.workspace_id.slice(0, 8)}</span>}
         </div>
       </header>
@@ -437,6 +657,15 @@ export default function ImportItineraryPage() {
 
         {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
 
+        {brief && (
+          <TripBriefConfirmationPanel
+            brief={brief}
+            busy={busy === 'brief-patch' || busy === 'brief-confirm'}
+            onPatch={patchBrief}
+            onConfirm={confirmBrief}
+          />
+        )}
+
         {itineraryImport && (
           <>
             <ImportResolutionPanel
@@ -452,8 +681,8 @@ export default function ImportItineraryPage() {
               </button>
             )}
             {itineraryImport.status === 'READY' && !revision && (
-              <button onClick={applyImportAndAudit} disabled={busy !== null} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-                {busy === 'audit' ? '创建 revision 并审计中…' : '应用为 revision 1 并运行完整审计'}
+              <button onClick={applyImportAndRun} disabled={busy !== null || brief?.status !== 'CONFIRMED'} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                {busy === 'trip-check' ? '创建 revision 并启动核验…' : '应用为 revision 1 并启动行程核验'}
               </button>
             )}
           </>
@@ -464,6 +693,24 @@ export default function ImportItineraryPage() {
             <span>权威行程 revision {revision.revision} · content hash <span className="font-mono">{revision.content_hash}</span></span>
             {workspace && <button onClick={() => router.push(`/workspace/${workspace.workspace_id}`)} className="ml-auto rounded-lg bg-slate-900 px-3 py-2 font-medium text-white">打开时间轴工作台</button>}
           </section>
+        )}
+        {revision && brief?.status === 'CONFIRMED' && (
+          !tripCheckRun
+          || tripCheckRun.itinerary_revision !== revision.revision
+          || tripCheckRun.brief_revision !== brief.revision
+        ) && (
+          <button onClick={startTripCheckForCurrentRevision} disabled={busy !== null} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+            {busy === 'trip-check' ? '启动核验中…' : `为 revision ${revision.revision} 启动行程核验`}
+          </button>
+        )}
+        {tripCheckRun && (
+          <TripCheckRunPanel
+            run={tripCheckRun}
+            advice={advice}
+            events={runEvents}
+            busy={busy === 'resume-run'}
+            onResume={resumeTripCheck}
+          />
         )}
         {report && (
           <AuditDrawer
