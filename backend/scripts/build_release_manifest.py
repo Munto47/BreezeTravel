@@ -212,7 +212,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     if not import_summary["same_worktree_binding"] or not builder_summary["same_worktree_binding"]:
         legacy_release_blockers.append("LEGACY_HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING")
     trip_check_release_blockers = [
-        "TRIP_CHECK_V1_P1_D1_NOT_PASSED",
+        "TRIP_CHECK_V1_P2_RELIABILITY_NOT_PASSED",
         "TRIP_CHECK_V1_DATASET_360_NOT_BUILT",
         "G1_OFFLINE_NOT_RUN_FOR_CANDIDATE",
         "G2_POSTGRES_NOT_RUN_FOR_CANDIDATE",
@@ -225,7 +225,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     payload = {
         "schema_version": "4.0",
-        "release_status": "trip_check_v1_p1_in_progress_baseline",
+        "release_status": "trip_check_v1_p2_reliability_in_progress",
         "release_approval_granted": False,
         "local_delivery_test_execution": "not_run_by_manifest",
         "manifest_generation_executes_tests": False,
@@ -250,7 +250,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "target_cases_per_city": 120,
             "target_total_cases": 360,
             "target_splits": {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90},
-            "dataset_status": "pilot_contract_ready_execution_not_run",
+            "dataset_status": "pilot_18_executed_d1_pass_dev_not_started",
             "expanded_city_claims": False,
         },
         "product_authority": {
@@ -288,9 +288,9 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "overall_release_decision": "REJECT",
             "release_blockers": trip_check_release_blockers,
             "claim_boundary": (
-                "This manifest binds the Phase 0 product authority and legacy evidence only. "
-                "It does not prove Trip Check V1 implementation, live-provider behavior, "
-                "browser acceptance, human validation, or release approval."
+                "This manifest records P1 D1 as historical controlled evidence while P2 Reliability is in progress. "
+                "It does not prove candidate-commit G0-G6, live-provider behavior, public browser acceptance, "
+                "human validation, or release approval."
             ),
         },
         "legacy_dual_entry_delivery_evidence": {

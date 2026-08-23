@@ -17,6 +17,10 @@ langchain-openai==1.2.2
 langchain-core==1.4.0
 langgraph==1.2.2
 
+# Trip Check P2：手工领域 Trace（PostgreSQL 仍是业务事实源）
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+
 # OpenAI SDK（RAG Embedding + LLM 调用，兼容 DeepSeek / SiliconFlow）
 openai==2.38.0
 

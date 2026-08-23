@@ -5,10 +5,10 @@
 - Goal ID：`TC-P2-G01-reliable-run-and-trace`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P2`
-- Status：`DRAFT`
-- Planned branch：`codex/trip-check-p2-reliable-run-and-trace`
-- Baseline commit：待 Program fast-forward 完成后绑定
-- Approved by / at：`NOT_APPROVED`
+- Status：`IN_PROGRESS`
+- Branch：`codex/trip-check-p2-reliable-run-and-trace`
+- Baseline commit：`8816975f2abf417d21c3aa7dc977576d64347502`
+- Approved by / at：用户批准完整实施方案与 OpenTelemetry + artifact Trace 方案 / 2026-08-23
 - Predecessor gate：`TC-P1-G01 D1 PASS`
 
 ## Outcome
@@ -89,19 +89,20 @@ RunSpec + Fault Profile → lease/CAS → stage event/receipt/Trace
 ## Budget
 
 - 外部 Provider/模型成本：0；
-- 新增 migration/依赖/基础设施：0；
+- 新增 migration/基础设施：0；
+- 新增依赖：`opentelemetry-api==1.44.0`、`opentelemetry-sdk==1.44.0`；
 - 重试必须有界并由 RunSpec 固定；
 - 每个可验证切片立即 commit/push，最长 60 分钟形成远端 checkpoint。
 
 ## Pre-approved actions
 
 - 在独立 P2 开发分支修改现有 Run/Trace/fixture/测试与证据 runner；
+- 引入固定版本 OpenTelemetry API/SDK，以手工 span 和脱敏 JSONL exporter 构建诊断 Trace；
 - 运行离线、真实 PostgreSQL 和本地受控浏览器验证；
 - Gate 通过后按 Program 规则提交、推送并 fast-forward Program 集成分支。
 
 ## HITL
 
-- 本文件当前仅为 `DRAFT`；开始 P2 前必须由用户现场批准并将状态改为 `APPROVED/IN_PROGRESS`；
 - 公共 API/schema、migration、新依赖/基础设施、真实 Provider、修改 oracle、证据晋级、进入 P3、合并 `main` 或部署均需现场批准。
 
 ## Auto-advance

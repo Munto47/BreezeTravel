@@ -1,7 +1,7 @@
-"""Verify the hash-bound Trip Check V1 in-progress baseline without release claims.
+"""Verify the hash-bound Trip Check V1 in-progress manifest without release claims.
 
 The filename is retained for compatibility with existing local commands.  New
-callers should treat the result as a Phase 0 authority/baseline verification,
+callers should treat the result as an authority/in-progress verification,
 not as dual-entry delivery acceptance.
 """
 
@@ -52,12 +52,12 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
 
     if payload.get("schema_version") != "4.0":
         raise ValueError("expected Trip Check V1 baseline manifest schema 4.0")
-    if payload.get("release_status") != "trip_check_v1_p1_in_progress_baseline":
-        raise ValueError("manifest is not a Trip Check V1 P1 in-progress baseline")
+    if payload.get("release_status") != "trip_check_v1_p2_reliability_in_progress":
+        raise ValueError("manifest is not a Trip Check V1 P2 Reliability in-progress record")
     if payload.get("latest_migration") != EXPECTED_MIGRATION:
         raise ValueError(f"manifest does not bind migration {EXPECTED_MIGRATION}")
     if payload.get("release_approval_granted") is not False:
-        raise ValueError("baseline manifest must not grant release approval")
+        raise ValueError("in-progress manifest must not grant release approval")
 
     authority = payload.get("product_authority")
     if not isinstance(authority, dict):
@@ -85,13 +85,13 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
     if not isinstance(gates, dict):
         raise ValueError("Trip Check V1 release gate section is missing")
     if gates.get("overall_release_decision") != "REJECT":
-        raise ValueError("Phase 0 baseline must keep the V1 release decision REJECT")
+        raise ValueError("in-progress manifest must keep the V1 release decision REJECT")
     if gates.get("g6_release_manifest") != "BASELINE_ONLY":
-        raise ValueError("Phase 0 manifest must remain baseline-only")
+        raise ValueError("in-progress manifest must remain baseline-only")
     if gates.get("automated_proxy_judge") != "NOT_RUN":
         raise ValueError("automated proxy Judge state was overstated")
     if not gates.get("release_blockers"):
-        raise ValueError("in-progress baseline must carry release blockers")
+        raise ValueError("in-progress manifest must carry release blockers")
 
     legacy = payload.get("legacy_dual_entry_delivery_evidence")
     if not isinstance(legacy, dict):
@@ -100,7 +100,7 @@ def verify(latest_path: Path = DEFAULT_LATEST) -> dict[str, Any]:
         raise ValueError("legacy evidence must not assert human or public validation")
 
     return {
-        "status": "TRIP_CHECK_V1_BASELINE_EVIDENCE_VALID",
+        "status": "TRIP_CHECK_V1_IN_PROGRESS_EVIDENCE_VALID",
         "release_id": payload["release_id"],
         "manifest": str(manifest_path),
         "latest_migration": EXPECTED_MIGRATION,
