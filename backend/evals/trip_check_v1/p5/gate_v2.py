@@ -10,6 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from evals.trip_check_v1.p5.data_contract import digest
+from evals.trip_check_v1.p5.final_blind_scorer_v2 import (
+    schema_contract_sha256_v2,
+)
 from evals.trip_check_v1.p5.scorer_v2 import validate_run_group_v2
 
 
@@ -24,6 +27,16 @@ _SECRET_PATTERNS = (
         r"\b(?:api[_-]?key|access[_-]?token|secret)\b['\"]?\s*[:=]\s*['\"]?[A-Za-z0-9_/-]{20,}",
         re.I,
     ),
+)
+_P4_SUBJECT_COMMIT = "85368777ca8d2d4e77cf053fc9a74018f9f9fc9a"
+_COMMITMENT_CHAIN_FIELDS = frozenset(
+    {
+        "active_contract_file_sha256",
+        "blind_seal_sha256",
+        "external_bundle_sha256",
+        "labels_canonical_sha256",
+        "review_receipt_sha256",
+    }
 )
 
 
@@ -93,6 +106,106 @@ def _artifact(name: str, path: Path, root: Path) -> dict[str, Any]:
     }
 
 
+def _commitment_artifact(name: str, sha256: str) -> dict[str, Any]:
+    if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+        raise P5GateErrorV2(f"invalid irreversible commitment: {name}")
+    return {
+        "logical_name": name,
+        "storage": "external_irreversible_commitment",
+        "path": None,
+        "sha256": sha256,
+        "size_bytes": None,
+    }
+
+
+def _commitment_chain(value: dict[str, Any], label: str) -> dict[str, str]:
+    chain = {field: value.get(field) for field in _COMMITMENT_CHAIN_FIELDS}
+    if any(not isinstance(item, str) or not re.fullmatch(r"[0-9a-f]{64}", item) for item in chain.values()):
+        raise P5GateErrorV2(f"{label} commitment chain rejected")
+    return chain  # type: ignore[return-value]
+
+
+def _acceptance_c_checks(
+    score: dict[str, Any],
+    *,
+    require_nonblind_splits: bool,
+) -> dict[str, bool]:
+    variants = score.get("variant_metrics")
+    core_metrics = variants.get("core_b") if isinstance(variants, dict) else None
+    overall = core_metrics.get("overall") if isinstance(core_metrics, dict) else None
+    if not isinstance(overall, dict):
+        raise P5GateErrorV2("Core B Acceptance C evidence missing")
+    dimensions = overall.get("quality_dimensions")
+    if not isinstance(dimensions, dict) or set(dimensions) != {
+        "location_city_facts",
+        "time_route_hotel_continuity",
+        "other_advice",
+    }:
+        raise P5GateErrorV2("Core B quality dimension evidence missing")
+    location = dimensions["location_city_facts"]
+    continuity = dimensions["time_route_hotel_continuity"]
+    other = dimensions["other_advice"]
+    if not all(isinstance(item, dict) for item in (location, continuity, other)):
+        raise P5GateErrorV2("Core B quality dimension evidence invalid")
+    other_buckets = other.get("buckets")
+    if (
+        location.get("case_count", 0) <= 0
+        or not isinstance(location.get("mean_score"), (int, float))
+        or continuity.get("case_count", 0) <= 0
+        or not isinstance(continuity.get("mean_score"), (int, float))
+        or other.get("case_count", 0) <= 0
+        or not isinstance(other_buckets, dict)
+        or not other_buckets
+        or any(
+            not isinstance(bucket, dict)
+            or bucket.get("case_count", 0) <= 0
+            or not isinstance(bucket.get("mean_score"), (int, float))
+            for bucket in other_buckets.values()
+        )
+    ):
+        raise P5GateErrorV2("Core B quality dimension coverage invalid")
+    checks = {
+        "core_overall_score_gte_88": isinstance(overall.get("mean_score"), (int, float))
+        and overall["mean_score"] >= 88,
+        "core_location_city_score_gte_90": location["mean_score"] >= 90,
+        "core_time_route_hotel_score_gte_90": continuity["mean_score"] >= 90,
+        "core_other_advice_buckets_gte_80": all(
+            bucket["mean_score"] >= 80 for bucket in other_buckets.values()
+        ),
+        "core_nonpass_finding_advice_coverage_100": overall.get(
+            "nonpass_finding_count"
+        )
+        == overall.get("covered_nonpass_finding_count")
+        and overall.get("nonpass_finding_advice_coverage_rate") == 1.0,
+        "core_unsupported_claim_rate_zero": overall.get("unsupported_claim_count")
+        == 0
+        and overall.get("unsupported_claim_rate") == 0.0,
+        "core_token_cost_zero_or_not_measured": overall.get(
+            "usage_measurement_failure_count"
+        )
+        == 0
+        and overall.get("token_count_total") == 0
+        and overall.get("cost_usd_total") == 0,
+    }
+    if require_nonblind_splits:
+        by_split = core_metrics.get("by_split")
+        if not isinstance(by_split, dict):
+            raise P5GateErrorV2("Core B split evidence missing")
+        pilot = by_split.get("pilot")
+        regression = by_split.get("regression")
+        if not isinstance(pilot, dict) or not isinstance(regression, dict):
+            raise P5GateErrorV2("Core B pilot/regression evidence missing")
+        checks.update(
+            {
+                "core_pilot_18_of_18_pass": pilot.get("case_count") == 18
+                and pilot.get("task_success_count") == 18,
+                "core_regression_72_of_72_pass": regression.get("case_count") == 72
+                and regression.get("task_success_count") == 72,
+            }
+        )
+    return checks
+
+
 def _secret_scan(paths: list[Path]) -> dict[str, Any]:
     matches = 0
     scanned = 0
@@ -127,6 +240,7 @@ def _validate_blind_aggregate(value: dict[str, Any]) -> None:
         "automated_proxy_judge",
         "live_provider_evidence",
         "public_e2e_evidence",
+        *_COMMITMENT_CHAIN_FIELDS,
     }
     variants = value.get("variant_metrics")
     if set(value) != allowed or not isinstance(variants, dict) or set(variants) != {
@@ -200,6 +314,7 @@ def _validate_judge_panel_allowlist(value: dict[str, Any]) -> None:
         "terminal_outputs_content_sha256",
         "deterministic_scorer_priority",
         "judge_may_override_deterministic_failure",
+        "unsupported_claim_candidate_count",
         "report_hash",
     }:
         raise P5GateErrorV2("Judge panel aggregate allowlist rejected")
@@ -231,6 +346,7 @@ def _validate_judge_panel_allowlist(value: dict[str, Any]) -> None:
         or any(not isinstance(score, (int, float)) for score in dimensions.values())
         or not isinstance(variants, dict)
         or set(variants) != {"legacy_a", "core_b", "solver_c"}
+        or value.get("unsupported_claim_candidate_count") != 0
     ):
         raise P5GateErrorV2("Judge panel provenance or coverage rejected")
     passed = value.get("verdict_agreement_rate", 0) >= value.get(
@@ -260,6 +376,19 @@ def build_p5_gate_manifest_v2(
     nonblind_materializations = p5_root / "materializations_nonblind_v2.jsonl"
     blind_cases = p5_root / "frozen_blind.v2.inputs.jsonl"
     blind_materializations = p5_root / "frozen_blind.v2.materializations.jsonl"
+    active_contract_path = p5_root / "active_contract.json"
+    blind_seal_path = p5_root / "sealed" / "frozen_blind.v2.seal.json"
+    run_spec_path = p5_root / "run_spec_template_v2.json"
+    rubric_path = p5_root / "judge_rubric_v2.json"
+    seal_schema_path = p5_root / "blind_seal_v2.schema.json"
+    formal_validation_receipt_path = (
+        root
+        / "backend"
+        / "evidence"
+        / "trip_check_v1"
+        / "p5"
+        / "dataset_v2_formal_validation_receipt.json"
+    )
     p4_path = (
         root
         / "backend"
@@ -283,6 +412,58 @@ def build_p5_gate_manifest_v2(
         or dataset.get("generation", {}).get("ocr_mode") != "actual"
     ):
         raise P5GateErrorV2("P5 v2 frozen dataset contract rejected")
+    active_contract = _load_json(active_contract_path, "P5 v2 active contract")
+    blind_seal = _load_json(blind_seal_path, "P5 v2 blind seal")
+    formal_validation = _load_json(
+        formal_validation_receipt_path,
+        "P5 v2 formal dataset validation receipt",
+    )
+    sealing_commitment = dataset.get("sealing_commitment")
+    if (
+        active_contract.get("active_contract") != "trip-check-p5-v2"
+        or active_contract.get("formal_evidence_status") != "READY"
+        or active_contract.get("dataset_manifest_hash") != dataset["manifest_hash"]
+        or not isinstance(sealing_commitment, dict)
+        or sealing_commitment.get("status") != "SEALED"
+        or sealing_commitment.get("blind_seal_v2_sha256")
+        != _sha256(blind_seal_path)
+        or active_contract.get("blind_seal_v2_sha256") != _sha256(blind_seal_path)
+    ):
+        raise P5GateErrorV2("P5 v2 active seal binding rejected")
+    expected_schema_contract = schema_contract_sha256_v2(root)
+    if (
+        blind_seal.get("schema_version") != "trip-check-p5-blind-seal-v2"
+        or blind_seal.get("schema_contract_sha256") != expected_schema_contract
+        or blind_seal.get("run_spec_template_sha256") != _sha256(run_spec_path)
+        or blind_seal.get("rubric_sha256") != _sha256(rubric_path)
+        or dataset.get("contract_hashes", {}).get("run_spec_template_sha256")
+        != _sha256(run_spec_path)
+        or dataset.get("contract_hashes", {}).get("judge_rubric_sha256")
+        != _sha256(rubric_path)
+        or any(
+            sealing_commitment.get(field) != blind_seal.get(field)
+            for field in (
+                "external_bundle_sha256",
+                "labels_canonical_sha256",
+                "review_receipt_sha256",
+            )
+        )
+    ):
+        raise P5GateErrorV2("P5 v2 contract or external commitment binding rejected")
+    if (
+        formal_validation.get("schema_version")
+        != "trip-check-p5-dataset-validation-v2"
+        or formal_validation.get("status") != "PASS"
+        or formal_validation.get("formal") is not True
+        or formal_validation.get("manifest_hash") != dataset["manifest_hash"]
+        or formal_validation.get("counts", {}).get("total") != 360
+        or formal_validation.get("counts", {}).get("by_split")
+        != {"dev": 180, "frozen_blind": 90, "pilot": 18, "regression": 72}
+        or formal_validation.get("counts", {}).get("by_city")
+        != {"上海": 120, "北京": 120, "杭州": 120}
+        or formal_validation.get("errors") != []
+    ):
+        raise P5GateErrorV2("P5 v2 formal dataset validation rejected")
 
     nonblind_run, _, nonblind_outputs = validate_run_group_v2(
         run_dir=nonblind_run_dir.resolve(),
@@ -305,6 +486,15 @@ def build_p5_gate_manifest_v2(
     if nonblind_run["subject_commit"] != blind_run["subject_commit"]:
         raise P5GateErrorV2("run-group subject commits differ")
     subject_commit = nonblind_run["subject_commit"]
+    expected_commitment_chain = {
+        "active_contract_file_sha256": _sha256(active_contract_path),
+        "blind_seal_sha256": _sha256(blind_seal_path),
+        "external_bundle_sha256": blind_seal["external_bundle_sha256"],
+        "labels_canonical_sha256": blind_seal["labels_canonical_sha256"],
+        "review_receipt_sha256": blind_seal["review_receipt_sha256"],
+    }
+    if _commitment_chain(blind_run, "blind run") != expected_commitment_chain:
+        raise P5GateErrorV2("blind run commitment chain mismatch")
     if require_current_subject:
         head, dirty = _repo_state(root)
         if dirty or head != subject_commit:
@@ -330,6 +520,8 @@ def build_p5_gate_manifest_v2(
 
     blind_score = _load_json(blind_score_path.resolve(), "blind score")
     _validate_blind_aggregate(blind_score)
+    if _commitment_chain(blind_score, "blind aggregate") != expected_commitment_chain:
+        raise P5GateErrorV2("blind aggregate commitment chain mismatch")
     blind_bindings = blind_score.get("bindings", {})
     if (
         blind_score.get("schema_version") != "trip-check-p5-isolated-blind-score-v2"
@@ -365,9 +557,11 @@ def build_p5_gate_manifest_v2(
         raise P5GateErrorV2("Judge panel binding rejected")
 
     p4 = _load_json(p4_path, "P4 gate")
+    _validate_hash(p4, "manifest_hash", "P4 gate")
     p4_solver = p4.get("solver_admission", {})
     if (
-        p4.get("status") != "PASS"
+        p4.get("subject_commit") != _P4_SUBJECT_COMMIT
+        or p4.get("status") != "PASS"
         or p4.get("p4_phase_status") != "PASS"
         or p4_solver.get("status") != "REJECT"
         or p4_solver.get("default_strategy") != "bounded_repair_v1"
@@ -376,6 +570,12 @@ def build_p5_gate_manifest_v2(
 
     scanned_paths = [
         dataset_path,
+        active_contract_path,
+        blind_seal_path,
+        seal_schema_path,
+        run_spec_path,
+        rubric_path,
+        formal_validation_receipt_path,
         nonblind_run_dir / "run_group_manifest.json",
         nonblind_run_dir / nonblind_run["terminal_outputs_path"],
         nonblind_score_path.resolve(),
@@ -386,6 +586,14 @@ def build_p5_gate_manifest_v2(
         p4_path,
     ]
     secret_scan = _secret_scan(scanned_paths)
+    nonblind_acceptance = _acceptance_c_checks(
+        nonblind_score,
+        require_nonblind_splits=True,
+    )
+    blind_acceptance = _acceptance_c_checks(
+        blind_score,
+        require_nonblind_splits=False,
+    )
     deterministic_pass = (
         nonblind_score.get("status") == "PASS"
         and blind_score.get("status") == "PASS"
@@ -408,10 +616,35 @@ def build_p5_gate_manifest_v2(
         "cp_sat_admission_remains_reject": True,
         "secret_scan": secret_scan["status"] == "PASS",
         "same_subject_commit": True,
+        **{f"nonblind_{key}": value for key, value in nonblind_acceptance.items()},
+        **{f"blind_{key}": value for key, value in blind_acceptance.items()},
+        "judge_unsupported_claim_candidate_count_zero": judge.get(
+            "unsupported_claim_candidate_count"
+        )
+        == 0,
     }
     gate_passed = deterministic_pass and all(checks.values())
     artifacts = [
         _artifact("dataset_manifest", dataset_path, root),
+        _artifact("formal_dataset_validation_receipt", formal_validation_receipt_path, root),
+        _artifact("active_contract", active_contract_path, root),
+        _artifact("blind_seal_v2", blind_seal_path, root),
+        _artifact("blind_seal_schema_contract", seal_schema_path, root),
+        _commitment_artifact("schema_contract_commitment", expected_schema_contract),
+        _artifact("run_spec_template_v2", run_spec_path, root),
+        _artifact("judge_rubric_v2", rubric_path, root),
+        _commitment_artifact(
+            "external_blind_bundle_commitment",
+            expected_commitment_chain["external_bundle_sha256"],
+        ),
+        _commitment_artifact(
+            "external_blind_review_receipt_commitment",
+            expected_commitment_chain["review_receipt_sha256"],
+        ),
+        _commitment_artifact(
+            "external_labels_canonical_commitment",
+            expected_commitment_chain["labels_canonical_sha256"],
+        ),
         _artifact("p4_gate_manifest", p4_path, root),
         _artifact(
             "nonblind_run_manifest", nonblind_run_dir / "run_group_manifest.json", root

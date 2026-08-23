@@ -9,7 +9,7 @@ from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 from statistics import mean, median
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
@@ -91,12 +91,18 @@ class P5CaseScoreV2(BaseModel):
     wrong_city_or_poi_count: int | None
     unknown_preservation: str
     advice_coverage: str
+    nonpass_finding_count: int
+    covered_nonpass_finding_count: int
+    unsupported_claim_count: int
     candidate_receipt_coverage: str
     concurrency_result: str
     repair_postcheck: str
     replay_hash_match: bool
     strategy_outcome_match: bool
     ocr_receipt_result: str
+    token_count: int | Literal["NOT_MEASURED"]
+    cost_usd: float | Literal["NOT_MEASURED"]
+    usage_measurement: str
     deterministic_failure_codes: list[str]
 
 
@@ -593,6 +599,63 @@ def _candidate_status(
     return "NOT_REQUIRED" if selected_ids is not None else "FAIL"
 
 
+def _nonpass_finding_advice_coverage(
+    output: P5TerminalOutputV2,
+) -> tuple[int, int]:
+    nonpass = [
+        item
+        for item in output.findings
+        if isinstance(item, Mapping)
+        and str(item.get("status", "")).upper()
+        not in {"PASS", "PASSED", "SATISFIED", "RESOLVED"}
+    ]
+    # The frozen v2 adapter emits one stable Advice projection for each
+    # non-PASS Finding, in Finding order.  Do not infer coverage from a case-
+    # level boolean: missing rows must reduce the measured coverage.
+    covered = min(
+        len(nonpass),
+        sum(isinstance(item, Mapping) and bool(item) for item in output.advice),
+    )
+    return len(nonpass), covered
+
+
+def _deterministic_unsupported_claim_count(
+    output: P5TerminalOutputV2,
+    *,
+    candidate_status: str,
+) -> int:
+    count = 0
+    for advice in output.advice:
+        if not isinstance(advice, Mapping):
+            count += 1
+            continue
+        if advice.get("unsupported_claim") is True or str(
+            advice.get("claim_support", "")
+        ).upper() in {"UNSUPPORTED", "UNVERIFIED"}:
+            count += 1
+        if advice.get("candidate_set_bound") is True and candidate_status != "PASS":
+            count += 1
+    return count
+
+
+def _usage_measurement(output: P5TerminalOutputV2) -> str:
+    token_valid = output.token_count == "NOT_MEASURED" or (
+        isinstance(output.token_count, int)
+        and not isinstance(output.token_count, bool)
+        and output.token_count == 0
+    )
+    cost_valid = output.cost_usd == "NOT_MEASURED" or (
+        isinstance(output.cost_usd, (int, float))
+        and not isinstance(output.cost_usd, bool)
+        and float(output.cost_usd) == 0.0
+    )
+    if not token_valid or not cost_valid:
+        return "FAIL"
+    if output.token_count == "NOT_MEASURED" or output.cost_usd == "NOT_MEASURED":
+        return "NOT_MEASURED"
+    return "MEASURED_ZERO"
+
+
 def score_case_v2(
     case: P5CaseV2,
     output: P5TerminalOutputV2,
@@ -631,6 +694,14 @@ def score_case_v2(
         else "NOT_REQUIRED"
     )
     candidate_status = _candidate_status(case, oracle, output, materialization)
+    nonpass_finding_count, covered_nonpass_finding_count = (
+        _nonpass_finding_advice_coverage(output)
+    )
+    unsupported_claim_count = _deterministic_unsupported_claim_count(
+        output,
+        candidate_status=candidate_status,
+    )
+    usage_measurement = _usage_measurement(output)
     concurrency_status = _concurrency_result(output, oracle.concurrency_expectation, materialization)
     strategy_match = _strategy_matches(output, oracle.expected_strategy_outcome)
     missing = [
@@ -683,12 +754,18 @@ def score_case_v2(
         (bool(missing), "HARD_FINDING_MISS"),
         (unknown_status == "FAIL", "UNKNOWN_OR_UNAVAILABLE_NOT_PRESERVED"),
         (advice_status == "FAIL", "ADVICE_MISSING"),
+        (
+            covered_nonpass_finding_count != nonpass_finding_count,
+            "NONPASS_FINDING_ADVICE_COVERAGE_INCOMPLETE",
+        ),
+        (unsupported_claim_count != 0, "UNSUPPORTED_CLAIM"),
         (candidate_status == "FAIL", "CANDIDATE_RECEIPT_VIOLATION"),
         (concurrency_status == "FAIL", "CONCURRENCY_EXPECTATION_NOT_PROVEN"),
         (postcheck_status == "FAIL", "POSTCHECK_NOT_PROVEN"),
         (not strategy_match, "STRATEGY_OUTCOME_MISMATCH"),
         (ocr_status == "FAIL", "OCR_RECEIPT_MISSING"),
         (not replay_match, "REPLAY_HASH_MISMATCH"),
+        (usage_measurement == "FAIL", "USAGE_MEASUREMENT_INVALID"),
     )
     failures.extend(code for failed, code in checks if failed)
     components = (
@@ -723,12 +800,18 @@ def score_case_v2(
         wrong_city_or_poi_count=wrong_count,
         unknown_preservation=unknown_status,
         advice_coverage=advice_status,
+        nonpass_finding_count=nonpass_finding_count,
+        covered_nonpass_finding_count=covered_nonpass_finding_count,
+        unsupported_claim_count=unsupported_claim_count,
         candidate_receipt_coverage=candidate_status,
         concurrency_result=concurrency_status,
         repair_postcheck=postcheck_status,
         replay_hash_match=replay_match,
         strategy_outcome_match=strategy_match,
         ocr_receipt_result=ocr_status,
+        token_count=output.token_count,
+        cost_usd=output.cost_usd,
+        usage_measurement=usage_measurement,
         deterministic_failure_codes=failures,
     )
 
@@ -953,9 +1036,85 @@ def _percentile(values: list[float], percentile: float) -> float:
     return ordered[index]
 
 
+_LOCATION_CITY_REASON_CODES = frozenset(
+    {
+        "PLACE_CITY_MISMATCH",
+        "WRONG_CITY_OR_POI",
+        "P4_EMPTY_CANDIDATE_SET",
+        "P4_CANDIDATE_RECEIPT_MISSING",
+    }
+)
+_TIME_ROUTE_HOTEL_MARKERS = ("TIME", "ROUTE", "HOTEL", "LODGING", "ACCOMMODATION")
+
+
+def _quality_dimensions(items: Sequence[P5CaseScoreV2]) -> dict[str, Any]:
+    location = [
+        item
+        for item in items
+        if set(item.required_reason_codes) & _LOCATION_CITY_REASON_CODES
+    ]
+    continuity = [
+        item
+        for item in items
+        if any(
+            marker in code
+            for code in item.required_reason_codes
+            for marker in _TIME_ROUTE_HOTEL_MARKERS
+        )
+    ]
+    excluded = _LOCATION_CITY_REASON_CODES
+    advice_buckets: dict[str, list[P5CaseScoreV2]] = defaultdict(list)
+    for item in items:
+        if item.advice_coverage == "NOT_REQUIRED":
+            continue
+        for code in item.required_reason_codes or ["ADVICE_WITHOUT_REASON_CODE"]:
+            if code in excluded or any(
+                marker in code for marker in _TIME_ROUTE_HOTEL_MARKERS
+            ):
+                continue
+            advice_buckets[code].append(item)
+
+    def score_bucket(values: Sequence[P5CaseScoreV2]) -> dict[str, Any]:
+        return {
+            "case_count": len(values),
+            "mean_score": mean(item.score for item in values) if values else None,
+        }
+
+    other = {
+        name: score_bucket(values)
+        for name, values in sorted(advice_buckets.items())
+    }
+    numeric_other = [
+        float(bucket["mean_score"])
+        for bucket in other.values()
+        if isinstance(bucket.get("mean_score"), (int, float))
+    ]
+    return {
+        "location_city_facts": score_bucket(location),
+        "time_route_hotel_continuity": score_bucket(continuity),
+        "other_advice": {
+            "case_count": sum(bucket["case_count"] for bucket in other.values()),
+            "minimum_bucket_score": min(numeric_other) if numeric_other else None,
+            "buckets": other,
+        },
+    }
+
+
 def aggregate_scores_v2(scores: Iterable[P5CaseScoreV2]) -> dict[str, Any]:
     items = list(scores)
     count = len(items)
+    nonpass_findings = sum(item.nonpass_finding_count for item in items)
+    covered_nonpass_findings = sum(
+        item.covered_nonpass_finding_count for item in items
+    )
+    measured_tokens = [
+        item.token_count for item in items if isinstance(item.token_count, int)
+    ]
+    measured_costs = [
+        float(item.cost_usd)
+        for item in items
+        if isinstance(item.cost_usd, (int, float))
+    ]
     return {
         "case_count": count,
         "task_success_count": sum(item.task_success for item in items),
@@ -969,6 +1128,31 @@ def aggregate_scores_v2(scores: Iterable[P5CaseScoreV2]) -> dict[str, Any]:
         "concurrency_failure_count": sum(item.concurrency_result == "FAIL" for item in items),
         "postcheck_failure_count": sum(item.repair_postcheck == "FAIL" for item in items),
         "replay_failure_count": sum(not item.replay_hash_match for item in items),
+        "nonpass_finding_count": nonpass_findings,
+        "covered_nonpass_finding_count": covered_nonpass_findings,
+        "nonpass_finding_advice_coverage_rate": (
+            covered_nonpass_findings / nonpass_findings
+            if nonpass_findings
+            else 1.0
+        ),
+        "unsupported_claim_count": sum(item.unsupported_claim_count for item in items),
+        "unsupported_claim_rate": (
+            sum(item.unsupported_claim_count for item in items) / count
+            if count
+            else 0.0
+        ),
+        "usage_measurement_failure_count": sum(
+            item.usage_measurement == "FAIL" for item in items
+        ),
+        "token_count_total": sum(measured_tokens),
+        "token_count_not_measured_count": sum(
+            item.token_count == "NOT_MEASURED" for item in items
+        ),
+        "cost_usd_total": sum(measured_costs),
+        "cost_not_measured_count": sum(
+            item.cost_usd == "NOT_MEASURED" for item in items
+        ),
+        "quality_dimensions": _quality_dimensions(items),
     }
 
 
@@ -1036,6 +1220,7 @@ def build_score_report_v2(
         )
         variant_metrics[variant_id] = {
             "overall": overall,
+            "by_split": _buckets(items, lambda item: item.split),
             "by_city": _buckets(items, lambda item: item.city),
             "by_input_kind": _buckets(items, lambda item: item.input_kind),
             "by_difficulty": _buckets(items, lambda item: item.difficulty),
@@ -1059,6 +1244,16 @@ def build_score_report_v2(
         "concurrency_failure_zero": core["concurrency_failure_count"] == 0,
         "postcheck_failure_zero": core["postcheck_failure_count"] == 0,
         "replay_failure_zero": core["replay_failure_count"] == 0,
+        "nonpass_finding_advice_coverage_100": core[
+            "nonpass_finding_advice_coverage_rate"
+        ]
+        == 1.0,
+        "unsupported_claim_rate_zero": core["unsupported_claim_count"] == 0
+        and core["unsupported_claim_rate"] == 0.0,
+        "usage_is_zero_or_not_measured": core["usage_measurement_failure_count"]
+        == 0
+        and core["token_count_total"] == 0
+        and core["cost_usd_total"] == 0,
     }
     passed = all(core_gate_checks.values())
     report: dict[str, Any] = {
