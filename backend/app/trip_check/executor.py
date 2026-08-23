@@ -20,6 +20,7 @@ from app.repairs.models import RepairApplyResult
 from app.repairs.objective import introduces_new_high_violation, new_unknown_count
 from app.repairs.search import BoundedRepairSearch
 from app.trip_check.advice import AdviceRepository
+from app.trip_check.briefs import TripBriefRepository
 from app.trip_check.models import (
     AdviceAction,
     AdviceBundle,
@@ -102,6 +103,21 @@ def controlled_route_observations(
     return observations
 
 
+def confirmed_brief_observations(run: TripCheckRun, traveler_count: int) -> list[EvidenceObservation]:
+    return [
+        EvidenceObservation(
+            subject_type="TRIP_BRIEF",
+            subject_id=run.brief_id,
+            fact_type="TRAVELER_COUNT",
+            value=traveler_count,
+            provider="confirmed_trip_brief_revision",
+            observed_at=run.created_at,
+            valid_until=run.created_at + timedelta(days=3650),
+            confidence=1.0,
+        )
+    ]
+
+
 def build_advice_bundle(
     *,
     run: TripCheckRun,
@@ -170,6 +186,7 @@ class TripCheckExecutor:
         itinerary_repository: ItineraryRepository,
         audit_repository: AuditRepository,
         advice_repository: AdviceRepository,
+        brief_repository: TripBriefRepository,
         repair_search: BoundedRepairSearch,
         command_repository: CreationCommandRepository,
     ):
@@ -177,6 +194,7 @@ class TripCheckExecutor:
         self.itinerary_repository = itinerary_repository
         self.audit_repository = audit_repository
         self.advice_repository = advice_repository
+        self.brief_repository = brief_repository
         self.repair_search = repair_search
         self.command_repository = command_repository
         self.audit_service = AuditApplicationService(
@@ -262,7 +280,13 @@ class TripCheckExecutor:
         revision = await self.itinerary_repository.get_revision(run.workspace_id, run.itinerary_revision)
         if revision is None:
             raise RuntimeError("trip check itinerary revision is missing")
-        observations = controlled_route_observations(revision, observed_at=run.created_at)
+        brief = await self.brief_repository.get_brief(run.workspace_id, run.brief_revision)
+        if brief is None or brief.brief_id != run.brief_id or brief.status.value != "CONFIRMED":
+            raise RuntimeError("trip check confirmed Brief binding is missing")
+        observations = [
+            *controlled_route_observations(revision, observed_at=run.created_at),
+            *confirmed_brief_observations(run, brief.traveler_count),
+        ]
         _, snapshot, _ = await self.audit_service.prepare_current_evidence(
             run.workspace_id,
             extra_observations=observations,
@@ -293,7 +317,8 @@ class TripCheckExecutor:
                 "provider_version": run.run_spec.provider_version,
                 "snapshot_id": snapshot.snapshot_id,
                 "fact_count": len(snapshot.facts),
-                "route_fact_count": len(observations),
+                "route_fact_count": sum(item.subject_type == "ROUTE_EDGE" for item in observations),
+                "brief_fact_count": sum(item.subject_type == "TRIP_BRIEF" for item in observations),
             },
             created_at=run.created_at,
         )

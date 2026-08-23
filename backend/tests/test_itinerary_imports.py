@@ -92,6 +92,19 @@ def test_parser_skips_destination_after_day_header_without_dropping_real_stops()
     ]
 
 
+def test_parser_separates_trip_context_from_inline_day_clauses():
+    draft = ItineraryTextParser().parse(
+        "北京2人。第1天 09:00-12:00 故宫博物院，12:00-13:00 天坛公园；第2天 09:00-12:00 颐和园。",
+        import_id="inline-pilot",
+    )
+
+    assert [(item.day_index, item.raw_name) for item in draft.raw_stops] == [
+        (0, "故宫博物院"),
+        (0, "天坛公园"),
+        (1, "颐和园"),
+    ]
+
+
 def test_parser_reads_tsv_rows_without_promoting_header_or_notes_to_poi():
     raw_text = (
         "天数\t时间\t地点\t备注\n"

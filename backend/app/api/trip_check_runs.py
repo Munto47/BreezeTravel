@@ -54,6 +54,7 @@ def get_trip_check_executor() -> TripCheckExecutor:
         itinerary_repository=itinerary_repository,
         audit_repository=audit_repository,
         advice_repository=PostgresAdviceRepository(),
+        brief_repository=PostgresTripBriefRepository(),
         repair_search=BoundedRepairSearch(
             itinerary_repository=itinerary_repository,
             audit_repository=audit_repository,

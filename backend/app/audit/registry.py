@@ -14,6 +14,7 @@ from app.audit.models import (
     EvidenceSnapshot,
 )
 from app.audit.fact_rules import EvidenceConflictRule, PlaceCityRule
+from app.audit.brief_rules import ConfirmedGroupIntensityRule
 from app.audit.route_rules import CommitmentFeasibilityRule, RouteGapRule
 from app.audit.severity import SeverityPolicy
 from app.constraints.base import RuleContext
@@ -290,6 +291,7 @@ class AuditRuleRegistry:
                 EvidenceConflictRule(),
                 RouteGapRule(),
                 CommitmentFeasibilityRule(),
+                ConfirmedGroupIntensityRule(),
                 MemberConstraintAuditRule(),
                 *[LegacyConstraintRuleAdapter(descriptor, severity) for descriptor in default_rule_descriptors()],
             ]

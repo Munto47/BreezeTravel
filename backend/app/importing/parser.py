@@ -274,68 +274,78 @@ class ItineraryTextParser:
                     )
                 continue
 
-            day_match = _DAY_PATTERN.match(sentence)
-            if day_match:
-                current_day = _day_number(day_match) - 1
-                sentence = sentence[day_match.end() :].strip()
-                if not sentence:
-                    continue
-                # "Day 1 北京" / "第 1 天：杭州" is a day header, not a
-                # stop named after the destination.  Keep the rule narrow so
-                # "Day 1 故宫博物院" still works as a compact one-line stop.
-                if sentence.strip(" ：:-—") in _KNOWN_TRIP_CITIES:
+            clauses = list(_iter_source_clauses(sentence))
+            first_inline_day = _INLINE_DAY_PATTERN.search(sentence)
+            sentence_offset = line.find(sentence)
+            for clause, clause_start in clauses:
+                day_match = _DAY_PATTERN.match(clause)
+                if day_match:
+                    current_day = _day_number(day_match) - 1
+                    tail = clause[day_match.end() :]
+                    leading = len(tail) - len(tail.lstrip())
+                    clause_start += day_match.end() + leading
+                    clause = tail.strip()
+                    if not clause:
+                        continue
+                    # "Day 1 北京" / "第 1 天：杭州" is a day header, not a
+                    # stop named after the destination.  Keep the rule narrow so
+                    # "Day 1 故宫博物院" still works as a compact one-line stop.
+                    if clause.strip(" ：:-—") in _KNOWN_TRIP_CITIES:
+                        continue
+                elif first_inline_day is not None and clause_start < first_inline_day.start():
+                    # A one-line import often starts with "北京2人。" before
+                    # its first explicit day marker. This is TripBrief context,
+                    # not a POI, and must not leak into entity resolution.
                     continue
 
-            for segment, segment_start in _iter_segments(sentence):
-                if not segment or segment.startswith(_NON_STOP_PREFIXES):
-                    continue
-                raw_time_match = _TIME_PATTERN.search(segment)
-                name = _clean_name(segment)
-                if not name or len(name) > 160:
-                    continue
-                if _is_transport_event_without_place(name):
-                    # A flight/train number is a time commitment, not a POI.
-                    # Bind it to the immediately preceding terminal stop when
-                    # the compact source text expresses both separately.
-                    if raw_stops:
-                        previous = raw_stops[-1]
-                        if previous.day_index == current_day and re.search(
-                            r"(?:机场|火车站|高铁站|客运站|码头|航站楼)$",
-                            previous.raw_name,
-                        ):
-                            raw_stops[-1] = previous.model_copy(
-                                update={
-                                    "commitment_kind": CommitmentKind.RETURN_DEPARTURE,
-                                    "fixed_commitment": True,
-                                }
-                            )
-                    continue
-                if re.fullmatch(r"(?:乘|坐|搭乘|步行|打车|地铁|公交).{0,20}", name):
-                    continue
-                relative_start = line.find(segment, segment_start)
-                if relative_start < 0:
-                    relative_start = segment_start
-                absolute_start = line_start + relative_start
-                absolute_end = absolute_start + len(segment)
-                raw_stops.append(
-                    RawStop(
-                        raw_stop_id=str(uuid4()),
-                        import_id=import_id,
-                        day_index=current_day,
-                        raw_name=name,
-                        raw_time=raw_time_match.group().strip() if raw_time_match else None,
-                        source_span=SourceSpan(start=absolute_start, end=absolute_end),
-                        source_sentence=segment[:1000],
-                        commitment_kind=_commitment_kind(segment),
-                        fixed_commitment=any(term in segment for term in _FIXED_TERMS),
+                for segment, segment_start in _iter_segments(clause):
+                    if not segment or segment.startswith(_NON_STOP_PREFIXES):
+                        continue
+                    raw_time_match = _TIME_PATTERN.search(segment)
+                    name = _clean_name(segment)
+                    if not name or len(name) > 160:
+                        continue
+                    if _is_transport_event_without_place(name):
+                        # A flight/train number is a time commitment, not a POI.
+                        # Bind it to the immediately preceding terminal stop when
+                        # the compact source text expresses both separately.
+                        if raw_stops:
+                            previous = raw_stops[-1]
+                            if previous.day_index == current_day and re.search(
+                                r"(?:机场|火车站|高铁站|客运站|码头|航站楼)$",
+                                previous.raw_name,
+                            ):
+                                raw_stops[-1] = previous.model_copy(
+                                    update={
+                                        "commitment_kind": CommitmentKind.RETURN_DEPARTURE,
+                                        "fixed_commitment": True,
+                                    }
+                                )
+                        continue
+                    if re.fullmatch(r"(?:乘|坐|搭乘|步行|打车|地铁|公交).{0,20}", name):
+                        continue
+                    relative_start = max(sentence_offset, 0) + clause_start + segment_start
+                    absolute_start = line_start + relative_start
+                    absolute_end = absolute_start + len(segment)
+                    raw_stops.append(
+                        RawStop(
+                            raw_stop_id=str(uuid4()),
+                            import_id=import_id,
+                            day_index=current_day,
+                            raw_name=name,
+                            raw_time=raw_time_match.group().strip() if raw_time_match else None,
+                            source_span=SourceSpan(start=absolute_start, end=absolute_end),
+                            source_sentence=segment[:1000],
+                            commitment_kind=_commitment_kind(segment),
+                            fixed_commitment=any(term in segment for term in _FIXED_TERMS),
+                        )
                     )
-                )
-                if len(raw_stops) >= self.max_stops:
-                    return ImportParseDraft(
-                        raw_stops=raw_stops,
-                        member_summary=list(dict.fromkeys(member_summary)),
-                        errors=["IMPORT_STOP_LIMIT_REACHED"],
-                    )
+                    if len(raw_stops) >= self.max_stops:
+                        return ImportParseDraft(
+                            raw_stops=raw_stops,
+                            member_summary=list(dict.fromkeys(member_summary)),
+                            errors=["IMPORT_STOP_LIMIT_REACHED"],
+                        )
 
         errors = [] if raw_stops else ["IMPORT_PARSE_FAILED"]
         return ImportParseDraft(

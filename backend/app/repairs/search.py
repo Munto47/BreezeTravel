@@ -570,12 +570,108 @@ def _duplicate_place_operations(
     return candidates
 
 
+def _route_gap_operations(
+    revision: ItineraryRevision,
+    finding: AuditFinding,
+) -> list[tuple[list[RepairOperation], list[str]]]:
+    """Create bounded schedule-only repairs for a verified route-gap deficit."""
+
+    if finding.reason_code != "ROUTE_GAP_INSUFFICIENT" or not finding.affected_days:
+        return []
+    day_index = finding.affected_days[0]
+    if day_index < 0 or day_index >= len(revision.days):
+        return []
+    from_stop_id = finding.input_values.get("from_stop_id")
+    to_stop_id = finding.input_values.get("to_stop_id")
+    route_duration = finding.input_values.get("route_duration_minutes")
+    if (
+        not isinstance(from_stop_id, str)
+        or not isinstance(to_stop_id, str)
+        or isinstance(route_duration, bool)
+        or not isinstance(route_duration, (int, float))
+        or route_duration < 0
+    ):
+        return []
+
+    stops = {item.stop_id: item for item in revision.days[day_index].stops}
+    left = stops.get(from_stop_id)
+    right = stops.get(to_stop_id)
+    if left is None or right is None:
+        return []
+    left_start = _minutes(left.start_time)
+    left_end = _minutes(left.end_time)
+    right_start = _minutes(right.start_time)
+    right_end = _minutes(right.end_time)
+    if left_end is None or right_start is None:
+        return []
+    deficit = int(route_duration) - (right_start - left_end)
+    if deficit <= 0:
+        return []
+
+    candidates: list[tuple[list[RepairOperation], list[str]]] = []
+    if right_end is not None and not (right.locked or right.fixed_commitment):
+        shifted_start = _clock(right_start + deficit)
+        shifted_end = _clock(right_end + deficit)
+        if shifted_start is not None and shifted_end is not None:
+            candidates.append(
+                (
+                    [
+                        RepairOperation(
+                            operation=RepairOperationType.ADJUST_TIME,
+                            payload={
+                                "stop_id": right.stop_id,
+                                "start_time": shifted_start,
+                                "end_time": shifted_end,
+                                "visit_duration_minutes": right_end - right_start,
+                            },
+                            rationale=(
+                                f"将 {right.raw_name or right.stop_id} 顺延 {deficit} 分钟，"
+                                "为相邻路线留出已核验的交通时间"
+                            ),
+                        )
+                    ],
+                    ["保留后一地点停留时长，但当天结束时间会顺延"],
+                )
+            )
+
+    shortened_end = _clock(right_start - int(route_duration))
+    if (
+        left_start is not None
+        and shortened_end is not None
+        and right_start - int(route_duration) > left_start
+        and not (left.locked or left.fixed_commitment)
+    ):
+        visit_duration = right_start - int(route_duration) - left_start
+        candidates.append(
+            (
+                [
+                    RepairOperation(
+                        operation=RepairOperationType.ADJUST_TIME,
+                        payload={
+                            "stop_id": left.stop_id,
+                            "end_time": shortened_end,
+                            "visit_duration_minutes": visit_duration,
+                        },
+                        rationale=(
+                            f"缩短 {left.raw_name or left.stop_id} {deficit} 分钟，"
+                            "为相邻路线留出已核验的交通时间"
+                        ),
+                    )
+                ],
+                ["保留后一地点开始时间，但前一地点停留时间会缩短"],
+            )
+        )
+    return candidates
+
+
 def _repair_candidates(
     revision: ItineraryRevision,
     finding: AuditFinding,
 ) -> list[tuple[list[RepairOperation], list[str]]]:
     if finding.reason_code == "DUPLICATE_PLACE":
         return _duplicate_place_operations(revision, finding)
+    if finding.reason_code == "ROUTE_GAP_INSUFFICIENT":
+        return _route_gap_operations(revision, finding)
     return _time_chain_operations(revision, finding)
 
 

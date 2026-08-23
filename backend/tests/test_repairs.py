@@ -76,6 +76,8 @@ async def _repair_context(
     lock_second: bool = False,
     route_provider: ControlledRepairRouteProvider | None = None,
     source_route_minutes: int | None = None,
+    second_start: str = "11:00",
+    second_end: str = "13:00",
 ):
     date_range = TripDateRange(start=date(2026, 9, 1), end=date(2026, 9, 2))
     revision = with_content_hash(ItineraryRevisionContent(
@@ -88,7 +90,7 @@ async def _repair_context(
         days=[
             ItineraryDay(day_index=0, date=date_range.start, stops=[
                 _stop("故宫", "p1", 0, 0, "09:00", "12:00", locked=lock_first),
-                _stop("景山", "p2", 0, 1, "11:00", "13:00", locked=lock_second),
+                _stop("景山", "p2", 0, 1, second_start, second_end, locked=lock_second),
             ]),
             ItineraryDay(day_index=1, date=date_range.end, stops=[
                 _stop("西湖", "p3", 1, 0, "10:00", "11:00"),
@@ -169,6 +171,38 @@ async def _repair_context(
         route_refresher=ProviderRepairRouteEvidenceRefresher(route_provider),
     )
     return itinerary_repository, audit_repository, repair_repository, search, revision, source_report
+
+
+@pytest.mark.asyncio
+async def test_repair_route_gap_offers_shift_or_shorten_and_runs_full_postcheck():
+    _, audit_repository, _, search, _, source_report = await _repair_context(
+        source_route_minutes=35,
+        second_start="12:00",
+        second_end="13:00",
+    )
+
+    source_finding = next(
+        item for item in source_report.findings if item.reason_code == "ROUTE_GAP_INSUFFICIENT"
+    )
+    assert source_finding.input_values["available_minutes"] == 0
+    assert source_finding.input_values["route_duration_minutes"] == 35
+
+    options = await search.propose(
+        source_report.report_id,
+        now=datetime(2026, 8, 20, tzinfo=timezone.utc),
+    )
+
+    assert len(options) == 2
+    assert {item.operations[0].payload["stop_id"] for item in options} == {"故宫", "景山"}
+    for option in options:
+        postcheck = await audit_repository.get_report(option.postcheck_report_id)
+        assert postcheck is not None
+        assert not any(
+            finding.status == AuditStatus.VIOLATED
+            and finding.reason_code == "ROUTE_GAP_INSUFFICIENT"
+            for finding in postcheck.findings
+        )
+        assert option.new_unknown_count == 0
 
 
 @pytest.mark.asyncio

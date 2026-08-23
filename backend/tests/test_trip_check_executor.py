@@ -166,6 +166,7 @@ async def _setup(*, fault_profile: str = "none"):
         itinerary_repository=itinerary_repository,
         audit_repository=audit_repository,
         advice_repository=advice_repository,
+        brief_repository=brief_repository,
         repair_search=BoundedRepairSearch(
             itinerary_repository=itinerary_repository,
             audit_repository=audit_repository,
