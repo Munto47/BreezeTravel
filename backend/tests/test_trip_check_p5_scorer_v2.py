@@ -25,6 +25,7 @@ from evals.trip_check_v1.p5.scorer_v2 import (
     semantic_output_hash_v2,
     variant_output_hashes_v2,
 )
+from evals.trip_check_v1.p5.runner_v2 import not_applicable_commitments_v2
 
 
 def _oracle(**updates: object) -> P5OracleV2:
@@ -374,6 +375,7 @@ def _write_run_group(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
         "blind_labels_read": False,
         "external_api_calls": 0,
         "human_evidence": False,
+        **not_applicable_commitments_v2(),
     }
     manifest["manifest_hash"] = digest(manifest)
     (run_dir / "run_group_manifest.json").write_text(json.dumps(manifest, ensure_ascii=False) + "\n", encoding="utf-8")

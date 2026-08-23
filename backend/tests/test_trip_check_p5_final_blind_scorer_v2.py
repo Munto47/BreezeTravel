@@ -123,6 +123,33 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         "manifest_hash": "b" * 64,
         "terminal_outputs_file_sha256": "c" * 64,
     }
+    active_path = repo / "backend" / "evals" / "trip_check_v1" / "p5" / "active_contract.json"
+    active_path.parent.mkdir(parents=True, exist_ok=True)
+    active = {
+        "schema_version": "trip-check-p5-active-contract-v1",
+        "active_contract": "trip-check-p5-v2",
+        "formal_evidence_status": "READY",
+        "candidate_freeze_commit": "9" * 40,
+        "blind_seal_v2_sha256": _sha(seal_path),
+        "dataset_manifest_hash": manifest["dataset_manifest_hash"],
+        "deprecated_contracts": [
+            {
+                "contract_id": "trip-check-p5-v1",
+                "formal_evidence_eligible": False,
+                "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
+            }
+        ],
+    }
+    active_path.write_text(json.dumps(active, sort_keys=True) + "\n", encoding="utf-8")
+    manifest.update(
+        {
+            "active_contract_file_sha256": _sha(active_path),
+            "blind_seal_sha256": _sha(seal_path),
+            "external_bundle_sha256": seal["external_bundle_sha256"],
+            "labels_canonical_sha256": seal["labels_canonical_sha256"],
+            "review_receipt_sha256": seal["review_receipt_sha256"],
+        }
+    )
 
     def validated(**kwargs):
         del kwargs
@@ -141,7 +168,25 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
         "bundle": bundle_path,
         "bundle_hash": _sha(bundle_path),
         "labels": labels,
+        "active": active_path,
+        "manifest": manifest,
     }
+
+
+def _synchronize_commitments(fixture: dict) -> None:
+    seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
+    active = json.loads(fixture["active"].read_text(encoding="utf-8"))
+    active["blind_seal_v2_sha256"] = _sha(fixture["seal"])
+    fixture["active"].write_text(json.dumps(active, sort_keys=True) + "\n", encoding="utf-8")
+    fixture["manifest"].update(
+        {
+            "active_contract_file_sha256": _sha(fixture["active"]),
+            "blind_seal_sha256": _sha(fixture["seal"]),
+            "external_bundle_sha256": seal["external_bundle_sha256"],
+            "labels_canonical_sha256": seal["labels_canonical_sha256"],
+            "review_receipt_sha256": seal["review_receipt_sha256"],
+        }
+    )
 
 
 def _score(fixture: dict, **updates):
@@ -215,6 +260,25 @@ def test_v2_blind_output_is_strict_aggregate_with_minimum_bucket_five(
     assert receipt["status"] == "PASS"
     assert receipt["minimum_bucket_size"] == 5
     assert "case_scores" not in receipt
+    assert {
+        key: receipt["bindings"][key]
+        for key in (
+            "active_contract_file_sha256",
+            "blind_seal_sha256",
+            "external_bundle_sha256",
+            "labels_canonical_sha256",
+            "review_receipt_sha256",
+        )
+    } == {
+        key: fixture["manifest"][key]
+        for key in (
+            "active_contract_file_sha256",
+            "blind_seal_sha256",
+            "external_bundle_sha256",
+            "labels_canonical_sha256",
+            "review_receipt_sha256",
+        )
+    }
     serialized = json.dumps(receipt, ensure_ascii=False)
     assert "p5.blind.bj." not in serialized
     assert all(
@@ -242,6 +306,7 @@ def test_v2_blind_bundle_rejects_repository_path_and_extra_fields(
     seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
     seal["external_bundle_sha256"] = bundle_hash
     fixture["seal"].write_text(json.dumps(seal) + "\n", encoding="utf-8")
+    _synchronize_commitments(fixture)
     with pytest.raises(P5BlindScoringErrorV2, match="BLIND_BUNDLE_ORACLE_SCHEMA_INVALID"):
         _score(
             fixture,
@@ -258,6 +323,7 @@ def test_v2_blind_bundle_rejects_stale_materialization_binding(tmp_path: Path, m
     seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
     seal["external_bundle_sha256"] = changed_hash
     fixture["seal"].write_text(json.dumps(seal) + "\n", encoding="utf-8")
+    _synchronize_commitments(fixture)
 
     with pytest.raises(P5BlindScoringErrorV2, match="BLIND_BUNDLE_STALE_DATASET_BINDING"):
         _score(fixture, expected_bundle_sha256=changed_hash)
@@ -283,6 +349,53 @@ def test_v2_blind_bundle_rejects_stale_schema_commitment(tmp_path: Path, monkeyp
     seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
     seal["external_bundle_sha256"] = changed_hash
     fixture["seal"].write_text(json.dumps(seal) + "\n", encoding="utf-8")
+    _synchronize_commitments(fixture)
 
     with pytest.raises(P5BlindScoringErrorV2, match="BLIND_BUNDLE_STALE_DATASET_BINDING"):
         _score(fixture, expected_bundle_sha256=changed_hash)
+
+
+def test_v2_blind_scorer_rejects_seal_substitution_before_bundle_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    seal = json.loads(fixture["seal"].read_text(encoding="utf-8"))
+    seal["review_receipt_sha256"] = "0" * 64
+    fixture["seal"].write_text(json.dumps(seal) + "\n", encoding="utf-8")
+
+    with pytest.raises(P5BlindScoringErrorV2, match="P5_V2_ACTIVE_CONTRACT_BINDING_MISMATCH"):
+        _score(fixture)
+
+
+def test_v2_blind_scorer_rejects_stale_active_dataset_binding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    active = json.loads(fixture["active"].read_text(encoding="utf-8"))
+    active["dataset_manifest_hash"] = "0" * 64
+    fixture["active"].write_text(json.dumps(active, sort_keys=True) + "\n", encoding="utf-8")
+    fixture["manifest"]["active_contract_file_sha256"] = _sha(fixture["active"])
+
+    with pytest.raises(P5BlindScoringErrorV2, match="P5_V2_ACTIVE_CONTRACT_BINDING_MISMATCH"):
+        _score(fixture)
+
+
+def test_v2_blind_scorer_rejects_mixed_subject_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(blind_v2, "_repo_state", lambda root: (fixture["manifest"]["subject_commit"], False))
+    monkeypatch.setattr(blind_v2, "_git_is_ancestor", lambda root, candidate, subject: False)
+
+    with pytest.raises(P5BlindScoringErrorV2, match="BLIND_RUN_CANDIDATE_ANCESTRY_MISMATCH"):
+        _score(fixture, require_current_subject=True)
+
+
+def test_v2_blind_scorer_rejects_tampered_review_commitment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fixture = _fixture(tmp_path, monkeypatch)
+    fixture["manifest"]["review_receipt_sha256"] = "0" * 64
+
+    with pytest.raises(P5BlindScoringErrorV2, match="BLIND_RUN_COMMITMENT_MISMATCH"):
+        _score(fixture)

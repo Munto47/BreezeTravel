@@ -32,6 +32,7 @@ from tests.test_trip_check_p5_final_blind_scorer_v2 import (
     _fixture as _blind_fixture,
 )
 from tests.test_trip_check_p5_final_blind_scorer_v2 import _score as _blind_score
+from tests.test_trip_check_p5_final_blind_scorer_v2 import _synchronize_commitments
 from tests.test_trip_check_p5_scorer_v2 import (
     _case,
     _output,
@@ -218,6 +219,7 @@ def _rebind_bundle_hash(fixture: dict, payload: dict) -> str:
     seal = _load(fixture["seal"])
     seal["external_bundle_sha256"] = changed_hash
     _write(fixture["seal"], seal)
+    _synchronize_commitments(fixture)
     return changed_hash
 
 

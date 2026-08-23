@@ -19,6 +19,133 @@ from evals.trip_check_v1.p5.contracts_v2 import (
 from evals.trip_check_v1.p5.data_contract import digest
 
 
+FORMAL_COMMITMENT_FIELDS_V2 = frozenset(
+    {
+        "active_contract_file_sha256",
+        "blind_seal_sha256",
+        "external_bundle_sha256",
+        "labels_canonical_sha256",
+        "review_receipt_sha256",
+    }
+)
+ACTIVE_READY_FIELDS_V2 = frozenset(
+    {
+        "schema_version",
+        "active_contract",
+        "formal_evidence_status",
+        "candidate_freeze_commit",
+        "blind_seal_v2_sha256",
+        "dataset_manifest_hash",
+        "deprecated_contracts",
+    }
+)
+BLIND_SEAL_FIELDS_V2 = frozenset(
+    {
+        "schema_version",
+        "split",
+        "case_count",
+        "case_ids_sha256",
+        "inputs_file_sha256",
+        "inputs_content_sha256",
+        "materializations_file_sha256",
+        "materializations_content_sha256",
+        "schema_contract_sha256",
+        "labels_canonical_sha256",
+        "external_bundle_sha256",
+        "rubric_sha256",
+        "run_spec_template_sha256",
+        "variant_ids_sha256",
+        "review_receipt_sha256",
+        "label_storage",
+        "label_access",
+        "scoring_payload_present",
+        "human_evidence",
+    }
+)
+
+
+def _is_lower_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
+
+
+def not_applicable_commitments_v2() -> dict[str, str]:
+    return {field: "NOT_APPLICABLE" for field in sorted(FORMAL_COMMITMENT_FIELDS_V2)}
+
+
+def build_formal_commitments_v2(
+    *,
+    active: Mapping[str, Any],
+    active_contract_file_sha256: str,
+    seal: Mapping[str, Any],
+    blind_seal_sha256: str,
+    dataset_manifest_hash: str,
+) -> dict[str, str]:
+    """Validate the READY active contract and copy its sealed commitments."""
+
+    if set(active) != ACTIVE_READY_FIELDS_V2:
+        raise ValueError("formal active contract fields differ from v2 READY contract")
+    if (
+        active.get("schema_version") != "trip-check-p5-active-contract-v1"
+        or active.get("active_contract") != "trip-check-p5-v2"
+        or active.get("formal_evidence_status") != "READY"
+    ):
+        raise ValueError("formal active contract is not v2 READY")
+    if not isinstance(active.get("candidate_freeze_commit"), str) or len(active["candidate_freeze_commit"]) != 40:
+        raise ValueError("formal active contract candidate commit is invalid")
+    if any(character not in "0123456789abcdef" for character in active["candidate_freeze_commit"]):
+        raise ValueError("formal active contract candidate commit is invalid")
+    if active.get("deprecated_contracts") != [
+        {
+            "contract_id": "trip-check-p5-v1",
+            "formal_evidence_eligible": False,
+            "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
+        }
+    ]:
+        raise ValueError("formal active contract does not permanently supersede v1")
+    if set(seal) != BLIND_SEAL_FIELDS_V2:
+        raise ValueError("formal blind seal fields differ from v2 contract")
+    if (
+        seal.get("schema_version") != "trip-check-p5-blind-seal-v2"
+        or seal.get("split") != "frozen_blind"
+        or seal.get("case_count") != 90
+        or seal.get("label_storage") != "external_bundle_only"
+        or seal.get("label_access") != "isolated_scorer_only"
+        or seal.get("scoring_payload_present") is not False
+        or seal.get("human_evidence") is not False
+    ):
+        raise ValueError("formal blind seal contract is invalid")
+    for field, value in (
+        ("active_contract_file_sha256", active_contract_file_sha256),
+        ("blind_seal_sha256", blind_seal_sha256),
+        ("dataset_manifest_hash", dataset_manifest_hash),
+        ("blind_seal_v2_sha256", active.get("blind_seal_v2_sha256")),
+        ("active_dataset_manifest_hash", active.get("dataset_manifest_hash")),
+        ("external_bundle_sha256", seal.get("external_bundle_sha256")),
+        ("labels_canonical_sha256", seal.get("labels_canonical_sha256")),
+        ("review_receipt_sha256", seal.get("review_receipt_sha256")),
+    ):
+        if not _is_lower_sha256(value):
+            raise ValueError(f"formal commitment is not a lowercase SHA-256: {field}")
+    if active["blind_seal_v2_sha256"] != blind_seal_sha256:
+        raise ValueError("formal active contract seal hash mismatch")
+    if active["dataset_manifest_hash"] != dataset_manifest_hash:
+        raise ValueError("formal active contract dataset hash mismatch")
+    commitments = {
+        "active_contract_file_sha256": active_contract_file_sha256,
+        "blind_seal_sha256": blind_seal_sha256,
+        "external_bundle_sha256": str(seal["external_bundle_sha256"]),
+        "labels_canonical_sha256": str(seal["labels_canonical_sha256"]),
+        "review_receipt_sha256": str(seal["review_receipt_sha256"]),
+    }
+    if set(commitments) != FORMAL_COMMITMENT_FIELDS_V2:
+        raise AssertionError("internal formal commitment field drift")
+    return commitments
+
+
 class VariantAdapterV2(Protocol):
     variant_id: str
     adapter_version: str
@@ -194,7 +321,12 @@ def write_jsonl_atomic_v2(path: Path, outputs: Sequence[P5TerminalOutputV2]) -> 
 
 
 __all__ = [
+    "ACTIVE_READY_FIELDS_V2",
+    "BLIND_SEAL_FIELDS_V2",
+    "FORMAL_COMMITMENT_FIELDS_V2",
+    "build_formal_commitments_v2",
     "execute_terminal_v2",
+    "not_applicable_commitments_v2",
     "validate_exact_terminal_set_v2",
     "validate_run_spec_whitelist_v2",
     "write_jsonl_atomic_v2",

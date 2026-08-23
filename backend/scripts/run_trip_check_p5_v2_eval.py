@@ -16,7 +16,10 @@ from evals.trip_check_v1.p5.adapters_v2 import ADAPTERS_V2, ADAPTER_VERSIONS_V2
 from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, P5TerminalOutputV2, P5VariantRunSpecV2
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.runner_v2 import (
+    FORMAL_COMMITMENT_FIELDS_V2,
+    build_formal_commitments_v2,
     execute_terminal_v2,
+    not_applicable_commitments_v2,
     validate_exact_terminal_set_v2,
     validate_run_spec_whitelist_v2,
     write_jsonl_atomic_v2,
@@ -75,6 +78,7 @@ RUN_GROUP_FIELDS = {
     "blind_labels_read",
     "external_api_calls",
     "human_evidence",
+    *FORMAL_COMMITMENT_FIELDS_V2,
     "manifest_hash",
 }
 
@@ -99,6 +103,20 @@ def _load_json(path: Path) -> dict[str, Any]:
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _git_is_ancestor(candidate_commit: str, subject_commit: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", candidate_commit, subject_commit],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if completed.returncode not in (0, 1):
+        raise RuntimeError("formal candidate ancestry could not be verified")
+    return completed.returncode == 0
 
 
 def _validate_dataset_bytes(
@@ -141,20 +159,24 @@ def _require_formal_bindings(
     template_path: Path,
     rubric_path: Path,
     case_count: int,
-) -> None:
+) -> dict[str, str]:
     active = require_v2_formal_ready(active_contract_path)
-    if lane != "frozen_blind":
-        return
-    required = {"blind_seal_v2_sha256", "formal_subject_commit", "dataset_manifest_hash"}
-    if not required.issubset(active):
-        raise RuntimeError("formal frozen-blind active contract lacks subject/dataset/seal bindings")
-    if active["formal_subject_commit"] != subject_commit:
-        raise RuntimeError("formal frozen-blind subject commit differs from active contract")
-    if active["dataset_manifest_hash"] != dataset_manifest_hash:
-        raise RuntimeError("formal frozen-blind dataset differs from active contract")
-    if active["blind_seal_v2_sha256"] != _sha256_file(blind_seal_path):
-        raise RuntimeError("formal frozen-blind seal bytes differ from active contract")
     seal = _load_json(blind_seal_path)
+    seal_sha256 = _sha256_file(blind_seal_path)
+    try:
+        commitments = build_formal_commitments_v2(
+            active=active,
+            active_contract_file_sha256=_sha256_file(active_contract_path),
+            seal=seal,
+            blind_seal_sha256=seal_sha256,
+            dataset_manifest_hash=dataset_manifest_hash,
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
+    if not _git_is_ancestor(str(active["candidate_freeze_commit"]), subject_commit):
+        raise RuntimeError("formal candidate freeze commit is not an ancestor of run subject HEAD")
+    if lane != "frozen_blind":
+        return commitments
     expected = {
         "schema_version": "trip-check-p5-blind-seal-v2",
         "split": "frozen_blind",
@@ -167,6 +189,7 @@ def _require_formal_bindings(
     for key, value in expected.items():
         if seal.get(key) != value:
             raise RuntimeError(f"formal frozen-blind seal binding mismatch: {key}")
+    return commitments
 
 
 def _variant_ids(raw: str) -> list[str]:
@@ -365,8 +388,9 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError("dataset manifest lane materialization set hash mismatch")
     if args.require_formal and not dataset_ready:
         raise RuntimeError("formal P5 v2 runs require a frozen, formal-eligible actual-OCR dataset")
+    formal_commitments = not_applicable_commitments_v2()
     if args.require_formal:
-        _require_formal_bindings(
+        formal_commitments = _require_formal_bindings(
             active_contract_path=active_contract_path,
             blind_seal_path=blind_seal_path,
             lane=lane,
@@ -475,6 +499,7 @@ async def execute_run(args: argparse.Namespace) -> dict[str, Any]:
         "blind_labels_read": False,
         "external_api_calls": 0,
         "human_evidence": False,
+        **formal_commitments,
     }
     manifest["manifest_hash"] = digest(manifest)
     _write_json_atomic(run_dir / "run_group_manifest.json", manifest)
