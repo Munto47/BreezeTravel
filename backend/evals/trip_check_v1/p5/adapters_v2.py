@@ -516,6 +516,32 @@ def _assert_frozen_ocr_receipt(actual: Any, expected: Mapping[str, Any], image_b
         raise ValueError("runtime OCR receipt does not bind screenshot bytes")
 
 
+def _stable_materialized_receipts(
+    materialization: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    receipts = [
+        {
+            "type": "materialized_provider",
+            "receipt_id": item["receipt_id"],
+            "status": item["status"],
+        }
+        for item in materialization["receipts"]
+        if item.get("schema_version") != "trip-check-p5-cleanup-receipt-v2"
+    ]
+    receipts.extend(
+        {
+            "type": "ocr_cleanup",
+            "receipt_id": item["receipt_id"],
+            "cleanup_status": item["cleanup_status"],
+            "original_removed": item["original_removed"],
+            "asset_hash": item["asset_hash"],
+        }
+        for item in materialization["receipts"]
+        if item.get("schema_version") == "trip-check-p5-cleanup-receipt-v2"
+    )
+    return receipts
+
+
 async def _execute_product_harness(
     case: Any,
     materialization: Mapping[str, Any],
@@ -659,6 +685,10 @@ async def _execute_product_harness(
         idempotency_key=f"{case.case_id}:confirm-brief",
     )
     if itinerary_import.status == ImportStatus.NEEDS_RESOLUTION:
+        candidate_count = sum(
+            len(item["candidate_set"]["candidates"])
+            for item in materialization["candidate_sets"]
+        )
         candidate_evidence_blocked = candidate_set_mode in {"EMPTY", "MISSING_RECEIPT"}
         resolution_advice = (
             [
@@ -671,7 +701,15 @@ async def _execute_product_harness(
                 }
             ]
             if candidate_evidence_blocked
-            else []
+            else [
+                {
+                    "finding_reason": "地点仍需用户确认",
+                    "action": "核对候选地点及城市后再确认行程，不自动写入未确认地点",
+                    "uncertainty": "当前地点消歧尚未完成",
+                    "has_repair": False,
+                    "candidate_set_bound": False,
+                }
+            ]
         )
         return _HarnessResult(
             terminal_status=TerminalStatusV2.NEEDS_USER_RESOLUTION,
@@ -692,9 +730,13 @@ async def _execute_product_harness(
                 "selected_place_ids": [],
                 "wrong_city_or_poi_count": 0,
                 "unknown_preserved": True,
-                "candidate_receipt_coverage": 0.0,
+                "candidate_receipt_coverage": 1.0 if candidate_count else 0.0,
                 "candidate_receipt_integrity": (
-                    candidate_set_mode if candidate_evidence_blocked else "NOT_APPLICABLE"
+                    candidate_set_mode
+                    if candidate_evidence_blocked
+                    else "PASS"
+                    if candidate_count
+                    else "NOT_APPLICABLE"
                 ),
                 "repair_adoption_attempted": False,
                 "replay_side_effect_counts_equal": True,
@@ -703,7 +745,7 @@ async def _execute_product_harness(
             findings=[],
             advice=resolution_advice,
             postcheck=None,
-            receipts=screenshot_receipts,
+            receipts=[*screenshot_receipts, *_stable_materialized_receipts(materialization)],
             raw_artifact={"import": itinerary_import.model_dump(mode="json"), "brief": brief.model_dump(mode="json")},
         )
 
@@ -899,22 +941,7 @@ async def _execute_product_harness(
     )
     candidate_count = sum(len(item["candidate_set"]["candidates"]) for item in materialization["candidate_sets"])
     candidate_evidence_blocked = candidate_set_mode in {"EMPTY", "MISSING_RECEIPT"}
-    stable_receipts = [
-        {"type": "materialized_provider", "receipt_id": item["receipt_id"], "status": item["status"]}
-        for item in materialization["receipts"]
-        if item.get("schema_version") != "trip-check-p5-cleanup-receipt-v2"
-    ]
-    stable_receipts.extend(
-        {
-            "type": "ocr_cleanup",
-            "receipt_id": item["receipt_id"],
-            "cleanup_status": item["cleanup_status"],
-            "original_removed": item["original_removed"],
-            "asset_hash": item["asset_hash"],
-        }
-        for item in materialization["receipts"]
-        if item.get("schema_version") == "trip-check-p5-cleanup-receipt-v2"
-    )
+    stable_receipts = _stable_materialized_receipts(materialization)
     if concurrency_receipt is not None:
         for attempt in concurrency_receipt["attempts"]:
             if attempt.get("result") is not None:

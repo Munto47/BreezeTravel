@@ -228,6 +228,41 @@ def test_legacy_v3_text_converts_budget_across_frozen_contract_boundary() -> Non
     assert any(row.get("type") == "legacy_isolation" for row in terminal.receipts)
 
 
+@pytest.mark.parametrize("case_id", ["p5.pilot.bj.002", "p5.pilot.bj.006"])
+def test_v3_resolution_terminal_retains_candidate_receipts_and_action(case_id: str) -> None:
+    case, materialization = _case_and_materialization(case_id)
+    terminal = asyncio.run(
+        execute_terminal_v3(
+            case=case,
+            materialization=materialization,
+            run_spec=_spec(case, materialization, variant_id="core_b"),
+            adapter=CoreAdapterV3(),
+        )
+    )
+
+    expected_receipt_ids = {
+        candidate["place_receipt_id"]
+        for item in materialization["candidate_sets"]
+        for candidate in item["candidate_set"]["candidates"]
+    } | {
+        receipt_id
+        for item in materialization["candidate_sets"]
+        for candidate in item["candidate_set"]["candidates"]
+        for receipt_id in candidate["route_receipt_ids"]
+    }
+    actual_receipt_ids = {
+        item["receipt_id"]
+        for item in terminal.receipts
+        if item.get("status") in {"PASS", "SUCCEEDED"}
+    }
+    assert terminal.terminal_status is TerminalStatusV3.NEEDS_USER_RESOLUTION
+    assert terminal.evaluation_projection["selected_place_ids"] == []
+    assert terminal.evaluation_projection["candidate_receipt_coverage"] == 1.0
+    assert terminal.evaluation_projection["candidate_receipt_integrity"] == "PASS"
+    assert terminal.advice
+    assert expected_receipt_ids <= actual_receipt_ids
+
+
 def test_v3_nonblind_run_writes_three_strict_results_and_four_ocr_replays(
     tmp_path,
 ) -> None:
