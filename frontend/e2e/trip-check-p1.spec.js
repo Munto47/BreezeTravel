@@ -405,6 +405,7 @@ async function installControlledApi(page, scenario) {
     runCreated: false,
     repairApplied: false,
     runCreateCount: 0,
+    eventStreamCount: 0,
     reconnectHeaders: [],
   };
   await page.route('**/api/**', async route => {
@@ -433,16 +434,24 @@ async function installControlledApi(page, scenario) {
     }
     if (method === 'GET' && path.endsWith('/events')) {
       state.reconnectHeaders.push(request.headers()['last-event-id'] || null);
+      state.eventStreamCount += 1;
       const event = state.repairApplied
         ? { event_id: 5, run_id: scenario.waitingRun.run_id, event_type: 'run_succeeded', stage: 'POSTCHECK', run_version: 6, payload: { status: 'SUCCEEDED' }, created_at: NOW }
-        : { event_id: 4, run_id: scenario.waitingRun.run_id, event_type: 'stage_completed', stage: 'WAIT_ADOPTION', run_version: 5, payload: { status: 'WAITING' }, created_at: NOW };
+        : state.eventStreamCount === 1
+          ? { event_id: 2, run_id: scenario.waitingRun.run_id, event_type: 'stage_started', stage: 'AUDIT', run_version: 3, payload: { status: 'RUNNING' }, created_at: NOW }
+          : { event_id: 4, run_id: scenario.waitingRun.run_id, event_type: 'stage_completed', stage: 'WAIT_ADOPTION', run_version: 5, payload: { status: 'WAITING' }, created_at: NOW };
+      const duplicate = { ...event };
+      const stale = { ...event, event_id: Math.max(1, event.event_id - 1) };
       return route.fulfill({
         status: 200,
         contentType: 'text/event-stream',
-        body: `id: ${event.event_id}\nevent: ${event.event_type}\ndata: ${JSON.stringify(event)}\n\n`,
+        body: [event, duplicate, stale].map(item => (
+          `id: ${item.event_id}\nevent: ${item.event_type}\ndata: ${JSON.stringify(item)}\n\n`
+        )).join(''),
       });
     }
     if (method === 'GET' && path === `/api/trip-check-runs/${scenario.waitingRun.run_id}`) {
+      if (!state.repairApplied && state.eventStreamCount === 1) return json(scenario.baseRun);
       return json(state.repairApplied ? scenario.succeededRun : scenario.waitingRun);
     }
     if (method === 'GET' && path === `/api/audits/${scenario.sourceReport.report_id}`) {
@@ -522,6 +531,8 @@ for (const [index, [city, names]] of [
     await page.getByRole('button', { name: '应用为 revision 1 并启动行程核验' }).click();
 
     await expect(page.getByText('WAITING · WAIT_ADOPTION')).toBeVisible();
+    await expect.poll(() => state.reconnectHeaders.includes('2')).toBe(true);
+    await expect(page.getByText('#2 stage_started · AUDIT · run v3')).toHaveCount(1);
     await expect(page.getByText(`将 ${names[1]} 顺延 35 分钟`, { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Repair A/B' })).toBeVisible();
     await page.getByRole('button', { name: '预览确认并应用' }).first().click();

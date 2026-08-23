@@ -250,6 +250,7 @@ export default function ImportItineraryPage() {
               signal: controller.signal,
               onEvent: message => {
                 const event = message.data
+                if (event.event_id <= lastRunEventId.current) return
                 lastRunEventId.current = event.event_id
                 sessionStorage.setItem(cursorKey, String(event.event_id))
                 setRunEvents(current => (
