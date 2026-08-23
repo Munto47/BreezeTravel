@@ -403,6 +403,8 @@ def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[
                 "missing",
                 "--formal-validation-receipt",
                 "missing",
+                "--output",
+                "../.local-artifacts/p5-v2-formal/test-invalid-gate.json",
             ),
             "RUN_GROUP_MANIFEST_INVALID",
         ),

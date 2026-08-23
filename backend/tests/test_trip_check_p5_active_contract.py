@@ -19,11 +19,13 @@ from evals.trip_check_v1.p5.final_blind_scorer import (
 from scripts import run_trip_check_p5_eval, run_trip_check_p5_gate, score_trip_check_p5_eval
 
 
-def test_v1_is_superseded_and_v2_formal_evidence_is_blocked_until_sealed() -> None:
+def test_v1_is_superseded_and_v2_formal_evidence_is_ready_after_seal() -> None:
     active = load_active_contract()
 
     assert active["active_contract"] == "trip-check-p5-v2"
-    assert active["formal_evidence_status"] == "PENDING_V2_SEAL"
+    assert active["formal_evidence_status"] == "READY"
+    assert len(active["candidate_freeze_commit"]) == 40
+    assert len(active["blind_seal_v2_sha256"]) == 64
     assert active["deprecated_contracts"] == [
         {
             "contract_id": "trip-check-p5-v1",
@@ -31,8 +33,19 @@ def test_v1_is_superseded_and_v2_formal_evidence_is_blocked_until_sealed() -> No
             "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
         }
     ]
+    assert require_v2_formal_ready() == active
+
+
+def test_v2_formal_evidence_fails_closed_before_seal(tmp_path) -> None:
+    contract = load_active_contract()
+    contract["formal_evidence_status"] = "PENDING_V2_SEAL"
+    contract.pop("candidate_freeze_commit")
+    contract.pop("blind_seal_v2_sha256")
+    path = tmp_path / "active_contract.json"
+    path.write_text(json.dumps(contract), encoding="utf-8")
+
     with pytest.raises(P5ContractNotReadyError, match="P5_V2_FORMAL_CONTRACT_NOT_READY"):
-        require_v2_formal_ready()
+        require_v2_formal_ready(path)
 
 
 def test_v1_blind_scorer_rejects_before_reading_any_external_bundle(tmp_path) -> None:

@@ -90,18 +90,18 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 - Gate manifest：`trip-check-p5-gate-manifest-v2`；
 - P5 v1：`SUPERSEDED`，只保留审计资格，任何 formal runner/scorer/Gate 必须拒绝；
 - Dataset increment：`+90 frozen_blind`，总计 `360`；
-- Evidence output：`backend/evidence/trip_check_v1/p5/`。
+- Evidence output：`.local-artifacts/p5-v2-formal/<subject_commit>/`；正式产物不写入 tracked tree，避免 Gate 自引用改变 subject commit。归档提交只记录 subject、artifact hash 与外置路径，不改变被评测代码/合同/数据。
 
 任何合同在首次正式 A/B/C 运行后不得原地修改；必须提升版本并使旧运行失效。
 
 ## Baseline
 
-- 分支/commit：规划分支基于 P4 evidence checkpoint `c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`；制定本 Goal 前工作树为 clean；
-- 已有数据：18 pilot、180 dev、72 regression、0 frozen blind；P4 regression 的 72 个 fixture/oracle 与 dev 内容重合，P4 validator 只验证了 split 编码后的 ID/family，不能作为 P5 内容隔离证据；
+- 分支/commit：P5 v2 candidate freeze 为 `cfc6670ffeae2e2f385e56c7fc7debe59f8183f9`；本轮 R0 收口基线为 `bd71af48d333d3460be8f56f801d24fb33008c51`，分支与同名 upstream 同步且工作树 clean；
+- 已有数据：18 pilot、180 dev、72 regression、90 frozen blind；P5 v2 dataset、actual OCR materialization、外置 bundle/review commitment 与 blind seal 已冻结，标签 payload 不在仓库内；
 - 已有 P4 结论：`bounded_repair_v1` 成功率 66.7%，`cp_sat_v1` 50.0%，CP-SAT admission `REJECT`；
 - 已有评测资产：通用 EvaluationRunner、旧 adapters、blind fail-closed scorer、Judge panel 脚本和 P1～P4 runner；它们尚未组成 P5 的 TripCheck 360 A/B/C Gate；
 - 已记录但本轮未重跑：P4 completion record 中 backend `1313 passed, 28 skipped`、Ruff、frontend build、PostgreSQL、浏览器、18 pilot、P2/P3 regression 和 P4 manifest 均 PASS；
-- 当前证据等级：controlled fixture、PostgreSQL integration、controlled browser fixture 为 PASS；frozen blind、P5 Evaluation Gate、G4 live Provider、public E2E、human evidence 为 `NOT_RUN`；candidate readiness 为 `REJECT`。
+- 当前证据等级：controlled fixture、PostgreSQL integration、controlled browser fixture、P5 v2 dataset formal validation、actual OCR materialization 与 blind seal 为 PASS/READY；810 non-blind、270 blind、1080 replay、三轮 Judge、P5 Evaluation Gate、G4 live Provider、public E2E、human evidence仍为 `NOT_RUN`；candidate readiness 为 `REJECT`。
 
 ## Invariants
 
@@ -224,8 +224,10 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 - 生成 A/B/C 消融表、失败类型表、成本/性能表和默认方案决策；
 - 同 commit 重跑完整 backend、Ruff、frontend build、P1～P4 regression、P5 dataset/runner/scorer/blind isolation；
-- 生成 `backend/evidence/trip_check_v1/p5/p5_gate_manifest.json` 并执行 artifact/hash/readback/secret scan；
+- 在 `.local-artifacts/p5-v2-formal/<subject_commit>/p5_gate_manifest_v2.json` 生成 Gate manifest，并执行 artifact/hash/readback/schema/secret scan；
 - Gate PASS、clean tree、远端 checkpoint 和 evidence readback 全部成立后，才可归档 P5 并生成 P6 draft；不得自动进入公网或候选发布。
+
+Gate 采用两步 envelope：先在 clean subject commit 上生成外置只读证据；PASS 后只允许一个 governance-only 归档提交记录 subject、manifest hash 和外置路径。归档 diff 白名单仅允许 Goal/completed-goal 状态文件，不得改代码、配置、数据、oracle、prompt、variant 或 frozen contract；否则旧 Gate 立即失效并必须重跑。
 
 计划窗口为 4 周或 20 个专注开发日，以 Gate 结果而不是日历日期判定完成。每个切片仍不得超过 60 分钟没有可恢复的本地与远端 checkpoint。
 
@@ -303,11 +305,11 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 
 ## Completion record
 
-- Commits：`NOT_STARTED`；
-- Remote branch / upstream：`NOT_STARTED`；
-- Verification results：`NOT_RUN`；
-- Evidence paths：`NOT_GENERATED`；
+- Commits：P5 v2 implementation/seal checkpoints through `bd71af48d333d3460be8f56f801d24fb33008c51`；formal evaluation checkpoint 尚未生成；
+- Remote branch / upstream：`codex/trip-check-p5-evaluation-ablation` / `origin/codex/trip-check-p5-evaluation-ablation`；R0 基线同步；
+- Verification results：P5-R0 active-contract/Gate/seal/E2E/readback `79 passed, 1 skipped`，formal dataset validator `PASS`（360，三城 120/120/120，跨 split overlap 0），定向 Ruff PASS；skip 为 opt-in external/GPU OCR sample；正式 810/270 运行、评分、Judge 与 Gate 为 `NOT_RUN`；
+- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入 `.local-artifacts/p5-v2-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
 - Gate result：`NOT_RUN`；
 - Next Goal generated：`NO`；
-- Remaining red lights：frozen blind、P5 Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；
+- Remaining red lights：原 custodian 的外置 blind bundle/review receipt 绝对路径尚未恢复；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若无法按 seal hash 恢复原外置 payload，必须停止并请求重新封存授权，不能重建标签追绿；
 - Promotion decision：`NOT_REQUESTED`。

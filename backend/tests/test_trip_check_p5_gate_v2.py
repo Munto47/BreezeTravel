@@ -51,6 +51,15 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
     )
     formal_schema = p5 / "dataset_formal_validation_receipt_v2.schema.json"
     formal_schema.write_bytes(formal_schema_source.read_bytes())
+    gate_schema_source = (
+        Path(__file__).resolve().parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "gate_v2.schema.json"
+    )
+    gate_schema = p5 / "gate_v2.schema.json"
+    gate_schema.write_bytes(gate_schema_source.read_bytes())
     validator_path = repo / "backend" / "scripts" / "validate_trip_check_p5_dataset_v2.py"
     validator_path.parent.mkdir(parents=True, exist_ok=True)
     validator_path.write_text("# frozen formal validator\n", encoding="utf-8")
@@ -124,6 +133,7 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
     active = {
         "active_contract": "trip-check-p5-v2",
         "formal_evidence_status": "READY",
+        "candidate_freeze_commit": "9" * 40,
         "dataset_manifest_hash": dataset["manifest_hash"],
         "blind_seal_v2_sha256": seal_sha,
     }
@@ -210,6 +220,10 @@ def _fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]
 
     monkeypatch.setattr(
         "evals.trip_check_v1.p5.gate_v2.validate_run_group_v2", fake_validate
+    )
+    monkeypatch.setattr(
+        "evals.trip_check_v1.p5.gate_v2._git_is_ancestor",
+        lambda root, ancestor, descendant: True,
     )
     aggregate = {
         "case_count": 90,
@@ -494,6 +508,40 @@ def test_gate_rejects_commitment_chain_drift(tmp_path, monkeypatch) -> None:
     score["review_receipt_sha256"] = "0" * 64
     _write(paths["blind_score"], score)
     with pytest.raises(P5GateErrorV2, match="blind aggregate commitment chain mismatch"):
+        _build(paths)
+
+
+def test_gate_rejects_candidate_freeze_not_ancestor(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "evals.trip_check_v1.p5.gate_v2._git_is_ancestor",
+        lambda root, ancestor, descendant: False,
+    )
+    with pytest.raises(P5GateErrorV2, match="candidate-freeze ancestry rejected"):
+        _build(paths)
+
+
+def test_gate_validates_final_manifest_schema(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    schema_path = (
+        paths["repo"]
+        / "backend"
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "gate_v2.schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    schema["required"].append("missing_required_test_field")
+    _write(schema_path, schema)
+    with pytest.raises(P5GateErrorV2, match="gate manifest schema rejected"):
+        _build(paths)
+
+
+def test_gate_rejects_tracked_output_path(tmp_path, monkeypatch) -> None:
+    paths = _fixture(tmp_path, monkeypatch)
+    paths["output"] = paths["repo"] / "backend" / "evidence" / "p5-gate.json"
+    with pytest.raises(P5GateErrorV2, match="output must be external"):
         _build(paths)
 
 

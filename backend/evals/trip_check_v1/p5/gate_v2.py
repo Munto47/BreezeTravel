@@ -97,6 +97,42 @@ def _repo_state(root: Path) -> tuple[str, bool]:
     return head, dirty
 
 
+def _git_is_ancestor(root: Path, ancestor: str, descendant: str) -> bool:
+    try:
+        completed = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+    except OSError as exc:
+        raise P5GateErrorV2("candidate-freeze ancestry unavailable") from exc
+    if completed.returncode == 0:
+        return True
+    if completed.returncode == 1:
+        return False
+    raise P5GateErrorV2("candidate-freeze ancestry unavailable")
+
+
+def _require_untracked_output(root: Path, output_path: Path) -> None:
+    resolved = output_path.resolve()
+    repo_root = root.resolve()
+    try:
+        resolved.relative_to(repo_root)
+    except ValueError:
+        return
+    local_artifacts = (repo_root / ".local-artifacts").resolve()
+    try:
+        resolved.relative_to(local_artifacts)
+    except ValueError as exc:
+        raise P5GateErrorV2(
+            "P5 v2 gate output must be external or under .local-artifacts"
+        ) from exc
+
+
 def _artifact(name: str, path: Path, root: Path) -> dict[str, Any]:
     resolved = path.resolve()
     try:
@@ -536,6 +572,7 @@ def build_p5_gate_manifest_v2(
     require_current_subject: bool = True,
 ) -> dict[str, Any]:
     root = repo_root.resolve()
+    _require_untracked_output(root, output_path)
     p5_root = root / "backend" / "evals" / "trip_check_v1" / "p5"
     dataset_path = p5_root / "dataset_v2.manifest.json"
     nonblind_cases = p5_root / "cases_nonblind_v2.jsonl"
@@ -550,6 +587,7 @@ def build_p5_gate_manifest_v2(
     formal_validation_schema_path = (
         p5_root / "dataset_formal_validation_receipt_v2.schema.json"
     )
+    gate_schema_path = p5_root / "gate_v2.schema.json"
     p4_path = (
         root
         / "backend"
@@ -628,6 +666,13 @@ def build_p5_gate_manifest_v2(
     if nonblind_run["subject_commit"] != blind_run["subject_commit"]:
         raise P5GateErrorV2("run-group subject commits differ")
     subject_commit = nonblind_run["subject_commit"]
+    candidate_freeze_commit = active_contract.get("candidate_freeze_commit")
+    if (
+        not isinstance(candidate_freeze_commit, str)
+        or re.fullmatch(r"[0-9a-f]{40}", candidate_freeze_commit) is None
+        or not _git_is_ancestor(root, candidate_freeze_commit, subject_commit)
+    ):
+        raise P5GateErrorV2("candidate-freeze ancestry rejected")
     (
         formal_validation_receipt_path,
         _,
@@ -730,6 +775,7 @@ def build_p5_gate_manifest_v2(
         run_spec_path,
         rubric_path,
         formal_validation_schema_path,
+        gate_schema_path,
         formal_validation_receipt_path,
         nonblind_run_dir / "run_group_manifest.json",
         nonblind_run_dir / nonblind_run["terminal_outputs_path"],
@@ -795,6 +841,7 @@ def build_p5_gate_manifest_v2(
         _artifact("active_contract", active_contract_path, root),
         _artifact("blind_seal_v2", blind_seal_path, root),
         _artifact("blind_seal_schema_contract", seal_schema_path, root),
+        _artifact("gate_manifest_schema", gate_schema_path, root),
         _commitment_artifact("schema_contract_commitment", expected_schema_contract),
         _artifact("run_spec_template_v2", run_spec_path, root),
         _artifact("judge_rubric_v2", rubric_path, root),
@@ -873,6 +920,16 @@ def build_p5_gate_manifest_v2(
         "artifact_index": artifacts,
     }
     manifest["manifest_hash"] = digest(manifest)
+    gate_schema = _load_json(gate_schema_path, "P5 v2 gate schema")
+    schema_errors = sorted(
+        Draft202012Validator(gate_schema).iter_errors(manifest),
+        key=lambda item: list(item.path),
+    )
+    if schema_errors:
+        raise P5GateErrorV2(
+            "P5 v2 gate manifest schema rejected: "
+            + "; ".join(error.message for error in schema_errors)
+        )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     output_path.write_text(payload, encoding="utf-8", newline="\n")

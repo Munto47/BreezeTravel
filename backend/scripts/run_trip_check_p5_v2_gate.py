@@ -11,14 +11,6 @@ from evals.trip_check_v1.p5.gate_v2 import build_p5_gate_manifest_v2
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT = (
-    REPO_ROOT
-    / "backend"
-    / "evidence"
-    / "trip_check_v1"
-    / "p5"
-    / "p5_gate_manifest_v2.json"
-)
 
 
 def main() -> None:
@@ -29,7 +21,12 @@ def main() -> None:
     parser.add_argument("--blind-score", type=Path, required=True)
     parser.add_argument("--judge-panel", type=Path, required=True)
     parser.add_argument("--formal-validation-receipt", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="Absolute external path or a path under .local-artifacts.",
+    )
     args = parser.parse_args()
     require_v2_formal_ready()
     manifest = build_p5_gate_manifest_v2(
