@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     qweather_key_id: str = ""               # 控制台凭据 ID（kid）
     qweather_project_id: str = ""           # 控制台项目 ID（sub）
 
+    # ── Brave 风险来源 ────────────────────────────────────────────────
+    brave_api_key: str = ""
+
     # ── 数据库 ────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/travel_agent"
     redis_url: str = "redis://localhost:6379"

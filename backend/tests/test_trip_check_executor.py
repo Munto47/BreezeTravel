@@ -24,6 +24,7 @@ from app.trip_check.briefs import InMemoryTripBriefRepository, TripBriefApplicat
 from app.trip_check.executor import TripCheckAdoptionReconciler, TripCheckExecutor
 from app.trip_check.models import RunBudget, RunSpec, TripCheckRunStatus, TripCheckStage
 from app.trip_check.runs import InMemoryTripCheckRunRepository, TripCheckRunService
+from app.trip_check.provider_integrity import provider_snapshot_sha256
 
 
 class ControlledRouteProvider:
@@ -39,23 +40,27 @@ class ControlledRouteProvider:
         )
 
 
-def _run_spec(*, fault_profile: str = "none") -> RunSpec:
+def _run_spec(*, fault_profile: str = "none", p3_provider_integrity: bool = False) -> RunSpec:
     return RunSpec(
         commit_sha="acacc94",
         prompt_version="none-p1",
         model_version="none-p1",
-        provider_version="controlled-fixture-v1",
+        provider_version="p3-provider-integrity-v1" if p3_provider_integrity else "controlled-fixture-v1",
         rule_set_version="audit-v1",
-        execution_mode="fixture",
+        execution_mode="snapshot" if p3_provider_integrity else "fixture",
         dataset_hash="a" * 64,
-        snapshot_hash="b" * 64,
+        snapshot_hash=provider_snapshot_sha256() if p3_provider_integrity else "b" * 64,
         fault_profile=fault_profile,
         random_seed=7,
-        budget=RunBudget(timeout_seconds=30, max_retries=2),
+        budget=RunBudget(
+            timeout_seconds=30,
+            max_retries=2,
+            max_provider_queries=6 if p3_provider_integrity else 0,
+        ),
     )
 
 
-async def _setup(*, fault_profile: str = "none"):
+async def _setup(*, fault_profile: str = "none", p3_provider_integrity: bool = False):
     date_range = TripDateRange(start=date(2026, 10, 1), end=date(2026, 10, 2))
     revision = with_content_hash(
         ItineraryRevisionContent(
@@ -157,7 +162,10 @@ async def _setup(*, fault_profile: str = "none"):
         workspace_id=workspace.workspace_id,
         itinerary_revision=1,
         brief_revision=brief.revision,
-        run_spec=_run_spec(fault_profile=fault_profile),
+        run_spec=_run_spec(
+            fault_profile=fault_profile,
+            p3_provider_integrity=p3_provider_integrity,
+        ),
         actor_user_id="trip-check-user",
         idempotency_key=f"create-{fault_profile}",
     )
@@ -247,6 +255,27 @@ def test_terminate_after_evidence_resumes_without_duplicate_snapshot_or_receipt(
         ) == 1
         assert len(runs.receipts) == 3
         assert len(await itineraries.list_revisions(created.workspace_id)) == 1
+
+    asyncio.run(scenario())
+
+
+def test_p3_provider_snapshot_is_bound_into_authoritative_evidence_receipt():
+    async def scenario():
+        executor, runs, audits, _, _, _, _, created = await _setup(p3_provider_integrity=True)
+        finished = await executor.execute(created.run_id)
+        assert finished.stage == TripCheckStage.WAIT_ADOPTION
+        assert finished.status == TripCheckRunStatus.WAITING
+        snapshot = await audits.get_snapshot(finished.evidence_snapshot_id)
+        assert snapshot is not None
+        assert len([item for item in snapshot.facts if item.subject_type == "ROUTE_OPTION"]) == 4
+        assert len([item for item in snapshot.facts if item.fact_type == "WEATHER"]) == 2
+        assert len([item for item in snapshot.facts if item.fact_type == "RISK_SOURCE"]) == 1
+        receipt = next(item for item in runs.receipts.values() if item.stage == TripCheckStage.COLLECT_EVIDENCE)
+        assert receipt.effect_type == "P3_PROVIDER_INTEGRITY_EVIDENCE"
+        assert receipt.provider == "trip_check_provider_integrity"
+        assert receipt.receipt["provider_attempt_count"] == 6
+        assert len(receipt.receipt["provider_receipts"]) == 6
+        assert {item["execution_mode"] for item in receipt.receipt["provider_receipts"]} == {"snapshot"}
 
     asyncio.run(scenario())
 

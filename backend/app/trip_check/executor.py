@@ -33,6 +33,7 @@ from app.trip_check.models import (
 )
 from app.trip_check.runs import TripCheckRunRepository
 from app.trip_check.trace import TripCheckTelemetry
+from app.trip_check.provider_integrity import TripCheckProviderIntegrityCollector
 
 
 class TripCheckExecutionState(TypedDict):
@@ -47,6 +48,7 @@ class ControlledProviderCollectionResult(TypedDict):
     provider_failures: list[ProviderFailure]
     partial_failures: list[RunPartialFailure]
     provider_attempt_count: int
+    provider_receipts: list[dict]
 
 
 def _stage_side_effect_key(run: TripCheckRun, stage: TripCheckStage) -> str:
@@ -221,6 +223,7 @@ class TripCheckExecutor:
         repair_search: BoundedRepairSearch,
         command_repository: CreationCommandRepository,
         telemetry: TripCheckTelemetry | None = None,
+        provider_integrity_collector: TripCheckProviderIntegrityCollector | None = None,
     ):
         self.run_repository = run_repository
         self.itinerary_repository = itinerary_repository
@@ -230,6 +233,7 @@ class TripCheckExecutor:
         self.repair_search = repair_search
         self.command_repository = command_repository
         self.telemetry = telemetry or TripCheckTelemetry()
+        self.provider_integrity_collector = provider_integrity_collector or TripCheckProviderIntegrityCollector()
         self.audit_service = AuditApplicationService(
             itinerary_repository=itinerary_repository,
             audit_repository=audit_repository,
@@ -393,6 +397,7 @@ class TripCheckExecutor:
             "provider_failures": provider_failures,
             "partial_failures": partial_failures,
             "provider_attempt_count": provider_attempt_count,
+            "provider_receipts": [],
         }
 
     async def _collect_evidence(self, state: TripCheckExecutionState) -> TripCheckExecutionState:
@@ -403,7 +408,23 @@ class TripCheckExecutor:
         brief = await self.brief_repository.get_brief(run.workspace_id, run.brief_revision)
         if brief is None or brief.brief_id != run.brief_id or brief.status.value != "CONFIRMED":
             raise RuntimeError("trip check confirmed Brief binding is missing")
-        provider_result = await self._collect_controlled_provider_evidence(run, revision)
+        if run.run_spec.provider_version == "p3-provider-integrity-v1":
+            place_ids = sorted({stop.place_id for day in revision.days for stop in day.stops})
+            place_records = await self.audit_repository.load_place_records(
+                run.workspace_id,
+                place_ids,
+                target_itinerary_revision=revision.revision,
+            )
+            collected = await self.provider_integrity_collector.collect(run, revision, place_records)
+            provider_result: ControlledProviderCollectionResult = {
+                "observations": collected.observations,
+                "provider_failures": collected.provider_failures,
+                "partial_failures": collected.partial_failures,
+                "provider_attempt_count": collected.provider_attempt_count,
+                "provider_receipts": [item.model_dump(mode="json") for item in collected.provider_receipts],
+            }
+        else:
+            provider_result = await self._collect_controlled_provider_evidence(run, revision)
         observations = [
             *provider_result["observations"],
             *confirmed_brief_observations(run, brief.traveler_count),
@@ -422,7 +443,11 @@ class TripCheckExecutor:
             run_id=run.run_id,
             stage=TripCheckStage.COLLECT_EVIDENCE,
             side_effect_key=_stage_side_effect_key(run, TripCheckStage.COLLECT_EVIDENCE),
-            effect_type="CONTROLLED_FIXTURE_EVIDENCE",
+            effect_type=(
+                "P3_PROVIDER_INTEGRITY_EVIDENCE"
+                if run.run_spec.provider_version == "p3-provider-integrity-v1"
+                else "CONTROLLED_FIXTURE_EVIDENCE"
+            ),
             request_hash=sha256_canonical(
                 {
                     "run_id": run.run_id,
@@ -432,7 +457,11 @@ class TripCheckExecutor:
                 }
             ),
             response_hash=response_hash,
-            provider="controlled_fixture",
+            provider=(
+                "trip_check_provider_integrity"
+                if run.run_spec.provider_version == "p3-provider-integrity-v1"
+                else "controlled_fixture"
+            ),
             status="PARTIAL" if provider_result["partial_failures"] else "SUCCEEDED",
             receipt={
                 "execution_mode": run.run_spec.execution_mode,
@@ -441,7 +470,11 @@ class TripCheckExecutor:
                 "fact_count": len(snapshot.facts),
                 "route_fact_count": sum(item.subject_type == "ROUTE_EDGE" for item in observations),
                 "brief_fact_count": sum(item.subject_type == "TRIP_BRIEF" for item in observations),
+                "route_option_fact_count": sum(item.subject_type == "ROUTE_OPTION" for item in observations),
+                "weather_fact_count": sum(item.fact_type == "WEATHER" for item in observations),
+                "risk_fact_count": sum(item.fact_type == "RISK_SOURCE" for item in observations),
                 "provider_attempt_count": provider_result["provider_attempt_count"],
+                "provider_receipts": provider_result["provider_receipts"],
                 "failure_categories": [item.category for item in provider_result["partial_failures"]],
                 "affected_fields": [
                     field
