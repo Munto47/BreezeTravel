@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-blind-label-bundle-v1",
+  "type": "object",
+  "required": ["schema_version", "evidence_class", "human_evidence", "dataset_binding", "labels"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-blind-label-bundle-v1"},
+    "evidence_class": {"const": "controlled_blind_oracle"},
+    "human_evidence": {"const": false},
+    "dataset_binding": {"type": "object"},
+    "labels": {
+      "type": "array",
+      "minItems": 90,
+      "maxItems": 90,
+      "items": {
+        "type": "object",
+        "required": ["schema_version", "case_id", "oracle"],
+        "properties": {
+          "schema_version": {"const": "trip-check-p5-blind-label-v1"},
+          "case_id": {"type": "string"},
+          "oracle": {"type": "object"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

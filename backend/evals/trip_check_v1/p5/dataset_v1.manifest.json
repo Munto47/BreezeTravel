@@ -1,0 +1,152 @@
+{
+  "blind_commitments": {
+    "external_bundle_sha256": "b5251e63ff9d35254da7cec7753abd8ba08264ece45e0ca2ddaf2aeaee210209",
+    "labels_canonical_sha256": "83c1b4ad8a29c0a69d638f43d4dfc84255956683360db61c064c8794fb8339c8",
+    "rubric_sha256": "147cea4053c6cd3267d20e1a9a060d1be3b572e56408d9245e3991eaa02eadbd",
+    "run_spec_template_sha256": "4fccc905fb32b7430f9702b001c5198d0d5d07ed4bfcf6bd843cb0de10b067cd"
+  },
+  "counts": {
+    "by_city": {
+      "上海": 120,
+      "北京": 120,
+      "杭州": 120
+    },
+    "by_split": {
+      "dev": 180,
+      "frozen_blind": 90,
+      "pilot": 18,
+      "regression": 72
+    },
+    "total": 360
+  },
+  "dataset_content_sha256": "88d1dfeec0af7cdabc4d8e33ab62e38984c329d8f6c37d75729bf2bf92ab9745",
+  "dataset_id": "trip-check-p5-360-v1",
+  "evidence_boundary": {
+    "controlled_fixture": "DATASET_ONLY",
+    "human_evidence": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "public_e2e": "NOT_RUN"
+  },
+  "family_isolation_policy": "normalized-input-plus-lineage-v1",
+  "frozen": true,
+  "hash_policy_version": "p5-canonical-json-nfc-lf-v1",
+  "legacy_overlap_debt": {
+    "p5_normalized_input_overlap_allowed": 0,
+    "regression_fixture_hashes_overlapping_dev": 72,
+    "regression_oracle_hashes_overlapping_dev": 72,
+    "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
+  },
+  "manifest_hash": "feee34435ea550f6f33f2d16f738a9c21efc3b458286dce0bd80d5ca4552731d",
+  "schema_version": "trip-check-p5-dataset-manifest-v1",
+  "source_artifacts": {
+    "p4_dev": {
+      "file_sha256": "d8db5b394475df6c4c6c7d89e2ce112c2cb31ac09273b821a9dcb0d58d99c6dd",
+      "path": "evals/trip_check_v1/p4/dev_v1.jsonl"
+    },
+    "p4_manifest": {
+      "file_sha256": "896dd2751cb67e5dbb3e4da8177a288a72efe446a34aa384f8027e1a461137e3",
+      "path": "evals/trip_check_v1/p4/dataset_v1.manifest.json"
+    },
+    "p4_regression": {
+      "file_sha256": "e2282d78a371d3a7390eec6414fc4145ce79eaf0cf6254c5f180ba5cce9516ae",
+      "path": "evals/trip_check_v1/p4/regression_v1.jsonl"
+    },
+    "pilot": {
+      "file_sha256": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
+      "path": "evals/trip_check_v1/pilot.jsonl"
+    }
+  },
+  "splits": {
+    "dev": {
+      "adapter_id": "p5-nonblind-loader-v1",
+      "case_ids_sha256": "58f2a46dd297ec5da01629c7022a3135eb4c4e4e8b609ee145e35a6502c82645",
+      "city_counts": {
+        "上海": 60,
+        "北京": 60,
+        "杭州": 60
+      },
+      "content_canonical_sha256": "149cef5ba124755dcf7a455df5b1e044d443a68d3981870d3b356d688facdfbc",
+      "count": 180,
+      "difficulty_counts": {
+        "CLEAN": 60,
+        "HARD": 60,
+        "MEDIUM": 60
+      },
+      "input_kind_counts": {
+        "SYNTHETIC_SCREENSHOT": 90,
+        "TEXT": 90
+      },
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v1.jsonl",
+      "source_contract": "trip-check-p5-eval-case-v1"
+    },
+    "frozen_blind": {
+      "adapter_id": "p5-blind-input-loader-v1",
+      "case_ids_sha256": "84bee7e067b2b035c1cfc76182209d15ebcf258a8b2d3bd033bd998d6d2d1a2e",
+      "city_counts": {
+        "上海": 30,
+        "北京": 30,
+        "杭州": 30
+      },
+      "content_canonical_sha256": "3d71d82ea6b166a9b2a1e001d79a5b2eb8c0dd7ab52f0775a2c667671bf8d4b7",
+      "count": 90,
+      "difficulty_counts": {
+        "CLEAN": 30,
+        "HARD": 30,
+        "MEDIUM": 30
+      },
+      "input_kind_counts": {
+        "SYNTHETIC_SCREENSHOT": 45,
+        "TEXT": 45
+      },
+      "label_access": "isolated_scorer_only",
+      "label_storage": "external_bundle_only",
+      "path": "evals/trip_check_v1/p5/frozen_blind.inputs.jsonl",
+      "seal_path": "evals/trip_check_v1/p5/sealed/frozen_blind.seal.json",
+      "seal_sha256": "f9592438657e4aafe1364c08cf223a37d83bb95b3e17c58ec12e3ab84613cb33",
+      "source_contract": "trip-check-p5-eval-case-v1"
+    },
+    "pilot": {
+      "adapter_id": "p5-nonblind-loader-v1",
+      "case_ids_sha256": "877a9baca746a10d82866b48cebb24547394516890dc980d834326bad7f48962",
+      "city_counts": {
+        "上海": 6,
+        "北京": 6,
+        "杭州": 6
+      },
+      "content_canonical_sha256": "eb39945681df4dd5cafa07b2e895a364312ec5b1fac0709eaa8fb02dbee34fec",
+      "count": 18,
+      "difficulty_counts": {
+        "CLEAN": 6,
+        "HARD": 6,
+        "MEDIUM": 6
+      },
+      "input_kind_counts": {
+        "TEXT": 18
+      },
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v1.jsonl",
+      "source_contract": "trip-check-p5-eval-case-v1"
+    },
+    "regression": {
+      "adapter_id": "p5-nonblind-loader-v1",
+      "case_ids_sha256": "dbca65b574d86793ca5fc0e3e3fcfe88fd172cf6afa2285e5bffd6dddc0c6788",
+      "city_counts": {
+        "上海": 24,
+        "北京": 24,
+        "杭州": 24
+      },
+      "content_canonical_sha256": "e0d127019c9915398a61cbfc3d361d6c5155c29983113cbfe700ea2b13d4cf24",
+      "count": 72,
+      "difficulty_counts": {
+        "CLEAN": 24,
+        "HARD": 24,
+        "MEDIUM": 24
+      },
+      "input_kind_counts": {
+        "SYNTHETIC_SCREENSHOT": 36,
+        "TEXT": 36
+      },
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v1.jsonl",
+      "source_contract": "trip-check-p5-eval-case-v1"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "allowed_variant_differences": [
+    "variant_id",
+    "adapter_version",
+    "repair_strategy"
+  ],
+  "budget": {
+    "max_cost_usd": 0,
+    "max_provider_queries": 0,
+    "max_retries": 1,
+    "max_tokens": 0,
+    "timeout_seconds": 30
+  },
+  "execution_mode": "controlled_snapshot",
+  "output_schema_version": "trip-check-p5-terminal-output-v1",
+  "provider_snapshot_id": "trip-check-p5-controlled-snapshot-v1",
+  "random_seed": 20260823,
+  "replay_hash_policy": "p5-semantic-projection-v1",
+  "schema_version": "trip-check-p5-run-spec-v1",
+  "score_after_all_variants_sealed": true,
+  "variant_ids": [
+    "legacy_a",
+    "core_b",
+    "solver_c"
+  ],
+  "variant_specs": {
+    "core_b": {
+      "adapter_version": "core-b-v1",
+      "repair_strategy": "bounded_repair_v1"
+    },
+    "legacy_a": {
+      "adapter_version": "legacy-a-v1",
+      "repair_strategy": "legacy_native_only"
+    },
+    "solver_c": {
+      "adapter_version": "solver-c-v1",
+      "repair_strategy": "cp_sat_v1"
+    }
+  }
+}

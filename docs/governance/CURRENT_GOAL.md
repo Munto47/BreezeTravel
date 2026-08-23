@@ -36,7 +36,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 - 新增 `backend/evals/trip_check_v1/p5/` 下的数据合同、A/B/C 适配器、runner、scorer、blind seal 和报告生成器；
 - 新增与 P5 对应的定向测试、Gate runner 和 evidence readback；
-- 将 P4 的 18 pilot、180 dev、72 regression 只读纳入 P5 manifest，新增 90 条 frozen blind，使总数达到 360，三城各 120；
+- 将 P4 的 18 pilot、180 dev、72 regression 原文件与 hash 只读纳入 P5 manifest；另建可执行的 P5 归一化输入层并新增 90 条 frozen blind，使总数达到 360，三城各 120；
 - 冻结统一 case contract、RunSpec、metric definitions、预算、fault profile、variant version 和 seed；
 - 对三个候选运行相同输入和 oracle；不支持的能力必须输出机器可读的 `UNSUPPORTED_CAPABILITY` 并计为失败，不能静默跳过；
 - 建立 blind 输入、标签 commitment、外部 label bundle 和隔离 scorer 的 fail-closed 链；
@@ -96,7 +96,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 ## Baseline
 
 - 分支/commit：规划分支基于 P4 evidence checkpoint `c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`；制定本 Goal 前工作树为 clean；
-- 已有数据：18 pilot、180 dev、72 regression、0 frozen blind；
+- 已有数据：18 pilot、180 dev、72 regression、0 frozen blind；P4 regression 的 72 个 fixture/oracle 与 dev 内容重合，P4 validator 只验证了 split 编码后的 ID/family，不能作为 P5 内容隔离证据；
 - 已有 P4 结论：`bounded_repair_v1` 成功率 66.7%，`cp_sat_v1` 50.0%，CP-SAT admission `REJECT`；
 - 已有评测资产：通用 EvaluationRunner、旧 adapters、blind fail-closed scorer、Judge panel 脚本和 P1～P4 runner；它们尚未组成 P5 的 TripCheck 360 A/B/C Gate；
 - 已记录但本轮未重跑：P4 completion record 中 backend `1313 passed, 28 skipped`、Ruff、frontend build、PostgreSQL、浏览器、18 pilot、P2/P3 regression 和 P4 manifest 均 PASS；
@@ -141,7 +141,8 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 ### A. 数据与隔离
 
 - 数据精确为 18 pilot / 180 dev / 72 regression / 90 frozen blind，共 360；北京、上海、杭州各 120；
-- pilot/dev/regression 沿用 P4 冻结 hash；P5 不通过复制或改写旧案例制造 360；
+- pilot/dev/regression 源文件沿用 P4 冻结 hash；P5 归一化层必须为三者生成可执行 product input、显式 lineage 和独立 input hash，不得靠添加 split 前缀掩盖内容重合；
+- P4 的 72/72 fixture/oracle 重合作为 `legacy_overlap_debt` 写入 manifest；P5 的 normalized product input、content family 和 mutation ancestry 跨 split 重合必须为 0；
 - frozen blind 每城 30，覆盖文本/截图、clean/medium/hard、地点歧义、路线、酒店、天气/风险、偏好/强度、Advice/Repair 和固定 fault profile；
 - 同源/变异案例不跨 split；重复、分布、oracle 完整性、隐私和 secret scan 全部 PASS；
 - 首次候选运行前冻结 blind inputs、case ID commitment、label commitment、RunSpec 和 seed；之后修改任一项必须使 Gate `REJECT`；
