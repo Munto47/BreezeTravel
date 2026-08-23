@@ -16,11 +16,12 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2  # noqa: E402
+from evals.trip_check_v1.p5.contracts_v2 import P5CaseV2, VARIANT_IDS_V2  # noqa: E402
 from evals.trip_check_v1.p5.data_contract import digest, file_sha256, load_jsonl  # noqa: E402
 from evals.trip_check_v1.p5.data_contract_v2 import (  # noqa: E402
     BLIND_INPUT_PATH_V2,
     BLIND_MATERIALIZATIONS_PATH_V2,
+    BLIND_SEAL_PATH_V2,
     CITIES,
     FAULT_PROFILES,
     JUDGE_RUBRIC_PATH_V2,
@@ -35,6 +36,7 @@ from evals.trip_check_v1.p5.data_contract_v2 import (  # noqa: E402
     legacy_overlap_debt_v2,
     materialization_set_hash,
 )
+from evals.trip_check_v1.p5.final_blind_scorer_v2 import schema_contract_sha256_v2  # noqa: E402
 
 
 _PRIVATE = re.compile(
@@ -305,11 +307,81 @@ def validate(*, formal: bool = True, root: Path | None = None) -> dict[str, Any]
         nonblind_materializations=nonblind_materializations,
         blind_materializations=blind_materializations,
         ocr_mode=manifest_mode,
+        sealing_commitment=manifest.get("sealing_commitment"),
     )
     if manifest != expected_manifest:
         errors.append("dataset manifest differs from bound files and contracts")
     if manifest.get("manifest_hash") != digest({key: value for key, value in manifest.items() if key != "manifest_hash"}):
         errors.append("manifest hash mismatch")
+    sealing_commitment = manifest.get("sealing_commitment")
+    if sealing_commitment is not None:
+        required_commitment_fields = {
+            "schema_version",
+            "status",
+            "candidate_freeze_commit",
+            "candidate_dataset_manifest_hash",
+            "blind_seal_path",
+            "blind_seal_v2_sha256",
+            "labels_canonical_sha256",
+            "external_bundle_sha256",
+            "review_receipt_sha256",
+        }
+        if not isinstance(sealing_commitment, dict) or set(sealing_commitment) != required_commitment_fields:
+            errors.append("sealing commitment has invalid or extra fields")
+        else:
+            candidate_manifest = build_manifest_v2(
+                nonblind_cases=nonblind_cases,
+                blind_cases=blind_cases,
+                nonblind_materializations=nonblind_materializations,
+                blind_materializations=blind_materializations,
+                ocr_mode=manifest_mode,
+            )
+            expected_seal_path = BLIND_SEAL_PATH_V2.relative_to(BACKEND_ROOT.parent).as_posix()
+            if (
+                sealing_commitment.get("schema_version") != "trip-check-p5-sealing-commitment-v2"
+                or sealing_commitment.get("status") != "SEALED"
+                or not re.fullmatch(r"[0-9a-f]{40}", str(sealing_commitment.get("candidate_freeze_commit", "")))
+                or sealing_commitment.get("candidate_dataset_manifest_hash") != candidate_manifest["manifest_hash"]
+                or sealing_commitment.get("blind_seal_path") != expected_seal_path
+            ):
+                errors.append("sealing commitment candidate or path binding mismatch")
+            if not BLIND_SEAL_PATH_V2.is_file():
+                errors.append("sealing commitment blind seal is missing")
+            else:
+                try:
+                    seal = json.loads(BLIND_SEAL_PATH_V2.read_text(encoding="utf-8"))
+                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                    errors.append(f"sealing commitment blind seal is unreadable: {exc}")
+                else:
+                    seal_schema = json.loads(
+                        (BLIND_INPUT_PATH_V2.parent / "blind_seal_v2.schema.json").read_text(encoding="utf-8")
+                    )
+                    for schema_error in Draft202012Validator(seal_schema).iter_errors(seal):
+                        errors.append(f"blind seal schema: {schema_error.message}")
+                    expected_seal_bindings = {
+                        "schema_version": "trip-check-p5-blind-seal-v2",
+                        "split": "frozen_blind",
+                        "case_count": 90,
+                        "case_ids_sha256": digest(sorted(row["case_id"] for row in blind_cases)),
+                        "inputs_file_sha256": file_sha256(BLIND_INPUT_PATH_V2),
+                        "inputs_content_sha256": digest(blind_cases),
+                        "materializations_file_sha256": file_sha256(BLIND_MATERIALIZATIONS_PATH_V2),
+                        "materializations_content_sha256": digest(blind_materializations),
+                        "schema_contract_sha256": schema_contract_sha256_v2(BACKEND_ROOT.parent),
+                        "run_spec_template_sha256": file_sha256(RUN_SPEC_TEMPLATE_PATH_V2),
+                        "rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
+                        "variant_ids_sha256": digest(list(VARIANT_IDS_V2)),
+                    }
+                    if any(seal.get(key) != value for key, value in expected_seal_bindings.items()):
+                        errors.append("blind seal differs from frozen dataset and contract bytes")
+                    seal_bindings = {
+                        "blind_seal_v2_sha256": file_sha256(BLIND_SEAL_PATH_V2),
+                        "labels_canonical_sha256": seal.get("labels_canonical_sha256"),
+                        "external_bundle_sha256": seal.get("external_bundle_sha256"),
+                        "review_receipt_sha256": seal.get("review_receipt_sha256"),
+                    }
+                    if any(sealing_commitment.get(key) != value for key, value in seal_bindings.items()):
+                        errors.append("sealing commitment differs from blind seal readback")
     for key, path, rows in (
         ("nonblind_cases", NONBLIND_PATH_V2, nonblind_cases),
         ("blind_cases", BLIND_INPUT_PATH_V2, blind_cases),
