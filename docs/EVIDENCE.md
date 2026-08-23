@@ -1,15 +1,28 @@
 # 「行程查」V1 证据索引
 
-> 当前结论：`REJECT / BASELINE_ONLY`
+> 当前结论：`D1 PASS / CONTROLLED_FIXTURE_ONLY`
 
-P0 只证明指导与基线完成。TripBriefRevision、TripCheckRun、OCR、Advice、360 数据、G1～G6 候选复跑、公网和真人证据尚未完成；任何历史结果都不能让该状态晋级。
+P1 文本纵向闭环已经在受控 fixture、真实 PostgreSQL 和本地受控浏览器上完成 D1。该结论不等于 V1 候选版放行：OCR、真实 Provider、360 数据、候选 commit 上的 G0～G6、公网和真人证据仍未完成。
 
 ## 当前权威证据
 
 - P0 基线：[`governance/BASELINE_2026-08-22.md`](governance/BASELINE_2026-08-22.md)
+- P1 D1 manifest：[`../backend/evidence/trip_check_v1/p1/d1_manifest.json`](../backend/evidence/trip_check_v1/p1/d1_manifest.json)，绑定 subject commit `dd70870a817b84f6364804a5701950c754728f4e`
+- P1 90 秒演示：[`../backend/evidence/trip_check_v1/p1/DEMO_90_SECONDS.md`](../backend/evidence/trip_check_v1/p1/DEMO_90_SECONDS.md)
+- P1 完成档案：[`governance/goals/completed/TC-P1-G01-text-vertical-slice.md`](governance/goals/completed/TC-P1-G01-text-vertical-slice.md)
 - 能力状态：[`dual-entry/capability-status.md`](dual-entry/capability-status.md)
 - Release Gates：[`governance/RELEASE_GATES.md`](governance/RELEASE_GATES.md)
 - 当前 Goal：[`governance/CURRENT_GOAL.md`](governance/CURRENT_GOAL.md)
+
+## P1 D1 结果
+
+- 18 条 pilot：`18/18 PASS`，北京/上海/杭州严格 `6/6/6`；
+- 错城/错 POI 自动接受：`0`；Repair 后新增 `BLOCKER/HIGH/UNKNOWN`：`0`；
+- PostgreSQL migration、事务、并发、lease 接管、重启回读与副作用去重：`PASS`；
+- 三城文本主链与 BJ-02 歧义确认：Playwright `4/4 PASS`；
+- 后端全量测试、Ruff、前端 build、旧双入口结构回归及 P1 故障合同：`PASS`；
+- 敏感信息扫描：`0` 命中；artifact index：`177` 项，均绑定 sha256；
+- live Provider、公网 E2E、真人证据：`NOT_RUN`。
 
 ## V1 artifact 约定
 
