@@ -86,7 +86,7 @@
     "regression_oracle_hashes_overlapping_dev": 72,
     "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
   },
-  "manifest_hash": "57f79e3fcd0373b1f58a143bf27e1a96d9867670fa8c8991a5afa6141f54201d",
+  "manifest_hash": "2797c644c7f37d6401e299b3102997476ead9ae1757333d2e0153171aa849ff0",
   "schema_version": "trip-check-p5-dataset-manifest-v2",
   "source_artifacts": {
     "p4_dev": {
@@ -102,7 +102,7 @@
       "path": "evals/trip_check_v1/p4/regression_v1.jsonl"
     },
     "pilot": {
-      "file_sha256": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
+      "file_sha256": "18322d96f3bc2e3315be6f6c0b38842d2dbc9eb81a270ea60d4a1e72824385f4",
       "path": "evals/trip_check_v1/pilot.jsonl"
     }
   }
