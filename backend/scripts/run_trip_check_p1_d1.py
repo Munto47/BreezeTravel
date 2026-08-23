@@ -220,7 +220,7 @@ def main() -> int:
         ),
         _run_gate(
             name="dual_entry_testset_validation",
-            command=[python, "scripts/validate_dual_entry_testset.py"],
+            command=[python, "backend/scripts/validate_dual_entry_testset.py"],
             cwd=REPO_ROOT,
             log_dir=log_dir,
             env=base_env,
@@ -266,7 +266,8 @@ def main() -> int:
             name="pilot_18",
             command=[
                 python,
-                "scripts/run_trip_check_pilot.py",
+                "-m",
+                "scripts.run_trip_check_pilot",
                 "--commit-sha",
                 subject,
                 "--output",
