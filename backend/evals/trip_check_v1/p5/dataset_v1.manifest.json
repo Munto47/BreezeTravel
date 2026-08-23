@@ -1,6 +1,6 @@
 {
   "blind_commitments": {
-    "external_bundle_sha256": "b5251e63ff9d35254da7cec7753abd8ba08264ece45e0ca2ddaf2aeaee210209",
+    "external_bundle_sha256": "9d8bf0722066d5ad2ac64473b2e2a9ff5e85530c94b4d49937979e3d7d8832de",
     "labels_canonical_sha256": "83c1b4ad8a29c0a69d638f43d4dfc84255956683360db61c064c8794fb8339c8",
     "rubric_sha256": "147cea4053c6cd3267d20e1a9a060d1be3b572e56408d9245e3991eaa02eadbd",
     "run_spec_template_sha256": "4fccc905fb32b7430f9702b001c5198d0d5d07ed4bfcf6bd843cb0de10b067cd"
@@ -19,7 +19,7 @@
     },
     "total": 360
   },
-  "dataset_content_sha256": "88d1dfeec0af7cdabc4d8e33ab62e38984c329d8f6c37d75729bf2bf92ab9745",
+  "dataset_content_sha256": "2b5765ecf772f5ac38432f8e52a2eb9f26457257c16683f7c554c1005c9043ac",
   "dataset_id": "trip-check-p5-360-v1",
   "evidence_boundary": {
     "controlled_fixture": "DATASET_ONLY",
@@ -36,7 +36,7 @@
     "regression_oracle_hashes_overlapping_dev": 72,
     "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
   },
-  "manifest_hash": "feee34435ea550f6f33f2d16f738a9c21efc3b458286dce0bd80d5ca4552731d",
+  "manifest_hash": "ee405eaf2047a667dddb40439418e839b65efd2b837696a724c9318558b989b7",
   "schema_version": "trip-check-p5-dataset-manifest-v1",
   "source_artifacts": {
     "p4_dev": {
@@ -65,7 +65,7 @@
         "北京": 60,
         "杭州": 60
       },
-      "content_canonical_sha256": "149cef5ba124755dcf7a455df5b1e044d443a68d3981870d3b356d688facdfbc",
+      "content_canonical_sha256": "2d1f0288f50acda883342f56e93c10c99aab83c267994e3f8b25159ee9f8c5aa",
       "count": 180,
       "difficulty_counts": {
         "CLEAN": 60,
@@ -87,7 +87,7 @@
         "北京": 30,
         "杭州": 30
       },
-      "content_canonical_sha256": "3d71d82ea6b166a9b2a1e001d79a5b2eb8c0dd7ab52f0775a2c667671bf8d4b7",
+      "content_canonical_sha256": "1bcb97c2c6290c5a3dea90847ea1a65bb07cf51cd7afae8c9fcdcc48b80f461e",
       "count": 90,
       "difficulty_counts": {
         "CLEAN": 30,
@@ -102,7 +102,7 @@
       "label_storage": "external_bundle_only",
       "path": "evals/trip_check_v1/p5/frozen_blind.inputs.jsonl",
       "seal_path": "evals/trip_check_v1/p5/sealed/frozen_blind.seal.json",
-      "seal_sha256": "f9592438657e4aafe1364c08cf223a37d83bb95b3e17c58ec12e3ab84613cb33",
+      "seal_sha256": "c90401a73a4a06611063b9087e70718e4f4fdd287c6a9b1723b52232a502555d",
       "source_contract": "trip-check-p5-eval-case-v1"
     },
     "pilot": {
@@ -134,7 +134,7 @@
         "北京": 24,
         "杭州": 24
       },
-      "content_canonical_sha256": "e0d127019c9915398a61cbfc3d361d6c5155c29983113cbfe700ea2b13d4cf24",
+      "content_canonical_sha256": "373096605df8ec58c6780261f7357781e0e7c011b7de6a8993055b7c7ee0a62c",
       "count": 72,
       "difficulty_counts": {
         "CLEAN": 24,

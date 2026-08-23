@@ -106,21 +106,21 @@ def _raw_text(*, city: str, days: int, travelers: int, unique_index: int, fault_
     first = places[unique_index % len(places)]
     second = places[(unique_index + 1) % len(places)]
     third = places[(unique_index + 2) % len(places)]
-    minute = unique_index % 47
+    minute = unique_index % 60
+    later_minute = (unique_index // 60) % 60
     start_hour = 8 + unique_index % 2
-    budget = 1000 + unique_index
     if fault_class == "empty_candidate_set":
         second = f"{city}待确认地点{unique_index:03d}"
     if fault_class == "route_conflict":
         return (
             f"{city}{travelers}人，{days}天。第1天 {start_hour:02d}:{minute:02d}-{start_hour + 2:02d}:{minute:02d} {first}，"
-            f"{start_hour + 1:02d}:{minute:02d}-{start_hour + 3:02d}:{minute:02d} {second}；"
-            f"第2天 09:{minute:02d}-11:{minute:02d} {third}；总预算{budget}元。"
+            f"{start_hour + 1:02d}:{later_minute:02d}-{start_hour + 3:02d}:{later_minute:02d} {second}；"
+            f"第2天 09:{later_minute:02d}-11:{later_minute:02d} {third}。"
         )
     return (
         f"{city}{travelers}人，{days}天。第1天 {start_hour:02d}:{minute:02d}-{start_hour + 2:02d}:{minute:02d} {first}，"
-        f"13:{minute:02d}-15:{minute:02d} {second}；第2天 09:{minute:02d}-11:{minute:02d} {third}；"
-        f"总预算{budget}元。"
+        f"13:{later_minute:02d}-15:{later_minute:02d} {second}；"
+        f"第2天 09:{minute:02d}-11:{minute:02d} {third}。"
     )
 
 
