@@ -64,6 +64,40 @@ export interface ItineraryImport {
   state_version: number
 }
 
+export interface ScreenshotOcrLine {
+  text: string
+  confidence: number
+  box: { x_min: number; y_min: number; x_max: number; y_max: number }
+  requires_confirmation: boolean
+}
+
+export interface ScreenshotOcrReceipt {
+  asset_id: string
+  asset_hash: string
+  media_type: string
+  byte_size: number
+  engine: string
+  engine_version: string
+  observed_at: string
+  lines: ScreenshotOcrLine[]
+}
+
+export interface ScreenshotCleanupReceipt {
+  receipt_id: string
+  asset_id: string
+  terminal_reason: string
+  cleanup_status: string
+  asset_hash: string
+  cleanup_attempted_at: string
+  cleanup_error_category: string | null
+}
+
+export interface ScreenshotImportResult {
+  itinerary_import: ItineraryImport
+  ocr_receipts: ScreenshotOcrReceipt[]
+  cleanup_receipts: ScreenshotCleanupReceipt[]
+}
+
 export interface RevisionStop {
   stop_id: string
   place_id: string

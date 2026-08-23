@@ -44,10 +44,9 @@ function getToken(): string | null {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken()
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(init.headers as Record<string, string>),
-  }
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string>) }
+  const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData
+  if (!isFormData) headers['Content-Type'] = 'application/json'
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
@@ -145,6 +144,8 @@ export const api = {
     request<T>(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined }),
   postWithHeaders: <T>(path: string, body: unknown, headers: Record<string, string>) =>
     request<T>(path, { method: 'POST', headers, body: JSON.stringify(body) }),
+  postFormWithHeaders: <T>(path: string, body: FormData, headers: Record<string, string>) =>
+    request<T>(path, { method: 'POST', headers, body }),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: 'PUT', body: body !== undefined ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, FileSearch, Loader2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, FileImage, FileSearch, Loader2, ShieldCheck, Trash2 } from 'lucide-react'
 
 import AuditDrawer from '@/components/workspace/AuditDrawer'
 import ImportResolutionPanel from '@/components/workspace/ImportResolutionPanel'
@@ -22,6 +22,7 @@ import type {
   RepairApplyResult,
   RepairOption,
   RunSpec,
+  ScreenshotImportResult,
   PreTripRecheckResult,
   TripBriefRevision,
   TripCheckRun,
@@ -85,6 +86,9 @@ export default function ImportItineraryPage() {
   const [startDate, setStartDate] = useState(todayPlus(7))
   const [sourceType, setSourceType] = useState<'AI_TEXT' | 'MANUAL_TEXT'>('AI_TEXT')
   const [rawText, setRawText] = useState('')
+  const [inputMode, setInputMode] = useState<'TEXT' | 'SCREENSHOT'>('TEXT')
+  const [screenshots, setScreenshots] = useState<File[]>([])
+  const [screenshotResult, setScreenshotResult] = useState<ScreenshotImportResult | null>(null)
   const [workspace, setWorkspace] = useState<TripWorkspace | null>(null)
   const [itineraryImport, setItineraryImport] = useState<ItineraryImport | null>(null)
   const [brief, setBrief] = useState<TripBriefRevision | null>(null)
@@ -331,6 +335,41 @@ export default function ImportItineraryPage() {
       completeCommand(scope)
       setSelections({})
       updateResumeUrl({ workspaceId: target.workspace_id, importId: created.import_id })
+      const resumed = await api.get<WorkspaceResume>(
+        `/api/trip-workspaces/${target.workspace_id}/resume`,
+      )
+      applyResumeState(resumed)
+      return created
+    })
+  }
+
+  const createScreenshotImport = async () => {
+    if (screenshots.length < 1 || screenshots.length > 6) {
+      setError('请选择 1～6 张截图')
+      return
+    }
+    const oversized = screenshots.find(file => file.size > 10 * 1024 * 1024)
+    if (oversized) {
+      setError(`${oversized.name} 超过 10MB，未上传`)
+      return
+    }
+    await run('screenshot-import', async () => {
+      const target = await ensureWorkspace()
+      const form = new FormData()
+      screenshots.forEach(file => form.append('screenshots', file, file.name))
+      const fingerprint = screenshots.map(file => `${file.name}:${file.size}:${file.lastModified}`)
+      const scope = `create-screenshot-import:${target.workspace_id}`
+      const created = await api.postFormWithHeaders<ScreenshotImportResult>(
+        `/api/trip-workspaces/${target.workspace_id}/imports/screenshots`,
+        form,
+        { 'Idempotency-Key': commandKey(scope, fingerprint) },
+      )
+      completeCommand(scope)
+      setScreenshotResult(created)
+      setItineraryImport(created.itinerary_import)
+      setRawText(created.itinerary_import.raw_text)
+      setSelections({})
+      updateResumeUrl({ workspaceId: target.workspace_id, importId: created.itinerary_import.import_id })
       const resumed = await api.get<WorkspaceResume>(
         `/api/trip-workspaces/${target.workspace_id}/resume`,
       )
@@ -626,7 +665,7 @@ export default function ImportItineraryPage() {
             <div className="rounded-xl bg-coral-50 p-2 text-coral-600"><ShieldCheck className="h-5 w-5" /></div>
             <div>
               <h2 className="font-semibold text-slate-900">把已有行程变成可验证 revision</h2>
-              <p className="mt-1 text-xs text-slate-500">当前范围仅北京、上海、杭州，2–5 天。解析文本只作为不可信数据，不会改变系统规则或事实来源。</p>
+              <p className="mt-1 text-xs text-slate-500">当前范围仅北京、上海、杭州，2–5 天。文本和 OCR 结果都只是不可信输入，必须确认后才能进入权威行程。</p>
             </div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-4">
@@ -642,24 +681,79 @@ export default function ImportItineraryPage() {
               <option value="MANUAL_TEXT">手写行程文本</option>
             </select>
           </div>
-          <textarea
-            value={rawText}
-            onChange={event => setRawText(event.target.value)}
-            disabled={Boolean(itineraryImport && itineraryImport.status !== 'FAILED')}
-            placeholder={'示例：\nDay 1 北京\n09:00-12:00 故宫（已预约，不可移动）\n11:00-13:00 景山公园'}
-            maxLength={12000}
-            className="mt-3 min-h-52 w-full rounded-2xl border border-slate-200 p-4 text-sm leading-6 outline-none focus:border-coral-400 disabled:bg-slate-50"
-          />
-          {(!itineraryImport || itineraryImport.status === 'FAILED') && (
-            <button onClick={createImport} disabled={busy !== null} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-coral-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
-              {busy === 'import' && <Loader2 className="h-4 w-4 animate-spin" />}
-              {itineraryImport?.status === 'FAILED' ? '按修改后的原文重新解析' : '解析并生成 POI 候选'}
-            </button>
+          {!itineraryImport && (
+            <div className="mt-4 inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+              <button type="button" onClick={() => setInputMode('TEXT')} className={`rounded-lg px-3 py-2 ${inputMode === 'TEXT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>粘贴文本</button>
+              <button type="button" onClick={() => setInputMode('SCREENSHOT')} className={`rounded-lg px-3 py-2 ${inputMode === 'SCREENSHOT' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>上传截图</button>
+            </div>
+          )}
+          {inputMode === 'TEXT' || itineraryImport ? (
+            <>
+              <textarea
+                value={rawText}
+                onChange={event => setRawText(event.target.value)}
+                disabled={Boolean(itineraryImport && itineraryImport.status !== 'FAILED')}
+                placeholder={'示例：\nDay 1 北京\n09:00-12:00 故宫（已预约，不可移动）\n11:00-13:00 景山公园'}
+                maxLength={12000}
+                className="mt-3 min-h-52 w-full rounded-2xl border border-slate-200 p-4 text-sm leading-6 outline-none focus:border-coral-400 disabled:bg-slate-50"
+              />
+              {(!itineraryImport || itineraryImport.status === 'FAILED') && (
+                <button onClick={createImport} disabled={busy !== null} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-coral-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                  {busy === 'import' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {itineraryImport?.status === 'FAILED' ? '按修改后的原文重新解析' : '解析并生成 POI 候选'}
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+              <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-slate-700">
+                <FileImage className="h-5 w-5 text-coral-500" />
+                选择 PNG、JPEG 或 WebP（最多 6 张，每张不超过 10MB）
+                <input
+                  aria-label="选择行程截图"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  className="sr-only"
+                  onChange={event => setScreenshots(Array.from(event.target.files ?? []).slice(0, 6))}
+                />
+              </label>
+              {screenshots.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {screenshots.map(file => (
+                    <div key={`${file.name}-${file.lastModified}`} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs text-slate-600">
+                      <span className="min-w-0 flex-1 truncate">{file.name} · {(file.size / 1024).toFixed(1)}KB</span>
+                      <button type="button" aria-label={`移除 ${file.name}`} onClick={() => setScreenshots(current => current.filter(item => item !== file))}><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button onClick={createScreenshotImport} disabled={busy !== null || screenshots.length === 0} className="mt-3 inline-flex items-center gap-2 rounded-xl bg-coral-500 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+                {busy === 'screenshot-import' && <Loader2 className="h-4 w-4 animate-spin" />}
+                OCR 识别并生成待确认草稿
+              </button>
+              <p className="mt-2 text-xs text-slate-500">服务端仅暂存原图用于 OCR；成功、失败或超时后都会删除原图，只保留 hash、文本框、置信度和清理回执。</p>
+            </div>
           )}
           {itineraryImport?.status === 'FAILED' && (
             <p className="mt-2 text-xs text-amber-700">失败草稿和原文已保存；重新解析会创建新的导入记录，不覆盖旧记录。</p>
           )}
         </section>
+
+        {screenshotResult && (
+          <section aria-label="OCR 与隐私回执" className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-xs text-emerald-950">
+            <h2 className="text-sm font-semibold">OCR 与隐私回执</h2>
+            <p className="mt-1">识别 {screenshotResult.ocr_receipts.length} 张截图；原图清理 {screenshotResult.cleanup_receipts.filter(item => item.cleanup_status === 'DELETED').length}/{screenshotResult.cleanup_receipts.length}。</p>
+            <div className="mt-3 space-y-2">
+              {screenshotResult.ocr_receipts.map((receipt, index) => (
+                <div key={receipt.asset_id} className="rounded-xl bg-white/80 p-3">
+                  <p>截图 {index + 1} · {receipt.engine} {receipt.engine_version} · hash {receipt.asset_hash.slice(0, 12)}…</p>
+                  <p className="mt-1 text-amber-800">{receipt.lines.some(line => line.requires_confirmation) ? '含低置信度字段，必须人工确认' : 'OCR 字段仍需在 Brief 和地点步骤确认'}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
 

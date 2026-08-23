@@ -10,6 +10,7 @@
     "test:e2e:local": "playwright test -c playwright.local.config.js",
     "test:e2e:trip-check-p1": "playwright test -c playwright.trip-check-p1.config.js",
     "test:e2e:trip-check-p2": "playwright test -c playwright.trip-check-p2.config.js",
+    "test:e2e:trip-check-p3": "playwright test -c playwright.trip-check-p3.config.js",
     "test:e2e:suggestions": "playwright test -c playwright.suggestions.config.js",
     "test:e2e:persistence": "playwright test -c playwright.persistence.config.js",
     "test:e2e:public": "playwright test -c playwright.config.js"

@@ -44,6 +44,10 @@ export default function AuditDrawer({
   const repairableHigh = report.findings.some(
     item => item.repairable && item.status === 'VIOLATED' && ['BLOCKER', 'HIGH'].includes(item.severity),
   )
+  const providerFacts = (evidence?.facts ?? []).filter(item => (
+    ['ROUTE_TIME', 'WEATHER', 'RISK_SOURCE'].includes(item.fact_type)
+    || item.subject_type === 'ROUTE_OPTION'
+  ))
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -88,6 +92,31 @@ export default function AuditDrawer({
           外部事实部分不可用：{evidence.provider_failures.map(item => `${item.provider} / ${item.error_category}`).join('；')}
         </div>
       ) : null}
+
+      {providerFacts.length > 0 && (
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <h3 className="text-xs font-semibold text-slate-700">事实采集摘要</h3>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {providerFacts.map(fact => {
+              const value = typeof fact.value === 'object' && fact.value !== null
+                ? fact.value as Record<string, unknown>
+                : {}
+              const label = fact.subject_type === 'ROUTE_OPTION'
+                ? `路线 · ${String(value.mode ?? 'unknown')}`
+                : fact.fact_type === 'WEATHER'
+                  ? `天气 · ${String(value.date ?? fact.subject_id)}`
+                  : fact.fact_type === 'RISK_SOURCE'
+                    ? `风险来源 · ${String(value.source_tier ?? 'UNKNOWN')}`
+                    : fact.fact_type
+              return (
+                <span key={fact.fact_id} className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600">
+                  {label} · {fact.provider} · {fact.freshness_status}
+                </span>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="mt-4 space-y-5">
         {groups.map(group => {
