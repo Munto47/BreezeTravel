@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import subprocess
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -17,6 +20,11 @@ from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.data_contract_v2 import (
     case_set_hash,
     materialization_set_hash,
+)
+from evals.trip_check_v1.p5.gate_v2 import build_p5_gate_manifest_v2
+from evals.trip_check_v1.p5.judge_v2 import (
+    aggregate_judge_rounds_v2,
+    export_judge_bundles_v2,
 )
 from evals.trip_check_v1.p5.ocr_materialization_v2 import materialize_ocr_input
 from scripts import run_trip_check_p5_v2_eval as run_cli
@@ -38,6 +46,18 @@ from tests.p5_v2_e2e_helpers import (
 EXPECTED_SPLITS = {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90}
 EXPECTED_CITIES = {"北京": 120, "上海": 120, "杭州": 120}
 EXPECTED_SCREENSHOTS = {"dev": 90, "regression": 36, "frozen_blind": 45}
+
+
+def _run_module(module: str, *args: str, cwd: Path = REPO_ROOT / "backend") -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", module, *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=False,
+    )
 
 
 def test_dataset_360_exact_byte_and_canonical_readback() -> None:
@@ -102,6 +122,55 @@ def test_exact_abc_terminal_cardinality_is_810_plus_270() -> None:
     nonblind = manifest["lanes"]["nonblind"]["case_count"] * variant_count
     blind = manifest["lanes"]["frozen_blind"]["case_count"] * variant_count
     assert (nonblind, blind, nonblind + blind) == (810, 270, 1080)
+
+
+def test_formal_dataset_validator_passes_in_fresh_detached_worktree(tmp_path: Path) -> None:
+    detached = tmp_path / "candidate-head"
+    assert detached.parent.resolve() == tmp_path.resolve()
+    added = subprocess.run(
+        ["git", "worktree", "add", "--detach", str(detached), "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=120,
+        check=False,
+    )
+    assert added.returncode == 0, added.stderr
+    try:
+        completed = _run_module(
+            "scripts.validate_trip_check_p5_dataset_v2",
+            cwd=detached / "backend",
+        )
+        assert completed.returncode == 0, completed.stderr or completed.stdout
+        report = json.loads(completed.stdout)
+        assert report["schema_version"] == "trip-check-p5-dataset-validation-v2"
+        assert report["status"] == "PASS"
+        assert report["formal"] is True
+        assert report["errors"] == []
+        assert report["counts"]["total"] == 360
+        assert report["manifest_hash"] == load_json(DATASET_MANIFEST_PATH)["manifest_hash"]
+        status = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=detached,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=30,
+            check=True,
+        )
+        assert status.stdout == ""
+    finally:
+        removed = subprocess.run(
+            ["git", "worktree", "remove", "--force", str(detached)],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=120,
+            check=False,
+        )
+        assert removed.returncode == 0, removed.stderr
 
 
 @pytest.mark.parametrize(
@@ -229,12 +298,156 @@ def test_formal_execution_fails_closed_before_active_contract_and_seal() -> None
     assert not (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").exists()
 
 
-@pytest.mark.xfail(strict=True, reason="formal v2 active contract and blind seal are not ready")
-def test_formal_active_contract_and_seal_readback_are_ready() -> None:
-    active = require_v2_formal_ready(P5_ROOT / "active_contract.json")
-    seal_path = P5_ROOT / "sealed" / "frozen_blind.v2.seal.json"
-    assert seal_path.is_file()
-    assert active["blind_seal_v2_sha256"] == file_sha256(seal_path)
+def test_pending_seal_state_is_exact_and_not_formal_evidence() -> None:
+    active = load_json(P5_ROOT / "active_contract.json")
+    manifest = load_json(DATASET_MANIFEST_PATH)
+    assert active == {
+        "active_contract": "trip-check-p5-v2",
+        "deprecated_contracts": [
+            {
+                "contract_id": "trip-check-p5-v1",
+                "formal_evidence_eligible": False,
+                "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2",
+            }
+        ],
+        "formal_evidence_status": "PENDING_V2_SEAL",
+        "schema_version": "trip-check-p5-active-contract-v1",
+    }
+    assert "sealing_commitment" not in manifest
+    assert not (P5_ROOT / "sealed" / "frozen_blind.v2.seal.json").exists()
+
+
+@pytest.mark.parametrize(
+    ("module", "required_options"),
+    (
+        (
+            "scripts.build_trip_check_p5_blind_bundle_v2",
+            ("--repo-root", "--external-output"),
+        ),
+        (
+            "scripts.review_trip_check_p5_blind_bundle_v2",
+            (
+                "--repo-root",
+                "--external-bundle",
+                "--external-receipt",
+                "--candidate-subject-commit",
+            ),
+        ),
+        (
+            "scripts.seal_trip_check_p5_blind_v2",
+            (
+                "--labels-canonical-sha256",
+                "--external-bundle-sha256",
+                "--review-receipt-sha256",
+                "--candidate-freeze-commit",
+            ),
+        ),
+        (
+            "scripts.export_trip_check_p5_v2_judge",
+            ("--run-dir", "--output-dir"),
+        ),
+        (
+            "scripts.aggregate_trip_check_p5_v2_judges",
+            ("--mapping", "--mapping-sha256", "--round", "--output"),
+        ),
+        (
+            "scripts.run_trip_check_p5_v2_gate",
+            (
+                "--nonblind-run-dir",
+                "--nonblind-score",
+                "--blind-run-dir",
+                "--blind-score",
+                "--judge-panel",
+            ),
+        ),
+    ),
+)
+def test_p5_v2_formal_cli_help_is_readable(module: str, required_options: tuple[str, ...]) -> None:
+    completed = _run_module(module, "--help")
+    assert completed.returncode == 0, completed.stderr
+    assert all(option in completed.stdout for option in required_options)
+
+
+@pytest.mark.parametrize(
+    ("module", "args"),
+    (
+        (
+            "scripts.export_trip_check_p5_v2_judge",
+            ("--run-dir", "missing", "--output-dir", "missing"),
+        ),
+        (
+            "scripts.aggregate_trip_check_p5_v2_judges",
+            (
+                "--mapping",
+                "missing",
+                "--mapping-sha256",
+                "0" * 64,
+                "--round",
+                "missing",
+                "--output",
+                "missing",
+            ),
+        ),
+        (
+            "scripts.run_trip_check_p5_v2_gate",
+            (
+                "--nonblind-run-dir",
+                "missing",
+                "--nonblind-score",
+                "missing",
+                "--blind-run-dir",
+                "missing",
+                "--blind-score",
+                "missing",
+                "--judge-panel",
+                "missing",
+            ),
+        ),
+    ),
+)
+def test_unsealed_v2_judge_and_gate_clis_fail_closed_before_artifact_read(
+    module: str,
+    args: tuple[str, ...],
+) -> None:
+    completed = _run_module(module, *args)
+    assert completed.returncode != 0
+    assert "P5_V2_FORMAL_CONTRACT_NOT_READY" in completed.stderr
+    assert "FileNotFoundError" not in completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("module", "args"),
+    (
+        (
+            "scripts.run_trip_check_p5_eval",
+            ("--lane", "nonblind", "--require-formal", "--output-dir", "missing"),
+        ),
+        ("scripts.score_trip_check_p5_eval", ("--run-dir", "missing")),
+        (
+            "scripts.run_trip_check_p5_gate",
+            (
+                "--nonblind-run-dir",
+                "missing",
+                "--nonblind-score",
+                "missing",
+                "--blind-run-dir",
+                "missing",
+                "--blind-score",
+                "missing",
+                "--judge-panel",
+                "missing",
+            ),
+        ),
+    ),
+)
+def test_v1_formal_clis_reject_superseded_contract_before_artifact_read(
+    module: str,
+    args: tuple[str, ...],
+) -> None:
+    completed = _run_module(module, *args)
+    assert completed.returncode != 0
+    assert "P5_V1_FORMAL_CONTRACT_SUPERSEDED" in completed.stderr
+    assert "FileNotFoundError" not in completed.stderr
 
 
 def test_frozen_blind_output_must_be_outside_repository(tmp_path: Path) -> None:
@@ -253,17 +466,40 @@ def test_frozen_blind_output_must_be_outside_repository(tmp_path: Path) -> None:
         asyncio.run(run_cli.execute_run(args))
 
 
-def test_judge_v2_readback_interface_is_explicitly_unavailable() -> None:
-    from evals.trip_check_v1.p5 import judge
-
-    if not hasattr(judge, "export_judge_bundles_v2"):
-        pytest.skip("P5 v2 Judge interface is not integrated; v1 Judge cannot prove v2")
-    pytest.fail("P5 v2 Judge appeared; replace this placeholder with its readback contract")
+def test_judge_and_gate_interfaces_are_v2_not_v1_aliases() -> None:
+    assert export_judge_bundles_v2.__module__ == "evals.trip_check_v1.p5.judge_v2"
+    assert aggregate_judge_rounds_v2.__module__ == "evals.trip_check_v1.p5.judge_v2"
+    assert build_p5_gate_manifest_v2.__module__ == "evals.trip_check_v1.p5.gate_v2"
 
 
-def test_gate_v2_readback_interface_is_explicitly_unavailable() -> None:
-    from evals.trip_check_v1.p5 import gate
+def test_tracked_repository_contains_no_blind_oracle_answer_path() -> None:
+    """The external custodian may consume labels; tracked code may not derive them."""
 
-    if not hasattr(gate, "build_p5_gate_manifest_v2"):
-        pytest.skip("P5 v2 Gate interface is not integrated; v1 Gate cannot prove v2")
-    pytest.fail("P5 v2 Gate appeared; replace this placeholder with its readback contract")
+    forbidden = (
+        "_REASON_BY_FAULT",
+        "_STRATEGY_BY_FAULT",
+        "_CANDIDATE_MODE_TO_ORACLE",
+        "_CANDIDATE_BY_FAULT",
+        "_CONCURRENCY_BY_FAULT",
+        "derive_blind_oracle_v2",
+        "derive_all_blind_labels_v2",
+    )
+    tracked = subprocess.run(
+        [
+            "git",
+            "ls-files",
+            "backend/evals/trip_check_v1/p5/*.py",
+            "backend/scripts/*trip_check_p5*blind*v2.py",
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        timeout=30,
+        check=True,
+    ).stdout.splitlines()
+    findings: list[str] = []
+    for relative in tracked:
+        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        findings.extend(f"{relative}:{symbol}" for symbol in forbidden if symbol in text)
+    assert findings == [], "P5_BLIND_ORACLE_ANSWER_PATH_IN_REPOSITORY:\n" + "\n".join(findings)
