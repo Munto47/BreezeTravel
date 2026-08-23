@@ -496,6 +496,10 @@ def _validated_sealing_commitment_v3(
     expected = {
         "case_count": len(blind_cases),
         "case_ids_sha256": digest(sorted(row["case_id"] for row in blind_cases)),
+        "nonblind_cases_file_sha256": file_sha256(NONBLIND_PATH_V3),
+        "nonblind_materializations_file_sha256": file_sha256(
+            NONBLIND_MATERIALIZATIONS_PATH_V3
+        ),
         "inputs_file_sha256": file_sha256(BLIND_INPUT_PATH_V3),
         "inputs_content_sha256": digest(blind_cases),
         "materializations_file_sha256": file_sha256(BLIND_MATERIALIZATIONS_PATH_V3),
@@ -506,6 +510,7 @@ def _validated_sealing_commitment_v3(
         "run_spec_template_sha256": file_sha256(RUN_SPEC_TEMPLATE_PATH_V3),
         "rubric_sha256": file_sha256(JUDGE_RUBRIC_PATH_V2),
         "variant_ids_sha256": digest(list(VARIANT_IDS_V3)),
+        "source_v2_blind_seal_file_sha256": file_sha256(BLIND_SEAL_PATH_V2),
     }
     seal_payload = seal.model_dump(mode="json")
     if any(seal_payload[key] != value for key, value in expected.items()):

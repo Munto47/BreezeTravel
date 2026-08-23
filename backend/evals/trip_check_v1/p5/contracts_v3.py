@@ -462,6 +462,8 @@ class P5BlindSealV3(BaseModel):
     candidate_freeze_commit: CommitShaV3
     candidate_dataset_manifest_hash: Sha256V3
     case_ids_sha256: Sha256V3
+    nonblind_cases_file_sha256: Sha256V3
+    nonblind_materializations_file_sha256: Sha256V3
     inputs_file_sha256: Sha256V3
     inputs_content_sha256: Sha256V3
     materializations_file_sha256: Sha256V3
@@ -475,6 +477,10 @@ class P5BlindSealV3(BaseModel):
     labels_canonical_sha256: Sha256V3
     external_bundle_sha256: Sha256V3
     review_receipt_sha256: Sha256V3
+    source_v2_blind_seal_file_sha256: Sha256V3
+    source_truth_contract: Literal["trip-check-p5-blind-label-bundle-v2-unchanged"] = (
+        "trip-check-p5-blind-label-bundle-v2-unchanged"
+    )
     label_storage: Literal["external_bundle_only"] = "external_bundle_only"
     label_access: Literal["isolated_scorer_only"] = "isolated_scorer_only"
     scoring_payload_present: Literal[False] = False
