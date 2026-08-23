@@ -24,7 +24,7 @@ DEFAULT_BASELINE = "cd533cf81034cfdd11e9a3f3ea15d953202bb1a5"
 PILOT_DATASET = BACKEND_ROOT / "evals" / "trip_check_v1" / "pilot.jsonl"
 PROVIDER_SNAPSHOT = BACKEND_ROOT / "evals" / "fixtures" / "trip_check_provider_integrity_v1.json"
 SECRET_PATTERNS = {
-    "openai_key": re.compile(r"sk-[A-Za-z0-9_-]{16,}"),
+    "openai_key": re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{16,}"),
     "github_token": re.compile(r"gh[opsu]_[A-Za-z0-9]{20,}"),
     "aws_access_key": re.compile(r"AKIA[0-9A-Z]{16}"),
     "private_key": re.compile(

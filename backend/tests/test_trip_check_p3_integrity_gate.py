@@ -98,6 +98,13 @@ def test_private_key_scan_requires_an_actual_pem_body():
     )
 
 
+def test_openai_key_scan_does_not_match_a_risk_provider_slug():
+    pattern = SECRET_PATTERNS["openai_key"]
+
+    assert pattern.search("ADR-006-risk-provider-admission-and-weather-alert") is None
+    assert pattern.search("sk-proj_" + "A" * 32)
+
+
 def test_gate_logs_are_portable_lf_and_strip_progress_whitespace():
     value = "one  \r\nD:\\munto\\code\\claudeProject\\agentTravel\\frontend  \r\n"
 
