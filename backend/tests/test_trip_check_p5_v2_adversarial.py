@@ -79,6 +79,17 @@ def _replace_terminal_rows(run_dir: Path, rows: list[dict]) -> None:
         pass
     else:
         updates["variant_output_sha256"] = variant_output_hashes_v2(outputs)
+    artifact_index_path = run_dir / "artifact_index.json"
+    artifact_index = _load(artifact_index_path)
+    terminal_entry = next(
+        item for item in artifact_index["artifacts"] if item["path"] == terminal_path.name
+    )
+    terminal_entry["byte_size"] = terminal_path.stat().st_size
+    terminal_entry["sha256"] = hashlib.sha256(terminal_path.read_bytes()).hexdigest()
+    artifact_index["index_hash"] = digest(
+        {key: value for key, value in artifact_index.items() if key != "index_hash"}
+    )
+    _write(artifact_index_path, artifact_index)
     _rewrite_manifest(run_dir, **updates)
 
 
@@ -98,7 +109,7 @@ def _score_run_group(fixture: tuple[Path, Path, Path, Path]) -> dict:
     [
         ("schema_version", "trip-check-p5-run-group-v1", "RUN_GROUP_MANIFEST_VERSION_INVALID"),
         ("status", "REJECT", "RUN_GROUP_CONTRACT_INVALID"),
-        ("dirty_tree", True, "RUN_GROUP_CONTRACT_INVALID"),
+        ("dirty_tree", True, "RUN_SPEC_BINDING_MISMATCH"),
         ("blind_labels_read", True, "RUN_GROUP_CONTRACT_INVALID"),
         ("external_api_calls", 1, "RUN_GROUP_CONTRACT_INVALID"),
         ("replay_executed", False, "RUN_GROUP_REPLAY_INVALID"),

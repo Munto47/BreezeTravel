@@ -32,6 +32,26 @@ from scripts.run_trip_check_p5_v2_eval import RUN_GROUP_FIELDS, execute_run
 import scripts.run_trip_check_p5_v2_eval as run_script_v2
 
 
+P5_DATA_ROOT = Path(__file__).resolve().parents[1] / "evals" / "trip_check_v1" / "p5"
+
+
+def _frozen_nonblind_fixture(case_id: str) -> tuple[P5CaseV2, dict]:
+    cases = [
+        json.loads(line)
+        for line in (P5_DATA_ROOT / "cases_nonblind_v2.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    materializations = [
+        json.loads(line)
+        for line in (P5_DATA_ROOT / "materializations_nonblind_v2.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    return (
+        P5CaseV2.model_validate(next(item for item in cases if item["case_id"] == case_id)),
+        next(item for item in materializations if item["case_id"] == case_id),
+    )
+
+
 def _artifact(artifact_id: str, schema_version: str, content: dict) -> dict:
     return {
         "artifact_id": artifact_id,
@@ -584,6 +604,77 @@ async def test_adapter_executes_real_apply_fault_harness(fault_profile: str) -> 
 
 
 @pytest.mark.asyncio
+async def test_regression_next_candidate_receipt_missing_fails_closed() -> None:
+    case, materialization = _frozen_nonblind_fixture("p5.dev.bj.003")
+
+    output = await execute_terminal_v2(
+        case=case,
+        materialization=materialization,
+        run_spec=_spec("core_b", timeout=10),
+        adapter=CoreAdapterV2(),
+    )
+
+    assert output.terminal_status == TerminalStatusV2.NEEDS_USER_RESOLUTION
+    assert output.evaluation_projection["selected_place_ids"] == []
+    assert output.evaluation_projection["candidate_receipt_integrity"] == "MISSING_RECEIPT"
+
+
+@pytest.mark.asyncio
+async def test_regression_next_wrapped_screenshot_reaches_route_audit() -> None:
+    case, materialization = _frozen_nonblind_fixture("p5.dev.bj.004")
+    replay_engine = EvaluationCachingPaddleOcrEngine()
+    replay_engine.preload(materialization["ocr_baseline_receipt"])
+
+    output = await execute_terminal_v2(
+        case=case,
+        materialization=materialization,
+        run_spec=_spec("core_b", timeout=10),
+        adapter=CoreAdapterV2(ocr_engine=replay_engine),
+    )
+
+    assert output.terminal_status == TerminalStatusV2.SUCCEEDED
+    assert output.native_output["product_import"]["raw_stop_count"] == 3
+    assert {item["reason_code"] for item in output.findings} >= {
+        "EVIDENCE_CONFLICT",
+        "TIME_CHAIN_BROKEN",
+    }
+
+
+@pytest.mark.asyncio
+async def test_regression_next_concurrent_apply_without_candidate_set_has_one_winner() -> None:
+    case, materialization = _frozen_nonblind_fixture("p5.dev.bj.015")
+
+    output = await execute_terminal_v2(
+        case=case,
+        materialization=materialization,
+        run_spec=_spec("core_b", timeout=10),
+        adapter=CoreAdapterV2(),
+    )
+
+    receipt = next(item for item in output.receipts if item.get("type") == "concurrency")
+    assert receipt["status"] == "PASS"
+    assert receipt["semantic_projection"]["outcome_counts"] == {"APPLIED": 1, "CONFLICT": 1}
+    assert output.postcheck is not None
+
+
+@pytest.mark.asyncio
+async def test_regression_next_solver_unsat_uses_non_timeout_budget() -> None:
+    case, materialization = _frozen_nonblind_fixture("p5.dev.bj.016")
+    replay_engine = EvaluationCachingPaddleOcrEngine()
+    replay_engine.preload(materialization["ocr_baseline_receipt"])
+
+    output = await execute_terminal_v2(
+        case=case,
+        materialization=materialization,
+        run_spec=_spec("solver_c", timeout=10),
+        adapter=SolverAdapterV2(ocr_engine=replay_engine),
+    )
+
+    assert output.native_output["solver_strategy"]["primary"]["status"] == "UNSAT"
+    assert output.native_output["solver_strategy"]["receipt"]["failure_reason"] == "CP_SAT_INFEASIBLE"
+
+
+@pytest.mark.asyncio
 async def test_core_screenshot_replays_same_bytes_through_production_paddle_boundary(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -983,7 +1074,7 @@ async def test_formal_group_seals_rows_and_rejects_replay_mismatch(
         "evidence_policy_version": "v2",
         "fault_registry_version": "v2",
         "random_seed": 7,
-        "budget": {"timeout_seconds": 2, "max_cost_usd": 0},
+        "budget": {"timeout_seconds": 10, "max_cost_usd": 0},
         "replay_hash_policy": "p5-semantic-projection-v2",
         "variant_specs": {
             variant: {"adapter_version": adapter, "repair_strategy": strategy}

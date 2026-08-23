@@ -37,9 +37,20 @@ class FakeOcrEngine:
     name = "controlled_ocr_fixture"
     version = "fixture-v1"
 
-    def __init__(self, *, confidence: float = 0.62, fail: bool = False):
+    def __init__(
+        self,
+        *,
+        confidence: float = 0.62,
+        fail: bool = False,
+        decorative_footer: bool = False,
+        decorative_header: bool = False,
+        wrapped_place: bool = False,
+    ):
         self.confidence = confidence
         self.fail = fail
+        self.decorative_footer = decorative_footer
+        self.decorative_header = decorative_header
+        self.wrapped_place = wrapped_place
         self.calls = 0
 
     async def recognize(self, image_path: Path) -> list[OcrTextLine]:
@@ -47,14 +58,48 @@ class FakeOcrEngine:
         assert image_path.exists()
         if self.fail:
             raise OcrProcessingError("controlled OCR failure")
-        return [
+        lines = []
+        if self.decorative_header:
+            lines.append(
+                OcrTextLine(
+                    text="行程备忘",
+                    confidence=0.99,
+                    box=OcrBoundingBox(x_min=1, y_min=2, x_max=120, y_max=40),
+                    requires_confirmation=False,
+                )
+            )
+        content_y = 100 if self.decorative_header else 2
+        lines.append(
             OcrTextLine(
-                text="第1天：北京 2人 地铁 09:00-11:00 颐和园",
+                text=(
+                    "第1天：北京 2人 地铁 09:00-11:00 颐和"
+                    if self.wrapped_place
+                    else "第1天：北京 2人 地铁 09:00-11:00 颐和园"
+                ),
                 confidence=self.confidence,
-                box=OcrBoundingBox(x_min=1, y_min=2, x_max=300, y_max=40),
+                box=OcrBoundingBox(x_min=1, y_min=content_y, x_max=300, y_max=content_y + 38),
                 requires_confirmation=self.confidence < 0.85,
             )
-        ]
+        )
+        if self.wrapped_place:
+            lines.append(
+                OcrTextLine(
+                    text="园",
+                    confidence=self.confidence,
+                    box=OcrBoundingBox(x_min=1, y_min=content_y + 42, x_max=40, y_max=content_y + 80),
+                    requires_confirmation=self.confidence < 0.85,
+                )
+            )
+        if self.decorative_footer:
+            lines.append(
+                OcrTextLine(
+                    text="#1826",
+                    confidence=0.99,
+                    box=OcrBoundingBox(x_min=900, y_min=1100, x_max=980, y_max=1140),
+                    requires_confirmation=False,
+                )
+            )
+        return lines
 
 
 class FakeProvider:
@@ -155,6 +200,33 @@ def test_screenshot_idempotency_rejects_different_image_bytes(monkeypatch):
     assert reused.status_code == 409
     assert reused.json()["detail"]["code"] == "IDEMPOTENCY_KEY_REUSED"
     assert len(asset_repository.assets) == 1
+
+
+def test_screenshot_import_retains_decorative_footer_receipt_but_does_not_parse_it_as_stop(monkeypatch):
+    engine = FakeOcrEngine(
+        confidence=0.95,
+        decorative_footer=True,
+        decorative_header=True,
+        wrapped_place=True,
+    )
+    client, _, _, _, _ = _client(monkeypatch, engine=engine)
+
+    response = client.post(
+        "/api/trip-workspaces/workspace-screenshot-api/imports/screenshots",
+        headers={"Idempotency-Key": "screenshot-decorative-footer"},
+        files=[("screenshots", ("trip.png", PNG, "image/png"))],
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert [line["text"] for line in body["ocr_receipts"][0]["lines"]] == [
+        "行程备忘",
+        "第1天：北京 2人 地铁 09:00-11:00 颐和",
+        "园",
+        "#1826",
+    ]
+    assert body["itinerary_import"]["raw_text"] == "第1天：北京 2人 地铁 09:00-11:00 颐和园"
+    assert len(body["itinerary_import"]["raw_stops"]) == 1
 
 
 def test_invalid_screenshot_batch_creates_no_asset(monkeypatch):

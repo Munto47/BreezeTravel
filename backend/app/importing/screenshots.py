@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -34,6 +35,50 @@ SUPPORTED_MEDIA_TYPES = {
     "image/jpeg": ".jpg",
     "image/webp": ".webp",
 }
+_DECORATIVE_REFERENCE_LINE = re.compile(r"^#\d{1,12}$")
+_DECORATIVE_ITINERARY_TITLE = re.compile(r"^行程(?:备忘|群聊|说明)$")
+_DAY_OR_BULLET_LINE = re.compile(r"^(?:第\s*\d+\s*天|[•●▪-])")
+_TIME_LINE = re.compile(r"^\d{1,2}:\d{2}")
+
+
+def _receipt_text_block(receipt: "ScreenshotOcrReceipt") -> str:
+    lines = [
+        line
+        for line in receipt.lines
+        if not _DECORATIVE_REFERENCE_LINE.fullmatch(line.text.strip())
+        and not _DECORATIVE_ITINERARY_TITLE.fullmatch(line.text.strip())
+    ]
+    if not lines:
+        return ""
+    merged = [lines[0].text.strip()]
+    previous = lines[0]
+    for line in lines[1:]:
+        text = line.text.strip()
+        previous_text = merged[-1]
+        previous_height = previous.box.y_max - previous.box.y_min
+        current_height = line.box.y_max - line.box.y_min
+        vertical_gap = line.box.y_min - previous.box.y_max
+        is_adjacent = -max(previous_height, current_height) <= vertical_gap <= max(
+            previous_height, current_height
+        )
+        if is_adjacent and not re.search(r"[。！？；;:]$", previous_text) and _TIME_LINE.match(text):
+            merged[-1] = f"{previous_text}，{text}"
+        elif (
+            is_adjacent
+            and not re.search(r"[。！？；;:]$", previous_text)
+            and not _DAY_OR_BULLET_LINE.match(text)
+        ):
+            merged[-1] = f"{previous_text}{text}"
+        else:
+            merged.append(text)
+        previous = line
+    return "\n".join(merged)
+
+
+def itinerary_text_from_ocr_receipts(receipts: list["ScreenshotOcrReceipt"]) -> str:
+    """Build parser input while retaining decorative lines in the OCR receipt."""
+
+    return "\n".join(filter(None, (_receipt_text_block(receipt) for receipt in receipts))).strip()
 
 
 class OcrBoundingBox(BaseModel):
@@ -631,7 +676,7 @@ class ScreenshotImportService:
                 raise processing_error
             raise OcrProcessingError("screenshot OCR failed") from processing_error
 
-        raw_text = "\n".join(line.text for receipt in ocr_receipts for line in receipt.lines).strip()
+        raw_text = itinerary_text_from_ocr_receipts(ocr_receipts)
         if not raw_text:
             await self.command_repository.abandon(claim)
             raise OcrProcessingError("screenshot OCR produced no text")

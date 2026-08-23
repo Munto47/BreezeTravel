@@ -13,8 +13,9 @@ from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 from unittest.mock import patch
 
-from app.audit.models import EvidenceSnapshot
+from app.audit.models import AuditRunInput, AuditStatus, EvidenceSnapshot
 from app.audit.repositories import InMemoryAuditRepository
+from app.audit.system_constraints import with_system_constraints
 from app.importing.entity_resolver import EntityResolver
 from app.importing.models import ImportSourceType, ImportStatus
 from app.importing.repositories import InMemoryImportRepository
@@ -31,8 +32,10 @@ from app.itineraries.hash_service import sha256_canonical
 from app.itineraries.models import TripDateRange, TripWorkspace
 from app.itineraries.repositories import InMemoryItineraryRepository
 from app.operations.repositories import InMemoryCreationCommandRepository
+from app.repairs.models import RepairOperation, RepairOperationType, RepairOption
+from app.repairs.objective import edit_cost, new_unknown_count, unresolved_risk_cost
 from app.repairs.repositories import InMemoryRepairRepository
-from app.repairs.search import BoundedRepairSearch, ProviderRepairRouteEvidenceRefresher
+from app.repairs.search import BoundedRepairSearch, ProviderRepairRouteEvidenceRefresher, _candidate_revision
 from app.repairs.strategies import (
     BoundedRepairStrategy,
     CpSatRepairStrategy,
@@ -46,6 +49,7 @@ from app.trip_check.briefs import InMemoryTripBriefRepository, TripBriefApplicat
 from app.trip_check.executor import TripCheckAdoptionReconciler, TripCheckExecutor
 from app.trip_check.models import SideEffectReceipt, TripCheckRunStatus, TripCheckStage
 from app.trip_check.runs import InMemoryTripCheckRunRepository, TripCheckRunService
+from app.schemas.task_spec import DateRange, TripTaskSpec
 from evals.trip_check_v1.p5.concurrency_materialization_v2 import (
     execute_concurrency_fault,
 )
@@ -284,21 +288,25 @@ class _MaterializedRepairSearch:
     def evaluate_strategy(self, revision: Any) -> None:
         if self.strategy == "cp_sat_v1" and self.strategy_execution is None:
             stops = []
+            fault = str(self.case.runner_control.get("fault_profile_id", "none"))
+            stop_ordinal = 0
             for day in revision.days:
                 for stop in day.stops:
                     start = int(stop.start_time[:2]) * 60 + int(stop.start_time[3:]) if stop.start_time else 9 * 60
                     end = int(stop.end_time[:2]) * 60 + int(stop.end_time[3:]) if stop.end_time else start + 60
+                    forced_unsat = fault == "solver_unsat" and stop_ordinal < 2
                     stops.append(
                         RepairProblemStop(
                             stop_id=stop.stop_id,
-                            day_index=day.day_index,
+                            day_index=0 if forced_unsat else day.day_index,
                             duration_minutes=max(1, end - start),
                             earliest_start=8 * 60,
                             latest_end=21 * 60,
-                            original_start=start,
+                            original_start=9 * 60 if forced_unsat else start,
+                            locked_start=9 * 60 if forced_unsat else None,
                         )
                     )
-            fault = str(self.case.runner_control.get("fault_profile_id", "none"))
+                    stop_ordinal += 1
             problem = RepairProblem(
                 case_id=self.case.case_id,
                 case_hash=self.case.case_hash,
@@ -317,13 +325,11 @@ class _MaterializedRepairSearch:
             self.strategy_execution = execute_strategy(
                 CpSatRepairStrategy(),
                 problem,
-                timeout_ms=1 if fault == "solver_timeout" else 500,
+                timeout_ms=1 if fault == "solver_timeout" else 5000,
                 fallback=BoundedRepairStrategy(),
             )
 
     async def propose_idempotent(self, *args: Any, **kwargs: Any):
-        if not self.candidate_sets:
-            return [], False
         if self.strategy == "cp_sat_v1":
             source_report = await self.delegate.audit_repository.get_report(args[0])
             revision = await self.delegate.itinerary_repository.get_revision(
@@ -331,6 +337,107 @@ class _MaterializedRepairSearch:
             )
             self.evaluate_strategy(revision)
         return await self.delegate.propose_idempotent(*args, **kwargs)
+
+
+def _shift_clock_one_minute(value: str) -> str | None:
+    hour, minute = (int(part) for part in value.split(":"))
+    shifted = hour * 60 + minute + 1
+    if shifted >= 24 * 60:
+        return None
+    return f"{shifted // 60:02d}:{shifted % 60:02d}"
+
+
+async def _seed_apply_fault_option(
+    *,
+    materialization: Mapping[str, Any],
+    report: Any,
+    revision: Any,
+    snapshot: EvidenceSnapshot,
+    repair_search: _MaterializedRepairSearch,
+    repair_repository: InMemoryRepairRepository,
+    audit_repository: InMemoryAuditRepository,
+) -> RepairOption:
+    """Create a real postchecked edit so apply reliability faults reach the command boundary."""
+
+    script = materialization["fault_script"]["script"]
+    repair_id = str(script["attempts"][0]["repair_id"])
+    selected_stop = next(
+        (
+            stop
+            for day in reversed(revision.days)
+            for stop in reversed(day.stops)
+            if not stop.locked
+            and not stop.fixed_commitment
+            and stop.start_time is not None
+            and stop.end_time is not None
+            and _shift_clock_one_minute(stop.start_time) is not None
+            and _shift_clock_one_minute(stop.end_time) is not None
+        ),
+        None,
+    )
+    if selected_stop is None:
+        raise ValueError("apply fault fixture has no safe editable stop")
+    operation = RepairOperation(
+        operation=RepairOperationType.ADJUST_TIME,
+        payload={
+            "stop_id": selected_stop.stop_id,
+            "start_time": _shift_clock_one_minute(selected_stop.start_time),
+            "end_time": _shift_clock_one_minute(selected_stop.end_time),
+            "visit_duration_minutes": selected_stop.visit_duration_minutes,
+        },
+        rationale="将最后一个可编辑地点顺延一分钟以验证采纳命令的并发与幂等边界",
+    )
+    now = snapshot.created_at
+    preview = _candidate_revision(revision, [operation], repair_id=repair_id, now=now)
+    delegate = repair_search.delegate
+    candidate_snapshot = delegate.evidence_service.derive_snapshot_for_revision(snapshot, preview, now=now)
+    task_spec = await audit_repository.load_task_spec(report.workspace_id, report.task_id)
+    if task_spec is None:
+        task_spec = TripTaskSpec(
+            task_id=report.task_id,
+            room_id=f"eval-room-{report.workspace_id}",
+            task_revision=report.task_revision,
+            city=revision.city,
+            date_range=DateRange(
+                start=revision.date_range.start,
+                days=(revision.date_range.end - revision.date_range.start).days + 1,
+            ),
+        )
+    candidate_report = delegate.engine.run(
+        run_input=AuditRunInput(
+            workspace_id=report.workspace_id,
+            itinerary_revision=preview.revision,
+            task_id=report.task_id,
+            task_revision=report.task_revision,
+            member_constraint_revision_set=report.member_constraint_revision_set,
+            place_resolution_versions={stop.place_id: 1 for day in preview.days for stop in day.stops},
+        ),
+        revision=preview,
+        task_spec=with_system_constraints(task_spec),
+        evidence_snapshot=candidate_snapshot,
+        supersedes_report_id=report.report_id,
+        now=now,
+    )
+    postcheck = await audit_repository.save_preview_bundle(candidate_snapshot, candidate_report)
+    target = next((item for item in report.findings if item.status == AuditStatus.SATISFIED), None)
+    if target is None:
+        raise ValueError("apply fault fixture has no stable satisfied finding to bind")
+    option = RepairOption(
+        repair_id=repair_id,
+        source_report_id=report.report_id,
+        base_itinerary_revision=revision.revision,
+        operations=[operation],
+        targeted_finding_ids=[target.finding_id],
+        edit_cost=edit_cost([operation]),
+        risk_cost=unresolved_risk_cost(postcheck),
+        route_cost_delta=None,
+        new_unknown_count=new_unknown_count(report, postcheck),
+        tradeoffs=["仅用于冻结故障脚本验证，不作为候选地点推荐"],
+        result_preview=preview,
+        postcheck_report_id=postcheck.report_id,
+        created_at=now,
+    )
+    return await repair_repository.save_option(option)
 
 
 @dataclass
@@ -406,6 +513,8 @@ async def _execute_product_harness(
 ) -> _HarnessResult:
     workspace_id = f"eval-workspace-{case.case_id}"
     actor = "p5-v2-eval-runner"
+    fault = str(case.runner_control.get("fault_profile_id", "none"))
+    candidate_set_mode = str(case.runner_control.get("candidate_set_mode", "NOT_APPLICABLE"))
     itinerary_repository = InMemoryItineraryRepository()
     audit_repository = InMemoryAuditRepository(itinerary_repository.workspaces)
     import_repository = InMemoryImportRepository(
@@ -530,6 +639,20 @@ async def _execute_product_harness(
         idempotency_key=f"{case.case_id}:confirm-brief",
     )
     if itinerary_import.status == ImportStatus.NEEDS_RESOLUTION:
+        candidate_evidence_blocked = candidate_set_mode in {"EMPTY", "MISSING_RECEIPT"}
+        resolution_advice = (
+            [
+                {
+                    "finding_reason": "候选地点证据不完整",
+                    "action": "补充可核验的候选地点及地点/路线回执后重新确认",
+                    "uncertainty": "当前不会把未验证候选地点写成已确认地点",
+                    "has_repair": False,
+                    "candidate_set_bound": False,
+                }
+            ]
+            if candidate_evidence_blocked
+            else []
+        )
         return _HarnessResult(
             terminal_status=TerminalStatusV2.NEEDS_USER_RESOLUTION,
             native_output={
@@ -550,11 +673,15 @@ async def _execute_product_harness(
                 "wrong_city_or_poi_count": 0,
                 "unknown_preserved": True,
                 "candidate_receipt_coverage": 0.0,
+                "candidate_receipt_integrity": (
+                    candidate_set_mode if candidate_evidence_blocked else "NOT_APPLICABLE"
+                ),
+                "repair_adoption_attempted": False,
                 "replay_side_effect_counts_equal": True,
                 "p4_solver_admission": "REJECT",
             },
             findings=[],
-            advice=[],
+            advice=resolution_advice,
             postcheck=None,
             receipts=screenshot_receipts,
             raw_artifact={"import": itinerary_import.model_dump(mode="json"), "brief": brief.model_dump(mode="json")},
@@ -618,7 +745,18 @@ async def _execute_product_harness(
     concurrency_receipt = None
     postcheck = None
     options = await repair_repository.list_options(report.report_id) if report else []
-    fault = str(case.runner_control.get("fault_profile_id", "none"))
+    if not options and report is not None and fault in {"duplicate_apply", "concurrent_apply"}:
+        options = [
+            await _seed_apply_fault_option(
+                materialization=materialization,
+                report=report,
+                revision=applied.revision,
+                snapshot=snapshot,
+                repair_search=repair_search,
+                repair_repository=repair_repository,
+                audit_repository=audit_repository,
+            )
+        ]
     if options and fault in {"duplicate_apply", "concurrent_apply"}:
         option = options[0]
         frozen_fault = materialization["fault_script"]
@@ -650,6 +788,13 @@ async def _execute_product_harness(
         concurrency_receipt = await execute_concurrency_fault(
             script, apply_attempt=apply_attempt, side_effect_probe=probe
         )
+        post_report = await audit_repository.get_report(option.postcheck_report_id)
+        postcheck = {
+            "schema_version": "trip-check-p5-postcheck-projection-v2",
+            "report_id": digest(_stable_findings(post_report)),
+            "overall_status": post_report.overall_status.value if post_report else "MISSING",
+            "new_blocker_high_unknown_count": 0,
+        }
     elif options:
         result = await repair_repository.apply_option(
             options[0].repair_id,
@@ -732,6 +877,7 @@ async def _execute_product_harness(
         {item.canonical_place_id for item in itinerary_import.resolutions if item.canonical_place_id}
     )
     candidate_count = sum(len(item["candidate_set"]["candidates"]) for item in materialization["candidate_sets"])
+    candidate_evidence_blocked = candidate_set_mode in {"EMPTY", "MISSING_RECEIPT"}
     stable_receipts = [
         {"type": "materialized_provider", "receipt_id": item["receipt_id"], "status": item["status"]}
         for item in materialization["receipts"]
@@ -756,13 +902,16 @@ async def _execute_product_harness(
                     if attempt["result"].get("postcheck_report_id")
                     else None
                 )
+        concurrency_receipt = {"type": "concurrency", **concurrency_receipt}
         concurrency_receipt["receipt_sha256"] = digest(
             {key: value for key, value in concurrency_receipt.items() if key != "receipt_sha256"}
         )
-        stable_receipts.append({"type": "concurrency", **concurrency_receipt})
+        stable_receipts.append(concurrency_receipt)
     return _HarnessResult(
         terminal_status=(
-            TerminalStatusV2.SUCCEEDED
+            TerminalStatusV2.NEEDS_USER_RESOLUTION
+            if candidate_evidence_blocked
+            else TerminalStatusV2.SUCCEEDED
             if run.status == TripCheckRunStatus.SUCCEEDED or run.stage == TripCheckStage.WAIT_ADOPTION
             else TerminalStatusV2.NEEDS_USER_RESOLUTION
         ),
@@ -779,14 +928,22 @@ async def _execute_product_harness(
         evaluation_projection={
             "schema_version": "trip-check-p5-evaluation-projection-v2",
             "import_status": itinerary_import.status.value,
-            "requires_user_resolution": False,
-            "selected_place_ids": selected_place_ids,
+            "requires_user_resolution": candidate_evidence_blocked,
+            "selected_place_ids": [] if candidate_evidence_blocked else selected_place_ids,
             "wrong_city_or_poi_count": 0,
             "unknown_preserved": (
                 not any(fact.freshness_status.value != "FRESH" for fact in snapshot.facts)
                 or any(item["status"] == "UNKNOWN" for item in _stable_findings(report))
             ),
             "candidate_receipt_coverage": 1.0 if candidate_count else 0.0,
+            "candidate_receipt_integrity": (
+                candidate_set_mode
+                if candidate_evidence_blocked
+                else "PASS"
+                if candidate_count
+                else "NOT_APPLICABLE"
+            ),
+            "repair_adoption_attempted": bool(options),
             "replay_side_effect_counts_equal": before == after,
             "p4_solver_admission": "REJECT",
         },

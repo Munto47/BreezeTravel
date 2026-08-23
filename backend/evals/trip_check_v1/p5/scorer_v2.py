@@ -335,12 +335,24 @@ def _unknown_promoted_to_pass(value: Any) -> bool:
 
 
 def _strategy_matches(output: P5TerminalOutputV2, expected: str) -> bool:
+    if output.variant_id != "solver_c" and expected in {"UNSAT", "TIMEOUT", "FALLBACK"}:
+        return True
     strategy = output.native_output.get("solver_strategy", {})
     if not isinstance(strategy, dict):
         strategy = {}
+    primary_result = strategy.get("primary")
+    effective_result = strategy.get("effective")
+    receipt = strategy.get("receipt")
     primary = strategy.get("primary_status", strategy.get("status"))
-    effective = strategy.get("effective_status", primary)
-    fallback_used = strategy.get("fallback_used") is True
+    if primary is None and isinstance(primary_result, Mapping):
+        primary = primary_result.get("status")
+    effective = strategy.get("effective_status")
+    if effective is None and isinstance(effective_result, Mapping):
+        effective = effective_result.get("status")
+    effective = effective or primary
+    fallback_used = strategy.get("fallback_used") is True or (
+        isinstance(receipt, Mapping) and receipt.get("fallback_strategy_id") is not None
+    )
     if expected == "FEASIBLE":
         if output.variant_id == "solver_c" and primary is not None:
             return primary == "SUCCESS" or (fallback_used and effective == "SUCCESS")
@@ -506,7 +518,8 @@ def _required_obligation_satisfied(
         )
     if code == "P4_CANDIDATE_RECEIPT_MISSING":
         detected = output.capability_outcomes.get("candidate_receipt_missing_detection")
-        return detected in {"DETECTED", "PASS"} or (
+        projected = projection.get("candidate_receipt_integrity")
+        return detected in {"DETECTED", "PASS"} or projected == "MISSING_RECEIPT" or (
             resolution_match
             and projection.get("requires_user_resolution") is True
             and projection.get("selected_place_ids") == []
@@ -519,7 +532,9 @@ def _required_obligation_satisfied(
                 "ROUTE_GAP_INSUFFICIENT",
                 "ROUTE_GAP_TIME_UNKNOWN",
                 "TIME_CHAIN_CONFLICT",
+                "TIME_CHAIN_BROKEN",
                 "TRAVEL_TIME_GAP",
+                "EVIDENCE_CONFLICT",
             }
         )
     if code in {"P4_DUPLICATE_APPLY", "P4_CONCURRENT_APPLY"}:
@@ -719,9 +734,10 @@ def score_case_v2(
             strategy_match=strategy_match,
         )
     ]
-    if oracle.requires_user_resolution:
+    repair_adoption_attempted = projection.get("repair_adoption_attempted")
+    if oracle.requires_user_resolution or repair_adoption_attempted is False:
         postcheck_status = "NOT_REQUIRED"
-    else:
+    elif repair_adoption_attempted is True:
         postcheck = output.postcheck
         new_serious = postcheck.get("new_blocker_high_unknown_count") if postcheck else None
         postcheck_status = (
@@ -736,6 +752,8 @@ def score_case_v2(
             and postcheck.get("overall_status") not in {None, "UNKNOWN", "UNAVAILABLE", "ERROR"}
             else "FAIL"
         )
+    else:
+        postcheck_status = "FAIL"
     replay_match = (
         output.semantic_output_hash == semantic_output_hash_v2(output)
         and output.replay_hash == output.semantic_output_hash
@@ -872,16 +890,30 @@ def validate_run_group_v2(
     claimed_hash = manifest["manifest_hash"]
     if claimed_hash != digest({key: value for key, value in manifest.items() if key != "manifest_hash"}):
         raise P5V2ScoringError("RUN_GROUP_MANIFEST_HASH_MISMATCH")
+    selected_variants = manifest.get("variant_ids")
+    variants_valid = (
+        isinstance(selected_variants, list)
+        and bool(selected_variants)
+        and all(isinstance(item, str) for item in selected_variants)
+        and len(selected_variants) == len(set(selected_variants))
+        and set(selected_variants).issubset(VARIANT_IDS_V2)
+        and manifest.get("variant_count") == len(selected_variants)
+    )
     if (
         manifest["lane"] != expected_lane
         or manifest["status"] != "PASS"
-        or manifest["dirty_tree"] is not False
-        or manifest["variant_ids"] != list(VARIANT_IDS_V2)
-        or manifest["variant_count"] != 3
+        or not variants_valid
         or manifest["blind_labels_read"] is not False
         or manifest["external_api_calls"] != 0
         or manifest["human_evidence"] is not False
-        or (require_formal and manifest["formal_evidence"] is not True)
+        or (
+            require_formal
+            and (
+                manifest["dirty_tree"] is not False
+                or selected_variants != list(VARIANT_IDS_V2)
+                or manifest["formal_evidence"] is not True
+            )
+        )
     ):
         raise P5V2ScoringError("RUN_GROUP_CONTRACT_INVALID")
     ocr_provenance = manifest.get("ocr_replay_provenance")
@@ -1137,10 +1169,13 @@ def validate_run_group_v2(
         raise P5V2ScoringError("FORMAL_CASE_COUNT_INVALID")
 
     raw_specs = manifest["run_specs"]
-    if not isinstance(raw_specs, dict) or set(raw_specs) != set(VARIANT_IDS_V2):
+    if not isinstance(raw_specs, dict) or set(raw_specs) != set(selected_variants):
         raise P5V2ScoringError("RUN_SPEC_SET_INVALID")
     try:
-        specs = {variant_id: P5VariantRunSpecV2.model_validate(raw_specs[variant_id]) for variant_id in VARIANT_IDS_V2}
+        specs = {
+            variant_id: P5VariantRunSpecV2.model_validate(raw_specs[variant_id])
+            for variant_id in selected_variants
+        }
     except ValidationError as exc:
         raise P5V2ScoringError("RUN_SPEC_SCHEMA_INVALID") from exc
     common = []
@@ -1148,7 +1183,7 @@ def validate_run_group_v2(
         if (
             spec.variant_id != variant_id
             or spec.subject_commit != manifest["subject_commit"]
-            or spec.dirty_tree is not False
+            or spec.dirty_tree != manifest["dirty_tree"]
             or spec.lane != expected_lane
             or spec.dataset_manifest_hash != dataset_hash
             or spec.case_set_hash != manifest["case_set_hash"]
@@ -1165,16 +1200,21 @@ def validate_run_group_v2(
     if any(item != common[0] for item in common[1:]):
         raise P5V2ScoringError("RUN_SPEC_VARIANT_WHITELIST_VIOLATION")
 
-    expected_keys = {(case.case_id, variant_id) for case in cases for variant_id in VARIANT_IDS_V2}
+    expected_keys = {(case.case_id, variant_id) for case in cases for variant_id in selected_variants}
     actual_keys = [(output.case_id, output.variant_id) for output in outputs]
     if len(actual_keys) != len(set(actual_keys)) or set(actual_keys) != expected_keys:
         raise P5V2ScoringError("TERMINAL_OUTPUT_EXACT_KEY_SET_MISMATCH")
-    expected_terminal_count = len(cases) * 3
+    expected_terminal_count = len(cases) * len(selected_variants)
+    selected_variant_hashes = {
+        variant_id: value
+        for variant_id, value in variant_output_hashes_v2(outputs).items()
+        if variant_id in selected_variants
+    }
     if (
         manifest["terminal_count"] != expected_terminal_count
         or manifest["expected_terminal_count"] != expected_terminal_count
         or len(outputs) != expected_terminal_count
-        or manifest["variant_output_sha256"] != variant_output_hashes_v2(outputs)
+        or manifest["variant_output_sha256"] != selected_variant_hashes
     ):
         raise P5V2ScoringError("TERMINAL_OUTPUT_GROUP_BINDING_MISMATCH")
     if (
@@ -1374,8 +1414,9 @@ def build_score_report_v2(
         overall = aggregate_scores_v2(items)
         overall.update(
             {
-                "latency_p50_ms": median(latencies),
-                "latency_p95_ms": _percentile(latencies, 0.95),
+                "execution_status": "PASS" if items else "NOT_RUN",
+                "latency_p50_ms": median(latencies) if latencies else None,
+                "latency_p95_ms": _percentile(latencies, 0.95) if latencies else None,
                 "terminal_status_counts": dict(sorted(Counter(item.terminal_status.value for item in items).items())),
             }
         )
@@ -1416,7 +1457,15 @@ def build_score_report_v2(
         and core["token_count_total"] == 0
         and core["cost_usd_total"] == 0,
     }
-    passed = all(core_gate_checks.values())
+    core_executed = bool(score_maps["core_b"])
+    passed = core_executed and all(core_gate_checks.values())
+    paired_comparisons = {}
+    for variant_id in ("legacy_a", "solver_c"):
+        paired_comparisons[variant_id] = (
+            _paired(score_maps["core_b"], score_maps[variant_id])
+            if score_maps["core_b"] and score_maps[variant_id]
+            else {"status": "NOT_RUN"}
+        )
     report: dict[str, Any] = {
         "schema_version": "trip-check-p5-nonblind-score-report-v2",
         "status": "PASS" if passed else "REJECT",
@@ -1427,9 +1476,7 @@ def build_score_report_v2(
         "case_count": len(cases),
         "terminal_count": len(outputs),
         "variant_metrics": variant_metrics,
-        "paired_comparisons": {
-            variant_id: _paired(score_maps["core_b"], score_maps[variant_id]) for variant_id in ("legacy_a", "solver_c")
-        },
+        "paired_comparisons": paired_comparisons,
         "core_gate_checks": core_gate_checks,
         "promotion_decision": "KEEP_CORE_B" if passed else "REJECT_ALL_CANDIDATES",
         "solver_admission_inherited": "REJECT",

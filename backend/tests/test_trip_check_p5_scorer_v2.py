@@ -265,6 +265,7 @@ def _output(case: P5CaseV2, spec: P5VariantRunSpecV2) -> P5TerminalOutputV2:
             "wrong_city_or_poi_count": 0,
             "unknown_preserved": True,
             "candidate_receipt_coverage": 1.0,
+            "repair_adoption_attempted": True,
             "replay_side_effect_counts_equal": True,
             "p4_solver_admission": "REJECT",
         },
@@ -437,6 +438,45 @@ def test_v2_case_score_passes_complete_deterministic_receipts() -> None:
     assert score.concurrency_result == "PASS"
 
 
+def test_v2_postcheck_is_not_required_without_a_runtime_repair_adoption() -> None:
+    case = _case()
+    spec = _spec(case, "core_b", "e" * 64)
+    output = _output(case, spec)
+    projection = {**output.evaluation_projection, "repair_adoption_attempted": False}
+    output = output.model_copy(update={"evaluation_projection": projection, "postcheck": None})
+    semantic_hash = semantic_output_hash_v2(output)
+    output = output.model_copy(update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash})
+
+    score = score_case_v2(case, output, materialization=_materialization_row(case))
+
+    assert score.repair_postcheck == "NOT_REQUIRED"
+    assert "POSTCHECK_NOT_PROVEN" not in score.deterministic_failure_codes
+
+
+def test_v2_solver_reads_nested_runtime_strategy_receipt() -> None:
+    case = _case()
+    oracle = case.oracle.model_copy(update={"expected_strategy_outcome": "UNSAT"})
+    case = case.model_copy(update={"oracle": oracle})
+    spec = _spec(case, "solver_c", "e" * 64)
+    output = _output(case, spec)
+    native = {
+        **output.native_output,
+        "solver_strategy": {
+            "primary": {"status": "UNSAT"},
+            "effective": {"status": "UNSAT"},
+            "receipt": {"fallback_strategy_id": None},
+        },
+    }
+    output = output.model_copy(update={"native_output": native})
+    semantic_hash = semantic_output_hash_v2(output)
+    output = output.model_copy(update={"semantic_output_hash": semantic_hash, "replay_hash": semantic_hash})
+
+    score = score_case_v2(case, output, materialization=_materialization_row(case))
+
+    assert score.strategy_outcome_match is True
+    assert "STRATEGY_OUTCOME_MISMATCH" not in score.deterministic_failure_codes
+
+
 def test_v2_score_rejects_deterministic_unsupported_claim_and_nonzero_usage() -> None:
     case = _case()
     spec = _spec(case, "core_b", "e" * 64)
@@ -526,6 +566,67 @@ def test_v2_exact_three_variant_group_is_hash_bound(tmp_path: Path) -> None:
             dataset_manifest_path=dataset_path,
             require_formal=False,
         )
+
+
+def test_v2_partial_development_group_keeps_hash_checks_and_marks_missing_variant_not_run(
+    tmp_path: Path,
+) -> None:
+    run_dir, cases_path, materializations_path, dataset_path = _write_run_group(tmp_path)
+    terminal_path = run_dir / "terminal_outputs.jsonl"
+    outputs = [
+        P5TerminalOutputV2.model_validate(row)
+        for row in [json.loads(line) for line in terminal_path.read_text(encoding="utf-8").splitlines()]
+        if row["variant_id"] in {"core_b", "solver_c"}
+    ]
+    _write_jsonl(terminal_path, [item.model_dump(mode="json") for item in outputs])
+
+    artifact_index_path = run_dir / "artifact_index.json"
+    artifact_index = json.loads(artifact_index_path.read_text(encoding="utf-8"))
+    terminal_entry = next(item for item in artifact_index["artifacts"] if item["path"] == terminal_path.name)
+    terminal_entry["byte_size"] = terminal_path.stat().st_size
+    terminal_entry["sha256"] = hashlib.sha256(terminal_path.read_bytes()).hexdigest()
+    artifact_index["index_hash"] = digest(
+        {key: value for key, value in artifact_index.items() if key != "index_hash"}
+    )
+    artifact_index_path.write_text(json.dumps(artifact_index) + "\n", encoding="utf-8")
+
+    manifest_path = run_dir / "run_group_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    selected = ["core_b", "solver_c"]
+    manifest.update(
+        {
+            "variant_ids": selected,
+            "variant_count": len(selected),
+            "terminal_count": len(outputs),
+            "expected_terminal_count": len(outputs),
+            "run_specs": {key: manifest["run_specs"][key] for key in selected},
+            "terminal_outputs_file_sha256": hashlib.sha256(terminal_path.read_bytes()).hexdigest(),
+            "terminal_outputs_content_sha256": digest(
+                [item.model_dump(mode="json") for item in outputs]
+            ),
+            "variant_output_sha256": {
+                key: value
+                for key, value in variant_output_hashes_v2(outputs).items()
+                if key in selected
+            },
+            "replay_match_count": len(outputs),
+        }
+    )
+    manifest["manifest_hash"] = digest(
+        {key: value for key, value in manifest.items() if key != "manifest_hash"}
+    )
+    manifest_path.write_text(json.dumps(manifest) + "\n", encoding="utf-8")
+
+    report = score_run_group_v2(
+        run_dir=run_dir,
+        cases_path=cases_path,
+        materializations_path=materializations_path,
+        dataset_manifest_path=dataset_path,
+        require_formal=False,
+    )
+
+    assert report["variant_metrics"]["legacy_a"]["overall"]["execution_status"] == "NOT_RUN"
+    assert report["paired_comparisons"]["legacy_a"] == {"status": "NOT_RUN"}
 
 
 def test_v2_run_group_rejects_ocr_replay_count_drift(tmp_path: Path) -> None:
