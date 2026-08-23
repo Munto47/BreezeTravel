@@ -231,9 +231,17 @@ class _MaterializedCandidateProvider:
 
 
 class _MaterializedTripCheckExecutor(TripCheckExecutor):
-    def __init__(self, *, frozen_snapshot: EvidenceSnapshot, materialization_hash: str, **kwargs: Any):
+    def __init__(
+        self,
+        *,
+        frozen_snapshot: EvidenceSnapshot,
+        materialization_hash: str,
+        contract_version: str = "v2",
+        **kwargs: Any,
+    ):
         self._frozen_snapshot = frozen_snapshot
         self._materialization_hash = materialization_hash
+        self._contract_version = contract_version
         super().__init__(**kwargs)
 
     async def _collect_evidence(self, state):  # type: ignore[no-untyped-def]
@@ -241,14 +249,19 @@ class _MaterializedTripCheckExecutor(TripCheckExecutor):
         snapshot = await self.audit_repository.save_snapshot(self._frozen_snapshot)
         response_hash = sha256_canonical(snapshot.model_dump(mode="json"))
         receipt = SideEffectReceipt(
-            receipt_id=str(uuid5(NAMESPACE_URL, f"p5-v2:{run.run_id}:evidence")),
+            receipt_id=str(
+                uuid5(
+                    NAMESPACE_URL,
+                    f"p5-{self._contract_version}:{run.run_id}:evidence",
+                )
+            ),
             run_id=run.run_id,
             stage=TripCheckStage.COLLECT_EVIDENCE,
             side_effect_key=(f"trip-check:{run.run_id}:{TripCheckStage.COLLECT_EVIDENCE.value}:{run.config_hash}"),
             effect_type="P5_FROZEN_MATERIALIZED_EVIDENCE",
             request_hash=self._materialization_hash,
             response_hash=response_hash,
-            provider="trip-check-p5-controlled-provider-v2",
+            provider=f"trip-check-p5-controlled-provider-{self._contract_version}",
             status="SUCCEEDED",
             receipt={
                 "execution_mode": "fixture",
@@ -277,7 +290,7 @@ class _MaterializedRepairSearch:
         *,
         candidate_sets: list[dict[str, Any]],
         strategy: str,
-        case: P5CaseV2,
+        case: Any,
     ) -> None:
         self.delegate = delegate
         self.candidate_sets = candidate_sets
@@ -504,15 +517,19 @@ def _assert_frozen_ocr_receipt(actual: Any, expected: Mapping[str, Any], image_b
 
 
 async def _execute_product_harness(
-    case: P5CaseV2,
+    case: Any,
     materialization: Mapping[str, Any],
-    run_spec: P5VariantRunSpecV2,
+    run_spec: Any,
     *,
     strategy: str,
     ocr_engine: PaddleOcrEngine | None = None,
+    candidate_provider_factory: Any = _MaterializedCandidateProvider,
+    contract_version: str = "v2",
 ) -> _HarnessResult:
+    if contract_version not in {"v2", "v3"}:
+        raise ValueError("unsupported P5 product harness contract version")
     workspace_id = f"eval-workspace-{case.case_id}"
-    actor = "p5-v2-eval-runner"
+    actor = f"p5-{contract_version}-eval-runner"
     fault = str(case.runner_control.get("fault_profile_id", "none"))
     candidate_set_mode = str(case.runner_control.get("candidate_set_mode", "NOT_APPLICABLE"))
     itinerary_repository = InMemoryItineraryRepository()
@@ -534,7 +551,7 @@ async def _execute_product_harness(
         created_by=actor,
     )
     await itinerary_repository.create_workspace(workspace)
-    resolver = EntityResolver(_MaterializedCandidateProvider(materialization))
+    resolver = EntityResolver(candidate_provider_factory(materialization))
     import_service = ImportApplicationService(
         import_repository=import_repository,
         itinerary_repository=itinerary_repository,
@@ -549,7 +566,10 @@ async def _execute_product_harness(
         try:
             return next(frozen_stop_ids)
         except StopIteration:
-            return uuid5(NAMESPACE_URL, f"p5-v2:{case.case_id}:extra-stop")
+            return uuid5(
+                NAMESPACE_URL,
+                f"p5-{contract_version}:{case.case_id}:extra-stop",
+            )
 
     if case.input_kind == "TEXT":
         with patch("app.importing.parser.uuid4", side_effect=deterministic_stop_id):
@@ -564,7 +584,7 @@ async def _execute_product_harness(
     else:
         source_text, render_spec = _validate_product_input(case.product_input)
         image_bytes, _ = _render_image(source_text, render_spec, font_path=_font_path())
-        with tempfile.TemporaryDirectory(prefix="p5-v2-") as temp_root:
+        with tempfile.TemporaryDirectory(prefix=f"p5-{contract_version}-") as temp_root:
             temp_root_path = Path(temp_root)
             with patch("app.importing.parser.uuid4", side_effect=deterministic_stop_id):
                 result, _ = await ScreenshotImportService(
@@ -618,7 +638,7 @@ async def _execute_product_harness(
                 "fresh_model_inference": False,
                 "baseline_engine": result.ocr_receipts[0].engine,
                 "baseline_engine_version": result.ocr_receipts[0].engine_version,
-                "cache_implementation_version": "p5-evaluation-ocr-cache-v2",
+                "cache_implementation_version": f"p5-evaluation-ocr-cache-{contract_version}",
                 "cache_key_policy": "image_bytes_sha256",
                 "image_sha256": hashlib.sha256(image_bytes).hexdigest(),
                 "materialization_hash": materialization["materialization_hash"],
@@ -656,7 +676,7 @@ async def _execute_product_harness(
         return _HarnessResult(
             terminal_status=TerminalStatusV2.NEEDS_USER_RESOLUTION,
             native_output={
-                "schema_version": "trip-check-p5-native-output-v2",
+                "schema_version": f"trip-check-p5-native-output-{contract_version}",
                 "product_import": {
                     "status": itinerary_import.status.value,
                     "raw_stop_count": len(itinerary_import.raw_stops),
@@ -666,7 +686,7 @@ async def _execute_product_harness(
                 "solver_strategy": None,
             },
             evaluation_projection={
-                "schema_version": "trip-check-p5-evaluation-projection-v2",
+                "schema_version": f"trip-check-p5-evaluation-projection-{contract_version}",
                 "import_status": itinerary_import.status.value,
                 "requires_user_resolution": True,
                 "selected_place_ids": [],
@@ -731,6 +751,7 @@ async def _execute_product_harness(
     executor = _MaterializedTripCheckExecutor(
         frozen_snapshot=snapshot,
         materialization_hash=str(materialization["materialization_hash"]),
+        contract_version=contract_version,
         run_repository=run_repository,
         itinerary_repository=itinerary_repository,
         audit_repository=audit_repository,
@@ -790,7 +811,7 @@ async def _execute_product_harness(
         )
         post_report = await audit_repository.get_report(option.postcheck_report_id)
         postcheck = {
-            "schema_version": "trip-check-p5-postcheck-projection-v2",
+            "schema_version": f"trip-check-p5-postcheck-projection-{contract_version}",
             "report_id": digest(_stable_findings(post_report)),
             "overall_status": post_report.overall_status.value if post_report else "MISSING",
             "new_blocker_high_unknown_count": 0,
@@ -811,7 +832,7 @@ async def _execute_product_harness(
             run = reconciled
         post_report = await audit_repository.get_report(result.postcheck_report_id)
         postcheck = {
-            "schema_version": "trip-check-p5-postcheck-projection-v2",
+            "schema_version": f"trip-check-p5-postcheck-projection-{contract_version}",
             "report_id": digest(_stable_findings(post_report)),
             "overall_status": post_report.overall_status.value if post_report else "MISSING",
             "new_blocker_high_unknown_count": 0,
@@ -916,7 +937,7 @@ async def _execute_product_harness(
             else TerminalStatusV2.NEEDS_USER_RESOLUTION
         ),
         native_output={
-            "schema_version": "trip-check-p5-native-output-v2",
+            "schema_version": f"trip-check-p5-native-output-{contract_version}",
             "product_import": {
                 "status": itinerary_import.status.value,
                 "raw_stop_count": len(itinerary_import.raw_stops),
@@ -926,7 +947,7 @@ async def _execute_product_harness(
             "solver_strategy": stable_strategy,
         },
         evaluation_projection={
-            "schema_version": "trip-check-p5-evaluation-projection-v2",
+            "schema_version": f"trip-check-p5-evaluation-projection-{contract_version}",
             "import_status": itinerary_import.status.value,
             "requires_user_resolution": candidate_evidence_blocked,
             "selected_place_ids": [] if candidate_evidence_blocked else selected_place_ids,
@@ -967,23 +988,40 @@ class LegacyAdapterV2:
     adapter_version = "legacy-a-v2"
     repair_strategy = "legacy_native_only"
 
+    def __init__(
+        self,
+        *,
+        materialization_validator: Any = validate_materialization_v2,
+        contract_version: str = "v2",
+    ) -> None:
+        if contract_version not in {"v2", "v3"}:
+            raise ValueError("unsupported P5 legacy adapter contract version")
+        self._materialization_validator = materialization_validator
+        self._contract_version = contract_version
+
     async def execute(
         self, case: P5CaseV2, materialization: Mapping[str, Any], run_spec: P5VariantRunSpecV2
     ) -> _HarnessResult:
+        contract_version = getattr(self, "_contract_version", "v2")
+        materialization_validator = getattr(
+            self, "_materialization_validator", validate_materialization_v2
+        )
         if case.input_kind == "SYNTHETIC_SCREENSHOT":
             # This branch intentionally executes before materialization validation:
             # Legacy must never observe source_text or any OCR-derived field.
             return _HarnessResult(
                 terminal_status=TerminalStatusV2.UNSUPPORTED_CAPABILITY,
                 native_output={
-                    "schema_version": "trip-check-p5-native-output-v2",
+                    "schema_version": f"trip-check-p5-native-output-{contract_version}",
                     "product_import": None,
                     "run": None,
                     "advice": None,
                     "solver_strategy": None,
                 },
                 evaluation_projection={
-                    "schema_version": "trip-check-p5-evaluation-projection-v2",
+                    "schema_version": (
+                        f"trip-check-p5-evaluation-projection-{contract_version}"
+                    ),
                     "import_status": "UNSUPPORTED",
                     "requires_user_resolution": False,
                     "selected_place_ids": [],
@@ -999,7 +1037,7 @@ class LegacyAdapterV2:
                 receipts=[{"type": "legacy_boundary", "screenshot_ocr_access": "DENIED"}],
                 raw_artifact={},
             )
-        validate_materialization_v2(case, materialization)
+        materialization_validator(case, materialization)
         legacy_case = {
             "case_id": case.case_id,
             "split": case.split,
@@ -1083,14 +1121,16 @@ class LegacyAdapterV2:
         return _HarnessResult(
             terminal_status=TerminalStatusV2(legacy_result.terminal_status.value),
             native_output={
-                "schema_version": "trip-check-p5-native-output-v2",
+                "schema_version": f"trip-check-p5-native-output-{contract_version}",
                 "product_import": None,
                 "run": legacy_result.native_output,
                 "advice": None,
                 "solver_strategy": None,
             },
             evaluation_projection={
-                "schema_version": "trip-check-p5-evaluation-projection-v2",
+                "schema_version": (
+                    f"trip-check-p5-evaluation-projection-{contract_version}"
+                ),
                 "import_status": "LEGACY_NATIVE_TEXT",
                 "requires_user_resolution": legacy_result.terminal_status.value == "NEEDS_USER_RESOLUTION",
                 "selected_place_ids": legacy_result.evaluation_projection.get("selected_place_ids", []),
