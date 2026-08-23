@@ -50,6 +50,7 @@ BLIND_INPUT_PATH_V2 = P5_ROOT / "frozen_blind.v2.inputs.jsonl"
 NONBLIND_MATERIALIZATIONS_PATH_V2 = P5_ROOT / "materializations_nonblind_v2.jsonl"
 BLIND_MATERIALIZATIONS_PATH_V2 = P5_ROOT / "frozen_blind.v2.materializations.jsonl"
 MANIFEST_PATH_V2 = P5_ROOT / "dataset_v2.manifest.json"
+BLIND_SEAL_PATH_V2 = P5_ROOT / "sealed" / "frozen_blind.v2.seal.json"
 RUN_SPEC_TEMPLATE_PATH_V2 = P5_ROOT / "run_spec_template_v2.json"
 JUDGE_RUBRIC_PATH_V2 = P5_ROOT / "judge_rubric_v2.json"
 
@@ -855,6 +856,7 @@ def build_manifest_v2(
     nonblind_materializations: list[dict[str, Any]],
     blind_materializations: list[dict[str, Any]],
     ocr_mode: OcrMode,
+    sealing_commitment: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     all_cases = [*nonblind_cases, *blind_cases]
     manifest: dict[str, Any] = {
@@ -934,6 +936,8 @@ def build_manifest_v2(
             "human_evidence": "NOT_RUN",
         },
     }
+    if sealing_commitment is not None:
+        manifest["sealing_commitment"] = dict(sealing_commitment)
     manifest["manifest_hash"] = digest(manifest)
     return manifest
 
@@ -946,6 +950,14 @@ def write_dataset_v2(
     blind_materializations: list[dict[str, Any]],
     ocr_mode: OcrMode,
 ) -> dict[str, Any]:
+    sealing_commitment: Mapping[str, Any] | None = None
+    if MANIFEST_PATH_V2.is_file():
+        current_manifest = json.loads(MANIFEST_PATH_V2.read_text(encoding="utf-8"))
+        current_commitment = current_manifest.get("sealing_commitment")
+        if current_commitment is not None:
+            if not isinstance(current_commitment, dict):
+                raise ValueError("P5_V2_SEALING_COMMITMENT_INVALID")
+            sealing_commitment = current_commitment
     write_jsonl(NONBLIND_PATH_V2, nonblind_cases)
     write_jsonl(BLIND_INPUT_PATH_V2, blind_cases)
     write_jsonl(NONBLIND_MATERIALIZATIONS_PATH_V2, nonblind_materializations)
@@ -956,6 +968,7 @@ def write_dataset_v2(
         nonblind_materializations=nonblind_materializations,
         blind_materializations=blind_materializations,
         ocr_mode=ocr_mode,
+        sealing_commitment=sealing_commitment,
     )
     write_json(MANIFEST_PATH_V2, manifest)
     return manifest
@@ -964,6 +977,7 @@ def write_dataset_v2(
 __all__ = [
     "BLIND_INPUT_PATH_V2",
     "BLIND_MATERIALIZATIONS_PATH_V2",
+    "BLIND_SEAL_PATH_V2",
     "FAULT_PROFILES",
     "JUDGE_RUBRIC_PATH_V2",
     "MANIFEST_PATH_V2",
