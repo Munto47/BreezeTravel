@@ -30,6 +30,7 @@ from evals.trip_check_v1.p5.data_contract import digest, file_sha256
 from evals.trip_check_v1.p5.data_contract_v2 import JUDGE_RUBRIC_PATH_V2
 from evals.trip_check_v1.p5.data_contract_v3 import (
     BLIND_SEAL_PATH_V3,
+    CONTRACTS_PATH_V3,
     MANIFEST_PATH_V3,
     NONBLIND_MATERIALIZATIONS_PATH_V3,
     NONBLIND_PATH_V3,
@@ -178,6 +179,13 @@ def _sha256_file(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as exc:
         raise P5V3ScoringError("ARTIFACT_UNREADABLE") from exc
+
+
+def _canonical_text_sha256(path: Path) -> str:
+    try:
+        return hashlib.sha256(path.read_text(encoding="utf-8").encode("utf-8")).hexdigest()
+    except (OSError, UnicodeError) as exc:
+        raise P5V3ScoringError("DATASET_CONTRACT_UNREADABLE") from exc
 
 
 def _contains_symlink_or_junction(path: Path) -> bool:
@@ -790,8 +798,8 @@ def _validate_dataset_v3(
         } or (
             contract_hashes.get("contracts_v3_path")
             != "evals/trip_check_v1/p5/contracts_v3.py"
-            or not isinstance(contract_hashes.get("contracts_v3_sha256"), str)
-            or len(contract_hashes["contracts_v3_sha256"]) != 64
+            or contract_hashes.get("contracts_v3_sha256")
+            != _canonical_text_sha256(CONTRACTS_PATH_V3)
         ):
             raise P5V3ScoringError("DATASET_CONTRACT_HASH_BINDING_INVALID")
     return dataset, cases, materialization_rows

@@ -191,18 +191,20 @@ def test_user_resolution_requires_terminal_candidate_receipts() -> None:
     case, materialization, terminal = _execute_core("p5.pilot.bj.002")
     assert terminal.evaluation_projection["selected_place_ids"] == []
     score = score_case_v3(case, terminal, materialization=materialization)
-    assert score.candidate_receipt_coverage == "FAIL"
+    assert score.candidate_receipt_coverage == "PASS"
 
     projection = deepcopy(terminal.evaluation_projection)
     projection["candidate_receipt_coverage"] = 1.0
-    fixed = _rehash_terminal(
+    missing_terminal_receipts = _rehash_terminal(
         terminal,
         evaluation_projection=projection,
-        receipts=materialization["receipts"],
+        receipts=[],
     )
-    fixed_score = score_case_v3(case, fixed, materialization=materialization)
-    assert fixed_score.candidate_receipt_coverage == "PASS"
-    assert "CANDIDATE_RECEIPT_VIOLATION" not in fixed_score.deterministic_failure_codes
+    missing_score = score_case_v3(
+        case, missing_terminal_receipts, materialization=materialization
+    )
+    assert missing_score.candidate_receipt_coverage == "FAIL"
+    assert "CANDIDATE_RECEIPT_VIOLATION" in missing_score.deterministic_failure_codes
 
 
 def test_development_run_is_strictly_validated_but_cannot_pass_gate(
@@ -226,6 +228,17 @@ def test_scorer_never_loads_frozen_blind_rows(
 
     monkeypatch.setattr(scorer_v3, "_load_jsonl", guarded)
     validate_run_group_v3(run_dir=development_run, require_formal=False)
+
+
+def test_formal_dataset_rejects_contract_file_drift(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    drifted = tmp_path / "contracts_v3.py"
+    drifted.write_text("# drifted contract\n", encoding="utf-8")
+    monkeypatch.setattr(scorer_v3, "CONTRACTS_PATH_V3", drifted)
+
+    with pytest.raises(P5V3ScoringError, match="DATASET_CONTRACT_HASH_BINDING_INVALID"):
+        scorer_v3._validate_dataset_v3(require_formal=True)
 
 
 def test_manifest_extra_field_and_blind_lane_fail_before_scoring(
