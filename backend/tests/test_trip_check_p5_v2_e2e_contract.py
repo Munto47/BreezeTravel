@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import ast
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import Counter, defaultdict
@@ -321,15 +323,12 @@ def test_pending_seal_state_is_exact_and_not_formal_evidence() -> None:
     ("module", "required_options"),
     (
         (
-            "scripts.build_trip_check_p5_blind_bundle_v2",
-            ("--repo-root", "--external-output"),
-        ),
-        (
-            "scripts.review_trip_check_p5_blind_bundle_v2",
+            "scripts.validate_trip_check_p5_external_custody_v2",
             (
                 "--repo-root",
                 "--external-bundle",
-                "--external-receipt",
+                "--external-review-receipt",
+                "--labels-canonical-sha256",
                 "--candidate-subject-commit",
             ),
         ),
@@ -483,13 +482,15 @@ def test_tracked_repository_contains_no_blind_oracle_answer_path() -> None:
         "_CONCURRENCY_BY_FAULT",
         "derive_blind_oracle_v2",
         "derive_all_blind_labels_v2",
+        "build_blind_label_bundle_v2",
+        "review_blind_label_bundle_v2",
     )
     tracked = subprocess.run(
         [
             "git",
             "ls-files",
             "backend/evals/trip_check_v1/p5/*.py",
-            "backend/scripts/*trip_check_p5*blind*v2.py",
+            "backend/scripts/*trip_check_p5*v2.py",
         ],
         cwd=REPO_ROOT,
         capture_output=True,
@@ -499,7 +500,79 @@ def test_tracked_repository_contains_no_blind_oracle_answer_path() -> None:
         check=True,
     ).stdout.splitlines()
     findings: list[str] = []
+    fault_profiles = {
+        "advice_completeness",
+        "empty_candidate_set",
+        "candidate_receipt_missing",
+        "route_conflict",
+        "duplicate_apply",
+        "concurrent_apply",
+        "solver_unsat",
+        "solver_timeout",
+        "solver_fallback",
+    }
+    oracle_markers = {
+        "required_reason_codes",
+        "expected_strategy_outcome",
+        "candidate_receipt_mode",
+        "concurrency_expectation",
+        "unknown_must_be_preserved",
+        "specific_place_allowed",
+    }
+
+    def string_literals(node: ast.AST) -> set[str]:
+        return {
+            child.value
+            for child in ast.walk(node)
+            if isinstance(child, ast.Constant) and isinstance(child.value, str)
+        }
+
     for relative in tracked:
-        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+        path = REPO_ROOT / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
         findings.extend(f"{relative}:{symbol}" for symbol in forbidden if symbol in text)
+        tree = ast.parse(text, filename=relative)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Dict):
+                literals = string_literals(node)
+                fault_keys = literals.intersection(fault_profiles)
+                if len(fault_keys) >= 2 and (
+                    literals.intersection(oracle_markers)
+                    or any(value.startswith("P4_") for value in literals)
+                    or literals.intersection(
+                        {
+                            "FEASIBLE",
+                            "UNSAT",
+                            "TIMEOUT",
+                            "FALLBACK",
+                            "REQUIRED",
+                            "FORBIDDEN",
+                            "IDEMPOTENT_REPLAY",
+                            "SINGLE_WINNER",
+                        }
+                    )
+                ):
+                    findings.append(f"{relative}:{node.lineno}:fault-to-oracle-map")
+                blind_case_keys = {
+                    value for value in literals if re.fullmatch(r"p5\.blind\.(?:bj|sh|hz)\.\d{3}", value)
+                }
+                if blind_case_keys and literals.intersection(oracle_markers):
+                    findings.append(f"{relative}:{node.lineno}:per-case-reversible-oracle-map")
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                lowered = node.name.lower()
+                producer = lowered.startswith(("derive", "generate", "create", "build", "recompute", "review"))
+                answer_artifact = "blind" in lowered and any(
+                    marker in lowered for marker in ("oracle", "label", "bundle")
+                )
+                if producer and answer_artifact:
+                    findings.append(f"{relative}:{node.lineno}:blind-answer-producer:{node.name}")
+                    parameters = {argument.arg.lower() for argument in node.args.args}
+                    if any(
+                        marker in parameter
+                        for parameter in parameters
+                        for marker in ("candidate_output", "terminal_output", "run_dir", "run_manifest")
+                    ):
+                        findings.append(f"{relative}:{node.lineno}:candidate-output-dependent-answer")
     assert findings == [], "P5_BLIND_ORACLE_ANSWER_PATH_IN_REPOSITORY:\n" + "\n".join(findings)
