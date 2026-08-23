@@ -7,7 +7,12 @@ from pydantic import ValidationError
 
 from evals.trip_check_v1.p5.contracts_v2 import P5OracleV2
 from evals.trip_check_v1.p5.contracts_v3 import (
+    GateStatusV3,
+    P5ArtifactIndexV3,
     P5CaseV3,
+    P5CaseResultV3,
+    P5FailureRecordV3,
+    P5GateManifestV3,
     P5MaterializationBindingV3,
     P5OcrSourceBindingV3,
     P5TerminalOutputV3,
@@ -331,6 +336,116 @@ def test_v3_terminal_contract_rejects_v2_schema_extra_and_negative_usage() -> No
     ):
         with pytest.raises(ValidationError):
             P5TerminalOutputV3.model_validate({**_terminal_payload(), **update})
+
+
+def test_v3_case_result_binds_terminal_and_revision_lineage() -> None:
+    payload = {
+        "schema_version": "trip-check-p5-case-result-v3",
+        "case_result_id": "result-p5.dev.bj.001-core-b",
+        "run_id": "run-nonblind-core-b",
+        "terminal_output": P5TerminalOutputV3.model_validate(_terminal_payload()).model_dump(
+            mode="json"
+        ),
+        "revision_lineage": {
+            "input_revision": 1,
+            "adopted_revision": 2,
+            "postcheck_revision": 2,
+        },
+    }
+    payload["case_result_hash"] = digest(payload)
+
+    result = P5CaseResultV3.model_validate(payload)
+    assert result.terminal_output.terminal_status is TerminalStatusV3.SUCCEEDED
+
+    tampered = deepcopy(payload)
+    tampered["revision_lineage"]["postcheck_revision"] = 3  # type: ignore[index]
+    with pytest.raises(ValidationError, match="case_result_hash"):
+        P5CaseResultV3.model_validate(tampered)
+
+
+def test_v3_failure_record_binds_first_attempt_and_retry_policy() -> None:
+    payload = {
+        "schema_version": "trip-check-p5-failure-record-v3",
+        "run_id": "run-nonblind-core-b",
+        "case_id": "p5.dev.bj.001",
+        "lane": "nonblind",
+        "variant_id": "core_b",
+        "failure_status": "REJECT",
+        "failure_category": "REPLAY_HASH_MISMATCH",
+        "terminal_status": "ERROR",
+        "first_attempt_receipt_hash": "1" * 64,
+        "reproduction_command": "python scripts/run_trip_check_p5_v3_eval.py --case-id p5.dev.bj.001",
+        "retry_allowed": False,
+        "retry_count": 0,
+    }
+    payload["failure_record_hash"] = digest(payload)
+    assert P5FailureRecordV3.model_validate(payload).failure_status == "REJECT"
+
+    retried = {**payload, "retry_count": 1}
+    retried["failure_record_hash"] = digest(
+        {key: value for key, value in retried.items() if key != "failure_record_hash"}
+    )
+    with pytest.raises(ValidationError, match="retry_count"):
+        P5FailureRecordV3.model_validate(retried)
+
+
+def test_v3_artifact_index_requires_unique_relative_hash_bound_entries() -> None:
+    entry = {
+        "path": "evals/trip_check_v1/p5/results/run.jsonl",
+        "byte_size": 123,
+        "sha256": "2" * 64,
+        "generated_by": "run_trip_check_p5_v3_eval.py",
+        "generated_at": "2026-08-24T05:30:00Z",
+    }
+    payload = {
+        "schema_version": "trip-check-p5-artifact-index-v3",
+        "subject_commit": "3" * 40,
+        "dirty_tree": False,
+        "entries": [entry],
+    }
+    payload["artifact_index_hash"] = digest(payload)
+    assert P5ArtifactIndexV3.model_validate(payload).entries[0].byte_size == 123
+
+    duplicate = {**payload, "entries": [entry, entry]}
+    duplicate["artifact_index_hash"] = digest(
+        {key: value for key, value in duplicate.items() if key != "artifact_index_hash"}
+    )
+    with pytest.raises(ValidationError, match="paths must be unique"):
+        P5ArtifactIndexV3.model_validate(duplicate)
+
+
+def test_v3_gate_manifest_pass_requires_all_gates_and_nonrelease_boundary() -> None:
+    gate = {
+        "gate_id": "P5-R1-NONBLIND",
+        "status": "PASS",
+        "hard_thresholds": {"terminal_rows": 810, "replay_match_rate": 1.0},
+        "evidence_boundary": {"controlled_fixture": "PASS", "human_evidence": "NOT_RUN"},
+        "artifact_hashes": ["4" * 64],
+        "notes": [],
+    }
+    payload = {
+        "schema_version": "trip-check-p5-gate-manifest-v3",
+        "subject_commit": "5" * 40,
+        "dirty_tree": False,
+        "status": "PASS",
+        "gates": [gate],
+        "artifact_index_hash": "6" * 64,
+        "dataset_manifest_hash": "7" * 64,
+        "human_calibration_performed": False,
+        "human_evidence": "NOT_RUN",
+        "production_release": "NOT_RUN",
+        "main_merge": "NOT_RUN",
+    }
+    payload["gate_manifest_hash"] = digest(payload)
+    assert P5GateManifestV3.model_validate(payload).status is GateStatusV3.PASS
+
+    contradictory = deepcopy(payload)
+    contradictory["gates"][0]["status"] = "NOT_RUN"  # type: ignore[index]
+    contradictory["gate_manifest_hash"] = digest(
+        {key: value for key, value in contradictory.items() if key != "gate_manifest_hash"}
+    )
+    with pytest.raises(ValidationError, match="evidence boundary"):
+        P5GateManifestV3.model_validate(contradictory)
 
 
 @pytest.mark.parametrize(

@@ -23,6 +23,7 @@ from evals.trip_check_v1.p5.data_contract import (
     write_json,
     write_jsonl,
 )
+from evals.trip_check_v1.p5.contracts_v3 import P5CaseV3
 from evals.trip_check_v1.p5.data_contract_v2 import (
     BLIND_INPUT_PATH_V2,
     BLIND_MATERIALIZATIONS_PATH_V2,
@@ -365,7 +366,7 @@ def build_case_v3(
         }
     )
     case["case_hash"] = digest(case)
-    return case
+    return P5CaseV3.model_validate(case).model_dump(mode="json", exclude_none=True)
 
 
 def _label_free_case(case: Mapping[str, Any]) -> dict[str, Any]:
