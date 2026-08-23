@@ -389,7 +389,7 @@
       "text_blocks": [
         {"block_id": "b01", "role": "heading", "text": "杭州五人三天草案（合成测试）"},
         {"block_id": "b02", "role": "body", "text": "10月4日早班到杭州萧山国际机场，住宿写作“湖滨附近连锁酒店”，品牌尚未确认。"},
-        {"block_id": "b03", "role": "body", "text": "第一天西湖游船；第二天07:30灵隐寺，公交去中国茶叶博物馆；第三天西溪湿地，返程考虑驾车去机场。"},
+        {"block_id": "b03", "role": "body", "text": "第一天西湖游船；第二天07:30灵隐寺，公交去中国茶叶博物馆；第三天西溪湿地国家公园，返程考虑驾车去机场。"},
         {"block_id": "b04", "role": "tip", "text": "10月7日返程，有18:05和20:05两张备选票。偏好安静景点；有幼儿，需要午睡两小时。"}
       ],
       "render_profile": {"rotation_deg": -0.75, "scale": 0.77, "compression_quality": 61, "crop": {"top": 10, "right": 16, "bottom": 20, "left": 14}, "blur_radius": 0.68, "noise_sigma": 3.1, "occlusions": [{"x": 0.12, "y": 0.63, "width": 0.16, "height": 0.018, "opacity": 0.21}], "chat_noise": ["AI整理", "⚠ 待确认"]},
