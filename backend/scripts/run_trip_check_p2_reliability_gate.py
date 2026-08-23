@@ -37,7 +37,11 @@ def _sha256(path: Path) -> str:
 
 def _write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _git(*args: str) -> str:
@@ -104,7 +108,7 @@ def _run_gate(
         timed_out = True
     finished = datetime.now(timezone.utc)
     log_path = log_dir / f"{name}.log"
-    log_path.write_text(_normalized_log(output), encoding="utf-8")
+    log_path.write_text(_normalized_log(output), encoding="utf-8", newline="\n")
     return {
         "name": name,
         "status": "PASS" if exit_code == 0 else "FAIL",
@@ -131,8 +135,7 @@ def _safe_reset_output(output: Path) -> None:
 def _sanitize_text_file(path: Path) -> None:
     value = path.read_text(encoding="utf-8")
     portable = _portable_text(value)
-    if portable != value:
-        path.write_text(portable, encoding="utf-8")
+    path.write_text(portable, encoding="utf-8", newline="\n")
 
 
 def _scan(*, baseline: str, subject: str, output: Path) -> dict[str, Any]:

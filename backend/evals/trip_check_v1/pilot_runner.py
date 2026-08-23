@@ -445,7 +445,11 @@ async def execute_case(case: dict[str, Any], *, commit_sha: str, dataset_hash: s
 
 def _write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _sha256_file(path: Path) -> str:
@@ -502,6 +506,7 @@ async def run_pilot(
                 for item in results
             ),
             encoding="utf-8",
+            newline="\n",
         )
         _write_json(output_dir / "metrics.json", metrics)
         for item in results:

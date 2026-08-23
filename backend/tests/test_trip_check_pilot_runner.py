@@ -31,3 +31,5 @@ def test_p1_pilot_runner_executes_all_cases_and_writes_bound_artifacts(tmp_path)
     assert manifest["commit_sha"] == "05f40bf"
     assert manifest["evidence_class"] == "CONTROLLED_FIXTURE"
     assert manifest["human_evidence"] is False
+    assert b"\r\n" not in (output / "pilot_manifest.json").read_bytes()
+    assert b"\r\n" not in (output / "results.jsonl").read_bytes()

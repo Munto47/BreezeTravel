@@ -89,7 +89,11 @@ def _admin_dsn() -> str:
 
 def _json_dump(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _jsonl_dump(path: Path, values: list[Any]) -> None:
@@ -102,7 +106,11 @@ def _jsonl_dump(path: Path, values: list[Any]) -> None:
         )
         for item in values
     ]
-    path.write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+    path.write_text(
+        "\n".join(lines) + ("\n" if lines else ""),
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def _sha256(path: Path) -> str:

@@ -7,6 +7,7 @@ import pytest
 from evals.trip_check_v1.reliability_runner import (
     CANONICAL_CASES,
     FORBIDDEN_TRACE_KEYS,
+    _json_dump,
     run_reliability_matrix,
 )
 
@@ -28,6 +29,12 @@ def test_reliability_matrix_contract_is_fixed_and_redacted():
         "provider_raw_response",
         "user_id",
     } <= FORBIDDEN_TRACE_KEYS
+
+
+def test_reliability_json_artifacts_are_lf_normalized(tmp_path):
+    artifact = tmp_path / "metrics.json"
+    _json_dump(artifact, {"status": "PASS"})
+    assert b"\r\n" not in artifact.read_bytes()
 
 
 @pytest.mark.integration
