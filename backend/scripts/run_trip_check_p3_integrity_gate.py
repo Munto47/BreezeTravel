@@ -63,6 +63,10 @@ def _portable(value: str) -> str:
     return result
 
 
+def _normalized_log(value: str) -> str:
+    return "\n".join(line.rstrip() for line in _portable(value).splitlines()).rstrip() + "\n"
+
+
 def _safe_reset_output(output: Path) -> None:
     if output.resolve() != DEFAULT_OUTPUT.resolve():
         raise ValueError(f"P3 output must be exactly {DEFAULT_OUTPUT.resolve()}")
@@ -102,7 +106,7 @@ def _run(
         timed_out = True
     finished = datetime.now(timezone.utc)
     log_path = log_dir / f"{name}.log"
-    log_path.write_text(_portable(output).rstrip() + "\n", encoding="utf-8", newline="\n")
+    log_path.write_text(_normalized_log(output), encoding="utf-8", newline="\n")
     return {
         "name": name,
         "status": "PASS" if code == 0 else "FAIL",

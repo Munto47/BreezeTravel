@@ -7,6 +7,7 @@ import pytest
 from scripts.run_trip_check_p3_integrity_gate import (
     DEFAULT_OUTPUT,
     SECRET_PATTERNS,
+    _normalized_log,
     _real_ocr_evidence,
     _safe_reset_output,
     _write_json,
@@ -53,3 +54,9 @@ def test_private_key_scan_requires_an_actual_pem_body():
         + "A" * 80
         + "\n-----END PRIVATE KEY-----"
     )
+
+
+def test_gate_logs_are_portable_lf_and_strip_progress_whitespace():
+    value = "one  \r\nD:\\munto\\code\\claudeProject\\agentTravel\\frontend  \r\n"
+
+    assert _normalized_log(value) == "one\n<repo>\\frontend\n"
