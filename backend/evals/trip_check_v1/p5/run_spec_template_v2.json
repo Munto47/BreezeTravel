@@ -1,0 +1,50 @@
+{
+  "allowed_variant_differences": [
+    "variant_id",
+    "adapter_version",
+    "repair_strategy"
+  ],
+  "budget": {
+    "max_cost_usd": 0,
+    "max_provider_queries": 0,
+    "max_retries": 1,
+    "max_tokens": 0,
+    "timeout_seconds": 30
+  },
+  "evidence_policy_version": "trip-check-p5-controlled-evidence-v2",
+  "execution_mode": "controlled_snapshot",
+  "fault_registry_version": "trip-check-p5-fault-registry-v2",
+  "ocr_engine": {
+    "name": "paddleocr",
+    "version": "3.7.0"
+  },
+  "output_schema_version": "trip-check-p5-terminal-output-v2",
+  "provider_snapshot_id": "trip-check-p5-controlled-snapshot-v2",
+  "random_seed": 20260823,
+  "renderer": {
+    "name": "pillow-p5-synthetic-screenshot",
+    "version": "2.0.0"
+  },
+  "replay_hash_policy": "p5-semantic-projection-v2",
+  "schema_version": "trip-check-p5-run-spec-v2",
+  "score_after_all_variants_sealed": true,
+  "variant_ids": [
+    "legacy_a",
+    "core_b",
+    "solver_c"
+  ],
+  "variant_specs": {
+    "core_b": {
+      "adapter_version": "core-b-v2",
+      "repair_strategy": "bounded_repair_v1"
+    },
+    "legacy_a": {
+      "adapter_version": "legacy-a-v2",
+      "repair_strategy": "legacy_native_only"
+    },
+    "solver_c": {
+      "adapter_version": "solver-c-v2",
+      "repair_strategy": "cp_sat_v1"
+    }
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "contract_hashes": {
+    "judge_rubric_sha256": "0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b",
+    "run_spec_template_sha256": "83e124326e782c8d0765f43ea653929a1e8fe85896701a002e03b5ad196cf803"
+  },
+  "counts": {
+    "by_city": {
+      "上海": 120,
+      "北京": 120,
+      "杭州": 120
+    },
+    "by_split": {
+      "dev": 180,
+      "frozen_blind": 90,
+      "pilot": 18,
+      "regression": 72
+    },
+    "screenshots_by_split": {
+      "dev": 90,
+      "frozen_blind": 45,
+      "regression": 36
+    },
+    "total": 360
+  },
+  "dataset_id": "trip-check-p5-360-v2",
+  "evidence_boundary": {
+    "actual_ocr": "NOT_RUN",
+    "controlled_fixture": "MATERIALIZED",
+    "human_evidence": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "public_e2e": "NOT_RUN"
+  },
+  "files": {
+    "blind_cases": {
+      "content_sha256": "ef63c085a508e034b7d5ee3ca18cdd3504fca3dd8fb7816c36770e5038226440",
+      "file_sha256": "924380e2f6c910dcb056107af36ba01a55cbab37de0036722184c4b9147b52d4",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v2.inputs.jsonl",
+      "row_count": 90
+    },
+    "blind_materializations": {
+      "content_sha256": "1325b21a5c7c880132ec98288a7ecb4def987d70f4dff027d71ba4ccd09fb279",
+      "file_sha256": "b9f8b54b875b320a78cac4b231647dd726a8516d7ad253c71e6e21ab2a651f6d",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v2.materializations.jsonl",
+      "row_count": 90
+    },
+    "nonblind_cases": {
+      "content_sha256": "d7161055e7938340093a31609ff698de8858721d53abf6ff795131d7f52e5606",
+      "file_sha256": "2475534686af918e25a192079bbbd6bc518dd91b1dd4385a0e83bc2febda3e26",
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v2.jsonl",
+      "row_count": 270
+    },
+    "nonblind_materializations": {
+      "content_sha256": "cc00b26960f66abbaf05e560e394188424ec92cd1ce72f2d5cc1f482ff45fea6",
+      "file_sha256": "569320d6cf674f5bd856916400a54f9d790bb022655d818e4822748ce298ad55",
+      "path": "evals/trip_check_v1/p5/materializations_nonblind_v2.jsonl",
+      "row_count": 270
+    }
+  },
+  "frozen": false,
+  "generation": {
+    "builder_version": "p5-dataset-builder-v2",
+    "formal_validation_eligible": false,
+    "ocr_mode": "development"
+  },
+  "hash_policy_version": "p5-canonical-json-nfc-lf-v2",
+  "lanes": {
+    "frozen_blind": {
+      "case_count": 90,
+      "case_set_hash": "fd7b8dfe53d629d4551bf65fe5c822fe40270b94f8ec62f1f5adfc1a447de7ca",
+      "label_access": "isolated_scorer_only",
+      "label_payload_present": false,
+      "label_storage": "external_bundle_only",
+      "materialization_count": 90,
+      "materialization_set_hash": "6baea9054dfe177ae3cd38cbb976dded651c4e28832081d63f9895651ac7fd1c"
+    },
+    "nonblind": {
+      "case_count": 270,
+      "case_set_hash": "f0d0e25842fffc1f9717c7117ae3bda18cadb3dbfb73ca76d55c92d4d6c95fd5",
+      "materialization_count": 270,
+      "materialization_set_hash": "c96b8dbf0cd4c0b7c1d6d6dd2e551324ed24c10f4d1529c75643a591d33a9fb0"
+    }
+  },
+  "legacy_overlap_debt": {
+    "p5_v2_cross_split_overlap_allowed": 0,
+    "regression_fixture_hashes_overlapping_dev": 72,
+    "regression_oracle_hashes_overlapping_dev": 72,
+    "status": "RECORDED_NOT_USED_AS_P5_ISOLATION_PROOF"
+  },
+  "manifest_hash": "2a60041793af15061d319b77cefe6ec2d97aab7e5299cedd7b79128a45554a19",
+  "schema_version": "trip-check-p5-dataset-manifest-v2",
+  "source_artifacts": {
+    "p4_dev": {
+      "file_sha256": "2020bebc84d42320e6e75a2168b06e8a36a7fb8b7b2a5b69ef273cf89d32a74b",
+      "path": "evals/trip_check_v1/p4/dev_v1.jsonl"
+    },
+    "p4_manifest": {
+      "file_sha256": "a6fb6c259b1a1ab7461cb23eff3e35915239fbf68adb1b384c3c8804f84e8a45",
+      "path": "evals/trip_check_v1/p4/dataset_v1.manifest.json"
+    },
+    "p4_regression": {
+      "file_sha256": "8862b098e9951c71ccdfea52a55079f05de11019d090d4b3b4e8519507e4b976",
+      "path": "evals/trip_check_v1/p4/regression_v1.jsonl"
+    },
+    "pilot": {
+      "file_sha256": "b6d475504b12ee254c8cbe2202becd9b8795d67bcad72a11b2148716b3df9452",
+      "path": "evals/trip_check_v1/pilot.jsonl"
+    }
+  }
+}
