@@ -23,6 +23,7 @@ HIGH_CONFIDENCE_SECRET_PATTERNS = {
     "github_token": re.compile(r"gh[opsu]_[A-Za-z0-9]{20,}"),
     "aws_access_key": re.compile(r"AKIA[0-9A-Z]{16}"),
     "private_key": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
+    "windows_user_profile": re.compile(r"[A-Za-z]:\\Users\\[^\\\s]+", re.IGNORECASE),
 }
 
 
@@ -42,6 +43,40 @@ def _git(*args: str) -> str:
         text=True,
         encoding="utf-8",
     ).strip()
+
+
+def _portable_text(value: str) -> str:
+    replacements = (
+        (str(REPO_ROOT.resolve()), "<repo>"),
+        (str(Path.home().resolve()), "<user-profile>"),
+    )
+    portable = value
+    for source, target in replacements:
+        portable = portable.replace(source, target)
+        portable = portable.replace(source.replace("\\", "/"), target)
+    return portable
+
+
+def _portable_command(command: list[str]) -> list[str]:
+    return [
+        "python" if Path(item).resolve() == Path(sys.executable).resolve() else _portable_text(item)
+        for item in command
+    ]
+
+
+def _portable_cwd(cwd: Path) -> str:
+    try:
+        relative = cwd.resolve().relative_to(REPO_ROOT.resolve())
+    except ValueError:
+        return _portable_text(str(cwd.resolve()))
+    return relative.as_posix() or "."
+
+
+def _sanitize_text_file(path: Path) -> None:
+    value = path.read_text(encoding="utf-8")
+    portable = _portable_text(value)
+    if portable != value:
+        path.write_text(portable, encoding="utf-8")
 
 
 def _run_gate(
@@ -75,14 +110,14 @@ def _run_gate(
         timed_out = True
     finished = datetime.now(timezone.utc)
     log_path = log_dir / f"{name}.log"
-    log_path.write_text(output, encoding="utf-8")
+    log_path.write_text(_portable_text(output), encoding="utf-8")
     return {
         "name": name,
         "status": "PASS" if exit_code == 0 else "FAIL",
         "exit_code": exit_code,
         "timed_out": timed_out,
-        "command": command,
-        "cwd": str(cwd.resolve()),
+        "command": _portable_command(command),
+        "cwd": _portable_cwd(cwd),
         "started_at": started.isoformat(),
         "finished_at": finished.isoformat(),
         "duration_seconds": round((finished - started).total_seconds(), 3),
@@ -290,6 +325,8 @@ def main() -> int:
 
     pilot_manifest_path = output_dir / "pilot" / "pilot_manifest.json"
     browser_report_path = output_dir / "browser-playwright.json"
+    if browser_report_path.exists():
+        _sanitize_text_file(browser_report_path)
     pilot = json.loads(pilot_manifest_path.read_text(encoding="utf-8")) if pilot_manifest_path.exists() else None
     browser = json.loads(browser_report_path.read_text(encoding="utf-8")) if browser_report_path.exists() else None
     secret_scan = _scan_subject_and_artifacts(
