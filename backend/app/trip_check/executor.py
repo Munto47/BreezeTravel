@@ -14,6 +14,7 @@ from app.itineraries.hash_service import sha256_canonical
 from app.itineraries.models import ItineraryRevision
 from app.itineraries.repositories import ItineraryRepository
 from app.operations.repositories import CreationCommandRepository
+from app.repairs.candidates import FrozenRepairCandidateSet, candidate_binding_for_option
 from app.repairs.errors import RepairNoFeasibleOptionError
 from app.repairs.models import RepairOption
 from app.repairs.models import RepairApplyResult
@@ -158,7 +159,9 @@ def build_advice_bundle(
     snapshot: EvidenceSnapshot,
     repairs: list[RepairOption],
     evidence_receipt_id: str,
+    candidate_sets: dict[str, FrozenRepairCandidateSet] | None = None,
 ) -> AdviceBundle:
+    candidate_sets = candidate_sets or {}
     repair_by_finding = {
         finding_id: option
         for option in repairs
@@ -169,6 +172,11 @@ def build_advice_bundle(
         if finding.status == AuditStatus.SATISFIED:
             continue
         option = repair_by_finding.get(finding.finding_id)
+        candidate_binding = (
+            candidate_binding_for_option(option, candidate_sets)
+            if option is not None
+            else None
+        )
         if option is not None:
             operation_summary = "；".join(item.rationale for item in option.operations)
             action_text = operation_summary or "应用经过预览和 postcheck 的修复选项"
@@ -185,8 +193,16 @@ def build_advice_bundle(
                 action=action_text,
                 expected_impact=expected_impact,
                 uncertainty=uncertainty,
+                candidate_set_id=(
+                    candidate_binding.candidate_set_id
+                    if candidate_binding is not None
+                    else None
+                ),
                 evidence_fact_ids=finding.evidence_fact_ids,
-                provider_receipt_ids=[evidence_receipt_id],
+                provider_receipt_ids=[
+                    evidence_receipt_id,
+                    *(candidate_binding.receipt_ids if candidate_binding is not None else ()),
+                ],
                 route_delta=(
                     {"duration_delta_minutes": option.route_cost_delta}
                     if option is not None and option.route_cost_delta is not None
@@ -196,7 +212,7 @@ def build_advice_bundle(
                 tradeoffs=option.tradeoffs if option is not None else [],
             )
         )
-    return AdviceBundle(
+    bundle = AdviceBundle(
         advice_bundle_id=str(uuid5(NAMESPACE_URL, f"breezetravel:{run.run_id}:advice-bundle")),
         workspace_id=run.workspace_id,
         run_id=run.run_id,
@@ -207,6 +223,33 @@ def build_advice_bundle(
         actions=actions,
         created_at=run.created_at,
     )
+    validate_advice_bundle_contract(bundle, report=report, snapshot=snapshot)
+    return bundle
+
+
+def validate_advice_bundle_contract(
+    bundle: AdviceBundle,
+    *,
+    report: AuditReport,
+    snapshot: EvidenceSnapshot,
+) -> None:
+    expected = {
+        finding.finding_id
+        for finding in report.findings
+        if finding.status != AuditStatus.SATISFIED
+    }
+    actual = [action.finding_id for action in bundle.actions]
+    if len(actual) != len(set(actual)) or set(actual) != expected:
+        raise ValueError("Advice must bind exactly once to every non-PASS Finding")
+    snapshot_fact_ids = {fact.fact_id for fact in snapshot.facts}
+    for action in bundle.actions:
+        if not set(action.evidence_fact_ids) <= snapshot_fact_ids:
+            raise ValueError("Advice references evidence outside its frozen snapshot")
+        if not action.provider_receipt_ids:
+            raise ValueError("Advice must retain at least one provider/stage receipt")
+        if action.candidate_set_id is not None:
+            if action.repair_id is None or len(action.provider_receipt_ids) < 3:
+                raise ValueError("candidate Advice requires repair, place and route receipts")
 
 
 class TripCheckExecutor:
