@@ -120,14 +120,9 @@ def test_blind_nonce_is_external_single_use_shaped_and_label_free(
             "blind_seal_v5_sha256": seal_sha,
         },
     )
-    schema = (
-        Path(__file__).parents[1]
-        / "evals"
-        / "trip_check_v1"
-        / "p5"
-        / "blind_run_nonce_v5.schema.json"
-    )
+    schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "blind_run_nonce_v5.schema.json"
     output = tmp_path / "custody" / "nonce.json"
+    receipt_output = tmp_path / "custody" / "nonce.mint.json"
     receipt = mint_blind_nonce_v5(
         repo_root=repo,
         output_path=output,
@@ -135,10 +130,13 @@ def test_blind_nonce_is_external_single_use_shaped_and_label_free(
         dataset_manifest_path=dataset,
         seal_path=seal,
         nonce_schema_path=schema,
+        receipt_output_path=receipt_output,
         repo_binding=BINDING,
     )
     payload = output.read_text(encoding="utf-8").lower()
     assert receipt["status"] == "MINTED_NOT_CONSUMED"
+    assert json.loads(receipt_output.read_text(encoding="utf-8")) == receipt
+    assert receipt["receipt_hash"] == digest({key: value for key, value in receipt.items() if key != "receipt_hash"})
     assert receipt["label_payload_present"] is False
     assert all(token not in payload for token in ("label", "oracle", "answer"))
     with pytest.raises(P5FormalReceiptErrorV5, match="OVERWRITE_FORBIDDEN"):

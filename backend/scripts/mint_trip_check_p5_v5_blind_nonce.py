@@ -23,6 +23,7 @@ P5_ROOT = REPO_ROOT / "backend" / "evals" / "trip_check_v1" / "p5"
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--receipt-output", type=Path, required=True)
     args = parser.parse_args()
     receipt = mint_blind_nonce_v5(
         repo_root=REPO_ROOT,
@@ -31,6 +32,7 @@ def main() -> None:
         dataset_manifest_path=P5_ROOT / "dataset_v5.manifest.json",
         seal_path=P5_ROOT / "sealed" / "frozen_blind.v5.seal.json",
         nonce_schema_path=P5_ROOT / "blind_run_nonce_v5.schema.json",
+        receipt_output_path=args.receipt_output,
     )
     print(json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True))
 

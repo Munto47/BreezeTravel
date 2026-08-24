@@ -47,10 +47,51 @@ def _file_sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _run_manifest(lane: str, dataset_hash: str, run_spec_hash: str) -> dict:
+def _write_jsonl(path: Path, rows: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def _run_manifest(
+    lane: str,
+    dataset_hash: str,
+    run_spec_hash: str,
+    rubric_hash: str,
+    run_dir: Path,
+) -> dict:
     cases, terminals = (270, 810) if lane == "nonblind" else (90, 270)
+    terminal_path = run_dir / "terminal_outputs.jsonl"
+    replay_path = run_dir / "replay_readback.jsonl"
+    terminal_rows = [{"row": index} for index in range(terminals)]
+    replay_rows = [{"row": index} for index in range(terminals)]
+    _write_jsonl(terminal_path, terminal_rows)
+    _write_jsonl(replay_path, replay_rows)
+    index = {
+        "schema_version": f"trip-check-p5-{lane}-artifact-index-v5",
+        "entries": [
+            {
+                "path": terminal_path.name,
+                "byte_size": terminal_path.stat().st_size,
+                "sha256": _file_sha(terminal_path),
+                "content_sha256": digest(terminal_rows),
+            },
+            {
+                "path": replay_path.name,
+                "byte_size": replay_path.stat().st_size,
+                "sha256": _file_sha(replay_path),
+                "content_sha256": digest(replay_rows),
+            },
+        ],
+    }
+    index["artifact_index_hash"] = digest(index)
+    _write_json(run_dir / "artifact_index.json", index)
     return {
         "schema_version": "trip-check-p5-run-group-v5",
+        "run_id": f"run-{lane}",
         "status": "PASS",
         "formal_evidence": True,
         "lane": lane,
@@ -59,11 +100,16 @@ def _run_manifest(lane: str, dataset_hash: str, run_spec_hash: str) -> dict:
         "upstream_commit": SUBJECT,
         "dirty_tree": False,
         "dataset_manifest_hash": dataset_hash,
-        "artifact_index_hash": ("c" if lane == "nonblind" else "d") * 64,
-        "terminal_outputs_file_sha256": "e" * 64,
-        "terminal_outputs_content_sha256": ("f" if lane == "nonblind" else "1")
-        * 64,
+        "artifact_index_path": "artifact_index.json",
+        "artifact_index_hash": index["artifact_index_hash"],
+        "terminal_outputs_path": "terminal_outputs.jsonl",
+        "terminal_outputs_file_sha256": _file_sha(terminal_path),
+        "terminal_outputs_content_sha256": digest(terminal_rows),
+        "replay_outputs_path": "replay_readback.jsonl",
+        "replay_outputs_file_sha256": _file_sha(replay_path),
+        "replay_outputs_content_sha256": digest(replay_rows),
         "run_spec_template_sha256": run_spec_hash,
+        "rubric_sha256": rubric_hash,
         "case_count": cases,
         "terminal_count": terminals,
         "replay_executed": True,
@@ -106,9 +152,7 @@ def _blind_score(run: dict, seal_sha: str) -> dict:
             "dataset_manifest_hash": run["dataset_manifest_hash"],
             "run_group_manifest_hash": run["manifest_hash"],
             "terminal_outputs_file_sha256": run["terminal_outputs_file_sha256"],
-            "terminal_outputs_content_sha256": run[
-                "terminal_outputs_content_sha256"
-            ],
+            "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
             "artifact_index_hash": run["artifact_index_hash"],
             "blind_seal_sha256": seal_sha,
             "run_spec_template_sha256": run["run_spec_template_sha256"],
@@ -126,7 +170,8 @@ def _blind_score(run: dict, seal_sha: str) -> dict:
     return {**payload, "report_hash": digest(payload)}
 
 
-def _judge_panel(run: dict) -> dict:
+def _judge_panel(run: dict, rubric_path: Path) -> dict:
+    rubric = json.loads(rubric_path.read_text(encoding="utf-8"))
     payload = {
         "schema_version": "trip-check-p5-judge-panel-v5",
         "status": "PASS",
@@ -150,6 +195,9 @@ def _judge_panel(run: dict) -> dict:
                 "agent_task_id": f"t-{index}",
                 "agent_id": f"a-{index}",
                 "context_id": f"c-{index}",
+                "source_rubric_sha256": _file_sha(rubric_path),
+                "judge_input_rubric_sha256": digest(rubric),
+                "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
             }
             for index in range(1, 4)
         ],
@@ -158,9 +206,7 @@ def _judge_panel(run: dict) -> dict:
         "dataset_manifest_hash": run["dataset_manifest_hash"],
         "run_group_manifest_hash": run["manifest_hash"],
         "artifact_index_hash": run["artifact_index_hash"],
-        "terminal_outputs_content_sha256": run[
-            "terminal_outputs_content_sha256"
-        ],
+        "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
         "deterministic_scorer_priority": True,
         "judge_may_override_deterministic_failure": False,
         "unsupported_claim_candidate_count": 0,
@@ -268,22 +314,73 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     )
     nonblind_run_path = tmp_path / "nonblind" / "run_group_manifest.json"
     blind_run_path = tmp_path / "blind" / "run_group_manifest.json"
-    nonblind_run = _write_hashed(
-        nonblind_run_path,
-        _run_manifest("nonblind", dataset["manifest_hash"], _file_sha(run_spec)),
-        "manifest_hash",
+    nonce_path = tmp_path / "nonce" / "nonce.json"
+    nonce = {
+        "schema_version": "trip-check-p5-blind-run-nonce-v5",
+        "purpose": "execute_frozen_blind_once",
+        "dataset_id": "trip-check-p5-360-v5",
+        "active_contract": "trip-check-p5-v5",
+        "nonce": "9" * 64,
+    }
+    _write_json(nonce_path, nonce)
+    mint_receipt_path = tmp_path / "nonce" / "mint.json"
+    mint = {
+        "schema_version": "trip-check-p5-blind-run-nonce-mint-receipt-v5",
+        "status": "MINTED_NOT_CONSUMED",
+        "subject_commit": SUBJECT,
+        "upstream_ref": UPSTREAM,
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+        "nonce_file_path": str(nonce_path.resolve()),
+        "nonce_file_sha256": _file_sha(nonce_path),
+        "nonce_sha256": digest(nonce["nonce"]),
+        "label_payload_present": False,
+    }
+    mint["receipt_hash"] = digest(mint)
+    _write_json(mint_receipt_path, mint)
+    nonblind_core = _run_manifest(
+        "nonblind",
+        dataset["manifest_hash"],
+        _file_sha(run_spec),
+        _file_sha(rubric),
+        nonblind_run_path.parent,
     )
-    blind_run = _write_hashed(
-        blind_run_path,
-        _run_manifest("frozen_blind", dataset["manifest_hash"], _file_sha(run_spec)),
-        "manifest_hash",
+    nonblind_run = _write_hashed(nonblind_run_path, nonblind_core, "manifest_hash")
+    blind_core = _run_manifest(
+        "frozen_blind",
+        dataset["manifest_hash"],
+        _file_sha(run_spec),
+        _file_sha(rubric),
+        blind_run_path.parent,
     )
+    blind_core["nonce_sha256"] = digest(nonce["nonce"])
+    run_binding_hash = digest(blind_core)
+    consumption_path = tmp_path / "nonce" / "consumed.json"
+    _write_json(
+        consumption_path,
+        {
+            "schema_version": "trip-check-p5-blind-run-consumption-receipt-v5",
+            "status": "CONSUMED",
+            "dataset_id": "trip-check-p5-360-v5",
+            "dataset_manifest_hash": dataset["manifest_hash"],
+            "nonce_sha256": digest(nonce["nonce"]),
+            "claimed_at": "2026-08-24T00:00:00+00:00",
+            "completed_at": "2026-08-24T00:01:00+00:00",
+            "run_id": blind_core["run_id"],
+            "run_binding_hash": run_binding_hash,
+            "artifact_index_hash": blind_core["artifact_index_hash"],
+            "failure_reason_code": None,
+        },
+    )
+    blind_core["run_binding_hash"] = run_binding_hash
+    blind_core["nonce_consumption_receipt_sha256"] = _file_sha(consumption_path)
+    blind_run = _write_hashed(blind_run_path, blind_core, "manifest_hash")
     nonblind_score_path = tmp_path / "scores" / "nonblind.json"
     blind_score_path = tmp_path / "scores" / "blind.json"
     panel_path = tmp_path / "scores" / "panel.json"
     _write_json(nonblind_score_path, _nonblind_score(nonblind_run))
     _write_json(blind_score_path, _blind_score(blind_run, _file_sha(seal_path)))
-    _write_json(panel_path, _judge_panel(blind_run))
+    _write_json(panel_path, _judge_panel(blind_run, rubric))
     primary = {
         "dataset_manifest": dataset_path,
         "active_contract": active_path,
@@ -295,6 +392,15 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
         "blind_run_manifest": blind_run_path,
         "blind_score": blind_score_path,
         "judge_panel": panel_path,
+        "nonblind_terminal_outputs": nonblind_run_path.parent / "terminal_outputs.jsonl",
+        "nonblind_replay_outputs": nonblind_run_path.parent / "replay_readback.jsonl",
+        "nonblind_artifact_index": nonblind_run_path.parent / "artifact_index.json",
+        "blind_terminal_outputs": blind_run_path.parent / "terminal_outputs.jsonl",
+        "blind_replay_outputs": blind_run_path.parent / "replay_readback.jsonl",
+        "blind_artifact_index": blind_run_path.parent / "artifact_index.json",
+        "blind_nonce": nonce_path,
+        "blind_nonce_mint_receipt": mint_receipt_path,
+        "blind_nonce_consumption_receipt": consumption_path,
     }
     binding = RepoBindingV5(SUBJECT, UPSTREAM, SUBJECT, False)
     verification_paths = {}
@@ -325,9 +431,7 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
             command=[sys.executable, "-c", "print('verified')"],
             command_cwd=root,
             config_artifacts={"run_spec": run_spec.resolve()},
-            expected_artifacts=(
-                {"p4_gate_manifest": p4_gate.resolve()} if kind == "p4" else {}
-            ),
+            expected_artifacts=({"p4_gate_manifest": p4_gate.resolve()} if kind == "p4" else {}),
             output_dir=tmp_path / "commands" / kind,
             repo_binding=binding,
         )
@@ -386,6 +490,30 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     }
 
 
+def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
+    schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "gate_v5.schema.json"
+    return build_p5_gate_manifest_v5(
+        repo_root=paths["repo_root"],
+        dataset_manifest_path=paths["dataset_manifest"],
+        active_contract_path=paths["active_contract"],
+        blind_seal_path=paths["blind_seal"],
+        run_spec_path=paths["run_spec"],
+        rubric_path=paths["judge_rubric"],
+        nonblind_run_manifest_path=paths["nonblind_run_manifest"],
+        nonblind_score_path=paths["nonblind_score"],
+        blind_run_manifest_path=paths["blind_run_manifest"],
+        blind_score_path=paths["blind_score"],
+        judge_panel_path=paths["judge_panel"],
+        blind_nonce_path=paths["blind_nonce"],
+        blind_nonce_mint_receipt_path=paths["blind_nonce_mint_receipt"],
+        blind_nonce_consumption_receipt_path=paths["blind_nonce_consumption_receipt"],
+        formal_receipt_path=paths["formal_receipt"],
+        output_path=output_path,
+        gate_schema_path=schema,
+        require_current_subject=False,
+    )
+
+
 def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
     tmp_path: Path,
 ) -> None:
@@ -403,6 +531,9 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
         blind_run_manifest_path=paths["blind_run_manifest"],
         blind_score_path=paths["blind_score"],
         judge_panel_path=paths["judge_panel"],
+        blind_nonce_path=paths["blind_nonce"],
+        blind_nonce_mint_receipt_path=paths["blind_nonce_mint_receipt"],
+        blind_nonce_consumption_receipt_path=paths["blind_nonce_consumption_receipt"],
         formal_receipt_path=paths["formal_receipt"],
         output_path=tmp_path / "output" / "gate.json",
         gate_schema_path=schema,
@@ -412,43 +543,62 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
     assert manifest["promotion_decision"] == "KEEP_CORE_B"
     assert manifest["counts"]["replay_readback"] == 1080
     assert manifest["solver_admission"]["promotion_eligible"] is False
-    assert len(manifest["artifact_index"]) == 20
+    assert len(manifest["artifact_index"]) == 29
 
 
-def test_nonblind_parser_rejects_missing_replay_readback() -> None:
-    run = _run_manifest("nonblind", HEX64, "c" * 64)
+def test_nonblind_parser_rejects_missing_replay_readback(tmp_path: Path) -> None:
+    run = _run_manifest("nonblind", HEX64, "c" * 64, "d" * 64, tmp_path)
     run["manifest_hash"] = digest(run)
     score = _nonblind_score(run)
     score.pop("replay_readback_count")
-    score["report_hash"] = digest(
-        {key: value for key, value in score.items() if key != "report_hash"}
-    )
+    score["report_hash"] = digest({key: value for key, value in score.items() if key != "report_hash"})
     with pytest.raises(P5GateErrorV5, match="V5_NONBLIND_SCORE_FIELDS_MISSING"):
         parse_nonblind_score_v5(score, run=run)
 
 
-def test_nonblind_parser_never_allows_rejected_solver_promotion() -> None:
-    run = _run_manifest("nonblind", HEX64, "c" * 64)
+def test_nonblind_parser_never_allows_rejected_solver_promotion(
+    tmp_path: Path,
+) -> None:
+    run = _run_manifest("nonblind", HEX64, "c" * 64, "d" * 64, tmp_path)
     run["manifest_hash"] = digest(run)
     score = _nonblind_score(run, "PROMOTE_ADMITTED_CHALLENGER")
     score["admitted_challenger_variant_id"] = "solver_c"
     score["challenger_admission"] = {"status": "ADMITTED", "variant_id": "solver_c"}
-    score["report_hash"] = digest(
-        {key: value for key, value in score.items() if key != "report_hash"}
-    )
+    score["report_hash"] = digest({key: value for key, value in score.items() if key != "report_hash"})
     with pytest.raises(P5GateErrorV5, match="V5_SOLVER_PROMOTION_FORBIDDEN"):
         parse_nonblind_score_v5(score, run=run)
 
 
+def test_gate_rejects_run_artifact_mutated_after_manifest(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    with paths["blind_replay_outputs"].open("a", encoding="utf-8") as handle:
+        handle.write("{}\n")
+    with pytest.raises(P5GateErrorV5, match="V5_RUN_OUTPUT_READBACK_MISMATCH"):
+        _invoke_gate(paths, tmp_path / "output" / "gate.json")
+
+
+def test_gate_rejects_nonce_consumption_receipt_substitution(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    consumed = json.loads(paths["blind_nonce_consumption_receipt"].read_text(encoding="utf-8"))
+    consumed["completed_at"] = "2026-08-24T00:02:00+00:00"
+    _write_json(paths["blind_nonce_consumption_receipt"], consumed)
+    with pytest.raises(P5GateErrorV5, match="V5_BLIND_NONCE_CONSUMPTION_BINDING_INVALID"):
+        _invoke_gate(paths, tmp_path / "output" / "gate.json")
+
+
+def test_gate_rejects_judge_rubric_provenance_substitution(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    panel = json.loads(paths["judge_panel"].read_text(encoding="utf-8"))
+    panel["provenance"][0]["source_rubric_sha256"] = "0" * 64
+    panel["report_hash"] = digest({key: value for key, value in panel.items() if key != "report_hash"})
+    _write_json(paths["judge_panel"], panel)
+    with pytest.raises(P5GateErrorV5, match="V5_JUDGE_RUBRIC_PROVENANCE_INVALID"):
+        _invoke_gate(paths, tmp_path / "output" / "gate.json")
+
+
 def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -> None:
     paths = _formal_fixture(tmp_path)
-    schema = (
-        Path(__file__).parents[1]
-        / "evals"
-        / "trip_check_v1"
-        / "p5"
-        / "gate_v5.schema.json"
-    )
+    schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "gate_v5.schema.json"
     with pytest.raises(P5GateErrorV5, match="V5_GATE_OUTPUT_PATH_FORBIDDEN"):
         build_p5_gate_manifest_v5(
             repo_root=paths["repo_root"],
@@ -462,6 +612,9 @@ def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -
             blind_run_manifest_path=paths["blind_run_manifest"],
             blind_score_path=paths["blind_score"],
             judge_panel_path=paths["judge_panel"],
+            blind_nonce_path=paths["blind_nonce"],
+            blind_nonce_mint_receipt_path=paths["blind_nonce_mint_receipt"],
+            blind_nonce_consumption_receipt_path=paths["blind_nonce_consumption_receipt"],
             formal_receipt_path=paths["formal_receipt"],
             output_path=paths["repo_root"] / "gate.json",
             gate_schema_path=schema,
@@ -469,17 +622,9 @@ def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -
         )
 
 
-def test_gate_rechecks_repository_state_after_write(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_gate_rechecks_repository_state_after_write(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     paths = _formal_fixture(tmp_path)
-    schema = (
-        Path(__file__).parents[1]
-        / "evals"
-        / "trip_check_v1"
-        / "p5"
-        / "gate_v5.schema.json"
-    )
+    schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "gate_v5.schema.json"
     clean = {
         "subject_commit": SUBJECT,
         "upstream_ref": UPSTREAM,
@@ -491,9 +636,7 @@ def test_gate_rechecks_repository_state_after_write(
         "evals.trip_check_v1.p5.gate_v5._repo_state_v5",
         lambda _root: states.pop(0),
     )
-    with pytest.raises(
-        P5GateErrorV5, match="V5_GATE_POST_WRITE_REPOSITORY_STATE_CHANGED"
-    ):
+    with pytest.raises(P5GateErrorV5, match="V5_GATE_POST_WRITE_REPOSITORY_STATE_CHANGED"):
         build_p5_gate_manifest_v5(
             repo_root=paths["repo_root"],
             dataset_manifest_path=paths["dataset_manifest"],
@@ -506,6 +649,9 @@ def test_gate_rechecks_repository_state_after_write(
             blind_run_manifest_path=paths["blind_run_manifest"],
             blind_score_path=paths["blind_score"],
             judge_panel_path=paths["judge_panel"],
+            blind_nonce_path=paths["blind_nonce"],
+            blind_nonce_mint_receipt_path=paths["blind_nonce_mint_receipt"],
+            blind_nonce_consumption_receipt_path=paths["blind_nonce_consumption_receipt"],
             formal_receipt_path=paths["formal_receipt"],
             output_path=tmp_path / "external" / "gate.json",
             gate_schema_path=schema,

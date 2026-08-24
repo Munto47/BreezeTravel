@@ -65,28 +65,33 @@ def _sha256(path: Path) -> str:
         raise P5GateErrorV5("GATE_ARTIFACT_UNREADABLE") from exc
 
 
+def _load_jsonl(path: Path, reason: str) -> list[Any]:
+    rows: list[Any] = []
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            for line in handle:
+                if line.strip():
+                    rows.append(json.loads(line))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise P5GateErrorV5(reason) from exc
+    return rows
+
+
 def _is_sha256(value: object) -> bool:
-    return (
-        isinstance(value, str)
-        and re.fullmatch(r"[0-9a-f]{64}", value) is not None
-    )
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
 def _is_commit(value: object) -> bool:
     return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{40}", value) is not None
 
 
-def _require_fields(
-    value: Mapping[str, Any], required: set[str], reason: str
-) -> None:
+def _require_fields(value: Mapping[str, Any], required: set[str], reason: str) -> None:
     if required - set(value):
         raise P5GateErrorV5(reason)
 
 
 def _validate_self_hash(value: Mapping[str, Any], field: str, reason: str) -> None:
-    if value.get(field) != digest(
-        {key: item for key, item in value.items() if key != field}
-    ):
+    if value.get(field) != digest({key: item for key, item in value.items() if key != field}):
         raise P5GateErrorV5(reason)
 
 
@@ -107,9 +112,7 @@ def _repo_state_v5(repo_root: Path) -> dict[str, Any]:
 
     return {
         "subject_commit": run("rev-parse", "HEAD"),
-        "upstream_ref": run(
-            "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"
-        ),
+        "upstream_ref": run("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
         "upstream_commit": run("rev-parse", "@{upstream}"),
         "dirty_tree": bool(run("status", "--short")),
     }
@@ -163,9 +166,7 @@ def _artifact(name: str, path: Path, repo_root: Path) -> dict[str, Any]:
     }
 
 
-def _parse_dataset_v5(
-    *, repo_root: Path, path: Path, run_spec_path: Path, rubric_path: Path
-) -> dict[str, Any]:
+def _parse_dataset_v5(*, repo_root: Path, path: Path, run_spec_path: Path, rubric_path: Path) -> dict[str, Any]:
     value = _load_json(path, "V5_DATASET_MANIFEST_INVALID")
     _validate_self_hash(value, "manifest_hash", "V5_DATASET_MANIFEST_HASH_MISMATCH")
     required = {
@@ -195,8 +196,7 @@ def _parse_dataset_v5(
         or value.get("seal_status") != "SEALED"
         or not isinstance(counts, Mapping)
         or counts.get("total") != 360
-        or counts.get("by_split")
-        != {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90}
+        or counts.get("by_split") != {"pilot": 18, "dev": 180, "regression": 72, "frozen_blind": 90}
         or not isinstance(lanes, Mapping)
         or not isinstance(lanes.get("nonblind"), Mapping)
         or not isinstance(lanes.get("frozen_blind"), Mapping)
@@ -274,8 +274,7 @@ def _parse_active_and_seal_v5(
         or seal.get("schema_version") != "trip-check-p5-blind-seal-v5"
         or not isinstance(sealing, Mapping)
         or sealing.get("blind_seal_file_sha256") != _sha256(seal_path)
-        or seal.get("candidate_dataset_manifest_hash")
-        != sealing.get("candidate_dataset_manifest_hash")
+        or seal.get("candidate_dataset_manifest_hash") != sealing.get("candidate_dataset_manifest_hash")
         or seal.get("candidate_freeze_commit") != active.get("candidate_freeze_commit")
         or seal.get("case_count") != 90
         or seal.get("split") != "frozen_blind"
@@ -299,18 +298,14 @@ def _parse_active_and_seal_v5(
         or seal.get("human_evidence") is not False
         or seal.get("run_spec_template_sha256") != _sha256(run_spec_path)
         or seal.get("rubric_sha256") != _sha256(rubric_path)
-        or seal.get("contracts_v3_sha256")
-        != dataset["contract_hashes"]["contracts_v3_sha256"]
-        or seal.get("dataset_contracts_v5_sha256")
-        != dataset["contract_hashes"]["dataset_contracts_v5_sha256"]
+        or seal.get("contracts_v3_sha256") != dataset["contract_hashes"]["contracts_v3_sha256"]
+        or seal.get("dataset_contracts_v5_sha256") != dataset["contract_hashes"]["dataset_contracts_v5_sha256"]
     ):
         raise P5GateErrorV5("V5_ACTIVE_SEAL_BINDING_INVALID")
     return active, seal
 
 
-def _parse_run_manifest_v5(
-    value: Mapping[str, Any], *, lane: str, dataset_hash: str
-) -> dict[str, Any]:
+def _parse_run_manifest_v5(value: Mapping[str, Any], *, lane: str, dataset_hash: str) -> dict[str, Any]:
     required = {
         "schema_version",
         "status",
@@ -324,6 +319,12 @@ def _parse_run_manifest_v5(
         "artifact_index_hash",
         "terminal_outputs_file_sha256",
         "terminal_outputs_content_sha256",
+        "terminal_outputs_path",
+        "replay_outputs_path",
+        "replay_outputs_file_sha256",
+        "replay_outputs_content_sha256",
+        "artifact_index_path",
+        "rubric_sha256",
         "run_spec_template_sha256",
         "case_count",
         "terminal_count",
@@ -335,9 +336,7 @@ def _parse_run_manifest_v5(
     }
     _require_fields(value, required, "V5_RUN_MANIFEST_FIELDS_MISSING")
     _validate_self_hash(value, "manifest_hash", "V5_RUN_MANIFEST_HASH_MISMATCH")
-    expected_cases, expected_terminals = (
-        (270, 810) if lane == "nonblind" else (90, 270)
-    )
+    expected_cases, expected_terminals = (270, 810) if lane == "nonblind" else (90, 270)
     if (
         value.get("schema_version") != "trip-check-p5-run-group-v5"
         or value.get("status") != "PASS"
@@ -361,19 +360,189 @@ def _parse_run_manifest_v5(
                 "artifact_index_hash",
                 "terminal_outputs_file_sha256",
                 "terminal_outputs_content_sha256",
+                "replay_outputs_file_sha256",
+                "replay_outputs_content_sha256",
                 "run_spec_template_sha256",
+                "rubric_sha256",
             )
         )
     ):
         raise P5GateErrorV5("V5_RUN_MANIFEST_CONTRACT_INVALID")
     if lane == "nonblind" and value.get("replay_match_count") != expected_terminals:
         raise P5GateErrorV5("V5_RUN_MANIFEST_CONTRACT_INVALID")
+    if lane == "frozen_blind" and (
+        not _is_sha256(value.get("nonce_sha256"))
+        or not _is_sha256(value.get("run_binding_hash"))
+        or not _is_sha256(value.get("nonce_consumption_receipt_sha256"))
+    ):
+        raise P5GateErrorV5("V5_BLIND_NONCE_BINDING_INVALID")
     return dict(value)
 
 
-def parse_nonblind_score_v5(
-    value: Mapping[str, Any], *, run: Mapping[str, Any]
-) -> dict[str, Any]:
+def _resolve_run_artifact_v5(run_manifest_path: Path, value: object, expected: str) -> Path:
+    if value != expected:
+        raise P5GateErrorV5("V5_RUN_ARTIFACT_PATH_INVALID")
+    candidate = run_manifest_path.parent / expected
+    if candidate.is_symlink():
+        raise P5GateErrorV5("V5_RUN_ARTIFACT_LINK_FORBIDDEN")
+    try:
+        resolved = candidate.resolve(strict=True)
+        run_dir = run_manifest_path.parent.resolve(strict=True)
+    except OSError as exc:
+        raise P5GateErrorV5("V5_RUN_ARTIFACT_UNREADABLE") from exc
+    if resolved.parent != run_dir:
+        raise P5GateErrorV5("V5_RUN_ARTIFACT_PATH_ESCAPE")
+    return resolved
+
+
+def _validate_run_artifacts_v5(
+    *, run: Mapping[str, Any], run_manifest_path: Path, expected_count: int
+) -> dict[str, Path]:
+    terminal = _resolve_run_artifact_v5(run_manifest_path, run.get("terminal_outputs_path"), "terminal_outputs.jsonl")
+    replay = _resolve_run_artifact_v5(run_manifest_path, run.get("replay_outputs_path"), "replay_readback.jsonl")
+    index_path = _resolve_run_artifact_v5(run_manifest_path, run.get("artifact_index_path"), "artifact_index.json")
+    terminal_rows = _load_jsonl(terminal, "V5_RUN_TERMINAL_OUTPUTS_INVALID")
+    replay_rows = _load_jsonl(replay, "V5_RUN_REPLAY_OUTPUTS_INVALID")
+    if (
+        len(terminal_rows) != expected_count
+        or len(replay_rows) != expected_count
+        or _sha256(terminal) != run["terminal_outputs_file_sha256"]
+        or digest(terminal_rows) != run["terminal_outputs_content_sha256"]
+        or _sha256(replay) != run["replay_outputs_file_sha256"]
+        or digest(replay_rows) != run["replay_outputs_content_sha256"]
+    ):
+        raise P5GateErrorV5("V5_RUN_OUTPUT_READBACK_MISMATCH")
+    index = _load_json(index_path, "V5_RUN_ARTIFACT_INDEX_INVALID")
+    if (
+        index.get("artifact_index_hash")
+        != digest({key: item for key, item in index.items() if key != "artifact_index_hash"})
+        or index.get("artifact_index_hash") != run["artifact_index_hash"]
+        or index.get("entries")
+        != [
+            {
+                "path": terminal.name,
+                "byte_size": terminal.stat().st_size,
+                "sha256": _sha256(terminal),
+                "content_sha256": digest(terminal_rows),
+            },
+            {
+                "path": replay.name,
+                "byte_size": replay.stat().st_size,
+                "sha256": _sha256(replay),
+                "content_sha256": digest(replay_rows),
+            },
+        ]
+    ):
+        raise P5GateErrorV5("V5_RUN_ARTIFACT_INDEX_MISMATCH")
+    return {"terminal_outputs": terminal, "replay_outputs": replay, "artifact_index": index_path}
+
+
+def _require_external_file_v5(repo_root: Path, path: Path) -> Path:
+    if path.is_symlink():
+        raise P5GateErrorV5("V5_FORMAL_ARTIFACT_LINK_FORBIDDEN")
+    try:
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(repo_root.resolve())
+    except ValueError:
+        if not resolved.is_file():
+            raise P5GateErrorV5("V5_FORMAL_ARTIFACT_PATH_INVALID")
+        return resolved
+    except OSError as exc:
+        raise P5GateErrorV5("V5_FORMAL_ARTIFACT_UNREADABLE") from exc
+    raise P5GateErrorV5("V5_FORMAL_ARTIFACT_MUST_BE_EXTERNAL")
+
+
+def _validate_blind_nonce_chain_v5(
+    *,
+    run: Mapping[str, Any],
+    nonce_path: Path,
+    mint_receipt_path: Path,
+    consumption_receipt_path: Path,
+) -> None:
+    nonce = _load_json(nonce_path, "V5_BLIND_NONCE_INVALID")
+    mint = _load_json(mint_receipt_path, "V5_BLIND_NONCE_MINT_RECEIPT_INVALID")
+    consumed = _load_json(consumption_receipt_path, "V5_BLIND_NONCE_CONSUMPTION_RECEIPT_INVALID")
+    nonce_sha256 = digest(nonce.get("nonce"))
+    expected_mint_fields = {
+        "schema_version",
+        "status",
+        "subject_commit",
+        "upstream_ref",
+        "upstream_commit",
+        "dirty_tree",
+        "nonce_file_path",
+        "nonce_file_sha256",
+        "nonce_sha256",
+        "label_payload_present",
+        "receipt_hash",
+    }
+    if (
+        set(nonce) != {"schema_version", "purpose", "dataset_id", "active_contract", "nonce"}
+        or nonce.get("schema_version") != "trip-check-p5-blind-run-nonce-v5"
+        or nonce.get("purpose") != "execute_frozen_blind_once"
+        or nonce.get("dataset_id") != DATASET_ID_V5
+        or nonce.get("active_contract") != ACTIVE_CONTRACT_V5
+        or not _is_sha256(nonce.get("nonce"))
+        or set(mint) != expected_mint_fields
+        or mint.get("schema_version") != "trip-check-p5-blind-run-nonce-mint-receipt-v5"
+        or mint.get("status") != "MINTED_NOT_CONSUMED"
+        or mint.get("subject_commit") != run["subject_commit"]
+        or mint.get("upstream_ref") != run["upstream_ref"]
+        or mint.get("upstream_commit") != run["upstream_commit"]
+        or mint.get("dirty_tree") is not False
+        or Path(str(mint.get("nonce_file_path"))).resolve() != nonce_path.resolve()
+        or mint.get("nonce_file_sha256") != _sha256(nonce_path)
+        or mint.get("nonce_sha256") != nonce_sha256
+        or mint.get("label_payload_present") is not False
+        or mint.get("receipt_hash") != digest({key: item for key, item in mint.items() if key != "receipt_hash"})
+    ):
+        raise P5GateErrorV5("V5_BLIND_NONCE_MINT_BINDING_INVALID")
+    run_core = {
+        key: item
+        for key, item in run.items()
+        if key not in {"run_binding_hash", "nonce_consumption_receipt_sha256", "manifest_hash"}
+    }
+    expected_consumption_fields = {
+        "schema_version",
+        "status",
+        "dataset_id",
+        "dataset_manifest_hash",
+        "nonce_sha256",
+        "claimed_at",
+        "completed_at",
+        "run_id",
+        "run_binding_hash",
+        "artifact_index_hash",
+        "failure_reason_code",
+    }
+    if (
+        set(consumed) != expected_consumption_fields
+        or consumed.get("schema_version") != "trip-check-p5-blind-run-consumption-receipt-v5"
+        or consumed.get("status") != "CONSUMED"
+        or consumed.get("dataset_id") != DATASET_ID_V5
+        or consumed.get("dataset_manifest_hash") != run["dataset_manifest_hash"]
+        or consumed.get("nonce_sha256") != nonce_sha256
+        or consumed.get("run_id") != run.get("run_id")
+        or consumed.get("run_binding_hash") != run["run_binding_hash"]
+        or consumed.get("run_binding_hash") != digest(run_core)
+        or consumed.get("artifact_index_hash") != run["artifact_index_hash"]
+        or consumed.get("failure_reason_code") is not None
+        or not isinstance(consumed.get("claimed_at"), str)
+        or not consumed["claimed_at"]
+        or not isinstance(consumed.get("completed_at"), str)
+        or not consumed["completed_at"]
+        or _sha256(consumption_receipt_path) != run["nonce_consumption_receipt_sha256"]
+        or any(
+            token in json.dumps(payload, sort_keys=True).lower()
+            for payload in (nonce, mint, consumed)
+            for token in ("label", "oracle", "answer", "expected")
+            if payload is not mint or token != "label"
+        )
+    ):
+        raise P5GateErrorV5("V5_BLIND_NONCE_CONSUMPTION_BINDING_INVALID")
+
+
+def parse_nonblind_score_v5(value: Mapping[str, Any], *, run: Mapping[str, Any]) -> dict[str, Any]:
     """Strict, isolated parser for the independently-integrated v5 scorer."""
 
     required = {
@@ -427,9 +596,7 @@ def parse_nonblind_score_v5(
         or not isinstance(value.get("evidence_boundary"), Mapping)
     ):
         raise P5GateErrorV5("V5_NONBLIND_SCORE_CONTRACT_INVALID")
-    if value["status"] == "PASS" and (
-        not all(zero_checks.values()) or not all(stage_checks.values())
-    ):
+    if value["status"] == "PASS" and (not all(zero_checks.values()) or not all(stage_checks.values())):
         raise P5GateErrorV5("V5_NONBLIND_SCORE_STATUS_INVALID")
     if decision == "PROMOTE_ADMITTED_CHALLENGER":
         challenger = value.get("admitted_challenger_variant_id")
@@ -446,9 +613,7 @@ def parse_nonblind_score_v5(
     return dict(value)
 
 
-def parse_blind_score_v5(
-    value: Mapping[str, Any], *, run: Mapping[str, Any], seal_sha256: str
-) -> dict[str, Any]:
+def parse_blind_score_v5(value: Mapping[str, Any], *, run: Mapping[str, Any], seal_sha256: str) -> dict[str, Any]:
     required = {
         "schema_version",
         "status",
@@ -476,14 +641,11 @@ def parse_blind_score_v5(
         or bindings.get("subject_commit") != run["subject_commit"]
         or bindings.get("dataset_manifest_hash") != run["dataset_manifest_hash"]
         or bindings.get("run_group_manifest_hash") != run["manifest_hash"]
-        or bindings.get("terminal_outputs_file_sha256")
-        != run["terminal_outputs_file_sha256"]
-        or bindings.get("terminal_outputs_content_sha256")
-        != run["terminal_outputs_content_sha256"]
+        or bindings.get("terminal_outputs_file_sha256") != run["terminal_outputs_file_sha256"]
+        or bindings.get("terminal_outputs_content_sha256") != run["terminal_outputs_content_sha256"]
         or bindings.get("artifact_index_hash") != run["artifact_index_hash"]
         or bindings.get("blind_seal_sha256") != seal_sha256
-        or bindings.get("run_spec_template_sha256")
-        != run["run_spec_template_sha256"]
+        or bindings.get("run_spec_template_sha256") != run["run_spec_template_sha256"]
         or value.get("case_count") != 90
         or value.get("terminal_count") != 270
         or value.get("replay_readback_count") != 270
@@ -506,9 +668,7 @@ def parse_blind_score_v5(
     return dict(value)
 
 
-def _parse_judge_panel_v5(
-    value: Mapping[str, Any], *, run: Mapping[str, Any]
-) -> dict[str, Any]:
+def _parse_judge_panel_v5(value: Mapping[str, Any], *, run: Mapping[str, Any]) -> dict[str, Any]:
     required = {
         "schema_version",
         "status",
@@ -547,22 +707,19 @@ def _parse_judge_panel_v5(
         or value.get("agreement_threshold") != 0.85
         or not isinstance(provenance, list)
         or len(provenance) != 3
-        or len({item.get("round_index") for item in provenance if isinstance(item, Mapping)})
-        != 3
+        or len({item.get("round_index") for item in provenance if isinstance(item, Mapping)}) != 3
         or any(not isinstance(item, Mapping) for item in provenance)
         or any(
             len({item.get(field) for item in provenance}) != 3
             for field in ("evaluator_id", "agent_task_id", "agent_id", "context_id")
         )
         or not isinstance(dimension_agreement, Mapping)
-        or set(dimension_agreement)
-        != {"clarity", "actionability", "evidence_boundary_expression"}
+        or set(dimension_agreement) != {"clarity", "actionability", "evidence_boundary_expression"}
         or value.get("subject_commit") != run["subject_commit"]
         or value.get("dataset_manifest_hash") != run["dataset_manifest_hash"]
         or value.get("run_group_manifest_hash") != run["manifest_hash"]
         or value.get("artifact_index_hash") != run["artifact_index_hash"]
-        or value.get("terminal_outputs_content_sha256")
-        != run["terminal_outputs_content_sha256"]
+        or value.get("terminal_outputs_content_sha256") != run["terminal_outputs_content_sha256"]
         or value.get("deterministic_scorer_priority") is not True
         or value.get("judge_may_override_deterministic_failure") is not False
     ):
@@ -611,8 +768,7 @@ def _parse_formal_receipt_v5(
     receipts = value.get("verification_receipts")
     dataset_receipt_entry = value.get("dataset_validation_receipt")
     if (
-        value.get("schema_version")
-        != "trip-check-p5-formal-validation-receipt-v5"
+        value.get("schema_version") != "trip-check-p5-formal-validation-receipt-v5"
         or value.get("status") != "PASS"
         or value.get("formal") is not True
         or value.get("subject_commit") != subject_commit
@@ -637,18 +793,13 @@ def _parse_formal_receipt_v5(
         or not isinstance(receipts, Mapping)
         or set(receipts) != set(VERIFICATION_KINDS_V5)
         or not isinstance(dataset_receipt_entry, Mapping)
-        or set(dataset_receipt_entry)
-        != {"path", "sha256", "receipt_hash", "status"}
+        or set(dataset_receipt_entry) != {"path", "sha256", "receipt_hash", "status"}
     ):
         raise P5GateErrorV5("V5_FORMAL_RECEIPT_CONTRACT_INVALID")
     artifact_paths: list[tuple[str, Path]] = []
-    dataset_receipt_path = _resolve_receipt_path(
-        repo_root, dataset_receipt_entry["path"]
-    )
+    dataset_receipt_path = _resolve_receipt_path(repo_root, dataset_receipt_entry["path"])
     try:
-        dataset_receipt = validate_dataset_formal_validation_receipt_v5(
-            dataset_receipt_path
-        )
+        dataset_receipt = validate_dataset_formal_validation_receipt_v5(dataset_receipt_path)
     except P5FormalReceiptErrorV5 as exc:
         raise P5GateErrorV5("V5_DATASET_FORMAL_RECEIPT_INVALID") from exc
     if (
@@ -698,8 +849,7 @@ def _parse_formal_receipt_v5(
             raise P5GateErrorV5("V5_VERIFICATION_RECEIPT_UNREADABLE") from exc
         if (
             _sha256(receipt_path) != entry["sha256"]
-            or actual.get("schema_version")
-            != "trip-check-p5-verification-receipt-v5"
+            or actual.get("schema_version") != "trip-check-p5-verification-receipt-v5"
             or actual.get("receipt_kind") != kind
             or actual.get("status") != "PASS"
             or actual.get("subject_commit") != subject_commit
@@ -714,8 +864,7 @@ def _parse_formal_receipt_v5(
         if kind == "p4" and (
             not isinstance(actual.get("solver_admission"), Mapping)
             or actual["solver_admission"].get("status") != "REJECT"
-            or actual["solver_admission"].get("default_strategy")
-            != "bounded_repair_v1"
+            or actual["solver_admission"].get("default_strategy") != "bounded_repair_v1"
         ):
             raise P5GateErrorV5("V5_P4_SOLVER_INHERITANCE_INVALID")
         artifact_paths.append((f"{kind}_verification_receipt", receipt_path))
@@ -735,6 +884,9 @@ def build_p5_gate_manifest_v5(
     blind_run_manifest_path: Path,
     blind_score_path: Path,
     judge_panel_path: Path,
+    blind_nonce_path: Path,
+    blind_nonce_mint_receipt_path: Path,
+    blind_nonce_consumption_receipt_path: Path,
     formal_receipt_path: Path,
     output_path: Path,
     gate_schema_path: Path,
@@ -742,6 +894,18 @@ def build_p5_gate_manifest_v5(
 ) -> dict[str, Any]:
     root = repo_root.resolve()
     safe_output = _require_safe_gate_output(root, output_path)
+    for formal_path in (
+        nonblind_run_manifest_path,
+        nonblind_score_path,
+        blind_run_manifest_path,
+        blind_score_path,
+        judge_panel_path,
+        formal_receipt_path,
+        blind_nonce_path,
+        blind_nonce_mint_receipt_path,
+        blind_nonce_consumption_receipt_path,
+    ):
+        _require_external_file_v5(root, formal_path)
     dataset = _parse_dataset_v5(
         repo_root=root,
         path=dataset_manifest_path,
@@ -771,6 +935,8 @@ def build_p5_gate_manifest_v5(
     if (
         nonblind_run["run_spec_template_sha256"] != _sha256(run_spec_path)
         or blind_run["run_spec_template_sha256"] != _sha256(run_spec_path)
+        or nonblind_run["rubric_sha256"] != _sha256(rubric_path)
+        or blind_run["rubric_sha256"] != _sha256(rubric_path)
     ):
         raise P5GateErrorV5("V5_RUN_SPEC_BINDING_INVALID")
     subject_commit = nonblind_run["subject_commit"]
@@ -785,8 +951,30 @@ def build_p5_gate_manifest_v5(
         run=blind_run,
         seal_sha256=_sha256(blind_seal_path),
     )
-    panel = _parse_judge_panel_v5(
-        _load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run
+    panel = _parse_judge_panel_v5(_load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run)
+    rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
+    if any(
+        item.get("source_rubric_sha256") != _sha256(rubric_path)
+        or item.get("judge_input_rubric_sha256") != digest(rubric)
+        or item.get("terminal_outputs_content_sha256") != blind_run["terminal_outputs_content_sha256"]
+        for item in panel["provenance"]
+    ):
+        raise P5GateErrorV5("V5_JUDGE_RUBRIC_PROVENANCE_INVALID")
+    nonblind_artifacts = _validate_run_artifacts_v5(
+        run=nonblind_run,
+        run_manifest_path=nonblind_run_manifest_path,
+        expected_count=810,
+    )
+    blind_artifacts = _validate_run_artifacts_v5(
+        run=blind_run,
+        run_manifest_path=blind_run_manifest_path,
+        expected_count=270,
+    )
+    _validate_blind_nonce_chain_v5(
+        run=blind_run,
+        nonce_path=blind_nonce_path,
+        mint_receipt_path=blind_nonce_mint_receipt_path,
+        consumption_receipt_path=blind_nonce_consumption_receipt_path,
     )
 
     artifact_paths = {
@@ -800,10 +988,17 @@ def build_p5_gate_manifest_v5(
         "blind_run_manifest": blind_run_manifest_path,
         "blind_score": blind_score_path,
         "judge_panel": judge_panel_path,
+        "nonblind_terminal_outputs": nonblind_artifacts["terminal_outputs"],
+        "nonblind_replay_outputs": nonblind_artifacts["replay_outputs"],
+        "nonblind_artifact_index": nonblind_artifacts["artifact_index"],
+        "blind_terminal_outputs": blind_artifacts["terminal_outputs"],
+        "blind_replay_outputs": blind_artifacts["replay_outputs"],
+        "blind_artifact_index": blind_artifacts["artifact_index"],
+        "blind_nonce": blind_nonce_path,
+        "blind_nonce_mint_receipt": blind_nonce_mint_receipt_path,
+        "blind_nonce_consumption_receipt": blind_nonce_consumption_receipt_path,
     }
-    expected_bindings = {
-        f"{name}_sha256": _sha256(path) for name, path in artifact_paths.items()
-    }
+    expected_bindings = {f"{name}_sha256": _sha256(path) for name, path in artifact_paths.items()}
     formal, verification_paths = _parse_formal_receipt_v5(
         repo_root=root,
         value=_load_json(formal_receipt_path, "V5_FORMAL_RECEIPT_INVALID"),
@@ -825,15 +1020,9 @@ def build_p5_gate_manifest_v5(
     exact_counts = (
         nonblind_run["terminal_count"] == 810
         and blind_run["terminal_count"] == 270
-        and nonblind_run["replay_readback_count"]
-        + blind_run["replay_readback_count"]
-        == 1080
+        and nonblind_run["replay_readback_count"] + blind_run["replay_readback_count"] == 1080
     )
-    quality_pass = (
-        nonblind_score["status"] == "PASS"
-        and blind_score["status"] == "PASS"
-        and panel["status"] == "PASS"
-    )
+    quality_pass = nonblind_score["status"] == "PASS" and blind_score["status"] == "PASS" and panel["status"] == "PASS"
     proposed = nonblind_score["promotion_decision"]
     if not quality_pass:
         decision = "REJECT_ALL_CANDIDATES"
@@ -854,6 +1043,8 @@ def build_p5_gate_manifest_v5(
         "clean_tree": True,
         "dataset_active_seal_bound": True,
         "run_spec_and_rubric_hash_bound": True,
+        "run_artifacts_read_back": True,
+        "blind_nonce_single_use_bound": True,
         "nonblind_810": nonblind_run["terminal_count"] == 810,
         "blind_270": blind_run["terminal_count"] == 270,
         "replay_readback_1080": exact_counts,
@@ -871,18 +1062,10 @@ def build_p5_gate_manifest_v5(
         "solver_not_promoted": decision != "PROMOTE_ADMITTED_CHALLENGER"
         or nonblind_score.get("admitted_challenger_variant_id") != "solver_c",
     }
-    artifacts = [
-        _artifact(name, path, root) for name, path in artifact_paths.items()
-    ]
+    artifacts = [_artifact(name, path, root) for name, path in artifact_paths.items()]
     artifacts.append(_artifact("formal_validation_receipt", formal_receipt_path, root))
-    artifacts.extend(
-        _artifact(name, path, root) for name, path in verification_paths
-    )
-    gate_accepted = (
-        quality_pass
-        and decision != "REJECT_ALL_CANDIDATES"
-        and all(checks.values())
-    )
+    artifacts.extend(_artifact(name, path, root) for name, path in verification_paths)
+    gate_accepted = quality_pass and decision != "REJECT_ALL_CANDIDATES" and all(checks.values())
     manifest = {
         "schema_version": "trip-check-p5-evaluation-gate-v5",
         "goal_id": "TC-P5-G01-evaluation-ablation",

@@ -50,6 +50,15 @@ PRIMARY_ARTIFACT_NAMES_V5 = (
     "blind_run_manifest",
     "blind_score",
     "judge_panel",
+    "nonblind_terminal_outputs",
+    "nonblind_replay_outputs",
+    "nonblind_artifact_index",
+    "blind_terminal_outputs",
+    "blind_replay_outputs",
+    "blind_artifact_index",
+    "blind_nonce",
+    "blind_nonce_mint_receipt",
+    "blind_nonce_consumption_receipt",
 )
 
 
@@ -134,12 +143,8 @@ def _load_json(path: Path, reason: str) -> dict[str, Any]:
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True).encode(
-        "utf-8"
-    ) + b"\n"
-    descriptor, raw_path = tempfile.mkstemp(
-        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
-    )
+    payload = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    descriptor, raw_path = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     staged = Path(raw_path)
     try:
         with os.fdopen(descriptor, "wb") as handle:
@@ -165,8 +170,7 @@ def _contains_link(path: Path) -> bool:
         current /= part
         try:
             if current.exists() and (
-                current.is_symlink()
-                or (hasattr(current, "is_junction") and current.is_junction())
+                current.is_symlink() or (hasattr(current, "is_junction") and current.is_junction())
             ):
                 return True
         except OSError:
@@ -175,9 +179,7 @@ def _contains_link(path: Path) -> bool:
 
 
 def require_external_output_v5(repo_root: Path, path: Path) -> Path:
-    if not path.is_absolute() or _inside(path.absolute(), repo_root) or _contains_link(
-        path.absolute()
-    ):
+    if not path.is_absolute() or _inside(path.absolute(), repo_root) or _contains_link(path.absolute()):
         raise P5FormalReceiptErrorV5("RECEIPT_OUTPUT_MUST_BE_EXTERNAL")
     return path.absolute()
 
@@ -226,9 +228,7 @@ def _readback_artifacts(records: object) -> bool:
 
 
 def _validate_self_hash(value: dict[str, Any], field: str, reason: str) -> None:
-    if value.get(field) != digest(
-        {key: item for key, item in value.items() if key != field}
-    ):
+    if value.get(field) != digest({key: item for key, item in value.items() if key != field}):
         raise P5FormalReceiptErrorV5(reason)
 
 
@@ -386,17 +386,13 @@ def validate_command_result_v5(path: Path) -> dict[str, Any]:
     return value
 
 
-def build_verification_receipt_v5(
-    *, repo_root: Path, command_result_path: Path, output_path: Path
-) -> dict[str, Any]:
+def build_verification_receipt_v5(*, repo_root: Path, command_result_path: Path, output_path: Path) -> dict[str, Any]:
     require_external_output_v5(repo_root, output_path)
     source = validate_command_result_v5(command_result_path)
     kind = source["receipt_kind"]
     if kind not in VERIFICATION_KINDS_V5:
         raise P5FormalReceiptErrorV5("VERIFICATION_KIND_INVALID")
-    readback = _readback_artifacts(source["artifact_bindings"]) and _readback_artifacts(
-        source["config_artifacts"]
-    )
+    readback = _readback_artifacts(source["artifact_bindings"]) and _readback_artifacts(source["config_artifacts"])
     status = source["status"] if readback else "FAIL"
     errors = list(source["errors"])
     if not readback:
@@ -421,10 +417,7 @@ def build_verification_receipt_v5(
         "errors": errors,
     }
     if kind == "p4":
-        entries = {
-            item["logical_name"]: Path(item["path"])
-            for item in source["artifact_bindings"]
-        }
+        entries = {item["logical_name"]: Path(item["path"]) for item in source["artifact_bindings"]}
         p4_path = entries.get("p4_gate_manifest")
         if p4_path is None:
             raise P5FormalReceiptErrorV5("P4_GATE_MANIFEST_BINDING_MISSING")
@@ -520,16 +513,10 @@ def build_dataset_formal_validation_receipt_v5(
     source = validate_command_result_v5(command_result_path)
     if source["receipt_kind"] != "dataset_formal":
         raise P5FormalReceiptErrorV5("DATASET_RECEIPT_COMMAND_KIND_INVALID")
-    stdout_records = [
-        item
-        for item in source["artifact_bindings"]
-        if item["logical_name"] == "command_stdout"
-    ]
+    stdout_records = [item for item in source["artifact_bindings"] if item["logical_name"] == "command_stdout"]
     if len(stdout_records) != 1:
         raise P5FormalReceiptErrorV5("DATASET_VALIDATION_STDOUT_MISSING")
-    result = _load_json(
-        Path(stdout_records[0]["path"]), "DATASET_VALIDATION_OUTPUT_INVALID"
-    )
+    result = _load_json(Path(stdout_records[0]["path"]), "DATASET_VALIDATION_OUTPUT_INVALID")
     manifest = _load_json(dataset_manifest_path, "DATASET_MANIFEST_INVALID")
     _validate_self_hash(manifest, "manifest_hash", "DATASET_MANIFEST_HASH_MISMATCH")
     files = manifest.get("files")
@@ -615,8 +602,7 @@ def validate_dataset_formal_validation_receipt_v5(path: Path) -> dict[str, Any]:
     }
     if (
         set(value) != expected_fields
-        or value.get("schema_version")
-        != "trip-check-p5-dataset-formal-validation-receipt-v5"
+        or value.get("schema_version") != "trip-check-p5-dataset-formal-validation-receipt-v5"
         or value.get("status") not in {"PASS", "REJECT"}
         or value.get("formal") is not True
         or value.get("upstream_commit") != value.get("subject_commit")
@@ -624,16 +610,13 @@ def validate_dataset_formal_validation_receipt_v5(path: Path) -> dict[str, Any]:
         or not isinstance(value.get("command_result"), dict)
         or set(value["command_result"]) != {"path", "sha256", "receipt_hash"}
         or not isinstance(value.get("dataset_manifest"), dict)
-        or set(value["dataset_manifest"])
-        != {"path", "sha256", "manifest_hash"}
+        or set(value["dataset_manifest"]) != {"path", "sha256", "manifest_hash"}
         or not isinstance(value.get("validator"), dict)
         or set(value["validator"]) != {"path", "sha256"}
         or not isinstance(value.get("dataset_files"), dict)
         or not value["dataset_files"]
         or any(
-            not isinstance(item, dict)
-            or set(item)
-            != {"path", "sha256", "content_sha256", "row_count"}
+            not isinstance(item, dict) or set(item) != {"path", "sha256", "content_sha256", "row_count"}
             for item in value["dataset_files"].values()
         )
         or not isinstance(value.get("errors"), list)
@@ -644,21 +627,12 @@ def validate_dataset_formal_validation_receipt_v5(path: Path) -> dict[str, Any]:
     manifest_path = Path(value["dataset_manifest"]["path"])
     manifest = _load_json(manifest_path, "DATASET_MANIFEST_INVALID")
     _validate_self_hash(manifest, "manifest_hash", "DATASET_MANIFEST_HASH_MISMATCH")
-    stdout_records = [
-        item
-        for item in source["artifact_bindings"]
-        if item["logical_name"] == "command_stdout"
-    ]
+    stdout_records = [item for item in source["artifact_bindings"] if item["logical_name"] == "command_stdout"]
     if len(stdout_records) != 1:
         raise P5FormalReceiptErrorV5("DATASET_VALIDATION_STDOUT_MISSING")
     validation_output_path = Path(stdout_records[0]["path"])
-    result = _load_json(
-        validation_output_path, "DATASET_VALIDATION_OUTPUT_INVALID"
-    )
-    expected_binding = {
-        key: value[key]
-        for key in ("subject_commit", "upstream_ref", "upstream_commit", "dirty_tree")
-    }
+    result = _load_json(validation_output_path, "DATASET_VALIDATION_OUTPUT_INVALID")
+    expected_binding = {key: value[key] for key in ("subject_commit", "upstream_ref", "upstream_commit", "dirty_tree")}
     readback = (
         _sha256(command_path) == value["command_result"]["sha256"]
         and source["receipt_hash"] == value["command_result"]["receipt_hash"]
@@ -668,10 +642,7 @@ def validate_dataset_formal_validation_receipt_v5(path: Path) -> dict[str, Any]:
         and _sha256(manifest_path) == value["dataset_manifest"]["sha256"]
         and manifest["manifest_hash"] == value["dataset_manifest"]["manifest_hash"]
         and _sha256(Path(value["validator"]["path"])) == value["validator"]["sha256"]
-        and all(
-            _sha256(Path(item["path"])) == item["sha256"]
-            for item in value["dataset_files"].values()
-        )
+        and all(_sha256(Path(item["path"])) == item["sha256"] for item in value["dataset_files"].values())
         and _sha256(validation_output_path) == value["validation_output_sha256"]
         and result.get("schema_version") == "trip-check-p5-dataset-validation-v5"
         and result.get("status") == "PASS"
@@ -699,24 +670,17 @@ def build_formal_gate_receipt_v5(
     repo_binding: RepoBindingV5 | None = None,
 ) -> dict[str, Any]:
     require_external_output_v5(repo_root, output_path)
-    if set(verification_receipts) != set(VERIFICATION_KINDS_V5) or set(
-        primary_artifacts
-    ) != set(PRIMARY_ARTIFACT_NAMES_V5):
+    if set(verification_receipts) != set(VERIFICATION_KINDS_V5) or set(primary_artifacts) != set(
+        PRIMARY_ARTIFACT_NAMES_V5
+    ):
         raise P5FormalReceiptErrorV5("FORMAL_RECEIPT_INPUT_SET_INVALID")
     binding = repo_binding or read_repo_binding_v5(repo_root)
     _require_formal_repo_binding(binding)
-    dataset_receipt = validate_dataset_formal_validation_receipt_v5(
-        dataset_receipt_path
-    )
-    wrappers = {
-        kind: validate_verification_receipt_v5(path)
-        for kind, path in verification_receipts.items()
-    }
+    dataset_receipt = validate_dataset_formal_validation_receipt_v5(dataset_receipt_path)
+    wrappers = {kind: validate_verification_receipt_v5(path) for kind, path in verification_receipts.items()}
     primary = {name: path.resolve(strict=True) for name, path in primary_artifacts.items()}
     dataset = _load_json(primary["dataset_manifest"], "FORMAL_DATASET_INVALID")
-    nonblind_run = _load_json(
-        primary["nonblind_run_manifest"], "FORMAL_NONBLIND_RUN_INVALID"
-    )
+    nonblind_run = _load_json(primary["nonblind_run_manifest"], "FORMAL_NONBLIND_RUN_INVALID")
     blind_run = _load_json(primary["blind_run_manifest"], "FORMAL_BLIND_RUN_INVALID")
     panel = _load_json(primary["judge_panel"], "FORMAL_JUDGE_PANEL_INVALID")
     errors: list[str] = []
@@ -727,10 +691,7 @@ def build_formal_gate_receipt_v5(
             errors.append(f"VERIFICATION_RECEIPT_NOT_PASS:{kind}")
     expected_binding = binding.as_dict()
     evidence_bindings = [dataset_receipt, *wrappers.values()]
-    if any(
-        any(item.get(key) != value for key, value in expected_binding.items())
-        for item in evidence_bindings
-    ):
+    if any(any(item.get(key) != value for key, value in expected_binding.items()) for item in evidence_bindings):
         errors.append("RECEIPT_SUBJECT_UPSTREAM_MISMATCH")
     if (
         nonblind_run.get("subject_commit") != binding.subject_commit
@@ -746,8 +707,7 @@ def build_formal_gate_receipt_v5(
         "blind_cases": blind_run.get("case_count"),
         "nonblind_terminals": nonblind_run.get("terminal_count"),
         "blind_terminals": blind_run.get("terminal_count"),
-        "replay_readback": nonblind_run.get("replay_readback_count", 0)
-        + blind_run.get("replay_readback_count", 0),
+        "replay_readback": nonblind_run.get("replay_readback_count", 0) + blind_run.get("replay_readback_count", 0),
         "judge_rounds": panel.get("round_count"),
         "judge_provenance": len(panel.get("provenance", [])),
     }
@@ -783,20 +743,14 @@ def build_formal_gate_receipt_v5(
         **binding.as_dict(),
         "dataset_id": DATASET_ID_V5,
         "dataset_manifest_hash": dataset.get("manifest_hash"),
-        "config_hash": digest(
-            {
-                kind: wrapper["config_hash"] for kind, wrapper in sorted(wrappers.items())
-            }
-        ),
+        "config_hash": digest({kind: wrapper["config_hash"] for kind, wrapper in sorted(wrappers.items())}),
         "dataset_validation_receipt": {
             "path": str(dataset_receipt_path.resolve()),
             "sha256": _sha256(dataset_receipt_path),
             "receipt_hash": dataset_receipt["receipt_hash"],
             "status": dataset_receipt["status"],
         },
-        "bindings": {
-            f"{name}_sha256": _sha256(path) for name, path in primary.items()
-        },
+        "bindings": {f"{name}_sha256": _sha256(path) for name, path in primary.items()},
         "counts": counts,
         "verification_receipts": receipt_entries,
         "errors": errors,
@@ -834,8 +788,7 @@ def validate_formal_gate_receipt_v5(path: Path) -> dict[str, Any]:
     verification_entries = value.get("verification_receipts")
     if (
         set(value) != expected_fields
-        or value.get("schema_version")
-        != "trip-check-p5-formal-validation-receipt-v5"
+        or value.get("schema_version") != "trip-check-p5-formal-validation-receipt-v5"
         or value.get("status") not in {"PASS", "REJECT"}
         or value.get("formal") is not True
         or value.get("upstream_commit") != value.get("subject_commit")
@@ -844,8 +797,7 @@ def validate_formal_gate_receipt_v5(path: Path) -> dict[str, Any]:
         or not isinstance(dataset_entry, dict)
         or set(dataset_entry) != {"path", "sha256", "receipt_hash", "status"}
         or not isinstance(bindings, dict)
-        or set(bindings)
-        != {f"{name}_sha256" for name in PRIMARY_ARTIFACT_NAMES_V5}
+        or set(bindings) != {f"{name}_sha256" for name in PRIMARY_ARTIFACT_NAMES_V5}
         or any(re.fullmatch(r"[0-9a-f]{64}", item) is None for item in bindings.values())
         or counts
         != {
@@ -882,32 +834,18 @@ def validate_formal_gate_receipt_v5(path: Path) -> dict[str, Any]:
     dataset_path = Path(dataset_entry["path"])
     dataset_receipt = validate_dataset_formal_validation_receipt_v5(dataset_path)
     wrappers = {
-        kind: validate_verification_receipt_v5(Path(entry["path"]))
-        for kind, entry in verification_entries.items()
+        kind: validate_verification_receipt_v5(Path(entry["path"])) for kind, entry in verification_entries.items()
     }
-    expected_binding = {
-        key: value[key]
-        for key in ("subject_commit", "upstream_ref", "upstream_commit", "dirty_tree")
-    }
+    expected_binding = {key: value[key] for key in ("subject_commit", "upstream_ref", "upstream_commit", "dirty_tree")}
     readback = (
         _sha256(dataset_path) == dataset_entry["sha256"]
         and dataset_receipt["receipt_hash"] == dataset_entry["receipt_hash"]
         and dataset_receipt["status"] == dataset_entry["status"]
-        and dataset_receipt["dataset_manifest"]["manifest_hash"]
-        == value["dataset_manifest_hash"]
+        and dataset_receipt["dataset_manifest"]["manifest_hash"] == value["dataset_manifest_hash"]
+        and all(dataset_receipt[key] == expected_binding[key] for key in expected_binding)
+        and value["config_hash"] == digest({kind: wrapper["config_hash"] for kind, wrapper in sorted(wrappers.items())})
         and all(
-            dataset_receipt[key] == expected_binding[key] for key in expected_binding
-        )
-        and value["config_hash"]
-        == digest(
-            {
-                kind: wrapper["config_hash"]
-                for kind, wrapper in sorted(wrappers.items())
-            }
-        )
-        and all(
-            _sha256(Path(verification_entries[kind]["path"]))
-            == verification_entries[kind]["sha256"]
+            _sha256(Path(verification_entries[kind]["path"])) == verification_entries[kind]["sha256"]
             and all(wrapper[key] == expected_binding[key] for key in expected_binding)
             and all(
                 wrapper[key] == verification_entries[kind][key]
@@ -943,6 +881,7 @@ def mint_blind_nonce_v5(
     dataset_manifest_path: Path,
     seal_path: Path,
     nonce_schema_path: Path,
+    receipt_output_path: Path | None = None,
     repo_binding: RepoBindingV5 | None = None,
 ) -> dict[str, Any]:
     destination = require_external_output_v5(repo_root, output_path)
@@ -981,14 +920,24 @@ def mint_blind_nonce_v5(
     serialized = json.dumps(readback, sort_keys=True).lower()
     if any(token in serialized for token in ("label", "oracle", "answer", "expected")):
         raise P5FormalReceiptErrorV5("BLIND_NONCE_FORBIDDEN_PAYLOAD")
-    return {
+    receipt: dict[str, Any] = {
         "schema_version": "trip-check-p5-blind-run-nonce-mint-receipt-v5",
         "status": "MINTED_NOT_CONSUMED",
         **binding.as_dict(),
+        "nonce_file_path": str(destination),
         "nonce_file_sha256": _sha256(destination),
         "nonce_sha256": digest(nonce["nonce"]),
         "label_payload_present": False,
     }
+    receipt["receipt_hash"] = digest(receipt)
+    if receipt_output_path is not None:
+        receipt_destination = require_external_output_v5(repo_root, receipt_output_path)
+        if receipt_destination.exists():
+            raise P5FormalReceiptErrorV5("BLIND_NONCE_RECEIPT_OVERWRITE_FORBIDDEN")
+        _atomic_json(receipt_destination, receipt)
+        if _load_json(receipt_destination, "BLIND_NONCE_RECEIPT_READBACK_FAILED") != receipt:
+            raise P5FormalReceiptErrorV5("BLIND_NONCE_RECEIPT_READBACK_FAILED")
+    return receipt
 
 
 __all__ = [

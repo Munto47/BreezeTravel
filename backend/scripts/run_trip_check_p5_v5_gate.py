@@ -34,11 +34,12 @@ def main() -> None:
     parser.add_argument("--blind-run-manifest", type=Path, required=True)
     parser.add_argument("--blind-score", type=Path, required=True)
     parser.add_argument("--judge-panel", type=Path, required=True)
+    parser.add_argument("--blind-nonce", type=Path, required=True)
+    parser.add_argument("--blind-nonce-mint-receipt", type=Path, required=True)
+    parser.add_argument("--blind-nonce-consumption-receipt", type=Path, required=True)
     parser.add_argument("--formal-receipt", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--gate-schema", type=Path, default=P5_ROOT / "gate_v5.schema.json"
-    )
+    parser.add_argument("--gate-schema", type=Path, default=P5_ROOT / "gate_v5.schema.json")
     args = parser.parse_args()
     manifest = build_p5_gate_manifest_v5(
         repo_root=REPO_ROOT,
@@ -52,6 +53,9 @@ def main() -> None:
         blind_run_manifest_path=args.blind_run_manifest,
         blind_score_path=args.blind_score,
         judge_panel_path=args.judge_panel,
+        blind_nonce_path=args.blind_nonce,
+        blind_nonce_mint_receipt_path=args.blind_nonce_mint_receipt,
+        blind_nonce_consumption_receipt_path=args.blind_nonce_consumption_receipt,
         formal_receipt_path=args.formal_receipt,
         output_path=args.output,
         gate_schema_path=args.gate_schema,

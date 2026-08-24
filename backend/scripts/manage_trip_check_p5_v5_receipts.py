@@ -54,6 +54,15 @@ def _primary(args: argparse.Namespace) -> dict[str, Path]:
         "blind_run_manifest": args.blind_run_manifest,
         "blind_score": args.blind_score,
         "judge_panel": args.judge_panel,
+        "nonblind_terminal_outputs": args.nonblind_terminal_outputs,
+        "nonblind_replay_outputs": args.nonblind_replay_outputs,
+        "nonblind_artifact_index": args.nonblind_artifact_index,
+        "blind_terminal_outputs": args.blind_terminal_outputs,
+        "blind_replay_outputs": args.blind_replay_outputs,
+        "blind_artifact_index": args.blind_artifact_index,
+        "blind_nonce": args.blind_nonce,
+        "blind_nonce_mint_receipt": args.blind_nonce_mint_receipt,
+        "blind_nonce_consumption_receipt": args.blind_nonce_consumption_receipt,
     }
 
 
@@ -71,9 +80,7 @@ def parser() -> argparse.ArgumentParser:
 
     dataset = commands.add_parser("dataset", help="Build formal dataset receipt.")
     dataset.add_argument("--command-result", type=Path, required=True)
-    dataset.add_argument(
-        "--dataset", type=Path, default=P5_ROOT / "dataset_v5.manifest.json"
-    )
+    dataset.add_argument("--dataset", type=Path, default=P5_ROOT / "dataset_v5.manifest.json")
     dataset.add_argument(
         "--validator",
         type=Path,
@@ -81,9 +88,7 @@ def parser() -> argparse.ArgumentParser:
     )
     dataset.add_argument("--output", type=Path, required=True)
 
-    verification = commands.add_parser(
-        "verification", help="Wrap one recorded P1-P4/tool command."
-    )
+    verification = commands.add_parser("verification", help="Wrap one recorded P1-P4/tool command.")
     verification.add_argument("--command-result", type=Path, required=True)
     verification.add_argument("--output", type=Path, required=True)
 
@@ -95,34 +100,33 @@ def parser() -> argparse.ArgumentParser:
         default=[],
         help="Repeat KIND=ABSOLUTE_PATH for all eight required kinds.",
     )
-    formal.add_argument(
-        "--dataset", type=Path, default=P5_ROOT / "dataset_v5.manifest.json"
-    )
-    formal.add_argument(
-        "--active-contract", type=Path, default=P5_ROOT / "active_contract.json"
-    )
+    formal.add_argument("--dataset", type=Path, default=P5_ROOT / "dataset_v5.manifest.json")
+    formal.add_argument("--active-contract", type=Path, default=P5_ROOT / "active_contract.json")
     formal.add_argument(
         "--blind-seal",
         type=Path,
         default=P5_ROOT / "sealed" / "frozen_blind.v5.seal.json",
     )
-    formal.add_argument(
-        "--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json"
-    )
-    formal.add_argument(
-        "--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json"
-    )
+    formal.add_argument("--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json")
+    formal.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
     formal.add_argument("--nonblind-run-manifest", type=Path, required=True)
     formal.add_argument("--nonblind-score", type=Path, required=True)
     formal.add_argument("--blind-run-manifest", type=Path, required=True)
     formal.add_argument("--blind-score", type=Path, required=True)
     formal.add_argument("--judge-panel", type=Path, required=True)
+    formal.add_argument("--nonblind-terminal-outputs", type=Path, required=True)
+    formal.add_argument("--nonblind-replay-outputs", type=Path, required=True)
+    formal.add_argument("--nonblind-artifact-index", type=Path, required=True)
+    formal.add_argument("--blind-terminal-outputs", type=Path, required=True)
+    formal.add_argument("--blind-replay-outputs", type=Path, required=True)
+    formal.add_argument("--blind-artifact-index", type=Path, required=True)
+    formal.add_argument("--blind-nonce", type=Path, required=True)
+    formal.add_argument("--blind-nonce-mint-receipt", type=Path, required=True)
+    formal.add_argument("--blind-nonce-consumption-receipt", type=Path, required=True)
     formal.add_argument("--output", type=Path, required=True)
 
     validate = commands.add_parser("validate", help="Read back a generated receipt.")
-    validate.add_argument(
-        "--type", choices=("command", "dataset", "verification", "formal"), required=True
-    )
+    validate.add_argument("--type", choices=("command", "dataset", "verification", "formal"), required=True)
     validate.add_argument("--receipt", type=Path, required=True)
     return root
 
@@ -139,9 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             command=command,
             command_cwd=args.cwd,
             config_artifacts=_named_paths(args.config_artifact, "--config-artifact"),
-            expected_artifacts=_named_paths(
-                args.expected_artifact, "--expected-artifact"
-            ),
+            expected_artifacts=_named_paths(args.expected_artifact, "--expected-artifact"),
             output_dir=args.output_dir,
         )
     elif args.action == "dataset":
