@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 
 import pytest
 
 from evals.trip_check_v1.p5.data_contract import digest
+from evals.trip_check_v1.p5.formal_receipts_v4 import (
+    RepoBindingV4,
+    build_dataset_formal_validation_receipt_v4,
+    build_formal_gate_receipt_v4,
+    build_verification_receipt_v4,
+    execute_command_receipt_v4,
+)
 from evals.trip_check_v1.p5.gate_v4 import (
     P5GateErrorV4,
     build_p5_gate_manifest_v4,
@@ -282,7 +290,19 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
         "blind_score": blind_score_path,
         "judge_panel": panel_path,
     }
-    receipt_entries = {}
+    binding = RepoBindingV4(SUBJECT, UPSTREAM, SUBJECT, False)
+    verification_paths = {}
+    p4_gate = tmp_path / "evidence" / "p4_gate.json"
+    _write_json(
+        p4_gate,
+        {
+            "status": "PASS",
+            "solver_admission": {
+                "status": "REJECT",
+                "default_strategy": "bounded_repair_v1",
+            },
+        },
+    )
     for kind in (
         "p1",
         "p2",
@@ -293,58 +313,66 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
         "frontend_build",
         "dual_entry",
     ):
+        command = execute_command_receipt_v4(
+            repo_root=root,
+            kind=kind,
+            command=[sys.executable, "-c", "print('verified')"],
+            command_cwd=root,
+            config_artifacts={"run_spec": run_spec.resolve()},
+            expected_artifacts=(
+                {"p4_gate_manifest": p4_gate.resolve()} if kind == "p4" else {}
+            ),
+            output_dir=tmp_path / "commands" / kind,
+            repo_binding=binding,
+        )
         receipt_path = tmp_path / "verification" / f"{kind}.json"
-        receipt = {
-            "schema_version": "trip-check-p5-verification-receipt-v4",
-            "receipt_kind": kind,
-            "status": "PASS",
-            "subject_commit": SUBJECT,
-            "upstream_ref": UPSTREAM,
-            "upstream_commit": SUBJECT,
-            "dirty_tree": False,
-            "readback_verified": True,
-        }
-        if kind == "p4":
-            receipt["solver_admission"] = {
-                "status": "REJECT",
-                "default_strategy": "bounded_repair_v1",
-            }
-        _write_json(receipt_path, receipt)
-        receipt_entries[kind] = {
-            "path": str(receipt_path.resolve()),
-            "sha256": _file_sha(receipt_path),
-            "status": "PASS",
-            "subject_commit": SUBJECT,
-            "upstream_ref": UPSTREAM,
-            "upstream_commit": SUBJECT,
-            "dirty_tree": False,
-            "readback_verified": True,
-        }
-    formal_path = tmp_path / "formal" / "receipt.json"
-    formal = {
-        "schema_version": "trip-check-p5-formal-validation-receipt-v4",
+        build_verification_receipt_v4(
+            repo_root=root,
+            command_result_path=Path(command["receipt_path"]),
+            output_path=receipt_path,
+        )
+        verification_paths[kind] = receipt_path
+    validator = root / "backend" / "scripts" / "validate_trip_check_p5_dataset_v4.py"
+    validator.parent.mkdir(parents=True, exist_ok=True)
+    validator.write_text("# validator fixture\n", encoding="utf-8")
+    validation_output = {
+        "schema_version": "trip-check-p5-dataset-validation-v4",
         "status": "PASS",
         "formal": True,
-        "subject_commit": SUBJECT,
-        "upstream_ref": UPSTREAM,
-        "upstream_commit": SUBJECT,
-        "dirty_tree": False,
-        "dataset_id": "trip-check-p5-360-v4",
-        "dataset_manifest_hash": dataset["manifest_hash"],
-        "bindings": {f"{key}_sha256": _file_sha(path) for key, path in primary.items()},
-        "counts": {
-            "nonblind_cases": 270,
-            "blind_cases": 90,
-            "nonblind_terminals": 810,
-            "blind_terminals": 270,
-            "replay_readback": 1080,
-            "judge_rounds": 3,
-            "judge_provenance": 3,
-        },
-        "verification_receipts": receipt_entries,
         "errors": [],
+        "manifest_hash": dataset["manifest_hash"],
     }
-    _write_hashed(formal_path, formal, "receipt_hash")
+    dataset_command = execute_command_receipt_v4(
+        repo_root=root,
+        kind="dataset_formal",
+        command=[
+            sys.executable,
+            "-c",
+            f"import json; print(json.dumps({validation_output!r}))",
+        ],
+        command_cwd=root,
+        config_artifacts={"dataset_manifest": dataset_path.resolve()},
+        expected_artifacts={},
+        output_dir=tmp_path / "commands" / "dataset_formal",
+        repo_binding=binding,
+    )
+    dataset_receipt_path = tmp_path / "formal" / "dataset_receipt.json"
+    build_dataset_formal_validation_receipt_v4(
+        repo_root=root,
+        command_result_path=Path(dataset_command["receipt_path"]),
+        dataset_manifest_path=dataset_path,
+        validator_path=validator,
+        output_path=dataset_receipt_path,
+    )
+    formal_path = tmp_path / "formal" / "receipt.json"
+    build_formal_gate_receipt_v4(
+        repo_root=root,
+        dataset_receipt_path=dataset_receipt_path,
+        verification_receipts=verification_paths,
+        primary_artifacts=primary,
+        output_path=formal_path,
+        repo_binding=binding,
+    )
     return {
         "repo_root": root,
         **primary,
@@ -378,7 +406,7 @@ def test_v4_gate_binds_full_replay_judges_and_verification_receipts(
     assert manifest["promotion_decision"] == "KEEP_CORE_B"
     assert manifest["counts"]["replay_readback"] == 1080
     assert manifest["solver_admission"]["promotion_eligible"] is False
-    assert len(manifest["artifact_index"]) == 19
+    assert len(manifest["artifact_index"]) == 20
 
 
 def test_nonblind_parser_rejects_missing_replay_readback() -> None:
@@ -404,3 +432,76 @@ def test_nonblind_parser_never_allows_rejected_solver_promotion() -> None:
     )
     with pytest.raises(P5GateErrorV4, match="V4_SOLVER_PROMOTION_FORBIDDEN"):
         parse_nonblind_score_v4(score, run=run)
+
+
+def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    schema = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "gate_v4.schema.json"
+    )
+    with pytest.raises(P5GateErrorV4, match="V4_GATE_OUTPUT_PATH_FORBIDDEN"):
+        build_p5_gate_manifest_v4(
+            repo_root=paths["repo_root"],
+            dataset_manifest_path=paths["dataset_manifest"],
+            active_contract_path=paths["active_contract"],
+            blind_seal_path=paths["blind_seal"],
+            run_spec_path=paths["run_spec"],
+            rubric_path=paths["judge_rubric"],
+            nonblind_run_manifest_path=paths["nonblind_run_manifest"],
+            nonblind_score_path=paths["nonblind_score"],
+            blind_run_manifest_path=paths["blind_run_manifest"],
+            blind_score_path=paths["blind_score"],
+            judge_panel_path=paths["judge_panel"],
+            formal_receipt_path=paths["formal_receipt"],
+            output_path=paths["repo_root"] / "gate.json",
+            gate_schema_path=schema,
+            require_current_subject=False,
+        )
+
+
+def test_gate_rechecks_repository_state_after_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paths = _formal_fixture(tmp_path)
+    schema = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "gate_v4.schema.json"
+    )
+    clean = {
+        "subject_commit": SUBJECT,
+        "upstream_ref": UPSTREAM,
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+    }
+    states = [clean, clean, {**clean, "dirty_tree": True}]
+    monkeypatch.setattr(
+        "evals.trip_check_v1.p5.gate_v4._repo_state_v4",
+        lambda _root: states.pop(0),
+    )
+    with pytest.raises(
+        P5GateErrorV4, match="V4_GATE_POST_WRITE_REPOSITORY_STATE_CHANGED"
+    ):
+        build_p5_gate_manifest_v4(
+            repo_root=paths["repo_root"],
+            dataset_manifest_path=paths["dataset_manifest"],
+            active_contract_path=paths["active_contract"],
+            blind_seal_path=paths["blind_seal"],
+            run_spec_path=paths["run_spec"],
+            rubric_path=paths["judge_rubric"],
+            nonblind_run_manifest_path=paths["nonblind_run_manifest"],
+            nonblind_score_path=paths["nonblind_score"],
+            blind_run_manifest_path=paths["blind_run_manifest"],
+            blind_score_path=paths["blind_score"],
+            judge_panel_path=paths["judge_panel"],
+            formal_receipt_path=paths["formal_receipt"],
+            output_path=tmp_path / "external" / "gate.json",
+            gate_schema_path=schema,
+            require_current_subject=True,
+        )
