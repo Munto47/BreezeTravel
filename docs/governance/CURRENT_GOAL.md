@@ -88,7 +88,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 ## Contract versions
 
-- Active target：`trip-check-p5-v4`；case、dataset manifest、RunSpec、adapter、score、Judge、blind seal 与 Gate manifest 均须使用独立 v4 版本，不能覆盖 v3 文件；
+- Active target：`trip-check-p5-v4`；dataset manifest、RunSpec、adapter/output、score、Judge、blind seal 与 Gate manifest 使用独立 v4 envelope，不能覆盖 v3 文件；case/materialization 继续由冻结的 v3 schema 校验，v4 只允许两条 non-blind 路线 evidence/hash 传导变化，blind 两个 payload 文件逐字节复制；
 - P5 v1/v2：`SUPERSEDED`，只保留审计资格，任何 v4 formal runner/scorer/Gate 必须拒绝；
 - P5 v3：`INVALID_EVIDENCE`，保持不可变；只有 frozen-blind payload 字节和外部 commitment 被授权原样复用，不能复用其 non-blind manifest 或任何正式结果；
 - Dataset increment：`+90 frozen_blind`，总计 `360`；
@@ -227,7 +227,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 - 生成 A/B/C 消融表、失败类型表、成本/性能表和默认方案决策；
 - 同 commit 重跑完整 backend、Ruff、frontend build、P1～P4 regression、P5 dataset/runner/scorer/blind isolation；
-- 在 `.local-artifacts/p5-v2-formal/<subject_commit>/p5_gate_manifest_v2.json` 生成 Gate manifest，并执行 artifact/hash/readback/schema/secret scan；
+- 在仓库外 `${P5_ARTIFACT_ROOT}/p5-v4-formal/<subject_commit>/p5_gate_manifest_v4.json` 生成 Gate manifest，并执行 artifact/hash/readback/schema/secret scan；仓库内仅允许 `.local-artifacts` 作为非 tracked 的诊断输出位置；
 - Gate PASS、clean tree、远端 checkpoint 和 evidence readback 全部成立后，才可归档 P5 并生成 P6 draft；不得自动进入公网或候选发布。
 
 Gate 采用两步 envelope：先在 clean subject commit 上生成外置只读证据；PASS 后只允许一个 governance-only 归档提交记录 subject、manifest hash 和外置路径。归档 diff 白名单仅允许 Goal/completed-goal 状态文件，不得改代码、配置、数据、oracle、prompt、variant 或 frozen contract；否则旧 Gate 立即失效并必须重跑。
@@ -239,13 +239,18 @@ Gate 采用两步 envelope：先在 clean subject commit 上生成外置只读�
 计划新增并实际执行以下层级；命令在实现后以脚本 `--help` 和 Gate manifest 中记录的最终版本为准：
 
 ```powershell
-cd backend
-python -m pytest tests/test_trip_check_p5_dataset_contract.py tests/test_trip_check_p5_variant_adapters.py tests/test_trip_check_p5_scorer.py tests/test_trip_check_p5_blind_isolation.py -q
-python scripts/validate_trip_check_p5_dataset.py
-python scripts/run_trip_check_p5_eval.py --lane nonblind --variants legacy,core,solver
-python scripts/run_trip_check_p5_eval.py --lane frozen-blind --variants legacy,core,solver
-python scripts/run_trip_check_p5_gate.py
+python -m pytest backend/tests -q -k "p5 and v4"
+python backend/scripts/validate_trip_check_p5_dataset_v4.py --formal
+python backend/scripts/run_trip_check_p5_v4_nonblind.py --output-root <EXTERNAL_ROOT>
+python backend/scripts/score_trip_check_p5_v4_nonblind.py --run-dir <RUN_DIR> --output <EXTERNAL_JSON>
+python backend/scripts/mint_trip_check_p5_v4_blind_nonce.py --output <EXTERNAL_NONCE>
+python backend/scripts/run_trip_check_p5_v4_blind.py --output-root <EXTERNAL_ROOT> --consumption-dir <EXTERNAL_DIR> --nonce-file <EXTERNAL_NONCE> --run-id <RUN_ID>
+# isolated custodian only: score_trip_check_p5_v4_blind.py
+# three isolated rounds: export/aggregate_trip_check_p5_v4_judges.py
+python backend/scripts/manage_trip_check_p5_v4_receipts.py --help
+python backend/scripts/run_trip_check_p5_v4_gate.py --help
 
+cd backend
 python -m pytest tests/ -q
 python -m ruff check app evals scripts tests
 
@@ -308,11 +313,11 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 
 ## Completion record
 
-- Commits：P5 v3 remediation checkpoint through `fbcad2509517fb8a1c0267cea441dda34d47cf8d`；P5 v4 implementation/seal/formal evaluation checkpoint 尚未生成；
+- Commits：P5 v3 remediation checkpoint through `fbcad2509517fb8a1c0267cea441dda34d47cf8d`；P5 v4 数据/runner/scorer/blind/Judge/Gate/receipt 工具 checkpoint through `6ce3f6f6f922bed31878595504ae93a4924118bc`；v4 seal/formal evaluation checkpoint 尚未生成；
 - Remote branch / upstream：`codex/trip-check-p5-evaluation-ablation` / `origin/codex/trip-check-p5-evaluation-ablation`；R0 基线同步；
-- Verification results：基线定向实现回归 `77 passed`、Ruff PASS；18 pilot 在 v3 诊断运行中得到 18/18 terminal/replay，但两条路线 Finding 缺失，因此旧结果为 `INVALID_EVIDENCE`；P5 v4 正式 810/270 运行、评分、Judge 与 Gate 为 `NOT_RUN`；
-- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入 `.local-artifacts/p5-v4-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
+- Verification results：集成后 v4 邻接回归 `34 passed`、receipt/CLI 修复回归 `10 passed`、Ruff PASS；开发态 subject `88a8392cd86f88a102327cda8141081f87a094d6` 的 270 non-blind × 3 得到 810/810 terminal 与 replay、Core B 270/270 且全部硬门槛满足，但因 `formal_evidence=false` 评分状态保持 `REJECT`，只用于冻结前诊断；P5 v4 正式运行、blind、Judge 与 Gate 仍为 `NOT_RUN`；
+- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入仓库外 `${P5_ARTIFACT_ROOT}/p5-v4-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
 - Gate result：`NOT_RUN`；
 - Next Goal generated：`NO`；
-- Remaining red lights：v4 dataset/seal/active contract 尚未冻结；原 custodian 的外置 blind bundle/review receipt 尚待隔离 readback；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若 v3 blind bytes 或原外置 commitment 无法原样复用，必须停止，不能重建标签追绿；
+- Remaining red lights：v4 dataset/seal/active contract 尚未冻结；custodian 已隔离回读原外置 bundle/review commitment 且与 v3 seal 一致，但正式 seal 尚未执行；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若 v3 blind bytes 或原外置 commitment 后续出现不一致，必须停止，不能重建标签追绿；
 - Promotion decision：`NOT_REQUESTED`。

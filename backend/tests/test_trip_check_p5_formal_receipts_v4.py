@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +21,7 @@ from evals.trip_check_v1.p5.formal_receipts_v4 import (
 
 SUBJECT = "a" * 40
 BINDING = RepoBindingV4(SUBJECT, "origin/codex/p5-v4", SUBJECT, False)
+REPO_ROOT = Path(__file__).parents[2]
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -159,3 +161,24 @@ def test_blind_nonce_is_external_single_use_shaped_and_label_free(
             nonce_schema_path=schema,
             repo_binding=BINDING,
         )
+
+
+@pytest.mark.parametrize(
+    "script",
+    (
+        "manage_trip_check_p5_v4_receipts.py",
+        "mint_trip_check_p5_v4_blind_nonce.py",
+    ),
+)
+def test_formal_receipt_clis_run_from_repository_root(script: str) -> None:
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "backend" / "scripts" / script), "--help"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout
