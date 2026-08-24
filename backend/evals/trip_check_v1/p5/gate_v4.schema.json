@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_index": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "logical_name": {"minLength": 1, "type": "string"},
+          "path": {"minLength": 1, "type": "string"},
+          "sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "size_bytes": {"minimum": 0, "type": "integer"},
+          "storage": {"enum": ["repository", "external"]}
+        },
+        "required": ["logical_name", "storage", "path", "sha256", "size_bytes"],
+        "type": "object"
+      },
+      "minItems": 19,
+      "type": "array"
+    },
+    "checks": {
+      "additionalProperties": {"type": "boolean"},
+      "minProperties": 18,
+      "type": "object"
+    },
+    "counts": {
+      "additionalProperties": false,
+      "properties": {
+        "blind_cases": {"const": 90},
+        "blind_terminals": {"const": 270},
+        "judge_provenance": {"const": 3},
+        "judge_rounds": {"const": 3},
+        "nonblind_cases": {"const": 270},
+        "nonblind_terminals": {"const": 810},
+        "replay_readback": {"const": 1080},
+        "total_terminals": {"const": 1080}
+      },
+      "required": ["nonblind_cases", "blind_cases", "nonblind_terminals", "blind_terminals", "total_terminals", "replay_readback", "judge_rounds", "judge_provenance"],
+      "type": "object"
+    },
+    "dataset_id": {"const": "trip-check-p5-360-v4"},
+    "dataset_manifest_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "default_runtime_strategy": {"const": "bounded_repair_v1"},
+    "dirty_tree": {"const": false},
+    "evidence_boundaries": {
+      "additionalProperties": false,
+      "properties": {
+        "automated_proxy_judge": {"enum": ["PASS", "BLOCKED"]},
+        "controlled_snapshot": {"const": "EVALUATED"},
+        "human_calibration_performed": {"const": false},
+        "human_evidence": {"const": "NOT_RUN"},
+        "live_provider": {"const": "NOT_RUN"},
+        "public_e2e": {"const": "NOT_RUN"},
+        "release": {"const": "NOT_RUN"},
+        "replay_readback": {"enum": ["PASS", "REJECT"]}
+      },
+      "required": ["controlled_snapshot", "replay_readback", "automated_proxy_judge", "human_calibration_performed", "human_evidence", "live_provider", "public_e2e", "release"],
+      "type": "object"
+    },
+    "goal_id": {"const": "TC-P5-G01-evaluation-ablation"},
+    "manifest_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "promotion_decision": {"enum": ["KEEP_CORE_B", "PROMOTE_ADMITTED_CHALLENGER", "REJECT_ALL"]},
+    "schema_version": {"const": "trip-check-p5-evaluation-gate-v4"},
+    "solver_admission": {
+      "additionalProperties": false,
+      "properties": {
+        "inherited_from_p4": {"const": "REJECT"},
+        "may_be_overridden_by_p5_score": {"const": false},
+        "promotion_eligible": {"const": false}
+      },
+      "required": ["inherited_from_p4", "may_be_overridden_by_p5_score", "promotion_eligible"],
+      "type": "object"
+    },
+    "status": {"enum": ["PASS", "REJECT"]},
+    "subject_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+    "upstream_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+    "upstream_ref": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "goal_id", "status", "subject_commit", "upstream_ref", "upstream_commit", "dirty_tree", "dataset_id", "dataset_manifest_hash", "counts", "checks", "promotion_decision", "default_runtime_strategy", "solver_admission", "evidence_boundaries", "artifact_index", "manifest_hash"],
+  "type": "object"
+}
