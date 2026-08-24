@@ -6,6 +6,8 @@
     "artifact_index_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
     "automated_proxy_judge": {"const": true},
     "candidate_count": {"const": 270},
+    "calibration_panel_report_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "calibration_panel_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
     "dataset_manifest_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
     "deterministic_scorer_priority": {"const": true},
     "evidence_class": {"const": "automated_proxy_judge"},
@@ -29,6 +31,8 @@
           "agent_id": {"minLength": 1, "type": "string"},
           "agent_task_id": {"minLength": 1, "type": "string"},
           "bundle_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "calibration_panel_report_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "calibration_panel_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "context_id": {"minLength": 1, "type": "string"},
           "ended_at": {"minLength": 1, "type": "string"},
           "evaluator_id": {"minLength": 1, "type": "string"},
@@ -41,7 +45,7 @@
           "started_at": {"minLength": 1, "type": "string"},
           "terminal_outputs_content_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
         },
-        "required": ["round_index", "evaluator_id", "agent_task_id", "agent_id", "context_id", "model_id", "started_at", "ended_at", "bundle_sha256", "source_rubric_sha256", "judge_input_rubric_sha256", "source_protocol_sha256", "judge_input_protocol_sha256", "terminal_outputs_content_sha256"],
+        "required": ["round_index", "evaluator_id", "agent_task_id", "agent_id", "context_id", "model_id", "started_at", "ended_at", "bundle_sha256", "source_rubric_sha256", "judge_input_rubric_sha256", "source_protocol_sha256", "judge_input_protocol_sha256", "calibration_panel_sha256", "calibration_panel_report_hash", "terminal_outputs_content_sha256"],
         "type": "object"
       },
       "maxItems": 3,
@@ -64,6 +68,6 @@
     },
     "verdict_agreement_rate": {"maximum": 1, "minimum": 0, "type": "number"}
   },
-  "required": ["schema_version", "status", "evidence_class", "automated_proxy_judge", "human_calibration_performed", "round_count", "candidate_count", "agreement_threshold", "verdict_agreement_rate", "per_dimension_agreement_rate", "variant_metrics", "provenance", "mapping_sha256", "subject_commit", "dataset_manifest_hash", "run_group_manifest_hash", "artifact_index_hash", "terminal_outputs_content_sha256", "deterministic_scorer_priority", "judge_may_override_deterministic_failure", "unsupported_claim_candidate_count", "report_hash"],
+  "required": ["schema_version", "status", "evidence_class", "automated_proxy_judge", "human_calibration_performed", "round_count", "candidate_count", "calibration_panel_sha256", "calibration_panel_report_hash", "agreement_threshold", "verdict_agreement_rate", "per_dimension_agreement_rate", "variant_metrics", "provenance", "mapping_sha256", "subject_commit", "dataset_manifest_hash", "run_group_manifest_hash", "artifact_index_hash", "terminal_outputs_content_sha256", "deterministic_scorer_priority", "judge_may_override_deterministic_failure", "unsupported_claim_candidate_count", "report_hash"],
   "type": "object"
 }

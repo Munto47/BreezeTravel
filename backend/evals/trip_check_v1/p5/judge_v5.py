@@ -46,6 +46,7 @@ class P5JudgeErrorV5(RuntimeError):
 
 
 BlindRunValidatorV5 = Callable[..., object]
+CalibrationPanelValidatorV5 = Callable[..., object]
 
 
 def _value(item: object, name: str, default: object = None) -> object:
@@ -471,7 +472,9 @@ def export_judge_bundles_v5(
     custody_output_dir: Path,
     rubric_path: Path,
     protocol_path: Path,
+    calibration_panel_path: Path,
     blind_run_validator: BlindRunValidatorV5 | None = None,
+    calibration_panel_validator: CalibrationPanelValidatorV5 | None = None,
 ) -> dict[str, Any]:
     """Export one anonymous input-only bundle per independent Judge round."""
 
@@ -495,6 +498,25 @@ def export_judge_bundles_v5(
     judge_input_protocol_sha256 = judge_protocol_projection_hash_v5(
         source_rubric, source_protocol
     )
+    from evals.trip_check_v1.p5.judge_calibration_v1 import (
+        validate_judge_calibration_panel_v1,
+    )
+
+    panel_validator = (
+        calibration_panel_validator or validate_judge_calibration_panel_v1
+    )
+    calibration_panel = panel_validator(
+        repo_root=root,
+        panel_path=calibration_panel_path,
+        rubric_path=rubric_path,
+        protocol_path=protocol_path,
+    )
+    if not isinstance(calibration_panel, Mapping) or not _is_sha256(
+        calibration_panel.get("report_hash")
+    ):
+        raise P5JudgeErrorV5("JUDGE_CALIBRATION_PANEL_INVALID")
+    calibration_panel_sha256 = _sha256(calibration_panel_path)
+    calibration_panel_report_hash = calibration_panel["report_hash"]
     case_by_id = {str(_value(case, "case_id")): case for case in cases}
     output_by_key = {
         (str(_value(output, "case_id")), str(_value(output, "variant_id"))): output
@@ -588,6 +610,8 @@ def export_judge_bundles_v5(
                 "judge_input_rubric_sha256": judge_input_rubric_sha256,
                 "source_protocol_sha256": source_protocol_sha256,
                 "judge_input_protocol_sha256": judge_input_protocol_sha256,
+                "calibration_panel_sha256": calibration_panel_sha256,
+                "calibration_panel_report_hash": calibration_panel_report_hash,
                 "mapping_commitment": mapping_commitment,
             },
             "input_boundary": {
@@ -612,6 +636,8 @@ def export_judge_bundles_v5(
                 "judge_input_rubric_sha256": judge_input_rubric_sha256,
                 "source_protocol_sha256": source_protocol_sha256,
                 "judge_input_protocol_sha256": judge_input_protocol_sha256,
+                "calibration_panel_sha256": calibration_panel_sha256,
+                "calibration_panel_report_hash": calibration_panel_report_hash,
                 "terminal_outputs_content_sha256": manifest[
                     "terminal_outputs_content_sha256"
                 ],
@@ -632,6 +658,8 @@ def export_judge_bundles_v5(
         "terminal_outputs_content_sha256": manifest[
             "terminal_outputs_content_sha256"
         ],
+        "calibration_panel_sha256": calibration_panel_sha256,
+        "calibration_panel_report_hash": calibration_panel_report_hash,
         "mapping_commitment": mapping_commitment,
         "bundle_receipts": bundle_receipts,
         "rows": mapping_rows,
@@ -653,6 +681,8 @@ def export_judge_bundles_v5(
         "peer_round_output_exported": False,
         "automated_proxy_judge": True,
         "human_calibration_performed": False,
+        "calibration_panel_sha256": calibration_panel_sha256,
+        "calibration_panel_report_hash": calibration_panel_report_hash,
     }
 
 
@@ -674,6 +704,8 @@ def _validate_round_report_v5(
         "judge_input_rubric_sha256",
         "source_protocol_sha256",
         "judge_input_protocol_sha256",
+        "calibration_panel_sha256",
+        "calibration_panel_report_hash",
         "terminal_outputs_content_sha256",
         "api_usage_count",
         "tool_usage_count",
@@ -697,6 +729,10 @@ def _validate_round_report_v5(
         != receipt["source_protocol_sha256"]
         or report.get("judge_input_protocol_sha256")
         != receipt["judge_input_protocol_sha256"]
+        or report.get("calibration_panel_sha256")
+        != receipt["calibration_panel_sha256"]
+        or report.get("calibration_panel_report_hash")
+        != receipt["calibration_panel_report_hash"]
         or report.get("terminal_outputs_content_sha256")
         != receipt["terminal_outputs_content_sha256"]
         or report.get("api_usage_count") != 0
@@ -798,6 +834,8 @@ def aggregate_judge_rounds_v5(
         "run_group_manifest_hash",
         "artifact_index_hash",
         "terminal_outputs_content_sha256",
+        "calibration_panel_sha256",
+        "calibration_panel_report_hash",
         "mapping_commitment",
         "bundle_receipts",
         "rows",
@@ -814,6 +852,8 @@ def aggregate_judge_rounds_v5(
                 "run_group_manifest_hash",
                 "artifact_index_hash",
                 "terminal_outputs_content_sha256",
+                "calibration_panel_sha256",
+                "calibration_panel_report_hash",
                 "mapping_commitment",
             )
         )
@@ -832,6 +872,8 @@ def aggregate_judge_rounds_v5(
         "judge_input_rubric_sha256",
         "source_protocol_sha256",
         "judge_input_protocol_sha256",
+        "calibration_panel_sha256",
+        "calibration_panel_report_hash",
         "terminal_outputs_content_sha256",
         "item_count",
     }
@@ -851,6 +893,8 @@ def aggregate_judge_rounds_v5(
                     "judge_input_rubric_sha256",
                     "source_protocol_sha256",
                     "judge_input_protocol_sha256",
+                    "calibration_panel_sha256",
+                    "calibration_panel_report_hash",
                 )
             )
         ):
@@ -1043,6 +1087,8 @@ def aggregate_judge_rounds_v5(
                     "judge_input_rubric_sha256",
                     "source_protocol_sha256",
                     "judge_input_protocol_sha256",
+                    "calibration_panel_sha256",
+                    "calibration_panel_report_hash",
                     "terminal_outputs_content_sha256",
                 )
             }
@@ -1059,6 +1105,10 @@ def aggregate_judge_rounds_v5(
         "deterministic_scorer_priority": True,
         "judge_may_override_deterministic_failure": False,
         "unsupported_claim_candidate_count": unsupported_count,
+        "calibration_panel_sha256": mapping["calibration_panel_sha256"],
+        "calibration_panel_report_hash": mapping[
+            "calibration_panel_report_hash"
+        ],
     }
     panel["report_hash"] = digest(panel)
     return panel

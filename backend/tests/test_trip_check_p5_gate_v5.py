@@ -179,7 +179,12 @@ def _blind_score(run: dict, seal_sha: str) -> dict:
     return {**payload, "report_hash": digest(payload)}
 
 
-def _judge_panel(run: dict, rubric_path: Path, protocol_path: Path) -> dict:
+def _judge_panel(
+    run: dict,
+    rubric_path: Path,
+    protocol_path: Path,
+    calibration_panel_path: Path,
+) -> dict:
     rubric = json.loads(rubric_path.read_text(encoding="utf-8"))
     protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
     payload = {
@@ -190,6 +195,8 @@ def _judge_panel(run: dict, rubric_path: Path, protocol_path: Path) -> dict:
         "human_calibration_performed": False,
         "round_count": 3,
         "candidate_count": 270,
+        "calibration_panel_sha256": _file_sha(calibration_panel_path),
+        "calibration_panel_report_hash": "9" * 64,
         "agreement_threshold": 0.85,
         "verdict_agreement_rate": 1.0,
         "per_dimension_agreement_rate": {
@@ -213,6 +220,8 @@ def _judge_panel(run: dict, rubric_path: Path, protocol_path: Path) -> dict:
                 "judge_input_protocol_sha256": judge_protocol_projection_hash_v5(
                     rubric, protocol
                 ),
+                "calibration_panel_sha256": _file_sha(calibration_panel_path),
+                "calibration_panel_report_hash": "9" * 64,
                 "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
             }
             for index in range(1, 4)
@@ -410,9 +419,14 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     nonblind_score_path = tmp_path / "scores" / "nonblind.json"
     blind_score_path = tmp_path / "scores" / "blind.json"
     panel_path = tmp_path / "scores" / "panel.json"
+    calibration_panel_path = tmp_path / "scores" / "calibration-panel.json"
+    _write_json(calibration_panel_path, {"report_hash": "9" * 64})
     _write_json(nonblind_score_path, _nonblind_score(nonblind_run))
     _write_json(blind_score_path, _blind_score(blind_run, _file_sha(seal_path)))
-    _write_json(panel_path, _judge_panel(blind_run, rubric, protocol))
+    _write_json(
+        panel_path,
+        _judge_panel(blind_run, rubric, protocol, calibration_panel_path),
+    )
     primary = {
         "dataset_manifest": dataset_path,
         "active_contract": active_path,
@@ -420,6 +434,7 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
         "run_spec": run_spec,
         "judge_rubric": rubric,
         "judge_protocol": protocol,
+        "judge_calibration_panel": calibration_panel_path,
         "nonblind_run_manifest": nonblind_run_path,
         "nonblind_score": nonblind_score_path,
         "blind_run_manifest": blind_run_path,
@@ -533,6 +548,7 @@ def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
         run_spec_path=paths["run_spec"],
         rubric_path=paths["judge_rubric"],
         judge_protocol_path=paths["judge_protocol"],
+        calibration_panel_path=paths["judge_calibration_panel"],
         nonblind_run_manifest_path=paths["nonblind_run_manifest"],
         nonblind_score_path=paths["nonblind_score"],
         blind_run_manifest_path=paths["blind_run_manifest"],
@@ -545,6 +561,9 @@ def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
         output_path=output_path,
         gate_schema_path=schema,
         require_current_subject=False,
+        calibration_panel_validator=lambda **_: json.loads(
+            paths["judge_calibration_panel"].read_text(encoding="utf-8")
+        ),
     )
 
 
@@ -561,6 +580,7 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
         run_spec_path=paths["run_spec"],
         rubric_path=paths["judge_rubric"],
         judge_protocol_path=paths["judge_protocol"],
+        calibration_panel_path=paths["judge_calibration_panel"],
         nonblind_run_manifest_path=paths["nonblind_run_manifest"],
         nonblind_score_path=paths["nonblind_score"],
         blind_run_manifest_path=paths["blind_run_manifest"],
@@ -573,12 +593,15 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
         output_path=tmp_path / "output" / "gate.json",
         gate_schema_path=schema,
         require_current_subject=False,
+        calibration_panel_validator=lambda **_: json.loads(
+            paths["judge_calibration_panel"].read_text(encoding="utf-8")
+        ),
     )
     assert manifest["status"] == "PASS"
     assert manifest["promotion_decision"] == "KEEP_CORE_B"
     assert manifest["counts"]["replay_readback"] == 1080
     assert manifest["solver_admission"]["promotion_eligible"] is False
-    assert len(manifest["artifact_index"]) == 30
+    assert len(manifest["artifact_index"]) == 31
 
 
 def test_nonblind_parser_rejects_missing_replay_readback(tmp_path: Path) -> None:
@@ -670,6 +693,7 @@ def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -
             run_spec_path=paths["run_spec"],
             rubric_path=paths["judge_rubric"],
             judge_protocol_path=paths["judge_protocol"],
+            calibration_panel_path=paths["judge_calibration_panel"],
             nonblind_run_manifest_path=paths["nonblind_run_manifest"],
             nonblind_score_path=paths["nonblind_score"],
             blind_run_manifest_path=paths["blind_run_manifest"],
@@ -682,6 +706,9 @@ def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -
             output_path=paths["repo_root"] / "gate.json",
             gate_schema_path=schema,
             require_current_subject=False,
+            calibration_panel_validator=lambda **_: json.loads(
+                paths["judge_calibration_panel"].read_text(encoding="utf-8")
+            ),
         )
 
 
@@ -708,6 +735,7 @@ def test_gate_rechecks_repository_state_after_write(tmp_path: Path, monkeypatch:
             run_spec_path=paths["run_spec"],
             rubric_path=paths["judge_rubric"],
             judge_protocol_path=paths["judge_protocol"],
+            calibration_panel_path=paths["judge_calibration_panel"],
             nonblind_run_manifest_path=paths["nonblind_run_manifest"],
             nonblind_score_path=paths["nonblind_score"],
             blind_run_manifest_path=paths["blind_run_manifest"],
@@ -720,4 +748,7 @@ def test_gate_rechecks_repository_state_after_write(tmp_path: Path, monkeypatch:
             output_path=tmp_path / "external" / "gate.json",
             gate_schema_path=schema,
             require_current_subject=True,
+            calibration_panel_validator=lambda **_: json.loads(
+                paths["judge_calibration_panel"].read_text(encoding="utf-8")
+            ),
         )

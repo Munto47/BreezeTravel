@@ -183,6 +183,9 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
     _write_json(rubric_path, _rubric())
     protocol_path = repo_root / "protocol.json"
     _write_json(protocol_path, _protocol())
+    calibration_panel_path = tmp_path / "calibration" / "panel.json"
+    calibration_panel = {"report_hash": "9" * 64}
+    _write_json(calibration_panel_path, calibration_panel)
     round_dirs = [tmp_path / f"judge-{index}" for index in range(1, 4)]
     custody = tmp_path / "custody"
     receipt = export_judge_bundles_v5(
@@ -192,7 +195,9 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
         custody_output_dir=custody,
         rubric_path=rubric_path,
         protocol_path=protocol_path,
+        calibration_panel_path=calibration_panel_path,
         blind_run_validator=lambda **_: _validated_run(),
+        calibration_panel_validator=lambda **_: calibration_panel,
     )
     return repo_root, receipt, round_dirs
 
@@ -231,6 +236,12 @@ def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
         "source_protocol_sha256": bundle_receipt["source_protocol_sha256"],
         "judge_input_protocol_sha256": bundle_receipt[
             "judge_input_protocol_sha256"
+        ],
+        "calibration_panel_sha256": bundle_receipt[
+            "calibration_panel_sha256"
+        ],
+        "calibration_panel_report_hash": bundle_receipt[
+            "calibration_panel_report_hash"
         ],
         "terminal_outputs_content_sha256": bundle_receipt[
             "terminal_outputs_content_sha256"

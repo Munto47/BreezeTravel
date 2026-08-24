@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -686,6 +686,8 @@ def _parse_judge_panel_v5(value: Mapping[str, Any], *, run: Mapping[str, Any]) -
         "human_calibration_performed",
         "round_count",
         "candidate_count",
+        "calibration_panel_sha256",
+        "calibration_panel_report_hash",
         "agreement_threshold",
         "verdict_agreement_rate",
         "per_dimension_agreement_rate",
@@ -713,6 +715,8 @@ def _parse_judge_panel_v5(value: Mapping[str, Any], *, run: Mapping[str, Any]) -
         or value.get("human_calibration_performed") is not False
         or value.get("round_count") != 3
         or value.get("candidate_count") != 270
+        or not _is_sha256(value.get("calibration_panel_sha256"))
+        or not _is_sha256(value.get("calibration_panel_report_hash"))
         or value.get("agreement_threshold") != 0.85
         or not isinstance(provenance, list)
         or len(provenance) != 3
@@ -889,6 +893,7 @@ def build_p5_gate_manifest_v5(
     run_spec_path: Path,
     rubric_path: Path,
     judge_protocol_path: Path,
+    calibration_panel_path: Path,
     nonblind_run_manifest_path: Path,
     nonblind_score_path: Path,
     blind_run_manifest_path: Path,
@@ -901,6 +906,7 @@ def build_p5_gate_manifest_v5(
     output_path: Path,
     gate_schema_path: Path,
     require_current_subject: bool = True,
+    calibration_panel_validator: Callable[..., object] | None = None,
 ) -> dict[str, Any]:
     root = repo_root.resolve()
     safe_output = _require_safe_gate_output(root, output_path)
@@ -910,6 +916,7 @@ def build_p5_gate_manifest_v5(
         blind_run_manifest_path,
         blind_score_path,
         judge_panel_path,
+        calibration_panel_path,
         formal_receipt_path,
         blind_nonce_path,
         blind_nonce_mint_receipt_path,
@@ -964,6 +971,32 @@ def build_p5_gate_manifest_v5(
     panel = _parse_judge_panel_v5(_load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run)
     rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
     protocol = _load_json(judge_protocol_path, "V5_JUDGE_PROTOCOL_INVALID")
+    if calibration_panel_validator is None:
+        from evals.trip_check_v1.p5.judge_calibration_v1 import (
+            validate_judge_calibration_panel_v1,
+        )
+
+        calibration_panel_validator = validate_judge_calibration_panel_v1
+    calibration_panel = calibration_panel_validator(
+        repo_root=root,
+        panel_path=calibration_panel_path,
+        rubric_path=rubric_path,
+        protocol_path=judge_protocol_path,
+    )
+    if (
+        not isinstance(calibration_panel, Mapping)
+        or panel.get("calibration_panel_sha256") != _sha256(calibration_panel_path)
+        or panel.get("calibration_panel_report_hash")
+        != calibration_panel.get("report_hash")
+        or any(
+            item.get("calibration_panel_sha256")
+            != panel["calibration_panel_sha256"]
+            or item.get("calibration_panel_report_hash")
+            != panel["calibration_panel_report_hash"]
+            for item in panel["provenance"]
+        )
+    ):
+        raise P5GateErrorV5("V5_JUDGE_CALIBRATION_BINDING_INVALID")
     if any(
         item.get("source_rubric_sha256") != _sha256(rubric_path)
         or item.get("judge_input_rubric_sha256")
@@ -1008,6 +1041,7 @@ def build_p5_gate_manifest_v5(
         "run_spec": run_spec_path,
         "judge_rubric": rubric_path,
         "judge_protocol": judge_protocol_path,
+        "judge_calibration_panel": calibration_panel_path,
         "nonblind_run_manifest": nonblind_run_manifest_path,
         "nonblind_score": nonblind_score_path,
         "blind_run_manifest": blind_run_manifest_path,
