@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from copy import deepcopy
 
+import pytest
+
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.evidence_materialization_v3 import build_evidence_materialization_v3
 from evals.trip_check_v1.p5.semantic_contract_v3 import (
     validate_case_semantics_v3,
     validate_dataset_semantics_v3,
     validate_nonblind_oracle_compatibility_v3,
+    validate_oracle_payload_compatibility_v3,
 )
 
 
@@ -35,7 +38,11 @@ def _pair(
             "budget_profile": "p5-zero-api-v2",
             "seed": 20260823,
         },
-        "oracle": {"requires_user_resolution": requires_resolution},
+        "oracle": {
+            "requires_user_resolution": requires_resolution,
+            "candidate_receipt_mode": "REQUIRED",
+            "specific_place_allowed": True,
+        },
     }
     materialization = build_evidence_materialization_v3(
         {key: value for key, value in case.items() if key != "oracle"}
@@ -76,9 +83,115 @@ def test_v3_semantic_contract_rejects_oracle_materialization_contradiction() -> 
 
     errors = validate_nonblind_oracle_compatibility_v3(case, materialization)
 
-    assert errors == [
-        "p5.v3.test.001: ORACLE_RESOLUTION_CONTRADICTION oracle=True evidence=False"
-    ]
+    assert errors == ["ORACLE_REQUIRES_USER_RESOLUTION_MISMATCH"]
+
+
+@pytest.mark.parametrize(
+    ("candidate_mode", "requires_resolution", "receipt_mode", "specific_allowed"),
+    [
+        ("VALID", False, "REQUIRED", True),
+        ("EMPTY", True, "FORBIDDEN", False),
+        ("MISSING_RECEIPT", True, "FORBIDDEN", False),
+        ("NOT_APPLICABLE", False, "NOT_APPLICABLE", True),
+    ],
+)
+def test_v3_oracle_payload_compatibility_accepts_public_candidate_policy(
+    candidate_mode: str,
+    requires_resolution: bool,
+    receipt_mode: str,
+    specific_allowed: bool,
+) -> None:
+    case = {"runner_control": {"candidate_set_mode": candidate_mode}}
+    materialization = {
+        "source_payload": {"entity_resolutions": [{"outcome": "AUTO_RESOLVED"}]}
+    }
+    oracle = {
+        "requires_user_resolution": requires_resolution,
+        "candidate_receipt_mode": receipt_mode,
+        "specific_place_allowed": specific_allowed,
+    }
+
+    assert validate_oracle_payload_compatibility_v3(case, materialization, oracle) == []
+
+
+@pytest.mark.parametrize(
+    ("candidate_mode", "field", "invalid_value", "reason"),
+    [
+        (
+            "VALID",
+            "candidate_receipt_mode",
+            "FORBIDDEN",
+            "ORACLE_CANDIDATE_RECEIPT_MODE_MISMATCH",
+        ),
+        (
+            "VALID",
+            "specific_place_allowed",
+            False,
+            "ORACLE_SPECIFIC_PLACE_ALLOWED_MISMATCH",
+        ),
+        (
+            "EMPTY",
+            "candidate_receipt_mode",
+            "REQUIRED",
+            "ORACLE_CANDIDATE_RECEIPT_MODE_MISMATCH",
+        ),
+        (
+            "EMPTY",
+            "specific_place_allowed",
+            True,
+            "ORACLE_SPECIFIC_PLACE_ALLOWED_MISMATCH",
+        ),
+        (
+            "MISSING_RECEIPT",
+            "candidate_receipt_mode",
+            "REQUIRED",
+            "ORACLE_CANDIDATE_RECEIPT_MODE_MISMATCH",
+        ),
+        (
+            "MISSING_RECEIPT",
+            "specific_place_allowed",
+            True,
+            "ORACLE_SPECIFIC_PLACE_ALLOWED_MISMATCH",
+        ),
+        (
+            "NOT_APPLICABLE",
+            "candidate_receipt_mode",
+            "FORBIDDEN",
+            "ORACLE_CANDIDATE_RECEIPT_MODE_MISMATCH",
+        ),
+        (
+            "NOT_APPLICABLE",
+            "specific_place_allowed",
+            False,
+            "ORACLE_SPECIFIC_PLACE_ALLOWED_MISMATCH",
+        ),
+    ],
+)
+def test_v3_oracle_payload_compatibility_rejects_each_candidate_policy_mismatch(
+    candidate_mode: str,
+    field: str,
+    invalid_value: object,
+    reason: str,
+) -> None:
+    blocked = candidate_mode in {"EMPTY", "MISSING_RECEIPT"}
+    oracle = {
+        "requires_user_resolution": blocked,
+        "candidate_receipt_mode": (
+            "REQUIRED"
+            if candidate_mode == "VALID"
+            else "NOT_APPLICABLE"
+            if candidate_mode == "NOT_APPLICABLE"
+            else "FORBIDDEN"
+        ),
+        "specific_place_allowed": not blocked,
+    }
+    oracle[field] = invalid_value
+
+    assert validate_oracle_payload_compatibility_v3(
+        {"runner_control": {"candidate_set_mode": candidate_mode}},
+        {"source_payload": {"entity_resolutions": [{"outcome": "AUTO_RESOLVED"}]}},
+        oracle,
+    ) == [reason]
 
 
 def test_v3_semantic_contract_rejects_unreceipted_hard_rejection() -> None:

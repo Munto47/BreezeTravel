@@ -25,6 +25,19 @@ RESOLUTION_OUTCOMES_V3 = {
     "NO_CANDIDATE",
 }
 _CANDIDATE_BLOCKED_MODES = {"EMPTY", "MISSING_RECEIPT"}
+_CANDIDATE_ORACLE_POLICY_V3 = {
+    "VALID": ("REQUIRED", True),
+    "EMPTY": ("FORBIDDEN", False),
+    "MISSING_RECEIPT": ("FORBIDDEN", False),
+    "NOT_APPLICABLE": ("NOT_APPLICABLE", True),
+}
+_MISSING = object()
+
+
+def _semantic_field(value: Any, name: str) -> Any:
+    if isinstance(value, Mapping):
+        return value.get(name, _MISSING)
+    return getattr(value, name, _MISSING)
 
 
 def _parser_text(case: Mapping[str, Any], materialization: Mapping[str, Any]) -> str:
@@ -301,34 +314,73 @@ def validate_case_semantics_v3(
     return errors
 
 
+def validate_oracle_payload_compatibility_v3(
+    case: Any,
+    materialization: Mapping[str, Any],
+    oracle: Any,
+) -> list[str]:
+    """Return aggregate-safe reasons when an oracle contradicts its payload."""
+
+    embedded_oracle = _semantic_field(case, "oracle")
+    embedded_oracle_hash = _semantic_field(case, "oracle_sha256")
+    if (
+        (embedded_oracle is not _MISSING and embedded_oracle is not None)
+        or (
+            embedded_oracle_hash is not _MISSING
+            and embedded_oracle_hash is not None
+        )
+    ):
+        return ["ORACLE_CASE_LABEL_FIELDS_PRESENT"]
+    runner_control = _semantic_field(case, "runner_control")
+    source = materialization.get("source_payload")
+    if not isinstance(runner_control, Mapping) or not isinstance(source, Mapping):
+        return ["ORACLE_PAYLOAD_BINDING_MISSING"]
+    resolutions = source.get("entity_resolutions")
+    if not isinstance(resolutions, list):
+        return ["ORACLE_RESOLUTION_CONTRACT_MISSING"]
+
+    errors: list[str] = []
+    resolution_blocked = any(
+        not isinstance(item, Mapping) or item.get("outcome") != "AUTO_RESOLVED"
+        for item in resolutions
+    )
+    candidate_mode = runner_control.get("candidate_set_mode")
+    candidate_blocked = candidate_mode in _CANDIDATE_BLOCKED_MODES
+    expected_resolution = resolution_blocked or candidate_blocked
+    if _semantic_field(oracle, "requires_user_resolution") is not expected_resolution:
+        errors.append("ORACLE_REQUIRES_USER_RESOLUTION_MISMATCH")
+
+    candidate_policy = _CANDIDATE_ORACLE_POLICY_V3.get(candidate_mode)
+    if candidate_policy is None:
+        errors.append("ORACLE_CANDIDATE_SET_MODE_INVALID")
+        return errors
+    expected_receipt_mode, expected_specific_place_allowed = candidate_policy
+    if _semantic_field(oracle, "candidate_receipt_mode") != expected_receipt_mode:
+        errors.append("ORACLE_CANDIDATE_RECEIPT_MODE_MISMATCH")
+    if (
+        _semantic_field(oracle, "specific_place_allowed")
+        is not expected_specific_place_allowed
+    ):
+        errors.append("ORACLE_SPECIFIC_PLACE_ALLOWED_MISMATCH")
+    return errors
+
+
 def validate_nonblind_oracle_compatibility_v3(
     case: Mapping[str, Any], materialization: Mapping[str, Any]
 ) -> list[str]:
     """Compare non-blind labels in a separately declared label-reading step."""
 
-    case_id = str(case.get("case_id") or "UNKNOWN_CASE")
     oracle = case.get("oracle")
-    runner_control = case.get("runner_control")
-    source = materialization.get("source_payload")
     if not isinstance(oracle, Mapping):
-        return [f"{case_id}: NONBLIND_ORACLE_MISSING"]
-    if not isinstance(runner_control, Mapping) or not isinstance(source, Mapping):
-        return [f"{case_id}: NONBLIND_ORACLE_BINDING_MISSING"]
-    resolutions = source.get("entity_resolutions")
-    if not isinstance(resolutions, list):
-        return [f"{case_id}: NONBLIND_RESOLUTION_CONTRACT_MISSING"]
-    resolution_blocked = any(
-        not isinstance(item, Mapping) or item.get("outcome") != "AUTO_RESOLVED"
-        for item in resolutions
+        return ["NONBLIND_ORACLE_MISSING"]
+    label_free_case = {
+        key: value for key, value in case.items() if key not in {"oracle", "oracle_sha256"}
+    }
+    return validate_oracle_payload_compatibility_v3(
+        label_free_case,
+        materialization,
+        oracle,
     )
-    candidate_blocked = runner_control.get("candidate_set_mode") in _CANDIDATE_BLOCKED_MODES
-    expected_resolution = resolution_blocked or candidate_blocked
-    if oracle.get("requires_user_resolution") is not expected_resolution:
-        return [
-            f"{case_id}: ORACLE_RESOLUTION_CONTRADICTION "
-            f"oracle={oracle.get('requires_user_resolution')} evidence={expected_resolution}"
-        ]
-    return []
 
 
 def validate_dataset_semantics_v3(
@@ -391,4 +443,5 @@ __all__ = [
     "validate_case_semantics_v3",
     "validate_dataset_semantics_v3",
     "validate_nonblind_oracle_compatibility_v3",
+    "validate_oracle_payload_compatibility_v3",
 ]
