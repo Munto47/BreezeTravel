@@ -3,11 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from evals.trip_check_v1.p5.final_blind_scorer_v4 import (
     P5BlindScoringErrorV4,
+    _default_case_scorer,
     canonical_labels_hash_v4,
     score_isolated_blind_v4,
 )
@@ -164,3 +166,41 @@ def test_v4_scorer_rejects_non_custodian_before_bundle_read(tmp_path: Path) -> N
         )
 
     assert reader.read_count == 0
+
+
+def test_v4_default_case_scorer_reuses_v3_deterministic_semantics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from evals.trip_check_v1.p5 import nonblind_scorer_v4, scorer_v3
+
+    projected = object()
+    expected = object()
+    oracle = object()
+    materialization = {"receipt": "bound"}
+    source_case = SimpleNamespace(case_id="blind-case")
+    source_output = object()
+
+    monkeypatch.setattr(
+        nonblind_scorer_v4,
+        "_project_terminal_to_v3",
+        lambda value: projected if value is source_output else None,
+    )
+
+    def fake_score(case, output, *, materialization):
+        assert case.case_id == "blind-case"
+        assert case.oracle is oracle
+        assert output is projected
+        assert materialization == {"receipt": "bound"}
+        return expected
+
+    monkeypatch.setattr(scorer_v3, "score_case_v3", fake_score)
+
+    assert (
+        _default_case_scorer(
+            source_case,
+            source_output,
+            oracle,
+            materialization,
+        )
+        is expected
+    )

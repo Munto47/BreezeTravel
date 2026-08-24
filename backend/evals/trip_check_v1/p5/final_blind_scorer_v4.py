@@ -334,11 +334,12 @@ def _default_oracle_validator(value: Mapping[str, Any]) -> Any:
 def _default_case_scorer(
     case: Any, output: Any, oracle: Any, materialization: Mapping[str, Any]
 ) -> Any:
-    from evals.trip_check_v1.p5.scorer_v4 import score_case_v4
+    from evals.trip_check_v1.p5.nonblind_scorer_v4 import _project_terminal_to_v3
+    from evals.trip_check_v1.p5.scorer_v3 import score_case_v3
 
-    return score_case_v4(
+    return score_case_v3(
         _BlindOracleCaseView(case, oracle),
-        output,
+        _project_terminal_to_v3(output),
         materialization=materialization,
     )
 
