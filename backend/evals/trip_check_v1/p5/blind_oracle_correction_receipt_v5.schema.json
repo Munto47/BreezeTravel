@@ -37,7 +37,7 @@
     "dataset_binding": {"$ref": "#/$defs/dataset_binding"},
     "correction_scope": {"const": "specific_place_allowed_payload_policy_only"},
     "changed_label_count": {"const": 60},
-    "changed_field": {"const": "oracle.candidate_receipt_expectation.specific_place_allowed"},
+    "changed_field": {"const": "oracle.specific_place_allowed"},
     "non_target_oracle_diff_count": {"const": 0},
     "blind_payload_changed": {"const": false},
     "policy_mapping_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},

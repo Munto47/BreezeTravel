@@ -217,15 +217,17 @@ def validate_external_custody_v5(
     if (
         correction.get("changed_label_count") != 60
         or correction.get("changed_field")
-        != "oracle.candidate_receipt_expectation.specific_place_allowed"
+        != "oracle.specific_place_allowed"
         or review.get("reviewed_changed_label_count") != 60
         or review.get("reviewed_changed_field")
-        != "oracle.candidate_receipt_expectation.specific_place_allowed"
+        != "oracle.specific_place_allowed"
         or review.get("correction_receipt_sha256") != correction_file_hash
         or review.get("policy_mapping_sha256")
         != correction.get("policy_mapping_sha256")
         or review.get("correction_tool_sha256")
         != correction.get("correction_tool_sha256")
+        or review.get("reviewer_tool_sha256")
+        == correction.get("correction_tool_sha256")
         or bundle["labels_canonical_sha256"] == source_labels_canonical_sha256
     ):
         raise P5ExternalCustodyContractError("P5 v5 correction/review proof mismatch")
