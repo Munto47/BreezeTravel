@@ -35,7 +35,7 @@
 ### User-directed contraction checkpoint（2026-08-24）
 
 - 用户要求收缩并记录当前成果，停止新增优化；因此本 Goal 从 `IN_PROGRESS` 转为 `BLOCKED`，不再自动实现、集成、封存、运行 blind/Judge/Gate 或推进 P6；
-- 根分支已集成且已远端保存的最后一个功能/治理 checkpoint 为 `8dd67fd1f649cc79e442c3eb09468596aca9edb1`；该提交只记录 P5 v5 授权，不构成 v5 dataset、seal、run 或 Gate 证据；
+- 停止指令前，根分支已集成且已远端保存的最后一个功能/治理 checkpoint 为 `8dd67fd1f649cc79e442c3eb09468596aca9edb1`；该提交只记录 P5 v5 授权，不构成 v5 dataset、seal、run 或 Gate 证据；
 - `codex/p5-v5-contract` 保留 10 个未跟踪草稿文件，`codex/p5-v5-runner-gate` 保留 27 个未跟踪草稿文件；两者均仍停在基线 `d2ace7fdd50036b5aac3f314eeb7f160595c6d80`，没有 commit、upstream 或可引用验证结果，未合并到当前分支；
 - 隔离 custodian 只完成变换方案准备，没有生成 v5 external bundle、correction receipt、review receipt 或 commitment；没有读取结果回传到根代理，v4 external bundle/commitment 保持不可变；
 - 上述 WIP 只作为恢复线索，不是已完成优化、正式证据或 Gate PASS。除非用户再次明确恢复本 Goal，否则不得继续处理或把 WIP 提升为 checkpoint。
