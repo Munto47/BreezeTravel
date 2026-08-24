@@ -1,1 +1,154 @@
-{"contract_hashes":{"case_materialization_contract":"v3-unchanged","contracts_v3_path":"evals/trip_check_v1/p5/contracts_v3.py","contracts_v3_sha256":"fdc449c3277372ac1652ea5fc343a48ec61884c83b38c1020eafb8692f72f2bb","data_contract_v5_path":"evals/trip_check_v1/p5/data_contract_v5.py","data_contract_v5_sha256":"818ccc9493f54d5fc2bd3c17691f1b3713a228658b355d8565041f9922ceabf5","dataset_contracts_v5_path":"evals/trip_check_v1/p5/dataset_contracts_v5.py","dataset_contracts_v5_sha256":"ed56f916e8501e4d4d16eb90d24772c1d5efb59625451d26c0c19039be42d880","judge_rubric_path":"evals/trip_check_v1/p5/judge_rubric_v2.json","judge_rubric_semantics_changed":false,"judge_rubric_sha256":"0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b","run_spec_template_path":"evals/trip_check_v1/p5/run_spec_template_v5.json","run_spec_template_sha256":"720d494b11bcec9ea04e2e13a4c86e9fad7ebee0369687a734e0df2dc58df490"},"counts":{"by_city":{"上海":120,"北京":120,"杭州":120},"by_split":{"dev":180,"frozen_blind":90,"pilot":18,"regression":72},"screenshots_by_split":{"dev":90,"frozen_blind":45,"regression":36},"total":360},"dataset_id":"trip-check-p5-360-v5","evidence_boundary":{"controlled_fixture":"MATERIALIZED_V3_WITH_TWO_P1_ROUTE_BINDINGS","fresh_actual_ocr_execution":"NOT_RUN","human_evidence":"NOT_RUN","live_provider":"NOT_RUN","public_e2e":"NOT_RUN"},"files":{"blind_cases":{"content_sha256":"50702bf06c884febe480f8e5aa9c245ae5728747490eb050a4c4ace84fba126a","file_sha256":"d2080f1ecd83ddd659630c5e833fdca25238e55972b114da8a0e180c1c3f2729","path":"evals/trip_check_v1/p5/frozen_blind.v5.inputs.jsonl","row_count":90},"blind_materializations":{"content_sha256":"3f9268e1975bdfc03572d5c59f877ec2e2931823a668ac1e752d90208ff6032d","file_sha256":"ec1111c01ccd3e794200cff0fd0a406851a9db97ca4b9bdb369e7c886bb2a25c","path":"evals/trip_check_v1/p5/frozen_blind.v5.materializations.jsonl","row_count":90},"nonblind_cases":{"content_sha256":"355128a2775b9b7b1291b44f660641e4cf38666b29f42c6f948c7f19f89334f3","file_sha256":"576d55b681e9262ba8eadcc68efd3a508ce6b98342765c496a7a65be3bd4df55","path":"evals/trip_check_v1/p5/cases_nonblind_v5.jsonl","row_count":270},"nonblind_materializations":{"content_sha256":"27a08654d1b2cc1431061657d1f44aa3990896e9815f8fbba3fbd5294a82f4e4","file_sha256":"57e57f7ae9f81db05b0232f6d5398acb3e72dddc93035e7aeb1620c9128a7112","path":"evals/trip_check_v1/p5/materializations_nonblind_v5.jsonl","row_count":270}},"formal_validation_eligible":false,"frozen":true,"generation":{"blind_bytes_copied_from_v4":true,"blind_labels_read":false,"mode":"V4_ORACLE_POLICY_SUPERSESSION","nonblind_bytes_copied_from_v4":true,"ocr_executed":false},"hash_policy_version":"p5-canonical-json-nfc-lf-v4","lanes":{"frozen_blind":{"bytes_identical_to_v3":true,"bytes_identical_to_v4":true,"case_count":90,"case_set_hash":"596c78cab45e9acd8372f521b963a07937bad2cdb5de35509d2515dfc088ac7d","label_access":"isolated_custodian_only","label_payload_present":false,"label_storage":"external_bundle_only","materialization_count":90,"materialization_set_hash":"261f644de927dfe444f8dd339b85bf02165749b26983f1fc32eab5d8c11dac09"},"nonblind":{"bytes_identical_to_v4":true,"case_count":270,"case_set_hash":"73e6e847f12b9813107c3e5d8269e05564e57b8875f78b60c6e88acdfd73323c","materialization_count":270,"materialization_set_hash":"9ff91367936549d28def40a5caa4318641a28dd7cc7188aa65cc09075f3f09f8","oracle_content_changed":false,"oracle_schema_version":"trip-check-p5-oracle-v2"}},"manifest_hash":"eda6da9850389856a465adc9ce13f9f8873c0839076bfb109b349eaa89f2b54a","route_evidence_repairs":[{"blind_lane_touched":false,"case_id":"p5.pilot.bj.004","duration_minutes":90,"source_case_id":"TC-P1-BJ-04","source_fact_id":"2fd8e8b8-71a7-5be5-96d2-91b4b2b7f140","source_file_sha256":"c571ec78b9d2052b9b682238fd48fe6f36f74e0bab3042b5bdebc6366bd55558","source_path":"backend/evidence/trip_check_v1/p1/pilot/runs/TC-P1-BJ-04/snapshots.json","source_response_hash":"036589e050e95c8c8ddb8c0d65366b50d32d1417ffcfa4926fa82e72dac77ac0","source_snapshot_id":"74bd2d53-8963-5bef-8da9-ac79cbd62d34"},{"blind_lane_touched":false,"case_id":"p5.pilot.sh.001","duration_minutes":90,"source_case_id":"TC-P1-SH-01","source_fact_id":"06010123-a876-50eb-9f03-3da8e1251ed7","source_file_sha256":"69b992bab84f8335606f046457c3e82539561ba4e0ab432169c2caaed4802d31","source_path":"backend/evidence/trip_check_v1/p1/pilot/runs/TC-P1-SH-01/snapshots.json","source_response_hash":"71318aa66c2928d135aadc7b6658f6e72fe19d8897e600d717c41a00c34044bf","source_snapshot_id":"a200cb7a-a46c-592c-94d7-2b866aae8a7a"}],"schema_version":"trip-check-p5-dataset-manifest-v5","seal_status":"PENDING_V5_SEAL","source_v4_anchor":{"active_contract":"trip-check-p5-v4","active_contract_file_sha256":"2614b9f1a7a7c9d58b3e4ad5f55b84fb0d195bbe3ea78b3619de5bda00a0bea3","active_contract_sha256":"f0a83ab1fa82ce4ad55892bcdb54f3ad427c20fd5eaea6b99b727634aa37f208","blind_seal_file_sha256":"0336032a34e52fceb6dab2eab8424e3ae0990e54677bb10b56f14df5da9ad8b4","candidate_freeze_commit":"ba3293f357b3d6400748af346578ba61e1347f19","dataset_manifest_file_sha256":"81882dc740f1dac4d69801b6066d3b3144b39a21d33c4d17f76a0bdb640619f2","dataset_manifest_hash":"9225e462bf9d354fd134af29ab0a8520b0f412ed2cae5d92e1ef848c4114e418","external_bundle_sha256":"8125e4a75a52dda540587b134c6baff9551c654b5e373be300dcdd24c0be5b94","labels_canonical_sha256":"cea9504b9fc908cec82c49b4e267fac17a2eb01bdaee0d911051ba213c7eed3f","review_receipt_sha256":"d5df169ed175be86610722cbe353edc0dce3b1b68bff01522d0c0f8306091728"}}
+{
+  "contract_hashes": {
+    "case_materialization_contract": "v3-unchanged",
+    "contracts_v3_path": "evals/trip_check_v1/p5/contracts_v3.py",
+    "contracts_v3_sha256": "fdc449c3277372ac1652ea5fc343a48ec61884c83b38c1020eafb8692f72f2bb",
+    "data_contract_v5_path": "evals/trip_check_v1/p5/data_contract_v5.py",
+    "data_contract_v5_sha256": "818ccc9493f54d5fc2bd3c17691f1b3713a228658b355d8565041f9922ceabf5",
+    "dataset_contracts_v5_path": "evals/trip_check_v1/p5/dataset_contracts_v5.py",
+    "dataset_contracts_v5_sha256": "ed56f916e8501e4d4d16eb90d24772c1d5efb59625451d26c0c19039be42d880",
+    "judge_rubric_path": "evals/trip_check_v1/p5/judge_rubric_v2.json",
+    "judge_rubric_semantics_changed": false,
+    "judge_rubric_sha256": "0a036a62559320868b6c3118b920c7b540fd7d04902e735b3e8691e898a9a72b",
+    "run_spec_template_path": "evals/trip_check_v1/p5/run_spec_template_v5.json",
+    "run_spec_template_sha256": "720d494b11bcec9ea04e2e13a4c86e9fad7ebee0369687a734e0df2dc58df490"
+  },
+  "counts": {
+    "by_city": {
+      "上海": 120,
+      "北京": 120,
+      "杭州": 120
+    },
+    "by_split": {
+      "dev": 180,
+      "frozen_blind": 90,
+      "pilot": 18,
+      "regression": 72
+    },
+    "screenshots_by_split": {
+      "dev": 90,
+      "frozen_blind": 45,
+      "regression": 36
+    },
+    "total": 360
+  },
+  "dataset_id": "trip-check-p5-360-v5",
+  "evidence_boundary": {
+    "controlled_fixture": "MATERIALIZED_V3_WITH_TWO_P1_ROUTE_BINDINGS",
+    "fresh_actual_ocr_execution": "NOT_RUN",
+    "human_evidence": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "public_e2e": "NOT_RUN"
+  },
+  "files": {
+    "blind_cases": {
+      "content_sha256": "50702bf06c884febe480f8e5aa9c245ae5728747490eb050a4c4ace84fba126a",
+      "file_sha256": "d2080f1ecd83ddd659630c5e833fdca25238e55972b114da8a0e180c1c3f2729",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v5.inputs.jsonl",
+      "row_count": 90
+    },
+    "blind_materializations": {
+      "content_sha256": "3f9268e1975bdfc03572d5c59f877ec2e2931823a668ac1e752d90208ff6032d",
+      "file_sha256": "ec1111c01ccd3e794200cff0fd0a406851a9db97ca4b9bdb369e7c886bb2a25c",
+      "path": "evals/trip_check_v1/p5/frozen_blind.v5.materializations.jsonl",
+      "row_count": 90
+    },
+    "nonblind_cases": {
+      "content_sha256": "355128a2775b9b7b1291b44f660641e4cf38666b29f42c6f948c7f19f89334f3",
+      "file_sha256": "576d55b681e9262ba8eadcc68efd3a508ce6b98342765c496a7a65be3bd4df55",
+      "path": "evals/trip_check_v1/p5/cases_nonblind_v5.jsonl",
+      "row_count": 270
+    },
+    "nonblind_materializations": {
+      "content_sha256": "27a08654d1b2cc1431061657d1f44aa3990896e9815f8fbba3fbd5294a82f4e4",
+      "file_sha256": "57e57f7ae9f81db05b0232f6d5398acb3e72dddc93035e7aeb1620c9128a7112",
+      "path": "evals/trip_check_v1/p5/materializations_nonblind_v5.jsonl",
+      "row_count": 270
+    }
+  },
+  "formal_validation_eligible": true,
+  "frozen": true,
+  "generation": {
+    "blind_bytes_copied_from_v4": true,
+    "blind_labels_read": false,
+    "mode": "V4_ORACLE_POLICY_SUPERSESSION",
+    "nonblind_bytes_copied_from_v4": true,
+    "ocr_executed": false
+  },
+  "hash_policy_version": "p5-canonical-json-nfc-lf-v4",
+  "lanes": {
+    "frozen_blind": {
+      "bytes_identical_to_v3": true,
+      "bytes_identical_to_v4": true,
+      "case_count": 90,
+      "case_set_hash": "596c78cab45e9acd8372f521b963a07937bad2cdb5de35509d2515dfc088ac7d",
+      "label_access": "isolated_custodian_only",
+      "label_payload_present": false,
+      "label_storage": "external_bundle_only",
+      "materialization_count": 90,
+      "materialization_set_hash": "261f644de927dfe444f8dd339b85bf02165749b26983f1fc32eab5d8c11dac09"
+    },
+    "nonblind": {
+      "bytes_identical_to_v4": true,
+      "case_count": 270,
+      "case_set_hash": "73e6e847f12b9813107c3e5d8269e05564e57b8875f78b60c6e88acdfd73323c",
+      "materialization_count": 270,
+      "materialization_set_hash": "9ff91367936549d28def40a5caa4318641a28dd7cc7188aa65cc09075f3f09f8",
+      "oracle_content_changed": false,
+      "oracle_schema_version": "trip-check-p5-oracle-v2"
+    }
+  },
+  "manifest_hash": "30ca540204d769d1f1bef9a8137d135f5b5bbef2d9aebacb8faf0f317eacbfa7",
+  "route_evidence_repairs": [
+    {
+      "blind_lane_touched": false,
+      "case_id": "p5.pilot.bj.004",
+      "duration_minutes": 90,
+      "source_case_id": "TC-P1-BJ-04",
+      "source_fact_id": "2fd8e8b8-71a7-5be5-96d2-91b4b2b7f140",
+      "source_file_sha256": "c571ec78b9d2052b9b682238fd48fe6f36f74e0bab3042b5bdebc6366bd55558",
+      "source_path": "backend/evidence/trip_check_v1/p1/pilot/runs/TC-P1-BJ-04/snapshots.json",
+      "source_response_hash": "036589e050e95c8c8ddb8c0d65366b50d32d1417ffcfa4926fa82e72dac77ac0",
+      "source_snapshot_id": "74bd2d53-8963-5bef-8da9-ac79cbd62d34"
+    },
+    {
+      "blind_lane_touched": false,
+      "case_id": "p5.pilot.sh.001",
+      "duration_minutes": 90,
+      "source_case_id": "TC-P1-SH-01",
+      "source_fact_id": "06010123-a876-50eb-9f03-3da8e1251ed7",
+      "source_file_sha256": "69b992bab84f8335606f046457c3e82539561ba4e0ab432169c2caaed4802d31",
+      "source_path": "backend/evidence/trip_check_v1/p1/pilot/runs/TC-P1-SH-01/snapshots.json",
+      "source_response_hash": "71318aa66c2928d135aadc7b6658f6e72fe19d8897e600d717c41a00c34044bf",
+      "source_snapshot_id": "a200cb7a-a46c-592c-94d7-2b866aae8a7a"
+    }
+  ],
+  "schema_version": "trip-check-p5-dataset-manifest-v5",
+  "seal_status": "SEALED",
+  "sealing_commitment": {
+    "blind_seal_file_sha256": "e8d80c0f8cc3cf7a2699c3616287892206b48caaaa7519cf9ee9f72864250feb",
+    "blind_seal_path": "backend/evals/trip_check_v1/p5/sealed/frozen_blind.v5.seal.json",
+    "candidate_dataset_manifest_hash": "eda6da9850389856a465adc9ce13f9f8873c0839076bfb109b349eaa89f2b54a",
+    "candidate_freeze_commit": "aee7e9af632a6e8f470a71fbf5358dd1cda71923",
+    "correction_receipt_sha256": "f1e4737a22975e9ca94d1eb6ec8a4271c6188dd1d181e111b1d71a8c795ad234",
+    "external_bundle_sha256": "7a5066d4c743a25cfcc9a4432a4791baaa14cd270452b60d7a383ab450f966a3",
+    "labels_canonical_sha256": "dea5b88d0ade7279997b5994375091b3c1e7646529bad1f9855711830aa74786",
+    "oracle_correction_scope": "specific_place_allowed_payload_policy_only",
+    "policy_mapping_sha256": "eabe0cda9dcaa00a6b9bd121777b5f69b823f7ef54bb7a8a9217297c0b02707e",
+    "review_receipt_sha256": "06e4533bff30a2fdc0c9e713dd98e7198f8edf8c5cda6398686934d996462063",
+    "schema_version": "trip-check-p5-sealing-commitment-v5",
+    "status": "SEALED"
+  },
+  "source_v4_anchor": {
+    "active_contract": "trip-check-p5-v4",
+    "active_contract_file_sha256": "2614b9f1a7a7c9d58b3e4ad5f55b84fb0d195bbe3ea78b3619de5bda00a0bea3",
+    "active_contract_sha256": "f0a83ab1fa82ce4ad55892bcdb54f3ad427c20fd5eaea6b99b727634aa37f208",
+    "blind_seal_file_sha256": "0336032a34e52fceb6dab2eab8424e3ae0990e54677bb10b56f14df5da9ad8b4",
+    "candidate_freeze_commit": "ba3293f357b3d6400748af346578ba61e1347f19",
+    "dataset_manifest_file_sha256": "81882dc740f1dac4d69801b6066d3b3144b39a21d33c4d17f76a0bdb640619f2",
+    "dataset_manifest_hash": "9225e462bf9d354fd134af29ab0a8520b0f412ed2cae5d92e1ef848c4114e418",
+    "external_bundle_sha256": "8125e4a75a52dda540587b134c6baff9551c654b5e373be300dcdd24c0be5b94",
+    "labels_canonical_sha256": "cea9504b9fc908cec82c49b4e267fac17a2eb01bdaee0d911051ba213c7eed3f",
+    "review_receipt_sha256": "d5df169ed175be86610722cbe353edc0dce3b1b68bff01522d0c0f8306091728"
+  }
+}

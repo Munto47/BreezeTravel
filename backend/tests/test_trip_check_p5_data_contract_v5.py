@@ -10,9 +10,13 @@ from evals.trip_check_v1.p5 import data_contract_v5 as contract
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def test_v5_pending_manifest_proves_v4_payload_identity_and_source_anchor() -> None:
+def test_v5_manifest_proves_v4_payload_identity_and_source_anchor() -> None:
+    state = contract._load_json(contract.MANIFEST_PATH_V5)
+    require_sealed = state.get("seal_status") == "SEALED"
     manifest = contract.validate_manifest_v5(
-        REPO_ROOT, manifest_path=contract.MANIFEST_PATH_V5, require_sealed=False
+        REPO_ROOT,
+        manifest_path=contract.MANIFEST_PATH_V5,
+        require_sealed=require_sealed,
     )
     assert manifest["dataset_id"] == "trip-check-p5-360-v5"
     assert manifest["generation"] == {
@@ -23,6 +27,7 @@ def test_v5_pending_manifest_proves_v4_payload_identity_and_source_anchor() -> N
         "ocr_executed": False,
     }
     assert manifest["source_v4_anchor"]["active_contract"] == "trip-check-p5-v4"
+    assert manifest["formal_validation_eligible"] is require_sealed
 
 
 def test_v5_identity_rejects_single_byte_payload_drift(
