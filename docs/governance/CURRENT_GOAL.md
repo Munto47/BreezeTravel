@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`BLOCKED`
+- Status：`IN_PROGRESS`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -96,6 +96,14 @@
 - 独立故障诊断只读取 protocol、calibration panel、Judge panel 与匿名 scores 聚合，未读取 Judge bundle、mapping/custody、blind identity/label、产品 terminal output 或 oracle。诊断确认分歧集中为第二轮对 Core B/Solver C 各 `42` 项 actionability 的 `1 ↔ 3` 边界解释；这是 10 条 synthetic calibration 对正式结构化表达的外推失败，不是已证明的产品确定性质量失败，也没有证据认定 evaluator 不合规；
 - 当前合同下不存在合规追绿路径：不得重抽第二轮、用多数票覆盖、查看 blind 明细、反复整组抽样择优或临时改规则。本 subject 的 P1～P4、完整 backend、Ruff、frontend、dual-entry、formal receipt 和 Evaluation Gate 因决定性 Judge 失败保持 `NOT_RUN`；P6 Goal、G0～G6、公网候选、Candidate Gate、human evidence、H1、部署和 `main` 合并继续为 `NOT_STARTED/NOT_RUN`；
 - 若恢复，必须取得范围扩展授权：提升 Judge evaluation contract，使用与本次 blind 无关的 non-blind actionability 边界 anchors，逐槽绑定实际 model/config，并预先定义 panel failure replacement/replication；要维持独立 formal admission 还需要新的 sealed holdout。该变化会使本次 Judge/panel 只保留历史 `BLOCKED` 资格，并要求新 subject 从头完整重跑；不得复用当前部分证据。
+
+### User-directed Judge v2 and sealed-holdout authorization（2026-08-24）
+
+- 用户已明确授予完成当前目标所需的全部授权，因此解除上述 `BLOCKED`，允许仅为解决已证明的 Judge protocol/calibration 外推失败而提升 evaluation contract；本授权不允许修改产品代码、variant、deterministic scorer、blind dataset/oracle、0.85 一致率、各维 `>=2` verdict、城市/Provider/依赖/API 或 P4 admission；
+- 新合同必须把 actionability `0/1/2/3/4` 写成互斥决策树，明确 `has_repair=false` 不会自动降低可执行的用户下一步，且不得把 prose 长度、数值细节或自动修复可用性当作 PASS 条件；已有 v1 rubric/protocol/calibration 与全部旧 panel 保持不可变，只保留历史审计资格；
+- 新建与本次 blind 无关的 30 条 non-blind synthetic sealed holdout：public items 与 expected key 只存在于仓库外 custodian package，仓库只接收 commitment、聚合计数和 review receipt；不得从 blind bundle、mapping、terminal output、label、oracle 或本次 Judge 分歧项抽样生成；
+- 三个 evaluator slot 必须分别绑定冻结的 model/config，并在同一 slot 上先通过 holdout calibration 后才可评价 blind；正式 panel 只允许一个预先声明的 attempt。只有 round 在产出 scores 前发生机器可判定的 schema/provenance/执行失败时，才允许整组三轮替换；有效 panel 的质量/一致率 `BLOCKED` 不允许重抽、择优或多数票覆盖；
+- holdout commitment、review、protocol、calibration panel、正式 Judge 与 Gate 必须绑定新的 clean、pushed subject；任何 hash、slot 或 config 变化都会使该 subject 的正式证据失效并要求从 dataset formal validation 完整重跑。P5 实际 `PASS` 前仍不得生成 P6 Goal。
 
 ## Outcome
 
