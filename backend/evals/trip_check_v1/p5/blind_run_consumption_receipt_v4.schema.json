@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-blind-run-consumption-receipt-v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "dataset_id", "dataset_manifest_hash",
+    "nonce_sha256", "claimed_at", "completed_at", "run_id",
+    "run_binding_hash", "artifact_index_hash", "failure_reason_code"
+  ],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-blind-run-consumption-receipt-v4"},
+    "status": {"enum": ["CLAIMED", "CONSUMED", "FAILED"]},
+    "dataset_id": {"const": "trip-check-p5-360-v4"},
+    "dataset_manifest_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonce_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "claimed_at": {"type": "string", "minLength": 1},
+    "completed_at": {"type": ["string", "null"]},
+    "run_id": {"type": ["string", "null"]},
+    "run_binding_hash": {"type": ["string", "null"]},
+    "artifact_index_hash": {"type": ["string", "null"]},
+    "failure_reason_code": {"type": ["string", "null"]}
+  }
+}
