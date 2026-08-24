@@ -13,6 +13,7 @@ SOURCE_V2_CONTRACT_PATH = P5_ROOT / "source_active_contract_v2.json"
 V2_CONTRACT_ID = "trip-check-p5-v2"
 V3_CONTRACT_ID = "trip-check-p5-v3"
 V4_CONTRACT_ID = "trip-check-p5-v4"
+V5_CONTRACT_ID = "trip-check-p5-v5"
 V1_CONTRACT_ID = "trip-check-p5-v1"
 
 
@@ -29,30 +30,30 @@ def load_active_contract(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
 
 def require_v2_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
     payload = load_active_contract(path)
-    if payload.get("active_contract") in {V3_CONTRACT_ID, V4_CONTRACT_ID}:
+    if payload.get("active_contract") in {
+        V3_CONTRACT_ID,
+        V4_CONTRACT_ID,
+        V5_CONTRACT_ID,
+    }:
         raise P5ContractNotReadyError("P5_V2_FORMAL_CONTRACT_SUPERSEDED")
-    if (
-        payload.get("active_contract") != V2_CONTRACT_ID
-        or payload.get("formal_evidence_status") != "READY"
-    ):
+    if payload.get("active_contract") != V2_CONTRACT_ID or payload.get("formal_evidence_status") != "READY":
         raise P5ContractNotReadyError("P5_V2_FORMAL_CONTRACT_NOT_READY")
     return payload
 
 
 def require_v3_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
     payload = load_active_contract(path)
-    if payload.get("active_contract") == V4_CONTRACT_ID:
+    if payload.get("active_contract") in {V4_CONTRACT_ID, V5_CONTRACT_ID}:
         raise P5ContractNotReadyError("P5_V3_FORMAL_CONTRACT_SUPERSEDED")
-    if (
-        payload.get("active_contract") != V3_CONTRACT_ID
-        or payload.get("formal_evidence_status") != "READY"
-    ):
+    if payload.get("active_contract") != V3_CONTRACT_ID or payload.get("formal_evidence_status") != "READY":
         raise P5ContractNotReadyError("P5_V3_FORMAL_CONTRACT_NOT_READY")
     return payload
 
 
 def require_v4_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
     payload = load_active_contract(path)
+    if payload.get("active_contract") == V5_CONTRACT_ID:
+        raise P5ContractNotReadyError("P5_V4_FORMAL_CONTRACT_SUPERSEDED")
     source = payload.get("source_v3_contract")
     seal_hash = payload.get("blind_seal_v4_sha256")
     if (
@@ -66,6 +67,24 @@ def require_v4_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]
         or source.get("formal_evidence_status") != "READY"
     ):
         raise P5ContractNotReadyError("P5_V4_FORMAL_CONTRACT_NOT_READY")
+    return payload
+
+
+def require_v5_formal_ready(path: Path = ACTIVE_CONTRACT_PATH) -> dict[str, Any]:
+    payload = load_active_contract(path)
+    source = payload.get("source_v4_contract")
+    seal_hash = payload.get("blind_seal_v5_sha256")
+    if (
+        payload.get("active_contract") != V5_CONTRACT_ID
+        or payload.get("formal_evidence_status") != "READY"
+        or not isinstance(seal_hash, str)
+        or len(seal_hash) != 64
+        or any(character not in "0123456789abcdef" for character in seal_hash)
+        or not isinstance(source, dict)
+        or source.get("active_contract") != V4_CONTRACT_ID
+        or source.get("formal_evidence_status") != "READY"
+    ):
+        raise P5ContractNotReadyError("P5_V5_FORMAL_CONTRACT_NOT_READY")
     return payload
 
 
