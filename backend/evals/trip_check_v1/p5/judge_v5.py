@@ -511,8 +511,14 @@ def export_judge_bundles_v5(
         rubric_path=rubric_path,
         protocol_path=protocol_path,
     )
-    if not isinstance(calibration_panel, Mapping) or not _is_sha256(
-        calibration_panel.get("report_hash")
+    if (
+        not isinstance(calibration_panel, Mapping)
+        or not _is_sha256(calibration_panel.get("report_hash"))
+        or calibration_panel.get("subject_commit") != manifest.get("subject_commit")
+        or calibration_panel.get("upstream_ref") != manifest.get("upstream_ref")
+        or calibration_panel.get("upstream_commit")
+        != manifest.get("upstream_commit")
+        or calibration_panel.get("dirty_tree") is not False
     ):
         raise P5JudgeErrorV5("JUDGE_CALIBRATION_PANEL_INVALID")
     calibration_panel_sha256 = _sha256(calibration_panel_path)

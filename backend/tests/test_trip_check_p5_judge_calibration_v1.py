@@ -12,9 +12,21 @@ from evals.trip_check_v1.p5.judge_calibration_v1 import (
     export_judge_calibration_bundles_v1,
     validate_judge_calibration_panel_v1,
 )
+from evals.trip_check_v1.p5.formal_receipts_v5 import RepoBindingV5
 
 
 SOURCE_P5 = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5"
+SUBJECT = "a" * 40
+UPSTREAM_REF = "origin/codex/p5-calibration-test"
+
+
+def _repo_binding(*, dirty_tree: bool = False) -> RepoBindingV5:
+    return RepoBindingV5(
+        subject_commit=SUBJECT,
+        upstream_ref=UPSTREAM_REF,
+        upstream_commit=SUBJECT,
+        dirty_tree=dirty_tree,
+    )
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -48,6 +60,7 @@ def _export(tmp_path: Path) -> tuple[Path, dict, list[Path]]:
         rubric_path=rubric,
         protocol_path=protocol,
         calibration_set_path=calibration,
+        repo_binding=_repo_binding(),
     )
     return repo, receipt, round_dirs
 
@@ -109,6 +122,10 @@ def _round_paths(
             **{
                 field: bundle_receipt[field]
                 for field in (
+                    "subject_commit",
+                    "upstream_ref",
+                    "upstream_commit",
+                    "dirty_tree",
                     "source_rubric_sha256",
                     "judge_input_rubric_sha256",
                     "source_protocol_sha256",
@@ -193,4 +210,44 @@ def test_calibration_rejects_expected_score_observation(tmp_path: Path) -> None:
             key_path=key,
             key_sha256=hashlib.sha256(key.read_bytes()).hexdigest(),
             round_paths=paths,
+        )
+
+
+@pytest.mark.parametrize(
+    "repo_binding",
+    (
+        _repo_binding(dirty_tree=True),
+        RepoBindingV5(
+            subject_commit=SUBJECT,
+            upstream_ref=UPSTREAM_REF,
+            upstream_commit="b" * 40,
+            dirty_tree=False,
+        ),
+    ),
+)
+def test_calibration_export_rejects_unfrozen_subject(
+    tmp_path: Path, repo_binding: RepoBindingV5
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    rubric = repo / "rubric.json"
+    protocol = repo / "protocol.json"
+    calibration = repo / "calibration.json"
+    _copy_json(SOURCE_P5 / "judge_rubric_v2.json", rubric)
+    _copy_json(SOURCE_P5 / "judge_protocol_v1.json", protocol)
+    _copy_json(SOURCE_P5 / "judge_calibration_v1.json", calibration)
+    with pytest.raises(
+        P5JudgeCalibrationErrorV1,
+        match="JUDGE_CALIBRATION_SUBJECT_NOT_CLEAN_PUSHED_UPSTREAM",
+    ):
+        export_judge_calibration_bundles_v1(
+            repo_root=repo,
+            round_output_dirs=[
+                tmp_path / f"round-{index}" for index in range(1, 4)
+            ],
+            custody_output_dir=tmp_path / "custody",
+            rubric_path=rubric,
+            protocol_path=protocol,
+            calibration_set_path=calibration,
+            repo_binding=repo_binding,
         )

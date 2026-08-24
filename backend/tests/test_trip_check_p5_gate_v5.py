@@ -420,7 +420,16 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     blind_score_path = tmp_path / "scores" / "blind.json"
     panel_path = tmp_path / "scores" / "panel.json"
     calibration_panel_path = tmp_path / "scores" / "calibration-panel.json"
-    _write_json(calibration_panel_path, {"report_hash": "9" * 64})
+    _write_json(
+        calibration_panel_path,
+        {
+            "report_hash": "9" * 64,
+            "subject_commit": SUBJECT,
+            "upstream_ref": UPSTREAM,
+            "upstream_commit": SUBJECT,
+            "dirty_tree": False,
+        },
+    )
     _write_json(nonblind_score_path, _nonblind_score(nonblind_run))
     _write_json(blind_score_path, _blind_score(blind_run, _file_sha(seal_path)))
     _write_json(
@@ -538,7 +547,12 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     }
 
 
-def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
+def _invoke_gate(
+    paths: dict[str, Path],
+    output_path: Path,
+    *,
+    calibration_panel_override: dict | None = None,
+) -> dict:
     schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "gate_v5.schema.json"
     return build_p5_gate_manifest_v5(
         repo_root=paths["repo_root"],
@@ -561,8 +575,12 @@ def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
         output_path=output_path,
         gate_schema_path=schema,
         require_current_subject=False,
-        calibration_panel_validator=lambda **_: json.loads(
-            paths["judge_calibration_panel"].read_text(encoding="utf-8")
+        calibration_panel_validator=lambda **_: (
+            calibration_panel_override
+            if calibration_panel_override is not None
+            else json.loads(
+                paths["judge_calibration_panel"].read_text(encoding="utf-8")
+            )
         ),
     )
 
@@ -679,6 +697,23 @@ def test_gate_rejects_judge_protocol_provenance_substitution(tmp_path: Path) -> 
     _write_json(paths["judge_panel"], panel)
     with pytest.raises(P5GateErrorV5, match="V5_JUDGE_PROTOCOL_PROVENANCE_INVALID"):
         _invoke_gate(paths, tmp_path / "output" / "gate.json")
+
+
+def test_gate_rejects_calibration_subject_substitution(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    calibration_panel = json.loads(
+        paths["judge_calibration_panel"].read_text(encoding="utf-8")
+    )
+    calibration_panel["subject_commit"] = "b" * 40
+    calibration_panel["upstream_commit"] = "b" * 40
+    with pytest.raises(
+        P5GateErrorV5, match="V5_JUDGE_CALIBRATION_BINDING_INVALID"
+    ):
+        _invoke_gate(
+            paths,
+            tmp_path / "output" / "gate.json",
+            calibration_panel_override=calibration_panel,
+        )
 
 
 def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -> None:

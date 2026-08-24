@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any
 
 from evals.trip_check_v1.p5.data_contract import canonical_bytes, digest
+from evals.trip_check_v1.p5.formal_receipts_v5 import (
+    RepoBindingV5,
+    read_repo_binding_v5,
+)
 from evals.trip_check_v1.p5.judge_v5 import (
     DIMENSIONS_V5,
     JUDGE_AGREEMENT_THRESHOLD_V5,
@@ -20,6 +24,20 @@ from evals.trip_check_v1.p5.judge_v5 import (
 
 
 CALIBRATION_ITEM_COUNT_V1 = 10
+HASH_BINDING_FIELDS_V1 = (
+    "source_rubric_sha256",
+    "judge_input_rubric_sha256",
+    "source_protocol_sha256",
+    "judge_input_protocol_sha256",
+    "calibration_set_sha256",
+    "calibration_input_content_sha256",
+)
+REPO_BINDING_FIELDS_V1 = (
+    "subject_commit",
+    "upstream_ref",
+    "upstream_commit",
+    "dirty_tree",
+)
 
 
 class P5JudgeCalibrationErrorV1(RuntimeError):
@@ -181,6 +199,7 @@ def export_judge_calibration_bundles_v1(
     rubric_path: Path,
     protocol_path: Path,
     calibration_set_path: Path,
+    repo_binding: RepoBindingV5 | None = None,
 ) -> dict[str, Any]:
     """Export three identical input-only synthetic calibration bundles."""
 
@@ -209,7 +228,22 @@ def export_judge_calibration_bundles_v1(
         }
         for item in items
     ]
+    binding = repo_binding or read_repo_binding_v5(root)
+    if (
+        len(binding.subject_commit) != 40
+        or any(
+            character not in "0123456789abcdef"
+            for character in binding.subject_commit
+        )
+        or binding.upstream_commit != binding.subject_commit
+        or not binding.upstream_ref
+        or binding.dirty_tree
+    ):
+        raise P5JudgeCalibrationErrorV1(
+            "JUDGE_CALIBRATION_SUBJECT_NOT_CLEAN_PUSHED_UPSTREAM"
+        )
     bindings = {
+        **binding.as_dict(),
         "source_rubric_sha256": _sha256(rubric_path),
         "judge_input_rubric_sha256": digest(rubric),
         "source_protocol_sha256": _sha256(protocol_path),
@@ -281,14 +315,7 @@ def export_judge_calibration_bundles_v1(
 def _validate_round(
     value: Mapping[str, Any], receipt: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
-    binding_fields = (
-        "source_rubric_sha256",
-        "judge_input_rubric_sha256",
-        "source_protocol_sha256",
-        "judge_input_protocol_sha256",
-        "calibration_set_sha256",
-        "calibration_input_content_sha256",
-    )
+    binding_fields = (*REPO_BINDING_FIELDS_V1, *HASH_BINDING_FIELDS_V1)
     required = {
         "schema_version",
         "round_index",
@@ -383,17 +410,16 @@ def aggregate_judge_calibration_rounds_v1(
     ):
         raise P5JudgeCalibrationErrorV1("JUDGE_CALIBRATION_INPUT_INVALID")
     key = _load_json(key_path, "JUDGE_CALIBRATION_KEY_INVALID")
-    binding_fields = (
-        "source_rubric_sha256",
-        "judge_input_rubric_sha256",
-        "source_protocol_sha256",
-        "judge_input_protocol_sha256",
-        "calibration_set_sha256",
-        "calibration_input_content_sha256",
-    )
+    binding_fields = (*REPO_BINDING_FIELDS_V1, *HASH_BINDING_FIELDS_V1)
     if (
         key.get("schema_version") != "trip-check-p5-judge-calibration-key-v1"
-        or any(not _is_sha256(key.get(field)) for field in binding_fields)
+        or any(not _is_sha256(key.get(field)) for field in HASH_BINDING_FIELDS_V1)
+        or not isinstance(key.get("subject_commit"), str)
+        or len(key["subject_commit"]) != 40
+        or key.get("upstream_commit") != key.get("subject_commit")
+        or not isinstance(key.get("upstream_ref"), str)
+        or not key["upstream_ref"]
+        or key.get("dirty_tree") is not False
         or not isinstance(key.get("bundle_receipts"), list)
         or len(key["bundle_receipts"]) != ROUND_COUNT_V5
         or not isinstance(key.get("expected"), list)
@@ -413,10 +439,8 @@ def aggregate_judge_calibration_rounds_v1(
         or receipt.get("round_index") != round_index
         or receipt.get("item_count") != CALIBRATION_ITEM_COUNT_V1
         or not isinstance(receipt.get("path"), str)
-        or any(
-            not _is_sha256(receipt.get(field))
-            for field in ("sha256", *binding_fields)
-        )
+        or not _is_sha256(receipt.get("sha256"))
+        or any(not _is_sha256(receipt.get(field)) for field in HASH_BINDING_FIELDS_V1)
         or any(receipt.get(field) != key.get(field) for field in binding_fields)
         for round_index, receipt in enumerate(key["bundle_receipts"], 1)
     ):

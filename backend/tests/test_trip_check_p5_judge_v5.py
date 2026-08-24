@@ -16,6 +16,7 @@ from evals.trip_check_v1.p5.judge_v5 import (
 
 HEX64 = "a" * 64
 SUBJECT = "b" * 40
+UPSTREAM_REF = "origin/codex/p5-judge-test"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -99,6 +100,8 @@ def _validated_run() -> tuple[dict[str, object], list[dict], list[dict], dict]:
         "formal_evidence": True,
         "lane": "frozen_blind",
         "subject_commit": SUBJECT,
+        "upstream_ref": UPSTREAM_REF,
+        "upstream_commit": SUBJECT,
         "dirty_tree": False,
         "dataset_manifest_hash": HEX64,
         "manifest_hash": "c" * 64,
@@ -184,7 +187,13 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
     protocol_path = repo_root / "protocol.json"
     _write_json(protocol_path, _protocol())
     calibration_panel_path = tmp_path / "calibration" / "panel.json"
-    calibration_panel = {"report_hash": "9" * 64}
+    calibration_panel = {
+        "report_hash": "9" * 64,
+        "subject_commit": SUBJECT,
+        "upstream_ref": UPSTREAM_REF,
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+    }
     _write_json(calibration_panel_path, calibration_panel)
     round_dirs = [tmp_path / f"judge-{index}" for index in range(1, 4)]
     custody = tmp_path / "custody"
@@ -407,4 +416,38 @@ def test_v5_aggregation_rejects_protocol_provenance_substitution(
             mapping_path=mapping_path,
             mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
             round_paths=round_paths,
+        )
+
+
+def test_v5_export_rejects_calibration_subject_substitution(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    rubric_path = repo_root / "rubric.json"
+    protocol_path = repo_root / "protocol.json"
+    _write_json(rubric_path, _rubric())
+    _write_json(protocol_path, _protocol())
+    calibration_panel_path = tmp_path / "calibration" / "panel.json"
+    calibration_panel = {
+        "report_hash": "9" * 64,
+        "subject_commit": "c" * 40,
+        "upstream_ref": UPSTREAM_REF,
+        "upstream_commit": "c" * 40,
+        "dirty_tree": False,
+    }
+    _write_json(calibration_panel_path, calibration_panel)
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_CALIBRATION_PANEL_INVALID"):
+        export_judge_bundles_v5(
+            repo_root=repo_root,
+            run_dir=tmp_path / "run",
+            round_output_dirs=[
+                tmp_path / f"judge-{index}" for index in range(1, 4)
+            ],
+            custody_output_dir=tmp_path / "custody",
+            rubric_path=rubric_path,
+            protocol_path=protocol_path,
+            calibration_panel_path=calibration_panel_path,
+            blind_run_validator=lambda **_: _validated_run(),
+            calibration_panel_validator=lambda **_: calibration_panel,
         )

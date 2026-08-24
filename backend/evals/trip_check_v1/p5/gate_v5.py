@@ -985,6 +985,10 @@ def build_p5_gate_manifest_v5(
     )
     if (
         not isinstance(calibration_panel, Mapping)
+        or calibration_panel.get("subject_commit") != subject_commit
+        or calibration_panel.get("upstream_ref") != upstream_ref
+        or calibration_panel.get("upstream_commit") != upstream_commit
+        or calibration_panel.get("dirty_tree") is not False
         or panel.get("calibration_panel_sha256") != _sha256(calibration_panel_path)
         or panel.get("calibration_panel_report_hash")
         != calibration_panel.get("report_hash")
