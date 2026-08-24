@@ -13,6 +13,11 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from evals.trip_check_v1.p5.data_contract import digest
+from evals.trip_check_v1.p5.formal_receipts_v4 import (
+    P5FormalReceiptErrorV4,
+    validate_dataset_formal_validation_receipt_v4,
+    validate_verification_receipt_v4,
+)
 
 
 DATASET_ID_V4 = "trip-check-p5-360-v4"
@@ -123,6 +128,21 @@ def _resolve_receipt_path(repo_root: Path, value: object) -> Path:
         raise P5GateErrorV4("FORMAL_VERIFICATION_RECEIPT_UNREADABLE") from exc
     if not resolved.is_file():
         raise P5GateErrorV4("FORMAL_VERIFICATION_RECEIPT_PATH_INVALID")
+    return resolved
+
+
+def _require_safe_gate_output(repo_root: Path, output_path: Path) -> Path:
+    resolved = output_path.absolute()
+    root = repo_root.resolve()
+    try:
+        resolved.resolve().relative_to(root)
+    except ValueError:
+        return resolved
+    local_artifacts = (root / ".local-artifacts").resolve()
+    try:
+        resolved.resolve().relative_to(local_artifacts)
+    except ValueError as exc:
+        raise P5GateErrorV4("V4_GATE_OUTPUT_PATH_FORBIDDEN") from exc
     return resolved
 
 
@@ -560,6 +580,8 @@ def _parse_formal_receipt_v4(
         "dirty_tree",
         "dataset_id",
         "dataset_manifest_hash",
+        "config_hash",
+        "dataset_validation_receipt",
         "bindings",
         "counts",
         "verification_receipts",
@@ -571,6 +593,7 @@ def _parse_formal_receipt_v4(
     bindings = value.get("bindings")
     counts = value.get("counts")
     receipts = value.get("verification_receipts")
+    dataset_receipt_entry = value.get("dataset_validation_receipt")
     if (
         value.get("schema_version")
         != "trip-check-p5-formal-validation-receipt-v4"
@@ -582,6 +605,7 @@ def _parse_formal_receipt_v4(
         or value.get("dirty_tree") is not False
         or value.get("dataset_id") != DATASET_ID_V4
         or value.get("dataset_manifest_hash") != dataset_hash
+        or not _is_sha256(value.get("config_hash"))
         or value.get("errors") != []
         or bindings != expected_bindings
         or counts
@@ -596,9 +620,33 @@ def _parse_formal_receipt_v4(
         }
         or not isinstance(receipts, Mapping)
         or set(receipts) != set(VERIFICATION_KINDS_V4)
+        or not isinstance(dataset_receipt_entry, Mapping)
+        or set(dataset_receipt_entry)
+        != {"path", "sha256", "receipt_hash", "status"}
     ):
         raise P5GateErrorV4("V4_FORMAL_RECEIPT_CONTRACT_INVALID")
     artifact_paths: list[tuple[str, Path]] = []
+    dataset_receipt_path = _resolve_receipt_path(
+        repo_root, dataset_receipt_entry["path"]
+    )
+    try:
+        dataset_receipt = validate_dataset_formal_validation_receipt_v4(
+            dataset_receipt_path
+        )
+    except P5FormalReceiptErrorV4 as exc:
+        raise P5GateErrorV4("V4_DATASET_FORMAL_RECEIPT_INVALID") from exc
+    if (
+        dataset_receipt_entry["status"] != "PASS"
+        or dataset_receipt["status"] != "PASS"
+        or _sha256(dataset_receipt_path) != dataset_receipt_entry["sha256"]
+        or dataset_receipt["receipt_hash"] != dataset_receipt_entry["receipt_hash"]
+        or dataset_receipt["subject_commit"] != subject_commit
+        or dataset_receipt["upstream_ref"] != upstream_ref
+        or dataset_receipt["upstream_commit"] != upstream_commit
+        or dataset_receipt["dataset_manifest"]["manifest_hash"] != dataset_hash
+    ):
+        raise P5GateErrorV4("V4_DATASET_FORMAL_RECEIPT_BINDING_INVALID")
+    artifact_paths.append(("dataset_formal_validation_receipt", dataset_receipt_path))
     expected_entry_fields = {
         "path",
         "sha256",
@@ -607,6 +655,8 @@ def _parse_formal_receipt_v4(
         "upstream_ref",
         "upstream_commit",
         "dirty_tree",
+        "config_hash",
+        "artifact_set_hash",
         "readback_verified",
     }
     for kind in VERIFICATION_KINDS_V4:
@@ -621,10 +671,15 @@ def _parse_formal_receipt_v4(
             or entry.get("dirty_tree") is not False
             or entry.get("readback_verified") is not True
             or not _is_sha256(entry.get("sha256"))
+            or not _is_sha256(entry.get("config_hash"))
+            or not _is_sha256(entry.get("artifact_set_hash"))
         ):
             raise P5GateErrorV4("V4_VERIFICATION_RECEIPT_ENTRY_INVALID")
         receipt_path = _resolve_receipt_path(repo_root, entry["path"])
-        actual = _load_json(receipt_path, "V4_VERIFICATION_RECEIPT_UNREADABLE")
+        try:
+            actual = validate_verification_receipt_v4(receipt_path)
+        except P5FormalReceiptErrorV4 as exc:
+            raise P5GateErrorV4("V4_VERIFICATION_RECEIPT_UNREADABLE") from exc
         if (
             _sha256(receipt_path) != entry["sha256"]
             or actual.get("schema_version")
@@ -636,6 +691,8 @@ def _parse_formal_receipt_v4(
             or actual.get("upstream_commit") != upstream_commit
             or actual.get("dirty_tree") is not False
             or actual.get("readback_verified") is not True
+            or actual.get("config_hash") != entry["config_hash"]
+            or actual.get("artifact_set_hash") != entry["artifact_set_hash"]
         ):
             raise P5GateErrorV4("V4_VERIFICATION_RECEIPT_BINDING_INVALID")
         if kind == "p4" and (
@@ -668,6 +725,7 @@ def build_p5_gate_manifest_v4(
     require_current_subject: bool = True,
 ) -> dict[str, Any]:
     root = repo_root.resolve()
+    safe_output = _require_safe_gate_output(root, output_path)
     dataset = _parse_dataset_v4(
         repo_root=root,
         path=dataset_manifest_path,
@@ -853,11 +911,14 @@ def build_p5_gate_manifest_v4(
     )
     if errors:
         raise P5GateErrorV4(f"V4_GATE_SCHEMA_REJECTED:{errors[0].message}")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    state_before_write = _repo_state_v4(root) if require_current_subject else None
+    safe_output.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    output_path.write_text(payload, encoding="utf-8", newline="\n")
-    if json.loads(output_path.read_text(encoding="utf-8")) != manifest:
+    safe_output.write_text(payload, encoding="utf-8", newline="\n")
+    if json.loads(safe_output.read_text(encoding="utf-8")) != manifest:
         raise P5GateErrorV4("V4_GATE_READBACK_FAILED")
+    if require_current_subject and _repo_state_v4(root) != state_before_write:
+        raise P5GateErrorV4("V4_GATE_POST_WRITE_REPOSITORY_STATE_CHANGED")
     return manifest
 
 
