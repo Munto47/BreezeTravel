@@ -19,6 +19,9 @@ from evals.trip_check_v1.p5.runner_v4 import (
     VARIANT_IDS_V4,
     validate_blind_run_group_v4,
 )
+from evals.trip_check_v1.p5.semantic_contract_v3 import (
+    validate_oracle_payload_compatibility_v3,
+)
 
 
 SCORE_SCHEMA_V4 = "trip-check-p5-isolated-blind-score-v4"
@@ -395,6 +398,20 @@ def score_isolated_blind_v4(
         oracle_validator=oracle_validator,
     )
     case_by_id = {str(_value(case, "case_id")): case for case in cases}
+    try:
+        semantic_mismatch = False
+        for case_id, case in case_by_id.items():
+            semantic_mismatch = bool(
+                validate_oracle_payload_compatibility_v3(
+                    case,
+                    materializations[case_id],
+                    labels_by_id[case_id],
+                )
+            ) or semantic_mismatch
+    except Exception:
+        _fail("BLIND_ORACLE_PAYLOAD_SEMANTIC_MISMATCH")
+    if semantic_mismatch:
+        _fail("BLIND_ORACLE_PAYLOAD_SEMANTIC_MISMATCH")
     scores = [
         case_scorer(
             case_by_id[str(_value(output, "case_id"))],
