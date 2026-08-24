@@ -1,4 +1,4 @@
-"""Execute the exact formal P5 v4 non-blind run outside the repository."""
+"""Execute an exact P5 v4 non-blind run outside the repository."""
 
 from __future__ import annotations
 
@@ -33,12 +33,17 @@ def parser() -> argparse.ArgumentParser:
         "--output-root",
         type=Path,
         required=True,
-        help="Existing repository-external parent directory for formal artifacts.",
+        help="Existing repository-external parent directory for run artifacts.",
     )
     value.add_argument("--run-id")
     value.add_argument(
         "--upstream-ref",
         help="Exact remote-tracking ref; defaults to the current branch upstream.",
+    )
+    value.add_argument(
+        "--development",
+        action="store_true",
+        help="Run the exact lane before sealing; output is never formal evidence.",
     )
     return value
 
@@ -61,7 +66,7 @@ async def execute(args: argparse.Namespace) -> dict[str, object]:
         upstream_ref=upstream_ref,
         upstream_commit=upstream_commit,
         dirty_tree=dirty_tree,
-        require_formal=True,
+        require_formal=not args.development,
     )
 
 
