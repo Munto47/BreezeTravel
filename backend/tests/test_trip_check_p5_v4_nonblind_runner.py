@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 import pytest
 
+from evals.trip_check_v1.p5 import nonblind_runner_v4
 from evals.trip_check_v1.p5.adapters_v4 import ADAPTER_VERSIONS_V4
 from evals.trip_check_v1.p5.data_contract import digest
 from evals.trip_check_v1.p5.nonblind_runner_v4 import (
@@ -234,6 +236,10 @@ def test_formal_runner_fails_before_execution_until_v4_seal_is_active(
 ) -> None:
     engine = _FixtureEngine()
     subject = "c" * 40
+    unsealed_paths = replace(
+        nonblind_runner_v4._default_dataset_paths(),
+        seal=tmp_path / "missing-v4-seal.json",
+    )
     with pytest.raises(
         P5NonblindRunnerErrorV4,
         match="NONBLIND_BLIND_SEAL_INVALID",
@@ -249,6 +255,7 @@ def test_formal_runner_fails_before_execution_until_v4_seal_is_active(
                 dirty_tree=False,
                 engine=engine,
                 require_formal=True,
+                dataset_paths=unsealed_paths,
             )
         )
     assert engine.executed is False
