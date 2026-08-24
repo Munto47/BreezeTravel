@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`IN_PROGRESS`
+- Status：`BLOCKED_EXTERNAL`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -313,11 +313,13 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 
 ## Completion record
 
-- Commits：P5 v3 remediation checkpoint through `fbcad2509517fb8a1c0267cea441dda34d47cf8d`；P5 v4 数据/runner/scorer/blind/Judge/Gate/receipt 工具 checkpoint through `6ce3f6f6f922bed31878595504ae93a4924118bc`；v4 seal/formal evaluation checkpoint 尚未生成；
-- Remote branch / upstream：`codex/trip-check-p5-evaluation-ablation` / `origin/codex/trip-check-p5-evaluation-ablation`；R0 基线同步；
-- Verification results：集成后 v4 邻接回归 `34 passed`、receipt/CLI 修复回归 `10 passed`、Ruff PASS；开发态 subject `88a8392cd86f88a102327cda8141081f87a094d6` 的 270 non-blind × 3 得到 810/810 terminal 与 replay、Core B 270/270 且全部硬门槛满足，但因 `formal_evidence=false` 评分状态保持 `REJECT`，只用于冻结前诊断；P5 v4 正式运行、blind、Judge 与 Gate 仍为 `NOT_RUN`；
-- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入仓库外 `${P5_ARTIFACT_ROOT}/p5-v4-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
-- Gate result：`NOT_RUN`；
+- Commits：P5 v4 数据、runner/scorer、blind/Judge/Gate、正式 receipt、seal 与 active contract 已形成 checkpoint；当前实现 checkpoint through `a3bc323b4bd2e4ffba7eaf4db52ce7df898885a3`，其中 `30ff3c01e36fdeed52cc6be0b343aa82dce8669d` 增加仓库外 `regression-next` 等价的候选 receipt 正反合同，`a3bc323b4bd2e4ffba7eaf4db52ce7df898885a3` 增加 blind oracle/payload 语义 fail-closed 守卫；
+- Remote branch / upstream：`codex/trip-check-p5-evaluation-ablation` / `origin/codex/trip-check-p5-evaluation-ablation`；每个已报告 checkpoint 均在 push 后回读 HEAD/upstream；
+- Verification results：subject `34ac550731a0ff6d8414b42be189110b5f5652f2` 的 formal dataset validation 为 `PASS`；270 non-blind × 3 得到 810/810 terminal 与 replay，Core B 270/270、综合分 100、全部 non-blind 硬门槛 `PASS`；90 blind × 3 得到 270/270 terminal 与 replay，但 isolated aggregate 的 Core B `deterministic_failure_count=60`、`candidate_receipt_failure_count=60`，其余零容忍计数均为 0，故原 aggregate 为 `REJECT` 且 Judge 未运行；
+- Failure diagnosis：blind custodian 只输出聚合分类，60/60 均为 `specific_place_policy_mismatch`；`projection_loss=0`、CandidateSet hash mismatch=0、产品 terminal receipt propagation failure=0、未解释 scorer failure=0。根因是 sealed external oracle 与 label-free payload 的地点许可语义矛盾，状态升级为 `INVALID_EVIDENCE`，不是 Core B 产品失败；诊断 receipt `blind_failure_diagnostic_v4.json` 的文件 SHA-256 为 `06cf558ff16dced7187b3435c30c29bf83235bcf8548452cbe06205c10e04a4d`，内容 hash 为 `e168af5476c8f7afbedb042872ea86d28b1d48200ebf527f72c77bfbeb1196c4`，disclosure scan `PASS`；
+- Regression verification：候选 receipt 正向与三类缺失变异联跑 `22 passed`；oracle/payload 守卫、blind scorer、v4 receipt regression 与 non-blind scorer 联跑 `48 passed`；对应 Ruff `PASS`。守卫会在 case scorer 前把任何不兼容 external oracle 统一判为 `BLIND_ORACLE_PAYLOAD_SEMANTIC_MISMATCH / INVALID_EVIDENCE`，不输出 case/label 明细；
+- Evidence boundary：上述正式运行只绑定旧 subject `34ac550731a0ff6d8414b42be189110b5f5652f2`；后续测试/守卫 commit 已使它们对当前 HEAD 自动失效。blind payload、v3/v4 byte commitment、external bundle commitment 均未改变；当前 HEAD 的 formal run/Judge/Gate 为 `NOT_RUN`，不能借用旧 subject 结果；
+- Gate result：`INVALID_EVIDENCE`；Evaluation Gate 未通过，Judge `NOT_RUN`，P6 `NOT_STARTED`；
 - Next Goal generated：`NO`；
-- Remaining red lights：v4 dataset/seal/active contract 尚未冻结；custodian 已隔离回读原外置 bundle/review commitment 且与 v3 seal 一致，但正式 seal 尚未执行；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若 v3 blind bytes 或原外置 commitment 后续出现不一致，必须停止，不能重建标签追绿；
-- Promotion decision：`NOT_REQUESTED`。
+- Remaining red lights：要继续 P5 必须取得新的明确授权，修正并重新复核 external blind oracle、生成新的 commitment/seal/version，再在新 subject 上完整重跑 non-blind、blind、Judge 与 Evaluation Gate。当前授权要求 blind payload 与 external commitment 不变，因此该动作被明确禁止；P6 G0～G6、live Provider、公网候选、Candidate Gate、human evidence 均保持 `NOT_RUN`；
+- Promotion decision：`REJECT_ALL_CANDIDATES`（Evaluation Gate 未成立，不能晋级或自动生成 P6 Goal）。
