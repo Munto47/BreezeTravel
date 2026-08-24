@@ -49,6 +49,50 @@ def _rubric() -> dict[str, object]:
     }
 
 
+def _protocol() -> dict[str, object]:
+    dimensions = (
+        "clarity",
+        "actionability",
+        "evidence_boundary_expression",
+    )
+    return {
+        "schema_version": "trip-check-p5-judge-protocol-v1",
+        "rubric_schema_version": "trip-check-p5-judge-rubric-v2",
+        "judge_class": "automated_proxy_judge",
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "human_evidence": False,
+        "human_calibration_performed": False,
+        "structured_expression_fields": [
+            "finding_reason",
+            "action",
+            "uncertainty",
+            "has_repair",
+            "candidate_set_bound",
+        ],
+        "dimension_anchors": {
+            dimension: {str(score): f"{dimension}-{score}" for score in range(5)}
+            for dimension in dimensions
+        },
+        "evaluator_instruction": ["Apply every anchor to every item."],
+        "verdict_rule": {
+            "minimum_dimension_score": 2,
+            "unsupported_claim_candidate_count": 0,
+        },
+        "agreement_rule": {
+            "dimension_max_spread": 1,
+            "minimum_rate": 0.85,
+            "required_dimensions": list(dimensions),
+            "verdict_unanimity_required_rate": 0.85,
+        },
+        "preblind_calibration": {
+            "minimum_dimension_agreement_rate": 0.85,
+            "minimum_verdict_agreement_rate": 0.85,
+            "required": True,
+            "source_lane": "NONBLIND_SYNTHETIC_ANCHORS",
+        },
+    }
+
+
 def _validated_run() -> tuple[dict[str, object], list[dict], list[dict], dict]:
     manifest = {
         "status": "PASS",
@@ -137,6 +181,8 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
     repo_root.mkdir()
     rubric_path = repo_root / "rubric.json"
     _write_json(rubric_path, _rubric())
+    protocol_path = repo_root / "protocol.json"
+    _write_json(protocol_path, _protocol())
     round_dirs = [tmp_path / f"judge-{index}" for index in range(1, 4)]
     custody = tmp_path / "custody"
     receipt = export_judge_bundles_v5(
@@ -145,6 +191,7 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
         round_output_dirs=round_dirs,
         custody_output_dir=custody,
         rubric_path=rubric_path,
+        protocol_path=protocol_path,
         blind_run_validator=lambda **_: _validated_run(),
     )
     return repo_root, receipt, round_dirs
@@ -180,6 +227,10 @@ def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
         "source_rubric_sha256": bundle_receipt["source_rubric_sha256"],
         "judge_input_rubric_sha256": bundle_receipt[
             "judge_input_rubric_sha256"
+        ],
+        "source_protocol_sha256": bundle_receipt["source_protocol_sha256"],
+        "judge_input_protocol_sha256": bundle_receipt[
+            "judge_input_protocol_sha256"
         ],
         "terminal_outputs_content_sha256": bundle_receipt[
             "terminal_outputs_content_sha256"
@@ -220,6 +271,10 @@ def test_v5_export_is_anonymous_and_aggregates_three_independent_rounds(
         bundle_path = round_dir / f"judge_input_round_{round_index}.v5.json"
         payload = bundle_path.read_text(encoding="utf-8").lower()
         assert len(json.loads(payload)["items"]) == 270
+        assert json.loads(payload)["protocol"]["verdict_rule"] == {
+            "minimum_dimension_score": 2,
+            "unsupported_claim_candidate_count": 0,
+        }
         for forbidden in (
             '"case_id"',
             '"variant_id"',
@@ -316,6 +371,24 @@ def test_v5_aggregation_rejects_any_observed_peer_result(tmp_path: Path) -> None
     round_paths = _round_paths(tmp_path, receipt, round_dirs)
     first = json.loads(round_paths[0].read_text(encoding="utf-8"))
     first["peer_round_output_observed"] = True
+    _write_json(round_paths[0], first)
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_ROUND_CONTRACT_INVALID"):
+        aggregate_judge_rounds_v5(
+            repo_root=repo_root,
+            mapping_path=mapping_path,
+            mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+            round_paths=round_paths,
+        )
+
+
+def test_v5_aggregation_rejects_protocol_provenance_substitution(
+    tmp_path: Path,
+) -> None:
+    repo_root, receipt, round_dirs = _export(tmp_path)
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    round_paths = _round_paths(tmp_path, receipt, round_dirs)
+    first = json.loads(round_paths[0].read_text(encoding="utf-8"))
+    first["judge_input_protocol_sha256"] = "0" * 64
     _write_json(round_paths[0], first)
     with pytest.raises(P5JudgeErrorV5, match="JUDGE_ROUND_CONTRACT_INVALID"):
         aggregate_judge_rounds_v5(

@@ -33,13 +33,15 @@
           "ended_at": {"minLength": 1, "type": "string"},
           "evaluator_id": {"minLength": 1, "type": "string"},
           "judge_input_rubric_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "judge_input_protocol_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "model_id": {"minLength": 1, "type": "string"},
           "round_index": {"maximum": 3, "minimum": 1, "type": "integer"},
           "source_rubric_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "source_protocol_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "started_at": {"minLength": 1, "type": "string"},
           "terminal_outputs_content_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"}
         },
-        "required": ["round_index", "evaluator_id", "agent_task_id", "agent_id", "context_id", "model_id", "started_at", "ended_at", "bundle_sha256", "source_rubric_sha256", "judge_input_rubric_sha256", "terminal_outputs_content_sha256"],
+        "required": ["round_index", "evaluator_id", "agent_task_id", "agent_id", "context_id", "model_id", "started_at", "ended_at", "bundle_sha256", "source_rubric_sha256", "judge_input_rubric_sha256", "source_protocol_sha256", "judge_input_protocol_sha256", "terminal_outputs_content_sha256"],
         "type": "object"
       },
       "maxItems": 3,

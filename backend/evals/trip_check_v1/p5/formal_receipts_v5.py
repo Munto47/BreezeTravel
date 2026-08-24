@@ -45,6 +45,7 @@ PRIMARY_ARTIFACT_NAMES_V5 = (
     "blind_seal",
     "run_spec",
     "judge_rubric",
+    "judge_protocol",
     "nonblind_run_manifest",
     "nonblind_score",
     "blind_run_manifest",

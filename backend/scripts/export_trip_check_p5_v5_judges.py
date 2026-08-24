@@ -39,6 +39,9 @@ def main() -> None:
     )
     parser.add_argument("--custody-output-dir", type=Path, required=True)
     parser.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
+    parser.add_argument(
+        "--protocol", type=Path, default=P5_ROOT / "judge_protocol_v1.json"
+    )
     args = parser.parse_args()
     if len(args.round_output_dir) != 3:
         parser.error("--round-output-dir must be supplied exactly three times")
@@ -49,6 +52,7 @@ def main() -> None:
         round_output_dirs=args.round_output_dir,
         custody_output_dir=args.custody_output_dir,
         rubric_path=args.rubric,
+        protocol_path=args.protocol,
     )
     output = args.custody_output_dir / "judge_export_receipt.v5.json"
     payload = json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n"

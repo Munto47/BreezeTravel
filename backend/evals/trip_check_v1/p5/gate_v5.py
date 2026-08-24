@@ -18,7 +18,10 @@ from evals.trip_check_v1.p5.formal_receipts_v5 import (
     validate_dataset_formal_validation_receipt_v5,
     validate_verification_receipt_v5,
 )
-from evals.trip_check_v1.p5.judge_v5 import judge_rubric_projection_hash_v5
+from evals.trip_check_v1.p5.judge_v5 import (
+    judge_protocol_projection_hash_v5,
+    judge_rubric_projection_hash_v5,
+)
 
 
 DATASET_ID_V5 = "trip-check-p5-360-v5"
@@ -885,6 +888,7 @@ def build_p5_gate_manifest_v5(
     blind_seal_path: Path,
     run_spec_path: Path,
     rubric_path: Path,
+    judge_protocol_path: Path,
     nonblind_run_manifest_path: Path,
     nonblind_score_path: Path,
     blind_run_manifest_path: Path,
@@ -959,14 +963,27 @@ def build_p5_gate_manifest_v5(
     )
     panel = _parse_judge_panel_v5(_load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run)
     rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
+    protocol = _load_json(judge_protocol_path, "V5_JUDGE_PROTOCOL_INVALID")
     if any(
         item.get("source_rubric_sha256") != _sha256(rubric_path)
         or item.get("judge_input_rubric_sha256")
         != judge_rubric_projection_hash_v5(rubric)
-        or item.get("terminal_outputs_content_sha256") != blind_run["terminal_outputs_content_sha256"]
         for item in panel["provenance"]
     ):
         raise P5GateErrorV5("V5_JUDGE_RUBRIC_PROVENANCE_INVALID")
+    if any(
+        item.get("source_protocol_sha256") != _sha256(judge_protocol_path)
+        or item.get("judge_input_protocol_sha256")
+        != judge_protocol_projection_hash_v5(rubric, protocol)
+        for item in panel["provenance"]
+    ):
+        raise P5GateErrorV5("V5_JUDGE_PROTOCOL_PROVENANCE_INVALID")
+    if any(
+        item.get("terminal_outputs_content_sha256")
+        != blind_run["terminal_outputs_content_sha256"]
+        for item in panel["provenance"]
+    ):
+        raise P5GateErrorV5("V5_JUDGE_RUN_PROVENANCE_INVALID")
     nonblind_artifacts = _validate_run_artifacts_v5(
         run=nonblind_run,
         run_manifest_path=nonblind_run_manifest_path,
@@ -990,6 +1007,7 @@ def build_p5_gate_manifest_v5(
         "blind_seal": blind_seal_path,
         "run_spec": run_spec_path,
         "judge_rubric": rubric_path,
+        "judge_protocol": judge_protocol_path,
         "nonblind_run_manifest": nonblind_run_manifest_path,
         "nonblind_score": nonblind_score_path,
         "blind_run_manifest": blind_run_manifest_path,

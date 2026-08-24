@@ -28,6 +28,13 @@ ROUND_COUNT_V5 = 3
 BLIND_CASE_COUNT_V5 = 90
 BLIND_TERMINAL_COUNT_V5 = 270
 JUDGE_AGREEMENT_THRESHOLD_V5 = 0.85
+STRUCTURED_EXPRESSION_FIELDS_V5 = (
+    "finding_reason",
+    "action",
+    "uncertainty",
+    "has_repair",
+    "candidate_set_bound",
+)
 
 
 class P5JudgeErrorV5(RuntimeError):
@@ -362,6 +369,84 @@ def judge_rubric_projection_hash_v5(source: Mapping[str, Any]) -> str:
     return digest(_judge_rubric_projection(source))
 
 
+def _judge_protocol_projection(
+    source_rubric: Mapping[str, Any], source_protocol: Mapping[str, Any]
+) -> dict[str, Any]:
+    anchors = source_protocol.get("dimension_anchors")
+    agreement = source_protocol.get("agreement_rule")
+    verdict = source_protocol.get("verdict_rule")
+    calibration = source_protocol.get("preblind_calibration")
+    instructions = source_protocol.get("evaluator_instruction")
+    if (
+        source_protocol.get("schema_version")
+        != "trip-check-p5-judge-protocol-v1"
+        or source_protocol.get("rubric_schema_version")
+        != source_rubric.get("schema_version")
+        or source_protocol.get("judge_class") != "automated_proxy_judge"
+        or source_protocol.get("fact_authority") != "DETERMINISTIC_SCORER_ONLY"
+        or source_protocol.get("human_calibration_performed") is not False
+        or source_protocol.get("human_evidence") is not False
+        or source_protocol.get("structured_expression_fields")
+        != list(STRUCTURED_EXPRESSION_FIELDS_V5)
+        or not isinstance(anchors, Mapping)
+        or set(anchors) != set(DIMENSIONS_V5)
+        or any(
+            not isinstance(anchors[dimension], Mapping)
+            or set(anchors[dimension]) != {str(score) for score in range(5)}
+            or any(
+                not isinstance(description, str) or not description.strip()
+                for description in anchors[dimension].values()
+            )
+            for dimension in DIMENSIONS_V5
+        )
+        or not isinstance(instructions, list)
+        or not instructions
+        or any(not isinstance(item, str) or not item.strip() for item in instructions)
+        or verdict
+        != {
+            "minimum_dimension_score": 2,
+            "unsupported_claim_candidate_count": 0,
+        }
+        or agreement
+        != {
+            "dimension_max_spread": 1,
+            "minimum_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+            "required_dimensions": list(DIMENSIONS_V5),
+            "verdict_unanimity_required_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+        }
+        or calibration
+        != {
+            "minimum_dimension_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+            "minimum_verdict_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+            "required": True,
+            "source_lane": "NONBLIND_SYNTHETIC_ANCHORS",
+        }
+    ):
+        raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
+    return {
+        "schema_version": "trip-check-p5-judge-protocol-projection-v1",
+        "rubric_schema_version": source_protocol["rubric_schema_version"],
+        "judge_class": "automated_proxy_judge",
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "human_evidence": False,
+        "human_calibration_performed": False,
+        "structured_expression_fields": list(STRUCTURED_EXPRESSION_FIELDS_V5),
+        "dimension_anchors": anchors,
+        "evaluator_instruction": instructions,
+        "verdict_rule": verdict,
+        "agreement_rule": agreement,
+        "preblind_calibration": calibration,
+    }
+
+
+def judge_protocol_projection_hash_v5(
+    source_rubric: Mapping[str, Any], source_protocol: Mapping[str, Any]
+) -> str:
+    """Return the canonical hash of the operational protocol sent to Judges."""
+
+    return digest(_judge_protocol_projection(source_rubric, source_protocol))
+
+
 def _assert_anonymous_bundle(bundle: Mapping[str, Any]) -> None:
     serialized = json.dumps(bundle, ensure_ascii=False, sort_keys=True).lower()
     forbidden_fragments = (
@@ -385,6 +470,7 @@ def export_judge_bundles_v5(
     round_output_dirs: Sequence[Path],
     custody_output_dir: Path,
     rubric_path: Path,
+    protocol_path: Path,
     blind_run_validator: BlindRunValidatorV5 | None = None,
 ) -> dict[str, Any]:
     """Export one anonymous input-only bundle per independent Judge round."""
@@ -401,8 +487,14 @@ def export_judge_bundles_v5(
 
     source_rubric = _load_json(rubric_path.resolve(), "JUDGE_RUBRIC_INVALID")
     rubric = _judge_rubric_projection(source_rubric)
+    source_protocol = _load_json(protocol_path.resolve(), "JUDGE_PROTOCOL_INVALID")
+    protocol = _judge_protocol_projection(source_rubric, source_protocol)
     source_rubric_sha256 = _sha256(rubric_path.resolve())
     judge_input_rubric_sha256 = judge_rubric_projection_hash_v5(source_rubric)
+    source_protocol_sha256 = _sha256(protocol_path.resolve())
+    judge_input_protocol_sha256 = judge_protocol_projection_hash_v5(
+        source_rubric, source_protocol
+    )
     case_by_id = {str(_value(case, "case_id")): case for case in cases}
     output_by_key = {
         (str(_value(output, "case_id")), str(_value(output, "variant_id"))): output
@@ -494,6 +586,8 @@ def export_judge_bundles_v5(
                 ],
                 "source_rubric_sha256": source_rubric_sha256,
                 "judge_input_rubric_sha256": judge_input_rubric_sha256,
+                "source_protocol_sha256": source_protocol_sha256,
+                "judge_input_protocol_sha256": judge_input_protocol_sha256,
                 "mapping_commitment": mapping_commitment,
             },
             "input_boundary": {
@@ -504,6 +598,7 @@ def export_judge_bundles_v5(
                 "peer_round_output_present": False,
             },
             "rubric": rubric,
+            "protocol": protocol,
             "items": items,
         }
         _assert_anonymous_bundle(bundle)
@@ -515,6 +610,8 @@ def export_judge_bundles_v5(
                 "sha256": _sha256(path),
                 "source_rubric_sha256": source_rubric_sha256,
                 "judge_input_rubric_sha256": judge_input_rubric_sha256,
+                "source_protocol_sha256": source_protocol_sha256,
+                "judge_input_protocol_sha256": judge_input_protocol_sha256,
                 "terminal_outputs_content_sha256": manifest[
                     "terminal_outputs_content_sha256"
                 ],
@@ -575,6 +672,8 @@ def _validate_round_report_v5(
         "bundle_sha256",
         "source_rubric_sha256",
         "judge_input_rubric_sha256",
+        "source_protocol_sha256",
+        "judge_input_protocol_sha256",
         "terminal_outputs_content_sha256",
         "api_usage_count",
         "tool_usage_count",
@@ -594,6 +693,10 @@ def _validate_round_report_v5(
         or report.get("source_rubric_sha256") != receipt["source_rubric_sha256"]
         or report.get("judge_input_rubric_sha256")
         != receipt["judge_input_rubric_sha256"]
+        or report.get("source_protocol_sha256")
+        != receipt["source_protocol_sha256"]
+        or report.get("judge_input_protocol_sha256")
+        != receipt["judge_input_protocol_sha256"]
         or report.get("terminal_outputs_content_sha256")
         != receipt["terminal_outputs_content_sha256"]
         or report.get("api_usage_count") != 0
@@ -727,6 +830,8 @@ def aggregate_judge_rounds_v5(
         "sha256",
         "source_rubric_sha256",
         "judge_input_rubric_sha256",
+        "source_protocol_sha256",
+        "judge_input_protocol_sha256",
         "terminal_outputs_content_sha256",
         "item_count",
     }
@@ -744,6 +849,8 @@ def aggregate_judge_rounds_v5(
                     "sha256",
                     "source_rubric_sha256",
                     "judge_input_rubric_sha256",
+                    "source_protocol_sha256",
+                    "judge_input_protocol_sha256",
                 )
             )
         ):
@@ -934,6 +1041,8 @@ def aggregate_judge_rounds_v5(
                     "bundle_sha256",
                     "source_rubric_sha256",
                     "judge_input_rubric_sha256",
+                    "source_protocol_sha256",
+                    "judge_input_protocol_sha256",
                     "terminal_outputs_content_sha256",
                 )
             }
@@ -963,4 +1072,5 @@ __all__ = [
     "aggregate_judge_rounds_v5",
     "export_judge_bundles_v5",
     "judge_rubric_projection_hash_v5",
+    "judge_protocol_projection_hash_v5",
 ]

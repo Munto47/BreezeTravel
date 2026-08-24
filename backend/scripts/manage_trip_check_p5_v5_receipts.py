@@ -49,6 +49,7 @@ def _primary(args: argparse.Namespace) -> dict[str, Path]:
         "blind_seal": args.blind_seal,
         "run_spec": args.run_spec,
         "judge_rubric": args.rubric,
+        "judge_protocol": args.judge_protocol,
         "nonblind_run_manifest": args.nonblind_run_manifest,
         "nonblind_score": args.nonblind_score,
         "blind_run_manifest": args.blind_run_manifest,
@@ -109,6 +110,9 @@ def parser() -> argparse.ArgumentParser:
     )
     formal.add_argument("--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json")
     formal.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
+    formal.add_argument(
+        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v1.json"
+    )
     formal.add_argument("--nonblind-run-manifest", type=Path, required=True)
     formal.add_argument("--nonblind-score", type=Path, required=True)
     formal.add_argument("--blind-run-manifest", type=Path, required=True)

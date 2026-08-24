@@ -21,7 +21,10 @@ from evals.trip_check_v1.p5.gate_v5 import (
     build_p5_gate_manifest_v5,
     parse_nonblind_score_v5,
 )
-from evals.trip_check_v1.p5.judge_v5 import judge_rubric_projection_hash_v5
+from evals.trip_check_v1.p5.judge_v5 import (
+    judge_protocol_projection_hash_v5,
+    judge_rubric_projection_hash_v5,
+)
 
 
 SUBJECT = "a" * 40
@@ -176,8 +179,9 @@ def _blind_score(run: dict, seal_sha: str) -> dict:
     return {**payload, "report_hash": digest(payload)}
 
 
-def _judge_panel(run: dict, rubric_path: Path) -> dict:
+def _judge_panel(run: dict, rubric_path: Path, protocol_path: Path) -> dict:
     rubric = json.loads(rubric_path.read_text(encoding="utf-8"))
+    protocol = json.loads(protocol_path.read_text(encoding="utf-8"))
     payload = {
         "schema_version": "trip-check-p5-judge-panel-v5",
         "status": "PASS",
@@ -205,6 +209,10 @@ def _judge_panel(run: dict, rubric_path: Path) -> dict:
                 "judge_input_rubric_sha256": judge_rubric_projection_hash_v5(
                     rubric
                 ),
+                "source_protocol_sha256": _file_sha(protocol_path),
+                "judge_input_protocol_sha256": judge_protocol_projection_hash_v5(
+                    rubric, protocol
+                ),
                 "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
             }
             for index in range(1, 4)
@@ -228,6 +236,7 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     p5.mkdir(parents=True)
     run_spec = p5 / "run_spec_template_v3.json"
     rubric = p5 / "judge_rubric_v2.json"
+    protocol = p5 / "judge_protocol_v1.json"
     contracts = p5 / "contracts_v3.py"
     _write_json(run_spec, {"schema_version": "trip-check-p5-run-spec-v3"})
     source_rubric = (
@@ -238,6 +247,14 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
         / "judge_rubric_v2.json"
     )
     _write_json(rubric, json.loads(source_rubric.read_text(encoding="utf-8")))
+    source_protocol = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "judge_protocol_v1.json"
+    )
+    _write_json(protocol, json.loads(source_protocol.read_text(encoding="utf-8")))
     contracts.write_text("# contracts v3\n", encoding="utf-8")
     dataset_files = {}
     for key, count in {
@@ -395,13 +412,14 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     panel_path = tmp_path / "scores" / "panel.json"
     _write_json(nonblind_score_path, _nonblind_score(nonblind_run))
     _write_json(blind_score_path, _blind_score(blind_run, _file_sha(seal_path)))
-    _write_json(panel_path, _judge_panel(blind_run, rubric))
+    _write_json(panel_path, _judge_panel(blind_run, rubric, protocol))
     primary = {
         "dataset_manifest": dataset_path,
         "active_contract": active_path,
         "blind_seal": seal_path,
         "run_spec": run_spec,
         "judge_rubric": rubric,
+        "judge_protocol": protocol,
         "nonblind_run_manifest": nonblind_run_path,
         "nonblind_score": nonblind_score_path,
         "blind_run_manifest": blind_run_path,
@@ -514,6 +532,7 @@ def _invoke_gate(paths: dict[str, Path], output_path: Path) -> dict:
         blind_seal_path=paths["blind_seal"],
         run_spec_path=paths["run_spec"],
         rubric_path=paths["judge_rubric"],
+        judge_protocol_path=paths["judge_protocol"],
         nonblind_run_manifest_path=paths["nonblind_run_manifest"],
         nonblind_score_path=paths["nonblind_score"],
         blind_run_manifest_path=paths["blind_run_manifest"],
@@ -541,6 +560,7 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
         blind_seal_path=paths["blind_seal"],
         run_spec_path=paths["run_spec"],
         rubric_path=paths["judge_rubric"],
+        judge_protocol_path=paths["judge_protocol"],
         nonblind_run_manifest_path=paths["nonblind_run_manifest"],
         nonblind_score_path=paths["nonblind_score"],
         blind_run_manifest_path=paths["blind_run_manifest"],
@@ -558,7 +578,7 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
     assert manifest["promotion_decision"] == "KEEP_CORE_B"
     assert manifest["counts"]["replay_readback"] == 1080
     assert manifest["solver_admission"]["promotion_eligible"] is False
-    assert len(manifest["artifact_index"]) == 29
+    assert len(manifest["artifact_index"]) == 30
 
 
 def test_nonblind_parser_rejects_missing_replay_readback(tmp_path: Path) -> None:
@@ -626,6 +646,18 @@ def test_gate_rejects_judge_rubric_provenance_substitution(tmp_path: Path) -> No
         _invoke_gate(paths, tmp_path / "output" / "gate.json")
 
 
+def test_gate_rejects_judge_protocol_provenance_substitution(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    panel = json.loads(paths["judge_panel"].read_text(encoding="utf-8"))
+    panel["provenance"][0]["source_protocol_sha256"] = "0" * 64
+    panel["report_hash"] = digest(
+        {key: value for key, value in panel.items() if key != "report_hash"}
+    )
+    _write_json(paths["judge_panel"], panel)
+    with pytest.raises(P5GateErrorV5, match="V5_JUDGE_PROTOCOL_PROVENANCE_INVALID"):
+        _invoke_gate(paths, tmp_path / "output" / "gate.json")
+
+
 def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -> None:
     paths = _formal_fixture(tmp_path)
     schema = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5" / "gate_v5.schema.json"
@@ -637,6 +669,7 @@ def test_gate_output_is_limited_to_external_or_local_artifacts(tmp_path: Path) -
             blind_seal_path=paths["blind_seal"],
             run_spec_path=paths["run_spec"],
             rubric_path=paths["judge_rubric"],
+            judge_protocol_path=paths["judge_protocol"],
             nonblind_run_manifest_path=paths["nonblind_run_manifest"],
             nonblind_score_path=paths["nonblind_score"],
             blind_run_manifest_path=paths["blind_run_manifest"],
@@ -674,6 +707,7 @@ def test_gate_rechecks_repository_state_after_write(tmp_path: Path, monkeypatch:
             blind_seal_path=paths["blind_seal"],
             run_spec_path=paths["run_spec"],
             rubric_path=paths["judge_rubric"],
+            judge_protocol_path=paths["judge_protocol"],
             nonblind_run_manifest_path=paths["nonblind_run_manifest"],
             nonblind_score_path=paths["nonblind_score"],
             blind_run_manifest_path=paths["blind_run_manifest"],
