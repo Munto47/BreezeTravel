@@ -337,8 +337,13 @@ def _parse_run_manifest_v5(value: Mapping[str, Any], *, lane: str, dataset_hash:
     _require_fields(value, required, "V5_RUN_MANIFEST_FIELDS_MISSING")
     _validate_self_hash(value, "manifest_hash", "V5_RUN_MANIFEST_HASH_MISMATCH")
     expected_cases, expected_terminals = (270, 810) if lane == "nonblind" else (90, 270)
+    expected_schema = (
+        "trip-check-p5-run-group-v5"
+        if lane == "nonblind"
+        else "trip-check-p5-blind-run-group-v5"
+    )
     if (
-        value.get("schema_version") != "trip-check-p5-run-group-v5"
+        value.get("schema_version") != expected_schema
         or value.get("status") != "PASS"
         or value.get("formal_evidence") is not True
         or value.get("lane") != lane

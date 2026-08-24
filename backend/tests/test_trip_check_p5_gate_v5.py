@@ -17,6 +17,7 @@ from evals.trip_check_v1.p5.formal_receipts_v5 import (
 )
 from evals.trip_check_v1.p5.gate_v5 import (
     P5GateErrorV5,
+    _parse_run_manifest_v5,
     build_p5_gate_manifest_v5,
     parse_nonblind_score_v5,
 )
@@ -90,7 +91,11 @@ def _run_manifest(
     index["artifact_index_hash"] = digest(index)
     _write_json(run_dir / "artifact_index.json", index)
     return {
-        "schema_version": "trip-check-p5-run-group-v5",
+        "schema_version": (
+            "trip-check-p5-run-group-v5"
+            if lane == "nonblind"
+            else "trip-check-p5-blind-run-group-v5"
+        ),
         "run_id": f"run-{lane}",
         "status": "PASS",
         "formal_evidence": True,
@@ -554,6 +559,21 @@ def test_nonblind_parser_rejects_missing_replay_readback(tmp_path: Path) -> None
     score["report_hash"] = digest({key: value for key, value in score.items() if key != "report_hash"})
     with pytest.raises(P5GateErrorV5, match="V5_NONBLIND_SCORE_FIELDS_MISSING"):
         parse_nonblind_score_v5(score, run=run)
+
+
+def test_blind_run_parser_requires_blind_runner_schema(tmp_path: Path) -> None:
+    run = _run_manifest("frozen_blind", HEX64, "c" * 64, "d" * 64, tmp_path)
+    run.update(
+        {
+            "nonce_sha256": "e" * 64,
+            "run_binding_hash": "f" * 64,
+            "nonce_consumption_receipt_sha256": "1" * 64,
+        }
+    )
+    run["schema_version"] = "trip-check-p5-run-group-v5"
+    run["manifest_hash"] = digest(run)
+    with pytest.raises(P5GateErrorV5, match="V5_RUN_MANIFEST_CONTRACT_INVALID"):
+        _parse_run_manifest_v5(run, lane="frozen_blind", dataset_hash=HEX64)
 
 
 def test_nonblind_parser_never_allows_rejected_solver_promotion(
