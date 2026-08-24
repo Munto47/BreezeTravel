@@ -4,14 +4,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
-from evals.trip_check_v1.p5.judge_v4 import aggregate_judge_rounds_v4
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from evals.trip_check_v1.p5.judge_v4 import (  # noqa: E402
+    aggregate_judge_rounds_v4,
+)
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = BACKEND_ROOT.parent
 PANEL_SCHEMA = (
     REPO_ROOT
     / "backend"
