@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`IN_PROGRESS`
+- Status：`BLOCKED`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -86,6 +86,16 @@
 - verdict 的各维度 `>=2`、panel 一致率 `>=0.85`、三轮 fresh 独立无 API、deterministic scorer 优先和 blind 隔离门槛均保持不变；不得通过删减维度、改变聚合公式、重抽单轮或查看 blind 明细追绿；
 - 修复完成后必须形成新的 clean、pushed subject，并从 dataset formal validation 开始完整重跑 P5；任何旧 run/score/Judge/verification/Gate 只保留诊断资格，不能拼接；
 - 只有新 subject 的 Evaluation Gate 实际 `PASS` 后才生成并执行 P6；P6 仍必须按 G0～G6、受控公网验证与 Candidate Gate 的既定合同逐项取得真实证据。
+
+### P5 v5 calibrated-Judge formal stop checkpoint（2026-08-24）
+
+- Judge 合同补强已形成三个 clean、pushed checkpoint：`4439a1cb6180dcc9ed2d58a56ba97243504a8263`、`ddf15273dbc28937281a2523859cb224510552ad`、`d26e1886dd3d16c4ea47b2651e6d7788b94f9d77`；随后又以 `dcdce189742058ecd5748edae9e3224e6bdc1b80` 补齐 calibration 对 `subject_commit`、upstream 和 `dirty_tree=false` 的 fail-closed 绑定。当前 subject 与 upstream 一致，产品代码、数据、external oracle、rubric、门槛和 variant 均未改变；
+- 新 subject 的 pre-blind calibration 由三个 fresh、互相隔离、无 API evaluator 执行，panel 状态为 `PASS`：verdict agreement=`1.0`，clarity/actionability/evidence-boundary agreement 分别为 `0.9/1.0/1.0`，expected verdict match=`1.0`。calibration panel SHA-256=`737f95df1e8d46ae145cff24a1e10a0c11690c8803f9761492831f1c514a6d0f`，report hash=`3f9be72d7031811859f845d3037b43c49f858f1dd1229fd6eb0b19b1d7bf489a`；
+- 同一 subject 从头完成 dataset formal validation、non-blind `810/810` terminal/replay、non-blind score、一次性 nonce、blind `270/270` terminal/replay 和 isolated aggregate；两条 lane 的 replay mismatch 均为 `0`，blind runner 的 label read=`false`。Core B non-blind/blind 均为 `100`，blind `90/90` task success，零容忍项全部为 `0`；Solver C 同为 `100` 但继续受 P4 admission `REJECT` 约束，Legacy A blind mean=`53`；
+- blind Judge 三轮仍为 fresh、互相隔离、无 API，round 文件 SHA-256 分别为 `f6c030e05d49d7bd181e037c6574cf5e8ebbe6464eda4f1ab56d882d8a6cf182`、`eaadba6f147a13e6b0b6db7f434829fd9fbe0a82841b0e69e4a393533258387b`、`17f4bdb176ea0d455e9a3e9fd3d339eef8d1f845ecff4000d68e68d704d1563c`。panel report hash=`0b7a90f18c2e609d6250b4c8bed92015e5a381917580aa853b3afcd6e34d12af`，状态为 `BLOCKED`：clarity=`1.0`、evidence-boundary=`1.0`，但 actionability 与 verdict agreement 均为 `0.6888888888888889`，低于不可变门槛 `0.85`；Core B/Solver C majority pass 均为 `90/90`，不能覆盖一致率失败；
+- 独立故障诊断只读取 protocol、calibration panel、Judge panel 与匿名 scores 聚合，未读取 Judge bundle、mapping/custody、blind identity/label、产品 terminal output 或 oracle。诊断确认分歧集中为第二轮对 Core B/Solver C 各 `42` 项 actionability 的 `1 ↔ 3` 边界解释；这是 10 条 synthetic calibration 对正式结构化表达的外推失败，不是已证明的产品确定性质量失败，也没有证据认定 evaluator 不合规；
+- 当前合同下不存在合规追绿路径：不得重抽第二轮、用多数票覆盖、查看 blind 明细、反复整组抽样择优或临时改规则。本 subject 的 P1～P4、完整 backend、Ruff、frontend、dual-entry、formal receipt 和 Evaluation Gate 因决定性 Judge 失败保持 `NOT_RUN`；P6 Goal、G0～G6、公网候选、Candidate Gate、human evidence、H1、部署和 `main` 合并继续为 `NOT_STARTED/NOT_RUN`；
+- 若恢复，必须取得范围扩展授权：提升 Judge evaluation contract，使用与本次 blind 无关的 non-blind actionability 边界 anchors，逐槽绑定实际 model/config，并预先定义 panel failure replacement/replication；要维持独立 formal admission 还需要新的 sealed holdout。该变化会使本次 Judge/panel 只保留历史 `BLOCKED` 资格，并要求新 subject 从头完整重跑；不得复用当前部分证据。
 
 ## Outcome
 
