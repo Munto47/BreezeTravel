@@ -1,0 +1,62 @@
+{
+  "allowed_variant_differences": [
+    "variant_id",
+    "adapter_version",
+    "repair_strategy"
+  ],
+  "budget": {
+    "max_cost_usd": 0,
+    "max_provider_queries": 0,
+    "max_retries": 1,
+    "max_tokens": 0,
+    "timeout_seconds": 30
+  },
+  "evidence_policy_version": "trip-check-p5-controlled-evidence-v5",
+  "execution_mode": "controlled_snapshot",
+  "fault_registry_version": "trip-check-p5-fault-registry-v2",
+  "historical_ocr_evidence": {
+    "engine": "paddleocr",
+    "engine_version": "3.7.0",
+    "fresh_actual_ocr_execution": "NOT_RUN",
+    "source_dataset_id": "trip-check-p5-360-v2",
+    "v3_receipt_rebinding": "PASS"
+  },
+  "nonblind_route_evidence": {
+    "duration_minutes": 90,
+    "repaired_case_ids": [
+      "p5.pilot.bj.004",
+      "p5.pilot.sh.001"
+    ],
+    "source": "TRACKED_P1_SNAPSHOT",
+    "v4_rebinding": "PASS"
+  },
+  "output_schema_version": "trip-check-p5-case-result-v5",
+  "provider_snapshot_id": "trip-check-p5-controlled-snapshot-v3",
+  "random_seed": 20260824,
+  "renderer": {
+    "name": "pillow-p5-synthetic-screenshot",
+    "version": "2.0.0"
+  },
+  "replay_hash_policy": "p5-semantic-projection-v5",
+  "schema_version": "trip-check-p5-run-spec-v5",
+  "score_after_all_variants_sealed": true,
+  "variant_ids": [
+    "legacy_a",
+    "core_b",
+    "solver_c"
+  ],
+  "variant_specs": {
+    "core_b": {
+      "adapter_version": "core-b-v4",
+      "repair_strategy": "bounded_repair_v1"
+    },
+    "legacy_a": {
+      "adapter_version": "legacy-a-v4",
+      "repair_strategy": "legacy_native_only"
+    },
+    "solver_c": {
+      "adapter_version": "solver-c-v4",
+      "repair_strategy": "cp_sat_v1"
+    }
+  }
+}

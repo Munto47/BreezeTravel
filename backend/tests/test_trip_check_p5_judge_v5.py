@@ -1,0 +1,272 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+
+from evals.trip_check_v1.p5.judge_v5 import (
+    P5JudgeErrorV5,
+    aggregate_judge_rounds_v5,
+    export_judge_bundles_v5,
+)
+
+
+HEX64 = "a" * 64
+SUBJECT = "b" * 40
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
+def _rubric() -> dict[str, object]:
+    dimensions = {
+        name: {"description": name, "minimum": 0, "maximum": 4}
+        for name in (
+            "clarity",
+            "actionability",
+            "evidence_boundary_expression",
+        )
+    }
+    return {
+        "schema_version": "trip-check-p5-judge-rubric-v2",
+        "judge_class": "automated_proxy_judge",
+        "fact_authority": "DETERMINISTIC_ORACLE_ONLY",
+        "human_evidence": False,
+        "human_calibration_performed": False,
+        "input_policy": {},
+        "judge_may_decide": list(dimensions),
+        "judge_must_not_decide": ["place_or_city_correctness"],
+        "dimensions": dimensions,
+    }
+
+
+def _validated_run() -> tuple[dict[str, object], list[dict], list[dict], dict]:
+    manifest = {
+        "status": "PASS",
+        "formal_evidence": True,
+        "lane": "frozen_blind",
+        "subject_commit": SUBJECT,
+        "dirty_tree": False,
+        "dataset_manifest_hash": HEX64,
+        "manifest_hash": "c" * 64,
+        "artifact_index_hash": "d" * 64,
+        "terminal_outputs_file_sha256": "e" * 64,
+        "terminal_outputs_content_sha256": "f" * 64,
+        "run_spec_template_sha256": "1" * 64,
+        "case_count": 90,
+        "terminal_count": 270,
+        "replay_executed": True,
+        "replay_readback_count": 270,
+        "replay_mismatches": [],
+        "blind_labels_read": False,
+    }
+    cases = [
+        {
+            "case_id": f"p5.blind.case-{index:03d}",
+            "input_kind": "TEXT",
+            "product_input": {
+                "source_type": "PASTED_TEXT",
+                "raw_text": f"第 {index} 个匿名行程",
+            },
+        }
+        for index in range(90)
+    ]
+    outputs = []
+    for case in cases:
+        for variant_id in ("legacy_a", "core_b", "solver_c"):
+            outputs.append(
+                {
+                    "case_id": case["case_id"],
+                    "variant_id": variant_id,
+                    "terminal_status": "SUCCEEDED",
+                    "advice": [
+                        {
+                            "finding_reason": "ROUTE_GAP",
+                            "action": "增加换乘时间",
+                            "uncertainty": "LOW",
+                            "has_repair": True,
+                            "candidate_set_bound": True,
+                        }
+                    ],
+                    "evaluation_projection": {"requires_user_resolution": False},
+                    "findings": [
+                        {
+                            "reason_code": "ROUTE_GAP",
+                            "severity": "HIGH",
+                            "status": "VIOLATED",
+                        }
+                    ],
+                    "postcheck": {
+                        "overall_status": "PASS",
+                        "new_high_count": 0,
+                        "new_unknown_count": 0,
+                        "replay_side_effect_counts_equal": True,
+                    },
+                }
+            )
+    materializations = {
+        case["case_id"]: {
+            "case_id": case["case_id"],
+            "evidence_snapshot": {
+                "snapshot": {
+                    "facts": [{"freshness_status": "FRESH"}],
+                }
+            },
+        }
+        for case in cases
+    }
+    return manifest, cases, outputs, materializations
+
+
+def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    rubric_path = repo_root / "rubric.json"
+    _write_json(rubric_path, _rubric())
+    round_dirs = [tmp_path / f"judge-{index}" for index in range(1, 4)]
+    custody = tmp_path / "custody"
+    receipt = export_judge_bundles_v5(
+        repo_root=repo_root,
+        run_dir=tmp_path / "run",
+        round_output_dirs=round_dirs,
+        custody_output_dir=custody,
+        rubric_path=rubric_path,
+        blind_run_validator=lambda **_: _validated_run(),
+    )
+    return repo_root, receipt, round_dirs
+
+
+def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
+    bundle_dir = Path(str(bundle_receipt["test_bundle_dir"]))
+    bundle_path = bundle_dir / str(bundle_receipt["path"])
+    bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+    scores = [
+        {
+            "anonymous_item_id": item["anonymous_item_id"],
+            "slot_id": item["slot_id"],
+            "clarity": 4,
+            "actionability": 4,
+            "evidence_boundary_expression": 4,
+            "unsupported_claim_candidate_ids": [],
+            "derived_verdict": "PASS",
+        }
+        for item in bundle["items"]
+    ]
+    return {
+        "schema_version": "trip-check-p5-judge-round-v5",
+        "round_index": round_index,
+        "evaluator_id": f"evaluator-{round_index}",
+        "agent_task_id": f"task-{round_index}",
+        "agent_id": f"agent-{round_index}",
+        "context_id": f"context-{round_index}",
+        "model_id": "gpt-test",
+        "started_at": f"2026-08-24T00:0{round_index}:00Z",
+        "ended_at": f"2026-08-24T00:0{round_index}:30Z",
+        "bundle_sha256": bundle_receipt["sha256"],
+        "source_rubric_sha256": bundle_receipt["source_rubric_sha256"],
+        "judge_input_rubric_sha256": bundle_receipt[
+            "judge_input_rubric_sha256"
+        ],
+        "terminal_outputs_content_sha256": bundle_receipt[
+            "terminal_outputs_content_sha256"
+        ],
+        "api_usage_count": 0,
+        "tool_usage_count": 0,
+        "automated_proxy_judge": True,
+        "human_calibration_performed": False,
+        "identity_payload_observed": False,
+        "expected_answer_payload_observed": False,
+        "custodian_metadata_observed": False,
+        "peer_round_output_observed": False,
+        "scores": scores,
+    }
+
+
+def _round_paths(
+    tmp_path: Path, receipt: dict[str, object], round_dirs: list[Path]
+) -> list[Path]:
+    paths = []
+    for round_index, raw_receipt in enumerate(receipt["bundle_receipts"], 1):
+        bundle_receipt = dict(raw_receipt)
+        bundle_receipt["test_bundle_dir"] = str(round_dirs[round_index - 1])
+        report = _round_report(round_index, bundle_receipt)
+        path = tmp_path / f"result-{round_index}" / "round.json"
+        _write_json(path, report)
+        paths.append(path)
+    return paths
+
+
+def test_v5_export_is_anonymous_and_aggregates_three_independent_rounds(
+    tmp_path: Path,
+) -> None:
+    repo_root, receipt, round_dirs = _export(tmp_path)
+    assert receipt["round_count"] == 3
+    assert receipt["peer_round_output_exported"] is False
+    for round_index, round_dir in enumerate(round_dirs, 1):
+        bundle_path = round_dir / f"judge_input_round_{round_index}.v5.json"
+        payload = bundle_path.read_text(encoding="utf-8").lower()
+        assert len(json.loads(payload)["items"]) == 270
+        for forbidden in (
+            '"case_id"',
+            '"variant_id"',
+            '"oracle"',
+            '"blind_label"',
+            "legacy_a",
+            "core_b",
+            "solver_c",
+        ):
+            assert forbidden not in payload
+
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    round_paths = _round_paths(tmp_path, receipt, round_dirs)
+    panel = aggregate_judge_rounds_v5(
+        repo_root=repo_root,
+        mapping_path=mapping_path,
+        mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+        round_paths=round_paths,
+    )
+    assert panel["status"] == "PASS"
+    assert panel["automated_proxy_judge"] is True
+    assert panel["human_calibration_performed"] is False
+    assert panel["verdict_agreement_rate"] == 1.0
+    assert len(panel["provenance"]) == 3
+
+
+def test_v5_aggregation_rejects_shared_round_context(tmp_path: Path) -> None:
+    repo_root, receipt, round_dirs = _export(tmp_path)
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    round_paths = _round_paths(tmp_path, receipt, round_dirs)
+    second = json.loads(round_paths[1].read_text(encoding="utf-8"))
+    second["context_id"] = "context-1"
+    _write_json(round_paths[1], second)
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_ROUND_INDEPENDENCE_INVALID"):
+        aggregate_judge_rounds_v5(
+            repo_root=repo_root,
+            mapping_path=mapping_path,
+            mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+            round_paths=round_paths,
+        )
+
+
+def test_v5_aggregation_rejects_any_observed_peer_result(tmp_path: Path) -> None:
+    repo_root, receipt, round_dirs = _export(tmp_path)
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    round_paths = _round_paths(tmp_path, receipt, round_dirs)
+    first = json.loads(round_paths[0].read_text(encoding="utf-8"))
+    first["peer_round_output_observed"] = True
+    _write_json(round_paths[0], first)
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_ROUND_CONTRACT_INVALID"):
+        aggregate_judge_rounds_v5(
+            repo_root=repo_root,
+            mapping_path=mapping_path,
+            mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+            round_paths=round_paths,
+        )

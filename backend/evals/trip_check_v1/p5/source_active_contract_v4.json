@@ -1,0 +1,56 @@
+{
+  "active_contract": "trip-check-p5-v4",
+  "blind_seal_v4_sha256": "0336032a34e52fceb6dab2eab8424e3ae0990e54677bb10b56f14df5da9ad8b4",
+  "candidate_freeze_commit": "ba3293f357b3d6400748af346578ba61e1347f19",
+  "dataset_manifest_hash": "9225e462bf9d354fd134af29ab0a8520b0f412ed2cae5d92e1ef848c4114e418",
+  "deprecated_contracts": [
+    {
+      "contract_id": "trip-check-p5-v1",
+      "formal_evidence_eligible": false,
+      "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2"
+    },
+    {
+      "contract_id": "trip-check-p5-v2",
+      "formal_evidence_eligible": false,
+      "reason": "SUPERSEDED_BY_SEALED_P5_V3"
+    },
+    {
+      "contract_id": "trip-check-p5-v3",
+      "formal_evidence_eligible": false,
+      "reason": "SUPERSEDED_BY_SEALED_P5_V4"
+    }
+  ],
+  "formal_evidence_status": "READY",
+  "schema_version": "trip-check-p5-active-contract-v1",
+  "source_v3_contract": {
+    "active_contract": "trip-check-p5-v3",
+    "active_contract_file_sha256": "c8b747d9beee491c10e5bbfb5efd4f14e91da8f88122b8c9b8d187a565cf0a07",
+    "active_contract_sha256": "0d15c92b59a46ad759d0b67c2f071fbe37cb46e7291ea9bb4776fb1fa7c6c2f0",
+    "blind_seal_v3_sha256": "eba4dced8c6818da97f7648dd1cc53f9fee0a0477ffe8ab19ff2c5b3c0466fe2",
+    "candidate_freeze_commit": "401cddaafeae07b3ed39f4ee9b5863796e0cd982",
+    "dataset_manifest_hash": "e59889cfd700474115b105f7720bf673ea640a549dac3d243b7aafb1507e143e",
+    "deprecated_contracts": [
+      {
+        "contract_id": "trip-check-p5-v1",
+        "formal_evidence_eligible": false,
+        "reason": "SUPERSEDED_BY_USER_APPROVED_P5_V2"
+      },
+      {
+        "contract_id": "trip-check-p5-v2",
+        "formal_evidence_eligible": false,
+        "reason": "SUPERSEDED_BY_SEALED_P5_V3"
+      }
+    ],
+    "formal_evidence_status": "READY",
+    "path": "evals/trip_check_v1/p5/source_active_contract_v3.json",
+    "schema_version": "trip-check-p5-active-contract-v1",
+    "source_v2_contract": {
+      "active_contract_file_sha256": "54e83618ff4c979646ca303196f246c477e3997c9091fc62f2ba14fb237ac455",
+      "active_contract_sha256": "9a1ce82ae2cf559d3db0b757cbf1c4e3a40dc6e680c963a80fbae98dcb11d89d",
+      "blind_seal_v2_sha256": "8e7770be5f99aebe5bfed2f37c87c3bd15b312052585e76697dcb7a5fa1c3c82",
+      "candidate_freeze_commit": "cfc6670ffeae2e2f385e56c7fc7debe59f8183f9",
+      "dataset_manifest_hash": "19e5a2cf01260809b845d4eb93ff0bc0734b7b6c96769db043b83e3cea45eeba",
+      "path": "evals/trip_check_v1/p5/source_active_contract_v2.json"
+    }
+  }
+}
