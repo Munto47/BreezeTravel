@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`BLOCKED`
+- Status：`IN_PROGRESS`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -62,6 +62,13 @@
 - 三轮 fresh、互相隔离、无 API Judge 已实际完成；panel report hash 为 `8d737dbf747600d785708bca62a10476a5844c04611f1c8763c6f7e715dcbb5c`，verdict agreement=`1.0`，但 `evidence_boundary_expression` agreement=`0.674074074074074`，低于 `0.85` 门槛，panel 状态为 `BLOCKED`。Core B 与 Solver C 的 majority pass 均为 `90/90`，Legacy A 为 `0/90`；该维度分歧不能通过重抽 Judge、修改 rubric 或临时补规则追绿；
 - 当前 subject 的 P1～P3 verification receipt 为 `PASS`。P4 原命令两次在 CP-SAT worker 回读处被全局 pytest `60s` timeout 截断；诊断时宿主 CPU 为 `94%～98%`，`vmmemWSL` 占约 `27～29` 核，旧 PASS 同命令耗时 `47s`。失败 receipt 均保留；未改变 timeout、测试、实现或环境配置。由于 Judge 门槛已决定性失败，停止后续 P4 retry、完整 backend、Ruff、frontend、dual-entry、formal aggregate 与 Evaluation Gate；这些项目在当前 subject 下为 `NOT_RUN`；
 - 当前 Goal 因有效 Judge agreement 失败转为 `BLOCKED/REJECT`，默认决策为 `REJECT_ALL_CANDIDATES`。P6 Goal 不生成，G0～G6、live Provider、公网候选、Candidate Gate、human evidence、H1、部署和 `main` 合并全部保持 `NOT_STARTED/NOT_RUN`。恢复不得复用本 subject 的部分证据；任何改变 Judge/rubric/Gate 或重新采样的方案都必须先取得新的明确授权并从新 subject 完整重跑。
+
+### User-directed full retry authorization（2026-08-24）
+
+- 用户明确要求“重试”，因此解除上述人工 `BLOCKED`，本 Goal 恢复为 `IN_PROGRESS`；本授权只允许在新的 clean、pushed subject 上按固定顺序完整重跑 P5，不允许单独重抽 Judge、复用 `5d97775...` 的 run/score/Judge/verification、查看 blind 明细或拼接部分证据；
+- 产品代码、数据、external oracle、rubric、Judge/Gate 门槛、variant、prompt、Provider、依赖与基础设施全部冻结；若重试仍出现质量门槛失败，保持 `REJECT/BLOCKED`，不得通过改规则追绿；
+- 正式顺序仍为 dataset formal validation → 810 non-blind terminal/replay → non-blind score → 一次性 nonce → 270 blind terminal/replay → isolated aggregate → 三轮 fresh 独立无 API Judge → panel aggregate → P1～P4、完整 backend、Ruff、frontend、dual-entry → formal receipt → Evaluation Gate；
+- 只有本次新 subject 的 Evaluation Gate 实际 `PASS` 后才允许生成 P6 Goal；本授权仍不包含公网 schema、部署、live Provider、H1、真人、release、`main` 合并或任何对外声明。
 
 ## Outcome
 
