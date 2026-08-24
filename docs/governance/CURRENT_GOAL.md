@@ -13,7 +13,15 @@
 - Predecessor gate：P4 phase `PASS`；CP-SAT admission `REJECT`
 - Required gate：`Evaluation Gate`
 
-本 Goal 已获授权进入 P5 v2 实现、重新物化与重新封存。用户于 2026-08-23 明确批准废止 P5 v1 blind seal，并在候选输出产生前重新生成 v2 blind inputs/oracle/bundle；授权仍不包含进入 P6、公网、真人阶段或合并 `main`。
+本 Goal 已获授权进入 P5 实现、物化、封存与正式 Evaluation Gate。用户于 2026-08-24 进一步批准以 P5 v4 supersede v3：仅修复 `p5.pilot.bj.004` 与 `p5.pilot.sh.001` 两条 non-blind 路线物化，路线时长以已跟踪的 P1 snapshot 为权威；P5 v3 保持不可变，v4 frozen-blind payload 的逐字节内容和外部 commitment 必须与 v3 相同。该授权禁止查看或修改 blind label/oracle，也不使任何 v3 正式运行、评分、Judge 或 Gate 继续有效。
+
+### P5 v4 remediation authorization（2026-08-24）
+
+- 授权基线：`fbcad2509517fb8a1c0267cea441dda34d47cf8d`，其定向诊断已将 pilot hard miss 收敛到上述两条 `TRAVEL_TIME_GAP`；
+- 唯一允许的数据修复：把两条 non-blind materialization 的路线时长恢复为对应 P1 tracked snapshot 中的 `90` 分钟，并重新计算由该变化传导的 non-blind hash/manifest；
+- frozen blind：v3 inputs/materializations 作为 v4 envelope 的不可变字节源，内容、顺序、hash 集与外部 label/review commitment 均不得变化；
+- 证据状态：v3 dataset/seal 只保留审计资格，已产生的 v3 run/score/Judge/Gate 一律为 `INVALID_EVIDENCE`；v4 在新 manifest、新 seal、active-contract readback 和同 commit 正式重跑完成前为 `RUNNING`；
+- 推进边界：P5 Evaluation Gate PASS 前不得进入 P6；本授权不允许进入 H1、真人测试、生产 release、合并 `main` 或对外能力声明。
 
 ## Outcome
 
@@ -80,28 +88,22 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 
 ## Contract versions
 
-- Case contract：`trip-check-p5-eval-case-v2`；
-- Dataset manifest：`trip-check-p5-dataset-manifest-v2`；
-- RunSpec：`trip-check-p5-run-spec-v2`；
-- Variant adapter：`trip-check-p5-variant-adapter-v2`；
-- Deterministic score：`trip-check-p5-score-v2`；
-- Judge bundle：`trip-check-p5-judge-bundle-v2`；
-- Blind seal / external bundle：`trip-check-p5-blind-seal-v2` / `trip-check-p5-blind-bundle-v2`；
-- Gate manifest：`trip-check-p5-gate-manifest-v2`；
-- P5 v1：`SUPERSEDED`，只保留审计资格，任何 formal runner/scorer/Gate 必须拒绝；
+- Active target：`trip-check-p5-v4`；case、dataset manifest、RunSpec、adapter、score、Judge、blind seal 与 Gate manifest 均须使用独立 v4 版本，不能覆盖 v3 文件；
+- P5 v1/v2：`SUPERSEDED`，只保留审计资格，任何 v4 formal runner/scorer/Gate 必须拒绝；
+- P5 v3：`INVALID_EVIDENCE`，保持不可变；只有 frozen-blind payload 字节和外部 commitment 被授权原样复用，不能复用其 non-blind manifest 或任何正式结果；
 - Dataset increment：`+90 frozen_blind`，总计 `360`；
-- Evidence output：`.local-artifacts/p5-v2-formal/<subject_commit>/`；正式产物不写入 tracked tree，避免 Gate 自引用改变 subject commit。归档提交只记录 subject、artifact hash 与外置路径，不改变被评测代码/合同/数据。
+- Evidence output：`.local-artifacts/p5-v4-formal/<subject_commit>/`；正式产物不写入 tracked tree，避免 Gate 自引用改变 subject commit。归档提交只记录 subject、artifact hash 与外置路径，不改变被评测代码/合同/数据。
 
 任何合同在首次正式 A/B/C 运行后不得原地修改；必须提升版本并使旧运行失效。
 
 ## Baseline
 
-- 分支/commit：P5 v2 candidate freeze 为 `cfc6670ffeae2e2f385e56c7fc7debe59f8183f9`；本轮 R0 收口基线为 `bd71af48d333d3460be8f56f801d24fb33008c51`，分支与同名 upstream 同步且工作树 clean；
-- 已有数据：18 pilot、180 dev、72 regression、90 frozen blind；P5 v2 dataset、actual OCR materialization、外置 bundle/review commitment 与 blind seal 已冻结，标签 payload 不在仓库内；
+- 分支/commit：P5 v4 remediation 基线为 `fbcad2509517fb8a1c0267cea441dda34d47cf8d`，分支与同名 upstream 同步且工作树 clean；
+- 已有数据：18 pilot、180 dev、72 regression、90 frozen blind；P5 v3 seal 与仓库外 commitment 只作为 v4 的不可变 blind 输入约束，标签 payload 不在仓库内；
 - 已有 P4 结论：`bounded_repair_v1` 成功率 66.7%，`cp_sat_v1` 50.0%，CP-SAT admission `REJECT`；
 - 已有评测资产：通用 EvaluationRunner、旧 adapters、blind fail-closed scorer、Judge panel 脚本和 P1～P4 runner；它们尚未组成 P5 的 TripCheck 360 A/B/C Gate；
 - 已记录但本轮未重跑：P4 completion record 中 backend `1313 passed, 28 skipped`、Ruff、frontend build、PostgreSQL、浏览器、18 pilot、P2/P3 regression 和 P4 manifest 均 PASS；
-- 当前证据等级：controlled fixture、PostgreSQL integration、controlled browser fixture、P5 v2 dataset formal validation、actual OCR materialization 与 blind seal 为 PASS/READY；810 non-blind、270 blind、1080 replay、三轮 Judge、P5 Evaluation Gate、G4 live Provider、public E2E、human evidence仍为 `NOT_RUN`；candidate readiness 为 `REJECT`。
+- 当前证据等级：controlled fixture 与既有 P1～P4 证据仍按其原 subject 保留；P5 v3 dataset/run/score 为 `INVALID_EVIDENCE`，P5 v4 dataset/seal/formal run/Judge/Evaluation Gate 为 `RUNNING/NOT_RUN`，G4 live Provider、public E2E、human evidence为 `NOT_RUN`；candidate readiness 为 `REJECT`。
 
 ## Invariants
 
@@ -289,13 +291,13 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 
 - 需要新增/修改公共 schema/API、migration、生产依赖或基础设施；
 - 需要真实/付费 Provider、新账号、绑卡、扩大外部数据范围或产生增量费用；
-- blind label 泄漏、commitment 不一致、同源跨 split、需要修改 blind/oracle 才能追绿；
+- blind label 泄漏、v4 与 v3 blind payload 或外部 commitment 不一致、同源跨 split、需要修改 blind/oracle 才能追绿；
 - A/B/C 无法在同一输入/RunSpec 下公平比较，或只能通过把 Core 结果喂给 Legacy 才能完成适配；
 - Judge 被要求裁决确定性事实、运行时模型自评，或一个模型成为唯一 Judge；
 - Solver 出现新增 BLOCKER/HIGH/UNKNOWN，或需要绕过 P4 admission 才能晋级；
 - 连续两个切片不能改善同一门禁，独立故障诊断后仍需扩大范围或降低 Gate；
 - evidence 绑定矛盾、成本超限、隐私事故或 secret 泄漏；
-- 请求进入 P6 公网候选、H1、合并 `main`、release 或 deploy。
+- P5 Evaluation Gate PASS 前请求进入 P6；请求进入 H1、真人测试、合并 `main`、production release 或超出已授权蓝绿 snapshot 候选范围的 deploy。
 
 ## Auto-advance
 
@@ -306,11 +308,11 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 
 ## Completion record
 
-- Commits：P5 v2 implementation/seal checkpoints through `bd71af48d333d3460be8f56f801d24fb33008c51`；formal evaluation checkpoint 尚未生成；
+- Commits：P5 v3 remediation checkpoint through `fbcad2509517fb8a1c0267cea441dda34d47cf8d`；P5 v4 implementation/seal/formal evaluation checkpoint 尚未生成；
 - Remote branch / upstream：`codex/trip-check-p5-evaluation-ablation` / `origin/codex/trip-check-p5-evaluation-ablation`；R0 基线同步；
-- Verification results：P5-R0 active-contract/Gate/seal/E2E/readback `79 passed, 1 skipped`，formal dataset validator `PASS`（360，三城 120/120/120，跨 split overlap 0），定向 Ruff PASS；skip 为 opt-in external/GPU OCR sample；正式 810/270 运行、评分、Judge 与 Gate 为 `NOT_RUN`；
-- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入 `.local-artifacts/p5-v2-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
+- Verification results：基线定向实现回归 `77 passed`、Ruff PASS；18 pilot 在 v3 诊断运行中得到 18/18 terminal/replay，但两条路线 Finding 缺失，因此旧结果为 `INVALID_EVIDENCE`；P5 v4 正式 810/270 运行、评分、Judge 与 Gate 为 `NOT_RUN`；
+- Evidence paths：tracked dataset/contract/seal 位于 `backend/evals/trip_check_v1/p5/`；正式运行 evidence 将写入 `.local-artifacts/p5-v4-formal/<subject_commit>/`，当前为 `NOT_GENERATED`；
 - Gate result：`NOT_RUN`；
 - Next Goal generated：`NO`；
-- Remaining red lights：原 custodian 的外置 blind bundle/review receipt 绝对路径尚未恢复；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若无法按 seal hash 恢复原外置 payload，必须停止并请求重新封存授权，不能重建标签追绿；
+- Remaining red lights：v4 dataset/seal/active contract 尚未冻结；原 custodian 的外置 blind bundle/review receipt 尚待隔离 readback；P5 正式 non-blind/blind 输出、replay、独立 Judge、Evaluation Gate、G4 live Provider、P6 Candidate Gate、public E2E、human evidence；若 v3 blind bytes 或原外置 commitment 无法原样复用，必须停止，不能重建标签追绿；
 - Promotion decision：`NOT_REQUESTED`。
