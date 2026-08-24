@@ -8,6 +8,7 @@ import pytest
 
 from evals.trip_check_v1.p5.judge_v5 import (
     P5JudgeErrorV5,
+    _evidence_summary,
     aggregate_judge_rounds_v5,
     export_judge_bundles_v5,
 )
@@ -104,12 +105,17 @@ def _validated_run() -> tuple[dict[str, object], list[dict], list[dict], dict]:
                             "status": "VIOLATED",
                         }
                     ],
-                    "postcheck": {
-                        "overall_status": "PASS",
-                        "new_high_count": 0,
-                        "new_unknown_count": 0,
-                        "replay_side_effect_counts_equal": True,
-                    },
+                    "postcheck": (
+                        None
+                        if variant_id == "legacy_a"
+                        else {
+                            "overall_status": "PASS",
+                            "new_high_count": 0,
+                            "new_unknown_count": 0,
+                            "replay_side_effect_counts_equal": True,
+                            "private_field": "not-exported",
+                        }
+                    ),
                 }
             )
     materializations = {
@@ -238,6 +244,54 @@ def test_v5_export_is_anonymous_and_aggregates_three_independent_rounds(
     assert panel["human_calibration_performed"] is False
     assert panel["verdict_agreement_rate"] == 1.0
     assert len(panel["provenance"]) == 3
+
+
+@pytest.mark.parametrize(
+    "terminal_status",
+    ("SUCCEEDED", "NEEDS_USER_RESOLUTION", "ERROR", "TIMEOUT", "UNSUPPORTED_CAPABILITY"),
+)
+def test_v5_evidence_summary_accepts_contractual_absent_postcheck(
+    terminal_status: str,
+) -> None:
+    summary = _evidence_summary(
+        {"terminal_status": terminal_status, "findings": [], "postcheck": None},
+        {},
+    )
+    assert summary["postcheck_boundary"] == {"availability": "NOT_PRESENT"}
+
+
+def test_v5_evidence_summary_keeps_postcheck_projection_bounded() -> None:
+    summary = _evidence_summary(
+        {
+            "findings": [],
+            "postcheck": {
+                "overall_status": "PASS",
+                "new_high_count": 0,
+                "new_unknown_count": 0,
+                "replay_side_effect_counts_equal": True,
+                "private_field": "not-exported",
+            },
+        },
+        {},
+    )
+    assert summary["postcheck_boundary"] == {
+        "overall_status": "PASS",
+        "new_high_count": 0,
+        "new_unknown_count": 0,
+        "replay_side_effect_counts_equal": True,
+    }
+
+
+@pytest.mark.parametrize("postcheck", ([], "invalid", 1))
+def test_v5_evidence_summary_rejects_invalid_postcheck_shape(postcheck: object) -> None:
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_EVIDENCE_SUMMARY_INVALID"):
+        _evidence_summary({"findings": [], "postcheck": postcheck}, {})
+
+
+@pytest.mark.parametrize("findings", (None, {}, "invalid"))
+def test_v5_evidence_summary_rejects_invalid_findings_shape(findings: object) -> None:
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_EVIDENCE_SUMMARY_INVALID"):
+        _evidence_summary({"findings": findings, "postcheck": None}, {})
 
 
 def test_v5_aggregation_rejects_shared_round_context(tmp_path: Path) -> None:

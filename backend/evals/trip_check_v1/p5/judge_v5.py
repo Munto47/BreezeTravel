@@ -296,8 +296,24 @@ def _evidence_summary(
     )
     findings = _value(output, "findings")
     postcheck = _value(output, "postcheck")
-    if not isinstance(findings, list) or not isinstance(postcheck, Mapping):
+    if not isinstance(findings, list) or (
+        postcheck is not None and not isinstance(postcheck, Mapping)
+    ):
         raise P5JudgeErrorV5("JUDGE_EVIDENCE_SUMMARY_INVALID")
+    postcheck_boundary = (
+        {
+            key: postcheck.get(key)
+            for key in (
+                "overall_status",
+                "new_high_count",
+                "new_unknown_count",
+                "replay_side_effect_counts_equal",
+            )
+            if key in postcheck
+        }
+        if isinstance(postcheck, Mapping)
+        else {"availability": "NOT_PRESENT"}
+    )
     return {
         "finding_summaries": [
             {
@@ -312,16 +328,7 @@ def _evidence_summary(
             key: freshness.get(key, 0)
             for key in ("FRESH", "STALE", "UNAVAILABLE", "CONFLICTING")
         },
-        "postcheck_boundary": {
-            key: postcheck.get(key)
-            for key in (
-                "overall_status",
-                "new_high_count",
-                "new_unknown_count",
-                "replay_side_effect_counts_equal",
-            )
-            if key in postcheck
-        },
+        "postcheck_boundary": postcheck_boundary,
         "fact_authority": "DETERMINISTIC_SCORER_ONLY",
     }
 
