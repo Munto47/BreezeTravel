@@ -33,6 +33,18 @@ def digest(value: Any) -> str:
     return hashlib.sha256(canonical(value).encode("utf-8")).hexdigest()
 
 
+def _frozen_pilot_bytes() -> bytes:
+    """Reproduce the CRLF byte policy used by the frozen P4 v1 manifest.
+
+    The manifest was sealed from a Windows checkout. Git may materialize the
+    same pilot blob with LF in another checkout, so hashing ``read_bytes()``
+    made the deterministic factory depend on checkout line endings.
+    """
+
+    text = PILOT.read_text(encoding="utf-8").replace("\r\n", "\n")
+    return text.replace("\n", "\r\n").encode("utf-8")
+
+
 def _case(split: str, city: str, city_index: int, index: int) -> dict[str, Any]:
     prefix = {"北京": "bj", "上海": "sh", "杭州": "hz"}[city]
     fault_class = FAULT_CLASSES[index % len(FAULT_CLASSES)]
@@ -110,7 +122,7 @@ def build() -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
         ]
         for split in per_city
     }
-    pilot_bytes = PILOT.read_bytes()
+    pilot_bytes = _frozen_pilot_bytes()
     manifest: dict[str, Any] = {
         "schema_version": "trip-check-p4-dataset-manifest-v1",
         "frozen": True,
