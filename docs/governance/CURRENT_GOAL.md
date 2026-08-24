@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`IN_PROGRESS`
+- Status：`BLOCKED`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -53,6 +53,15 @@
 2. **隔离纠正与重新封存**：custodian 只修正获授权的 `specific_place_allowed` 矛盾，独立 reviewer 证明 60 条目标差分、0 条非目标差分和 blind payload/materialization byte identity；目标是新 commitment、review receipt、v5 seal 与 active contract 全部绑定同一 commit；
 3. **P5 正式闭环**：同 subject 重跑 810 non-blind terminal/replay、270 blind terminal/replay、聚合评分、三轮独立 Judge、P1～P4 回归和 Evaluation Gate；目标是 Evaluation Gate 实际 `PASS`，否则保持 `REJECT/BLOCKED/INVALID_EVIDENCE`；
 4. **P6 后续目标**：只有 P5 PASS 后才生成并激活 `TC-P6-G01-candidate-evidence`，执行同 commit G0～G6 与受控 snapshot 候选；目标仍是 Candidate Gate，而非 H1、正式发布、`main` 合并或真人测试。
+
+### P5 v5 formal stop checkpoint（2026-08-24）
+
+- v5 candidate-freeze 最终绑定 `691a0499cfb84e522dff8cca38b316e24e0024cc`；external correction/review 证明授权目标差分恰好 `60`、非目标差分 `0`、v4 label-free blind inputs/materializations 字节一致，privacy/disclosure findings 为 `0`。当前 sealed dataset manifest hash 为 `2ab59fc31814c45eb6110223773741813523d5ae695868c164767eb258dc9136`，seal 文件 SHA-256 为 `770468927e72d9357c0c504e90900749b846ad7f8519f90180c6c073a8e5a7be`；
+- 正式运行先后暴露并 fail-closed 修复了两个只存在于真实产物集成中的 v5 Gate 合同缺口：blind lane schema 被错误按 non-blind schema 校验，以及 Gate 把 Judge projection hash 错当 source rubric canonical hash。修复 checkpoint 分别为 `8d1184aed113859c889fce7f5bc4344c3c8a301e` 和当前 subject `5d97775af2cd13001eeb1a1991a5ef0109443055`；所有更早 subject 的 run、score、Judge、verification 与 Gate 产物均为 `INVALID_EVIDENCE`；
+- 当前 subject `5d97775af2cd13001eeb1a1991a5ef0109443055` 从 dataset formal validation 重新开始：non-blind `810/810` terminal/replay、blind `270/270` terminal/replay、replay mismatch `0`、blind label read `false`；isolated scorer 为 `PASS`，Core B=`100.0`、Solver C=`100.0`、Legacy A=`53.0`，零容忍 `11/11 PASS`，privacy count=`0`；
+- 三轮 fresh、互相隔离、无 API Judge 已实际完成；panel report hash 为 `8d737dbf747600d785708bca62a10476a5844c04611f1c8763c6f7e715dcbb5c`，verdict agreement=`1.0`，但 `evidence_boundary_expression` agreement=`0.674074074074074`，低于 `0.85` 门槛，panel 状态为 `BLOCKED`。Core B 与 Solver C 的 majority pass 均为 `90/90`，Legacy A 为 `0/90`；该维度分歧不能通过重抽 Judge、修改 rubric 或临时补规则追绿；
+- 当前 subject 的 P1～P3 verification receipt 为 `PASS`。P4 原命令两次在 CP-SAT worker 回读处被全局 pytest `60s` timeout 截断；诊断时宿主 CPU 为 `94%～98%`，`vmmemWSL` 占约 `27～29` 核，旧 PASS 同命令耗时 `47s`。失败 receipt 均保留；未改变 timeout、测试、实现或环境配置。由于 Judge 门槛已决定性失败，停止后续 P4 retry、完整 backend、Ruff、frontend、dual-entry、formal aggregate 与 Evaluation Gate；这些项目在当前 subject 下为 `NOT_RUN`；
+- 当前 Goal 因有效 Judge agreement 失败转为 `BLOCKED/REJECT`，默认决策为 `REJECT_ALL_CANDIDATES`。P6 Goal 不生成，G0～G6、live Provider、公网候选、Candidate Gate、human evidence、H1、部署和 `main` 合并全部保持 `NOT_STARTED/NOT_RUN`。恢复不得复用本 subject 的部分证据；任何改变 Judge/rubric/Gate 或重新采样的方案都必须先取得新的明确授权并从新 subject 完整重跑。
 
 ## Outcome
 
@@ -135,7 +144,7 @@ P5 只回答“哪个候选在当前固定范围内更可靠、代价更合适�
 - 已有 P4 结论：`bounded_repair_v1` 成功率 66.7%，`cp_sat_v1` 50.0%，CP-SAT admission `REJECT`；
 - 已有评测资产：通用 EvaluationRunner、旧 adapters、blind fail-closed scorer、Judge panel 脚本和 P1～P4 runner；它们尚未组成 P5 的 TripCheck 360 A/B/C Gate；
 - 已记录但本轮未重跑：P4 completion record 中 backend `1313 passed, 28 skipped`、Ruff、frontend build、PostgreSQL、浏览器、18 pilot、P2/P3 regression 和 P4 manifest 均 PASS；
-- 当前证据等级：controlled fixture 与既有 P1～P4 证据仍按其原 subject 保留；P5 v3/v4 run/score/Gate 为 `INVALID_EVIDENCE`，P5 v5 Goal 为 `IN_PROGRESS`，dataset/external correction/review/seal 为 `PASS`，formal run、Judge 与 Evaluation Gate 为 `NOT_RUN`；G4 live Provider、public E2E、human evidence 为 `NOT_RUN`，candidate readiness 为 `REJECT`。
+- 当前证据等级：controlled fixture 与既有 P1～P4 证据仍按其原 subject 保留；P5 v3/v4 及 `5d97775af2cd13001eeb1a1991a5ef0109443055` 之前的 v5 run/score/Judge/Gate 为 `INVALID_EVIDENCE`。v5 dataset/external correction/review/seal 为 `PASS`；当前 subject 的 terminal/replay 与 deterministic aggregate 为 `PASS`，Judge panel 为 `BLOCKED`，Evaluation Gate 为 `NOT_RUN`，Goal/candidate readiness 为 `REJECT`。G4 live Provider、public E2E、human evidence 为 `NOT_RUN`。
 
 ## Invariants
 
@@ -353,10 +362,10 @@ P5 完成时仍必须明确保持：G4 live Provider、P6 G0～G6 同 commit 候
 - Verification results：subject `34ac550731a0ff6d8414b42be189110b5f5652f2` 的 formal dataset validation 为 `PASS`；270 non-blind × 3 得到 810/810 terminal 与 replay，Core B 270/270、综合分 100、全部 non-blind 硬门槛 `PASS`；90 blind × 3 得到 270/270 terminal 与 replay，但 isolated aggregate 的 Core B `deterministic_failure_count=60`、`candidate_receipt_failure_count=60`，其余零容忍计数均为 0，故原 aggregate 为 `REJECT` 且 Judge 未运行；
 - Failure diagnosis：blind custodian 只输出聚合分类，60/60 均为 `specific_place_policy_mismatch`；`projection_loss=0`、CandidateSet hash mismatch=0、产品 terminal receipt propagation failure=0、未解释 scorer failure=0。根因是 sealed external oracle 与 label-free payload 的地点许可语义矛盾，状态升级为 `INVALID_EVIDENCE`，不是 Core B 产品失败；诊断 receipt `blind_failure_diagnostic_v4.json` 的文件 SHA-256 为 `06cf558ff16dced7187b3435c30c29bf83235bcf8548452cbe06205c10e04a4d`，内容 hash 为 `e168af5476c8f7afbedb042872ea86d28b1d48200ebf527f72c77bfbeb1196c4`，disclosure scan `PASS`；
 - Regression verification：候选 receipt 正向与三类缺失变异联跑 `22 passed`；oracle/payload 守卫、blind scorer、v4 receipt regression 与 non-blind scorer 联跑 `48 passed`；对应 Ruff `PASS`。守卫会在 case scorer 前把任何不兼容 external oracle 统一判为 `BLIND_ORACLE_PAYLOAD_SEMANTIC_MISMATCH / INVALID_EVIDENCE`，不输出 case/label 明细；
-- V5 custody/seal verification：candidate-freeze 的 v5 contract 定向矩阵 `61 passed`、Ruff `PASS`；Custodian/Reviewer 聚合证明目标差分 `60`、非目标差分 `0`、privacy/disclosure findings `0`、blind payload 未变；v5 blind seal 文件 SHA-256 为 `e8d80c0f8cc3cf7a2699c3616287892206b48caaaa7519cf9ee9f72864250feb`，sealed manifest hash 为 `30ca540204d769d1f1bef9a8137d135f5b5bbef2d9aebacb8faf0f317eacbfa7`，formal dataset validation `PASS` 且 v4 payload byte identity 为 `true`；
+- V5 custody/seal verification：初始 candidate-freeze 的 v5 contract 定向矩阵 `61 passed`、Ruff `PASS`；Custodian/Reviewer 聚合证明目标差分 `60`、非目标差分 `0`、privacy/disclosure findings `0`、blind payload 未变。该初始 seal 后因 Windows canonical hash 绑定修复而失效；当前有效 candidate-freeze、manifest 与 seal 以 `P5 v5 formal stop checkpoint` 记录的 `691a0499...`、`2ab59fc3...` 和 `77046892...` 为准；
 - V5 formal failure diagnosis：activation subject `610a4f2805e4578dc633340981aaa21aff6dc659` 曾完成 dataset formal receipt、810/810 non-blind terminal/replay、270/270 blind terminal/replay 与 isolated blind aggregate；Core B 两条 lane 均为满分且零容忍项为 0。但 Judge export 因 exporter 错误拒绝合同允许的 `postcheck=None` 而 fail-closed；聚合只读诊断证明 270/270 terminal schema PASS、230 个 postcheck 为合法 None、40 个为 Mapping。修复后该 subject 的全部 formal 产物自动失效，不得补导或复用；对应 Judge/exporter 定向验证 `23 passed`、Ruff `PASS`；
-- Evidence boundary：上述旧正式运行只绑定 subject `34ac550731a0ff6d8414b42be189110b5f5652f2`；activation subject `610a4f2805e4578dc633340981aaa21aff6dc659` 也因后续 Judge exporter 修复成为 `INVALID_EVIDENCE`。v3/v4 blind payload 与各自 external bundle commitment 均保持不可变；v5 commitment/seal 仍绑定 candidate-freeze `aee7e9af632a6e8f470a71fbf5358dd1cda71923`，当前 HEAD 的 formal run/Judge/Gate 必须从 dataset validation 起完整重跑；
-- Gate result：P5 v4=`INVALID_EVIDENCE`；P5 v5 Goal=`IN_PROGRESS`、Gate=`NOT_RUN`。Evaluation Gate 未通过，Judge `NOT_RUN`，P6 `NOT_STARTED`；
+- Evidence boundary：上述旧正式运行只绑定 subject `34ac550731a0ff6d8414b42be189110b5f5652f2`；activation subject `610a4f2805e4578dc633340981aaa21aff6dc659` 及随后在 Gate 集成修复前产生的 subjects 均为 `INVALID_EVIDENCE`。v3/v4 blind payload 与各自 external bundle commitment 保持不可变；当前 v5 commitment/seal 绑定 candidate-freeze `691a0499cfb84e522dff8cca38b316e24e0024cc`，只有 subject `5d97775af2cd13001eeb1a1991a5ef0109443055` 的本轮产物保留当前诊断资格，且其 Judge panel 已 `BLOCKED`；
+- Gate result：P5 v4=`INVALID_EVIDENCE`；P5 v5 Goal=`BLOCKED`、Judge panel=`BLOCKED`、Evaluation Gate=`NOT_RUN`。Judge 的表达边界维度一致率 `0.674074074074074 < 0.85`，因此 Evaluation Gate 未通过，P6=`NOT_STARTED`；
 - Next Goal generated：`NO`；
-- Remaining red lights：P5 v5 已获明确授权并停止新增优化；同一 activation subject 的完整 non-blind/blind、score、Judge、全量 regression 与 Evaluation Gate 尚未执行。P6 G0～G6、live Provider、公网候选、Candidate Gate、human evidence 全部保持 `NOT_RUN`；
+- Remaining red lights：当前 subject 已完成完整 non-blind/blind、deterministic score 与三轮 Judge，但 Judge agreement 门槛失败；P4 verification 另有保留的宿主资源超时，当前 subject 的完整 backend/Ruff/frontend/dual-entry/formal aggregate/Evaluation Gate 未继续执行。P6 G0～G6、live Provider、公网候选、Candidate Gate、human evidence 全部保持 `NOT_RUN`；
 - Promotion decision：`REJECT_ALL_CANDIDATES`（Evaluation Gate 未成立，不能晋级或自动生成 P6 Goal）。
