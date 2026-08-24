@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-blind-run-nonce-v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "purpose", "dataset_id", "active_contract", "nonce"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-blind-run-nonce-v4"},
+    "purpose": {"const": "execute_frozen_blind_once"},
+    "dataset_id": {"const": "trip-check-p5-360-v4"},
+    "active_contract": {"const": "trip-check-p5-v4"},
+    "nonce": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
