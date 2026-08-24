@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`BLOCKED`
+- Status：`IN_PROGRESS`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -78,6 +78,14 @@
 - 有效 panel report hash 为 `6c8f6cac5439647aff8859b4a866e8c2824e5df545eaed6cf069d04d270f271d`，状态为 `BLOCKED`：verdict agreement=`0.3333333333333333`、actionability agreement=`0.6444444444444445`、clarity agreement=`0.6444444444444445`，均低于 `0.85`；evidence-boundary agreement=`1.0`，unsupported candidates=`0`。Core B majority pass=`90/90`，但 unanimous rate=`0`，不能据此覆盖一致率硬门槛；
 - P1～P4 verification 均为 `PASS`；P4 在宿主低负载下沿用原命令和 `60s` timeout，于 `42s` 完成，证明前一 subject 的两次 P4 timeout 属于宿主资源竞争，不是产品或测试修复成果；
 - panel 已形成决定性质量失败后，按停止条件中断正在运行的完整 backend suite；当前 subject 的完整 backend 为 `INTERRUPTED/NOT_COMPLETED`，Ruff、frontend build、dual-entry、formal aggregate 和 Evaluation Gate 为 `NOT_RUN`。不重抽 Judge、不改 rubric/Gate、不拼接旧证据；Goal 回到 `BLOCKED/REJECT`，默认决策为 `REJECT_ALL_CANDIDATES`，P6 不生成。
+
+### User-directed Judge contract remediation authorization（2026-08-24）
+
+- 用户已明确授予继续突破当前阻断并完成 P5～P6 目标所需的授权，因此本 Goal 从 `BLOCKED` 恢复为 `IN_PROGRESS`；
+- 已定位的唯一当前修复范围是 Judge 校准与可复现 provenance 合同：新增不可变 rubric 版本、0～4 行为锚点、结构化表达评分规则、non-blind 预校准，以及完整 evaluator instruction/hash 绑定；不得原地改写旧 rubric 或旧 formal artifact；
+- verdict 的各维度 `>=2`、panel 一致率 `>=0.85`、三轮 fresh 独立无 API、deterministic scorer 优先和 blind 隔离门槛均保持不变；不得通过删减维度、改变聚合公式、重抽单轮或查看 blind 明细追绿；
+- 修复完成后必须形成新的 clean、pushed subject，并从 dataset formal validation 开始完整重跑 P5；任何旧 run/score/Judge/verification/Gate 只保留诊断资格，不能拼接；
+- 只有新 subject 的 Evaluation Gate 实际 `PASS` 后才生成并执行 P6；P6 仍必须按 G0～G6、受控公网验证与 Candidate Gate 的既定合同逐项取得真实证据。
 
 ## Outcome
 
