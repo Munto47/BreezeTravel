@@ -1022,13 +1022,13 @@ def validate_blind_run_group_v4(
         from evals.trip_check_v1.p5.data_contract_v2 import JUDGE_RUBRIC_PATH_V2
         from evals.trip_check_v1.p5.data_contract_v3 import (
             ACTIVE_CONTRACT_PATH,
-            RUN_SPEC_TEMPLATE_PATH_V3,
         )
         from evals.trip_check_v1.p5.data_contract_v4 import (
             BLIND_INPUT_PATH_V4,
             BLIND_MATERIALIZATIONS_PATH_V4,
             BLIND_SEAL_PATH_V4,
             MANIFEST_PATH_V4,
+            RUN_SPEC_TEMPLATE_PATH_V4,
         )
 
         dataset_paths = BlindDatasetPathsV4(
@@ -1036,7 +1036,7 @@ def validate_blind_run_group_v4(
             materializations=BLIND_MATERIALIZATIONS_PATH_V4,
             manifest=MANIFEST_PATH_V4,
             seal=BLIND_SEAL_PATH_V4,
-            run_spec_template=RUN_SPEC_TEMPLATE_PATH_V3,
+            run_spec_template=RUN_SPEC_TEMPLATE_PATH_V4,
             rubric=JUDGE_RUBRIC_PATH_V2,
             active_contract=ACTIVE_CONTRACT_PATH,
         )
