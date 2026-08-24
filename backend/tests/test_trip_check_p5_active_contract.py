@@ -14,6 +14,7 @@ from evals.trip_check_v1.p5.active_contract import (
     require_v2_formal_ready,
     require_v3_formal_ready,
     require_v4_formal_ready,
+    require_v5_formal_ready,
 )
 from evals.trip_check_v1.p5.final_blind_scorer import (
     P5BlindScoringError,
@@ -22,23 +23,29 @@ from evals.trip_check_v1.p5.final_blind_scorer import (
 from scripts import run_trip_check_p5_eval, run_trip_check_p5_gate, score_trip_check_p5_eval
 
 
-def test_v4_is_active_and_v3_v2_remain_immutable_source_anchors() -> None:
+def test_v5_is_active_and_v4_v3_v2_remain_immutable_source_anchors() -> None:
     active = load_active_contract()
 
-    assert active["active_contract"] == "trip-check-p5-v4"
+    assert active["active_contract"] == "trip-check-p5-v5"
     assert active["formal_evidence_status"] == "READY"
     assert len(active["candidate_freeze_commit"]) == 40
-    assert len(active["blind_seal_v4_sha256"]) == 64
+    assert len(active["blind_seal_v5_sha256"]) == 64
     assert [item["contract_id"] for item in active["deprecated_contracts"]] == [
         "trip-check-p5-v1",
         "trip-check-p5-v2",
         "trip-check-p5-v3",
+        "trip-check-p5-v4",
     ]
-    assert active["source_v3_contract"]["active_contract"] == "trip-check-p5-v3"
-    assert active["source_v3_contract"]["source_v2_contract"]["path"] == (
+    assert active["source_v4_contract"]["active_contract"] == "trip-check-p5-v4"
+    assert active["source_v4_contract"]["source_v3_contract"]["active_contract"] == (
+        "trip-check-p5-v3"
+    )
+    assert active["source_v4_contract"]["source_v3_contract"]["source_v2_contract"]["path"] == (
         "evals/trip_check_v1/p5/source_active_contract_v2.json"
     )
-    assert require_v4_formal_ready() == active
+    assert require_v5_formal_ready() == active
+    with pytest.raises(P5ContractNotReadyError, match="P5_V4_FORMAL_CONTRACT_SUPERSEDED"):
+        require_v4_formal_ready()
     with pytest.raises(P5ContractNotReadyError, match="P5_V3_FORMAL_CONTRACT_SUPERSEDED"):
         require_v3_formal_ready()
     with pytest.raises(P5ContractNotReadyError, match="P5_V2_FORMAL_CONTRACT_SUPERSEDED"):
