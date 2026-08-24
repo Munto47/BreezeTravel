@@ -356,6 +356,12 @@ def _judge_rubric_projection(source: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+def judge_rubric_projection_hash_v5(source: Mapping[str, Any]) -> str:
+    """Return the canonical hash of the rubric payload exported to Judges."""
+
+    return digest(_judge_rubric_projection(source))
+
+
 def _assert_anonymous_bundle(bundle: Mapping[str, Any]) -> None:
     serialized = json.dumps(bundle, ensure_ascii=False, sort_keys=True).lower()
     forbidden_fragments = (
@@ -396,7 +402,7 @@ def export_judge_bundles_v5(
     source_rubric = _load_json(rubric_path.resolve(), "JUDGE_RUBRIC_INVALID")
     rubric = _judge_rubric_projection(source_rubric)
     source_rubric_sha256 = _sha256(rubric_path.resolve())
-    judge_input_rubric_sha256 = digest(rubric)
+    judge_input_rubric_sha256 = judge_rubric_projection_hash_v5(source_rubric)
     case_by_id = {str(_value(case, "case_id")): case for case in cases}
     output_by_key = {
         (str(_value(output, "case_id")), str(_value(output, "variant_id"))): output
@@ -956,4 +962,5 @@ __all__ = [
     "P5JudgeErrorV5",
     "aggregate_judge_rounds_v5",
     "export_judge_bundles_v5",
+    "judge_rubric_projection_hash_v5",
 ]

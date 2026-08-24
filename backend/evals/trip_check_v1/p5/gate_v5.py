@@ -18,6 +18,7 @@ from evals.trip_check_v1.p5.formal_receipts_v5 import (
     validate_dataset_formal_validation_receipt_v5,
     validate_verification_receipt_v5,
 )
+from evals.trip_check_v1.p5.judge_v5 import judge_rubric_projection_hash_v5
 
 
 DATASET_ID_V5 = "trip-check-p5-360-v5"
@@ -960,7 +961,8 @@ def build_p5_gate_manifest_v5(
     rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
     if any(
         item.get("source_rubric_sha256") != _sha256(rubric_path)
-        or item.get("judge_input_rubric_sha256") != digest(rubric)
+        or item.get("judge_input_rubric_sha256")
+        != judge_rubric_projection_hash_v5(rubric)
         or item.get("terminal_outputs_content_sha256") != blind_run["terminal_outputs_content_sha256"]
         for item in panel["provenance"]
     ):

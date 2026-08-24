@@ -21,6 +21,7 @@ from evals.trip_check_v1.p5.gate_v5 import (
     build_p5_gate_manifest_v5,
     parse_nonblind_score_v5,
 )
+from evals.trip_check_v1.p5.judge_v5 import judge_rubric_projection_hash_v5
 
 
 SUBJECT = "a" * 40
@@ -201,7 +202,9 @@ def _judge_panel(run: dict, rubric_path: Path) -> dict:
                 "agent_id": f"a-{index}",
                 "context_id": f"c-{index}",
                 "source_rubric_sha256": _file_sha(rubric_path),
-                "judge_input_rubric_sha256": digest(rubric),
+                "judge_input_rubric_sha256": judge_rubric_projection_hash_v5(
+                    rubric
+                ),
                 "terminal_outputs_content_sha256": run["terminal_outputs_content_sha256"],
             }
             for index in range(1, 4)
@@ -227,7 +230,14 @@ def _formal_fixture(tmp_path: Path) -> dict[str, Path]:
     rubric = p5 / "judge_rubric_v2.json"
     contracts = p5 / "contracts_v3.py"
     _write_json(run_spec, {"schema_version": "trip-check-p5-run-spec-v3"})
-    _write_json(rubric, {"schema_version": "trip-check-p5-judge-rubric-v2"})
+    source_rubric = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "judge_rubric_v2.json"
+    )
+    _write_json(rubric, json.loads(source_rubric.read_text(encoding="utf-8")))
     contracts.write_text("# contracts v3\n", encoding="utf-8")
     dataset_files = {}
     for key, count in {
