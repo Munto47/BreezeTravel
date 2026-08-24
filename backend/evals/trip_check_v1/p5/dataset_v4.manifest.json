@@ -64,8 +64,8 @@
       "row_count": 270
     }
   },
-  "formal_validation_eligible": false,
-  "frozen": false,
+  "formal_validation_eligible": true,
+  "frozen": true,
   "generation": {
     "blind_bytes_copied_from_v3": true,
     "blind_labels_read": false,
@@ -94,7 +94,7 @@
       "oracle_schema_version": "trip-check-p5-oracle-v2"
     }
   },
-  "manifest_hash": "71d03ca0e02ebb2b913210edfe16436cd1dfd96caee948bb123ac96c1c137877",
+  "manifest_hash": "9225e462bf9d354fd134af29ab0a8520b0f412ed2cae5d92e1ef848c4114e418",
   "route_evidence_repairs": [
     {
       "blind_lane_touched": false,
@@ -120,7 +120,18 @@
     }
   ],
   "schema_version": "trip-check-p5-dataset-manifest-v4",
-  "seal_status": "PENDING_V4_SEAL",
+  "seal_status": "SEALED",
+  "sealing_commitment": {
+    "blind_seal_file_sha256": "0336032a34e52fceb6dab2eab8424e3ae0990e54677bb10b56f14df5da9ad8b4",
+    "blind_seal_path": "backend/evals/trip_check_v1/p5/sealed/frozen_blind.v4.seal.json",
+    "candidate_dataset_manifest_hash": "71d03ca0e02ebb2b913210edfe16436cd1dfd96caee948bb123ac96c1c137877",
+    "candidate_freeze_commit": "ba3293f357b3d6400748af346578ba61e1347f19",
+    "external_bundle_sha256": "8125e4a75a52dda540587b134c6baff9551c654b5e373be300dcdd24c0be5b94",
+    "labels_canonical_sha256": "cea9504b9fc908cec82c49b4e267fac17a2eb01bdaee0d911051ba213c7eed3f",
+    "review_receipt_sha256": "d5df169ed175be86610722cbe353edc0dce3b1b68bff01522d0c0f8306091728",
+    "schema_version": "trip-check-p5-sealing-commitment-v4",
+    "status": "SEALED"
+  },
   "source_v3_anchor": {
     "active_contract_file_sha256": "c8b747d9beee491c10e5bbfb5efd4f14e91da8f88122b8c9b8d187a565cf0a07",
     "active_contract_sha256": "0d15c92b59a46ad759d0b67c2f071fbe37cb46e7291ea9bb4776fb1fa7c6c2f0",
