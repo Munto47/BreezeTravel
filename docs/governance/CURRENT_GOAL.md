@@ -5,7 +5,7 @@
 - Goal ID：`TC-P5-G01-evaluation-ablation`
 - Program ID：`TC-V1-INTERVIEW-2026`
 - Phase：`P5`
-- Status：`BLOCKED`
+- Status：`IN_PROGRESS`
 - Branch：`codex/trip-check-p5-evaluation-ablation`
 - Baseline commit：`c8a5a0f6df3b4cef0d707742fa616eb5652ca6cc`
 - P4 Gate subject：`85368777ca8d2d4e77cf053fc9a74018f9f9fc9a`
@@ -39,6 +39,13 @@
 - `codex/p5-v5-contract` 保留 10 个未跟踪草稿文件，`codex/p5-v5-runner-gate` 保留 27 个未跟踪草稿文件；两者均仍停在基线 `d2ace7fdd50036b5aac3f314eeb7f160595c6d80`，没有 commit、upstream 或可引用验证结果，未合并到当前分支；
 - 隔离 custodian 只完成变换方案准备，没有生成 v5 external bundle、correction receipt、review receipt 或 commitment；没有读取结果回传到根代理，v4 external bundle/commitment 保持不可变；
 - 上述 WIP 只作为恢复线索，不是已完成优化、正式证据或 Gate PASS。除非用户再次明确恢复本 Goal，否则不得继续处理或把 WIP 提升为 checkpoint。
+
+### User-directed resume authorization（2026-08-24）
+
+- 用户已明确要求实施 P5～P6 收口计划，因此解除本 Goal 的人工 `BLOCKED`，恢复为 `IN_PROGRESS`；
+- 恢复只授权按下述顺序完成 P5 v5 最小合同、隔离 oracle 纠正、同 subject 正式重跑与 Evaluation Gate，不授权新增产品能力、评分规则、prompt、Provider、migration、生产依赖或基础设施；
+- 两个 v5 worktree 仍是未验证草稿，必须经选择性集成、定向验证、diff 审计、clean commit 和远端 checkpoint 后才可成为当前实现；
+- P5 Evaluation Gate 实际 `PASS` 前，P6、live Provider、公网部署、Candidate Gate 和 H1 继续保持 `NOT_STARTED/NOT_RUN`。
 
 ### Resume order and next target（仅记录，不执行）
 
