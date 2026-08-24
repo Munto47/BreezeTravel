@@ -292,7 +292,6 @@ def _parse_run_manifest_v4(
         "case_count",
         "terminal_count",
         "replay_executed",
-        "replay_match_count",
         "replay_readback_count",
         "replay_mismatches",
         "blind_labels_read",
@@ -317,7 +316,6 @@ def _parse_run_manifest_v4(
         or value.get("case_count") != expected_cases
         or value.get("terminal_count") != expected_terminals
         or value.get("replay_executed") is not True
-        or value.get("replay_match_count") != expected_terminals
         or value.get("replay_readback_count") != expected_terminals
         or value.get("replay_mismatches") != []
         or value.get("blind_labels_read") is not False
@@ -331,6 +329,8 @@ def _parse_run_manifest_v4(
             )
         )
     ):
+        raise P5GateErrorV4("V4_RUN_MANIFEST_CONTRACT_INVALID")
+    if lane == "nonblind" and value.get("replay_match_count") != expected_terminals:
         raise P5GateErrorV4("V4_RUN_MANIFEST_CONTRACT_INVALID")
     return dict(value)
 

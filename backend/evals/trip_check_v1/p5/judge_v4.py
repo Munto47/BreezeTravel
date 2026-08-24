@@ -125,6 +125,7 @@ def _default_blind_run_validator_v4(
     """Load the v4 blind validator only after the integrated slice exists."""
 
     candidates = (
+        ("evals.trip_check_v1.p5.runner_v4", "validate_blind_run_group_v4"),
         (
             "evals.trip_check_v1.p5.blind_scorer_v4",
             "validate_blind_run_group_v4",
