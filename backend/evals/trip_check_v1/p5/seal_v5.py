@@ -115,6 +115,12 @@ def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _canonical_text_sha256(path: Path) -> str:
+    return _sha256_bytes(
+        path.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    )
+
+
 def _git_output(repo_root: Path, arguments: Sequence[str]) -> str:
     completed = subprocess.run(
         ["git", *arguments],
@@ -236,8 +242,10 @@ def build_blind_seal_v5(
         materializations_content_sha256=digest(blind_materializations),
         case_set_hash=case_set_hash_v3(blind_cases),
         materialization_set_hash=materialization_set_hash_v3(blind_materializations),
-        contracts_v3_sha256=file_sha256(paths.contracts_v3_path),
-        dataset_contracts_v5_sha256=file_sha256(paths.dataset_contracts_v5_path),
+        contracts_v3_sha256=_canonical_text_sha256(paths.contracts_v3_path),
+        dataset_contracts_v5_sha256=_canonical_text_sha256(
+            paths.dataset_contracts_v5_path
+        ),
         run_spec_template_sha256=file_sha256(paths.run_spec_template_path),
         rubric_sha256=file_sha256(paths.rubric_path),
         variant_ids_sha256=digest(list(VARIANT_IDS_V3)),

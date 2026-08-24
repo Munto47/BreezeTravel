@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -55,6 +57,34 @@ def test_v5_seal_binds_new_custody_and_unchanged_v4_payloads() -> None:
     assert seal["oracle_correction_scope"] == ("specific_place_allowed_payload_policy_only")
     assert seal["blind_payload_changed"] is False
     assert seal["scoring_payload_present"] is False
+
+
+def test_v5_seal_uses_canonical_text_hashes_for_contract_sources(tmp_path: Path) -> None:
+    paths = SealPathsV5.for_repo(REPO_ROOT)
+    contracts_v3 = tmp_path / "contracts_v3.py"
+    dataset_contracts_v5 = tmp_path / "dataset_contracts_v5.py"
+    contracts_v3.write_bytes(b"first\r\nsecond\r\n")
+    dataset_contracts_v5.write_bytes(b"third\rfourth\r")
+    paths = replace(
+        paths,
+        contracts_v3_path=contracts_v3,
+        dataset_contracts_v5_path=dataset_contracts_v5,
+    )
+    seal = build_blind_seal_v5(
+        paths=paths,
+        candidate_freeze_commit="a" * 40,
+        candidate_manifest_hash="b" * 64,
+        custody_commitments={
+            "labels_canonical_sha256": "1" * 64,
+            "external_bundle_sha256": "2" * 64,
+            "correction_receipt_sha256": "3" * 64,
+            "review_receipt_sha256": "4" * 64,
+            "policy_mapping_sha256": "5" * 64,
+        },
+    )
+
+    assert seal["contracts_v3_sha256"] == hashlib.sha256(b"first\nsecond\n").hexdigest()
+    assert seal["dataset_contracts_v5_sha256"] == hashlib.sha256(b"third\nfourth\n").hexdigest()
 
 
 def test_v5_active_contract_is_ready_and_supersedes_v4(tmp_path: Path) -> None:
