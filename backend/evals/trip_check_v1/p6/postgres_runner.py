@@ -95,7 +95,7 @@ async def _database_readback(admin_url: str) -> dict[str, Any]:
             row = await connection.fetchrow(
                 "SELECT current_database() AS database_name, "
                 "current_setting('server_version_num') AS server_version_num, "
-                "inet_server_addr()::text AS server_address"
+                "host(inet_server_addr()) AS server_address"
             )
         finally:
             await connection.close()

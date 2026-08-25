@@ -10,6 +10,7 @@ import pytest
 from evals.trip_check_v1.p6.contracts_v1 import P5_GATE_MANIFEST_HASH, P6ContractError, digest
 from evals.trip_check_v1.p6.postgres_runner import (
     G2_TEST_NODES,
+    _database_readback,
     migration_fingerprint,
     run_postgres_gate,
 )
@@ -81,6 +82,31 @@ def _completed(junit_path: Path, *, failures: int = 0) -> subprocess.CompletedPr
         encoding="utf-8",
     )
     return subprocess.CompletedProcess([], 0 if failures == 0 else 1, "ok", "")
+
+
+def test_g2_database_readback_strips_postgres_inet_cidr(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeConnection:
+        async def fetchrow(self, query: str) -> dict[str, str]:
+            assert "host(inet_server_addr()) AS server_address" in query
+            return {
+                "database_name": "postgres",
+                "server_version_num": "160012",
+                "server_address": "127.0.0.1",
+            }
+
+        async def close(self) -> None:
+            return None
+
+    async def connect(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        return FakeConnection()
+
+    monkeypatch.setattr("evals.trip_check_v1.p6.postgres_runner.asyncpg.connect", connect)
+
+    assert asyncio.run(_database_readback("postgresql://tester:secret@127.0.0.1:55433/postgres")) == {
+        "database_name": "postgres",
+        "server_address_class": "LOOPBACK",
+        "server_version_num": "160012",
+    }
 
 
 def test_g2_runner_emits_bound_receipt(tmp_path: Path) -> None:
