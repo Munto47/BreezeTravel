@@ -105,6 +105,21 @@
 - 三个 evaluator slot 必须分别绑定冻结的 model/config，并在同一 slot 上先通过 holdout calibration 后才可评价 blind；正式 panel 只允许一个预先声明的 attempt。只有 round 在产出 scores 前发生机器可判定的 schema/provenance/执行失败时，才允许整组三轮替换；有效 panel 的质量/一致率 `BLOCKED` 不允许重抽、择优或多数票覆盖；
 - holdout commitment、review、protocol、calibration panel、正式 Judge 与 Gate 必须绑定新的 clean、pushed subject；任何 hash、slot 或 config 变化都会使该 subject 的正式证据失效并要求从 dataset formal validation 完整重跑。P5 实际 `PASS` 前仍不得生成 P6 Goal。
 
+### Judge v2 sealed-holdout stop checkpoint（2026-08-25）
+
+- Judge v2 实现与 tracked commitment 已在 clean、pushed subject `9d2d71e208517830b46e92db5735fa3c7a500b91` 形成；P5 定向回归 `485 passed, 1 skipped`，Ruff `PASS`。30 条 external non-blind synthetic holdout 经独立 reviewer 复核后封存，五个 actionability 桶各 `6` 条，package SHA-256=`e9c99f3904eeb1c450757a7547dac47d6fc266e0cad1a9f7a282af4fb4348130`；仓库只接收 commitment 和不可逆 hash，不接收 public item、expected key 或 case 明细；
+- 三个预注册 slot 分别由 `gpt-5.4/high`、`gpt-5.6-sol/high`、`gpt-5.5/high` 独立执行，未读取 expected、peer round、blind、oracle 或网络 API。有效 panel report hash=`b16ddf6284ebbaef9b0c20534688a97af2eb125cb0c7efb76e2d6727e735fc3e`，verdict agreement=`1.0`、actionability panel agreement=`1.0`、evidence-boundary panel agreement=`0.9666666666666667`，但 clarity panel agreement=`0.8666666666666667 < 0.9`；slot 2 的 clarity/evidence within-one 和 slot 3 的 clarity within-one/actionability exact 亦未达到预注册门槛，因此状态为 `BLOCKED`；
+- v2 panel 是一次有效质量结果，永久保留 `BLOCKED`；不得改 label、降低门槛、补跑、替换单轮、整组重抽或择优。没有读取或运行 blind 正式 Judge，v2 也不构成产品 subject 质量失败；
+- 独立诊断证明主因是 v2 协议与 expected 设计矛盾：clarity anchor 把 contradictory expression 归为 `0`，但 holdout 对内部矛盾 action 标为 clarity `2`；actionability `2/3` 未明确只有 `action` 字段中的执行边界才能升级，导致 `uncertainty` 元数据被不同 evaluator 用于升分；evidence-boundary `3/4` 与跨维度 contradiction routing 同样不唯一。个别 evaluator 另有不按锚点的过评分/降分，但不足以把主因归为 evaluator failure。
+
+### User-directed Judge v3 remediation authorization（2026-08-25）
+
+- 用户已授予完成 P5～P6 目标所需的全部授权，因此允许把上述 non-blind holdout 失败作为新版本 evaluation contract 的输入，在新的 clean、pushed subject 上实施 Judge v3；这不是 v2 replacement 或重抽，v2 package、round、panel 与 commitment 保持不可变；
+- v3 只允许澄清 Judge 维度隔离、contradiction routing、actionability `2/3/4` 和 evidence-boundary `3/4`，并统一 Judge rubric/protocol 的 fact authority 为 `DETERMINISTIC_SCORER_ONLY`；不得修改产品、variant、deterministic scorer、blind dataset/oracle、各维 `>=2` verdict、正式 panel `0.85` 门槛、holdout actionability exact `0.9`、within-one `1.0`、verdict `1.0` 或 panel `0.9` 门槛；
+- v3 actionability 只允许由 `action` 字段升级：finding 只帮助解析单一指代，`uncertainty`、boolean、postcheck 不得把 `2` 升为 `3/4`；`3` 要求 action 自身写出治理执行的条件/约束/回退，`4` 还要求有序多步与机器可判断的 completion/readback。内部互斥 action 归 actionability `0`；evidence 冲突归 evidence-boundary `0`，不得自动污染可理解的 clarity；
+- v3 必须使用与 v2 public item、语义模板、文本和 claim ID 均不同的新 30 条 sealed non-blind holdout，并把 v2 package 作为 denylist，拒绝近义改写。作者之外至少两名独立 reviewer 必须在封存前逐项独立评分且所有维度/verdict exact 一致；再由第三名 reviewer 执行跨维度、counterfactual、privacy 和 deterministic lint。任何 item 修改后必须重新全量复核；模型看到 public bundle 后不得改 label、换 item 或补跑；
+- 只有新的 v3 holdout 实际 `PASS` 后才允许在同一 subject 上从 dataset formal validation 开始完整 P5；仍只允许一个有效正式 panel attempt。P5 Evaluation Gate 实际 `PASS` 前，P6、公网候选、live Provider、Candidate Gate、H1、部署与 `main` 合并保持 `NOT_STARTED/NOT_RUN`。
+
 ## Outcome
 
 在同一个 commit、RunSpec、数据合同和 oracle 下，对以下三个候选系统完成可重放的 360 例对照评测，并得到一份能解释“为什么保留或改变默认方案”的消融结论：
