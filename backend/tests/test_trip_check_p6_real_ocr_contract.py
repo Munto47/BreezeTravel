@@ -107,6 +107,8 @@ def _manifest() -> dict:
         "subject_commit": SUBJECT,
         "annotation_version": "annotations-v1",
         "ocr_config_sha256": "b" * 64,
+        "authorization_review_receipt_sha256": "a" * 64,
+        "source_license_receipt_set_sha256": "d" * 64,
         "cross_split_check_receipt_sha256": "c" * 64,
         "cross_split_exact_duplicate_count": 0,
         "cross_split_near_duplicate_count": 0,
@@ -132,6 +134,17 @@ def test_real_ocr_manifest_accepts_only_complete_balanced_sanitized_dataset():
         "上海": 20,
         "杭州": 20,
     }
+
+
+def test_real_ocr_manifest_allows_items_to_share_a_licensed_source_page():
+    payload = _manifest()
+    for city_index in range(3):
+        group_hash = hashlib.sha256(f"licensed-page:{city_index}".encode()).hexdigest()
+        for item in payload["items"][city_index * 20 : (city_index + 1) * 20]:
+            item["source_group_hash"] = group_hash
+    _rehash(payload)
+
+    assert validate_real_ocr_dataset_manifest(payload)["item_count"] == 60
 
 
 @pytest.mark.parametrize(

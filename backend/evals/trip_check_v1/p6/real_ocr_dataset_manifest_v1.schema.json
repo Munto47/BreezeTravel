@@ -6,7 +6,8 @@
   "additionalProperties": false,
   "required": [
     "schema_version", "dataset_id", "dataset_version", "subject_commit",
-    "annotation_version", "ocr_config_sha256", "cross_split_check_receipt_sha256",
+    "annotation_version", "ocr_config_sha256", "authorization_review_receipt_sha256",
+    "source_license_receipt_set_sha256", "cross_split_check_receipt_sha256",
     "cross_split_exact_duplicate_count", "cross_split_near_duplicate_count",
     "item_count", "city_counts", "items", "created_at", "manifest_hash"
   ],
@@ -17,6 +18,8 @@
     "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "annotation_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
     "ocr_config_sha256": {"$ref": "#/$defs/sha256"},
+    "authorization_review_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "source_license_receipt_set_sha256": {"$ref": "#/$defs/sha256"},
     "cross_split_check_receipt_sha256": {"$ref": "#/$defs/sha256"},
     "cross_split_exact_duplicate_count": {"const": 0},
     "cross_split_near_duplicate_count": {"const": 0},

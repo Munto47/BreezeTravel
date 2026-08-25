@@ -240,12 +240,9 @@ def validate_real_ocr_dataset_manifest(value: Mapping[str, Any]) -> dict[str, An
     )
     items = payload["items"]
     city_counts = {city: 0 for city in ("北京", "上海", "杭州")}
-    unique_fields = (
-        "item_id",
-        "source_image_sha256",
-        "source_group_hash",
-        "perceptual_hash",
-    )
+    # Several screenshots may lawfully come from the same licensed source page.
+    # The group hash is therefore a provenance grouping key, not an item identity.
+    unique_fields = ("item_id", "source_image_sha256", "perceptual_hash")
     for field in unique_fields:
         values = [item[field] for item in items]
         if len(values) != len(set(values)):
