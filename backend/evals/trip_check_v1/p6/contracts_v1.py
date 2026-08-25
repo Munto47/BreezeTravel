@@ -494,6 +494,17 @@ def _validate_gate_receipt_payload(
         raise P6ContractError("P6_GATE_RECEIPT_METRICS_INVALID")
 
 
+def validate_gate_receipt(
+    value: Mapping[str, Any],
+    gate: Literal["g0", "g1", "g2", "g3", "g4", "g5"],
+    candidate_run_spec: Mapping[str, Any],
+) -> dict[str, Any]:
+    receipt = dict(value)
+    spec = validate_candidate_run_spec(candidate_run_spec)
+    _validate_gate_receipt_payload(receipt, gate, spec)
+    return receipt
+
+
 def _validate_public_receipt_payload(
     receipt: Mapping[str, Any],
     kind: str,

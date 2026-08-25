@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from evals.trip_check_v1.p6.contracts_v1 import (
+    P5_GATE_MANIFEST_HASH,
+    P6ContractError,
+    digest,
+    file_sha256,
+    validate_gate_receipt,
+)
+from evals.trip_check_v1.p6.real_ocr_runner import run_real_authorized_ocr
+
+
+SUBJECT = "a" * 40
+CITIES = ("北京", "上海", "杭州")
+
+
+def _write_hashed(path: Path, payload: dict, hash_field: str) -> str:
+    value = dict(payload)
+    value[hash_field] = digest(value)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    return file_sha256(path)
+
+
+def _run_spec(dataset_file_sha: str) -> dict:
+    value = {
+        "schema_version": "trip-check-p6-candidate-run-spec-v1",
+        "subject_commit": SUBJECT,
+        "upstream_ref": "origin/codex/trip-check-p6-candidate-evidence",
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+        "p5_gate_manifest_hash": P5_GATE_MANIFEST_HASH,
+        "scope": {
+            "cities": ["北京", "上海", "杭州"],
+            "single_city": True,
+            "group_size": {"min": 2, "max": 5},
+            "trip_days": {"min": 2, "max": 5},
+            "input_types": ["TEXT", "SCREENSHOT"],
+        },
+        "bindings": {
+            "config_sha256": "1" * 64,
+            "ocr_dataset_manifest_sha256": dataset_file_sha,
+            "model_manifest_sha256": "2" * 64,
+            "rule_manifest_sha256": "3" * 64,
+            "snapshot_manifest_sha256": "4" * 64,
+            "migration_manifest_sha256": "5" * 64,
+        },
+        "provider_live_matrix": {
+            "max_calls": 18,
+            "amap_route_calls": 12,
+            "qweather_forecast_calls": 3,
+            "qweather_alert_calls": 3,
+            "retry_budget": 0,
+            "fixture_fallback_required_zero": True,
+        },
+        "database": {
+            "engine": "postgresql",
+            "required_migration": "024_advice_bundles.sql",
+            "isolated": True,
+            "migration_hash_readback_required": True,
+        },
+        "public_candidate": {
+            "base_url": "https://www.breezetravel.cn",
+            "controlled_snapshot_only": True,
+            "health_path": "/health",
+            "evidence_path": "/api/evidence/latest",
+        },
+        "evidence_root": (
+            "D:/munto/code/claudeProject/agentTravel-p6-artifacts/"
+            f"p6-candidate/{SUBJECT}"
+        ),
+        "human_evidence": False,
+    }
+    value["run_spec_hash"] = digest(value)
+    return value
+
+
+def _fixture(tmp_path: Path) -> dict[str, Path]:
+    repo_root = tmp_path / "repo"
+    custody = tmp_path / "custody"
+    output = tmp_path / "output"
+    work = tmp_path / "work"
+    repo_root.mkdir()
+    custody.mkdir()
+    output.mkdir()
+    work.mkdir()
+    subprocess.run(["git", "init", "--quiet"], cwd=repo_root, check=True)
+    (repo_root / "safe.txt").write_text("not an image", encoding="utf-8")
+    subprocess.run(["git", "add", "safe.txt"], cwd=repo_root, check=True)
+    items = []
+    private_items = []
+    for city_index, city in enumerate(CITIES):
+        for item_index in range(20):
+            serial = city_index * 20 + item_index
+            item_id = f"ocr-item-{serial:02d}"
+            source = custody / f"{item_id}.png"
+            source.write_bytes(b"fixture-image-" + str(serial).encode())
+            source_sha = file_sha256(source)
+            authorization = custody / f"{item_id}.authorization.json"
+            authorization_sha = _write_hashed(authorization, {
+                "schema_version": "trip-check-p6-ocr-authorization-receipt-v1",
+                "receipt_id": f"auth-item-{serial:02d}",
+                "source_image_sha256": source_sha,
+                "authorization_basis": "RIGHTSHOLDER_ATTESTATION",
+                "authorization_scope": "OCR_CANDIDATE_EVALUATION",
+                "status": "GRANTED",
+                "granted_at": "2026-01-01T00:00:00Z",
+                "valid_until": "2030-01-01T00:00:00Z",
+            }, "receipt_hash")
+            annotation = custody / f"{item_id}.annotation.json"
+            annotation_sha = _write_hashed(annotation, {
+                "schema_version": "trip-check-p6-ocr-annotation-v1",
+                "item_id": item_id,
+                "source_image_sha256": source_sha,
+                "annotation_version": "annotations-v1",
+                "fields": [{
+                    "field_id": f"field-{serial:02d}",
+                    "field_type": "PLACE",
+                    "expected_text": f"field-{serial:02d}",
+                    "must_confirm": True,
+                    "box": [0, 0, 100, 100],
+                }],
+            }, "annotation_hash")
+            fingerprint = digest({"item_id": item_id})[:16]
+            items.append({
+                "item_id": item_id,
+                "city": city,
+                "split": "candidate_eval",
+                "source_type": "REAL_SCREENSHOT",
+                "source_image_sha256": source_sha,
+                "source_group_hash": digest({"group": item_id}),
+                "perceptual_hash": fingerprint,
+                "provenance_class": "RIGHTSHOLDER_OWNED",
+                "authorization_receipt_id": f"auth-item-{serial:02d}",
+                "authorization_basis": "RIGHTSHOLDER_ATTESTATION",
+                "authorization_scope": "OCR_CANDIDATE_EVALUATION",
+                "authorization_receipt_sha256": authorization_sha,
+                "annotation_version": "annotations-v1",
+                "annotation_sha256": annotation_sha,
+                "ocr_engine": "paddleocr",
+                "ocr_engine_version": "3.7.0",
+                "ocr_config_sha256": "b" * 64,
+                "cleanup_policy": "WORK_COPY_TERMINAL_DELETE",
+            })
+            private_items.append({
+                "item_id": item_id,
+                "source_path": str(source.resolve()),
+                "authorization_receipt_path": str(authorization.resolve()),
+                "annotation_path": str(annotation.resolve()),
+            })
+    cross_split_path = custody / "cross-split.json"
+    cross_split_sha = _write_hashed(cross_split_path, {
+        "schema_version": "trip-check-p6-ocr-cross-split-receipt-v1",
+        "dataset_id": "real_authorized_ocr_v1",
+        "candidate_item_count": 60,
+        "source_hash_set_sha256": digest(sorted(
+            item["source_image_sha256"] for item in items
+        )),
+        "historical_split_manifest_sha256": "9" * 64,
+        "exact_duplicate_count": 0,
+        "near_duplicate_count": 0,
+        "algorithm": "SHA256_PLUS_PHASH64_HAMMING_LE_4",
+    }, "receipt_hash")
+    dataset_path = custody / "dataset.json"
+    dataset = {
+        "schema_version": "trip-check-p6-real-ocr-dataset-manifest-v1",
+        "dataset_id": "real_authorized_ocr_v1",
+        "dataset_version": "candidate-v1",
+        "subject_commit": SUBJECT,
+        "annotation_version": "annotations-v1",
+        "ocr_config_sha256": "b" * 64,
+        "cross_split_check_receipt_sha256": cross_split_sha,
+        "cross_split_exact_duplicate_count": 0,
+        "cross_split_near_duplicate_count": 0,
+        "item_count": 60,
+        "city_counts": {"北京": 20, "上海": 20, "杭州": 20},
+        "items": items,
+        "created_at": "2026-08-25T00:00:00Z",
+    }
+    _write_hashed(dataset_path, dataset, "manifest_hash")
+    run_spec_path = custody / "run-spec.json"
+    run_spec_path.write_text(
+        json.dumps(_run_spec(file_sha256(dataset_path)), sort_keys=True, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    private_path = custody / "private.json"
+    private_path.write_text(json.dumps({
+        "schema_version": "trip-check-p6-real-ocr-private-manifest-v1",
+        "dataset_manifest_file_sha256": file_sha256(dataset_path),
+        "cross_split_check_receipt_path": str(cross_split_path.resolve()),
+        "items": private_items,
+    }), encoding="utf-8")
+    return {
+        "repo_root": repo_root,
+        "output_root": output,
+        "work_root": work,
+        "candidate_run_spec_path": run_spec_path,
+        "dataset_manifest_path": dataset_path,
+        "private_manifest_path": private_path,
+    }
+
+
+class PassingEngine:
+    async def recognize(self, image_path: Path):
+        return [SimpleNamespace(
+            text=image_path.stem.replace("ocr-item-", "field-"),
+            confidence=0.5,
+            requires_confirmation=True,
+            box=SimpleNamespace(x_min=10, y_min=10, x_max=90, y_max=90),
+        )]
+
+
+class FailingEngine:
+    async def recognize(self, image_path: Path):
+        raise RuntimeError(f"failed on {image_path.name}")
+
+
+@pytest.mark.asyncio
+async def test_real_ocr_runner_scores_atomic_fields_and_deletes_all_work_copies(tmp_path):
+    paths = _fixture(tmp_path)
+
+    receipt = await run_real_authorized_ocr(**paths, engine=PassingEngine(), formal=False)
+
+    assert receipt["status"] == "CONTRACT_FIXTURE_PASS"
+    assert receipt["metrics"]["key_field_micro_f1"] == 1.0
+    assert receipt["metrics"]["low_confidence_confirmation_recall"] == 1.0
+    assert receipt["metrics"]["work_copy_cleanup_count"] == 60
+    assert list(paths["work_root"].rglob("*")) == []
+    assert not (paths["output_root"] / "g1_receipt.json").exists()
+    output_text = (paths["output_root"] / "g1_contract_fixture.json").read_text(
+        encoding="utf-8"
+    )
+    assert "source_path" not in output_text
+    assert "expected_text" not in output_text
+    run_spec = json.loads(paths["candidate_run_spec_path"].read_text(encoding="utf-8"))
+    with pytest.raises(P6ContractError):
+        validate_gate_receipt(receipt, "g1", run_spec)
+
+
+@pytest.mark.asyncio
+async def test_real_ocr_runner_deletes_work_copy_when_engine_fails(tmp_path):
+    paths = _fixture(tmp_path)
+
+    with pytest.raises(P6ContractError) as raised:
+        await run_real_authorized_ocr(**paths, engine=FailingEngine(), formal=False)
+    assert raised.value.reason_code == "P6_REAL_OCR_ENGINE_FAILED"
+    assert list(paths["work_root"].rglob("*")) == []
+    assert not (paths["output_root"] / "g1_receipt.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_real_ocr_runner_rejects_application_log_image_leak(tmp_path):
+    paths = _fixture(tmp_path)
+    log_root = tmp_path / "logs"
+    log_root.mkdir()
+    (log_root / "app.log").write_text("payload=data:image/png;base64,iVBORw0KGgo", encoding="utf-8")
+
+    with pytest.raises(P6ContractError) as raised:
+        await run_real_authorized_ocr(
+            **paths,
+            engine=PassingEngine(),
+            formal=False,
+            log_roots=[log_root],
+        )
+    assert raised.value.reason_code == "P6_REAL_OCR_GATE_FAILED"
+    assert not (paths["output_root"] / "g1_receipt.json").exists()
+
+
+@pytest.mark.asyncio
+async def test_formal_real_ocr_requires_database_and_log_scan_inputs(tmp_path):
+    paths = _fixture(tmp_path)
+
+    with pytest.raises(P6ContractError) as raised:
+        await run_real_authorized_ocr(**paths, engine=PassingEngine(), formal=True)
+    assert raised.value.reason_code == "P6_REAL_OCR_INDEPENDENT_AUTHORIZATION_REVIEW_REQUIRED"
