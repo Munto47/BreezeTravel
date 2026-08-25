@@ -1,0 +1,132 @@
+name: breezetravel
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:0.8.1-pg16}
+    environment:
+      POSTGRES_DB: travel_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./backend/app/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4.2-alpine}
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+    command: python -m scripts.migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    ports:
+      - "127.0.0.1:8000:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+      REDIS_URL: redis://redis:6379
+      RUNTIME_PROFILE: local_fixture
+      DEMO_MODE: "false"
+      AMAP_MOCK: "true"
+      FT_ROUTER_ENABLED: "false"
+      AUTO_MIGRATE: "false"
+      REQUIRE_SCHEMA_CHECK: "true"
+      DEV_LOGIN_BYPASS: "false"
+      PUBLIC_DEMO_MODE: "true"
+      TRUST_PROXY_HEADERS: "true"
+      CORS_ORIGIN_REGEX: '^https://(www\.)?breezetravel\.cn$'
+      CANDIDATE_EVIDENCE_PATH: ${CANDIDATE_EVIDENCE_PATH:-}
+      CANDIDATE_EVIDENCE_SHA256: ${CANDIDATE_EVIDENCE_SHA256:-}
+      CANDIDATE_RELEASE_MANIFEST_PATH: ${CANDIDATE_RELEASE_MANIFEST_PATH:-}
+      CANDIDATE_RELEASE_MANIFEST_SHA256: ${CANDIDATE_RELEASE_MANIFEST_SHA256:-}
+      CANDIDATE_GATE_RECEIPT_PATH: ${CANDIDATE_GATE_RECEIPT_PATH:-}
+      CANDIDATE_GATE_RECEIPT_SHA256: ${CANDIDATE_GATE_RECEIPT_SHA256:-}
+    volumes:
+      - ${P6_PUBLIC_EVIDENCE_HOST_DIR:-/opt/breezetravel-p6-evidence}:/run/breezetravel-evidence:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  y-websocket:
+    build:
+      context: ./y-websocket
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:1234:1234"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 1234
+      YPERSISTENCE: /data
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      YJS_MAX_PAYLOAD_BYTES: ${YJS_MAX_PAYLOAD_BYTES:-262144}
+      YJS_MAX_CONNECTIONS_PER_IP: ${YJS_MAX_CONNECTIONS_PER_IP:-20}
+    volumes:
+      - yjs-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ""
+        NEXT_PUBLIC_Y_WEBSOCKET_URL: wss://www.breezetravel.cn/yjs
+        NEXT_PUBLIC_AMAP_JS_KEY: ${NEXT_PUBLIC_AMAP_JS_KEY:-}
+        NEXT_PUBLIC_AMAP_SECURITY_CODE: ${NEXT_PUBLIC_AMAP_SECURITY_CODE:-}
+        BACKEND_INTERNAL_URL: http://backend:8000
+        NEXT_PUBLIC_SHOW_TEST_LOGIN: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  yjs-data:

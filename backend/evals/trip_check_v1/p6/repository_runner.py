@@ -29,6 +29,8 @@ AUTHORITY_FILES = (
     "docs/governance/CURRENT_GOAL.md",
     "docs/governance/RELEASE_GATES.md",
 )
+CANDIDATE_COMPOSE = "deploy/p6/docker-compose.candidate.yml"
+CANDIDATE_NGINX = "deploy/p6/nginx-breezetravel-candidate.conf"
 
 
 def _load_json(path: Path, reason: str) -> dict[str, Any]:
@@ -66,6 +68,41 @@ def _authority_fingerprint(repo_root: Path) -> tuple[str, int]:
     except OSError as exc:
         raise P6ContractError("P6_G0_AUTHORITY_FILE_UNREADABLE") from exc
     return digest(values), len(values)
+
+
+def _candidate_deployment_fingerprint(repo_root: Path) -> str:
+    try:
+        compose = (repo_root / CANDIDATE_COMPOSE).read_text(encoding="utf-8")
+        nginx = (repo_root / CANDIDATE_NGINX).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise P6ContractError("P6_G0_CANDIDATE_DEPLOYMENT_CONFIG_INVALID") from exc
+    compose_required = (
+        'RUNTIME_PROFILE: local_fixture',
+        'AMAP_MOCK: "true"',
+        'DEV_LOGIN_BYPASS: "false"',
+        'NEXT_PUBLIC_SHOW_TEST_LOGIN: "false"',
+        'PUBLIC_DEMO_MODE: "true"',
+        'CORS_ORIGIN_REGEX:',
+        ':/run/breezetravel-evidence:ro',
+        '127.0.0.1:8000:8000',
+        '127.0.0.1:3000:3000',
+    )
+    nginx_required = (
+        'server_name breezetravel.cn www.breezetravel.cn;',
+        'location = /health',
+        'proxy_pass http://127.0.0.1:8000/health;',
+        'location /api/',
+        'limit_req zone=breezetravel_api',
+        'X-Content-Type-Options nosniff',
+    )
+    if (
+        any(token not in compose for token in compose_required)
+        or 'DEV_LOGIN_BYPASS: "true"' in compose
+        or 'NEXT_PUBLIC_SHOW_TEST_LOGIN: "true"' in compose
+        or any(token not in nginx for token in nginx_required)
+    ):
+        raise P6ContractError("P6_G0_CANDIDATE_DEPLOYMENT_CONFIG_INVALID")
+    return digest({"compose": compose, "nginx": nginx})
 
 
 def _junit_counts(path: Path) -> dict[str, int]:
@@ -219,6 +256,7 @@ def run_repository_gate(
         if log_resolved.exists() and any(log_resolved.iterdir()):
             raise P6ContractError("P6_G0_LOG_ROOT_NOT_EMPTY")
     authority_sha, authority_count = _authority_fingerprint(repo_resolved)
+    candidate_deployment_sha = _candidate_deployment_fingerprint(repo_resolved)
     log_resolved.mkdir(parents=True, exist_ok=True)
     junit_path = log_resolved / "backend-full-junit.xml"
     results = [
@@ -243,6 +281,7 @@ def run_repository_gate(
         "run_spec_hash": spec["run_spec_hash"],
         "authority_fingerprint": authority_sha,
         "authority_file_count": authority_count,
+        "candidate_deployment_fingerprint": candidate_deployment_sha,
         "commands": results,
         "backend_junit": counts,
     }
@@ -271,8 +310,8 @@ def run_repository_gate(
         "run_spec_hash": spec["run_spec_hash"],
         "status": "PASS",
         "evidence_level": "repository_contract",
-        "checks_total": 11,
-        "checks_passed": 11,
+        "checks_total": 12,
+        "checks_passed": 12,
         "failure_count": 0,
         "metrics": metrics,
     }

@@ -125,7 +125,13 @@ class _HttpClient:
             with self.opener.open(request, timeout=20) as response:
                 status = response.status
                 raw = response.read()
-        except (OSError, urllib.error.URLError, urllib.error.HTTPError) as exc:
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            try:
+                raw = exc.read()
+            except OSError as read_exc:
+                raise P6ContractError("P6_G5_PUBLIC_HTTP_FAILED") from read_exc
+        except (OSError, urllib.error.URLError) as exc:
             raise P6ContractError("P6_G5_PUBLIC_HTTP_FAILED") from exc
         if status not in expected:
             raise P6ContractError("P6_G5_PUBLIC_HTTP_STATUS_INVALID")
@@ -144,14 +150,38 @@ def _execute_public_flow(spec: Mapping[str, Any], credentials: Mapping[str, str]
     health, health_sha, health_status = client.request("GET", "/health", record=False)
     if not isinstance(health, Mapping) or health.get("status") != "ok":
         raise P6ContractError("P6_G5_PUBLIC_HEALTH_INVALID")
-    login, _, _ = client.request(
+    login, _, login_status = client.request(
         "POST",
         "/api/auth/email-login",
         body={
             "email": credentials["P6_PUBLIC_TEST_EMAIL"],
             "password": credentials["P6_PUBLIC_TEST_PASSWORD"],
         },
+        expected=(200, 401),
     )
+    account_created = False
+    if login_status == 401:
+        registered, _, register_status = client.request(
+            "POST",
+            "/api/auth/email-register",
+            body={
+                "email": credentials["P6_PUBLIC_TEST_EMAIL"],
+                "password": credentials["P6_PUBLIC_TEST_PASSWORD"],
+                "nickname": "P6 Candidate E2E",
+            },
+            expected=(200, 409),
+        )
+        if register_status != 200 or not isinstance(registered, Mapping):
+            raise P6ContractError("P6_G5_PUBLIC_TEST_ACCOUNT_CONFLICT")
+        account_created = True
+        login, _, _ = client.request(
+            "POST",
+            "/api/auth/email-login",
+            body={
+                "email": credentials["P6_PUBLIC_TEST_EMAIL"],
+                "password": credentials["P6_PUBLIC_TEST_PASSWORD"],
+            },
+        )
     if not isinstance(login, Mapping) or not isinstance(login.get("token"), str):
         raise P6ContractError("P6_G5_PUBLIC_LOGIN_FAILED")
     client.token = login["token"]
@@ -349,6 +379,7 @@ def _execute_public_flow(spec: Mapping[str, Any], credentials: Mapping[str, str]
         "provider_failure_count": 0,
         "postcheck_status": "SUCCEEDED",
         "controlled_snapshot": True,
+        "test_account_created": account_created,
     }
 
 
