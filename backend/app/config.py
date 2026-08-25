@@ -138,6 +138,16 @@ class Settings(BaseSettings):
     otel_enabled: bool = False
     otel_service_name: str = "breezetravel-backend"
 
+    # P6 public evidence is mounted outside the repository. The evidence and
+    # release-manifest pairs are the core binding. A final PASS additionally
+    # requires the Candidate Gate receipt pair; partial bindings fail closed.
+    candidate_evidence_path: str = ""
+    candidate_evidence_sha256: str = ""
+    candidate_release_manifest_path: str = ""
+    candidate_release_manifest_sha256: str = ""
+    candidate_gate_receipt_path: str = ""
+    candidate_gate_receipt_sha256: str = ""
+
     # ── 开发/演示登录旁路 ─────────────────────────────────────────────
     # 启用后，/api/auth/send-code 不真发短信，验证码固定为 dev_login_code
     # 用于本地开发、CI、演示环境，避免吃真实 SMS 配额
