@@ -443,23 +443,43 @@ def _judge_protocol_projection(
             "preblind_calibration": calibration,
         }
 
-    if schema_version != "trip-check-p5-judge-protocol-v2":
+    if schema_version not in {
+        "trip-check-p5-judge-protocol-v2",
+        "trip-check-p5-judge-protocol-v3",
+    }:
         raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
+    protocol_v3 = schema_version == "trip-check-p5-judge-protocol-v3"
     actionability = source_protocol.get("actionability_decision_tree")
+    clarity = source_protocol.get("clarity_decision_tree")
+    evidence_boundary = source_protocol.get("evidence_boundary_decision_tree")
+    dimension_isolation = source_protocol.get("dimension_isolation")
     slots = source_protocol.get("evaluator_slots")
     holdout = source_protocol.get("holdout_calibration")
     attempt = source_protocol.get("formal_attempt_rule")
     if (
         not isinstance(actionability, Mapping)
         or set(actionability)
-        != {
-            "aggregation",
-            "automatic_repair_boundary",
-            "candidate_set_boundary",
-            "deictic_target_rule",
-            "numeric_detail_rule",
-            "ordered_scores",
-        }
+        != (
+            {
+                "aggregation",
+                "automatic_repair_boundary",
+                "candidate_set_boundary",
+                    "deictic_target_rule",
+                    "numeric_detail_rule",
+                    "ordered_scores",
+                    "precedence_rule",
+                    "upgrade_scope_rule",
+            }
+            if protocol_v3
+            else {
+                "aggregation",
+                "automatic_repair_boundary",
+                "candidate_set_boundary",
+                "deictic_target_rule",
+                "numeric_detail_rule",
+                "ordered_scores",
+            }
+        )
         or any(
             not isinstance(actionability.get(field), str)
             or not actionability[field].strip()
@@ -467,8 +487,9 @@ def _judge_protocol_projection(
                 "aggregation",
                 "automatic_repair_boundary",
                 "candidate_set_boundary",
-                "deictic_target_rule",
-                "numeric_detail_rule",
+                    "deictic_target_rule",
+                    "numeric_detail_rule",
+                    *(("precedence_rule", "upgrade_scope_rule") if protocol_v3 else ()),
             )
         )
         or not isinstance(actionability.get("ordered_scores"), Mapping)
@@ -477,6 +498,58 @@ def _judge_protocol_projection(
         or any(
             not isinstance(value, str) or not value.strip()
             for value in actionability["ordered_scores"].values()
+        )
+        or (
+            protocol_v3
+            and (
+                not isinstance(dimension_isolation, Mapping)
+                or set(dimension_isolation) != set(DIMENSIONS_V5)
+                or any(
+                    not isinstance(value, str) or not value.strip()
+                    for value in dimension_isolation.values()
+                )
+                or
+                not isinstance(clarity, Mapping)
+                or set(clarity)
+                != {
+                    "aggregation",
+                    "component_rules",
+                    "contradiction_routing",
+                    "ordered_scores",
+                }
+                or not isinstance(clarity.get("aggregation"), str)
+                or not clarity["aggregation"].strip()
+                or not isinstance(clarity.get("contradiction_routing"), str)
+                or not clarity["contradiction_routing"].strip()
+                or not isinstance(clarity.get("component_rules"), Mapping)
+                or set(clarity["component_rules"])
+                != {"consequence", "intended_response", "relevant_scope"}
+                or any(
+                    not isinstance(value, str) or not value.strip()
+                    for value in clarity["component_rules"].values()
+                )
+                or not isinstance(clarity.get("ordered_scores"), Mapping)
+                or set(clarity["ordered_scores"])
+                != {str(score) for score in range(5)}
+                or any(
+                    not isinstance(value, str) or not value.strip()
+                    for value in clarity["ordered_scores"].values()
+                )
+                or not isinstance(evidence_boundary, Mapping)
+                or set(evidence_boundary)
+                != {"aggregation", "generic_action_cap", "ordered_scores"}
+                or not isinstance(evidence_boundary.get("aggregation"), str)
+                or not evidence_boundary["aggregation"].strip()
+                or not isinstance(evidence_boundary.get("generic_action_cap"), str)
+                or not evidence_boundary["generic_action_cap"].strip()
+                or not isinstance(evidence_boundary.get("ordered_scores"), Mapping)
+                or set(evidence_boundary["ordered_scores"])
+                != {str(score) for score in range(5)}
+                or any(
+                    not isinstance(value, str) or not value.strip()
+                    for value in evidence_boundary["ordered_scores"].values()
+                )
+            )
         )
         or not isinstance(slots, list)
         or len(slots) != ROUND_COUNT_V5
@@ -524,14 +597,27 @@ def _judge_protocol_projection(
         }
     ):
         raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
-    return {
-        "schema_version": "trip-check-p5-judge-protocol-projection-v2",
+    projection = {
+        "schema_version": (
+            "trip-check-p5-judge-protocol-projection-v3"
+            if protocol_v3
+            else "trip-check-p5-judge-protocol-projection-v2"
+        ),
         **common,
         "actionability_decision_tree": actionability,
         "evaluator_slots": slots,
         "holdout_calibration": holdout,
         "formal_attempt_rule": attempt,
     }
+    if protocol_v3:
+        projection.update(
+            {
+                "clarity_decision_tree": clarity,
+                "evidence_boundary_decision_tree": evidence_boundary,
+                "dimension_isolation": dimension_isolation,
+            }
+        )
+    return projection
 
 
 def judge_protocol_projection_hash_v5(
@@ -593,10 +679,10 @@ def export_judge_bundles_v5(
     judge_input_protocol_sha256 = judge_protocol_projection_hash_v5(
         source_rubric, source_protocol
     )
-    protocol_v2 = (
-        protocol.get("schema_version")
-        == "trip-check-p5-judge-protocol-projection-v2"
-    )
+    protocol_v2 = protocol.get("schema_version") in {
+        "trip-check-p5-judge-protocol-projection-v2",
+        "trip-check-p5-judge-protocol-projection-v3",
+    }
     if protocol_v2:
         if holdout_commitment_path is None:
             raise P5JudgeErrorV5("JUDGE_HOLDOUT_COMMITMENT_REQUIRED")

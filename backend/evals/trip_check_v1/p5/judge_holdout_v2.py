@@ -1,4 +1,4 @@
-"""Sealed non-blind holdout calibration for the P5 Judge v2 protocol."""
+"""Sealed non-blind holdout calibration for P5 Judge protocols v2 and v3."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ from evals.trip_check_v1.p5.judge_v5 import (
 
 HOLDOUT_ITEM_COUNT_V2 = 30
 PANEL_AGREEMENT_THRESHOLD_V2 = 0.9
+SUPPORTED_HOLDOUT_VERSIONS = ("v2", "v3")
 HASH_BINDING_FIELDS_V2 = (
     "source_rubric_sha256",
     "judge_input_rubric_sha256",
@@ -48,6 +49,13 @@ class P5JudgeHoldoutErrorV2(RuntimeError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+def _schema_version(value: object, stem: str) -> str | None:
+    for version in SUPPORTED_HOLDOUT_VERSIONS:
+        if value == f"trip-check-p5-judge-holdout-{stem}-{version}":
+            return version
+    return None
 
 
 def _load_json(path: Path, reason: str) -> dict[str, Any]:
@@ -124,9 +132,14 @@ def _require_repo_binding(binding: RepoBindingV5) -> None:
 
 
 def _validate_package(
-    package: Mapping[str, Any], commitment: Mapping[str, Any]
+    package: Mapping[str, Any], commitment: Mapping[str, Any], version: str | None = None
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    contract_version = version or _schema_version(
+        commitment.get("schema_version"), "commitment"
+    )
     if (
+        contract_version not in SUPPORTED_HOLDOUT_VERSIONS
+        or
         set(package)
         != {
             "schema_version",
@@ -139,7 +152,7 @@ def _validate_package(
             "items",
         }
         or package.get("schema_version")
-        != "trip-check-p5-judge-holdout-package-v2"
+        != f"trip-check-p5-judge-holdout-package-{contract_version}"
         or package.get("evidence_class") != "sealed_nonblind_synthetic_holdout"
         or package.get("source_lane") != "NONBLIND_SYNTHETIC_HOLDOUT"
         or package.get("item_count") != HOLDOUT_ITEM_COUNT_V2
@@ -226,8 +239,11 @@ def _validate_package(
 
 def _validate_commitment(
     commitment: Mapping[str, Any], package_path: Path
-) -> None:
+) -> str:
+    version = _schema_version(commitment.get("schema_version"), "commitment")
     if (
+        version not in SUPPORTED_HOLDOUT_VERSIONS
+        or
         set(commitment)
         != {
             "schema_version",
@@ -241,8 +257,6 @@ def _validate_commitment(
             "custodian_receipt_sha256",
             "review_receipt_sha256",
         }
-        or commitment.get("schema_version")
-        != "trip-check-p5-judge-holdout-commitment-v2"
         or commitment.get("status") != "SEALED"
         or commitment.get("item_count") != HOLDOUT_ITEM_COUNT_V2
         or commitment.get("source_lane") != "NONBLIND_SYNTHETIC_HOLDOUT"
@@ -260,6 +274,7 @@ def _validate_commitment(
         or commitment.get("package_sha256") != _sha256(package_path)
     ):
         raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_COMMITMENT_INVALID")
+    return version
 
 
 def export_judge_holdout_bundles_v2(
@@ -285,14 +300,16 @@ def export_judge_holdout_bundles_v2(
     custody_dir = paths[ROUND_COUNT_V5]
     package_file = paths[-1]
     commitment = _load_json(commitment_path, "JUDGE_HOLDOUT_COMMITMENT_INVALID")
-    _validate_commitment(commitment, package_file)
+    version = _validate_commitment(commitment, package_file)
     package = _load_json(package_file, "JUDGE_HOLDOUT_PACKAGE_INVALID")
-    public_items, expected = _validate_package(package, commitment)
+    public_items, expected = _validate_package(package, commitment, version)
     rubric_source = _load_json(rubric_path, "JUDGE_HOLDOUT_RUBRIC_INVALID")
     protocol_source = _load_json(protocol_path, "JUDGE_HOLDOUT_PROTOCOL_INVALID")
     rubric = _judge_rubric_projection(rubric_source)
     protocol = _judge_protocol_projection(rubric_source, protocol_source)
-    if protocol.get("schema_version") != "trip-check-p5-judge-protocol-projection-v2":
+    if protocol.get("schema_version") != (
+        f"trip-check-p5-judge-protocol-projection-{version}"
+    ):
         raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_PROTOCOL_INVALID")
     binding = repo_binding or read_repo_binding_v5(root)
     _require_repo_binding(binding)
@@ -312,11 +329,11 @@ def export_judge_holdout_bundles_v2(
         zip(round_dirs, protocol["evaluator_slots"], strict=True), 1
     ):
         round_dir.mkdir(parents=True, exist_ok=True)
-        output = round_dir / f"judge_holdout_round_{round_index}.v2.json"
+        output = round_dir / f"judge_holdout_round_{round_index}.{version}.json"
         if output.exists():
             raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_BUNDLE_ALREADY_EXISTS")
         bundle = {
-            "schema_version": "trip-check-p5-judge-holdout-bundle-v2",
+            "schema_version": f"trip-check-p5-judge-holdout-bundle-{version}",
             "round_index": round_index,
             "evaluator_slot": slot,
             "evidence_class": "automated_proxy_judge_holdout_input",
@@ -340,18 +357,18 @@ def export_judge_holdout_bundles_v2(
             }
         )
     custody_dir.mkdir(parents=True, exist_ok=True)
-    key_path = custody_dir / "judge_holdout_key.v2.json"
+    key_path = custody_dir / f"judge_holdout_key.{version}.json"
     if key_path.exists():
         raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_KEY_ALREADY_EXISTS")
     key = {
-        "schema_version": "trip-check-p5-judge-holdout-key-v2",
+        "schema_version": f"trip-check-p5-judge-holdout-key-{version}",
         **bindings,
         "bundle_receipts": receipts,
         "expected": expected,
     }
     key_path.write_bytes(canonical_bytes(key) + b"\n")
     return {
-        "schema_version": "trip-check-p5-judge-holdout-export-receipt-v2",
+        "schema_version": f"trip-check-p5-judge-holdout-export-receipt-{version}",
         "status": "EXPORTED",
         "round_count": ROUND_COUNT_V5,
         "item_count": HOLDOUT_ITEM_COUNT_V2,
@@ -365,7 +382,7 @@ def export_judge_holdout_bundles_v2(
 
 
 def _validate_round(
-    value: Mapping[str, Any], receipt: Mapping[str, Any]
+    value: Mapping[str, Any], receipt: Mapping[str, Any], version: str
 ) -> list[dict[str, Any]]:
     binding_fields = (*REPO_BINDING_FIELDS_V2, *HASH_BINDING_FIELDS_V2)
     required = {
@@ -392,7 +409,8 @@ def _validate_round(
     }
     if (
         set(value) != required
-        or value.get("schema_version") != "trip-check-p5-judge-holdout-round-v2"
+        or value.get("schema_version")
+        != f"trip-check-p5-judge-holdout-round-{version}"
         or value.get("round_index") != receipt.get("round_index")
         or value.get("bundle_sha256") != receipt.get("sha256")
         or value.get("evaluator_profile_id")
@@ -464,6 +482,7 @@ def aggregate_judge_holdout_rounds_v2(
     ):
         raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_INPUT_INVALID")
     key = _load_json(key_path, "JUDGE_HOLDOUT_KEY_INVALID")
+    version = _schema_version(key.get("schema_version"), "key")
     binding_fields = (*REPO_BINDING_FIELDS_V2, *HASH_BINDING_FIELDS_V2)
     receipts = key.get("bundle_receipts")
     expected_rows = key.get("expected")
@@ -478,7 +497,7 @@ def aggregate_judge_holdout_rounds_v2(
         "item_count",
     }
     if (
-        key.get("schema_version") != "trip-check-p5-judge-holdout-key-v2"
+        version not in SUPPORTED_HOLDOUT_VERSIONS
         or any(not _is_sha256(key.get(field)) for field in HASH_BINDING_FIELDS_V2)
         or key.get("upstream_commit") != key.get("subject_commit")
         or key.get("dirty_tree") is not False
@@ -545,7 +564,9 @@ def aggregate_judge_holdout_rounds_v2(
         round_index = report.get("round_index")
         if not isinstance(round_index, int) or round_index not in {1, 2, 3}:
             raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_ROUND_INVALID")
-        report["scores"] = _validate_round(report, receipts[round_index - 1])
+        report["scores"] = _validate_round(
+            report, receipts[round_index - 1], version
+        )
         if set(score["holdout_item_id"] for score in report["scores"]) != set(expected):
             raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_COVERAGE_INVALID")
         result_paths[round_index] = path
@@ -614,7 +635,7 @@ def aggregate_judge_holdout_rounds_v2(
         )
     )
     panel = {
-        "schema_version": "trip-check-p5-judge-holdout-panel-v2",
+        "schema_version": f"trip-check-p5-judge-holdout-panel-{version}",
         "status": "PASS" if passed else "BLOCKED",
         "evidence_class": "automated_proxy_judge_sealed_holdout",
         "automated_proxy_judge": True,
@@ -679,10 +700,11 @@ def validate_judge_holdout_panel_v2(
     unsigned = {key: value for key, value in panel.items() if key != "report_hash"}
     provenance = panel.get("provenance")
     key_path = Path(str(panel.get("key_path", "")))
+    version = _schema_version(panel.get("schema_version"), "panel")
     if (
         not _is_sha256(report_hash)
         or digest(unsigned) != report_hash
-        or panel.get("schema_version") != "trip-check-p5-judge-holdout-panel-v2"
+        or version not in SUPPORTED_HOLDOUT_VERSIONS
         or panel.get("status") != "PASS"
         or panel.get("agreement_threshold") != PANEL_AGREEMENT_THRESHOLD_V2
         or not isinstance(provenance, list)
@@ -705,6 +727,10 @@ def validate_judge_holdout_panel_v2(
     protocol_source = _load_json(protocol_path, "JUDGE_HOLDOUT_PROTOCOL_INVALID")
     if (
         recalculated != panel
+        or protocol_source.get("schema_version")
+        != f"trip-check-p5-judge-protocol-{version}"
+        or rubric_source.get("schema_version")
+        != "trip-check-p5-judge-rubric-v2"
         or panel.get("source_rubric_sha256") != _sha256(rubric_path)
         or panel.get("judge_input_rubric_sha256")
         != digest(_judge_rubric_projection(rubric_source))
@@ -726,7 +752,7 @@ def validate_judge_holdout_panel_v2(
             "review_receipt_sha256",
         }
         or commitment.get("schema_version")
-        != "trip-check-p5-judge-holdout-commitment-v2"
+        != f"trip-check-p5-judge-holdout-commitment-{version}"
         or commitment.get("status") != "SEALED"
         or commitment.get("item_count") != HOLDOUT_ITEM_COUNT_V2
         or commitment.get("source_lane") != "NONBLIND_SYNTHETIC_HOLDOUT"

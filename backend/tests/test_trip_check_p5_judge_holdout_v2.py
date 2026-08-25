@@ -34,7 +34,7 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _package() -> dict[str, object]:
+def _package(version: str = "v2") -> dict[str, object]:
     items = []
     for index in range(30):
         actionability = index // 6
@@ -62,7 +62,7 @@ def _package() -> dict[str, object]:
             }
         )
     return {
-        "schema_version": "trip-check-p5-judge-holdout-package-v2",
+        "schema_version": f"trip-check-p5-judge-holdout-package-{version}",
         "evidence_class": "sealed_nonblind_synthetic_holdout",
         "source_lane": "NONBLIND_SYNTHETIC_HOLDOUT",
         "item_count": 30,
@@ -89,19 +89,21 @@ def _public_expected(package: dict[str, object]) -> tuple[list[dict], list[dict]
     return public, expected
 
 
-def _export(tmp_path: Path) -> tuple[Path, Path, Path, dict, list[Path]]:
+def _export(
+    tmp_path: Path, version: str = "v2"
+) -> tuple[Path, Path, Path, dict, list[Path]]:
     repo = tmp_path / "repo"
     repo.mkdir()
     rubric = repo / "rubric.json"
     protocol = repo / "protocol.json"
     rubric.write_bytes((SOURCE_P5 / "judge_rubric_v2.json").read_bytes())
-    protocol.write_bytes((SOURCE_P5 / "judge_protocol_v2.json").read_bytes())
-    package = _package()
+    protocol.write_bytes((SOURCE_P5 / f"judge_protocol_{version}.json").read_bytes())
+    package = _package(version)
     package_path = tmp_path / "sealed" / "package.json"
     _write_json(package_path, package)
     public, expected = _public_expected(package)
     commitment = {
-        "schema_version": "trip-check-p5-judge-holdout-commitment-v2",
+        "schema_version": f"trip-check-p5-judge-holdout-commitment-{version}",
         "status": "SEALED",
         "item_count": 30,
         "source_lane": "NONBLIND_SYNTHETIC_HOLDOUT",
@@ -135,8 +137,9 @@ def _round_paths(
     mutate_round: int | None = None,
     substitute_model_round: int | None = None,
 ) -> list[Path]:
+    version = receipt["schema_version"].rsplit("-", 1)[-1]
     key = json.loads(
-        (tmp_path / "custody" / "judge_holdout_key.v2.json").read_text(
+        (tmp_path / "custody" / f"judge_holdout_key.{version}.json").read_text(
             encoding="utf-8"
         )
     )
@@ -174,7 +177,7 @@ def _round_paths(
             )
         }
         report = {
-            "schema_version": "trip-check-p5-judge-holdout-round-v2",
+            "schema_version": f"trip-check-p5-judge-holdout-round-{version}",
             "round_index": round_index,
             "evaluator_profile_id": bundle_receipt["evaluator_profile_id"],
             "reasoning_effort": bundle_receipt["reasoning_effort"],
@@ -232,6 +235,30 @@ def test_holdout_export_aggregate_and_validate_pass(tmp_path: Path) -> None:
         )["report_hash"]
         == panel["report_hash"]
     )
+
+
+def test_holdout_v3_export_aggregate_and_validate_pass(tmp_path: Path) -> None:
+    repo, commitment, _, receipt, _ = _export(tmp_path, "v3")
+    round_paths = _round_paths(tmp_path, receipt)
+    key = tmp_path / "custody" / "judge_holdout_key.v3.json"
+    panel = aggregate_judge_holdout_rounds_v2(
+        repo_root=repo,
+        key_path=key,
+        key_sha256=_sha256(key),
+        round_paths=round_paths,
+    )
+    assert panel["schema_version"] == "trip-check-p5-judge-holdout-panel-v3"
+    assert panel["status"] == "PASS"
+    panel_path = tmp_path / "panel" / "panel-v3.json"
+    _write_json(panel_path, panel)
+    validated = validate_judge_holdout_panel_v2(
+        repo_root=repo,
+        panel_path=panel_path,
+        rubric_path=repo / "rubric.json",
+        protocol_path=repo / "protocol.json",
+        commitment_path=commitment,
+    )
+    assert validated["report_hash"] == panel["report_hash"]
 
 
 def test_holdout_rejects_package_inside_repo(tmp_path: Path) -> None:

@@ -622,14 +622,17 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
     assert len(manifest["artifact_index"]) == 31
 
 
-def test_v5_gate_binds_v2_holdout_slots_and_formal_attempt(tmp_path: Path) -> None:
+@pytest.mark.parametrize("protocol_version", ("v2", "v3"))
+def test_v5_gate_binds_sealed_holdout_slots_and_formal_attempt(
+    tmp_path: Path, protocol_version: str
+) -> None:
     paths = _formal_fixture(tmp_path)
     source_protocol = (
         Path(__file__).parents[1]
         / "evals"
         / "trip_check_v1"
         / "p5"
-        / "judge_protocol_v2.json"
+        / f"judge_protocol_{protocol_version}.json"
     )
     paths["judge_protocol"].write_bytes(source_protocol.read_bytes())
     commitment = paths["repo_root"] / "backend" / "holdout-commitment.json"

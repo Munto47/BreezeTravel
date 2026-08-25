@@ -1,0 +1,152 @@
+{
+  "agreement_rule": {
+    "dimension_max_spread": 1,
+    "minimum_rate": 0.85,
+    "required_dimensions": [
+      "clarity",
+      "actionability",
+      "evidence_boundary_expression"
+    ],
+    "verdict_unanimity_required_rate": 0.85
+  },
+  "actionability_decision_tree": {
+    "aggregation": "Score every non-empty advice entry, then use the minimum entry score. An empty advice list scores 0.",
+    "automatic_repair_boundary": "has_repair describes automatic repair availability only. false never lowers an otherwise executable user or operator action.",
+    "candidate_set_boundary": "candidate_set_bound is evidence provenance. It changes actionability only when the action itself asks the user to select, compare, or confirm a candidate.",
+    "deictic_target_rule": "A phrase such as this fact or this conflict has an executable target only when exactly one supplied finding can resolve it.",
+    "numeric_detail_rule": "A number, duration, price, distance, or prose length is never required for score 2 or 3.",
+    "precedence_rule": "Evaluate score 0 conditions first. If executing the action requires treating an unavailable, stale, conflicting, or invented fact as verified, assign 0 and stop; a condition, dependency, fallback, ordered path, or readback cannot upgrade that action.",
+    "ordered_scores": {
+      "0": "No action is present; the action requires mutually exclusive operations; or executing it requires treating an unavailable or invented fact as verified.",
+      "1": "An action verb is present but its operation target cannot be resolved from the action plus one supplied finding, or the action is only a generic request to improve, optimize, handle, or adjust.",
+      "2": "The action field names one executable operation and a resolvable target. This is sufficient even when automatic repair is unavailable, no number is given, or the user must supply or confirm information.",
+      "3": "Score 2 is satisfied and the action field itself states a relevant condition, dependency, constraint, or fallback that governs execution. A condition stated only in uncertainty or metadata does not qualify.",
+      "4": "Score 3 is satisfied, the action field gives an ordered multi-step path, and it states a machine-checkable completion or readback result. Saying only to recheck later does not qualify."
+    },
+    "upgrade_scope_rule": "Only the action field can upgrade score 2 to 3 or 4. finding_reason may resolve one deictic target; uncertainty, has_repair, candidate_set_bound, evidence_summary, and postcheck cannot upgrade the score."
+  },
+  "clarity_decision_tree": {
+    "aggregation": "Score every non-empty advice entry, then use the minimum entry score. An empty advice list scores 0.",
+    "contradiction_routing": "Mutually exclusive operations inside action set actionability to 0; when the issue and consequence remain understandable, clarity is capped at 2 rather than forced to 0. A conflict with evidence state is routed to evidence_boundary_expression and does not by itself lower clarity.",
+    "component_rules": {
+      "consequence": "A practical impact, blocked decision, violated constraint, or inability to verify counts as an explicit consequence.",
+      "intended_response": "An intended response is explicit only when the action names a non-generic operation and a resolvable target. A request only to improve, optimize, handle, process, or adjust is generic and cannot raise clarity above 2.",
+      "relevant_scope": "Relevant scope is explicit only when the expression states the condition or evidence state under which the response applies and identifies the affected decision, activity, constraint, or user input. An asserted evidence state counts for clarity even when it is unsupported; route that defect only to evidence_boundary_expression. A conditional word such as if is not required. Prose length and numeric detail do not establish scope."
+    },
+    "ordered_scores": {
+      "0": "The intended issue or response cannot be understood, or no expression is present.",
+      "1": "The issue or practical consequence is only implied, so their relationship cannot be followed without material guessing.",
+      "2": "The issue and practical consequence are explicit, but the intended response is absent, generic, target-unresolved, or internally conflicting while its intended operations remain identifiable.",
+      "3": "Score 2 is satisfied and the intended response is explicit, but the condition or affected scope is not explicit.",
+      "4": "Score 3 is satisfied and the relevant scope is explicit under component_rules."
+    }
+  },
+  "dimension_anchors": {
+    "actionability": {
+      "0": "Apply actionability_decision_tree score 0.",
+      "1": "Apply actionability_decision_tree score 1.",
+      "2": "Apply actionability_decision_tree score 2; this is the minimum sufficient score.",
+      "3": "Apply actionability_decision_tree score 3.",
+      "4": "Apply actionability_decision_tree score 4."
+    },
+    "clarity": {
+      "0": "Apply clarity_decision_tree score 0.",
+      "1": "Apply clarity_decision_tree score 1.",
+      "2": "Apply clarity_decision_tree score 2; this is the minimum sufficient score.",
+      "3": "Apply clarity_decision_tree score 3.",
+      "4": "Apply clarity_decision_tree score 4."
+    },
+    "evidence_boundary_expression": {
+      "0": "Apply evidence_boundary_decision_tree score 0.",
+      "1": "Apply evidence_boundary_decision_tree score 1.",
+      "2": "Apply evidence_boundary_decision_tree score 2; this is the minimum sufficient score.",
+      "3": "Apply evidence_boundary_decision_tree score 3.",
+      "4": "Apply evidence_boundary_decision_tree score 4."
+    }
+  },
+  "dimension_isolation": {
+    "actionability": "Score execution from the action field. Use one supplied finding only to resolve a deictic target. Do not upgrade from uncertainty, booleans, or postcheck metadata.",
+    "clarity": "Score whether the issue, consequence, and intended response can be understood. Do not lower clarity only because a claim violates the evidence boundary.",
+    "evidence_boundary_expression": "Score factual and uncertainty boundaries. Do not use this dimension to reward prose length or automatic repair availability."
+  },
+  "evaluator_instruction": [
+    "Read only the supplied bundle and produce one score for every anonymous item and slot.",
+    "Apply each dimension decision tree independently before assigning a score; route contradictions exactly as specified.",
+    "For actionability, only the action field can upgrade score 2 to 3 or 4. Do not upgrade from uncertainty, booleans, postcheck, answer length, or numeric detail.",
+    "Apply the numeric anchors literally; score 2 is the minimum sufficient score and is not a weak failure.",
+    "Treat candidate_expression.advice fields as structured expression fields, but respect each dimension's field scope.",
+    "Do not infer or decide factual correctness, finding severity, receipt validity, postcheck safety, or any hidden expected answer.",
+    "List an unsupported claim candidate only when its claim_id exists in the item and the expression itself exceeds the supplied evidence summary.",
+    "Derive PASS only when every dimension is at least 2 and no unsupported claim candidate is listed; otherwise derive NEEDS_REVISION.",
+    "Do not inspect repository files, governance records, custodian metadata, another round, or any external API."
+  ],
+  "evaluator_slots": [
+    {
+      "evaluator_profile_id": "p5-judge-v3-slot-1",
+      "model_id": "gpt-5.4",
+      "reasoning_effort": "high",
+      "round_index": 1
+    },
+    {
+      "evaluator_profile_id": "p5-judge-v3-slot-2",
+      "model_id": "gpt-5.6-sol",
+      "reasoning_effort": "high",
+      "round_index": 2
+    },
+    {
+      "evaluator_profile_id": "p5-judge-v3-slot-3",
+      "model_id": "gpt-5.5",
+      "reasoning_effort": "high",
+      "round_index": 3
+    }
+  ],
+  "evidence_boundary_decision_tree": {
+    "aggregation": "Score every non-empty advice entry, then use the minimum entry score. An empty advice list scores 0.",
+    "generic_action_cap": "An action whose target cannot be resolved is capped at 2 even when a separate uncertainty sentence is explicit. Score 3 requires the action itself to reference the governing uncertainty or evidence condition and to have a resolvable target; score 4 additionally requires every represented claim and action to be individually bound.",
+    "ordered_scores": {
+      "0": "Unavailable, stale, conflicting, or uncertain information is presented as verified, or the expression contradicts the supplied evidence state.",
+      "1": "The relevant evidence boundary is materially ambiguous or an important unavailable fact is left unmarked.",
+      "2": "Verified, uncertain, stale, conflicting, and unavailable information are distinguishable without inventing facts.",
+      "3": "Score 2 is satisfied, the relevant uncertainty is explicit, and the action is constrained by that uncertainty. A missing or unavailable field named in finding_reason plus an action that asks to supply that exact field satisfies this rule even when the separate uncertainty string is empty.",
+      "4": "Every represented claim and action is individually and consistently bound to its evidence state. When relevant uncertainty exists, score 3 must be satisfied first. When no relevant uncertainty exists, score 2 may advance directly to 4 only if the expression binds every claim and action to the supplied FRESH verified state and introduces no unverified claim. A single relevant UNKNOWN or UNAVAILABLE fact qualifies when the action repeats that evidence state, constrains execution, and names the resolvable target; no receipt identifier or machine field is required. Preserving an explicit conflict until a stated resolution condition is met also qualifies. has_repair and candidate_set_bound are metadata, not separate factual claims. Generic or target-unresolved actions cannot score 4."
+    }
+  },
+  "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+  "formal_attempt_rule": {
+    "invalid_round_replacement": {
+      "allowed_before_scores_accepted_only": true,
+      "maximum_full_panel_replacements": 1,
+      "replacement_scope": "ALL_THREE_ROUNDS"
+    },
+    "maximum_valid_panel_attempts": 1,
+    "quality_blocked_replacement_allowed": false,
+    "selection_policy": "NO_OUTCOME_CONDITIONED_RESAMPLING"
+  },
+  "holdout_calibration": {
+    "exact_actionability_rate_per_slot": 0.9,
+    "expected_dimension_within_one_rate_per_slot": 1.0,
+    "expected_verdict_match_rate_per_slot": 1.0,
+    "item_count": 30,
+    "minimum_panel_dimension_agreement_rate": 0.9,
+    "minimum_panel_verdict_agreement_rate": 0.9,
+    "required": true,
+    "slot_model_config_binding_required": true,
+    "source_lane": "SEALED_NONBLIND_SYNTHETIC_HOLDOUT"
+  },
+  "human_calibration_performed": false,
+  "human_evidence": false,
+  "judge_class": "automated_proxy_judge",
+  "rubric_schema_version": "trip-check-p5-judge-rubric-v2",
+  "schema_version": "trip-check-p5-judge-protocol-v3",
+  "structured_expression_fields": [
+    "finding_reason",
+    "action",
+    "uncertainty",
+    "has_repair",
+    "candidate_set_bound"
+  ],
+  "verdict_rule": {
+    "minimum_dimension_score": 2,
+    "unsupported_claim_candidate_count": 0
+  }
+}

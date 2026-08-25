@@ -30,13 +30,13 @@ def main() -> None:
     parser.add_argument("--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json")
     parser.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
     parser.add_argument(
-        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v2.json"
+        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v3.json"
     )
     parser.add_argument("--judge-calibration-panel", type=Path, required=True)
     parser.add_argument(
         "--judge-holdout-commitment",
         type=Path,
-        default=P5_ROOT / "judge_holdout_commitment_v2.json",
+        default=P5_ROOT / "judge_holdout_commitment_v3.json",
     )
     parser.add_argument("--nonblind-run-manifest", type=Path, required=True)
     parser.add_argument("--nonblind-score", type=Path, required=True)

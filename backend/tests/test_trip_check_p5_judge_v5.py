@@ -212,13 +212,17 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
     return repo_root, receipt, round_dirs
 
 
-def _export_v2(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
+def _export_v2(
+    tmp_path: Path, version: str = "v2"
+) -> tuple[Path, dict[str, object], list[Path]]:
     repo_root = tmp_path / "repo"
     repo_root.mkdir()
     rubric_path = repo_root / "rubric.json"
     _write_json(rubric_path, _rubric())
     protocol_path = repo_root / "protocol.json"
-    protocol_path.write_bytes((SOURCE_P5 / "judge_protocol_v2.json").read_bytes())
+    protocol_path.write_bytes(
+        (SOURCE_P5 / f"judge_protocol_{version}.json").read_bytes()
+    )
     commitment_path = repo_root / "holdout-commitment.json"
     _write_json(commitment_path, {"status": "SEALED"})
     holdout_panel_path = tmp_path / "holdout" / "panel.json"
@@ -412,6 +416,35 @@ def test_v5_v2_rejects_formal_model_substitution(tmp_path: Path) -> None:
             mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
             round_paths=round_paths,
         )
+
+
+def test_v5_v3_export_binds_v3_rubric_protocol_and_slots(tmp_path: Path) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path, "v3")
+    bundle = json.loads(
+        (round_dirs[0] / "judge_input_round_1.v5.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert bundle["rubric"]["schema_version"] == (
+        "trip-check-p5-judge-rubric-projection-v5"
+    )
+    assert bundle["protocol"]["schema_version"] == (
+        "trip-check-p5-judge-protocol-projection-v3"
+    )
+    assert set(
+        bundle["protocol"]["clarity_decision_tree"]["component_rules"]
+    ) == {"consequence", "intended_response", "relevant_scope"}
+    assert bundle["evaluator_slot"]["evaluator_profile_id"] == (
+        "p5-judge-v3-slot-1"
+    )
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    panel = aggregate_judge_rounds_v5(
+        repo_root=repo_root,
+        mapping_path=mapping_path,
+        mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+        round_paths=_round_paths(tmp_path, receipt, round_dirs),
+    )
+    assert panel["status"] == "PASS"
 
 
 @pytest.mark.parametrize(

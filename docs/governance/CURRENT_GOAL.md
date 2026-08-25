@@ -120,6 +120,14 @@
 - v3 必须使用与 v2 public item、语义模板、文本和 claim ID 均不同的新 30 条 sealed non-blind holdout，并把 v2 package 作为 denylist，拒绝近义改写。作者之外至少两名独立 reviewer 必须在封存前逐项独立评分且所有维度/verdict exact 一致；再由第三名 reviewer 执行跨维度、counterfactual、privacy 和 deterministic lint。任何 item 修改后必须重新全量复核；模型看到 public bundle 后不得改 label、换 item 或补跑；
 - 只有新的 v3 holdout 实际 `PASS` 后才允许在同一 subject 上从 dataset formal validation 开始完整 P5；仍只允许一个有效正式 panel attempt。P5 Evaluation Gate 实际 `PASS` 前，P6、公网候选、live Provider、Candidate Gate、H1、部署与 `main` 合并保持 `NOT_STARTED/NOT_RUN`。
 
+### Judge v3 pre-seal checkpoint（2026-08-25）
+
+- v3 只修改 Judge evaluation contract、sealed non-blind holdout 与 fail-closed provenance 校验；产品、variant、deterministic scorer、blind dataset/oracle、rubric v2 源文件和全部门槛未变。协议新增 clarity component rules、actionability score-0 precedence、action-only upgrade scope，以及 verified/UNKNOWN/UNAVAILABLE/conflict 的 evidence-boundary 充分条件；对应导出、聚合、Gate 与 CLI 均绑定 v3 protocol/commitment 和三个固定 model/config slot；
+- 全新 public holdout 经多轮 pre-seal disagreement 驱动的合同澄清与 item 实质重写后形成 revision 6。每次 public 或 protocol 变化均作废此前 reviewer 输出并重新全量复核；最终两名隔离 reviewer 在 protocol SHA-256=`a61566a3c10889806a8e95fc68a71750b41cdc33b62d90c205ba71da5c746aa2`、public SHA-256=`2063359710d53d5f726f6ca9e1a35df4f25cd06ae28e75a089cbc33730f69cbf` 上实现三维、unsupported candidates 与 verdict `30/30` exact agreement，actionability `0～4` 各 `6` 条；
+- 第三方 lint receipt SHA-256=`3e421cfcc8665e8b84f5afd102fe7f963849fddd1edaa9745d2338971cd02c72`，状态为 `PASS`：v3 内部 `435` 对与 v2 public denylist `900` 对近重复均为 `0`，schema/claim/privacy/路由检查全部通过，`api=0`、`blind_observed=false`、`expected_observed=false`。更早的 BLOCKED lint 和 reviewer 轮次保留外置审计历史，不进入 seal；
+- external package SHA-256=`347eea6a9eda9f9488b85867e731025b36e83d1170bf9e553944c100dbd2114c`，review receipt SHA-256=`6774863e3f7a69fd8861dbf0cb52d880819441cdb74fe7dc8f75a4fcc4f73634`，custodian receipt SHA-256=`55a7d670d35ad54969d3245db677672c020bc76eeb098bd05facc676d3ede6bb`；public/expected canonical digest 分别为 `87cdbb4d5ed293d8a45614f175eb489532c9e67ae13a835adc18f4be0ddf4d4c` 与 `b991bced6f32da15338844d4192ad95f4e78e0115f9fb2671fad9ad35c0f6246`。tracked commitment 已按仓库验证器回读为 v3 `PASS`，author expected 未进入 sealed expected；
+- 当前 checkpoint 验证为 Judge/holdout/Gate/formal 定向 `44 passed`、P5 全量定向 `488 passed, 1 skipped`、changed-scope Ruff `PASS`。这仍只是待 commit/push 的 candidate-freeze，不是正式 calibration、blind Judge、Evaluation Gate 或 P6 证据；新 subject 必须从 dataset formal validation 完整重跑。
+
 ## Outcome
 
 在同一个 commit、RunSpec、数据合同和 oracle 下，对以下三个候选系统完成可重放的 360 例对照评测，并得到一份能解释“为什么保留或改变默认方案”的消融结论：

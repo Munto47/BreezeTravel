@@ -972,7 +972,10 @@ def build_p5_gate_manifest_v5(
     panel = _parse_judge_panel_v5(_load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run)
     rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
     protocol = _load_json(judge_protocol_path, "V5_JUDGE_PROTOCOL_INVALID")
-    protocol_v2 = protocol.get("schema_version") == "trip-check-p5-judge-protocol-v2"
+    protocol_v2 = protocol.get("schema_version") in {
+        "trip-check-p5-judge-protocol-v2",
+        "trip-check-p5-judge-protocol-v3",
+    }
     if protocol_v2:
         if holdout_commitment_path is None:
             raise P5GateErrorV5("V5_JUDGE_HOLDOUT_COMMITMENT_REQUIRED")
