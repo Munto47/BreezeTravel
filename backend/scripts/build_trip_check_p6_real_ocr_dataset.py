@@ -30,9 +30,23 @@ from evals.trip_check_v1.p6.real_ocr_runner import (  # noqa: E402
 
 
 DATASET_ID = "real_authorized_ocr_v1"
-ANNOTATION_VERSION = "wikivoyage-rendered-line-v1"
-DOM_ANNOTATION_SCHEMA = "trip-check-p6-rendered-line-annotation-source-v1"
-ANNOTATION_UNIT = "BROWSER_RENDERED_TEXT_LINE"
+ANNOTATION_VERSION = "wikivoyage-parent-bound-block-line-v3"
+DOM_ANNOTATION_SCHEMA = "trip-check-p6-parent-bound-block-line-source-v3"
+ANNOTATION_UNIT = "BROWSER_PARENT_BOUND_BLOCK_LINE_WITH_FROZEN_SEGMENT_FALLBACK_V3"
+PARENT_ANNOTATION_SCHEMA = "trip-check-p6-rendered-line-annotation-source-v1"
+PARENT_ANNOTATION_UNIT = "BROWSER_RENDERED_TEXT_LINE"
+PARENT_ANNOTATION_SHA256 = "6dc99428d00ffd4efcc5eab3daeedef432963769d3d769c302a0c5d1a60a1bae"
+CANDIDATE_ANNOTATION_SHA256 = "c70825498fd8fca7800c97065a5ba978d78f42080caaa8bb120580412cef2224"
+PARENT_FIELD_COUNT = 355
+SOURCE_IMAGE_SET = "real_authorized_ocr_v1_sha_frozen"
+SELECTION_POLICY = {
+    "schema_version": "trip-check-p6-parent-preserving-line-selection-v2",
+    "fields_per_item": 6,
+    "parent_binding_required": True,
+    "parent_item_metadata_required": True,
+    "overlap_allowed": False,
+    "ocr_output_used": False,
+}
 CITY_CONFIG = {
     "beijing": {"label": "北京", "page_title": "北京"},
     "shanghai": {"label": "上海", "page_title": "上海"},
@@ -129,9 +143,20 @@ def _perceptual_hash(path: Path) -> str:
     return f"{fingerprint:016x}"
 
 
-def _validate_boxes(fields: list[dict[str, Any]], item_id: str) -> None:
-    if not 3 <= len(fields) <= 6:
-        raise DatasetBuildError(f"{item_id} must contain 3 to 6 atomic fields")
+def _validate_boxes(
+    fields: list[dict[str, Any]], item_id: str, *, parent: bool = False
+) -> None:
+    if parent:
+        valid_count = 3 <= len(fields) <= 6
+        valid_colors = {"rendered-line"}
+        max_text_length = 48
+    else:
+        valid_count = len(fields) == 6
+        valid_colors = {"block-rendered-line", "frozen-rendered-segment-fallback"}
+        max_text_length = 96
+    if not valid_count:
+        expected = "3 to 6" if parent else "exactly 6"
+        raise DatasetBuildError(f"{item_id} must contain {expected} atomic fields")
     boxes: list[list[int]] = []
     for field in fields:
         box = field.get("box")
@@ -149,9 +174,9 @@ def _validate_boxes(fields: list[dict[str, Any]], item_id: str) -> None:
             and 0 <= box[0] < box[2] <= IMAGE_WIDTH
             and 0 <= box[1] < box[3] <= IMAGE_HEIGHT
             and isinstance(text, str)
-            and 2 <= len(text.strip()) <= 48
+            and 2 <= len(text.strip()) <= max_text_length
             and len(normalized_text) >= 2
-            and field.get("color") == "rendered-line"
+            and field.get("color") in valid_colors
             and isinstance(field.get("font_size"), (int, float))
             and 10 <= field["font_size"] <= 48
             and 12 <= box[3] - box[1] <= 48
@@ -171,6 +196,118 @@ def _validate_boxes(fields: list[dict[str, Any]], item_id: str) -> None:
         ):
             raise DatasetBuildError(f"overlapping atomic fields in {item_id}")
         boxes.append(box)
+
+
+def _normalized_text(value: str) -> str:
+    return re.sub(r"[^0-9a-z\u4e00-\u9fff]", "", value.casefold())
+
+
+def _field_binds_parent(field: dict[str, Any], parent: dict[str, Any]) -> bool:
+    field_text = _normalized_text(field["text"])
+    parent_text = _normalized_text(parent["text"])
+    return bool(
+        field_text
+        and parent_text
+        and field["field_type"] == parent["field_type"]
+        and min(field["box"][3], parent["box"][3])
+        > max(field["box"][1], parent["box"][1])
+        and (field_text in parent_text or parent_text in field_text)
+    )
+
+
+def _validate_parent_binding(
+    dom: dict[str, Any], parent: dict[str, Any], parent_path: Path
+) -> dict[str, int | str]:
+    expected_dom_keys = {
+        "schema_version",
+        "annotation_unit",
+        "viewport",
+        "captured_at",
+        "generated_at",
+        "source_image_set",
+        "source_annotation_file_sha256",
+        "candidate_annotation_file_sha256",
+        "selection_policy",
+        "cities",
+    }
+    if set(dom) != expected_dom_keys or not (
+        dom["source_image_set"] == SOURCE_IMAGE_SET
+        and dom["source_annotation_file_sha256"] == PARENT_ANNOTATION_SHA256
+        and dom["candidate_annotation_file_sha256"] == CANDIDATE_ANNOTATION_SHA256
+        and dom["selection_policy"] == SELECTION_POLICY
+    ):
+        raise DatasetBuildError("parent-preserving annotation source binding is invalid")
+    parent_file_sha = file_sha256(parent_path)
+    if parent_file_sha != PARENT_ANNOTATION_SHA256:
+        raise DatasetBuildError("frozen parent annotation file hash is invalid")
+    if not (
+        parent.get("schema_version") == PARENT_ANNOTATION_SCHEMA
+        and parent.get("annotation_unit") == PARENT_ANNOTATION_UNIT
+        and parent.get("viewport") == dom["viewport"]
+    ):
+        raise DatasetBuildError("frozen parent annotation contract is invalid")
+    parent_cities = parent.get("cities")
+    dom_cities = dom.get("cities")
+    if not isinstance(parent_cities, list) or not isinstance(dom_cities, list):
+        raise DatasetBuildError("annotation city collections are invalid")
+    parent_by_city = {city.get("city"): city for city in parent_cities}
+    if (
+        len(parent_cities) != len(CITY_CONFIG)
+        or len(dom_cities) != len(CITY_CONFIG)
+        or set(parent_by_city) != set(CITY_CONFIG)
+        or {city.get("city") for city in dom_cities} != set(CITY_CONFIG)
+    ):
+        raise DatasetBuildError("annotation city sets do not match the frozen parent")
+    parent_field_count = 0
+    bound_parent_count = 0
+    annotation_field_count = 0
+    for city in dom_cities:
+        city_key = city["city"]
+        parent_city = parent_by_city[city_key]
+        if any(city.get(key) != parent_city.get(key) for key in ("url", "title", "step")):
+            raise DatasetBuildError(f"{city_key} metadata differs from the frozen parent")
+        dom_items = city.get("items")
+        parent_items = parent_city.get("items")
+        if not isinstance(dom_items, list) or not isinstance(parent_items, list):
+            raise DatasetBuildError(f"{city_key} annotation items are invalid")
+        parent_by_item = {item.get("item_id"): item for item in parent_items}
+        if (
+            len(parent_items) != 20
+            or len(dom_items) != 20
+            or len(parent_by_item) != 20
+            or {item.get("item_id") for item in dom_items} != set(parent_by_item)
+        ):
+            raise DatasetBuildError(f"{city_key} item set differs from the frozen parent")
+        for item in dom_items:
+            item_id = item["item_id"]
+            parent_item = parent_by_item[item_id]
+            if any(
+                item.get(key) != parent_item.get(key)
+                for key in ("item_id", "city", "scroll_y", "scroll_height")
+            ):
+                raise DatasetBuildError(f"{item_id} metadata differs from the frozen parent")
+            fields = item.get("fields")
+            parent_fields = parent_item.get("fields")
+            if not isinstance(fields, list) or not isinstance(parent_fields, list):
+                raise DatasetBuildError(f"{item_id} fields are invalid")
+            _validate_boxes(fields, item_id)
+            _validate_boxes(parent_fields, item_id, parent=True)
+            annotation_field_count += len(fields)
+            parent_field_count += len(parent_fields)
+            bound_parent_count += sum(
+                any(_field_binds_parent(field, parent_field) for field in fields)
+                for parent_field in parent_fields
+            )
+    if parent_field_count != PARENT_FIELD_COUNT:
+        raise DatasetBuildError("frozen parent annotation field count is invalid")
+    if bound_parent_count != parent_field_count:
+        raise DatasetBuildError("annotation source does not bind every frozen parent field")
+    return {
+        "parent_annotation_file_sha256": parent_file_sha,
+        "parent_annotation_field_count": parent_field_count,
+        "parent_annotation_bound_count": bound_parent_count,
+        "annotation_field_count": annotation_field_count,
+    }
 
 
 def _git_head(repo_root: Path) -> str:
@@ -311,11 +448,13 @@ def prepare(args: argparse.Namespace) -> int:
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=False)
     dom = _load_json(args.dom_annotations)
+    parent = _load_json(args.parent_annotations)
     if not (
         dom.get("schema_version") == DOM_ANNOTATION_SCHEMA
         and dom.get("annotation_unit") == ANNOTATION_UNIT
     ):
-        raise DatasetBuildError("rendered-line DOM annotation binding is invalid")
+        raise DatasetBuildError("parent-preserving DOM annotation binding is invalid")
+    binding = _validate_parent_binding(dom, parent, args.parent_annotations)
     viewport = dom.get("viewport")
     if viewport != {
         "dom_width": 1280,
@@ -472,6 +611,10 @@ def prepare(args: argparse.Namespace) -> int:
         "dataset_id": DATASET_ID,
         "subject_commit": args.subject_commit,
         "annotation_version": ANNOTATION_VERSION,
+        "annotation_unit": ANNOTATION_UNIT,
+        "annotation_source_file_sha256": file_sha256(args.dom_annotations),
+        **binding,
+        "annotation_selection_policy": SELECTION_POLICY,
         "ocr_config_sha256": FORMAL_OCR_CONFIG_SHA256,
         "prepared_at": retrieved_at,
         "source_license_receipt_paths": [str(path.resolve()) for path in source_receipt_paths],
@@ -642,6 +785,7 @@ def main() -> int:
     prepare_parser = subparsers.add_parser("prepare")
     prepare_parser.add_argument("--raw-root", type=Path, required=True)
     prepare_parser.add_argument("--dom-annotations", type=Path, required=True)
+    prepare_parser.add_argument("--parent-annotations", type=Path, required=True)
     prepare_parser.add_argument("--output-root", type=Path, required=True)
     prepare_parser.add_argument("--subject-commit", required=True)
     prepare_parser.add_argument("--repo-root", type=Path, default=BACKEND_ROOT.parent)

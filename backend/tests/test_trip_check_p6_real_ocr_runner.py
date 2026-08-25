@@ -169,7 +169,9 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
                 "item_id": item_id,
                 "source_image_sha256": source_sha,
                 "annotation_version": "annotations-v1",
-                "annotation_unit": "BROWSER_RENDERED_TEXT_LINE",
+                "annotation_unit": (
+                    "BROWSER_PARENT_BOUND_BLOCK_LINE_WITH_FROZEN_SEGMENT_FALLBACK_V3"
+                ),
                 "coverage_class": "SELECTED_KEY_FIELDS",
                 "ignored_boxes": [[0, 0, 1265, 712]],
                 "fields": [

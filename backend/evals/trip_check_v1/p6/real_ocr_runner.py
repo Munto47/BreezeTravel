@@ -172,7 +172,8 @@ def _validate_annotation(value: dict[str, Any], item: Mapping[str, Any]) -> list
         and value["item_id"] == item["item_id"]
         and value["source_image_sha256"] == item["source_image_sha256"]
         and value["annotation_version"] == item["annotation_version"]
-        and value["annotation_unit"] == "BROWSER_RENDERED_TEXT_LINE"
+        and value["annotation_unit"]
+        == "BROWSER_PARENT_BOUND_BLOCK_LINE_WITH_FROZEN_SEGMENT_FALLBACK_V3"
         and value["coverage_class"] == "SELECTED_KEY_FIELDS"
         and value["ignored_boxes"] == [[0, 0, 1265, 712]]
         and isinstance(value["fields"], list)
