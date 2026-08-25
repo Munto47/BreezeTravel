@@ -117,6 +117,21 @@ def _external_distinct_paths(repo_root: Path, paths: Sequence[Path]) -> list[Pat
     return resolved
 
 
+def require_external_judge_holdout_artifact_path_v2(
+    *, repo_root: Path, path: Path
+) -> Path:
+    """Return an absolute repository-external holdout artifact path."""
+
+    absolute = path.absolute()
+    if (
+        not path.is_absolute()
+        or _inside(absolute, repo_root)
+        or _contains_link(absolute)
+    ):
+        raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_ARTIFACT_PATH_INVALID")
+    return absolute
+
+
 def _require_repo_binding(binding: RepoBindingV5) -> None:
     if (
         len(binding.subject_commit) != 40
@@ -461,6 +476,113 @@ def _validate_round(
             raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_VERDICT_INVALID")
         ids.add(score["holdout_item_id"])
     return scores
+
+
+def build_judge_holdout_round_report_v2(
+    *,
+    repo_root: Path,
+    bundle_path: Path,
+    score_payload_path: Path,
+) -> dict[str, Any]:
+    """Bind Judge-authored holdout scores to deterministic bundle metadata."""
+
+    root = repo_root.resolve()
+    bundle_file, payload_file = (
+        require_external_judge_holdout_artifact_path_v2(
+            repo_root=root, path=path
+        )
+        for path in (bundle_path, score_payload_path)
+    )
+    bundle = _load_json(bundle_file, "JUDGE_HOLDOUT_BUNDLE_INVALID")
+    payload = _load_json(payload_file, "JUDGE_HOLDOUT_SCORE_PAYLOAD_INVALID")
+    version = _schema_version(bundle.get("schema_version"), "bundle")
+    expected_bundle_fields = {
+        "schema_version",
+        "round_index",
+        "evidence_class",
+        "automated_proxy_judge",
+        "human_evidence",
+        "human_calibration_performed",
+        "evaluator_slot",
+        "run_binding",
+        "rubric",
+        "protocol",
+        "items",
+    }
+    evaluator_slot = bundle.get("evaluator_slot")
+    run_binding = bundle.get("run_binding")
+    items = bundle.get("items")
+    if (
+        version not in SUPPORTED_HOLDOUT_VERSIONS
+        or set(bundle) != expected_bundle_fields
+        or bundle.get("evidence_class")
+        != "automated_proxy_judge_holdout_input"
+        or bundle.get("automated_proxy_judge") is not True
+        or bundle.get("human_evidence") is not False
+        or bundle.get("human_calibration_performed") is not False
+        or not isinstance(evaluator_slot, Mapping)
+        or not isinstance(run_binding, Mapping)
+        or not isinstance(items, list)
+        or len(items) != HOLDOUT_ITEM_COUNT_V2
+    ):
+        raise P5JudgeHoldoutErrorV2("JUDGE_HOLDOUT_BUNDLE_INVALID")
+
+    expected_payload_fields = {
+        "schema_version",
+        "round_index",
+        "evaluator_id",
+        "agent_task_id",
+        "agent_id",
+        "context_id",
+        "model_id",
+        "started_at",
+        "ended_at",
+        "api_usage_count",
+        "tool_usage_count",
+        "automated_proxy_judge",
+        "human_calibration_performed",
+        "expected_scores_observed",
+        "peer_round_output_observed",
+        "scores",
+    }
+    round_index = bundle.get("round_index")
+    if (
+        set(payload) != expected_payload_fields
+        or payload.get("schema_version")
+        != f"trip-check-p5-judge-holdout-score-payload-{version}"
+        or payload.get("round_index") != round_index
+        or payload.get("model_id") != evaluator_slot.get("model_id")
+    ):
+        raise P5JudgeHoldoutErrorV2(
+            "JUDGE_HOLDOUT_SCORE_PAYLOAD_CONTRACT_INVALID"
+        )
+
+    receipt = {
+        "round_index": round_index,
+        "sha256": _sha256(bundle_file),
+        **dict(evaluator_slot),
+        **dict(run_binding),
+    }
+    report = {
+        **{
+            key: value
+            for key, value in payload.items()
+            if key != "schema_version"
+        },
+        "schema_version": f"trip-check-p5-judge-holdout-round-{version}",
+        "evaluator_profile_id": evaluator_slot.get("evaluator_profile_id"),
+        "reasoning_effort": evaluator_slot.get("reasoning_effort"),
+        "bundle_sha256": receipt["sha256"],
+        **dict(run_binding),
+    }
+    scores = _validate_round(report, receipt, version)
+    expected_ids = {item.get("holdout_item_id") for item in items}
+    actual_ids = {score["holdout_item_id"] for score in scores}
+    if actual_ids != expected_ids:
+        raise P5JudgeHoldoutErrorV2(
+            "JUDGE_HOLDOUT_SCORE_BUNDLE_COVERAGE_INVALID"
+        )
+    return report
 
 
 def aggregate_judge_holdout_rounds_v2(

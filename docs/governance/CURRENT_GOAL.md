@@ -136,6 +136,13 @@
 - 根因是 Judge 同时负责语义评分和 8 项 sealed binding 元数据手抄，属于 evidence envelope 的可重复操作缺陷，不是产品或确定性 scorer 失败。恢复范围仅允许新增确定性 round-envelope builder：Judge 只输出 scores 与自身执行 provenance，程序从匿名 bundle 复制并校验 hash、固定 evaluator slot 与 formal-attempt；不得改变任何 score、rubric、protocol、门槛、产品、variant、数据或 oracle；
 - builder 形成新的 clean、pushed subject 后，必须从 dataset formal validation 重新完整运行 P5。旧 subject 的 calibration、run、score 或 verification 均不得复用；仍只允许一个有效正式 panel attempt和一次仅限 pre-acceptance schema/provenance failure 的整组 replacement。
 
+### Judge v3 holdout-envelope invalidation checkpoint（2026-08-25）
+
+- subject `835d73b3146727e2af929dbb18c191362e60876c` 已加入 blind Judge 的确定性 envelope builder，并以 `491 passed, 1 skipped`、Ruff `PASS` 形成 clean、pushed checkpoint；但 fresh subject-bound holdout calibration 复现了同一层级的 envelope 缺陷：三个 Judge 均完成 30 条评分，却各自输出了未授权的嵌套 `run_binding`/自定义 provenance 字段，并在 score 中加入 holdout schema 不接受的字段；
+- holdout 聚合在接受任何 round 前统一以 `JUDGE_HOLDOUT_ROUND_INVALID` fail-closed，没有 panel 或质量结论。并行 non-blind runner 在新缺陷确认后主动中断，未写正式 manifest；该 subject 的 calibration、部分 run 与后续证据全部为 `INVALID_EVIDENCE`，不得修补后冒充有效结果；
+- 恢复范围继续严格限制为 evidence envelope：将“Judge 只输出 score + 自身执行 provenance，程序从匿名 bundle 绑定 repo/hash/slot”同样应用到 sealed holdout。程序必须拒绝 score payload 注入 binding、仓库内/相对/链接 artifact 路径和 holdout item coverage 不完整；不修改 public/expected holdout、rubric、protocol、评分、门槛、产品、variant、blind 数据或 oracle；
+- 新 builder 形成 clean、pushed subject 后，fresh holdout calibration 与 P5 正式链必须再次从头运行；`835d73b...` 的任何 calibration score、dataset receipt 或部分 non-blind 输出均不得复用。
+
 ## Outcome
 
 在同一个 commit、RunSpec、数据合同和 oracle 下，对以下三个候选系统完成可重放的 360 例对照评测，并得到一份能解释“为什么保留或改变默认方案”的消融结论：

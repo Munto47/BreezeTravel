@@ -11,7 +11,9 @@ from evals.trip_check_v1.p5.formal_receipts_v5 import RepoBindingV5
 from evals.trip_check_v1.p5.judge_holdout_v2 import (
     P5JudgeHoldoutErrorV2,
     aggregate_judge_holdout_rounds_v2,
+    build_judge_holdout_round_report_v2,
     export_judge_holdout_bundles_v2,
+    require_external_judge_holdout_artifact_path_v2,
     validate_judge_holdout_panel_v2,
 )
 
@@ -206,6 +208,109 @@ def _round_paths(
         _write_json(path, report)
         paths.append(path)
     return paths
+
+
+def _score_payload(report: dict[str, object], version: str) -> dict[str, object]:
+    fields = {
+        "round_index",
+        "evaluator_id",
+        "agent_task_id",
+        "agent_id",
+        "context_id",
+        "model_id",
+        "started_at",
+        "ended_at",
+        "api_usage_count",
+        "tool_usage_count",
+        "automated_proxy_judge",
+        "human_calibration_performed",
+        "expected_scores_observed",
+        "peer_round_output_observed",
+        "scores",
+    }
+    return {
+        "schema_version": (
+            f"trip-check-p5-judge-holdout-score-payload-{version}"
+        ),
+        **{key: report[key] for key in fields},
+    }
+
+
+def test_holdout_round_builder_binds_envelope_from_bundle(tmp_path: Path) -> None:
+    repo, _, _, receipt, round_dirs = _export(tmp_path, version="v3")
+    source_path = _round_paths(tmp_path, receipt)[0]
+    source_report = json.loads(source_path.read_text(encoding="utf-8"))
+    payload_path = tmp_path / "payload" / "round-1.json"
+    _write_json(payload_path, _score_payload(source_report, "v3"))
+
+    report = build_judge_holdout_round_report_v2(
+        repo_root=repo,
+        bundle_path=round_dirs[0] / "judge_holdout_round_1.v3.json",
+        score_payload_path=payload_path,
+    )
+
+    assert report == source_report
+
+
+def test_holdout_round_builder_rejects_binding_in_score_payload(
+    tmp_path: Path,
+) -> None:
+    repo, _, _, receipt, round_dirs = _export(tmp_path, version="v3")
+    source_report = json.loads(
+        _round_paths(tmp_path, receipt)[0].read_text(encoding="utf-8")
+    )
+    payload = _score_payload(source_report, "v3")
+    payload["subject_commit"] = "0" * 40
+    payload_path = tmp_path / "payload" / "round-1.json"
+    _write_json(payload_path, payload)
+
+    with pytest.raises(
+        P5JudgeHoldoutErrorV2,
+        match="JUDGE_HOLDOUT_SCORE_PAYLOAD_CONTRACT_INVALID",
+    ):
+        build_judge_holdout_round_report_v2(
+            repo_root=repo,
+            bundle_path=round_dirs[0] / "judge_holdout_round_1.v3.json",
+            score_payload_path=payload_path,
+        )
+
+
+def test_holdout_round_builder_paths_must_be_absolute_and_external(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for path in (Path("relative.json"), repo / "inside.json"):
+        with pytest.raises(
+            P5JudgeHoldoutErrorV2,
+            match="JUDGE_HOLDOUT_ARTIFACT_PATH_INVALID",
+        ):
+            require_external_judge_holdout_artifact_path_v2(
+                repo_root=repo, path=path
+            )
+
+
+def test_holdout_round_builder_rejects_bundle_coverage_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo, _, _, receipt, round_dirs = _export(tmp_path, version="v3")
+    source_report = json.loads(
+        _round_paths(tmp_path, receipt)[0].read_text(encoding="utf-8")
+    )
+    payload = _score_payload(source_report, "v3")
+    payload["scores"][0]["holdout_item_id"] = "unbound-item"
+    payload_path = tmp_path / "payload" / "round-1.json"
+    _write_json(payload_path, payload)
+
+    with pytest.raises(
+        P5JudgeHoldoutErrorV2,
+        match="JUDGE_HOLDOUT_SCORE_BUNDLE_COVERAGE_INVALID",
+    ):
+        build_judge_holdout_round_report_v2(
+            repo_root=repo,
+            bundle_path=round_dirs[0] / "judge_holdout_round_1.v3.json",
+            score_payload_path=payload_path,
+        )
 
 
 def test_holdout_export_aggregate_and_validate_pass(tmp_path: Path) -> None:
