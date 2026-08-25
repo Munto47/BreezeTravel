@@ -549,13 +549,15 @@ def validate_release_artifact_files(
             raise P6ContractError("P6_RELEASE_ARTIFACT_UNREADABLE") from exc
         if size_bytes != artifact["size_bytes"] or file_sha256(artifact_path) != artifact["sha256"]:
             raise P6ContractError("P6_RELEASE_ARTIFACT_READBACK_MISMATCH")
-        receipt = _load_json(artifact_path, "P6_RELEASE_RECEIPT_INVALID")
         logical_name = artifact["logical_name"]
         if logical_name in {f"{gate}_receipt" for gate in RELEASE_GATE_KEYS}:
+            receipt = _load_json(artifact_path, "P6_RELEASE_RECEIPT_INVALID")
             _validate_gate_receipt_payload(receipt, logical_name[:2], spec)
         elif logical_name == "public_health_receipt":
+            receipt = _load_json(artifact_path, "P6_RELEASE_RECEIPT_INVALID")
             _validate_public_receipt_payload(receipt, "health", spec)
         elif logical_name == "public_e2e_receipt":
+            receipt = _load_json(artifact_path, "P6_RELEASE_RECEIPT_INVALID")
             _validate_public_receipt_payload(receipt, "e2e", spec)
 
 
