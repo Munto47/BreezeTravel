@@ -520,6 +520,17 @@ def _validate_public_receipt_payload(
         raise P6ContractError("P6_PUBLIC_RECEIPT_BINDING_INVALID")
 
 
+def validate_public_receipt(
+    value: Mapping[str, Any],
+    kind: Literal["health", "e2e"],
+    candidate_run_spec: Mapping[str, Any],
+) -> dict[str, Any]:
+    receipt = dict(value)
+    spec = validate_candidate_run_spec(candidate_run_spec)
+    _validate_public_receipt_payload(receipt, kind, spec)
+    return receipt
+
+
 def validate_release_artifact_files(
     payload: Mapping[str, Any],
     artifact_root: Path,

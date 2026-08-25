@@ -388,6 +388,9 @@ async def test_real_ocr_runner_scores_atomic_fields_and_deletes_all_work_copies(
     assert receipt["metrics"]["key_field_count"] == 180
     assert receipt["metrics"]["low_confidence_confirmation_recall"] == 1.0
     assert receipt["metrics"]["work_copy_cleanup_count"] == 60
+    assert receipt["metrics"]["ocr_image_sample_count"] == 60
+    assert receipt["metrics"]["three_image_batch_sample_count"] == 20
+    assert receipt["metrics"]["three_image_ocr_p95_ms"] >= 0
     assert list(paths["work_root"].rglob("*")) == []
     assert not (paths["output_root"] / "g1_receipt.json").exists()
     output_text = (paths["output_root"] / "g1_contract_fixture.json").read_text(

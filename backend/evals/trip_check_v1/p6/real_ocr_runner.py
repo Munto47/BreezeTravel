@@ -15,6 +15,7 @@ from collections import Counter
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Protocol
 
 import numpy as np
@@ -224,6 +225,14 @@ def _validate_annotation(value: dict[str, Any], item: Mapping[str, Any]) -> list
 
 def _normalized(value: str) -> str:
     return re.sub(r"[^0-9a-z\u4e00-\u9fff]", "", value.casefold())
+
+
+def _p95(values: list[float]) -> float:
+    if not values:
+        raise P6ContractError("P6_REAL_OCR_PERFORMANCE_SAMPLES_MISSING")
+    ordered = sorted(values)
+    index = max(0, math.ceil(len(ordered) * 0.95) - 1)
+    return ordered[index]
 
 
 def _lines_for_box(lines: list[Any], box: list[int]) -> list[Any]:
@@ -655,6 +664,7 @@ async def run_real_authorized_ocr(
     tp = fp = fn = must_confirm = confirm_caught = 0
     exact_match_count = field_count = 0
     cleanup_count = 0
+    ocr_durations_ms: list[float] = []
     source_hashes: set[str] = set()
     source_paths: list[Path] = []
     perceptual_hashes: list[int] = []
@@ -715,7 +725,9 @@ async def run_real_authorized_ocr(
             shutil.copyfile(source, staged)
             try:
                 try:
+                    started = perf_counter()
                     lines = await current_engine.recognize(staged)
+                    ocr_durations_ms.append((perf_counter() - started) * 1000)
                 except Exception as exc:
                     raise P6ContractError("P6_REAL_OCR_ENGINE_FAILED") from exc
             finally:
@@ -775,6 +787,12 @@ async def run_real_authorized_ocr(
     else:
         database_leaks = database_columns_scanned = 0
     metrics_work_files = sum(1 for path in work_resolved.rglob("*") if path.is_file())
+    if len(ocr_durations_ms) != 60:
+        raise P6ContractError("P6_REAL_OCR_PERFORMANCE_SAMPLES_MISSING")
+    three_image_durations_ms = [
+        sum(ocr_durations_ms[index:index + 3])
+        for index in range(0, len(ocr_durations_ms), 3)
+    ]
     metrics = {
         "authorized_source_count": 60,
         "beijing_count": 20,
@@ -814,6 +832,10 @@ async def run_real_authorized_ocr(
         "cleanup_failure_count": int(
             cleanup_count != 60 or metrics_work_files != 0
         ),
+        "ocr_image_sample_count": len(ocr_durations_ms),
+        "ocr_image_p95_ms": round(_p95(ocr_durations_ms), 3),
+        "three_image_batch_sample_count": len(three_image_durations_ms),
+        "three_image_ocr_p95_ms": round(_p95(three_image_durations_ms), 3),
     }
     for field_type in sorted(FIELD_TYPES):
         metrics[f"{field_type.lower()}_field_count"] = field_type_counts[field_type]

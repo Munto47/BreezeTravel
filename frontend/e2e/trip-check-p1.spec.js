@@ -420,7 +420,10 @@ async function installControlledApi(page, scenario) {
     const json = value => route.fulfill({ status: 200, contentType: 'application/json', json: value });
 
     if (method === 'POST' && path === '/api/trip-workspaces') return json(scenario.workspace);
-    if (method === 'POST' && path.endsWith('/imports')) return json(scenario.itineraryImport);
+    if (method === 'POST' && path.endsWith('/imports')) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      return json(scenario.itineraryImport);
+    }
     if (method === 'GET' && path.endsWith('/resume')) return json(resumePayload(scenario, state));
     if (method === 'POST' && /\/trip-briefs\/\d+\/confirm$/.test(path)) {
       state.briefConfirmed = true;
@@ -521,16 +524,25 @@ for (const [index, [city, names]] of [
   ['杭州', ['西湖风景名胜区', '灵隐寺', '雷峰塔']],
 ].entries()) {
   const providerFailureSuffix = index === 1 ? '，局部 Provider 失败保留成功事实' : '';
-  test(`${city}文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复${providerFailureSuffix}`, async ({ page }) => {
+  test(`${city}文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复${providerFailureSuffix}`, async ({ page }, testInfo) => {
     const scenario = buildScenario(city, index, names);
     await authenticate(page);
     const state = await installControlledApi(page, scenario);
 
     await page.goto(`/import?roomId=${scenario.workspace.room_id}&city=${encodeURIComponent(city)}&days=2`);
     await page.locator('textarea').fill(scenario.rawText);
-    await page.getByRole('button', { name: '解析并生成 POI 候选' }).click();
+    const importStarted = performance.now();
+    const importButton = page.getByRole('button', { name: '解析并生成 POI 候选' });
+    await importButton.click();
+    await expect(importButton.locator('.animate-spin')).toBeVisible();
+    const firstFeedbackMs = performance.now() - importStarted;
 
     await expect(page.getByRole('heading', { name: '确认 TripBrief' })).toBeVisible();
+    const parseConfirmationMs = performance.now() - importStarted;
+    testInfo.annotations.push(
+      { type: 'p6_first_feedback_ms', description: firstFeedbackMs.toFixed(3) },
+      { type: 'p6_parse_confirmation_ui_ms', description: parseConfirmationMs.toFixed(3) },
+    );
     await expect(page.getByText(`${city} · 2026-10-01 至 2026-10-02`)).toBeVisible();
     await page.getByRole('button', { name: '确认当前 Brief' }).click();
     await expect(page.getByText('已确认', { exact: true })).toBeVisible();
