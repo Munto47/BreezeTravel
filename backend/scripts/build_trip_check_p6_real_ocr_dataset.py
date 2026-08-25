@@ -30,7 +30,9 @@ from evals.trip_check_v1.p6.real_ocr_runner import (  # noqa: E402
 
 
 DATASET_ID = "real_authorized_ocr_v1"
-ANNOTATION_VERSION = "wikivoyage-dom-atomic-v1"
+ANNOTATION_VERSION = "wikivoyage-rendered-line-v1"
+DOM_ANNOTATION_SCHEMA = "trip-check-p6-rendered-line-annotation-source-v1"
+ANNOTATION_UNIT = "BROWSER_RENDERED_TEXT_LINE"
 CITY_CONFIG = {
     "beijing": {"label": "北京", "page_title": "北京"},
     "shanghai": {"label": "上海", "page_title": "上海"},
@@ -134,14 +136,26 @@ def _validate_boxes(fields: list[dict[str, Any]], item_id: str) -> None:
     for field in fields:
         box = field.get("box")
         text = field.get("text")
+        normalized_text = (
+            re.sub(r"[^0-9a-z\u4e00-\u9fff]", "", text.casefold())
+            if isinstance(text, str)
+            else ""
+        )
         if not (
-            isinstance(box, list)
+            set(field) == {"box", "color", "field_type", "font_size", "text"}
+            and isinstance(box, list)
             and len(box) == 4
             and all(isinstance(part, int) for part in box)
             and 0 <= box[0] < box[2] <= IMAGE_WIDTH
             and 0 <= box[1] < box[3] <= IMAGE_HEIGHT
             and isinstance(text, str)
             and 2 <= len(text.strip()) <= 48
+            and len(normalized_text) >= 2
+            and field.get("color") == "rendered-line"
+            and isinstance(field.get("font_size"), (int, float))
+            and 10 <= field["font_size"] <= 48
+            and 12 <= box[3] - box[1] <= 48
+            and box[2] - box[0] <= max(80, len(normalized_text) * 32)
             and field.get("field_type")
             in {"CITY", "DATE", "HOTEL", "PLACE", "ROUTE_MODE", "TIME"}
         ):
@@ -297,6 +311,11 @@ def prepare(args: argparse.Namespace) -> int:
     output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=False)
     dom = _load_json(args.dom_annotations)
+    if not (
+        dom.get("schema_version") == DOM_ANNOTATION_SCHEMA
+        and dom.get("annotation_unit") == ANNOTATION_UNIT
+    ):
+        raise DatasetBuildError("rendered-line DOM annotation binding is invalid")
     viewport = dom.get("viewport")
     if viewport != {
         "dom_width": 1280,
@@ -368,6 +387,7 @@ def prepare(args: argparse.Namespace) -> int:
                 "item_id": item_id,
                 "source_image_sha256": source_sha,
                 "annotation_version": ANNOTATION_VERSION,
+                "annotation_unit": ANNOTATION_UNIT,
                 "coverage_class": "SELECTED_KEY_FIELDS",
                 "ignored_boxes": [[0, 0, IMAGE_WIDTH, IMAGE_HEIGHT]],
                 "fields": [

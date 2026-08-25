@@ -16,6 +16,7 @@ from evals.trip_check_v1.p6.contracts_v1 import (
 )
 from evals.trip_check_v1.p6.real_ocr_runner import (
     FORMAL_OCR_CONFIG_SHA256,
+    _validate_annotation,
     run_real_authorized_ocr,
 )
 
@@ -168,6 +169,7 @@ def _fixture(tmp_path: Path) -> dict[str, Path]:
                 "item_id": item_id,
                 "source_image_sha256": source_sha,
                 "annotation_version": "annotations-v1",
+                "annotation_unit": "BROWSER_RENDERED_TEXT_LINE",
                 "coverage_class": "SELECTED_KEY_FIELDS",
                 "ignored_boxes": [[0, 0, 1265, 712]],
                 "fields": [
@@ -329,6 +331,38 @@ class SubstringEngine(PassingEngine):
         lines = await super().recognize(image_path)
         lines[0].text = f"prefix-{lines[0].text}-suffix"
         return lines
+
+
+def test_real_ocr_annotation_rejects_non_rendered_line_unit():
+    item = {
+        "item_id": "ocr-beijing-01",
+        "source_image_sha256": "a" * 64,
+        "annotation_version": "annotations-v1",
+    }
+    annotation = {
+        "schema_version": "trip-check-p6-ocr-annotation-v1",
+        "item_id": item["item_id"],
+        "source_image_sha256": item["source_image_sha256"],
+        "annotation_version": item["annotation_version"],
+        "annotation_unit": "DOM_PARENT_ELEMENT",
+        "coverage_class": "SELECTED_KEY_FIELDS",
+        "ignored_boxes": [[0, 0, 1265, 712]],
+        "fields": [
+            {
+                "field_id": f"field-{index}",
+                "field_type": "PLACE",
+                "expected_text": f"place-{index}",
+                "must_confirm": False,
+                "box": [index * 110, 0, index * 110 + 100, 100],
+            }
+            for index in range(3)
+        ],
+    }
+    annotation["annotation_hash"] = digest(annotation)
+
+    with pytest.raises(P6ContractError) as raised:
+        _validate_annotation(annotation, item)
+    assert raised.value.reason_code == "P6_REAL_OCR_ANNOTATION_INVALID"
 
 
 @pytest.mark.asyncio

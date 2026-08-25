@@ -165,13 +165,14 @@ def _validate_authorization(
 def _validate_annotation(value: dict[str, Any], item: Mapping[str, Any]) -> list[dict[str, Any]]:
     required = {
         "schema_version", "item_id", "source_image_sha256", "annotation_version",
-        "coverage_class", "ignored_boxes", "fields", "annotation_hash",
+        "annotation_unit", "coverage_class", "ignored_boxes", "fields", "annotation_hash",
     }
     if set(value) != required or not (
         value["schema_version"] == "trip-check-p6-ocr-annotation-v1"
         and value["item_id"] == item["item_id"]
         and value["source_image_sha256"] == item["source_image_sha256"]
         and value["annotation_version"] == item["annotation_version"]
+        and value["annotation_unit"] == "BROWSER_RENDERED_TEXT_LINE"
         and value["coverage_class"] == "SELECTED_KEY_FIELDS"
         and value["ignored_boxes"] == [[0, 0, 1265, 712]]
         and isinstance(value["fields"], list)
