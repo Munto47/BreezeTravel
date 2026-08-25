@@ -400,6 +400,13 @@ async def run_performance_evidence(
         g1_metrics.get("ocr_image_sample_count") != 60
         or g1_metrics.get("three_image_batch_sample_count") != 20
         or not isinstance(g1_metrics.get("three_image_ocr_p95_ms"), (int, float))
+        or g1_metrics.get("gpu_runtime_binding_count") != 1
+        or g1_metrics.get("gpu_device_count", 0) < 1
+        or (
+            g1_metrics.get("gpu_compute_capability_major", 0),
+            g1_metrics.get("gpu_compute_capability_minor", 0),
+        ) < (8, 9)
+        or g1_metrics.get("cudnn_version_warning_disclosed_count") != 1
     ):
         raise P6ContractError("P6_G5_PERFORMANCE_OCR_METRICS_INVALID")
     internal = await scenario_runner(spec["subject_commit"])

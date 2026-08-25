@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from evals.trip_check_v1.p6.contracts_v1 import P5_GATE_MANIFEST_HASH, digest
+from evals.trip_check_v1.p6.contracts_v1 import P5_GATE_MANIFEST_HASH, P6ContractError, digest
 from evals.trip_check_v1.p6.local_browser_runner import EXPECTED_TITLES
 from evals.trip_check_v1.p6.performance_runner import INTERNAL_SAMPLE_COUNT, run_performance_evidence
 
@@ -99,7 +99,13 @@ def _browser_report(tmp_path: Path) -> Path:
     return path
 
 
-def _g1_receipt(tmp_path: Path, spec: dict[str, object], *, ocr_p95_ms: float) -> Path:
+def _g1_receipt(
+    tmp_path: Path,
+    spec: dict[str, object],
+    *,
+    ocr_p95_ms: float,
+    gpu_bound: bool = True,
+) -> Path:
     metrics = {
         "authorized_source_count": 60,
         "beijing_count": 20,
@@ -113,6 +119,11 @@ def _g1_receipt(tmp_path: Path, spec: dict[str, object], *, ocr_p95_ms: float) -
         "ocr_image_sample_count": 60,
         "three_image_batch_sample_count": 20,
         "three_image_ocr_p95_ms": ocr_p95_ms,
+        "gpu_runtime_binding_count": int(gpu_bound),
+        "gpu_device_count": int(gpu_bound),
+        "gpu_compute_capability_major": 8,
+        "gpu_compute_capability_minor": 9,
+        "cudnn_version_warning_disclosed_count": int(gpu_bound),
     }
     receipt: dict[str, object] = {
         "schema_version": "trip-check-p6-gate-receipt-v1",
@@ -176,3 +187,23 @@ async def test_performance_runner_records_ocr_threshold_failure(tmp_path: Path) 
     assert receipt["status"] == "FAIL"
     assert receipt["threshold_failures"] == ["three_image_ocr_p95_ms"]
     assert receipt["performance_threshold_failure_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_performance_runner_rejects_unbound_cpu_ocr_metrics(tmp_path: Path) -> None:
+    spec_path, spec = _spec(tmp_path)
+    with pytest.raises(P6ContractError, match="P6_G5_PERFORMANCE_OCR_METRICS_INVALID"):
+        await run_performance_evidence(
+            candidate_run_spec_path=spec_path,
+            browser_report_path=_browser_report(tmp_path),
+            g1_receipt_path=_g1_receipt(
+                tmp_path,
+                spec,
+                ocr_p95_ms=2_000,
+                gpu_bound=False,
+            ),
+            output_root=tmp_path / "performance",
+            repo_root=Path(__file__).parents[2],
+            formal=False,
+            scenario_runner=_scenario(250),
+        )

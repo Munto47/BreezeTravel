@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import importlib.metadata
 import json
 import math
 import re
@@ -22,6 +23,7 @@ import numpy as np
 from PIL import Image
 
 from app.importing.screenshots import PaddleOcrEngine
+from evals.trip_check_v1.p6.candidate_spec_builder import paddle_model_artifacts
 from evals.trip_check_v1.p6.contracts_v1 import (
     P6ContractError,
     digest,
@@ -41,6 +43,13 @@ OCR_CONFIRMATION_THRESHOLD = 0.85
 FORMAL_OCR_CONFIG = {
     "engine": "paddleocr",
     "engine_version": "3.7.0",
+    "model": "PP-OCRv6_medium_det+PP-OCRv6_medium_rec",
+    "paddle_distribution": "paddlepaddle-gpu",
+    "paddle_version": "3.3.1",
+    "device_profile": "cuda_compute_capability_8_9_or_newer",
+    "cuda_compiled_version": "12.6",
+    "cudnn_compiled_version": "9.9.0",
+    "cudnn_runtime_package_version": "9.5.1.17",
     "lang": "ch",
     "confirmation_threshold": OCR_CONFIRMATION_THRESHOLD,
     "use_doc_orientation_classify": False,
@@ -50,6 +59,47 @@ FORMAL_OCR_CONFIG = {
 }
 FORMAL_OCR_CONFIG_SHA256 = digest(FORMAL_OCR_CONFIG)
 FIELD_TYPES = {"CITY", "DATE", "HOTEL", "PLACE", "ROUTE_MODE", "TIME"}
+
+
+def _formal_gpu_runtime() -> dict[str, Any]:
+    try:
+        import paddle
+
+        paddle_version = importlib.metadata.version("paddlepaddle-gpu")
+        cudnn_package_version = importlib.metadata.version("nvidia-cudnn-cu12")
+        capability = tuple(paddle.device.cuda.get_device_capability())
+        device_name = paddle.device.cuda.get_device_name()
+        value = {
+            "paddle_distribution": "paddlepaddle-gpu",
+            "paddle_version": paddle_version,
+            "device": paddle.device.get_device(),
+            "device_name": device_name,
+            "device_name_sha256": hashlib.sha256(device_name.encode("utf-8")).hexdigest(),
+            "device_count": paddle.device.cuda.device_count(),
+            "compute_capability": list(capability),
+            "cuda_compiled_version": paddle.version.cuda(),
+            "cudnn_compiled_version": paddle.version.cudnn(),
+            "cudnn_runtime_package_version": cudnn_package_version,
+            "compiled_with_cuda": paddle.device.is_compiled_with_cuda(),
+            "official_cu126_dependency_stack": True,
+            "cudnn_version_warning_disclosed": True,
+        }
+    except (ImportError, importlib.metadata.PackageNotFoundError, RuntimeError) as exc:
+        raise P6ContractError("P6_REAL_OCR_GPU_RUNTIME_INVALID") from exc
+    if not (
+        value["paddle_version"] == FORMAL_OCR_CONFIG["paddle_version"]
+        and value["device"].startswith("gpu:")
+        and value["device_count"] >= 1
+        and capability >= (8, 9)
+        and value["cuda_compiled_version"] == FORMAL_OCR_CONFIG["cuda_compiled_version"]
+        and value["cudnn_compiled_version"] == FORMAL_OCR_CONFIG["cudnn_compiled_version"]
+        and value["cudnn_runtime_package_version"]
+        == FORMAL_OCR_CONFIG["cudnn_runtime_package_version"]
+        and value["compiled_with_cuda"] is True
+    ):
+        raise P6ContractError("P6_REAL_OCR_GPU_RUNTIME_INVALID")
+    value["runtime_hash"] = digest(value)
+    return value
 
 
 def _load_json(path: Path, reason: str) -> dict[str, Any]:
@@ -543,6 +593,19 @@ async def run_real_authorized_ocr(
         expected_output = (Path(spec["evidence_root"]) / "g1").resolve(strict=False)
         if output_root.resolve(strict=False) != expected_output:
             raise P6ContractError("P6_REAL_OCR_OUTPUT_ROOT_INVALID")
+        model_manifest_path = candidate_run_spec_path.parent / "model_manifest.json"
+        if file_sha256(model_manifest_path) != spec["bindings"]["model_manifest_sha256"]:
+            raise P6ContractError("P6_REAL_OCR_MODEL_MANIFEST_BINDING_INVALID")
+        model_manifest = _load_json(
+            model_manifest_path, "P6_REAL_OCR_MODEL_MANIFEST_BINDING_INVALID"
+        )
+        if not (
+            model_manifest.get("schema_version")
+            == "trip-check-p6-model-input-manifest-v1"
+            and model_manifest.get("ocr_config_sha256") == FORMAL_OCR_CONFIG_SHA256
+            and model_manifest.get("model_artifacts") == paddle_model_artifacts()
+        ):
+            raise P6ContractError("P6_REAL_OCR_MODEL_MANIFEST_BINDING_INVALID")
     repo_resolved = repo_root.resolve(strict=True)
     output_resolved = output_root.resolve(strict=False)
     work_resolved = work_root.resolve(strict=False)
@@ -649,6 +712,7 @@ async def run_real_authorized_ocr(
         source_receipt_sha256s,
         authorization_receipt_sha256s,
     )
+    runtime_readback = _formal_gpu_runtime() if formal else None
     current_engine = engine or PaddleOcrEngine(
         confirmation_threshold=OCR_CONFIRMATION_THRESHOLD
     )
@@ -836,6 +900,15 @@ async def run_real_authorized_ocr(
         "ocr_image_p95_ms": round(_p95(ocr_durations_ms), 3),
         "three_image_batch_sample_count": len(three_image_durations_ms),
         "three_image_ocr_p95_ms": round(_p95(three_image_durations_ms), 3),
+        "gpu_runtime_binding_count": int(runtime_readback is not None),
+        "gpu_device_count": int(runtime_readback["device_count"]) if runtime_readback else 0,
+        "gpu_compute_capability_major": (
+            int(runtime_readback["compute_capability"][0]) if runtime_readback else 0
+        ),
+        "gpu_compute_capability_minor": (
+            int(runtime_readback["compute_capability"][1]) if runtime_readback else 0
+        ),
+        "cudnn_version_warning_disclosed_count": int(runtime_readback is not None),
     }
     for field_type in sorted(FIELD_TYPES):
         metrics[f"{field_type.lower()}_field_count"] = field_type_counts[field_type]
@@ -893,6 +966,27 @@ async def run_real_authorized_ocr(
         return diagnostic
     receipt = validate_gate_receipt(receipt, "g1", spec)
     output_resolved.mkdir(parents=True, exist_ok=True)
+    runtime_artifact = {
+        "schema_version": "trip-check-p6-g1-ocr-runtime-readback-v1",
+        "subject_commit": spec["subject_commit"],
+        "run_spec_hash": spec["run_spec_hash"],
+        "ocr_config_sha256": FORMAL_OCR_CONFIG_SHA256,
+        "runtime": runtime_readback,
+        "public_cpu_ocr_12s_performance_proven": False,
+    }
+    runtime_artifact["readback_hash"] = digest(runtime_artifact)
+    try:
+        with (output_resolved / "g1_runtime_readback.json").open(
+            "x", encoding="utf-8"
+        ) as stream:
+            stream.write(json.dumps(
+                runtime_artifact,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ))
+    except OSError as exc:
+        raise P6ContractError("P6_REAL_OCR_RUNTIME_READBACK_WRITE_FAILED") from exc
     receipt_path = output_resolved / "g1_receipt.json"
     try:
         with receipt_path.open("x", encoding="utf-8") as stream:

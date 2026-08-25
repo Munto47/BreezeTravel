@@ -28,11 +28,13 @@ from evals.trip_check_v1.p6.contracts_v1 import (
     validate_release_artifact_files,
     validate_release_manifest,
 )
+from evals.trip_check_v1.p6.real_ocr_runner import FORMAL_OCR_CONFIG_SHA256
 
 
 KNOWN_GAPS = [
     "HUMAN_EVIDENCE_NOT_RUN",
     "CONTROLLED_SNAPSHOT_PUBLIC_ONLY",
+    "PUBLIC_CPU_OCR_12S_PERFORMANCE_NOT_PROVEN",
     "NO_MAIN_MERGE",
     "NO_PRODUCTION_RELEASE",
     "NO_H1_HUMAN_TESTING",
@@ -68,6 +70,46 @@ def _write_json_new(path: Path, value: dict[str, Any]) -> None:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _validate_g1_runtime_readback(path: Path, spec: dict[str, Any]) -> None:
+    value = _load_json(path, "P6_G6_G1_RUNTIME_READBACK_INVALID")
+    runtime = value.get("runtime")
+    capability = runtime.get("compute_capability") if isinstance(runtime, dict) else None
+    if not (
+        set(value) == {
+            "schema_version",
+            "subject_commit",
+            "run_spec_hash",
+            "ocr_config_sha256",
+            "runtime",
+            "public_cpu_ocr_12s_performance_proven",
+            "readback_hash",
+        }
+        and value["schema_version"] == "trip-check-p6-g1-ocr-runtime-readback-v1"
+        and value["subject_commit"] == spec["subject_commit"]
+        and value["run_spec_hash"] == spec["run_spec_hash"]
+        and value["ocr_config_sha256"] == FORMAL_OCR_CONFIG_SHA256
+        and value["public_cpu_ocr_12s_performance_proven"] is False
+        and value["readback_hash"]
+        == digest({key: item for key, item in value.items() if key != "readback_hash"})
+        and isinstance(runtime, dict)
+        and runtime.get("paddle_distribution") == "paddlepaddle-gpu"
+        and runtime.get("paddle_version") == "3.3.1"
+        and str(runtime.get("device", "")).startswith("gpu:")
+        and isinstance(capability, list)
+        and len(capability) == 2
+        and all(isinstance(item, int) for item in capability)
+        and tuple(capability) >= (8, 9)
+        and runtime.get("cuda_compiled_version") == "12.6"
+        and runtime.get("cudnn_compiled_version") == "9.9.0"
+        and runtime.get("cudnn_runtime_package_version") == "9.5.1.17"
+        and runtime.get("official_cu126_dependency_stack") is True
+        and runtime.get("cudnn_version_warning_disclosed") is True
+        and runtime.get("runtime_hash")
+        == digest({key: item for key, item in runtime.items() if key != "runtime_hash"})
+    ):
+        raise P6ContractError("P6_G6_G1_RUNTIME_READBACK_INVALID")
 
 
 def _artifact(root: Path, logical_name: str, relative: str, evidence_level: str) -> dict[str, Any]:
@@ -131,6 +173,14 @@ def build_pre_gate_release(
         )
         gate_receipts[gate] = receipt
         artifacts.append(_artifact(evidence_root, f"{gate}_receipt", relative, GATE_EVIDENCE_LEVELS[gate]))
+    g1_runtime_relative = "g1/g1_runtime_readback.json"
+    _validate_g1_runtime_readback(evidence_root / g1_runtime_relative, spec)
+    artifacts.append(_artifact(
+        evidence_root,
+        "g1_ocr_runtime_readback",
+        g1_runtime_relative,
+        "real_authorized_ocr",
+    ))
     public_health_relative = "g5/public/public_health_receipt.json"
     public_e2e_relative = "g5/public/public_e2e_receipt.json"
     validate_public_receipt(

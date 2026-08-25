@@ -1,0 +1,66 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+jsonschema>=4.23,<5
+
+# 数据库
+asyncpg==0.29.0
+sqlalchemy[asyncio]==2.0.35
+pgvector==0.3.5
+psycopg[binary]==3.3.4
+langgraph-checkpoint-postgres==3.1.0
+
+# LangChain & LangGraph
+langchain-anthropic==1.4.3
+langchain-openai==1.2.2
+langchain-core==1.4.0
+langgraph==1.2.2
+
+# Trip Check P2：手工领域 Trace（PostgreSQL 仍是业务事实源）
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+
+# Trip Check P3：本地截图 OCR（Paddle CPU/GPU runtime 由 profile 选择）
+paddleocr==3.7.0
+
+# OpenAI SDK（RAG Embedding + LLM 调用，兼容 DeepSeek / SiliconFlow）
+openai==2.38.0
+
+# 路线优化算法
+numpy==2.3.5
+scikit-learn==1.8.0
+
+# 和风天气 JWT 认证（EdDSA/Ed25519）
+PyJWT[crypto]==2.13.0
+cryptography==46.0.7
+
+# HTTP 客户端
+aiohttp==3.10.10
+httpx==0.27.2
+
+# 缓存
+redis==5.1.1
+
+# 工具
+python-dotenv==1.0.1
+nanoid==2.0.0
+
+# Sprint 4：用户体系 / 短信
+alibabacloud-dysmsapi20170525==4.5.1
+jinja2==3.1.6
+
+# Advanced RAG：BM25 中文分词
+jieba==0.42.1
+
+# Cross-Encoder 重排序（可选，运行时按需 import，缺失自动降级）
+# 本地开发/GPU 机器安装：pip install FlagEmbedding
+# Docker 轻量部署不安装，RERANKER_ENABLED 默认 false
+# FlagEmbedding>=1.2.5
+
+# RAG 评估（仅开发环境，非运行时依赖）
+# pip install ragas datasets
+
+# MCP Server（Sprint 5 新增）
+# Anthropic Model Context Protocol，将工具暴露为标准 MCP Server
+mcp==1.12.4

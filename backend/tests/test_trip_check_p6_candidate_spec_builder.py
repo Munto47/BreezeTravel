@@ -13,6 +13,14 @@ from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest
 from tests.test_trip_check_p6_real_ocr_runner import SUBJECT, _fixture
 
 
+MODEL_ARTIFACTS = [{
+    "model_name": "PP-OCRv6_medium_det",
+    "filename": "inference.pdiparams",
+    "sha256": "1" * 64,
+    "bytes": 1,
+}]
+
+
 def _p5_manifest(tmp_path: Path) -> Path:
     path = tmp_path / "p5-gate-manifest.json"
     path.write_bytes(b"p5-gate-fixture")
@@ -47,6 +55,7 @@ def test_candidate_spec_builder_binds_all_inputs(tmp_path: Path) -> None:
         formal=False,
         subject_commit=SUBJECT,
         p5_validator=lambda path: None,
+        model_artifact_builder=lambda: MODEL_ARTIFACTS,
     )
     assert spec["subject_commit"] == SUBJECT
     assert len(spec["bindings"]["ocr_dataset_manifest_sha256"]) == 64
@@ -73,4 +82,5 @@ def test_candidate_spec_builder_rejects_dataset_subject_mismatch(tmp_path: Path)
             formal=False,
             subject_commit="b" * 40,
             p5_validator=lambda path: None,
+            model_artifact_builder=lambda: MODEL_ARTIFACTS,
         )

@@ -83,6 +83,32 @@ def _fixture(tmp_path: Path, monkeypatch) -> tuple[Path, Path]:  # noqa: ANN001
         }
         receipt["receipt_hash"] = digest(receipt)
         _write(evidence_root / gate / f"{gate}_receipt.json", receipt)
+    runtime = {
+        "paddle_distribution": "paddlepaddle-gpu",
+        "paddle_version": "3.3.1",
+        "device": "gpu:0",
+        "device_name": "fixture-gpu",
+        "device_name_sha256": "f" * 64,
+        "device_count": 1,
+        "compute_capability": [8, 9],
+        "cuda_compiled_version": "12.6",
+        "cudnn_compiled_version": "9.9.0",
+        "cudnn_runtime_package_version": "9.5.1.17",
+        "compiled_with_cuda": True,
+        "official_cu126_dependency_stack": True,
+        "cudnn_version_warning_disclosed": True,
+    }
+    runtime["runtime_hash"] = digest(runtime)
+    runtime_readback = {
+        "schema_version": "trip-check-p6-g1-ocr-runtime-readback-v1",
+        "subject_commit": spec["subject_commit"],
+        "run_spec_hash": spec["run_spec_hash"],
+        "ocr_config_sha256": release_runner.FORMAL_OCR_CONFIG_SHA256,
+        "runtime": runtime,
+        "public_cpu_ocr_12s_performance_proven": False,
+    }
+    runtime_readback["readback_hash"] = digest(runtime_readback)
+    _write(evidence_root / "g1" / "g1_runtime_readback.json", runtime_readback)
     for kind, target, name in (
         ("health", "/health", "public_health_receipt.json"),
         ("e2e", "trip_check_full_chain", "public_e2e_receipt.json"),
@@ -118,7 +144,7 @@ def test_release_runner_builds_bound_manifest_and_pre_gate_evidence(tmp_path: Pa
         released_at="2026-08-26T00:01:00Z",
     )
     assert manifest["read_only_mount"] is True
-    assert len(manifest["artifacts"]) == 14
+    assert len(manifest["artifacts"]) == 15
     assert evidence["gates"]["g6"] == "NOT_RUN"
     assert evidence["candidate_gate_status"] == "NOT_RUN"
     assert (evidence_root / "g6" / "release_manifest.json").is_file()

@@ -35,6 +35,8 @@ CONFIG_PATHS = (
 MODEL_PATHS = (
     "backend/app/importing/screenshots.py",
     "backend/evals/trip_check_v1/p6/real_ocr_runner.py",
+    "backend/requirements-base.txt",
+    "backend/requirements-ocr-gpu-cu126.txt",
     "backend/requirements.txt",
 )
 RULE_ROOTS = (
@@ -45,6 +47,10 @@ RULE_FILES = (
     "backend/app/trip_check/advice.py",
     "backend/app/trip_check/provider_integrity.py",
 )
+PADDLE_MODEL_FILES = {
+    "PP-OCRv6_medium_det": ("inference.json", "inference.pdiparams", "inference.yml"),
+    "PP-OCRv6_medium_rec": ("inference.json", "inference.pdiparams", "inference.yml"),
+}
 
 
 def _load_json(path: Path, reason: str) -> dict[str, Any]:
@@ -122,6 +128,29 @@ def _rule_paths(repo_root: Path) -> list[str]:
     return sorted(set(values))
 
 
+def paddle_model_artifacts() -> list[dict[str, Any]]:
+    root = Path.home() / ".paddlex" / "official_models"
+    entries: list[dict[str, Any]] = []
+    try:
+        for model_name, filenames in sorted(PADDLE_MODEL_FILES.items()):
+            model_root = root / model_name
+            actual_names = {path.name for path in model_root.iterdir() if path.is_file()}
+            if actual_names != set(filenames):
+                raise OSError("model artifact set mismatch")
+            for filename in filenames:
+                path = model_root / filename
+                raw = path.read_bytes()
+                entries.append({
+                    "model_name": model_name,
+                    "filename": filename,
+                    "sha256": hashlib.sha256(raw).hexdigest(),
+                    "bytes": len(raw),
+                })
+    except OSError as exc:
+        raise P6ContractError("P6_CANDIDATE_MODEL_ARTIFACT_INVALID") from exc
+    return entries
+
+
 def _manifest(schema_version: str, entries: list[dict[str, Any]], **extra: Any) -> dict[str, Any]:
     if not entries:
         raise P6ContractError("P6_CANDIDATE_INPUT_MANIFEST_EMPTY")
@@ -144,6 +173,7 @@ def build_candidate_run_spec(
     snapshot_hasher: Callable[[], str] = provider_snapshot_sha256,
     migration_builder: Callable[[Path], tuple[str, dict[str, Any]]] = migration_fingerprint,
     p5_validator: Callable[[Path], None] = _validate_p5_gate_manifest,
+    model_artifact_builder: Callable[[], list[dict[str, Any]]] = paddle_model_artifacts,
 ) -> tuple[dict[str, Any], Path]:
     repo_resolved = repo_root.resolve(strict=True)
     output_resolved = output_root.resolve(strict=False)
@@ -160,6 +190,7 @@ def build_candidate_run_spec(
             or snapshot_hasher is not provider_snapshot_sha256
             or migration_builder is not migration_fingerprint
             or p5_validator is not _validate_p5_gate_manifest
+            or model_artifact_builder is not paddle_model_artifacts
         ):
             raise P6ContractError("P6_CANDIDATE_INPUT_FORMAL_INJECTION_FORBIDDEN")
         repo_state = read_actual_repo_state(repo_resolved)
@@ -211,6 +242,10 @@ def build_candidate_run_spec(
         ocr_engine="paddleocr",
         ocr_engine_version="3.7.0",
         ocr_config_sha256=dataset["ocr_config_sha256"],
+        model_artifacts=model_artifact_builder(),
+        local_ocr_performance_profile="paddlepaddle-gpu-3.3.1-cu126",
+        public_ocr_runtime_profile="paddlepaddle-cpu-3.3.1",
+        public_cpu_ocr_12s_performance_proven=False,
     )
     rule_manifest = _manifest(
         "trip-check-p6-rule-input-manifest-v1",
