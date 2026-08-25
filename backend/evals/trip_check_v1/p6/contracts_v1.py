@@ -30,6 +30,7 @@ SCHEMA_PATHS = {
     "public_receipt": P6_ROOT / "public_receipt_v1.schema.json",
     "candidate_gate_receipt": P6_ROOT / "candidate_gate_receipt_v1.schema.json",
     "final_disclosure_readback": P6_ROOT / "final_disclosure_readback_v1.schema.json",
+    "real_ocr_dataset_manifest": P6_ROOT / "real_ocr_dataset_manifest_v1.schema.json",
 }
 P5_GATE_MANIFEST_HASH = "9a3338a565522577f4514f628b225ad165e87085a992185bd2650b197011187a"
 GATE_KEYS = tuple(f"g{index}" for index in range(7))
@@ -222,6 +223,69 @@ def validate_candidate_run_spec(value: Mapping[str, Any]) -> dict[str, Any]:
     normalized = PureWindowsPath(evidence_root)
     if normalized.parent != P6_EVIDENCE_ROOT_PARENT or normalized.name != payload["subject_commit"]:
         raise P6ContractError("P6_EVIDENCE_ROOT_SUBJECT_BINDING_INVALID")
+    return payload
+
+
+def validate_real_ocr_dataset_manifest(value: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(value)
+    _validate_schema(
+        payload,
+        "real_ocr_dataset_manifest",
+        "P6_REAL_OCR_DATASET_SCHEMA_INVALID",
+    )
+    _validate_self_hash(
+        payload,
+        "manifest_hash",
+        "P6_REAL_OCR_DATASET_HASH_MISMATCH",
+    )
+    items = payload["items"]
+    city_counts = {city: 0 for city in ("北京", "上海", "杭州")}
+    unique_fields = (
+        "item_id",
+        "source_image_sha256",
+        "source_group_hash",
+        "perceptual_hash",
+    )
+    for field in unique_fields:
+        values = [item[field] for item in items]
+        if len(values) != len(set(values)):
+            raise P6ContractError("P6_REAL_OCR_DATASET_DUPLICATE")
+    fingerprints = [int(item["perceptual_hash"], 16) for item in items]
+    for index, fingerprint in enumerate(fingerprints):
+        if any((fingerprint ^ other).bit_count() <= 4 for other in fingerprints[index + 1 :]):
+            raise P6ContractError("P6_REAL_OCR_DATASET_NEAR_DUPLICATE")
+    for item in items:
+        city_counts[item["city"]] += 1
+        expected_authorization = {
+            "RIGHTSHOLDER_OWNED": "RIGHTSHOLDER_ATTESTATION",
+            "OPEN_LICENSE": "OPEN_LICENSE",
+            "PUBLIC_DOMAIN": "PUBLIC_DOMAIN",
+            "EXPLICIT_PERMISSION": "WRITTEN_PERMISSION",
+        }[item["provenance_class"]]
+        if item["authorization_basis"] != expected_authorization:
+            raise P6ContractError("P6_REAL_OCR_AUTHORIZATION_BINDING_INVALID")
+        if item["annotation_version"] != payload["annotation_version"]:
+            raise P6ContractError("P6_REAL_OCR_ANNOTATION_BINDING_INVALID")
+        if item["ocr_config_sha256"] != payload["ocr_config_sha256"]:
+            raise P6ContractError("P6_REAL_OCR_CONFIG_BINDING_INVALID")
+    if city_counts != {"北京": 20, "上海": 20, "杭州": 20}:
+        raise P6ContractError("P6_REAL_OCR_CITY_DISTRIBUTION_INVALID")
+    return payload
+
+
+def validate_real_ocr_dataset_binding(
+    value: Mapping[str, Any],
+    candidate_run_spec: Mapping[str, Any],
+    manifest_file_sha256: str,
+) -> dict[str, Any]:
+    payload = validate_real_ocr_dataset_manifest(value)
+    spec = validate_candidate_run_spec(candidate_run_spec)
+    if (
+        re.fullmatch(r"[0-9a-f]{64}", manifest_file_sha256) is None
+        or payload["subject_commit"] != spec["subject_commit"]
+        or manifest_file_sha256 != spec["bindings"]["ocr_dataset_manifest_sha256"]
+    ):
+        raise P6ContractError("P6_REAL_OCR_RUN_SPEC_BINDING_INVALID")
     return payload
 
 
@@ -688,6 +752,7 @@ def load_and_validate(
         "candidate_gate_readback",
         "candidate_gate_receipt",
         "final_disclosure_readback",
+        "real_ocr_dataset_manifest",
     ],
 ) -> dict[str, Any]:
     payload = _load_json(path, "P6_CONTRACT_ARTIFACT_INVALID")
@@ -698,5 +763,6 @@ def load_and_validate(
         "candidate_gate_readback": validate_candidate_gate_readback,
         "candidate_gate_receipt": validate_candidate_gate_receipt,
         "final_disclosure_readback": validate_final_disclosure_readback,
+        "real_ocr_dataset_manifest": validate_real_ocr_dataset_manifest,
     }
     return validators[kind](payload)

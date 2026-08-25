@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-real-ocr-dataset-manifest-v1.json",
+  "title": "Trip Check P6 sanitized real authorized OCR dataset manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "dataset_id", "dataset_version", "subject_commit",
+    "annotation_version", "ocr_config_sha256", "cross_split_check_receipt_sha256",
+    "cross_split_exact_duplicate_count", "cross_split_near_duplicate_count",
+    "item_count", "city_counts", "items", "created_at", "manifest_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-real-ocr-dataset-manifest-v1"},
+    "dataset_id": {"const": "real_authorized_ocr_v1"},
+    "dataset_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "annotation_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
+    "ocr_config_sha256": {"$ref": "#/$defs/sha256"},
+    "cross_split_check_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "cross_split_exact_duplicate_count": {"const": 0},
+    "cross_split_near_duplicate_count": {"const": 0},
+    "item_count": {"const": 60},
+    "city_counts": {"const": {"北京": 20, "上海": 20, "杭州": 20}},
+    "items": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 60,
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "manifest_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id", "city", "split", "source_type", "source_image_sha256",
+        "source_group_hash", "perceptual_hash", "provenance_class",
+        "authorization_receipt_id", "authorization_basis", "authorization_scope",
+        "authorization_receipt_sha256", "annotation_version", "annotation_sha256",
+        "ocr_engine", "ocr_engine_version", "ocr_config_sha256", "cleanup_policy"
+      ],
+      "properties": {
+        "item_id": {"type": "string", "pattern": "^ocr-[a-z0-9-]{4,48}$"},
+        "city": {"enum": ["北京", "上海", "杭州"]},
+        "split": {"const": "candidate_eval"},
+        "source_type": {"const": "REAL_SCREENSHOT"},
+        "source_image_sha256": {"$ref": "#/$defs/sha256"},
+        "source_group_hash": {"$ref": "#/$defs/sha256"},
+        "perceptual_hash": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "provenance_class": {
+          "enum": ["RIGHTSHOLDER_OWNED", "OPEN_LICENSE", "PUBLIC_DOMAIN", "EXPLICIT_PERMISSION"]
+        },
+        "authorization_receipt_id": {"type": "string", "pattern": "^auth-[a-z0-9-]{4,48}$"},
+        "authorization_basis": {
+          "enum": ["RIGHTSHOLDER_ATTESTATION", "OPEN_LICENSE", "PUBLIC_DOMAIN", "WRITTEN_PERMISSION"]
+        },
+        "authorization_scope": {"const": "OCR_CANDIDATE_EVALUATION"},
+        "authorization_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "annotation_version": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"},
+        "annotation_sha256": {"$ref": "#/$defs/sha256"},
+        "ocr_engine": {"const": "paddleocr"},
+        "ocr_engine_version": {"const": "3.7.0"},
+        "ocr_config_sha256": {"$ref": "#/$defs/sha256"},
+        "cleanup_policy": {"const": "WORK_COPY_TERMINAL_DELETE"}
+      }
+    }
+  }
+}

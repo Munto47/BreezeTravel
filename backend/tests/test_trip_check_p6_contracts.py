@@ -375,7 +375,7 @@ def test_schemas_and_valid_contracts_pass():
     assert set(validate_schemas()) == {
         "candidate_run_spec", "candidate_evidence", "release_manifest", "candidate_gate_readback",
         "gate_receipt", "public_receipt", "candidate_gate_receipt",
-        "final_disclosure_readback",
+        "final_disclosure_readback", "real_ocr_dataset_manifest",
     }
     assert validate_candidate_run_spec(_run_spec())["provider_live_matrix"]["max_calls"] == 18
     assert validate_candidate_evidence(_evidence())["human_evidence"] is False
