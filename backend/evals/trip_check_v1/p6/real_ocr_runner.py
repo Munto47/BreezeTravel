@@ -11,6 +11,7 @@ import re
 import shutil
 import subprocess
 import uuid
+from collections import Counter
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
@@ -652,6 +653,7 @@ async def run_real_authorized_ocr(
     run_dir = work_resolved / f"g1-{uuid.uuid4().hex}"
     run_dir.mkdir(parents=True, exist_ok=False)
     tp = fp = fn = must_confirm = confirm_caught = 0
+    exact_match_count = field_count = 0
     cleanup_count = 0
     source_hashes: set[str] = set()
     source_paths: list[Path] = []
@@ -724,13 +726,16 @@ async def run_real_authorized_ocr(
                 expected = _normalized(field["expected_text"])
                 predicted = _normalized("".join(line.text for line in selected_lines))
                 matched = bool(predicted) and expected == predicted
+                expected_counts = Counter(expected)
+                predicted_counts = Counter(predicted)
+                tp += sum((expected_counts & predicted_counts).values())
+                fp += sum((predicted_counts - expected_counts).values())
+                fn += sum((expected_counts - predicted_counts).values())
+                field_count += 1
+                exact_match_count += int(matched)
                 field_type_counts[field["field_type"]] += 1
                 if matched:
-                    tp += 1
                     field_type_matches[field["field_type"]] += 1
-                else:
-                    fn += 1
-                    fp += int(bool(predicted))
                 low_confidence = any(
                     float(line.confidence) < OCR_CONFIRMATION_THRESHOLD
                     for line in selected_lines
@@ -783,6 +788,12 @@ async def run_real_authorized_ocr(
         "key_field_false_positive": fp,
         "key_field_false_negative": fn,
         "key_field_micro_f1": round(micro_f1, 6),
+        "key_field_exact_match_count": exact_match_count,
+        "key_field_count": field_count,
+        "key_field_exact_recall": round(
+            exact_match_count / field_count if field_count else 0.0,
+            6,
+        ),
         "must_confirm_field_count": must_confirm,
         "low_confidence_confirmation_recall": round(confirmation_recall, 6),
         "must_confirm_recall": round(confirmation_recall, 6),

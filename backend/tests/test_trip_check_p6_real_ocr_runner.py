@@ -335,6 +335,14 @@ class SubstringEngine(PassingEngine):
         return lines
 
 
+class SingleFieldTypoEngine(PassingEngine):
+    async def recognize(self, image_path: Path):
+        lines = await super().recognize(image_path)
+        if image_path.stem == "ocr-item-00":
+            lines[0].text = f"{lines[0].text[:-1]}x"
+        return lines
+
+
 def test_real_ocr_annotation_rejects_non_rendered_line_unit():
     item = {
         "item_id": "ocr-beijing-01",
@@ -375,6 +383,9 @@ async def test_real_ocr_runner_scores_atomic_fields_and_deletes_all_work_copies(
 
     assert receipt["status"] == "CONTRACT_FIXTURE_PASS"
     assert receipt["metrics"]["key_field_micro_f1"] == 1.0
+    assert receipt["metrics"]["key_field_exact_recall"] == 1.0
+    assert receipt["metrics"]["key_field_exact_match_count"] == 180
+    assert receipt["metrics"]["key_field_count"] == 180
     assert receipt["metrics"]["low_confidence_confirmation_recall"] == 1.0
     assert receipt["metrics"]["work_copy_cleanup_count"] == 60
     assert list(paths["work_root"].rglob("*")) == []
@@ -409,6 +420,25 @@ async def test_real_ocr_runner_rejects_substring_only_field_matches(tmp_path):
     )
     assert receipt["status"] == "CONTRACT_FIXTURE_REJECT"
     assert receipt["reason_code"] == "P6_REAL_OCR_GATE_FAILED"
+
+
+@pytest.mark.asyncio
+async def test_real_ocr_runner_uses_character_micro_f1_and_discloses_exact_recall(
+    tmp_path,
+):
+    paths = _fixture(tmp_path)
+
+    receipt = await run_real_authorized_ocr(
+        **paths,
+        engine=SingleFieldTypoEngine(),
+        formal=False,
+    )
+
+    assert receipt["status"] == "CONTRACT_FIXTURE_PASS"
+    assert receipt["metrics"]["key_field_micro_f1"] > 0.99
+    assert receipt["metrics"]["key_field_exact_match_count"] == 179
+    assert receipt["metrics"]["key_field_count"] == 180
+    assert receipt["metrics"]["key_field_exact_recall"] == pytest.approx(179 / 180, abs=1e-6)
 
 
 @pytest.mark.asyncio
