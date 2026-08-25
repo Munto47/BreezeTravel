@@ -3,21 +3,21 @@
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
-  Compass, ArrowLeft, Building2, Globe, Server, Mail,
-  Sparkles, Users, Route, MessageSquare, ShieldCheck, Cpu, Database,
-  MapPin, Calendar,
+  Compass, ArrowLeft, Building2, Globe, Mail,
+  Sparkles, Route, MessageSquare, ShieldCheck, Cpu, Database,
+  MapPin, FileCheck2, RefreshCw,
 } from 'lucide-react'
 
 export default function AboutPage() {
   const router = useRouter()
 
   const techStack = [
-    { icon: <Cpu className="w-3.5 h-3.5" />, label: 'LangGraph 多 Agent 编排' },
-    { icon: <Database className="w-3.5 h-3.5" />, label: 'pgvector + BM25 混合检索' },
-    { icon: <Sparkles className="w-3.5 h-3.5" />, label: 'DeepSeek + Qwen2.5 LoRA' },
-    { icon: <Users className="w-3.5 h-3.5" />, label: 'Yjs CRDT 实时协同' },
-    { icon: <Route className="w-3.5 h-3.5" />, label: 'K-Means + TSP 排线' },
-    { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'LangSmith 全链路追踪' },
+    { icon: <Cpu className="w-3.5 h-3.5" />, label: 'FastAPI 模块化单体' },
+    { icon: <Database className="w-3.5 h-3.5" />, label: 'PostgreSQL 权威状态' },
+    { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'AuditEngine 确定性核验' },
+    { icon: <FileCheck2 className="w-3.5 h-3.5" />, label: 'Provider Evidence Receipt' },
+    { icon: <RefreshCw className="w-3.5 h-3.5" />, label: 'Revision 与完整 postcheck' },
+    { icon: <Route className="w-3.5 h-3.5" />, label: '地点与路线证据绑定' },
   ]
 
   return (
@@ -58,7 +58,7 @@ export default function AboutPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">BreezeTravel · 微风出行</h1>
           <p className="text-sm text-gray-500 leading-relaxed max-w-md mx-auto">
-            面向小团体出行的 AI 智能旅行协同规划平台，让出行规划从「群聊吵半天」变成「一个画板上即时协同看见结果」。
+            帮助 2～5 人核验北京、上海或杭州的 2～5 天单城市行程，发现地点、时间、交通、住宿、天气与风险问题。
           </p>
         </div>
 
@@ -67,9 +67,9 @@ export default function AboutPage() {
           <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">产品特性</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { icon: <Sparkles className="w-4 h-4 text-coral-500" />, title: 'AI 智能推荐', desc: '游记 RAG + 实时 POI' },
-              { icon: <Users className="w-4 h-4 text-blue-500" />, title: '多人实时协同', desc: 'Yjs CRDT 500ms 同步' },
-              { icon: <Route className="w-4 h-4 text-emerald-500" />, title: '最优路线排程', desc: 'K-Means 聚类 + TSP' },
+              { icon: <FileCheck2 className="w-4 h-4 text-coral-500" />, title: '有依据地核验', desc: '事实、Finding 与回执分开保存' },
+              { icon: <ShieldCheck className="w-4 h-4 text-blue-500" />, title: '不确定性确认', desc: 'UNKNOWN 不伪装成通过' },
+              { icon: <RefreshCw className="w-4 h-4 text-emerald-500" />, title: '修改可追溯', desc: '新 Revision 后完整 postcheck' },
             ].map(f => (
               <div key={f.title} className="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
                 <div className="flex items-center gap-1.5 mb-1">{f.icon}<span className="text-sm font-semibold text-gray-800">{f.title}</span></div>
@@ -103,9 +103,6 @@ export default function AboutPage() {
                 www.breezetravel.cn
               </a>
             </InfoRow>
-            <InfoRow icon={<Server className="w-4 h-4 text-purple-500" />} label="服务器 IP">
-              <code className="text-gray-700 font-mono text-sm bg-gray-50 px-2 py-0.5 rounded border border-gray-100">218.244.142.170</code>
-            </InfoRow>
             <InfoRow icon={<ShieldCheck className="w-4 h-4 text-amber-500" />} label="ICP 备案号">
               <a
                 href="https://beian.miit.gov.cn/"
@@ -115,9 +112,6 @@ export default function AboutPage() {
               >
                 赣ICP备2026008973号-2
               </a>
-            </InfoRow>
-            <InfoRow icon={<Calendar className="w-4 h-4 text-amber-500" />} label="上线时间">
-              <span className="text-gray-700">2026 年 5 月</span>
             </InfoRow>
           </div>
         </div>
@@ -148,8 +142,8 @@ export default function AboutPage() {
             </p>
             <p>
               产品名称 <span className="font-mono text-coral-500">BreezeTravel</span>、域名
-              <span className="font-mono text-coral-500"> www.breezetravel.cn</span>、相关源代码、UI 设计、
-              算法模型微调成果（含 Qwen2.5-1.5B LoRA Router 分类器）均为本工作室合法持有的知识产权资产。
+              <span className="font-mono text-coral-500"> www.breezetravel.cn</span>、相关源代码与 UI 设计
+              均为本工作室依法持有或在相应许可范围内使用的资产。
             </p>
             <p>
               未经书面授权，任何单位或个人不得复制、分发、二次开发或用于商业用途。
@@ -184,7 +178,7 @@ export default function AboutPage() {
           </a>
         </p>
         <p className="text-center text-[10px] text-gray-300">
-          本页面所有信息真实有效，可用于核实本项目的开发主体身份。
+          当前能力与证据等级以只读候选 evidence 中的披露为准；自动验证不等于真人证据。
         </p>
       </motion.div>
     </div>

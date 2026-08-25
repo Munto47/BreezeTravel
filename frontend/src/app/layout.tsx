@@ -3,8 +3,8 @@ import './globals.css'
 import ToastContainer from '@/components/ui/ToastContainer'
 
 export const metadata: Metadata = {
-  title: 'BreezeTravel — AI 智能旅行协同规划',
-  description: '基于 LangGraph 多 Agent + Yjs 实时协同的旅行规划工具',
+  title: 'BreezeTravel — 行程查',
+  description: '核验北京、上海或杭州的单城市行程，并给出有依据的风险与调整建议',
 }
 
 export default function RootLayout({

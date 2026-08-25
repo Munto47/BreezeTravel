@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Compass, Users, Copy, Check, ArrowRight, Sparkles,
-  Map, Route, History, LogOut, MapPin, Calendar,
+  Map, History, LogOut, MapPin, Calendar,
   FileText, ShieldCheck,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
@@ -15,8 +15,7 @@ import { api } from '@/lib/api'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
-// 当前主推城市均有已入库、可追溯的深度游记语料。
-const DEEP_CITY_CARDS: { city: string; emoji: string; gradient: string; tagline: string }[] = [
+const SUPPORTED_CITY_CARDS: { city: string; emoji: string; gradient: string; tagline: string }[] = [
   { city: '北京', emoji: '🏛️', gradient: 'from-amber-400 via-orange-400 to-rose-500',  tagline: '故宫 · 胡同 · 烤鸭' },
   { city: '上海', emoji: '🌃', gradient: 'from-sky-400 via-indigo-400 to-violet-500',  tagline: '外滩 · 梧桐 · 小资' },
   { city: '杭州', emoji: '🌊', gradient: 'from-cyan-400 via-blue-400 to-indigo-500',   tagline: '西湖 · 宋韵 · 茶香' },
@@ -39,14 +38,13 @@ export default function HomePage() {
   const [joinRoomId, setJoinRoomId] = useState('')
   const [city, setCity] = useState('北京')
   const [days, setDays] = useState(3)
-  const [entryMode, setEntryMode] = useState<'import' | 'template' | 'legacy'>('import')
   const [cityPickerOpen, setCityPickerOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [createdRoomInfo, setCreatedRoomInfo] = useState<{ roomId: string; threadId: string } | null>(null)
   const [copyTip, setCopyTip] = useState(false)
   const [recentRooms, setRecentRooms] = useState<RoomRecord[]>([])
-  // 主界面仅开放三座已有深度语料和专项评测的城市。
+  // 当前固定范围只支持北京、上海、杭州。
   const pickCity = (c: string) => {
     setCity(c)
     setCityPickerOpen(false)
@@ -101,20 +99,8 @@ export default function HomePage() {
 
   const handleEnterRoom = () => {
     if (!createdRoomInfo) return
-    if (entryMode === 'import') {
-      router.push(
-        `/import?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
-      )
-      return
-    }
-    if (entryMode === 'template') {
-      router.push(
-        `/templates?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
-      )
-      return
-    }
     router.push(
-      `/room/${createdRoomInfo.roomId}?threadId=${createdRoomInfo.threadId}&city=${encodeURIComponent(city)}&days=${days}`
+      `/import?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
     )
   }
 
@@ -214,7 +200,7 @@ export default function HomePage() {
           {[
             { icon: <FileText className="w-3 h-3" />, label: '导入已有行程' },
             { icon: <ShieldCheck className="w-3 h-3" />, label: '证据化排雷' },
-            { icon: <Users className="w-3 h-3" />, label: '好友实时协同' },
+            { icon: <Users className="w-3 h-3" />, label: '2～5 人约束核验' },
           ].map((f) => (
             <span
               key={f.label}
@@ -225,62 +211,28 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* P0-6 深度推荐城市图卡（无需外部图片资源，emoji + 渐变） */}
-        {!createdRoomInfo && (
-          <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white/70 p-2 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setEntryMode('import')}
-              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'import' ? 'bg-coral-500 text-white' : 'bg-gray-50 text-gray-600'}`}
-            >
-              <FileText className="mb-2 h-4 w-4" />
-              <p className="text-xs font-semibold">导入已有行程</p>
-              <p className={`mt-1 text-[10px] ${entryMode === 'import' ? 'text-white/75' : 'text-gray-400'}`}>消歧、排雷、Repair</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setEntryMode('template')}
-              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'template' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}
-            >
-              <Route className="mb-2 h-4 w-4" />
-              <p className="text-xs font-semibold">路线骨架</p>
-              <p className={`mt-1 text-[10px] ${entryMode === 'template' ? 'text-white/75' : 'text-gray-400'}`}>模型生成 DRAFT</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setEntryMode('legacy')}
-              className={`rounded-xl p-3 text-left transition-colors ${entryMode === 'legacy' ? 'bg-slate-800 text-white' : 'bg-gray-50 text-gray-600'}`}
-            >
-              <Route className="mb-2 h-4 w-4" />
-              <p className="text-xs font-semibold">现有协同选点</p>
-              <p className={`mt-1 text-[10px] ${entryMode === 'legacy' ? 'text-white/75' : 'text-gray-400'}`}>实时协同选点</p>
-            </button>
-          </div>
-        )}
-
         {!createdRoomInfo && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2 px-1">
               <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-coral-400" /> 深度推荐城市
+                <Sparkles className="w-3 h-3 text-coral-400" /> 当前支持城市
               </p>
-              <span className="text-[10px] text-gray-400">点击直接出发 →</span>
+              <span className="text-[10px] text-gray-400">固定范围，不扩城</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {DEEP_CITY_CARDS.map((c) => {
+              {SUPPORTED_CITY_CARDS.map((c) => {
                 const selected = city === c.city
                 return (
                   <button
                     key={c.city}
                     type="button"
                     onClick={() => pickCity(c.city)}
-                    title={`${c.city} · 深度推荐：含游记知识库`}
+                    title={`${c.city} · 当前支持的单城市行程核验`}
                     className={`group relative aspect-square rounded-xl overflow-hidden text-left bg-gradient-to-br ${c.gradient} shadow-glass transition-transform hover:scale-[1.03] active:scale-[0.97] ${selected ? 'ring-2 ring-coral-500 ring-offset-1' : ''}`}
                   >
                     {/* 内层蒙层增加文字对比 */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0" />
-                    {/* 深度推荐角标 */}
-                    <span className="absolute top-1.5 right-1.5 text-[9px] bg-white/85 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium leading-none">🧠</span>
+                    <span className="absolute top-1.5 right-1.5 text-[9px] bg-white/85 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium leading-none">核验</span>
                     {/* emoji */}
                     <span className="absolute top-1/4 left-1/2 -translate-x-1/2 text-3xl select-none drop-shadow-sm">{c.emoji}</span>
                     {/* 文字 */}
@@ -330,7 +282,7 @@ export default function HomePage() {
                     {city} · {days} 天 · 分享房间号邀请朋友
                   </p>
                   <button data-testid="enter-created-room" onClick={handleEnterRoom} className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2">
-                    进入规划房间 <ArrowRight className="w-4 h-4" />
+                    导入行程并核验 <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </motion.div>
@@ -348,10 +300,10 @@ export default function HomePage() {
                       >
                         {city}
                       </button>
-                      {/* 主界面只展示三座已完成深度语料与专项评测的城市。 */}
+                      {/* 主界面只展示当前固定范围内的三座城市。 */}
                       {cityPickerOpen && (
                         <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
-                          {DEEP_CITY_CARDS.map(c => (
+                          {SUPPORTED_CITY_CARDS.map(c => (
                             <button
                               key={c.city}
                               type="button"
@@ -359,7 +311,7 @@ export default function HomePage() {
                               className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${city === c.city ? 'bg-coral-50 font-medium text-coral-600' : 'text-gray-700 hover:bg-gray-50'}`}
                             >
                               <span>{c.emoji} {c.city}</span>
-                              <span className="text-[10px] text-emerald-600">🧠 深度推荐</span>
+                              <span className="text-[10px] text-emerald-600">行程核验</span>
                             </button>
                           ))}
                             </div>
@@ -382,7 +334,7 @@ export default function HomePage() {
                   {isCreating ? (
                     <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />创建中...</>
                   ) : (
-                    <>{entryMode === 'import' ? '创建并导入行程' : entryMode === 'template' ? '创建并选择路线骨架' : '创建协同房间'} <ArrowRight className="w-4 h-4" /></>
+                    <>创建并导入行程 <ArrowRight className="w-4 h-4" /></>
                   )}
                 </button>
               </motion.div>
@@ -418,7 +370,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 近期规划房间（最多 3 个） */}
+        {/* 最近的行程工作区（最多 3 个） */}
         {recentRooms.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -426,7 +378,7 @@ export default function HomePage() {
             transition={{ delay: 0.2 }}
           >
             <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">继续上次规划</p>
+              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">继续上次核验</p>
               <button onClick={() => router.push('/history')} className="text-[11px] text-coral-500 hover:underline">
                 查看全部
               </button>
@@ -464,7 +416,7 @@ export default function HomePage() {
 
         <div className="text-center mt-6 space-y-1">
           <p className="text-[11px] text-gray-300">
-            BreezeTravel · AI 旅行协同规划
+            BreezeTravel · 行程查
           </p>
           <button
             onClick={() => router.push('/about')}

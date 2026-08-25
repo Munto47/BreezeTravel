@@ -245,7 +245,7 @@ export default function LoginPage() {
             <Compass className="w-7 h-7" strokeWidth={2} />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">BreezeTravel</h1>
-          <p className="text-gray-400 text-sm mt-1">AI 驱动 · 多人协同 · 智能排线</p>
+          <p className="text-gray-400 text-sm mt-1">导入行程 · 事实核验 · 有依据的调整建议</p>
         </div>
 
         {/* 步骤进度条 */}
@@ -504,7 +504,7 @@ export default function LoginPage() {
                   onClick={handleSetNickname}
                   className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
                 >
-                  开始规划 <ArrowRight className="w-4 h-4" />
+                  开始核验 <ArrowRight className="w-4 h-4" />
                 </button>
               </motion.div>
             )}
