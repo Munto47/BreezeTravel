@@ -368,9 +368,11 @@ async def test_real_ocr_runner_deletes_work_copy_when_engine_fails(tmp_path):
 async def test_real_ocr_runner_rejects_substring_only_field_matches(tmp_path):
     paths = _fixture(tmp_path)
 
-    with pytest.raises(P6ContractError) as raised:
-        await run_real_authorized_ocr(**paths, engine=SubstringEngine(), formal=False)
-    assert raised.value.reason_code == "P6_REAL_OCR_GATE_FAILED"
+    receipt = await run_real_authorized_ocr(
+        **paths, engine=SubstringEngine(), formal=False
+    )
+    assert receipt["status"] == "CONTRACT_FIXTURE_REJECT"
+    assert receipt["reason_code"] == "P6_REAL_OCR_GATE_FAILED"
 
 
 @pytest.mark.asyncio
@@ -380,14 +382,14 @@ async def test_real_ocr_runner_rejects_application_log_image_leak(tmp_path):
     log_root.mkdir()
     (log_root / "app.log").write_text("payload=data:image/png;base64,iVBORw0KGgo", encoding="utf-8")
 
-    with pytest.raises(P6ContractError) as raised:
-        await run_real_authorized_ocr(
-            **paths,
-            engine=PassingEngine(),
-            formal=False,
-            log_roots=[log_root],
-        )
-    assert raised.value.reason_code == "P6_REAL_OCR_GATE_FAILED"
+    receipt = await run_real_authorized_ocr(
+        **paths,
+        engine=PassingEngine(),
+        formal=False,
+        log_roots=[log_root],
+    )
+    assert receipt["status"] == "CONTRACT_FIXTURE_REJECT"
+    assert receipt["reason_code"] == "P6_REAL_OCR_GATE_FAILED"
     assert not (paths["output_root"] / "g1_receipt.json").exists()
 
 

@@ -805,7 +805,7 @@ async def run_real_authorized_ocr(
     for field_type in sorted(FIELD_TYPES):
         metrics[f"{field_type.lower()}_field_count"] = field_type_counts[field_type]
         metrics[f"{field_type.lower()}_field_match_count"] = field_type_matches[field_type]
-    if not (
+    gate_passed = (
         micro_f1 >= 0.95
         and confirmation_recall == 1.0
         and must_confirm > 0
@@ -814,7 +814,8 @@ async def run_real_authorized_ocr(
         and git_leaks == 0
         and log_leaks == 0
         and database_leaks == 0
-    ):
+    )
+    if not gate_passed and formal:
         raise P6ContractError("P6_REAL_OCR_GATE_FAILED")
     receipt = {
         "schema_version": "trip-check-p6-gate-receipt-v1",
@@ -832,11 +833,15 @@ async def run_real_authorized_ocr(
     if not formal:
         diagnostic = {
             "schema_version": "trip-check-p6-g1-contract-fixture-v1",
-            "status": "CONTRACT_FIXTURE_PASS",
+            "status": (
+                "CONTRACT_FIXTURE_PASS" if gate_passed else "CONTRACT_FIXTURE_REJECT"
+            ),
             "subject_commit": spec["subject_commit"],
             "run_spec_hash": spec["run_spec_hash"],
             "metrics": metrics,
         }
+        if not gate_passed:
+            diagnostic["reason_code"] = "P6_REAL_OCR_GATE_FAILED"
         diagnostic["diagnostic_hash"] = digest(diagnostic)
         fixture_path = output_resolved / "g1_contract_fixture.json"
         output_resolved.mkdir(parents=True, exist_ok=True)
