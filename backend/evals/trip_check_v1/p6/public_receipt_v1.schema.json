@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-public-receipt-v1.json",
+  "title": "Trip Check P6 public health or E2E receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kind", "subject_commit", "run_spec_hash", "base_url", "target", "http_status", "response_body_sha256", "status", "controlled_snapshot", "observed_at", "receipt_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-public-receipt-v1"},
+    "kind": {"enum": ["health", "e2e"]},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "run_spec_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "base_url": {"type": "string", "minLength": 9},
+    "target": {"type": "string", "minLength": 2},
+    "http_status": {"const": 200},
+    "response_body_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"const": "PASS"},
+    "controlled_snapshot": {"const": true},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "receipt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

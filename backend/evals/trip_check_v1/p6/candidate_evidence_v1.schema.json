@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-candidate-evidence-v1.json",
+  "title": "Trip Check P6 public candidate evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject_commit", "scope", "gates", "evidence_levels", "public_e2e", "known_gaps", "human_evidence", "manifest_hash", "candidate_gate_receipt_hash", "candidate_gate_status"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-candidate-evidence-v1"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "gates": {"$ref": "#/$defs/gates"},
+    "evidence_levels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["controlled_snapshot", "live_provider", "public_e2e", "automated_proxy_judge"],
+      "properties": {
+        "controlled_snapshot": {"$ref": "#/$defs/status"},
+        "live_provider": {"$ref": "#/$defs/status"},
+        "public_e2e": {"$ref": "#/$defs/status"},
+        "automated_proxy_judge": {"$ref": "#/$defs/status"}
+      }
+    },
+    "public_e2e": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "url", "health_status", "controlled_snapshot"],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "url": {"type": "string", "minLength": 9},
+        "health_status": {"$ref": "#/$defs/status"},
+        "controlled_snapshot": {"const": true}
+      }
+    },
+    "known_gaps": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"}},
+    "human_evidence": {"const": false},
+    "manifest_hash": {"$ref": "#/$defs/sha256"},
+    "candidate_gate_receipt_hash": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "candidate_gate_status": {"$ref": "#/$defs/status"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["PASS", "NOT_RUN", "BLOCKED", "BLOCKED_EXTERNAL", "FAIL", "REJECT"]},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cities", "single_city", "group_size", "trip_days", "input_types"],
+      "properties": {
+        "cities": {"const": ["北京", "上海", "杭州"]},
+        "single_city": {"const": true},
+        "group_size": {"const": {"min": 2, "max": 5}},
+        "trip_days": {"const": {"min": 2, "max": 5}},
+        "input_types": {"const": ["TEXT", "SCREENSHOT"]}
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["g0", "g1", "g2", "g3", "g4", "g5", "g6"],
+      "properties": {
+        "g0": {"$ref": "#/$defs/status"}, "g1": {"$ref": "#/$defs/status"},
+        "g2": {"$ref": "#/$defs/status"}, "g3": {"$ref": "#/$defs/status"},
+        "g4": {"$ref": "#/$defs/status"}, "g5": {"$ref": "#/$defs/status"},
+        "g6": {"$ref": "#/$defs/status"}
+      }
+    }
+  }
+}

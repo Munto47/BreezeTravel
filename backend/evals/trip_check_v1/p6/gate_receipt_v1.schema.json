@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-gate-receipt-v1.json",
+  "title": "Trip Check P6 G0-G5 receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "gate", "subject_commit", "run_spec_hash", "status", "evidence_level", "checks_total", "checks_passed", "failure_count", "metrics", "receipt_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-gate-receipt-v1"},
+    "gate": {"enum": ["g0", "g1", "g2", "g3", "g4", "g5"]},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "run_spec_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"const": "PASS"},
+    "evidence_level": {"enum": ["repository_contract", "real_authorized_ocr", "postgresql_integration", "controlled_snapshot", "live_provider", "browser_local"]},
+    "checks_total": {"type": "integer", "minimum": 1},
+    "checks_passed": {"type": "integer", "minimum": 1},
+    "failure_count": {"const": 0},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {"type": "number", "minimum": 0}
+    },
+    "receipt_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

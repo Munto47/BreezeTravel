@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-release-manifest-v1.json",
+  "title": "Trip Check P6 immutable release manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject_commit", "upstream_ref", "upstream_commit", "dirty_tree", "candidate_run_spec_hash", "p5_gate_manifest_hash", "scope", "gates", "artifacts", "public_e2e", "known_gaps", "human_evidence", "read_only_mount", "released_at", "manifest_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-release-manifest-v1"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "upstream_ref": {"const": "origin/codex/trip-check-p6-candidate-evidence"},
+    "upstream_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "dirty_tree": {"const": false},
+    "candidate_run_spec_hash": {"$ref": "#/$defs/sha256"},
+    "p5_gate_manifest_hash": {"const": "9a3338a565522577f4514f628b225ad165e87085a992185bd2650b197011187a"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "gates": {"$ref": "#/$defs/gates"},
+    "artifacts": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["logical_name", "path", "sha256", "size_bytes", "evidence_level"],
+        "properties": {
+          "logical_name": {"type": "string", "minLength": 2},
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "size_bytes": {"type": "integer", "minimum": 1},
+          "evidence_level": {"enum": ["repository_contract", "real_authorized_ocr", "controlled_snapshot", "postgresql_integration", "live_provider", "browser_local", "public_e2e", "automated_proxy_judge"]}
+        }
+      }
+    },
+    "public_e2e": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "url", "health_receipt_sha256", "e2e_receipt_sha256", "controlled_snapshot"],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "url": {"type": "string", "minLength": 9},
+        "health_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "e2e_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "controlled_snapshot": {"const": true}
+      }
+    },
+    "known_gaps": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,63}$"}},
+    "human_evidence": {"const": false},
+    "read_only_mount": {"const": true},
+    "released_at": {"type": "string", "format": "date-time"},
+    "manifest_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "status": {"enum": ["PASS", "NOT_RUN", "BLOCKED", "BLOCKED_EXTERNAL", "FAIL", "REJECT"]},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cities", "single_city", "group_size", "trip_days", "input_types"],
+      "properties": {
+        "cities": {"const": ["北京", "上海", "杭州"]},
+        "single_city": {"const": true},
+        "group_size": {"const": {"min": 2, "max": 5}},
+        "trip_days": {"const": {"min": 2, "max": 5}},
+        "input_types": {"const": ["TEXT", "SCREENSHOT"]}
+      }
+    },
+    "gate_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "receipt_sha256", "evidence_level"],
+      "properties": {
+        "status": {"$ref": "#/$defs/status"},
+        "receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "evidence_level": {"enum": ["repository_contract", "real_authorized_ocr", "controlled_snapshot", "postgresql_integration", "live_provider", "browser_local", "public_e2e"]}
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["g0", "g1", "g2", "g3", "g4", "g5"],
+      "properties": {
+        "g0": {"$ref": "#/$defs/gate_receipt"}, "g1": {"$ref": "#/$defs/gate_receipt"},
+        "g2": {"$ref": "#/$defs/gate_receipt"}, "g3": {"$ref": "#/$defs/gate_receipt"},
+        "g4": {"$ref": "#/$defs/gate_receipt"}, "g5": {"$ref": "#/$defs/gate_receipt"}
+      }
+    }
+  }
+}

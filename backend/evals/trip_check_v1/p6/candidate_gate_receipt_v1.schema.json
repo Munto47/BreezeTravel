@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-candidate-gate-receipt-v1.json",
+  "title": "Trip Check P6 Candidate Gate decision receipt v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "subject_commit", "manifest_hash", "pre_gate_evidence_sha256", "g6_readback_receipt_hash", "decision", "decided_at", "receipt_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-candidate-gate-receipt-v1"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "manifest_hash": {"$ref": "#/$defs/sha256"},
+    "pre_gate_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "g6_readback_receipt_hash": {"$ref": "#/$defs/sha256"},
+    "decision": {"const": "PASS"},
+    "decided_at": {"type": "string", "format": "date-time"},
+    "receipt_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
