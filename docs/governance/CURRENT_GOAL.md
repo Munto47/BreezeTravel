@@ -143,6 +143,13 @@
 - 恢复范围继续严格限制为 evidence envelope：将“Judge 只输出 score + 自身执行 provenance，程序从匿名 bundle 绑定 repo/hash/slot”同样应用到 sealed holdout。程序必须拒绝 score payload 注入 binding、仓库内/相对/链接 artifact 路径和 holdout item coverage 不完整；不修改 public/expected holdout、rubric、protocol、评分、门槛、产品、variant、blind 数据或 oracle；
 - 新 builder 形成 clean、pushed subject 后，fresh holdout calibration 与 P5 正式链必须再次从头运行；`835d73b...` 的任何 calibration score、dataset receipt 或部分 non-blind 输出均不得复用。
 
+### Judge v3 builder-entrypoint invalidation checkpoint（2026-08-25）
+
+- subject `5a089619b574aa952d0d9230ab8d557e860d7c7e` 首次用 score-only contract 形成有效 sealed holdout panel：三槽 exact/within-one/verdict 与三维 panel agreement 均为 `1.0`，状态 `PASS`；同 subject 的 dataset formal validation、non-blind `810/810` terminal/replay、non-blind score、一次性 nonce、blind `270/270` terminal/replay 与 isolated blind aggregate 均实际 `PASS`，Core B blind=`90/90`、mean=`100`、零容忍 `11/11 PASS`；
+- 三轮 formal blind Judge score-only payload 均已完成且结构回读通过，但 deterministic builder CLI 在读取 score 前因错误地从 `contracts_v2` 导入 `canonical_bytes` 而以 `ImportError` 退出；没有 bound round 或 panel 生成，因此没有有效 Judge 质量结论，不能把三轮未绑定 payload 或此前 scorer 结果拼接为 Gate；
+- 该失败要求修改代码，所以 `5a089619...` 的全部 calibration、run、score、Judge 与 verification 统一为 `INVALID_EVIDENCE`。恢复只允许把 import 改为现有权威 `data_contract.canonical_bytes` 并增加 CLI import 回归；不改变 envelope、score、rubric、protocol、门槛、产品、数据、variant 或 oracle；
+- 修复形成新的 clean、pushed subject 后，仍必须从 fresh holdout calibration 与 dataset formal validation 重新完整运行；不得复用 `5a089619...` 的任何部分产物。
+
 ## Outcome
 
 在同一个 commit、RunSpec、数据合同和 oracle 下，对以下三个候选系统完成可重放的 360 例对照评测，并得到一份能解释“为什么保留或改变默认方案”的消融结论：

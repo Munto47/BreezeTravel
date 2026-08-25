@@ -417,6 +417,12 @@ def test_v5_round_artifact_paths_must_be_absolute_and_external(
         )
 
 
+def test_v5_round_builder_cli_imports() -> None:
+    from scripts import build_trip_check_p5_v5_judge_round as cli
+
+    assert cli.REPO_ROOT.name == "agentTravel"
+
+
 def test_v5_round_builder_rejects_bundle_coverage_mismatch(
     tmp_path: Path,
 ) -> None:

@@ -11,7 +11,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from evals.trip_check_v1.p5.contracts_v2 import canonical_bytes  # noqa: E402
+from evals.trip_check_v1.p5.data_contract import canonical_bytes  # noqa: E402
 from evals.trip_check_v1.p5.judge_v5 import (  # noqa: E402
     build_judge_round_report_v5,
     require_external_judge_artifact_path_v5,
