@@ -127,6 +127,21 @@ def _require_external_distinct_dirs(repo_root: Path, paths: Sequence[Path]) -> l
     return resolved
 
 
+def require_external_judge_artifact_path_v5(
+    *, repo_root: Path, path: Path
+) -> Path:
+    """Return an absolute external path or fail closed."""
+
+    absolute = path.absolute()
+    if (
+        not path.is_absolute()
+        or _inside(absolute, repo_root)
+        or _contains_link(absolute)
+    ):
+        raise P5JudgeErrorV5("JUDGE_ROUND_ARTIFACT_PATH_INVALID")
+    return absolute
+
+
 def _default_blind_run_validator_v5(
     *, run_dir: Path, repo_root: Path, require_formal: bool
 ) -> object:
@@ -1093,6 +1108,151 @@ def _validate_round_report_v5(
     if len(keys) != len(set(keys)):
         raise P5JudgeErrorV5("JUDGE_SCORE_KEY_DUPLICATE")
     return scores
+
+
+def build_judge_round_report_v5(
+    *,
+    repo_root: Path,
+    bundle_path: Path,
+    score_payload_path: Path,
+) -> dict[str, Any]:
+    """Bind Judge-authored scores to deterministic bundle metadata.
+
+    The Judge owns only the score payload and its own execution provenance.  Hashes,
+    calibrated slot metadata, and formal-attempt bindings are copied from the sealed
+    anonymous bundle so a clerical transcription error cannot invalidate a round.
+    """
+
+    root = repo_root.resolve()
+    resolved_paths = [
+        require_external_judge_artifact_path_v5(repo_root=root, path=path)
+        for path in (bundle_path, score_payload_path)
+    ]
+    bundle = _load_json(resolved_paths[0], "JUDGE_BUNDLE_INVALID")
+    payload = _load_json(resolved_paths[1], "JUDGE_SCORE_PAYLOAD_INVALID")
+    _assert_anonymous_bundle(bundle)
+
+    expected_bundle_fields = {
+        "schema_version",
+        "round_index",
+        "evidence_class",
+        "automated_proxy_judge",
+        "human_calibration_performed",
+        "run_binding",
+        "input_boundary",
+        "rubric",
+        "protocol",
+        "items",
+        "evaluator_slot",
+        "formal_attempt_index",
+        "formal_attempt_id",
+    }
+    run_binding = bundle.get("run_binding")
+    evaluator_slot = bundle.get("evaluator_slot")
+    items = bundle.get("items")
+    if (
+        set(bundle) != expected_bundle_fields
+        or bundle.get("schema_version") != "trip-check-p5-judge-bundle-v5"
+        or bundle.get("evidence_class") != "automated_proxy_judge_input"
+        or bundle.get("automated_proxy_judge") is not True
+        or bundle.get("human_calibration_performed") is not False
+        or not isinstance(run_binding, Mapping)
+        or not isinstance(evaluator_slot, Mapping)
+        or not isinstance(items, list)
+        or len(items) != BLIND_TERMINAL_COUNT_V5
+    ):
+        raise P5JudgeErrorV5("JUDGE_BUNDLE_CONTRACT_INVALID")
+
+    expected_payload_fields = {
+        "schema_version",
+        "round_index",
+        "evaluator_id",
+        "agent_task_id",
+        "agent_id",
+        "context_id",
+        "model_id",
+        "started_at",
+        "ended_at",
+        "api_usage_count",
+        "tool_usage_count",
+        "automated_proxy_judge",
+        "human_calibration_performed",
+        "identity_payload_observed",
+        "expected_answer_payload_observed",
+        "custodian_metadata_observed",
+        "peer_round_output_observed",
+        "scores",
+    }
+    round_index = bundle.get("round_index")
+    if (
+        set(payload) != expected_payload_fields
+        or payload.get("schema_version")
+        != "trip-check-p5-judge-score-payload-v5"
+        or payload.get("round_index") != round_index
+        or payload.get("model_id") != evaluator_slot.get("model_id")
+    ):
+        raise P5JudgeErrorV5("JUDGE_SCORE_PAYLOAD_CONTRACT_INVALID")
+
+    receipt = {
+        "round_index": round_index,
+        "sha256": _sha256(resolved_paths[0]),
+        "source_rubric_sha256": run_binding.get("source_rubric_sha256"),
+        "judge_input_rubric_sha256": run_binding.get(
+            "judge_input_rubric_sha256"
+        ),
+        "source_protocol_sha256": run_binding.get("source_protocol_sha256"),
+        "judge_input_protocol_sha256": run_binding.get(
+            "judge_input_protocol_sha256"
+        ),
+        "calibration_panel_sha256": run_binding.get(
+            "calibration_panel_sha256"
+        ),
+        "calibration_panel_report_hash": run_binding.get(
+            "calibration_panel_report_hash"
+        ),
+        "terminal_outputs_content_sha256": run_binding.get(
+            "terminal_outputs_content_sha256"
+        ),
+        "evaluator_profile_id": evaluator_slot.get("evaluator_profile_id"),
+        "model_id": evaluator_slot.get("model_id"),
+        "reasoning_effort": evaluator_slot.get("reasoning_effort"),
+        "formal_attempt_index": bundle.get("formal_attempt_index"),
+        "formal_attempt_id": bundle.get("formal_attempt_id"),
+    }
+    report = {
+        **{
+            key: value
+            for key, value in payload.items()
+            if key not in {"schema_version"}
+        },
+        "schema_version": "trip-check-p5-judge-round-v5",
+        "bundle_sha256": receipt["sha256"],
+        "source_rubric_sha256": receipt["source_rubric_sha256"],
+        "judge_input_rubric_sha256": receipt["judge_input_rubric_sha256"],
+        "source_protocol_sha256": receipt["source_protocol_sha256"],
+        "judge_input_protocol_sha256": receipt["judge_input_protocol_sha256"],
+        "calibration_panel_sha256": receipt["calibration_panel_sha256"],
+        "calibration_panel_report_hash": receipt[
+            "calibration_panel_report_hash"
+        ],
+        "terminal_outputs_content_sha256": receipt[
+            "terminal_outputs_content_sha256"
+        ],
+        "evaluator_profile_id": receipt["evaluator_profile_id"],
+        "reasoning_effort": receipt["reasoning_effort"],
+        "formal_attempt_index": receipt["formal_attempt_index"],
+        "formal_attempt_id": receipt["formal_attempt_id"],
+    }
+    scores = _validate_round_report_v5(report, int(round_index), receipt)
+    expected_keys = {
+        (item.get("anonymous_item_id"), item.get("slot_id")) for item in items
+    }
+    actual_keys = {
+        (score["anonymous_item_id"], score["slot_id"]) for score in scores
+    }
+    if actual_keys != expected_keys:
+        raise P5JudgeErrorV5("JUDGE_SCORE_BUNDLE_COVERAGE_INVALID")
+    return report
 
 
 def aggregate_judge_rounds_v5(

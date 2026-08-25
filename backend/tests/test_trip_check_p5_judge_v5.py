@@ -10,7 +10,9 @@ from evals.trip_check_v1.p5.judge_v5 import (
     P5JudgeErrorV5,
     _evidence_summary,
     aggregate_judge_rounds_v5,
+    build_judge_round_report_v5,
     export_judge_bundles_v5,
+    require_external_judge_artifact_path_v5,
 )
 
 
@@ -315,6 +317,125 @@ def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
             }
         )
     return report
+
+
+def _score_payload(report: dict[str, object]) -> dict[str, object]:
+    fields = {
+        "round_index",
+        "evaluator_id",
+        "agent_task_id",
+        "agent_id",
+        "context_id",
+        "model_id",
+        "started_at",
+        "ended_at",
+        "api_usage_count",
+        "tool_usage_count",
+        "automated_proxy_judge",
+        "human_calibration_performed",
+        "identity_payload_observed",
+        "expected_answer_payload_observed",
+        "custodian_metadata_observed",
+        "peer_round_output_observed",
+        "scores",
+    }
+    return {
+        "schema_version": "trip-check-p5-judge-score-payload-v5",
+        **{key: report[key] for key in fields},
+    }
+
+
+def test_v5_round_builder_binds_hashes_from_anonymous_bundle(
+    tmp_path: Path,
+) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path, version="v3")
+    bundle_receipt = dict(receipt["bundle_receipts"][0])
+    bundle_receipt["test_bundle_dir"] = str(round_dirs[0])
+    source_report = _round_report(1, bundle_receipt)
+    payload_path = tmp_path / "score-payload" / "round-1.json"
+    _write_json(payload_path, _score_payload(source_report))
+
+    report = build_judge_round_report_v5(
+        repo_root=repo_root,
+        bundle_path=round_dirs[0] / "judge_input_round_1.v5.json",
+        score_payload_path=payload_path,
+    )
+
+    assert report["scores"] == source_report["scores"]
+    for key in (
+        "bundle_sha256",
+        "source_rubric_sha256",
+        "judge_input_rubric_sha256",
+        "source_protocol_sha256",
+        "judge_input_protocol_sha256",
+        "calibration_panel_sha256",
+        "calibration_panel_report_hash",
+        "terminal_outputs_content_sha256",
+    ):
+        assert report[key] == source_report[key]
+    assert report["evaluator_profile_id"] == "p5-judge-v3-slot-1"
+    assert report["formal_attempt_index"] == 1
+
+
+def test_v5_round_builder_rejects_score_payload_binding_injection(
+    tmp_path: Path,
+) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path, version="v3")
+    bundle_receipt = dict(receipt["bundle_receipts"][0])
+    bundle_receipt["test_bundle_dir"] = str(round_dirs[0])
+    payload = _score_payload(_round_report(1, bundle_receipt))
+    payload["bundle_sha256"] = "0" * 64
+    payload_path = tmp_path / "score-payload" / "round-1.json"
+    _write_json(payload_path, payload)
+
+    with pytest.raises(
+        P5JudgeErrorV5, match="JUDGE_SCORE_PAYLOAD_CONTRACT_INVALID"
+    ):
+        build_judge_round_report_v5(
+            repo_root=repo_root,
+            bundle_path=round_dirs[0] / "judge_input_round_1.v5.json",
+            score_payload_path=payload_path,
+        )
+
+
+def test_v5_round_artifact_paths_must_be_absolute_and_external(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    with pytest.raises(
+        P5JudgeErrorV5, match="JUDGE_ROUND_ARTIFACT_PATH_INVALID"
+    ):
+        require_external_judge_artifact_path_v5(
+            repo_root=repo_root, path=Path("relative.json")
+        )
+    with pytest.raises(
+        P5JudgeErrorV5, match="JUDGE_ROUND_ARTIFACT_PATH_INVALID"
+    ):
+        require_external_judge_artifact_path_v5(
+            repo_root=repo_root, path=repo_root / "round.json"
+        )
+
+
+def test_v5_round_builder_rejects_bundle_coverage_mismatch(
+    tmp_path: Path,
+) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path, version="v3")
+    bundle_receipt = dict(receipt["bundle_receipts"][0])
+    bundle_receipt["test_bundle_dir"] = str(round_dirs[0])
+    payload = _score_payload(_round_report(1, bundle_receipt))
+    payload["scores"][0]["anonymous_item_id"] = "unbound-item"
+    payload_path = tmp_path / "score-payload" / "round-1.json"
+    _write_json(payload_path, payload)
+
+    with pytest.raises(
+        P5JudgeErrorV5, match="JUDGE_SCORE_BUNDLE_COVERAGE_INVALID"
+    ):
+        build_judge_round_report_v5(
+            repo_root=repo_root,
+            bundle_path=round_dirs[0] / "judge_input_round_1.v5.json",
+            score_payload_path=payload_path,
+        )
 
 
 def _round_paths(

@@ -128,6 +128,14 @@
 - external package SHA-256=`347eea6a9eda9f9488b85867e731025b36e83d1170bf9e553944c100dbd2114c`，review receipt SHA-256=`6774863e3f7a69fd8861dbf0cb52d880819441cdb74fe7dc8f75a4fcc4f73634`，custodian receipt SHA-256=`55a7d670d35ad54969d3245db677672c020bc76eeb098bd05facc676d3ede6bb`；public/expected canonical digest 分别为 `87cdbb4d5ed293d8a45614f175eb489532c9e67ae13a835adc18f4be0ddf4d4c` 与 `b991bced6f32da15338844d4192ad95f4e78e0115f9fb2671fad9ad35c0f6246`。tracked commitment 已按仓库验证器回读为 v3 `PASS`，author expected 未进入 sealed expected；
 - 当前 checkpoint 验证为 Judge/holdout/Gate/formal 定向 `44 passed`、P5 全量定向 `488 passed, 1 skipped`、changed-scope Ruff `PASS`。这仍只是待 commit/push 的 candidate-freeze，不是正式 calibration、blind Judge、Evaluation Gate 或 P6 证据；新 subject 必须从 dataset formal validation 完整重跑。
 
+### Judge v3 formal-envelope invalidation checkpoint（2026-08-25）
+
+- clean、pushed subject `e09e04d1a7cc2599cacaaaae1f171ae4ffe9e3ee` 的 v3 sealed holdout calibration 实际 `PASS`，三维与 verdict agreement 均为 `1.0`；同 subject 的 dataset formal validation、non-blind `810/810` terminal/replay、blind `270/270` terminal/replay、non-blind score 与 isolated blind aggregate 均为 `PASS`。Core B non-blind/blind 均为 `100`，blind `90/90` task success，零容忍 `11/11 PASS`，blind label read=`false`；
+- 首次 blind Judge panel 在任何 round 被接受前因第 1、3 轮手工转录 bundle binding hash 错误而 fail-closed。按 v3 预注册规则执行唯一一次全三轮 invalid-round replacement，三轮 scores 的规范化 digest 均保持不变；replacement 中第 1 轮仍有一个 calibration report hash 错误，第 3 轮仍有多项 binding hash 错误，因此整组 replacement 仍为 `JUDGE_ROUND_CONTRACT_INVALID`；
+- 上述两次聚合均未生成 panel，不能产生有效质量结论；不得继续手改 metadata、追加 replacement、选择性保留有效轮次或把已通过的 scorer/回归拼接到新 subject。`e09e04d...` 的全部正式 run、score、Judge、verification 与 Gate 证据统一降为 `INVALID_EVIDENCE`，P6 继续为 `NOT_STARTED/NOT_RUN`；
+- 根因是 Judge 同时负责语义评分和 8 项 sealed binding 元数据手抄，属于 evidence envelope 的可重复操作缺陷，不是产品或确定性 scorer 失败。恢复范围仅允许新增确定性 round-envelope builder：Judge 只输出 scores 与自身执行 provenance，程序从匿名 bundle 复制并校验 hash、固定 evaluator slot 与 formal-attempt；不得改变任何 score、rubric、protocol、门槛、产品、variant、数据或 oracle；
+- builder 形成新的 clean、pushed subject 后，必须从 dataset formal validation 重新完整运行 P5。旧 subject 的 calibration、run、score 或 verification 均不得复用；仍只允许一个有效正式 panel attempt和一次仅限 pre-acceptance schema/provenance failure 的整组 replacement。
+
 ## Outcome
 
 在同一个 commit、RunSpec、数据合同和 oracle 下，对以下三个候选系统完成可重放的 360 例对照评测，并得到一份能解释“为什么保留或改变默认方案”的消融结论：
