@@ -17,6 +17,7 @@ from evals.trip_check_v1.p5.judge_v5 import (
 HEX64 = "a" * 64
 SUBJECT = "b" * 40
 UPSTREAM_REF = "origin/codex/p5-judge-test"
+SOURCE_P5 = Path(__file__).parents[1] / "evals" / "trip_check_v1" / "p5"
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -211,6 +212,41 @@ def _export(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
     return repo_root, receipt, round_dirs
 
 
+def _export_v2(tmp_path: Path) -> tuple[Path, dict[str, object], list[Path]]:
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    rubric_path = repo_root / "rubric.json"
+    _write_json(rubric_path, _rubric())
+    protocol_path = repo_root / "protocol.json"
+    protocol_path.write_bytes((SOURCE_P5 / "judge_protocol_v2.json").read_bytes())
+    commitment_path = repo_root / "holdout-commitment.json"
+    _write_json(commitment_path, {"status": "SEALED"})
+    holdout_panel_path = tmp_path / "holdout" / "panel.json"
+    holdout_panel = {
+        "report_hash": "9" * 64,
+        "subject_commit": SUBJECT,
+        "upstream_ref": UPSTREAM_REF,
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+    }
+    _write_json(holdout_panel_path, holdout_panel)
+    round_dirs = [tmp_path / f"judge-{index}" for index in range(1, 4)]
+    custody = tmp_path / "custody"
+    receipt = export_judge_bundles_v5(
+        repo_root=repo_root,
+        run_dir=tmp_path / "run",
+        round_output_dirs=round_dirs,
+        custody_output_dir=custody,
+        rubric_path=rubric_path,
+        protocol_path=protocol_path,
+        calibration_panel_path=holdout_panel_path,
+        holdout_commitment_path=commitment_path,
+        blind_run_validator=lambda **_: _validated_run(),
+        calibration_panel_validator=lambda **_: holdout_panel,
+    )
+    return repo_root, receipt, round_dirs
+
+
 def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
     bundle_dir = Path(str(bundle_receipt["test_bundle_dir"]))
     bundle_path = bundle_dir / str(bundle_receipt["path"])
@@ -227,14 +263,14 @@ def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
         }
         for item in bundle["items"]
     ]
-    return {
+    report = {
         "schema_version": "trip-check-p5-judge-round-v5",
         "round_index": round_index,
         "evaluator_id": f"evaluator-{round_index}",
         "agent_task_id": f"task-{round_index}",
         "agent_id": f"agent-{round_index}",
         "context_id": f"context-{round_index}",
-        "model_id": "gpt-test",
+        "model_id": bundle_receipt.get("model_id", "gpt-test"),
         "started_at": f"2026-08-24T00:0{round_index}:00Z",
         "ended_at": f"2026-08-24T00:0{round_index}:30Z",
         "bundle_sha256": bundle_receipt["sha256"],
@@ -265,6 +301,16 @@ def _round_report(round_index: int, bundle_receipt: dict[str, object]) -> dict:
         "peer_round_output_observed": False,
         "scores": scores,
     }
+    if "evaluator_profile_id" in bundle_receipt:
+        report.update(
+            {
+                "evaluator_profile_id": bundle_receipt["evaluator_profile_id"],
+                "reasoning_effort": bundle_receipt["reasoning_effort"],
+                "formal_attempt_index": bundle_receipt["formal_attempt_index"],
+                "formal_attempt_id": bundle_receipt["formal_attempt_id"],
+            }
+        )
+    return report
 
 
 def _round_paths(
@@ -319,6 +365,53 @@ def test_v5_export_is_anonymous_and_aggregates_three_independent_rounds(
     assert panel["human_calibration_performed"] is False
     assert panel["verdict_agreement_rate"] == 1.0
     assert len(panel["provenance"]) == 3
+
+
+def test_v5_v2_export_binds_slots_and_one_formal_attempt(tmp_path: Path) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path)
+    assert receipt["formal_attempt_index"] == 1
+    assert len(receipt["formal_attempt_id"]) == 64
+    for round_index, (bundle_receipt, round_dir) in enumerate(
+        zip(receipt["bundle_receipts"], round_dirs, strict=True), 1
+    ):
+        bundle = json.loads(
+            (round_dir / f"judge_input_round_{round_index}.v5.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert bundle["evaluator_slot"]["round_index"] == round_index
+        assert bundle["evaluator_slot"]["model_id"] == bundle_receipt["model_id"]
+        assert bundle["formal_attempt_id"] == receipt["formal_attempt_id"]
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    panel = aggregate_judge_rounds_v5(
+        repo_root=repo_root,
+        mapping_path=mapping_path,
+        mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+        round_paths=_round_paths(tmp_path, receipt, round_dirs),
+    )
+    assert panel["status"] == "PASS"
+    assert panel["formal_attempt_index"] == 1
+    assert {item["model_id"] for item in panel["provenance"]} == {
+        "gpt-5.4",
+        "gpt-5.5",
+        "gpt-5.6-sol",
+    }
+
+
+def test_v5_v2_rejects_formal_model_substitution(tmp_path: Path) -> None:
+    repo_root, receipt, round_dirs = _export_v2(tmp_path)
+    round_paths = _round_paths(tmp_path, receipt, round_dirs)
+    report = json.loads(round_paths[1].read_text(encoding="utf-8"))
+    report["model_id"] = "substituted-model"
+    _write_json(round_paths[1], report)
+    mapping_path = tmp_path / "custody" / "judge_variant_mapping.v5.json"
+    with pytest.raises(P5JudgeErrorV5, match="JUDGE_ROUND_CONTRACT_INVALID"):
+        aggregate_judge_rounds_v5(
+            repo_root=repo_root,
+            mapping_path=mapping_path,
+            mapping_sha256=hashlib.sha256(mapping_path.read_bytes()).hexdigest(),
+            round_paths=round_paths,
+        )
 
 
 @pytest.mark.parametrize(

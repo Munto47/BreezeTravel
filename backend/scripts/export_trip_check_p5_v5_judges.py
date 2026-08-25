@@ -40,9 +40,14 @@ def main() -> None:
     parser.add_argument("--custody-output-dir", type=Path, required=True)
     parser.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
     parser.add_argument(
-        "--protocol", type=Path, default=P5_ROOT / "judge_protocol_v1.json"
+        "--protocol", type=Path, default=P5_ROOT / "judge_protocol_v2.json"
     )
     parser.add_argument("--calibration-panel", type=Path, required=True)
+    parser.add_argument(
+        "--holdout-commitment",
+        type=Path,
+        default=P5_ROOT / "judge_holdout_commitment_v2.json",
+    )
     args = parser.parse_args()
     if len(args.round_output_dir) != 3:
         parser.error("--round-output-dir must be supplied exactly three times")
@@ -55,6 +60,7 @@ def main() -> None:
         rubric_path=args.rubric,
         protocol_path=args.protocol,
         calibration_panel_path=args.calibration_panel,
+        holdout_commitment_path=args.holdout_commitment,
     )
     output = args.custody_output_dir / "judge_export_receipt.v5.json"
     payload = json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n"

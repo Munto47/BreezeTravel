@@ -43,7 +43,7 @@ def _named_paths(values: list[str], flag: str) -> dict[str, Path]:
 
 
 def _primary(args: argparse.Namespace) -> dict[str, Path]:
-    return {
+    paths = {
         "dataset_manifest": args.dataset,
         "active_contract": args.active_contract,
         "blind_seal": args.blind_seal,
@@ -66,6 +66,9 @@ def _primary(args: argparse.Namespace) -> dict[str, Path]:
         "blind_nonce_mint_receipt": args.blind_nonce_mint_receipt,
         "blind_nonce_consumption_receipt": args.blind_nonce_consumption_receipt,
     }
+    if args.judge_holdout_commitment is not None:
+        paths["judge_holdout_commitment"] = args.judge_holdout_commitment
+    return paths
 
 
 def parser() -> argparse.ArgumentParser:
@@ -112,9 +115,14 @@ def parser() -> argparse.ArgumentParser:
     formal.add_argument("--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json")
     formal.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
     formal.add_argument(
-        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v1.json"
+        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v2.json"
     )
     formal.add_argument("--judge-calibration-panel", type=Path, required=True)
+    formal.add_argument(
+        "--judge-holdout-commitment",
+        type=Path,
+        default=P5_ROOT / "judge_holdout_commitment_v2.json",
+    )
     formal.add_argument("--nonblind-run-manifest", type=Path, required=True)
     formal.add_argument("--nonblind-score", type=Path, required=True)
     formal.add_argument("--blind-run-manifest", type=Path, required=True)

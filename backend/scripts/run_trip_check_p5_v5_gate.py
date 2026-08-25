@@ -30,9 +30,14 @@ def main() -> None:
     parser.add_argument("--run-spec", type=Path, default=P5_ROOT / "run_spec_template_v5.json")
     parser.add_argument("--rubric", type=Path, default=P5_ROOT / "judge_rubric_v2.json")
     parser.add_argument(
-        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v1.json"
+        "--judge-protocol", type=Path, default=P5_ROOT / "judge_protocol_v2.json"
     )
     parser.add_argument("--judge-calibration-panel", type=Path, required=True)
+    parser.add_argument(
+        "--judge-holdout-commitment",
+        type=Path,
+        default=P5_ROOT / "judge_holdout_commitment_v2.json",
+    )
     parser.add_argument("--nonblind-run-manifest", type=Path, required=True)
     parser.add_argument("--nonblind-score", type=Path, required=True)
     parser.add_argument("--blind-run-manifest", type=Path, required=True)
@@ -54,6 +59,7 @@ def main() -> None:
         rubric_path=args.rubric,
         judge_protocol_path=args.judge_protocol,
         calibration_panel_path=args.judge_calibration_panel,
+        holdout_commitment_path=args.judge_holdout_commitment,
         nonblind_run_manifest_path=args.nonblind_run_manifest,
         nonblind_score_path=args.nonblind_score,
         blind_run_manifest_path=args.blind_run_manifest,

@@ -905,6 +905,7 @@ def build_p5_gate_manifest_v5(
     formal_receipt_path: Path,
     output_path: Path,
     gate_schema_path: Path,
+    holdout_commitment_path: Path | None = None,
     require_current_subject: bool = True,
     calibration_panel_validator: Callable[..., object] | None = None,
 ) -> dict[str, Any]:
@@ -971,18 +972,36 @@ def build_p5_gate_manifest_v5(
     panel = _parse_judge_panel_v5(_load_json(judge_panel_path, "V5_JUDGE_PANEL_INVALID"), run=blind_run)
     rubric = _load_json(rubric_path, "V5_JUDGE_RUBRIC_INVALID")
     protocol = _load_json(judge_protocol_path, "V5_JUDGE_PROTOCOL_INVALID")
-    if calibration_panel_validator is None:
-        from evals.trip_check_v1.p5.judge_calibration_v1 import (
-            validate_judge_calibration_panel_v1,
-        )
+    protocol_v2 = protocol.get("schema_version") == "trip-check-p5-judge-protocol-v2"
+    if protocol_v2:
+        if holdout_commitment_path is None:
+            raise P5GateErrorV5("V5_JUDGE_HOLDOUT_COMMITMENT_REQUIRED")
+        if calibration_panel_validator is None:
+            from evals.trip_check_v1.p5.judge_holdout_v2 import (
+                validate_judge_holdout_panel_v2,
+            )
 
-        calibration_panel_validator = validate_judge_calibration_panel_v1
-    calibration_panel = calibration_panel_validator(
-        repo_root=root,
-        panel_path=calibration_panel_path,
-        rubric_path=rubric_path,
-        protocol_path=judge_protocol_path,
-    )
+            calibration_panel_validator = validate_judge_holdout_panel_v2
+        calibration_panel = calibration_panel_validator(
+            repo_root=root,
+            panel_path=calibration_panel_path,
+            rubric_path=rubric_path,
+            protocol_path=judge_protocol_path,
+            commitment_path=holdout_commitment_path,
+        )
+    else:
+        if calibration_panel_validator is None:
+            from evals.trip_check_v1.p5.judge_calibration_v1 import (
+                validate_judge_calibration_panel_v1,
+            )
+
+            calibration_panel_validator = validate_judge_calibration_panel_v1
+        calibration_panel = calibration_panel_validator(
+            repo_root=root,
+            panel_path=calibration_panel_path,
+            rubric_path=rubric_path,
+            protocol_path=judge_protocol_path,
+        )
     if (
         not isinstance(calibration_panel, Mapping)
         or calibration_panel.get("subject_commit") != subject_commit
@@ -1015,6 +1034,40 @@ def build_p5_gate_manifest_v5(
         for item in panel["provenance"]
     ):
         raise P5GateErrorV5("V5_JUDGE_PROTOCOL_PROVENANCE_INVALID")
+    if protocol_v2:
+        slots = protocol.get("evaluator_slots")
+        provenance_by_round = {
+            item.get("round_index"): item for item in panel["provenance"]
+        }
+        if (
+            not isinstance(slots, list)
+            or len(slots) != 3
+            or panel.get("formal_attempt_index") != 1
+            or not _is_sha256(panel.get("formal_attempt_id"))
+            or any(
+                not isinstance(slot, Mapping)
+                or provenance_by_round.get(slot.get("round_index"), {}).get(
+                    "evaluator_profile_id"
+                )
+                != slot.get("evaluator_profile_id")
+                or provenance_by_round.get(slot.get("round_index"), {}).get("model_id")
+                != slot.get("model_id")
+                or provenance_by_round.get(slot.get("round_index"), {}).get(
+                    "reasoning_effort"
+                )
+                != slot.get("reasoning_effort")
+                or provenance_by_round.get(slot.get("round_index"), {}).get(
+                    "formal_attempt_index"
+                )
+                != panel.get("formal_attempt_index")
+                or provenance_by_round.get(slot.get("round_index"), {}).get(
+                    "formal_attempt_id"
+                )
+                != panel.get("formal_attempt_id")
+                for slot in slots
+            )
+        ):
+            raise P5GateErrorV5("V5_JUDGE_SLOT_OR_ATTEMPT_BINDING_INVALID")
     if any(
         item.get("terminal_outputs_content_sha256")
         != blind_run["terminal_outputs_content_sha256"]
@@ -1061,6 +1114,8 @@ def build_p5_gate_manifest_v5(
         "blind_nonce_mint_receipt": blind_nonce_mint_receipt_path,
         "blind_nonce_consumption_receipt": blind_nonce_consumption_receipt_path,
     }
+    if protocol_v2:
+        artifact_paths["judge_holdout_commitment"] = holdout_commitment_path
     expected_bindings = {f"{name}_sha256": _sha256(path) for name, path in artifact_paths.items()}
     formal, verification_paths = _parse_formal_receipt_v5(
         repo_root=root,

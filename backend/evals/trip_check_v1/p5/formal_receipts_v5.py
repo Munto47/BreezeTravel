@@ -62,6 +62,10 @@ PRIMARY_ARTIFACT_NAMES_V5 = (
     "blind_nonce_mint_receipt",
     "blind_nonce_consumption_receipt",
 )
+JUDGE_V2_PRIMARY_ARTIFACT_NAMES_V5 = (
+    *PRIMARY_ARTIFACT_NAMES_V5,
+    "judge_holdout_commitment",
+)
 
 
 class P5FormalReceiptErrorV5(RuntimeError):
@@ -672,8 +676,10 @@ def build_formal_gate_receipt_v5(
     repo_binding: RepoBindingV5 | None = None,
 ) -> dict[str, Any]:
     require_external_output_v5(repo_root, output_path)
-    if set(verification_receipts) != set(VERIFICATION_KINDS_V5) or set(primary_artifacts) != set(
-        PRIMARY_ARTIFACT_NAMES_V5
+    primary_names = set(primary_artifacts)
+    if set(verification_receipts) != set(VERIFICATION_KINDS_V5) or primary_names not in (
+        set(PRIMARY_ARTIFACT_NAMES_V5),
+        set(JUDGE_V2_PRIMARY_ARTIFACT_NAMES_V5),
     ):
         raise P5FormalReceiptErrorV5("FORMAL_RECEIPT_INPUT_SET_INVALID")
     binding = repo_binding or read_repo_binding_v5(repo_root)
@@ -799,7 +805,11 @@ def validate_formal_gate_receipt_v5(path: Path) -> dict[str, Any]:
         or not isinstance(dataset_entry, dict)
         or set(dataset_entry) != {"path", "sha256", "receipt_hash", "status"}
         or not isinstance(bindings, dict)
-        or set(bindings) != {f"{name}_sha256" for name in PRIMARY_ARTIFACT_NAMES_V5}
+        or set(bindings)
+        not in (
+            {f"{name}_sha256" for name in PRIMARY_ARTIFACT_NAMES_V5},
+            {f"{name}_sha256" for name in JUDGE_V2_PRIMARY_ARTIFACT_NAMES_V5},
+        )
         or any(re.fullmatch(r"[0-9a-f]{64}", item) is None for item in bindings.values())
         or counts
         != {

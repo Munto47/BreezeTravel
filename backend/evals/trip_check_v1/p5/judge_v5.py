@@ -373,15 +373,13 @@ def judge_rubric_projection_hash_v5(source: Mapping[str, Any]) -> str:
 def _judge_protocol_projection(
     source_rubric: Mapping[str, Any], source_protocol: Mapping[str, Any]
 ) -> dict[str, Any]:
+    schema_version = source_protocol.get("schema_version")
     anchors = source_protocol.get("dimension_anchors")
     agreement = source_protocol.get("agreement_rule")
     verdict = source_protocol.get("verdict_rule")
-    calibration = source_protocol.get("preblind_calibration")
     instructions = source_protocol.get("evaluator_instruction")
     if (
-        source_protocol.get("schema_version")
-        != "trip-check-p5-judge-protocol-v1"
-        or source_protocol.get("rubric_schema_version")
+        source_protocol.get("rubric_schema_version")
         != source_rubric.get("schema_version")
         or source_protocol.get("judge_class") != "automated_proxy_judge"
         or source_protocol.get("fact_authority") != "DETERMINISTIC_SCORER_ONLY"
@@ -415,17 +413,10 @@ def _judge_protocol_projection(
             "required_dimensions": list(DIMENSIONS_V5),
             "verdict_unanimity_required_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
         }
-        or calibration
-        != {
-            "minimum_dimension_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
-            "minimum_verdict_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
-            "required": True,
-            "source_lane": "NONBLIND_SYNTHETIC_ANCHORS",
-        }
     ):
         raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
-    return {
-        "schema_version": "trip-check-p5-judge-protocol-projection-v1",
+
+    common = {
         "rubric_schema_version": source_protocol["rubric_schema_version"],
         "judge_class": "automated_proxy_judge",
         "fact_authority": "DETERMINISTIC_SCORER_ONLY",
@@ -436,7 +427,110 @@ def _judge_protocol_projection(
         "evaluator_instruction": instructions,
         "verdict_rule": verdict,
         "agreement_rule": agreement,
-        "preblind_calibration": calibration,
+    }
+    if schema_version == "trip-check-p5-judge-protocol-v1":
+        calibration = source_protocol.get("preblind_calibration")
+        if calibration != {
+            "minimum_dimension_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+            "minimum_verdict_agreement_rate": JUDGE_AGREEMENT_THRESHOLD_V5,
+            "required": True,
+            "source_lane": "NONBLIND_SYNTHETIC_ANCHORS",
+        }:
+            raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
+        return {
+            "schema_version": "trip-check-p5-judge-protocol-projection-v1",
+            **common,
+            "preblind_calibration": calibration,
+        }
+
+    if schema_version != "trip-check-p5-judge-protocol-v2":
+        raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
+    actionability = source_protocol.get("actionability_decision_tree")
+    slots = source_protocol.get("evaluator_slots")
+    holdout = source_protocol.get("holdout_calibration")
+    attempt = source_protocol.get("formal_attempt_rule")
+    if (
+        not isinstance(actionability, Mapping)
+        or set(actionability)
+        != {
+            "aggregation",
+            "automatic_repair_boundary",
+            "candidate_set_boundary",
+            "deictic_target_rule",
+            "numeric_detail_rule",
+            "ordered_scores",
+        }
+        or any(
+            not isinstance(actionability.get(field), str)
+            or not actionability[field].strip()
+            for field in (
+                "aggregation",
+                "automatic_repair_boundary",
+                "candidate_set_boundary",
+                "deictic_target_rule",
+                "numeric_detail_rule",
+            )
+        )
+        or not isinstance(actionability.get("ordered_scores"), Mapping)
+        or set(actionability["ordered_scores"])
+        != {str(score) for score in range(5)}
+        or any(
+            not isinstance(value, str) or not value.strip()
+            for value in actionability["ordered_scores"].values()
+        )
+        or not isinstance(slots, list)
+        or len(slots) != ROUND_COUNT_V5
+        or any(
+            not isinstance(slot, Mapping)
+            or set(slot)
+            != {
+                "round_index",
+                "evaluator_profile_id",
+                "model_id",
+                "reasoning_effort",
+            }
+            or slot.get("round_index") != index
+            or not isinstance(slot.get("evaluator_profile_id"), str)
+            or not slot["evaluator_profile_id"]
+            or not isinstance(slot.get("model_id"), str)
+            or not slot["model_id"]
+            or slot.get("reasoning_effort") != "high"
+            for index, slot in enumerate(slots, 1)
+        )
+        or len({slot["evaluator_profile_id"] for slot in slots}) != ROUND_COUNT_V5
+        or len({slot["model_id"] for slot in slots}) != ROUND_COUNT_V5
+        or holdout
+        != {
+            "exact_actionability_rate_per_slot": 0.9,
+            "expected_dimension_within_one_rate_per_slot": 1.0,
+            "expected_verdict_match_rate_per_slot": 1.0,
+            "item_count": 30,
+            "minimum_panel_dimension_agreement_rate": 0.9,
+            "minimum_panel_verdict_agreement_rate": 0.9,
+            "required": True,
+            "slot_model_config_binding_required": True,
+            "source_lane": "SEALED_NONBLIND_SYNTHETIC_HOLDOUT",
+        }
+        or attempt
+        != {
+            "invalid_round_replacement": {
+                "allowed_before_scores_accepted_only": True,
+                "maximum_full_panel_replacements": 1,
+                "replacement_scope": "ALL_THREE_ROUNDS",
+            },
+            "maximum_valid_panel_attempts": 1,
+            "quality_blocked_replacement_allowed": False,
+            "selection_policy": "NO_OUTCOME_CONDITIONED_RESAMPLING",
+        }
+    ):
+        raise P5JudgeErrorV5("JUDGE_PROTOCOL_CONTRACT_INVALID")
+    return {
+        "schema_version": "trip-check-p5-judge-protocol-projection-v2",
+        **common,
+        "actionability_decision_tree": actionability,
+        "evaluator_slots": slots,
+        "holdout_calibration": holdout,
+        "formal_attempt_rule": attempt,
     }
 
 
@@ -473,6 +567,7 @@ def export_judge_bundles_v5(
     rubric_path: Path,
     protocol_path: Path,
     calibration_panel_path: Path,
+    holdout_commitment_path: Path | None = None,
     blind_run_validator: BlindRunValidatorV5 | None = None,
     calibration_panel_validator: CalibrationPanelValidatorV5 | None = None,
 ) -> dict[str, Any]:
@@ -498,19 +593,39 @@ def export_judge_bundles_v5(
     judge_input_protocol_sha256 = judge_protocol_projection_hash_v5(
         source_rubric, source_protocol
     )
-    from evals.trip_check_v1.p5.judge_calibration_v1 import (
-        validate_judge_calibration_panel_v1,
+    protocol_v2 = (
+        protocol.get("schema_version")
+        == "trip-check-p5-judge-protocol-projection-v2"
     )
+    if protocol_v2:
+        if holdout_commitment_path is None:
+            raise P5JudgeErrorV5("JUDGE_HOLDOUT_COMMITMENT_REQUIRED")
+        from evals.trip_check_v1.p5.judge_holdout_v2 import (
+            validate_judge_holdout_panel_v2,
+        )
 
-    panel_validator = (
-        calibration_panel_validator or validate_judge_calibration_panel_v1
-    )
-    calibration_panel = panel_validator(
-        repo_root=root,
-        panel_path=calibration_panel_path,
-        rubric_path=rubric_path,
-        protocol_path=protocol_path,
-    )
+        panel_validator = calibration_panel_validator or validate_judge_holdout_panel_v2
+        calibration_panel = panel_validator(
+            repo_root=root,
+            panel_path=calibration_panel_path,
+            rubric_path=rubric_path,
+            protocol_path=protocol_path,
+            commitment_path=holdout_commitment_path,
+        )
+    else:
+        from evals.trip_check_v1.p5.judge_calibration_v1 import (
+            validate_judge_calibration_panel_v1,
+        )
+
+        panel_validator = (
+            calibration_panel_validator or validate_judge_calibration_panel_v1
+        )
+        calibration_panel = panel_validator(
+            repo_root=root,
+            panel_path=calibration_panel_path,
+            rubric_path=rubric_path,
+            protocol_path=protocol_path,
+        )
     if (
         not isinstance(calibration_panel, Mapping)
         or not _is_sha256(calibration_panel.get("report_hash"))
@@ -523,6 +638,25 @@ def export_judge_bundles_v5(
         raise P5JudgeErrorV5("JUDGE_CALIBRATION_PANEL_INVALID")
     calibration_panel_sha256 = _sha256(calibration_panel_path)
     calibration_panel_report_hash = calibration_panel["report_hash"]
+    evaluator_slots = (
+        list(protocol["evaluator_slots"])
+        if protocol_v2
+        else [None] * ROUND_COUNT_V5
+    )
+    formal_attempt_index = 1 if protocol_v2 else None
+    formal_attempt_id = (
+        digest(
+            {
+                "subject_commit": manifest["subject_commit"],
+                "run_group_manifest_hash": manifest["manifest_hash"],
+                "judge_input_protocol_sha256": judge_input_protocol_sha256,
+                "calibration_panel_report_hash": calibration_panel_report_hash,
+                "formal_attempt_index": formal_attempt_index,
+            }
+        )
+        if protocol_v2
+        else None
+    )
     case_by_id = {str(_value(case, "case_id")): case for case in cases}
     output_by_key = {
         (str(_value(output, "case_id")), str(_value(output, "variant_id"))): output
@@ -589,8 +723,8 @@ def export_judge_bundles_v5(
 
     mapping_commitment = digest(mapping_rows)
     bundle_receipts: list[dict[str, Any]] = []
-    for round_index, (round_dir, items) in enumerate(
-        zip(round_dirs, items_by_round.values(), strict=True), 1
+    for round_index, (round_dir, items, evaluator_slot) in enumerate(
+        zip(round_dirs, items_by_round.values(), evaluator_slots, strict=True), 1
     ):
         round_dir.mkdir(parents=True, exist_ok=True)
         path = round_dir / f"judge_input_round_{round_index}.v5.json"
@@ -631,10 +765,17 @@ def export_judge_bundles_v5(
             "protocol": protocol,
             "items": items,
         }
+        if protocol_v2:
+            bundle.update(
+                {
+                    "evaluator_slot": evaluator_slot,
+                    "formal_attempt_index": formal_attempt_index,
+                    "formal_attempt_id": formal_attempt_id,
+                }
+            )
         _assert_anonymous_bundle(bundle)
         path.write_bytes(canonical_bytes(bundle) + b"\n")
-        bundle_receipts.append(
-            {
+        receipt = {
                 "round_index": round_index,
                 "path": path.name,
                 "sha256": _sha256(path),
@@ -649,7 +790,17 @@ def export_judge_bundles_v5(
                 ],
                 "item_count": BLIND_TERMINAL_COUNT_V5,
             }
-        )
+        if protocol_v2:
+            receipt.update(
+                {
+                    "evaluator_profile_id": evaluator_slot["evaluator_profile_id"],
+                    "model_id": evaluator_slot["model_id"],
+                    "reasoning_effort": evaluator_slot["reasoning_effort"],
+                    "formal_attempt_index": formal_attempt_index,
+                    "formal_attempt_id": formal_attempt_id,
+                }
+            )
+        bundle_receipts.append(receipt)
 
     custody_dir.mkdir(parents=True, exist_ok=True)
     mapping_path = custody_dir / "judge_variant_mapping.v5.json"
@@ -670,8 +821,15 @@ def export_judge_bundles_v5(
         "bundle_receipts": bundle_receipts,
         "rows": mapping_rows,
     }
+    if protocol_v2:
+        mapping.update(
+            {
+                "formal_attempt_index": formal_attempt_index,
+                "formal_attempt_id": formal_attempt_id,
+            }
+        )
     mapping_path.write_bytes(canonical_bytes(mapping) + b"\n")
-    return {
+    export_receipt = {
         "schema_version": "trip-check-p5-judge-export-receipt-v5",
         "lane": "frozen_blind",
         "case_count": BLIND_CASE_COUNT_V5,
@@ -690,6 +848,14 @@ def export_judge_bundles_v5(
         "calibration_panel_sha256": calibration_panel_sha256,
         "calibration_panel_report_hash": calibration_panel_report_hash,
     }
+    if protocol_v2:
+        export_receipt.update(
+            {
+                "formal_attempt_index": formal_attempt_index,
+                "formal_attempt_id": formal_attempt_id,
+            }
+        )
+    return export_receipt
 
 
 def _validate_round_report_v5(
@@ -723,6 +889,16 @@ def _validate_round_report_v5(
         "peer_round_output_observed",
         "scores",
     }
+    protocol_v2 = "evaluator_profile_id" in receipt
+    if protocol_v2:
+        allowed.update(
+            {
+                "evaluator_profile_id",
+                "reasoning_effort",
+                "formal_attempt_index",
+                "formal_attempt_id",
+            }
+        )
     if (
         set(report) != allowed
         or report.get("schema_version") != "trip-check-p5-judge-round-v5"
@@ -741,6 +917,20 @@ def _validate_round_report_v5(
         != receipt["calibration_panel_report_hash"]
         or report.get("terminal_outputs_content_sha256")
         != receipt["terminal_outputs_content_sha256"]
+        or (
+            protocol_v2
+            and (
+                report.get("evaluator_profile_id")
+                != receipt.get("evaluator_profile_id")
+                or report.get("model_id") != receipt.get("model_id")
+                or report.get("reasoning_effort")
+                != receipt.get("reasoning_effort")
+                or report.get("formal_attempt_index")
+                != receipt.get("formal_attempt_index")
+                or report.get("formal_attempt_id")
+                != receipt.get("formal_attempt_id")
+            )
+        )
         or report.get("api_usage_count") != 0
         or report.get("tool_usage_count") != 0
         or report.get("automated_proxy_judge") is not True
@@ -767,6 +957,14 @@ def _validate_round_report_v5(
     ):
         if not isinstance(report.get(key), str) or not report[key]:
             raise P5JudgeErrorV5("JUDGE_ROUND_PROVENANCE_INVALID")
+    if protocol_v2 and (
+        not isinstance(report.get("evaluator_profile_id"), str)
+        or not report["evaluator_profile_id"]
+        or report.get("reasoning_effort") != "high"
+        or report.get("formal_attempt_index") != 1
+        or not _is_sha256(report.get("formal_attempt_id"))
+    ):
+        raise P5JudgeErrorV5("JUDGE_ROUND_PROVENANCE_INVALID")
     scores = report.get("scores")
     if not isinstance(scores, list) or len(scores) != BLIND_TERMINAL_COUNT_V5:
         raise P5JudgeErrorV5("JUDGE_ROUND_SCORE_COUNT_INVALID")
@@ -846,6 +1044,11 @@ def aggregate_judge_rounds_v5(
         "bundle_receipts",
         "rows",
     }
+    protocol_v2 = "formal_attempt_index" in mapping
+    if protocol_v2:
+        expected_mapping_fields.update(
+            {"formal_attempt_index", "formal_attempt_id"}
+        )
     receipts = mapping.get("bundle_receipts")
     rows = mapping.get("rows")
     if (
@@ -868,6 +1071,13 @@ def aggregate_judge_rounds_v5(
         or not isinstance(rows, list)
         or len(rows) != BLIND_TERMINAL_COUNT_V5 * ROUND_COUNT_V5
         or digest(rows) != mapping.get("mapping_commitment")
+        or (
+            protocol_v2
+            and (
+                mapping.get("formal_attempt_index") != 1
+                or not _is_sha256(mapping.get("formal_attempt_id"))
+            )
+        )
     ):
         raise P5JudgeErrorV5("JUDGE_MAPPING_CONTRACT_INVALID")
     expected_receipt_fields = {
@@ -883,6 +1093,16 @@ def aggregate_judge_rounds_v5(
         "terminal_outputs_content_sha256",
         "item_count",
     }
+    if protocol_v2:
+        expected_receipt_fields.update(
+            {
+                "evaluator_profile_id",
+                "model_id",
+                "reasoning_effort",
+                "formal_attempt_index",
+                "formal_attempt_id",
+            }
+        )
     for round_index, receipt in enumerate(receipts, 1):
         if (
             not isinstance(receipt, Mapping)
@@ -891,6 +1111,20 @@ def aggregate_judge_rounds_v5(
             or receipt.get("item_count") != BLIND_TERMINAL_COUNT_V5
             or receipt.get("terminal_outputs_content_sha256")
             != mapping["terminal_outputs_content_sha256"]
+            or (
+                protocol_v2
+                and (
+                    not isinstance(receipt.get("evaluator_profile_id"), str)
+                    or not receipt["evaluator_profile_id"]
+                    or not isinstance(receipt.get("model_id"), str)
+                    or not receipt["model_id"]
+                    or receipt.get("reasoning_effort") != "high"
+                    or receipt.get("formal_attempt_index")
+                    != mapping.get("formal_attempt_index")
+                    or receipt.get("formal_attempt_id")
+                    != mapping.get("formal_attempt_id")
+                )
+            )
             or any(
                 not _is_sha256(receipt.get(field))
                 for field in (
@@ -969,6 +1203,12 @@ def aggregate_judge_rounds_v5(
         reports.append(report)
     if len({report["round_index"] for report in reports}) != 3 or any(
         len(values) != 3 for values in identities.values()
+    ):
+        raise P5JudgeErrorV5("JUDGE_ROUND_INDEPENDENCE_INVALID")
+    if protocol_v2 and (
+        len({report["evaluator_profile_id"] for report in reports}) != 3
+        or len({report["model_id"] for report in reports}) != 3
+        or len({report["formal_attempt_id"] for report in reports}) != 1
     ):
         raise P5JudgeErrorV5("JUDGE_ROUND_INDEPENDENCE_INVALID")
 
@@ -1096,6 +1336,16 @@ def aggregate_judge_rounds_v5(
                     "calibration_panel_sha256",
                     "calibration_panel_report_hash",
                     "terminal_outputs_content_sha256",
+                    *(
+                        (
+                            "evaluator_profile_id",
+                            "reasoning_effort",
+                            "formal_attempt_index",
+                            "formal_attempt_id",
+                        )
+                        if protocol_v2
+                        else ()
+                    ),
                 )
             }
             for report in sorted(reports, key=lambda item: item["round_index"])
@@ -1116,6 +1366,13 @@ def aggregate_judge_rounds_v5(
             "calibration_panel_report_hash"
         ],
     }
+    if protocol_v2:
+        panel.update(
+            {
+                "formal_attempt_index": mapping["formal_attempt_index"],
+                "formal_attempt_id": mapping["formal_attempt_id"],
+            }
+        )
     panel["report_hash"] = digest(panel)
     return panel
 

@@ -1,0 +1,12 @@
+{
+  "blind_source_used": false,
+  "custodian_receipt_sha256": "5a4caccd394a983ed63eb12f887c08b29378dfbfbf770ecafafb524265713809",
+  "expected_items_content_sha256": "1f98f044f0cd3fef12773c7cd7e45923c4841ee65b31e09d5a3faaf69911f530",
+  "item_count": 30,
+  "package_sha256": "e9c99f3904eeb1c450757a7547dac47d6fc266e0cad1a9f7a282af4fb4348130",
+  "public_items_content_sha256": "f67415c2d0d2212df9bfe2d8d6df18ca9427db025e371b43fb60d26edd1ee7ef",
+  "review_receipt_sha256": "86c4514f1f91cd1a7c24966b27ee23d981560d971bf95371c4fa6e908c5f5d76",
+  "schema_version": "trip-check-p5-judge-holdout-commitment-v2",
+  "source_lane": "NONBLIND_SYNTHETIC_HOLDOUT",
+  "status": "SEALED"
+}

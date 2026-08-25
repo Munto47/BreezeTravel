@@ -1,6 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
+  "dependentRequired": {
+    "formal_attempt_id": ["formal_attempt_index"],
+    "formal_attempt_index": ["formal_attempt_id"]
+  },
   "properties": {
     "agreement_threshold": {"const": 0.85},
     "artifact_index_hash": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
@@ -12,6 +16,8 @@
     "deterministic_scorer_priority": {"const": true},
     "evidence_class": {"const": "automated_proxy_judge"},
     "human_calibration_performed": {"const": false},
+    "formal_attempt_id": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+    "formal_attempt_index": {"const": 1},
     "judge_may_override_deterministic_failure": {"const": false},
     "mapping_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
     "per_dimension_agreement_rate": {
@@ -27,6 +33,12 @@
     "provenance": {
       "items": {
         "additionalProperties": false,
+        "dependentRequired": {
+          "evaluator_profile_id": ["reasoning_effort", "formal_attempt_index", "formal_attempt_id"],
+          "formal_attempt_id": ["evaluator_profile_id", "reasoning_effort", "formal_attempt_index"],
+          "formal_attempt_index": ["evaluator_profile_id", "reasoning_effort", "formal_attempt_id"],
+          "reasoning_effort": ["evaluator_profile_id", "formal_attempt_index", "formal_attempt_id"]
+        },
         "properties": {
           "agent_id": {"minLength": 1, "type": "string"},
           "agent_task_id": {"minLength": 1, "type": "string"},
@@ -35,10 +47,14 @@
           "calibration_panel_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "context_id": {"minLength": 1, "type": "string"},
           "ended_at": {"minLength": 1, "type": "string"},
+          "evaluator_profile_id": {"minLength": 1, "type": "string"},
           "evaluator_id": {"minLength": 1, "type": "string"},
+          "formal_attempt_id": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
+          "formal_attempt_index": {"const": 1},
           "judge_input_rubric_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "judge_input_protocol_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "model_id": {"minLength": 1, "type": "string"},
+          "reasoning_effort": {"const": "high"},
           "round_index": {"maximum": 3, "minimum": 1, "type": "integer"},
           "source_rubric_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},
           "source_protocol_sha256": {"pattern": "^[0-9a-f]{64}$", "type": "string"},

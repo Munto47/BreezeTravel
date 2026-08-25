@@ -622,6 +622,95 @@ def test_v5_gate_binds_full_replay_judges_and_verification_receipts(
     assert len(manifest["artifact_index"]) == 31
 
 
+def test_v5_gate_binds_v2_holdout_slots_and_formal_attempt(tmp_path: Path) -> None:
+    paths = _formal_fixture(tmp_path)
+    source_protocol = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "judge_protocol_v2.json"
+    )
+    paths["judge_protocol"].write_bytes(source_protocol.read_bytes())
+    commitment = paths["repo_root"] / "backend" / "holdout-commitment.json"
+    _write_json(commitment, {"schema_version": "test-commitment", "status": "SEALED"})
+    protocol = json.loads(paths["judge_protocol"].read_text(encoding="utf-8"))
+    rubric = json.loads(paths["judge_rubric"].read_text(encoding="utf-8"))
+    panel = json.loads(paths["judge_panel"].read_text(encoding="utf-8"))
+    attempt_id = "e" * 64
+    for provenance, slot in zip(panel["provenance"], protocol["evaluator_slots"], strict=True):
+        provenance.update(
+            {
+                "source_protocol_sha256": _file_sha(paths["judge_protocol"]),
+                "judge_input_protocol_sha256": judge_protocol_projection_hash_v5(
+                    rubric, protocol
+                ),
+                "evaluator_profile_id": slot["evaluator_profile_id"],
+                "model_id": slot["model_id"],
+                "reasoning_effort": slot["reasoning_effort"],
+                "formal_attempt_index": 1,
+                "formal_attempt_id": attempt_id,
+            }
+        )
+    panel.update({"formal_attempt_index": 1, "formal_attempt_id": attempt_id})
+    panel["report_hash"] = digest(
+        {key: value for key, value in panel.items() if key != "report_hash"}
+    )
+    _write_json(paths["judge_panel"], panel)
+    formal = json.loads(paths["formal_receipt"].read_text(encoding="utf-8"))
+    formal["bindings"].update(
+        {
+            "judge_protocol_sha256": _file_sha(paths["judge_protocol"]),
+            "judge_panel_sha256": _file_sha(paths["judge_panel"]),
+            "judge_holdout_commitment_sha256": _file_sha(commitment),
+        }
+    )
+    formal["receipt_hash"] = digest(
+        {key: value for key, value in formal.items() if key != "receipt_hash"}
+    )
+    _write_json(paths["formal_receipt"], formal)
+    schema = (
+        Path(__file__).parents[1]
+        / "evals"
+        / "trip_check_v1"
+        / "p5"
+        / "gate_v5.schema.json"
+    )
+    manifest = build_p5_gate_manifest_v5(
+        repo_root=paths["repo_root"],
+        dataset_manifest_path=paths["dataset_manifest"],
+        active_contract_path=paths["active_contract"],
+        blind_seal_path=paths["blind_seal"],
+        run_spec_path=paths["run_spec"],
+        rubric_path=paths["judge_rubric"],
+        judge_protocol_path=paths["judge_protocol"],
+        calibration_panel_path=paths["judge_calibration_panel"],
+        nonblind_run_manifest_path=paths["nonblind_run_manifest"],
+        nonblind_score_path=paths["nonblind_score"],
+        blind_run_manifest_path=paths["blind_run_manifest"],
+        blind_score_path=paths["blind_score"],
+        judge_panel_path=paths["judge_panel"],
+        blind_nonce_path=paths["blind_nonce"],
+        blind_nonce_mint_receipt_path=paths["blind_nonce_mint_receipt"],
+        blind_nonce_consumption_receipt_path=paths[
+            "blind_nonce_consumption_receipt"
+        ],
+        formal_receipt_path=paths["formal_receipt"],
+        output_path=tmp_path / "output-v2" / "gate.json",
+        gate_schema_path=schema,
+        holdout_commitment_path=commitment,
+        require_current_subject=False,
+        calibration_panel_validator=lambda **_: json.loads(
+            paths["judge_calibration_panel"].read_text(encoding="utf-8")
+        ),
+    )
+    assert manifest["status"] == "PASS"
+    assert len(manifest["artifact_index"]) == 32
+    assert "judge_holdout_commitment" in {
+        item["logical_name"] for item in manifest["artifact_index"]
+    }
+
+
 def test_nonblind_parser_rejects_missing_replay_readback(tmp_path: Path) -> None:
     run = _run_manifest("nonblind", HEX64, "c" * 64, "d" * 64, tmp_path)
     run["manifest_hash"] = digest(run)
