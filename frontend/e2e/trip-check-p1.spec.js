@@ -281,7 +281,12 @@ function buildScenario(city, index, names) {
       source_url: null,
     }],
     provider_set: ['controlled_route_fixture_v1'],
-    provider_failures: [],
+    provider_failures: index === 1 ? [{
+      provider: 'controlled_weather_fixture_v1',
+      error_category: 'UPSTREAM_UNAVAILABLE',
+      retryable: true,
+      detail: 'controlled partial failure',
+    }] : [],
     created_at: NOW,
     supersedes_snapshot_id: null,
   };
@@ -515,7 +520,8 @@ for (const [index, [city, names]] of [
   ['上海', ['外滩', '上海迪士尼乐园', '豫园']],
   ['杭州', ['西湖风景名胜区', '灵隐寺', '雷峰塔']],
 ].entries()) {
-  test(`${city}文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复`, async ({ page }) => {
+  const providerFailureSuffix = index === 1 ? '，局部 Provider 失败保留成功事实' : '';
+  test(`${city}文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复${providerFailureSuffix}`, async ({ page }) => {
     const scenario = buildScenario(city, index, names);
     await authenticate(page);
     const state = await installControlledApi(page, scenario);
@@ -533,6 +539,13 @@ for (const [index, [city, names]] of [
     await expect(page.getByText('WAITING · WAIT_ADOPTION')).toBeVisible();
     await expect.poll(() => state.reconnectHeaders.includes('2')).toBe(true);
     await expect(page.getByText('#2 stage_started · AUDIT · run v3')).toHaveCount(1);
+    await expect(page.getByText('事实采集摘要')).toBeVisible();
+    await expect(page.getByText('ROUTE_TIME · controlled_route_fixture_v1 · FRESH')).toBeVisible();
+    if (index === 1) {
+      await expect(page.getByText(
+        '外部事实部分不可用：controlled_weather_fixture_v1 / UPSTREAM_UNAVAILABLE',
+      )).toBeVisible();
+    }
     await expect(page.getByText(`将 ${names[1]} 顺延 35 分钟`, { exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Repair A/B' })).toBeVisible();
     await page.getByRole('button', { name: '预览确认并应用' }).first().click();
