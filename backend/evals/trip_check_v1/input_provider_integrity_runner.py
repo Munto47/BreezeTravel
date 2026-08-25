@@ -95,6 +95,7 @@ def _build_revision(city: str, *, live: bool = False):
                 }
             },
             created_by="p3-provider-runner",
+            created_at=datetime.now(timezone.utc) if live else FIXED_AT,
         )
     )
 
