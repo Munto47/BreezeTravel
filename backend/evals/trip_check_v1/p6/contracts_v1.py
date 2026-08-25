@@ -29,6 +29,7 @@ SCHEMA_PATHS = {
     "gate_receipt": P6_ROOT / "gate_receipt_v1.schema.json",
     "public_receipt": P6_ROOT / "public_receipt_v1.schema.json",
     "candidate_gate_receipt": P6_ROOT / "candidate_gate_receipt_v1.schema.json",
+    "final_disclosure_readback": P6_ROOT / "final_disclosure_readback_v1.schema.json",
 }
 P5_GATE_MANIFEST_HASH = "9a3338a565522577f4514f628b225ad165e87085a992185bd2650b197011187a"
 GATE_KEYS = tuple(f"g{index}" for index in range(7))
@@ -490,6 +491,14 @@ def validate_candidate_gate_receipt(value: Mapping[str, Any]) -> dict[str, Any]:
     return payload
 
 
+def validate_final_disclosure_readback(value: Mapping[str, Any]) -> dict[str, Any]:
+    payload = dict(value)
+    _validate_schema(payload, "final_disclosure_readback", "P6_FINAL_DISCLOSURE_SCHEMA_INVALID")
+    _validate_self_hash(payload, "receipt_hash", "P6_FINAL_DISCLOSURE_HASH_MISMATCH")
+    _validate_https(payload["url"], "P6_PUBLIC_E2E_URL_INVALID")
+    return payload
+
+
 def validate_candidate_gate_decision(
     candidate_gate_receipt: Mapping[str, Any],
     pre_gate_evidence: Mapping[str, Any],
@@ -505,9 +514,18 @@ def validate_candidate_gate_decision(
     if (
         public["candidate_gate_status"] != "NOT_RUN"
         or public["gates"]["g6"] != "NOT_RUN"
+        or any(public["gates"][gate] != PASS for gate in RELEASE_GATE_KEYS)
+        or any(status != PASS for status in public["evidence_levels"].values())
+        or public["public_e2e"]["status"] != PASS
+        or public["public_e2e"]["health_status"] != PASS
+        or any(item["status"] != PASS for item in release["gates"].values())
         or not (
             receipt["subject_commit"] == public["subject_commit"] == release["subject_commit"]
         )
+        or receipt["upstream_ref"] != release["upstream_ref"]
+        or receipt["upstream_commit"] != release["upstream_commit"]
+        or receipt["dirty_tree"] is not False
+        or receipt["run_spec_hash"] != release["candidate_run_spec_hash"]
         or not (
             receipt["manifest_hash"] == public["manifest_hash"] == release["manifest_hash"]
         )
@@ -515,6 +533,10 @@ def validate_candidate_gate_decision(
         or readback["manifest_hash"] != release["manifest_hash"]
         or readback["candidate_evidence_sha256"] != digest(public)
         or receipt["pre_gate_evidence_sha256"] != digest(public)
+        or receipt["pre_gate_evidence_response_body_sha256"]
+        != readback["evidence_response_body_sha256"]
+        or receipt["pre_gate_health_response_body_sha256"]
+        != readback["health_response_body_sha256"]
         or receipt["g6_readback_receipt_hash"] != readback["receipt_hash"]
         or public["known_gaps"] != release["known_gaps"]
         or public["scope"] != release["scope"]
@@ -547,6 +569,59 @@ def validate_final_candidate_evidence(
     if public != expected:
         raise P6ContractError("P6_FINAL_CANDIDATE_EVIDENCE_BINDING_INVALID")
     return public
+
+
+def candidate_final_disclosure_valid(
+    final_evidence: Mapping[str, Any],
+    pre_gate_evidence: Mapping[str, Any],
+    release_manifest: Mapping[str, Any],
+    candidate_run_spec: Mapping[str, Any],
+    candidate_gate_receipt: Mapping[str, Any],
+    g6_readback_receipt: Mapping[str, Any],
+    final_disclosure_readback: Mapping[str, Any],
+    repo_root: Path,
+) -> bool:
+    spec = validate_candidate_run_spec(candidate_run_spec)
+    release = validate_release_manifest(release_manifest)
+    final = validate_final_candidate_evidence(
+        final_evidence,
+        pre_gate_evidence,
+        release,
+        candidate_gate_receipt,
+        g6_readback_receipt,
+    )
+    gate_receipt = validate_candidate_gate_receipt(candidate_gate_receipt)
+    disclosure = validate_final_disclosure_readback(final_disclosure_readback)
+    validate_release_artifact_files(release, Path(spec["evidence_root"]), spec)
+    actual_repo_state = read_actual_repo_state(repo_root)
+    _validate_actual_repo_state(spec, actual_repo_state, "P6_ACTUAL_REPO_BINDING_INVALID")
+    _validate_actual_repo_state(release, actual_repo_state, "P6_ACTUAL_REPO_BINDING_INVALID")
+    actual_public = read_public_candidate(spec["public_candidate"]["base_url"])
+    decided_at = datetime.fromisoformat(gate_receipt["decided_at"].replace("Z", "+00:00"))
+    observed_at = datetime.fromisoformat(disclosure["observed_at"].replace("Z", "+00:00"))
+    return bool(
+        release["candidate_run_spec_hash"] == spec["run_spec_hash"]
+        and release["p5_gate_manifest_hash"] == spec["p5_gate_manifest_hash"]
+        and final["subject_commit"] == release["subject_commit"] == spec["subject_commit"]
+        and final["scope"] == release["scope"] == spec["scope"]
+        and final["known_gaps"] == release["known_gaps"]
+        and final["public_e2e"]["url"]
+        == release["public_e2e"]["url"]
+        == spec["public_candidate"]["base_url"]
+        and actual_public["candidate_evidence"] == final
+        and disclosure["subject_commit"] == spec["subject_commit"]
+        and disclosure["manifest_hash"] == release["manifest_hash"]
+        and disclosure["candidate_gate_receipt_hash"] == gate_receipt["receipt_hash"]
+        and disclosure["final_evidence_sha256"] == digest(final)
+        and disclosure["url"] == spec["public_candidate"]["base_url"]
+        and disclosure["health_http_status"] == actual_public["health_http_status"]
+        and disclosure["evidence_http_status"] == actual_public["evidence_http_status"]
+        and disclosure["health_response_body_sha256"]
+        == actual_public["health_response_body_sha256"]
+        and disclosure["evidence_response_body_sha256"]
+        == actual_public["evidence_response_body_sha256"]
+        and observed_at > decided_at
+    )
 
 
 def candidate_gate_eligible(
@@ -612,6 +687,7 @@ def load_and_validate(
         "release_manifest",
         "candidate_gate_readback",
         "candidate_gate_receipt",
+        "final_disclosure_readback",
     ],
 ) -> dict[str, Any]:
     payload = _load_json(path, "P6_CONTRACT_ARTIFACT_INVALID")
@@ -621,5 +697,6 @@ def load_and_validate(
         "release_manifest": validate_release_manifest,
         "candidate_gate_readback": validate_candidate_gate_readback,
         "candidate_gate_receipt": validate_candidate_gate_receipt,
+        "final_disclosure_readback": validate_final_disclosure_readback,
     }
     return validators[kind](payload)

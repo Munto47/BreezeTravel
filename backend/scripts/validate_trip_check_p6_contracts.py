@@ -12,10 +12,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from evals.trip_check_v1.p6.contracts_v1 import (  # noqa: E402
+    candidate_final_disclosure_valid,
     candidate_gate_eligible,
     load_and_validate,
     validate_candidate_gate_decision,
-    validate_final_candidate_evidence,
     validate_schemas,
 )
 
@@ -29,6 +29,7 @@ def main() -> int:
     parser.add_argument("--candidate-gate-readback", type=Path)
     parser.add_argument("--candidate-gate-receipt", type=Path)
     parser.add_argument("--final-candidate-evidence", type=Path)
+    parser.add_argument("--final-disclosure-readback", type=Path)
     parser.add_argument("--repo-root", type=Path, default=BACKEND_ROOT.parent)
     args = parser.parse_args()
 
@@ -40,6 +41,7 @@ def main() -> int:
         "release_manifest": args.release_manifest,
         "candidate_gate_readback": args.candidate_gate_readback,
         "candidate_gate_receipt": args.candidate_gate_receipt,
+        "final_disclosure_readback": args.final_disclosure_readback,
     }
     payloads: dict[str, dict[str, object]] = {}
     for kind, path in paths.items():
@@ -58,8 +60,23 @@ def main() -> int:
     eligibility_inputs = {
         "candidate_run_spec", "candidate_evidence", "release_manifest", "candidate_gate_readback",
     }
-    final_inputs = eligibility_inputs | {"candidate_gate_receipt", "final_candidate_evidence"}
+    final_inputs = eligibility_inputs | {
+        "candidate_gate_receipt", "final_candidate_evidence", "final_disclosure_readback",
+    }
+    decision_inputs = eligibility_inputs | {"candidate_gate_receipt"}
     if final_inputs.issubset(payloads):
+        valid = candidate_final_disclosure_valid(
+            payloads["final_candidate_evidence"],
+            payloads["candidate_evidence"],
+            payloads["release_manifest"],
+            payloads["candidate_run_spec"],
+            payloads["candidate_gate_receipt"],
+            payloads["candidate_gate_readback"],
+            payloads["final_disclosure_readback"],
+            args.repo_root,
+        )
+        status = "CANDIDATE_PASS" if valid else "REJECT"
+    elif decision_inputs.issubset(payloads):
         eligible = candidate_gate_eligible(
             payloads["candidate_evidence"],
             payloads["release_manifest"],
@@ -74,14 +91,7 @@ def main() -> int:
                 payloads["release_manifest"],
                 payloads["candidate_gate_readback"],
             )
-            validate_final_candidate_evidence(
-                payloads["final_candidate_evidence"],
-                payloads["candidate_evidence"],
-                payloads["release_manifest"],
-                payloads["candidate_gate_receipt"],
-                payloads["candidate_gate_readback"],
-            )
-        status = "CANDIDATE_PASS" if eligible else "REJECT"
+        status = "CANDIDATE_DECISION_VALID" if eligible else "REJECT"
     elif eligibility_inputs.issubset(payloads) and "candidate_gate_receipt" not in payloads:
         eligible = candidate_gate_eligible(
             payloads["candidate_evidence"],

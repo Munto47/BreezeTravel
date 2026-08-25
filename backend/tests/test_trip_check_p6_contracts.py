@@ -15,6 +15,7 @@ from evals.trip_check_v1.p6.contracts_v1 import (
     P5_GATE_MANIFEST_HASH,
     P6ContractError,
     canonical_bytes,
+    candidate_final_disclosure_valid,
     candidate_gate_eligible,
     digest,
     validate_candidate_gate_decision,
@@ -23,6 +24,7 @@ from evals.trip_check_v1.p6.contracts_v1 import (
     validate_candidate_evidence,
     validate_candidate_run_spec,
     validate_final_candidate_evidence,
+    validate_final_disclosure_readback,
     validate_release_manifest,
     validate_schemas,
 )
@@ -306,11 +308,35 @@ def _candidate_gate_receipt(evidence: dict, manifest: dict, readback: dict) -> d
     return _hashed({
         "schema_version": "trip-check-p6-candidate-gate-receipt-v1",
         "subject_commit": SUBJECT,
+        "upstream_ref": "origin/codex/trip-check-p6-candidate-evidence",
+        "upstream_commit": SUBJECT,
+        "dirty_tree": False,
+        "run_spec_hash": manifest["candidate_run_spec_hash"],
         "manifest_hash": manifest["manifest_hash"],
         "pre_gate_evidence_sha256": digest(evidence),
+        "pre_gate_evidence_response_body_sha256": readback["evidence_response_body_sha256"],
+        "pre_gate_health_response_body_sha256": readback["health_response_body_sha256"],
         "g6_readback_receipt_hash": readback["receipt_hash"],
         "decision": "PASS",
         "decided_at": "2026-08-25T00:02:00Z",
+    }, "receipt_hash")
+
+
+def _final_disclosure(final_evidence: dict, manifest: dict, gate_receipt: dict) -> dict:
+    return _hashed({
+        "schema_version": "trip-check-p6-final-disclosure-readback-v1",
+        "subject_commit": SUBJECT,
+        "manifest_hash": manifest["manifest_hash"],
+        "candidate_gate_receipt_hash": gate_receipt["receipt_hash"],
+        "final_evidence_sha256": digest(final_evidence),
+        "url": "https://www.breezetravel.cn",
+        "health_route": "/health",
+        "evidence_route": "/api/evidence/latest",
+        "health_http_status": 200,
+        "evidence_http_status": 200,
+        "health_response_body_sha256": "c" * 64,
+        "evidence_response_body_sha256": "f" * 64,
+        "observed_at": "2026-08-25T00:03:00Z",
     }, "receipt_hash")
 
 
@@ -349,6 +375,7 @@ def test_schemas_and_valid_contracts_pass():
     assert set(validate_schemas()) == {
         "candidate_run_spec", "candidate_evidence", "release_manifest", "candidate_gate_readback",
         "gate_receipt", "public_receipt", "candidate_gate_receipt",
+        "final_disclosure_readback",
     }
     assert validate_candidate_run_spec(_run_spec())["provider_live_matrix"]["max_calls"] == 18
     assert validate_candidate_evidence(_evidence())["human_evidence"] is False
@@ -370,6 +397,9 @@ def test_schemas_and_valid_contracts_pass():
     assert validate_final_candidate_evidence(
         final_evidence, pre_gate, manifest, receipt, readback,
     )["candidate_gate_status"] == "PASS"
+    assert validate_final_disclosure_readback(
+        _final_disclosure(final_evidence, manifest, receipt)
+    )["evidence_http_status"] == 200
     hidden_gap = deepcopy(final_evidence)
     hidden_gap["known_gaps"] = ["HUMAN_EVIDENCE_NOT_RUN", "FINAL_ONLY_GAP"]
     with pytest.raises(P6ContractError, match="P6_FINAL_CANDIDATE_EVIDENCE_BINDING_INVALID"):
@@ -383,6 +413,17 @@ def test_schemas_and_valid_contracts_pass():
     })
     with pytest.raises(P6ContractError, match="P6_CANDIDATE_GATE_DECISION_BINDING_INVALID"):
         validate_candidate_gate_decision(forged_receipt, pre_gate, manifest, readback)
+    not_run_manifest = _manifest("NOT_RUN")
+    not_run_pre_gate = _pre_gate_evidence()
+    not_run_pre_gate["manifest_hash"] = not_run_manifest["manifest_hash"]
+    not_run_readback = _readback(not_run_pre_gate, not_run_manifest)
+    not_run_receipt = _candidate_gate_receipt(
+        not_run_pre_gate, not_run_manifest, not_run_readback,
+    )
+    with pytest.raises(P6ContractError, match="P6_CANDIDATE_GATE_DECISION_BINDING_INVALID"):
+        validate_candidate_gate_decision(
+            not_run_receipt, not_run_pre_gate, not_run_manifest, not_run_readback,
+        )
 
 
 @pytest.mark.parametrize("mutation,reason", [
@@ -484,6 +525,90 @@ def test_candidate_gate_requires_same_manifest_and_every_gate_pass(tmp_path, mon
     _patch_public_readback(monkeypatch, mismatched, mismatched_readback)
     assert candidate_gate_eligible(
         mismatched, manifest, run_spec, mismatched_readback, tmp_path,
+    ) is False
+
+
+def test_candidate_pass_requires_fresh_final_public_disclosure(tmp_path, monkeypatch):
+    artifact_root = _candidate_root(tmp_path)
+    run_spec = _run_spec_for_root(monkeypatch, artifact_root)
+    manifest = _materialize_manifest(artifact_root, run_spec=run_spec)
+    pre_gate = _pre_gate_evidence()
+    pre_gate["manifest_hash"] = manifest["manifest_hash"]
+    readback = _readback(pre_gate, manifest)
+    gate_receipt = _candidate_gate_receipt(pre_gate, manifest, readback)
+    final_evidence = deepcopy(pre_gate)
+    final_evidence["gates"]["g6"] = "PASS"
+    final_evidence["candidate_gate_status"] = "PASS"
+    final_evidence["candidate_gate_receipt_hash"] = gate_receipt["receipt_hash"]
+    disclosure = _final_disclosure(final_evidence, manifest, gate_receipt)
+    monkeypatch.setattr(contracts_v1, "read_public_candidate", lambda _base_url: {
+        "health_http_status": 200,
+        "evidence_http_status": 200,
+        "health_response_body_sha256": disclosure["health_response_body_sha256"],
+        "evidence_response_body_sha256": disclosure["evidence_response_body_sha256"],
+        "candidate_evidence": deepcopy(final_evidence),
+    })
+    assert candidate_final_disclosure_valid(
+        final_evidence,
+        pre_gate,
+        manifest,
+        run_spec,
+        gate_receipt,
+        readback,
+        disclosure,
+        tmp_path,
+    ) is True
+    mismatched_manifest = deepcopy(manifest)
+    mismatched_manifest["candidate_run_spec_hash"] = "0" * 64
+    mismatched_manifest["manifest_hash"] = digest({
+        key: item for key, item in mismatched_manifest.items() if key != "manifest_hash"
+    })
+    mismatched_pre = deepcopy(pre_gate)
+    mismatched_pre["manifest_hash"] = mismatched_manifest["manifest_hash"]
+    mismatched_readback = _readback(mismatched_pre, mismatched_manifest)
+    mismatched_gate_receipt = _candidate_gate_receipt(
+        mismatched_pre, mismatched_manifest, mismatched_readback,
+    )
+    mismatched_final = deepcopy(mismatched_pre)
+    mismatched_final["gates"]["g6"] = "PASS"
+    mismatched_final["candidate_gate_status"] = "PASS"
+    mismatched_final["candidate_gate_receipt_hash"] = mismatched_gate_receipt["receipt_hash"]
+    mismatched_disclosure = _final_disclosure(
+        mismatched_final, mismatched_manifest, mismatched_gate_receipt,
+    )
+    monkeypatch.setattr(contracts_v1, "read_public_candidate", lambda _base_url: {
+        "health_http_status": 200,
+        "evidence_http_status": 200,
+        "health_response_body_sha256": mismatched_disclosure["health_response_body_sha256"],
+        "evidence_response_body_sha256": mismatched_disclosure["evidence_response_body_sha256"],
+        "candidate_evidence": deepcopy(mismatched_final),
+    })
+    assert candidate_final_disclosure_valid(
+        mismatched_final,
+        mismatched_pre,
+        mismatched_manifest,
+        run_spec,
+        mismatched_gate_receipt,
+        mismatched_readback,
+        mismatched_disclosure,
+        tmp_path,
+    ) is False
+    monkeypatch.setattr(contracts_v1, "read_public_candidate", lambda _base_url: {
+        "health_http_status": 200,
+        "evidence_http_status": 200,
+        "health_response_body_sha256": disclosure["health_response_body_sha256"],
+        "evidence_response_body_sha256": disclosure["evidence_response_body_sha256"],
+        "candidate_evidence": deepcopy(pre_gate),
+    })
+    assert candidate_final_disclosure_valid(
+        final_evidence,
+        pre_gate,
+        manifest,
+        run_spec,
+        gate_receipt,
+        readback,
+        disclosure,
+        tmp_path,
     ) is False
 
 
