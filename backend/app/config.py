@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     llm_model_router: str = "deepseek-chat"
     llm_model_synthesizer: str = "deepseek-chat"
 
+    # Trip Intake v2 keeps deterministic mode as the runtime default. Hybrid
+    # mode is explicitly enabled for the O1-O4 evaluation and later promotion.
+    trip_intake_extractor_mode: Literal["deterministic", "hybrid"] = "deterministic"
+    trip_intake_model: str = "deepseek-v4-flash"
+    trip_intake_timeout_seconds: float = 4.5
+    trip_intake_max_output_tokens: int = 4096
+
     # ── Embedding API（独立配置，可与主 LLM 不同） ────────────────────
     # 留空时自动复用 openai_api_key / openai_api_url
     embedding_api_key: str = ""

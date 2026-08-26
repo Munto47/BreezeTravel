@@ -5,6 +5,11 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 from app.itineraries.hash_service import sha256_canonical
+from app.trip_intake.llm_client import (
+    StructuredExtractionClientError,
+    StructuredJsonReceipt,
+    StructuredJsonResult,
+)
 from app.trip_intake.models import (
     DateRangeExpression,
     EvidenceSpan,
@@ -27,6 +32,36 @@ from app.trip_intake.models import (
     TripIntakeExtraction,
     validate_extraction_evidence,
 )
+from app.trip_intake.semantic import TripIntakeSemanticDraft, compile_semantic_draft
+
+
+@dataclass(frozen=True)
+class ExtractionRuntimeReceipt:
+    requested_model: str
+    actual_model: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: float = 0
+    fallback_used: bool = False
+    error_category: str | None = None
+
+    @classmethod
+    def from_client(
+        cls,
+        receipt: StructuredJsonReceipt,
+        *,
+        fallback_used: bool = False,
+        error_category: str | None = None,
+    ) -> "ExtractionRuntimeReceipt":
+        return cls(
+            requested_model=receipt.requested_model,
+            actual_model=receipt.actual_model,
+            input_tokens=receipt.input_tokens,
+            output_tokens=receipt.output_tokens,
+            latency_ms=receipt.latency_ms,
+            fallback_used=fallback_used,
+            error_category=error_category,
+        )
 
 
 @dataclass(frozen=True)
@@ -34,6 +69,7 @@ class ExtractionOutcome:
     extraction: TripIntakeExtraction
     parser_binding: ParserBinding
     status: IntakeStatus
+    runtime_receipt: ExtractionRuntimeReceipt | None = None
 
 
 class TripIntakeExtractor(Protocol):
@@ -49,19 +85,28 @@ class StructuredExtractionClient(Protocol):
         json_schema: dict[str, Any],
         model_name: str,
         temperature: float,
-    ) -> dict[str, Any]: ...
+    ) -> StructuredJsonResult: ...
 
 
-def _binding(*, parser_name: str, parser_version: str, model_name: str, prompt_version: str) -> ParserBinding:
+def _binding(
+    *,
+    parser_name: str,
+    parser_version: str,
+    model_name: str,
+    prompt_version: str,
+    schema: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+) -> ParserBinding:
     config_hash = sha256_canonical(
         {
             "parser_name": parser_name,
             "parser_version": parser_version,
             "model_name": model_name,
             "prompt_version": prompt_version,
-            "schema": TripIntakeExtraction.model_json_schema(),
+            "schema": schema or TripIntakeExtraction.model_json_schema(),
             "temperature": 0,
             "tool_calls": False,
+            **(config or {}),
         }
     )
     return ParserBinding(
@@ -88,10 +133,10 @@ def _failed_extraction(message: str) -> TripIntakeExtraction:
 
 
 class SchemaConstrainedTripIntakeExtractor:
-    """LLM extractor with no tools and a deterministic validation boundary."""
+    """Model semantic proposal with deterministic evidence compilation."""
 
-    parser_version = "trip-intake-llm-v2"
-    prompt_version = "trip-intake-extraction-zh-v2"
+    parser_version = "trip-intake-semantic-compiler-v1"
+    prompt_version = "trip-intake-extraction-zh-v3"
 
     def __init__(self, client: StructuredExtractionClient, *, model_name: str):
         self.client = client
@@ -103,36 +148,62 @@ class SchemaConstrainedTripIntakeExtractor:
             parser_version=self.parser_version,
             model_name=self.model_name,
             prompt_version=self.prompt_version,
+            schema=TripIntakeSemanticDraft.model_json_schema(),
+            config={"evidence_offsets": "server-compiled-code-points"},
         )
         source_payload = [
             {"source_id": source.source_id, "source_type": source.source_type.value, "text": source.text}
             for source in sources
         ]
         try:
-            payload = await self.client.generate_json(
+            result = await self.client.generate_json(
                 system_prompt=(
-                    "忠实抽取行程需求，不规划、不调用工具、不验证地点真假。"
-                    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，所有原子事实必须给出 Unicode code-point 半开区间证据。"
+                    "你是行程需求信息抽取器，只忠实记录当前有效陈述，不规划、不调用工具、"
+                    "不验证或修正地点真假。过去、取消、排除、出发、返程和候选地点必须区分角色；"
+                    "修正后的新陈述优先。人数、天数、晚数、日期、预算和其他数字不可串类。"
+                    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值。"
+                    "每个原子事实引用 source_id、逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
                 ),
-                input_payload={"schema_version": "trip-intake-extraction-v2", "sources": source_payload},
-                json_schema=TripIntakeExtraction.model_json_schema(),
+                input_payload={
+                    "schema_version": "trip-intake-semantic-request-v1",
+                    "sources": source_payload,
+                },
+                json_schema=TripIntakeSemanticDraft.model_json_schema(),
                 model_name=self.model_name,
                 temperature=0,
             )
-            extraction = TripIntakeExtraction.model_validate(payload)
-            validate_extraction_evidence(
+            draft = TripIntakeSemanticDraft.model_validate(result.payload)
+            extraction = compile_semantic_draft(draft, sources)
+            return ExtractionOutcome(
                 extraction,
-                {source.source_id: source.text for source in sources},
+                binding,
+                IntakeStatus.NEEDS_CONFIRMATION,
+                ExtractionRuntimeReceipt.from_client(result.receipt),
             )
-            # Model output never self-confirms the materialization prerequisites.
-            extraction = extraction.model_copy(update={"readiness": IntakeReadiness.NEEDS_CONFIRMATION})
-            extraction = TripIntakeExtraction.model_validate(extraction.model_dump())
-            return ExtractionOutcome(extraction, binding, IntakeStatus.NEEDS_CONFIRMATION)
+        except StructuredExtractionClientError as exc:
+            return ExtractionOutcome(
+                _failed_extraction(f"schema-constrained extraction failed: {exc.category}"),
+                binding,
+                IntakeStatus.EXTRACTION_FAILED,
+                ExtractionRuntimeReceipt.from_client(
+                    exc.receipt,
+                    fallback_used=False,
+                    error_category=exc.category,
+                ),
+            )
         except Exception as exc:
             return ExtractionOutcome(
                 _failed_extraction(f"schema-constrained extraction failed: {type(exc).__name__}"),
                 binding,
                 IntakeStatus.EXTRACTION_FAILED,
+                ExtractionRuntimeReceipt(
+                    requested_model=self.model_name,
+                    error_category=(
+                        "schema_invalid"
+                        if type(exc).__name__ == "ValidationError"
+                        else "evidence_invalid"
+                    ),
+                ),
             )
 
 
@@ -380,3 +451,306 @@ class DeterministicTripIntakeExtractor:
             {source.source_id: source.text for source in sources},
         )
         return ExtractionOutcome(extraction, binding, IntakeStatus.NEEDS_CONFIRMATION)
+
+
+def _primary_identity(extraction: TripIntakeExtraction) -> str | None:
+    primary_id = extraction.locations.primary_mention_id
+    primary = next(
+        (item for item in extraction.locations.mentions if item.mention_id == primary_id),
+        None,
+    )
+    if primary is None:
+        return None
+    return primary.normalized_name or primary.raw_text
+
+
+def _conflicting_exact_quantity(
+    semantic: QuantifiedValue,
+    deterministic: QuantifiedValue,
+) -> bool:
+    if (
+        semantic.quantifier != QuantityQuantifier.EXACT
+        or deterministic.quantifier != QuantityQuantifier.EXACT
+        or semantic.min == deterministic.min
+    ):
+        return False
+    semantic_spans = {
+        (item.source_id, item.start, item.end) for item in semantic.evidence
+    }
+    deterministic_spans = {
+        (item.source_id, item.start, item.end) for item in deterministic.evidence
+    }
+    return bool(semantic_spans & deterministic_spans)
+
+
+def _deduplicate_evidence(items: list[EvidenceSpan]) -> list[EvidenceSpan]:
+    result: list[EvidenceSpan] = []
+    seen: set[tuple[str, int, int, str]] = set()
+    for item in items:
+        key = (item.source_id, item.start, item.end, item.quote)
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
+
+
+def _merge_quantity(
+    semantic: QuantifiedValue,
+    deterministic: QuantifiedValue,
+    *,
+    field_path: str,
+    issues: list[ExtractionIssue],
+) -> QuantifiedValue:
+    if semantic.quantifier == QuantityQuantifier.UNKNOWN:
+        # Explicit unknown evidence is a fact and must never be promoted by a rule.
+        if semantic.evidence or deterministic.quantifier == QuantityQuantifier.UNKNOWN:
+            return semantic
+        return deterministic
+    if deterministic.quantifier == QuantityQuantifier.UNKNOWN:
+        return semantic
+    if _conflicting_exact_quantity(semantic, deterministic):
+        evidence = _deduplicate_evidence([*semantic.evidence, *deterministic.evidence])
+        issues.append(
+            ExtractionIssue(
+                code="HYBRID_FIELD_CONFLICT",
+                field_path=field_path,
+                message="模型与确定性规则对同一证据得出冲突精确值，需要确认",
+                evidence=evidence,
+            )
+        )
+        return QuantifiedValue(
+            quantifier=QuantityQuantifier.UNKNOWN,
+            derivation=QuantityDerivation.MISSING,
+            evidence=evidence,
+        )
+    return semantic
+
+
+def _merge_extractions(
+    semantic: TripIntakeExtraction,
+    deterministic: TripIntakeExtraction,
+) -> TripIntakeExtraction:
+    merge_issues: list[ExtractionIssue] = []
+    locations = semantic.locations
+    semantic_identity = _primary_identity(semantic)
+    deterministic_identity = _primary_identity(deterministic)
+    if not semantic.locations.mentions:
+        locations = deterministic.locations
+    elif (
+        semantic.locations.status == LocationStatus.EXACT
+        and deterministic.locations.status == LocationStatus.EXACT
+        and semantic_identity
+        and deterministic_identity
+        and semantic_identity != deterministic_identity
+    ):
+        candidates: list[LocationMention] = []
+        seen: set[tuple[str, str]] = set()
+        for item in [*semantic.locations.mentions, *deterministic.locations.mentions]:
+            identity = item.normalized_name or item.raw_text
+            key = (identity, item.evidence[0].source_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append(
+                item.model_copy(
+                    update={
+                        "mention_id": f"location-{len(candidates) + 1}",
+                        "role": (
+                            LocationRole.DESTINATION_CANDIDATE
+                            if item.role == LocationRole.PRIMARY_DESTINATION
+                            else item.role
+                        ),
+                    }
+                )
+            )
+        locations = LocationExtraction(
+            mentions=candidates,
+            primary_mention_id=None,
+            status=LocationStatus.UNCERTAIN,
+        )
+        merge_issues.append(
+            ExtractionIssue(
+                code="HYBRID_FIELD_CONFLICT",
+                field_path="locations.primary_city",
+                message="模型与确定性规则给出不同主目的城市，需要确认",
+            )
+        )
+
+    party_total = _merge_quantity(
+        semantic.party_size.total,
+        deterministic.party_size.total,
+        field_path="party_size.total",
+        issues=merge_issues,
+    )
+    semantic_composition = semantic.party_size.composition
+    deterministic_composition = deterministic.party_size.composition
+    party = PartySizeExtraction(
+        total=party_total,
+        composition=(
+            semantic_composition
+            if any(
+                (
+                    semantic_composition.adults,
+                    semantic_composition.children,
+                    semantic_composition.elderly,
+                    semantic_composition.tags,
+                )
+            )
+            else deterministic_composition
+        ),
+    )
+
+    days = _merge_quantity(
+        semantic.temporal.days,
+        deterministic.temporal.days,
+        field_path="temporal.days",
+        issues=merge_issues,
+    )
+    nights = _merge_quantity(
+        semantic.temporal.nights,
+        deterministic.temporal.nights,
+        field_path="temporal.nights",
+        issues=merge_issues,
+    )
+    temporal = TemporalExtraction(
+        days=days,
+        nights=nights,
+        date_range=semantic.temporal.date_range or deterministic.temporal.date_range,
+        arrival=semantic.temporal.arrival or deterministic.temporal.arrival,
+        departure=semantic.temporal.departure or deterministic.temporal.departure,
+    )
+    preferences = (
+        semantic.preferences
+        if semantic.preferences.status.value != "UNSPECIFIED"
+        else deterministic.preferences
+    )
+
+    issues = [*semantic.issues, *merge_issues]
+    if locations.status != LocationStatus.EXACT:
+        issues.extend(
+            item
+            for item in deterministic.issues
+            if item.field_path == "locations.primary_city"
+        )
+    if party.total.quantifier == QuantityQuantifier.UNKNOWN:
+        issues.extend(
+            item for item in deterministic.issues if item.field_path == "party_size.total"
+        )
+    if temporal.date_range is None:
+        issues.extend(
+            item for item in deterministic.issues if item.field_path == "temporal.date_range"
+        )
+    deduplicated_issues: list[ExtractionIssue] = []
+    seen_issues: set[tuple[str, str, str]] = set()
+    for item in issues:
+        key = (item.code, item.field_path, item.message)
+        if key not in seen_issues:
+            seen_issues.add(key)
+            deduplicated_issues.append(item)
+
+    merged = TripIntakeExtraction(
+        locations=locations,
+        party_size=party,
+        temporal=temporal,
+        preferences=preferences,
+        issues=deduplicated_issues,
+        readiness=IntakeReadiness.NEEDS_CONFIRMATION,
+    )
+    return merged
+
+
+class HybridTripIntakeExtractor:
+    parser_version = "trip-intake-hybrid-v1"
+    prompt_version = SchemaConstrainedTripIntakeExtractor.prompt_version
+
+    def __init__(
+        self,
+        model_extractor: SchemaConstrainedTripIntakeExtractor,
+        *,
+        deterministic_extractor: DeterministicTripIntakeExtractor | None = None,
+    ) -> None:
+        self.model_extractor = model_extractor
+        self.deterministic_extractor = deterministic_extractor or DeterministicTripIntakeExtractor()
+
+    async def extract(self, sources: list[IntakeSource]) -> ExtractionOutcome:
+        model_outcome = await self.model_extractor.extract(sources)
+        deterministic = await self.deterministic_extractor.extract(sources)
+        binding = _binding(
+            parser_name="hybrid-trip-intake",
+            parser_version=self.parser_version,
+            model_name=self.model_extractor.model_name,
+            prompt_version=self.prompt_version,
+            schema=TripIntakeSemanticDraft.model_json_schema(),
+            config={
+                "evidence_offsets": "server-compiled-code-points",
+                "fallback": DeterministicTripIntakeExtractor.parser_version,
+            },
+        )
+        if model_outcome.status == IntakeStatus.EXTRACTION_FAILED:
+            failure_issue = model_outcome.extraction.issues[0]
+            extraction = deterministic.extraction.model_copy(
+                update={"issues": [*deterministic.extraction.issues, failure_issue]}
+            )
+            extraction = TripIntakeExtraction.model_validate(extraction.model_dump())
+            runtime = model_outcome.runtime_receipt or ExtractionRuntimeReceipt(
+                requested_model=self.model_extractor.model_name,
+                error_category="unknown_model_failure",
+            )
+            runtime = ExtractionRuntimeReceipt(
+                **{
+                    **runtime.__dict__,
+                    "fallback_used": True,
+                }
+            )
+            return ExtractionOutcome(
+                extraction,
+                binding,
+                IntakeStatus.EXTRACTION_FAILED,
+                runtime,
+            )
+
+        extraction = _merge_extractions(model_outcome.extraction, deterministic.extraction)
+        return ExtractionOutcome(
+            extraction,
+            binding,
+            IntakeStatus.NEEDS_CONFIRMATION,
+            model_outcome.runtime_receipt,
+        )
+
+
+class UnavailableHybridTripIntakeExtractor:
+    """Explicit hybrid mode without a key; preserves local facts and fails closed."""
+
+    def __init__(self, *, model_name: str) -> None:
+        self.model_name = model_name
+        self.deterministic_extractor = DeterministicTripIntakeExtractor()
+
+    async def extract(self, sources: list[IntakeSource]) -> ExtractionOutcome:
+        deterministic = await self.deterministic_extractor.extract(sources)
+        issue = ExtractionIssue(
+            code="EXTRACTION_FAILED",
+            field_path="extraction",
+            message="hybrid extraction unavailable: API key is not configured",
+            blocking=True,
+        )
+        extraction = deterministic.extraction.model_copy(
+            update={"issues": [*deterministic.extraction.issues, issue]}
+        )
+        binding = _binding(
+            parser_name="hybrid-trip-intake",
+            parser_version=HybridTripIntakeExtractor.parser_version,
+            model_name=self.model_name,
+            prompt_version=HybridTripIntakeExtractor.prompt_version,
+            schema=TripIntakeSemanticDraft.model_json_schema(),
+            config={"unavailable": "missing_api_key"},
+        )
+        return ExtractionOutcome(
+            TripIntakeExtraction.model_validate(extraction.model_dump()),
+            binding,
+            IntakeStatus.EXTRACTION_FAILED,
+            ExtractionRuntimeReceipt(
+                requested_model=self.model_name,
+                fallback_used=True,
+                error_category="missing_api_key",
+            ),
+        )

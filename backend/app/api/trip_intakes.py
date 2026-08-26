@@ -27,11 +27,13 @@ from app.trip_intake.materialization import (
     TripIntakeMaterializationService,
 )
 from app.trip_intake.models import IntakeSourceType, TripIntakeExtraction, TripIntakeRevision
+from app.trip_intake.extraction import TripIntakeExtractor
 from app.trip_intake.repository import (
     PostgresTripIntakeRepository,
     TripIntakeRepository,
 )
 from app.trip_intake.service import TripIntakeApplicationService
+from app.trip_intake.runtime import build_trip_intake_extractor
 from app.utils.auth import get_current_user
 
 
@@ -50,6 +52,10 @@ def get_trip_intake_ocr_engine() -> OcrEngine:
     return PaddleOcrEngine()
 
 
+def get_trip_intake_extractor() -> TripIntakeExtractor:
+    return build_trip_intake_extractor()
+
+
 TripIntakeRepositoryDep = Annotated[TripIntakeRepository, Depends(get_trip_intake_repository)]
 MaterializationRepositoryDep = Annotated[
     TripIntakeMaterializationRepository,
@@ -57,6 +63,7 @@ MaterializationRepositoryDep = Annotated[
 ]
 CurrentUserDep = Annotated[str, Depends(get_current_user)]
 OcrEngineDep = Annotated[OcrEngine, Depends(get_trip_intake_ocr_engine)]
+TripIntakeExtractorDep = Annotated[TripIntakeExtractor, Depends(get_trip_intake_extractor)]
 
 
 class CreateTripIntakeRequest(BaseModel):
@@ -163,10 +170,11 @@ async def create_trip_intake(
     response: Response,
     current_user: CurrentUserDep,
     repository: TripIntakeRepositoryDep,
+    extractor: TripIntakeExtractorDep,
 ):
     await require_room_member(room_id, current_user)
     try:
-        intake = await TripIntakeApplicationService(repository).create(
+        intake = await TripIntakeApplicationService(repository, extractor).create(
             room_id=room_id,
             source_type=body.source_type,
             source_texts=[body.raw_text],
@@ -193,6 +201,7 @@ async def create_screenshot_trip_intake(
     current_user: CurrentUserDep,
     repository: TripIntakeRepositoryDep,
     ocr_engine: OcrEngineDep,
+    extractor: TripIntakeExtractorDep,
 ):
     await require_room_member(room_id, current_user)
     try:
@@ -234,7 +243,7 @@ async def create_screenshot_trip_intake(
                             "raw_asset_retained": False,
                         }
                     )
-        intake = await TripIntakeApplicationService(repository).create(
+        intake = await TripIntakeApplicationService(repository, extractor).create(
             room_id=room_id,
             source_type=IntakeSourceType.SCREENSHOT_OCR,
             source_texts=ocr_texts,
