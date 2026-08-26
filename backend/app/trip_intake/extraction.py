@@ -291,6 +291,13 @@ _CITY_NAMES = (
     "长春",
 )
 
+_LOCATION_NORMALIZATIONS = {
+    **{city: f"{city}市" for city in _CITY_NAMES},
+    "帝都": "北京市",
+    "魔都": "上海市",
+    "杭城": "杭州市",
+}
+
 _CHINESE_NUMBER = {
     "一": 1,
     "二": 2,
@@ -333,7 +340,6 @@ class DeterministicTripIntakeExtractor:
             prompt_version=self.prompt_version,
         )
         locations: list[LocationMention] = []
-        primary_ids: list[str] = []
         primary_city_names: set[str] = set()
         party: QuantifiedValue | None = None
         party_tags: list[str] = []
@@ -341,21 +347,24 @@ class DeterministicTripIntakeExtractor:
         preferences = PreferenceExtraction()
 
         for source in sources:
-            for city in _CITY_NAMES:
-                for match in re.finditer(re.escape(city), source.text):
+            for raw_name, normalized_name in _LOCATION_NORMALIZATIONS.items():
+                for match in re.finditer(re.escape(raw_name), source.text):
                     role = _deterministic_location_role(
                         source.text,
                         match.start(),
                         match.end(),
                     )
                     mention_id = f"location-{len(locations) + 1}"
-                    if role == LocationRole.PRIMARY_DESTINATION and city in primary_city_names:
+                    if (
+                        role == LocationRole.PRIMARY_DESTINATION
+                        and normalized_name in primary_city_names
+                    ):
                         role = LocationRole.OTHER_MENTION
                     locations.append(
                         LocationMention(
                             mention_id=mention_id,
-                            raw_text=city,
-                            normalized_name=f"{city}市" if city not in {"北京", "上海", "重庆", "天津"} else f"{city}市",
+                            raw_text=raw_name,
+                            normalized_name=normalized_name,
                             country_code="CN",
                             entity_type=LocationEntityType.CITY,
                             role=role,
@@ -364,8 +373,7 @@ class DeterministicTripIntakeExtractor:
                         )
                     )
                     if role == LocationRole.PRIMARY_DESTINATION:
-                        primary_ids.append(mention_id)
-                        primary_city_names.add(city)
+                        primary_city_names.add(normalized_name)
 
             if party is None:
                 party, party_tags = _explicit_party_quantity(source)
@@ -438,7 +446,24 @@ class DeterministicTripIntakeExtractor:
             if explicit_preferences.status == PreferenceStatus.SPECIFIED:
                 preferences = explicit_preferences
 
-        unique_primary_ids = list(dict.fromkeys(primary_ids))
+        locations = [
+            item.model_copy(update={"mention_id": f"location-{index}"})
+            for index, item in enumerate(
+                sorted(
+                    locations,
+                    key=lambda item: (
+                        item.evidence[0].source_id,
+                        item.evidence[0].start,
+                    ),
+                ),
+                start=1,
+            )
+        ]
+        unique_primary_ids = [
+            item.mention_id
+            for item in locations
+            if item.role == LocationRole.PRIMARY_DESTINATION
+        ]
         if len(unique_primary_ids) == 1:
             location_status = LocationStatus.EXACT
             primary_id = unique_primary_ids[0]

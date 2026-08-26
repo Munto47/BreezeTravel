@@ -312,6 +312,14 @@ async def test_deterministic_location_roles_follow_clause_level_corrections() ->
     outcome = await DeterministicTripIntakeExtractor().extract([source])
 
     roles = {item.raw_text: item.role.value for item in outcome.extraction.locations.mentions}
+    assert [item.raw_text for item in outcome.extraction.locations.mentions] == [
+        "广州",
+        "西安",
+        "天津",
+        "杭州",
+        "重庆",
+        "深圳",
+    ]
     assert roles == {
         "广州": "ORIGIN",
         "深圳": "RETURN_LOCATION",
@@ -321,6 +329,20 @@ async def test_deterministic_location_roles_follow_clause_level_corrections() ->
         "天津": "OTHER_MENTION",
     }
     assert outcome.extraction.locations.status.value == "EXACT"
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_normalize_supported_city_alias() -> None:
+    outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("这次目的地是帝都；4人；玩5天")]
+    )
+
+    primary = outcome.extraction.locations.mentions[0]
+    assert (primary.raw_text, primary.normalized_name, primary.role.value) == (
+        "帝都",
+        "北京市",
+        "PRIMARY_DESTINATION",
+    )
 
 
 @pytest.mark.asyncio
