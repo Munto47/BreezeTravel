@@ -175,8 +175,6 @@ class QuantifiedValue(BaseModel):
                 raise ValueError("AT_MOST quantity requires max and no min")
         elif self.min is not None or self.max is not None:
             raise ValueError("UNKNOWN quantity cannot contain bounds")
-        if self.derivation == QuantityDerivation.MISSING and self.evidence:
-            raise ValueError("MISSING quantity cannot contain evidence")
         if self.derivation != QuantityDerivation.MISSING and not self.evidence:
             raise ValueError("non-missing quantity requires evidence")
         return self

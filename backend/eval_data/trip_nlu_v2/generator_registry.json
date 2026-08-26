@@ -1,0 +1,13 @@
+{
+  "blind_generation_recipe_in_repository": false,
+  "deterministic_cases": 60,
+  "prompt_contract_applied_to_renderer": true,
+  "provider_validation": false,
+  "schema_version": "trip-nlu-generator-registry-v2",
+  "tool_calls": false,
+  "truth_first": true,
+  "user_prompt_code_points": 10145,
+  "user_prompt_generation_method": "PROMPT_CONTRACT_COMPILED_RENDERER",
+  "user_prompt_guided_cases": 60,
+  "user_prompt_sha256": "e87aacae03338340345747f1a65ec5a723ce142df0f0be8104ff2a74b15feb7a"
+}

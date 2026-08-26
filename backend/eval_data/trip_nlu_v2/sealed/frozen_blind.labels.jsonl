@@ -1,0 +1,69 @@
+{
+  "case_count": 24,
+  "case_id_end": "TRIP_NLU_0120",
+  "case_id_start": "TRIP_NLU_0097",
+  "coverage": {
+    "count": 24,
+    "destination": {
+      "missing": 2,
+      "multiple": 1,
+      "other": 2,
+      "uncertain": 1,
+      "上海": 6,
+      "北京": 6,
+      "杭州": 6
+    },
+    "difficulty": {
+      "easy": 6,
+      "hard": 7,
+      "medium": 11
+    },
+    "duration": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 11,
+      "RANGE": 4,
+      "UNKNOWN": 3
+    },
+    "generator_source": {
+      "DETERMINISTIC": 12,
+      "USER_PROMPT": 12
+    },
+    "hard_fields": {
+      "destination_non_exact": 3,
+      "duration_unknown_or_range": 3,
+      "party_unknown_or_range": 4
+    },
+    "minimums": {
+      "fictional": 2,
+      "interference": 6,
+      "preference": 21,
+      "roles": 5,
+      "semantic_party": 5
+    },
+    "party": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 12,
+      "RANGE": 3,
+      "UNKNOWN": 3
+    },
+    "requirement_categories": {
+      "accessibility": 3,
+      "accommodation": 3,
+      "budget": 19,
+      "children": 1,
+      "dietary": 2,
+      "elderly": 3,
+      "pet": 3,
+      "physical": 1,
+      "time": 3,
+      "transport": 19
+    }
+  },
+  "external_label_sha256": "60e2fd7812297789cbd66d480884761ac75eaf38ce54e8f7b66f0dcb46d7b2fb",
+  "schema_version": "trip-nlu-v2-blind-label-seal-v1",
+  "scoring_payload_present": false
+}
