@@ -50,6 +50,24 @@ def test_nonblind_scorer_supports_arbitrary_complete_subset(tmp_path: Path) -> N
     assert len(receipt["case_details"]) == 3
 
 
+def test_nonblind_scorer_can_select_targeted_dev_case(tmp_path: Path) -> None:
+    labels = _read_jsonl(DATA_ROOT / "dev.jsonl")[:2]
+    predictions_path = tmp_path / "predictions.jsonl"
+    _write_jsonl(
+        predictions_path,
+        [{"case_id": labels[1]["case_id"], "prediction": labels[1]["expected"]}],
+    )
+
+    receipt = score_nonblind(
+        predictions_path,
+        DATA_ROOT / "dev.jsonl",
+        case_ids={labels[1]["case_id"]},
+    )
+
+    assert receipt["case_count"] == 1
+    assert receipt["gate"] == "PASS"
+
+
 def test_nonblind_scorer_rejects_blind_case_ids(tmp_path: Path) -> None:
     label = _read_jsonl(DATA_ROOT / "validation.jsonl")[0]
     label = {**label, "case_id": "TRIP_NLU_0097"}

@@ -130,9 +130,14 @@ def score_nonblind(
     labels_path: Path,
     *,
     include_case_details: bool = True,
+    case_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     predictions = _read_jsonl(predictions_path)
     labels = _read_jsonl(labels_path)
+    if case_ids is not None:
+        labels = [item for item in labels if item["case_id"] in case_ids]
+        if {item["case_id"] for item in labels} != case_ids:
+            raise DatasetValidationError("one or more requested labelled case IDs do not exist")
     if not labels:
         raise DatasetValidationError("non-blind scoring requires at least one labelled case")
     if any(int(item["case_id"].rsplit("_", 1)[1]) > 96 for item in labels):
@@ -214,11 +219,13 @@ def main() -> None:
     parser.add_argument("labels", type=Path)
     parser.add_argument("--aggregate-only", action="store_true")
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--case-id", action="append", dest="case_ids")
     args = parser.parse_args()
     receipt = score_nonblind(
         args.predictions,
         args.labels,
         include_case_details=not args.aggregate_only,
+        case_ids=set(args.case_ids) if args.case_ids else None,
     )
     rendered = json.dumps(receipt, ensure_ascii=False, sort_keys=True)
     if args.output is not None:
