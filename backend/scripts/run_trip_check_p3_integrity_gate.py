@@ -61,6 +61,13 @@ def _portable(value: str) -> str:
         result = result.replace(source, replacement)
         result = result.replace(source.replace("\\", "/"), replacement)
         result = result.replace(source.replace("\\", "\\\\"), replacement)
+    # Historical receipts can contain an absolute path from another worktree.
+    # Redact any BreezeTravel worktree root, not only this checkout's root.
+    result = re.sub(
+        r"(?i)[A-Z]:[\\/]+(?:[^\\/\r\n]+[\\/]+)*agentTravel(?:-[^\\/\r\n]+)?(?=[\\/]|$)",
+        "<repo>",
+        result,
+    )
     return result
 
 
