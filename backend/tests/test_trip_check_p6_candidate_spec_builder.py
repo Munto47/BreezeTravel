@@ -77,6 +77,7 @@ def test_candidate_spec_builder_binds_all_inputs(tmp_path: Path) -> None:
         "sha256": file_sha256(controlled_snapshot),
         "bytes": controlled_snapshot.stat().st_size,
     } in config_manifest["files"]
+    assert any(item["path"] == ".gitattributes" for item in config_manifest["files"])
     assert any(item["path"] == "backend/.dockerignore" for item in config_manifest["files"])
 
 

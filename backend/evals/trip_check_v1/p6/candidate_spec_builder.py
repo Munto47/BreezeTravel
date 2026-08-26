@@ -25,6 +25,7 @@ from evals.trip_check_v1.p6.postgres_runner import migration_fingerprint
 
 
 CONFIG_PATHS = (
+    ".gitattributes",
     ".env.example",
     "docker-compose.yml",
     "deploy/p6/docker-compose.candidate.yml",
