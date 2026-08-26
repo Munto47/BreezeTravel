@@ -1,0 +1,35 @@
+........................................s............................... [  5%]
+........................................................................ [ 11%]
+...............................................................s........ [ 16%]
+..........ssss.......s.................................................. [ 22%]
+.................................................................ss..... [ 28%]
+.............................................s.......................... [ 33%]
+........................................................................ [ 39%]
+........s............................................................... [ 45%]
+........................................................................ [ 50%]
+......................................................s...........ssssss [ 56%]
+ss......................s............................................... [ 62%]
+........................................................................ [ 67%]
+.....................................................s.................. [ 73%]
+........................................................................ [ 79%]
+........................................................................ [ 84%]
+................................................................s....... [ 90%]
+......s................................................................. [ 96%]
+.........................................ss......                        [100%]
+============================== warnings summary ===============================
+<user-profile>\anaconda3\Lib\site-packages\pkg_resources\__init__.py:3146
+  <user-profile>\anaconda3\Lib\site-packages\pkg_resources\__init__.py:3146: DeprecationWarning: Deprecated call to `pkg_resources.declare_namespace('sphinxcontrib')`.
+  Implementing implicit namespace packages (as specified in PEP 420) is preferred to `pkg_resources.declare_namespace`. See https://setuptools.pypa.io/en/latest/references/keywords.html#keyword-namespace-packages
+    declare_namespace(pkg)
+
+tests/test_planner_graph.py: 6 warnings
+tests/test_phase_a.py: 2 warnings
+tests/test_optimizer.py: 7 warnings
+tests/test_api.py: 7 warnings
+tests/test_d24_d25.py: 3 warnings
+tests/test_planner_v2.py: 12 warnings
+  <user-profile>\anaconda3\Lib\site-packages\sklearn\cluster\_kmeans.py:1419: UserWarning: KMeans is known to have a memory leak on Windows with MKL, when there are less chunks than available threads. You can avoid it by setting the environment variable OMP_NUM_THREADS=1.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+1247 passed, 26 skipped, 38 warnings in 50.32s

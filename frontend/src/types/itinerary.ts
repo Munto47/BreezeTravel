@@ -20,6 +20,7 @@ export interface TimeSlot {
   startTime: string     // "09:00"
   endTime: string       // "11:30"
   transport?: TransportLeg  // 与下一地点的交通（最后一个为 undefined）
+  tips: string[]        // 温馨提示（TipsGenerator 生成）
 }
 
 export interface DayPlan {
@@ -60,6 +61,7 @@ export function parseItineraryFromAPI(raw: Record<string, unknown>): Itinerary {
         startTime: slot.start_time as string,
         endTime: slot.end_time as string,
         transport,
+        tips: (slot.tips as string[] | undefined) ?? [],
       } satisfies TimeSlot
     })
 

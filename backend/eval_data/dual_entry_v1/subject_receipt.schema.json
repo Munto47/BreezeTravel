@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/dual-entry-subject-evidence-receipt-v1.json",
+  "title": "BreezeTravel dual-entry static input subject evidence receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "case_id",
+    "split",
+    "entry",
+    "subject_path",
+    "subject_type",
+    "subject_sha256",
+    "case_input_sha256",
+    "evidence_class",
+    "execution_mode",
+    "provider",
+    "provider_call_attempted",
+    "declared_input_receipt_id",
+    "claim_scope",
+    "current_fact_authority",
+    "live_provider_evidence",
+    "observed_at",
+    "reason_code",
+    "source_artifact"
+  ],
+  "properties": {
+    "schema_version": {"const": "dual-entry-subject-evidence-receipt-v1"},
+    "receipt_id": {"type": "string", "pattern": "^(fixture|unavailable)-[0-9a-f]{32}$"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "split": {"enum": ["pilot", "dev", "regression", "frozen_blind"]},
+    "entry": {"enum": ["IMPORT", "BUILDER"]},
+    "subject_path": {"type": "string", "pattern": "^input\\."},
+    "subject_type": {
+      "enum": [
+        "IMPORT_CONTROLLED_FACT",
+        "BUILDER_SEED",
+        "BUILDER_INITIAL_STOP",
+        "BUILDER_CANDIDATE",
+        "BUILDER_ROUTE_LEG"
+      ]
+    },
+    "subject_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "case_input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "evidence_class": {"enum": ["CONTROLLED_FIXTURE_EXECUTION", "UNAVAILABLE"]},
+    "execution_mode": {"enum": ["fixture", "unavailable"]},
+    "provider": {"type": ["string", "null"]},
+    "provider_call_attempted": {"const": false},
+    "declared_input_receipt_id": {"type": ["string", "null"]},
+    "claim_scope": {"const": "DATASET_INPUT_BYTES_ONLY"},
+    "current_fact_authority": {"const": false},
+    "live_provider_evidence": {"const": false},
+    "observed_at": {"type": "null"},
+    "reason_code": {"type": ["string", "null"]},
+    "source_artifact": {"type": "null"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"evidence_class": {"const": "CONTROLLED_FIXTURE_EXECUTION"}}},
+      "then": {
+        "properties": {
+          "receipt_id": {"pattern": "^fixture-[0-9a-f]{32}$"},
+          "execution_mode": {"const": "fixture"},
+          "provider": {"const": "controlled_fixture"},
+          "reason_code": {"type": "null"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"evidence_class": {"const": "UNAVAILABLE"}}},
+      "then": {
+        "properties": {
+          "receipt_id": {"pattern": "^unavailable-[0-9a-f]{32}$"},
+          "execution_mode": {"const": "unavailable"},
+          "provider": {"type": "null"},
+          "reason_code": {"const": "NO_HISTORICAL_CALL_ARTIFACT"}
+        }
+      }
+    }
+  ]
+}

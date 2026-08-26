@@ -1,0 +1,110 @@
+# Trip Check P5 v2 end-to-end verification
+
+This suite keeps dataset, runner, scorer, Judge, Gate, and formal evidence claims separate. A
+controlled-fixture pass is not a formal or human-evidence pass.
+
+## Covered readbacks
+
+- Dataset: exact JSONL bytes, canonical hashes, 360 cases, 270/90 lanes, city and split balance,
+  disjoint lineage, and a formal validator run from a fresh detached `HEAD` worktree.
+- Screenshot materialization: all 171 render/OCR/cleanup receipts, receipt-to-case bindings, and
+  original-image deletion. The candidate freeze binds PaddleOCR 3.7.0 actual materialization and
+  records `actual_ocr=PASS`; no original screenshot bytes are tracked.
+- Runner: all 18 pilot cases through Legacy A, Core B, and Solver C, with 54 replay matches,
+  exact terminal keys, exception terminalization, RunSpec whitelist, zero API/token/cost claims,
+  a 60-second local ceiling, and readback of subject, dataset, case/materialization, terminal,
+  per-variant, RunSpec, and replay commitments.
+- OCR replay boundary: the formal runner preloads the frozen actual-PaddleOCR receipts by rendered
+  image SHA-256. It still executes render, temporary-file write, product import/parse, receipt
+  projection comparison, and current-run original deletion. The run and every screenshot terminal
+  declare `FROZEN_ACTUAL_OCR_RECEIPT_REPLAY`, `fresh_actual_ocr_execution=NOT_RUN`, zero cache
+  miss/fallback/fresh prediction, and exact hit/receipt-match/cleanup counts. This is snapshot replay,
+  not a claim that the formal eval reran Paddle inference.
+- Cardinality: formal nonblind is exactly 810 terminal rows, frozen blind is exactly 270, and the
+  combined expectation is 1080. This is an executable cardinality contract, not a claim that the
+  formal outputs already exist.
+- Scorer: case-level scoring reads all 54 pilot terminals. The partial run-group readback mismatch
+  is a strict expected failure, not a pass.
+- Isolation: frozen blind inputs contain no oracle fields; repository output paths are rejected.
+- Formal/Judge/Gate: the real `judge_v2` and `gate_v2` interfaces and CLIs are integrated. The
+  active contract is sealed and `READY`; contract tests also construct an unsealed temporary
+  state and require every formal entry point to fail closed with
+  `P5_V2_FORMAL_CONTRACT_NOT_READY`.
+- Supersession: v1 runner, scorer, and Gate CLIs reject before reading artifact paths with
+  `P5_V1_FORMAL_CONTRACT_SUPERSEDED`.
+- Blind leak scan: tracked candidate code must not contain a derivation path from public fault
+  controls to blind oracle fields. The scan covers known constants/functions, reversible per-case
+  maps, fault-to-oracle dictionaries, answer-producing callables, and candidate-output-dependent
+  label paths. This is a hard contract failure, not an xfail.
+- External custody: this repository provides schemas plus a consumer-only validator. It does not
+  provide a custodian/reviewer label generator. Two independent `gpt-5.6-sol` agents must create
+  the bundle and review receipt with repository-external tooling and storage from the frozen
+  candidate commit; neither agent may read candidate outputs.
+
+## Commands
+
+Run from `backend` with the shared Python 3.12 environment:
+
+```powershell
+$py = 'D:\munto\code\claudeProject\agentTravel\.local-artifacts\venvs\p5-v2\Scripts\python.exe'
+& $py -m pytest tests/test_trip_check_p5_v2_e2e_contract.py tests/test_trip_check_p5_v2_e2e_readback.py tests/test_trip_check_p5_active_contract.py -q -ra
+& $py -m ruff check tests/p5_v2_e2e_helpers.py tests/test_trip_check_p5_v2_e2e_contract.py tests/test_trip_check_p5_v2_e2e_readback.py tests/test_trip_check_p5_active_contract.py
+```
+
+The actual PaddleOCR boundary is opt-in because it loads the external/GPU-class OCR dependency:
+
+```powershell
+$env:RUN_EXTERNAL_TESTS = '1'
+$env:P5_V2_ACTUAL_OCR_SAMPLE = '1'
+& $py -m pytest tests/test_trip_check_p5_v2_e2e_contract.py -k actual_ocr -q -rxXs
+```
+
+That opt-in check and the frozen dataset materialization prove fresh Paddle execution. The formal
+evaluation consumes their hash-bound receipts; P6 G1 separately requires 60 authorized real-source
+screenshots and cannot be replaced by this replay evidence.
+
+The runner CLI must be invoked as a module from `backend` so the `evals` package is importable:
+
+```powershell
+& $py -m scripts.run_trip_check_p5_v2_eval --lane nonblind --replay --output-dir <external-path>
+```
+
+After the external custodian and reviewer have independently produced their artifacts, an isolated
+consumer can verify structure and commitments without deriving or judging oracle semantics:
+
+```powershell
+& $py -m scripts.validate_trip_check_p5_external_custody_v2 `
+  --repo-root <candidate-readonly-worktree> `
+  --external-bundle <external-bundle-path> `
+  --external-bundle-sha256 <bundle-byte-sha256> `
+  --external-review-receipt <external-review-receipt-path> `
+  --review-receipt-sha256 <review-receipt-byte-sha256> `
+  --labels-canonical-sha256 <labels-canonical-sha256> `
+  --candidate-subject-commit <candidate-freeze-commit>
+```
+
+The formal seal command still receives only irreversible hashes and the candidate commit. It does
+not mount or read the external label payload. The isolated final scorer remains the only tracked
+consumer that validates each bundle oracle against `P5OracleV2` for scoring.
+
+## Current non-green boundaries
+
+- The committed candidate dataset says `actual_ocr=PASS`, `frozen=true`, and
+  `formal_validation_eligible=true`; its detached-worktree formal validation passes.
+- The active contract is `READY`, and the tracked v2 frozen-blind seal binds the candidate freeze,
+  dataset, external bundle commitment, review receipt commitment, rubric, and RunSpec.
+- The formal 810 nonblind terminals, 270 blind terminals, 1080 replays, three Judge rounds, score
+  reports, and Gate manifest have not been produced. Their count and binding contracts are tested,
+  but their evidence status remains `NOT_RUN`.
+- The tracked fault-to-oracle mappings, oracle derivation functions, label bundle builder, reviewer
+  implementation, and their answer-generating tests/CLIs have been removed. Custody and semantic
+  review are now repository-external operations. The repository retains only strict schemas,
+  irreversible commitments, external-path validation, and fail-closed consumers.
+- Blind label and review payloads remain repository-external. Their irreversible hashes are sealed,
+  but their current external readability and byte hashes must be revalidated by the isolated
+  consumer before scoring; no tracked test may read or recreate the label payload.
+
+The P5-R0 contract/readback/Gate-hardening checkpoint ran the active-contract, Gate, seal, E2E
+contract, and readback suites at the sealed state and returned `79 passed, 1 skipped`; the skip is
+the opt-in external/GPU OCR sample. This result validates the tracked contracts only and does not
+promote any formal run, score, Judge, or Gate status.

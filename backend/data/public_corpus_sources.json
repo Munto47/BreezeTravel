@@ -1,0 +1,9 @@
+{
+  "schema_version": "1.0",
+  "source_policy": "Only Wikimedia API content from the allowlisted projects is collected. No third-party travel-platform pages are crawled.",
+  "cities": [
+    {"city": "北京", "wikivoyage_title": "Beijing", "wikidata_qids": ["Q80290", "Q125445", "Q4132"]},
+    {"city": "上海", "wikivoyage_title": "Shanghai", "wikidata_qids": ["Q125474", "Q1328025", "Q223207"]},
+    {"city": "杭州", "wikivoyage_title": "Hangzhou", "wikidata_qids": ["Q502371", "Q1070228", "Q1155765"]}
+  ]
+}

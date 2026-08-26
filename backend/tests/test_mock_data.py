@@ -12,9 +12,8 @@ from pathlib import Path
 # 确保 backend 目录在 sys.path 中
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import pytest
 
-FIXTURE_PATH = Path(__file__).parent / "fixtures" / "amap_mock_places.json"
+FIXTURE_PATH = Path(__file__).parents[1] / "app" / "data" / "amap_mock_places.json"
 REQUIRED_CITIES = ["成都", "北京", "上海", "厦门"]
 REQUIRED_PLACE_FIELDS = [
     "place_id", "name", "category", "address",
@@ -90,11 +89,15 @@ class TestFixtureStructure:
                 assert 3 <= lat <= 54, f"{city}/{place['name']} lat={lat} 超出中国范围"
 
     def test_chengdu_has_panda_base(self):
-        """成都必须有熊猫基地（面试 Demo 核心地点）"""
+        """成都 Demo fixture 必须包含熊猫基地（最具代表性的地点）"""
         data = load_fixture()
         chengdu = data["成都"]
         names = [p["name"] for p in chengdu]
         assert any("熊猫" in n for n in names), f"成都 fixture 缺少熊猫基地，当前地点：{names}"
+
+    def test_beijing_has_jingshan_for_controlled_text_import(self):
+        names = [place["name"] for place in load_fixture()["北京"]]
+        assert "景山公园" in names
 
     def test_place_ids_unique(self):
         """所有地点 place_id 必须唯一"""
@@ -110,7 +113,8 @@ class TestAmapSearchMockLoad:
 
     def test_load_chengdu_places(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        places = _load_mock_places("成都", "景点")
+        # _load_mock_places 只接受 city 一个参数
+        places = _load_mock_places("成都")
         assert len(places) > 0, "成都 mock 数据加载失败"
         # 验证 Place 对象字段
         for p in places:
@@ -121,11 +125,11 @@ class TestAmapSearchMockLoad:
 
     def test_load_beijing_places(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        places = _load_mock_places("北京", "景点")
+        places = _load_mock_places("北京")
         assert len(places) > 0, "北京 mock 数据加载失败"
 
     def test_fallback_to_chengdu_for_unknown_city(self):
         from app.agents.nodes.amap_search import _load_mock_places
-        # 未知城市应 fallback 到成都
-        places = _load_mock_places("拉萨", "景点")
-        assert len(places) >= 0  # 不崩溃即可（fixture 中没有拉萨数据则返回空）
+        # 未知城市应 fallback 到成都（fixture 中没有拉萨数据则返回空，不崩溃即可）
+        places = _load_mock_places("拉萨")
+        assert len(places) >= 0

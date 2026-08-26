@@ -1,0 +1,73 @@
+﻿{
+    "generated_at":  "2026-08-10T01:31:38.4038256Z",
+    "environment":  "local-controlled",
+    "public_deployment_tested":  false,
+    "real_users_tested":  false,
+    "records":  [
+                    {
+                        "name":  "backend-ruff",
+                        "status":  "passed",
+                        "duration_seconds":  0.114
+                    },
+                    {
+                        "name":  "backend-pytest-seed-17",
+                        "status":  "passed",
+                        "duration_seconds":  15.991
+                    },
+                    {
+                        "name":  "backend-pytest-seed-42",
+                        "status":  "passed",
+                        "duration_seconds":  11.514
+                    },
+                    {
+                        "name":  "backend-pytest-seed-91",
+                        "status":  "passed",
+                        "duration_seconds":  11.691
+                    },
+                    {
+                        "name":  "backend-local-eval",
+                        "status":  "passed",
+                        "duration_seconds":  10.125
+                    },
+                    {
+                        "name":  "backend-fault-eval",
+                        "status":  "passed",
+                        "duration_seconds":  5.348
+                    },
+                    {
+                        "name":  "backend-experiments",
+                        "status":  "passed",
+                        "duration_seconds":  101.992
+                    },
+                    {
+                        "name":  "frontend-typecheck",
+                        "status":  "passed",
+                        "duration_seconds":  1.98
+                    },
+                    {
+                        "name":  "frontend-build",
+                        "status":  "passed",
+                        "duration_seconds":  14.287
+                    },
+                    {
+                        "name":  "yjs-tests",
+                        "status":  "passed",
+                        "duration_seconds":  2.56
+                    },
+                    {
+                        "name":  "compose-config",
+                        "status":  "passed",
+                        "duration_seconds":  0.272
+                    },
+                    {
+                        "name":  "compose-multi-config",
+                        "status":  "passed",
+                        "duration_seconds":  0.226
+                    },
+                    {
+                        "name":  "git-diff-check",
+                        "status":  "passed",
+                        "duration_seconds":  0.11
+                    }
+                ]
+}

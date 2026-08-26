@@ -1,0 +1,29 @@
+[
+  {
+    "query": "西湖",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-west-lake",
+    "request_hash": "345e852c897a8415faea68882546ba6a606dbafaf9565a3c2fd6d23ea7120a8b",
+    "response_hash": "c282dcbc1395df0e9d3f251c6e1bd16ca3d4db60a667b909a124ef53ecd0b0a6",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "雷峰塔",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-leifeng",
+    "request_hash": "3790716f3d11a5fa9f6055063b3b015d584525925c14ed1ce6fb163571665593",
+    "response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "灵隐寺",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-lingyin",
+    "request_hash": "5e7fd4848a0827c193edb2f2e9a5b49c78d445fd6d1f7494525688610914f2ec",
+    "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+    "execution_mode": "fixture"
+  }
+]

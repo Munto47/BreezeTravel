@@ -1,0 +1,139 @@
+{
+  "schema_version": "trip-check-ocr-synthetic-v2-overlay",
+  "dataset_id": "p3-synthetic-ocr-stress-v2",
+  "generated_at": "2026-08-23",
+  "base_spec": "trip_check_ocr_synthetic_v1.json",
+  "base_spec_sha256": "6989231f72a147f00c0932b333742ee46b3ede69c05437e7d0b0fabb257b3236",
+  "generator": {
+    "type": "automated_agent",
+    "role": "synthetic_case_factory"
+  },
+  "independent_review": {
+    "type": "automated_agent",
+    "role": "oracle_consistency_review",
+    "status": "PASS",
+    "non_claim": "This is not human, real-user, public, or candidate evidence."
+  },
+  "freeze_policy": {
+    "status": "FROZEN_BEFORE_FIRST_V2_OCR",
+    "immutable_parts": [
+      "base_spec_sha256",
+      "case_patches",
+      "resolved cases[*].text_blocks",
+      "resolved cases[*].oracle",
+      "resolved cases[*].render_profile",
+      "resolved cases[*].seed"
+    ],
+    "post_hoc_label_changes_forbidden": true,
+    "statement": "v1 remains immutable historical evidence; v2 binds the v1 hash and fixes semantic oracle inconsistencies before its first OCR run."
+  },
+  "case_patches": [
+    {
+      "case_id": "TC-P3-OCR-BJ-01",
+      "text_blocks": {
+        "b01": "北京两人两天，9月12日到，9月13日离。"
+      },
+      "fields": {
+        "bj01.departure_date": {"value": "2026-09-13"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-02",
+      "text_blocks": {
+        "b02": "10月2日14:20到北京南站，10月4日18:40从北京南站出发。住宿：前门一带。"
+      },
+      "fields": {
+        "bj02.departure": {"value": "2026-10-04 18:40 北京南站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-03",
+      "text_blocks": {
+        "b02": "11月6日早上到首都机场，11月9日下午离开；酒店记成“东直门那家”，具体店名待确认。",
+        "b04": "喜欢现代艺术；同行者希望少爬坡；返程究竟是15:10还是15:40，请确认原计划。"
+      },
+      "fields": {
+        "bj03.preference": {"value": "现代艺术"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-04",
+      "text_blocks": {
+        "b03": "12月22日16:00北京西站返程。市内优先公交，短距离步行；没有特别偏好；带儿童，午后要留休息时间。"
+      },
+      "fields": {
+        "bj04.departure": {"value": "2026-12-22 16:00 北京西站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-01",
+      "text_blocks": {
+        "b02": "3月8日11:05虹桥火车站到达；3月10日17:20虹桥火车站出发。住人民广场附近。"
+      },
+      "fields": {
+        "sh01.departure": {"value": "2027-03-10 17:20 虹桥火车站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-02",
+      "text_blocks": {
+        "b02": "三人，4月10日08:45到上海站，4月11日19:10从上海站离开；住宿在静安寺一带。"
+      },
+      "fields": {
+        "sh02.departure": {"value": "2027-04-11 19:10 上海站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-03",
+      "text_blocks": {
+        "b04": "5月5日傍晚离开，具体车次时间还没确认。有人怕高空项目，饮食清淡。"
+      },
+      "fields": {
+        "sh03.departure": {"value": "2027-05-05 傍晚"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-04",
+      "text_blocks": {
+        "b02": "6月15日09:30抵达虹桥机场，6月18日15:50虹桥机场返程。住南京西路附近。"
+      },
+      "fields": {
+        "sh04.departure": {"value": "2027-06-18 15:50 虹桥机场"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-01",
+      "text_blocks": {
+        "b02": "7月3日10:10杭州东站到达，7月6日18:30杭州东站离开，住宿湖滨一带。"
+      },
+      "fields": {
+        "hz01.departure": {"value": "2027-07-06 18:30 杭州东站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-02",
+      "text_blocks": {
+        "b03": "市区公交为主，湖边可以骑行。8月13日16:45杭州东站返程。想吃杭帮菜，但一人不吃海鲜。"
+      },
+      "fields": {
+        "hz02.departure": {"value": "2027-08-13 16:45 杭州东站"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-03",
+      "text_blocks": {
+        "b04": "9月21日晚离开，车次未定。偏好园林；同行者膝盖不适，避免长距离步行。"
+      },
+      "fields": {
+        "hz03.departure": {"value": "2027-09-21 晚上"}
+      }
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-04",
+      "text_blocks": {
+        "b04": "10月6日返程，有18:05和20:05两张备选票。偏好安静景点；有幼儿，需要午睡两小时。"
+      },
+      "fields": {}
+    }
+  ]
+}

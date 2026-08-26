@@ -1,0 +1,191 @@
+[
+  {
+    "itinerary_id": "d28db3e9-fcf7-4669-bfe3-87469b370e04",
+    "workspace_id": "pilot-tc-p1-hz-03",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "杭州",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-03"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "c34907e2-c4c3-4a4c-b294-7f77fab52be4",
+            "place_id": "hz-west-lake",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西湖风景名胜区",
+            "source_raw_stop_id": "c34907e2-c4c3-4a4c-b294-7f77fab52be4",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "4967ed53-0216-47cb-9257-8c682806bb10",
+            "place_id": "hz-xixi",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西溪湿地国家公园",
+            "source_raw_stop_id": "4967ed53-0216-47cb-9257-8c682806bb10",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 2,
+        "date": "2026-10-03",
+        "stops": [
+          {
+            "stop_id": "78b79f3f-7822-4e0f-b764-96e50227c838",
+            "place_id": "hz-hefang",
+            "day_index": 2,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "河坊街·清河坊",
+            "source_raw_stop_id": "78b79f3f-7822-4e0f-b764-96e50227c838",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "af997ae3-06d6-401b-9784-cf12ca49e519",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "c34907e2-c4c3-4a4c-b294-7f77fab52be4": {
+          "place_id": "hz-west-lake",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "b7d8660a821fbfaa2a38be0ad1f06c63b33dd568cd3ab77345c96a209141f4e3",
+          "canonical_name": "西湖风景名胜区"
+        },
+        "4967ed53-0216-47cb-9257-8c682806bb10": {
+          "place_id": "hz-xixi",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "e7ee29b15349294e8d6f0301f98bb1b8b51795a6789adc1335a2f5b804991edb",
+          "canonical_name": "西溪湿地国家公园"
+        },
+        "78b79f3f-7822-4e0f-b764-96e50227c838": {
+          "place_id": "hz-hefang",
+          "coords": {
+            "lng": 120.174,
+            "lat": 30.238
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "eb1651f3b28bf97f4c982a181c595e7913ff3eb3e62adbe897121ed7ae076801",
+          "canonical_name": "河坊街·清河坊"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "hz-west-lake",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.148,
+          "latitude": 30.244,
+          "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-xixi",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.063,
+          "latitude": 30.268,
+          "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-hefang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-hefang",
+          "name": "河坊街·清河坊",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.174,
+          "latitude": 30.238,
+          "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+          "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "ac173f8e841b51f0b2c51d757388985ba6bb423878fe5266df5b2398bcad51aa"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T07:51:30.669658Z",
+    "content_hash": "8a472d4a171141207400f995674449e77519182fc12a12bbe697eb2f28f3c76e"
+  }
+]

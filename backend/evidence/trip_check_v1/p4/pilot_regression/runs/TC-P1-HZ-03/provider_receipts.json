@@ -1,0 +1,29 @@
+[
+  {
+    "query": "西湖风景名胜区",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-west-lake",
+    "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+    "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "西溪湿地国家公园",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-xixi",
+    "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+    "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "河坊街·清河坊",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-hefang",
+    "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+    "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+    "execution_mode": "fixture"
+  }
+]

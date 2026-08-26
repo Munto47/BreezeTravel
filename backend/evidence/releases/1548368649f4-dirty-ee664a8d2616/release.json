@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0",
+  "release_id": "1548368649f4-dirty-ee664a8d2616",
+  "commit_sha": "1548368649f4240d2532e0f92b93cb1697913399",
+  "working_tree_clean": false,
+  "working_tree_diff_sha256": "ee664a8d2616589cf02c3dbaa85e24d6c990eabbc4d7724ca0856007990efe5d",
+  "untracked_files_hashed": 0,
+  "created_at": "2026-08-10T01:34:36.340546+00:00",
+  "toolchains": {
+    "python": "3.11",
+    "node": "20",
+    "postgres_pgvector": "0.8.1-pg16",
+    "redis": "7.4.2"
+  },
+  "dependency_locks": {
+    "backend_requirements": "62efe3c04addb999598c5e794e4d85a457c581f6b7800195628987c4de4b84ef",
+    "backend_dev_requirements": "2d82cc505e2ee7d424936e044494e928100b4e4fba65bdf3740762e39de7d854",
+    "frontend_package_lock": "93deadd8f9ec6a210abbd0d964ff4ed1fa0ba5a8a5082e1c5c9288c346479a20",
+    "yjs_package_lock": "9e2fb3bc73a4fe4827b4662eee97bc6b0a0b81baab9896d3f3bbdcbe72d20f7f"
+  },
+  "migrations": [
+    {
+      "name": "001_add_bm25.sql",
+      "sha256": "bf0e4befcf806ff155b44ad6b51c1498881426cc23277070a03890c278492277"
+    },
+    {
+      "name": "002_add_memory.sql",
+      "sha256": "26b9ccf49d5d6407b5c0a69dbec2542cb78a559c9d509365f78e1ef2dce4c720"
+    },
+    {
+      "name": "003_auth_users.sql",
+      "sha256": "aaaeb0c996ac1706af0f40c7294941cca05f3f5941924afec54fba316e0a5cb1"
+    },
+    {
+      "name": "004_email_auth.sql",
+      "sha256": "89b987aab7f68df978559143d8a0e455929ba0ae29609e8870373d3580147cbe"
+    },
+    {
+      "name": "005_place_meta.sql",
+      "sha256": "e358afd8271859764b03bd9acd67b2fc26b5168f3dc34c5b56af21b7a95f1cb3"
+    },
+    {
+      "name": "006_add_rag_source_provenance.sql",
+      "sha256": "66cbb5ac0db3e5f4581da279b4426d65b002ffad38a9c17a9b77dd1904ae1dbd"
+    },
+    {
+      "name": "007_add_public_corpus_revision.sql",
+      "sha256": "5724b3350471351dad29c8c0010a1de1de8cafe8f76244f9eb46f0ccc5232fa3"
+    },
+    {
+      "name": "008_task_security_memory.sql",
+      "sha256": "fd9eaddeb5a44863009b2ad326aaef991d5c32648e49383c3158e8f0653f72c3"
+    }
+  ],
+  "latest_migration": "008_task_security_memory.sql",
+  "configuration": {
+    "runtime_profile": "local_real",
+    "demo_mode": false,
+    "amap_mock": true,
+    "ft_router_enabled": false,
+    "reranker_enabled": false,
+    "auto_migrate": false,
+    "required_migration": "008_task_security_memory.sql"
+  },
+  "evaluation_manifest_sha256": "264d8125d7177763c9dab46f82d533bfcb8c9b42235698f9069d152ea9161c16",
+  "evidence_paths": {
+    "local_eval": "backend/evidence/local_eval/summary.json",
+    "fault_injection": "backend/evidence/fault_injection/summary.json",
+    "experiments": "backend/evidence/experiments/summary.json",
+    "multi_instance": "backend/evidence/multi_instance/summary.json"
+  },
+  "verification_commands": [
+    "powershell -ExecutionPolicy Bypass -File .\\verify-local.ps1",
+    "docker compose config --quiet",
+    "docker compose -f docker-compose.multi.yml config --quiet"
+  ],
+  "excluded_claims": [
+    "public deployment",
+    "public smoke",
+    "real-user validation",
+    "production SLO"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "run_id": "6da4eff1-6868-4630-946c-dd514f644baa",
+  "final_status": "WAITING",
+  "final_stage": "WAIT_ADOPTION",
+  "event_count": 8,
+  "stage_attempt_count": 3,
+  "receipt_count": 3,
+  "domain_trace_count": 14,
+  "otel_span_count": 5,
+  "domain_required_field_coverage": 1.0,
+  "domain_otel_association_rate": 1.0,
+  "sensitive_attribute_hit_count": 0,
+  "assertions": {
+    "success_count": 1,
+    "conflict_count": 1,
+    "winner_revision_readback": 2
+  }
+}

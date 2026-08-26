@@ -1,0 +1,195 @@
+{
+  "schema_version": "3.0",
+  "release_status": "dual_entry_local_delivery_candidate",
+  "release_approval_granted": false,
+  "local_delivery_test_execution": "not_run_by_manifest",
+  "manifest_generation_executes_tests": false,
+  "release_id": "2238c5304e3c-dirty-49ed368574ac",
+  "commit_sha": "2238c5304e3c17fae8162cbfca345d2fbdf5f076",
+  "working_tree_clean": false,
+  "working_tree_diff_sha256": "49ed368574acc8fec2303d5fb454d2d3e5f92b7ab23134e9cba491d34eb28388",
+  "untracked_files_hashed": 169,
+  "created_at": "2026-08-20T12:53:54.431771+00:00",
+  "toolchains": {
+    "python": "3.11",
+    "node": "20",
+    "postgres_pgvector": "0.8.1-pg16",
+    "redis": "7.4.2"
+  },
+  "dependency_locks": {
+    "backend_requirements": "e297181d9fd02a4787361da00c68401fbf93272624417fe960f4df8e9bde40f5",
+    "backend_dev_requirements": "2d82cc505e2ee7d424936e044494e928100b4e4fba65bdf3740762e39de7d854",
+    "frontend_package_lock": "93deadd8f9ec6a210abbd0d964ff4ed1fa0ba5a8a5082e1c5c9288c346479a20",
+    "yjs_package_lock": "9e2fb3bc73a4fe4827b4662eee97bc6b0a0b81baab9896d3f3bbdcbe72d20f7f"
+  },
+  "migrations": [
+    {
+      "name": "001_add_bm25.sql",
+      "sha256": "bf0e4befcf806ff155b44ad6b51c1498881426cc23277070a03890c278492277"
+    },
+    {
+      "name": "002_add_memory.sql",
+      "sha256": "26b9ccf49d5d6407b5c0a69dbec2542cb78a559c9d509365f78e1ef2dce4c720"
+    },
+    {
+      "name": "003_auth_users.sql",
+      "sha256": "aaaeb0c996ac1706af0f40c7294941cca05f3f5941924afec54fba316e0a5cb1"
+    },
+    {
+      "name": "004_email_auth.sql",
+      "sha256": "89b987aab7f68df978559143d8a0e455929ba0ae29609e8870373d3580147cbe"
+    },
+    {
+      "name": "005_place_meta.sql",
+      "sha256": "e358afd8271859764b03bd9acd67b2fc26b5168f3dc34c5b56af21b7a95f1cb3"
+    },
+    {
+      "name": "006_add_rag_source_provenance.sql",
+      "sha256": "66cbb5ac0db3e5f4581da279b4426d65b002ffad38a9c17a9b77dd1904ae1dbd"
+    },
+    {
+      "name": "007_add_public_corpus_revision.sql",
+      "sha256": "5724b3350471351dad29c8c0010a1de1de8cafe8f76244f9eb46f0ccc5232fa3"
+    },
+    {
+      "name": "008_task_security_memory.sql",
+      "sha256": "fd9eaddeb5a44863009b2ad326aaef991d5c32648e49383c3158e8f0653f72c3"
+    },
+    {
+      "name": "009_trip_workspace_core.sql",
+      "sha256": "42d9c3694b655ee70ea572ab0a71c4c484670e4b6872e54446dfed5fd98810b8"
+    },
+    {
+      "name": "010_audit_evidence_repair.sql",
+      "sha256": "61878bc059f3c4ab73d3176921cd6bb43e69eb34ddf97db0ebbbe18aa3fb6382"
+    },
+    {
+      "name": "011_final_tips_artifacts.sql",
+      "sha256": "942123f32fdcb118274149fca30d5dec526ae1eaadd446dbaec359e585be00a3"
+    },
+    {
+      "name": "012_import_mobile_contract.sql",
+      "sha256": "b09f1966957bed3e0363bc0cfdd8f6ed7911f0eda5c48bda7a45a3a34c59ccfe"
+    },
+    {
+      "name": "013_idempotent_creation_commands.sql",
+      "sha256": "1bf68b43454936ad7521fe0b71fedae5af88accc5636ef4f2775c437d12c9b47"
+    },
+    {
+      "name": "014_route_templates_and_suggestions.sql",
+      "sha256": "52888f4e0a67ad7d772d9e3e62f036ab9b05207e750d6db6be0c9db171499079"
+    },
+    {
+      "name": "015_member_share_collaboration.sql",
+      "sha256": "9d10f7c8351cf475c51dd399b6af9239e5dc3c768ccf22669b7219640746b04b"
+    },
+    {
+      "name": "016_pre_trip_recheck_commands.sql",
+      "sha256": "10d71c8f3c9f25d133c177cc241e057e3bbbff84d8d1d01f3fb2f6a7af4333d5"
+    },
+    {
+      "name": "017_changed_route_edge_refresh.sql",
+      "sha256": "9e341cd04bf2166efecb8f7372ddd613c92db35a6b7d08320f80ede390bf1d77"
+    }
+  ],
+  "latest_migration": "017_changed_route_edge_refresh.sql",
+  "configuration": {
+    "runtime_profile": "local_real",
+    "demo_mode": false,
+    "amap_mock": true,
+    "ft_router_enabled": false,
+    "reranker_enabled": false,
+    "auto_migrate": false,
+    "required_migration": "017_changed_route_edge_refresh.sql"
+  },
+  "evaluation_scope": {
+    "supported_and_claimed_cities": [
+      "北京",
+      "上海",
+      "杭州"
+    ],
+    "cases_per_city": 50,
+    "total_cases": 150,
+    "expanded_city_claims": false
+  },
+  "dual_entry_delivery_evidence": {
+    "final_plan": {
+      "path": "docs/BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md",
+      "exists": true,
+      "sha256": "8f36d31feaad40657867dbfd78a5a4409ca4e5d040a948e0d4c8a34074397968"
+    },
+    "capability_status": {
+      "path": "docs/dual-entry/capability-status.md",
+      "exists": true,
+      "sha256": "c3284b287bcddf4265a78d9621ba159cf1363e2bfe60b4cee708d78f73252ed9"
+    },
+    "local_delivery_acceptance": {
+      "path": "docs/dual-entry/local-delivery-acceptance-2026-08-20.md",
+      "exists": true,
+      "sha256": "9c208a13b42ed0d11ffae27e5f008441114a7249b9a09e68b7cae61d987ad14c"
+    },
+    "m1_dev_dataset_manifest": {
+      "path": "backend/eval_data/auditor_simulated/manifest.json",
+      "exists": true,
+      "sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73"
+    },
+    "m1_dev_proxy_gate": {
+      "path": "backend/results/auditor_simulated/m1_dev_proxy_gate.json",
+      "exists": true,
+      "sha256": "f7010ab66039ede1e0b323663ad0ed104183f2bd4196c3772225c6aba7b739db"
+    },
+    "m1_dev_evidence_type": "synthetic_proxy",
+    "human_validated": false,
+    "publicly_verified": false,
+    "claim_boundary": "The M1-dev proxy gate is a local development gate only. It is not human validation, live-provider proof, public deployment proof, or release approval."
+  },
+  "external_api_policy": {
+    "iteration_mode": "frozen_snapshot_zero_external_calls",
+    "paid_live_runs_executed": 0,
+    "paid_live_runs_status": "paused",
+    "paid_generation_requires_explicit_flag": true,
+    "api_llm_judge_allowed": false
+  },
+  "legacy_rc1_judge_policy": {
+    "kind": "independent_codex_subagent_panel",
+    "model": "gpt-5.6-sol",
+    "evaluator_count": 3,
+    "minimum_unanimous_agreement": 0.85,
+    "human_calibration_performed": false,
+    "agreement_threshold_passed": true,
+    "quality_thresholds_passed": false,
+    "allowed_claim": "历史 RC1 Judge 记录；不替代双入口 M1-dev 代理门禁或真人校准"
+  },
+  "evaluation_manifest_sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73",
+  "evidence_paths": {
+    "local_eval": "backend/evidence/local_eval/summary.json",
+    "fault_injection": "backend/evidence/fault_injection/summary.json",
+    "experiments": "backend/evidence/experiments/summary.json",
+    "multi_instance": "backend/evidence/multi_instance/summary.json",
+    "three_city_rc1": "backend/evidence/three_city_rc1/summary.json"
+  },
+  "verification_commands": [
+    "powershell -ExecutionPolicy Bypass -File .\\verify-local.ps1",
+    "docker compose config --quiet",
+    "docker compose -f docker-compose.multi.yml config --quiet"
+  ],
+  "dual_entry_local_delivery_verification_commands": [
+    "cd backend; python -m pytest tests -q",
+    "cd backend; python -m ruff check app evals scripts tests",
+    "cd backend; python -m scripts.run_m1_dev_proxy_gate --artifact results/auditor_simulated/proxy_role_1.json --artifact results/auditor_simulated/proxy_role_2.json --artifact results/auditor_simulated/proxy_role_3.json",
+    "cd frontend; npm run build",
+    "cd frontend; npx playwright test -c playwright.local.config.js",
+    "cd frontend; npx playwright test -c playwright.workspace.config.js",
+    "docker compose up -d postgres; cd backend; $env:RUN_SERVICE_INTEGRATION='1'; python -m pytest tests/test_migrations_integration.py tests/test_templates_sharing_postgres.py tests/test_dual_entry_postgres_integration.py -q; docker compose stop postgres"
+  ],
+  "excluded_claims": [
+    "full RC1 release",
+    "public deployment",
+    "public smoke",
+    "real-user validation",
+    "human calibration",
+    "Judge-human agreement",
+    "live-provider SLO",
+    "production SLO"
+  ]
+}

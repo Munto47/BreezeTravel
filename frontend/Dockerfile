@@ -1,10 +1,35 @@
-FROM node:20-alpine AS base
-
+FROM node:20.18.3-alpine3.21 AS deps
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json* ./
+RUN npm ci
 
+FROM node:20.18.3-alpine3.21 AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# 构建期注入公开环境变量（NEXT_PUBLIC_* 会被 bake 进 JS bundle）
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_Y_WEBSOCKET_URL
+ARG NEXT_PUBLIC_AMAP_JS_KEY
+ARG NEXT_PUBLIC_AMAP_SECURITY_CODE
+ARG BACKEND_INTERNAL_URL
+ARG NEXT_PUBLIC_SHOW_TEST_LOGIN
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_Y_WEBSOCKET_URL=$NEXT_PUBLIC_Y_WEBSOCKET_URL
+ENV NEXT_PUBLIC_AMAP_JS_KEY=$NEXT_PUBLIC_AMAP_JS_KEY
+ENV NEXT_PUBLIC_AMAP_SECURITY_CODE=$NEXT_PUBLIC_AMAP_SECURITY_CODE
+ENV BACKEND_INTERNAL_URL=$BACKEND_INTERNAL_URL
+ENV NEXT_PUBLIC_SHOW_TEST_LOGIN=$NEXT_PUBLIC_SHOW_TEST_LOGIN
+
+RUN npm run build
+
+FROM node:20.18.3-alpine3.21 AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
 EXPOSE 3000
-CMD ["npm", "run", "dev"]
+CMD ["node", "server.js"]

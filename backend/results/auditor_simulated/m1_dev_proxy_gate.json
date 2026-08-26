@@ -1,0 +1,1688 @@
+{
+  "allows_p5_p8_development": true,
+  "bindings": {
+    "blind_cases_sha256": "f40efeca23f08b86d052d38e41ec482e46f35ce709fb3533d64646d18fe376f2",
+    "cases_sha256": "81e10cf12bc74247996e5f0fa1d7732ee70568fc47a3d6ac98416b281ceaaaff",
+    "dataset_manifest_sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73",
+    "pipeline_code_sha256": "56c052bee5a9a9186f982cdac74f5843ff2e3326b139f61c6d96332767c2d635",
+    "runner_code_sha256": "b04c040aba051bc29b5e3e341f5607aca64cdfefbc64ee0e2ba7d296cb571927",
+    "source_report_sha256": "4936a549377dd7030c6e4d64d06372b8c16554fa05c297f243062c60e567177b"
+  },
+  "bundle_sha256": "0e4baefed24ecd6700ffc079496c7eb39aadec6ce9b6f3eca41fd186e5a03d10",
+  "calibration_lane": "M1-dev",
+  "cases": [
+    {
+      "case_id": "sim-bj-original-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-02",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-06",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-06",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-10",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-10",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-14",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-14",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-18",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-18",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-original-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-mutation-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-01",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-bj-boundary-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-05",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-bj-boundary-06",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-bj-boundary-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-bj-boundary-10",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-sh-original-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-02",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-06",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-06",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-10",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-10",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-14",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-14",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-18",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-18",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-original-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-mutation-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-01",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-sh-boundary-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-05",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-sh-boundary-06",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-sh-boundary-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-sh-boundary-10",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-hz-original-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-01",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-02",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-05",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-06",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-06",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-10",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-10",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-11",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-12",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-13",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-14",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-14",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-15",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-16",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-17",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_CHAIN_BROKEN"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-18",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-18",
+      "majority_expected_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "DUPLICATE_PLACE",
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-19",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-original-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-mutation-20",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-01",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-hz-boundary-02",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-03",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-04",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-05",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-hz-boundary-06",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    },
+    {
+      "case_id": "sim-hz-boundary-07",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "TIME_DATA_INVALID"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-08",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-09",
+      "majority_expected_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "system_critical_categories": [
+        "OPENING_HOURS_MISSING",
+        "PLACE_NOT_RESOLVED"
+      ],
+      "unanimous": true
+    },
+    {
+      "case_id": "sim-hz-boundary-10",
+      "majority_expected_critical_categories": [],
+      "system_critical_categories": [],
+      "unanimous": false
+    }
+  ],
+  "claim_boundary": "synthetic_proxy proves only the local M1-dev development gate; it is not human validation, market validation, production proof, or release approval",
+  "evidence_type": "synthetic_proxy",
+  "gates": {
+    "at_least_80_percent_audits_within_180_seconds": true,
+    "critical_evidence_readback_100_percent": true,
+    "critical_precision_at_least_0_90": true,
+    "critical_recall_at_least_0_85": true,
+    "critical_unanimous_agreement_at_least_0_85": true,
+    "synthetic_repair_adoption_at_least_0_40": true,
+    "three_independent_proxy_roles_completed": true
+  },
+  "human_calibration_performed": false,
+  "human_validated": false,
+  "metrics": {
+    "audits_within_180_seconds_rate": 1.0,
+    "critical_evidence_readback_rate": 1.0,
+    "critical_precision": 1.0,
+    "critical_recall": 1.0,
+    "critical_unanimous_agreement": 0.92,
+    "original_and_controlled_errors_reported_separately": true,
+    "synthetic_repair_adoption_rate": 0.6667,
+    "synthetic_repair_decisions": {
+      "ACCEPT": 60,
+      "REJECT": 30
+    },
+    "synthetic_repair_rejection_reasons": {
+      "Repair preview omits the proposed changes and postcheck outcomes, so correctness cannot be verified from the supplied record.": 30
+    }
+  },
+  "missing_roles": [],
+  "passed": true,
+  "public_claim_eligible": false,
+  "release_eligible": false,
+  "roles": [
+    {
+      "execution_status": "COMPLETED",
+      "generated_at": "2026-08-20T19:29:14+08:00",
+      "input_sha256": "f7835b8e34c02a04ca201f8ed57009d20d4569aace41c06b8ee36bf80b5d041b",
+      "model": "gpt-5.6-sol",
+      "output_sha256": "148bed6c4f8a1c5eb4379c3bf85275b51d7c6c86a0c93ff4ea8e7aa203863339",
+      "prompt_sha256": "440ef7bc66d700a4abc46831485bc422fb716cb255f398312ba2609453a45384",
+      "role_id": "proxy-evaluator-1"
+    },
+    {
+      "execution_status": "COMPLETED",
+      "generated_at": "2026-08-20T19:33:39+08:00",
+      "input_sha256": "66185b8f92074c64ba9e195a299e8a4914dfbe6d49c14068be173790f2e2d743",
+      "model": "gpt-5.6-sol",
+      "output_sha256": "4d32beed7167ecd0b2dd2bde360b28ac8e7e0bf6d458de59b586f93caa827e94",
+      "prompt_sha256": "5dfc65e185613ffe72f95b989c60046abc8e1c86c49fe7ad94a553edbfc784cb",
+      "role_id": "proxy-evaluator-2"
+    },
+    {
+      "execution_status": "COMPLETED",
+      "generated_at": "2026-08-20T19:35:05+08:00",
+      "input_sha256": "af1ffa6e10abcac001e121ed060c0520d876b677601528671b988543aaa5d74f",
+      "model": "gpt-5.6-sol",
+      "output_sha256": "3527f5d2346c586630927b7eb5c257a7da7ad7c2e8c14b03646791b74226a7f2",
+      "prompt_sha256": "2c939cfd2b20b738995c43ca17d746ab9c8bf215dce2b8e43d8206a0dace4bb0",
+      "role_id": "proxy-evaluator-3"
+    }
+  ],
+  "schema_version": "m1-dev-proxy-gate-v1",
+  "status": "M1_DEV_PROXY_PASSED",
+  "validation_errors": []
+}

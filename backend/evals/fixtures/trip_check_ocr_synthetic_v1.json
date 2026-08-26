@@ -1,0 +1,411 @@
+{
+  "schema_version": "trip-check-ocr-synthetic-v1",
+  "dataset_id": "p3-synthetic-ocr-stress-v1",
+  "provenance": "high_fidelity_synthetic",
+  "evidence_class": "synthetic_stress",
+  "generator_model": "gpt-5.6-sol",
+  "generated_at": "2026-08-23",
+  "freeze_policy": {
+    "status": "FROZEN_BEFORE_FIRST_OCR",
+    "immutable_parts": ["cases[*].text_blocks", "cases[*].oracle", "cases[*].render_profile", "cases[*].seed"],
+    "post_hoc_label_changes_forbidden": true,
+    "statement": "首次 OCR 前冻结文本、oracle、render profile 与 seed；不得根据 OCR 结果修改样本、标签或退化参数来消除失败。"
+  },
+  "normalization_policy": {
+    "unicode": "NFKC",
+    "whitespace": "COLLAPSE_AND_TRIM",
+    "date": "YYYY-MM-DD",
+    "time": "HH:MM_24H",
+    "exact_match_types": ["city", "poi", "hotel", "lodging_area", "traveler_count", "day_count", "date", "arrival", "departure", "time", "transport_mode"],
+    "fuzzy_wrong_value_forbidden": true
+  },
+  "distribution_contract": {
+    "case_count": 12,
+    "cities": {"北京": 4, "上海": 4, "杭州": 4},
+    "formats": {"PNG": 4, "JPEG": 4, "WebP": 4},
+    "layouts": {"chat": 4, "note": 4, "guide_ai": 4},
+    "difficulties": {"clean": 4, "medium": 4, "hard": 4},
+    "themes": {"light": 6, "dark": 6},
+    "traveler_count_range": [2, 5],
+    "day_count_range": [2, 5],
+    "must_confirm_min_cases": 4,
+    "must_confirm_min_fields": 6
+  },
+  "privacy_contract": {
+    "contains_real_personal_information": false,
+    "contains_human_labels": false,
+    "forbidden_content": ["credentials", "urls", "phone_numbers", "account_identifiers", "real_person_names"],
+    "generated_images_must_not_be_committed": true
+  },
+  "cases": [
+    {
+      "case_id": "TC-P3-OCR-BJ-01",
+      "seed": 31001,
+      "city": "北京",
+      "traveler_count": 2,
+      "day_count": 2,
+      "image": {"format": "PNG", "width": 1170, "height": 2532},
+      "layout": "chat",
+      "difficulty": "clean",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "peer", "text": "北京两人两天，9月12日到，9月14日离。"},
+        {"block_id": "b02", "role": "self", "text": "住王府井附近。第一天09:00故宫博物院，15:30景山公园，两个点之间步行。"},
+        {"block_id": "b03", "role": "peer", "text": "第二天08:30天坛公园，之后公交去南锣鼓巷。想看历史建筑，不吃太辣。"}
+      ],
+      "render_profile": {"rotation_deg": 0.0, "scale": 1.0, "compression_quality": 100, "crop": {"top": 0, "right": 0, "bottom": 0, "left": 0}, "blur_radius": 0.0, "noise_sigma": 0.0, "occlusions": [], "chat_noise": []},
+      "oracle": {"key_fields": [
+        {"field_id": "bj01.city", "type": "city", "value": "北京", "must_confirm": false},
+        {"field_id": "bj01.travelers", "type": "traveler_count", "value": 2, "must_confirm": false},
+        {"field_id": "bj01.days", "type": "day_count", "value": 2, "must_confirm": false},
+        {"field_id": "bj01.arrival_date", "type": "date", "value": "2026-09-12", "must_confirm": false},
+        {"field_id": "bj01.departure_date", "type": "date", "value": "2026-09-14", "must_confirm": false},
+        {"field_id": "bj01.lodging", "type": "lodging_area", "value": "王府井", "must_confirm": false},
+        {"field_id": "bj01.poi1", "type": "poi", "value": "故宫博物院", "must_confirm": false},
+        {"field_id": "bj01.time1", "type": "time", "value": "09:00", "must_confirm": false},
+        {"field_id": "bj01.walking", "type": "transport_mode", "value": "walking", "must_confirm": false},
+        {"field_id": "bj01.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "bj01.preference", "type": "preference", "value": "历史建筑", "must_confirm": false},
+        {"field_id": "bj01.constraint", "type": "constraint", "value": "不吃太辣", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-02",
+      "seed": 31002,
+      "city": "北京",
+      "traveler_count": 3,
+      "day_count": 3,
+      "image": {"format": "JPEG", "width": 1080, "height": 2400},
+      "layout": "note",
+      "difficulty": "medium",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "title", "text": "北京三人三日备忘"},
+        {"block_id": "b02", "role": "body", "text": "10月2日14:20到北京南站，10月5日18:40从北京南站出发。住宿：前门一带。"},
+        {"block_id": "b03", "role": "body", "text": "D1 16:30天安门广场；D2 08:00颐和园，骑行到圆明园；D3 09:30中国国家博物馆，公交回前门。"},
+        {"block_id": "b04", "role": "footer", "text": "偏好园林和博物馆；每天最晚21:00回住处。"}
+      ],
+      "render_profile": {"rotation_deg": -0.35, "scale": 0.92, "compression_quality": 76, "crop": {"top": 8, "right": 4, "bottom": 10, "left": 4}, "blur_radius": 0.25, "noise_sigma": 1.5, "occlusions": [], "chat_noise": ["置顶", "已编辑"]},
+      "oracle": {"key_fields": [
+        {"field_id": "bj02.city", "type": "city", "value": "北京", "must_confirm": false},
+        {"field_id": "bj02.travelers", "type": "traveler_count", "value": 3, "must_confirm": false},
+        {"field_id": "bj02.days", "type": "day_count", "value": 3, "must_confirm": false},
+        {"field_id": "bj02.arrival", "type": "arrival", "value": "2026-10-02 14:20 北京南站", "must_confirm": false},
+        {"field_id": "bj02.departure", "type": "departure", "value": "2026-10-05 18:40 北京南站", "must_confirm": false},
+        {"field_id": "bj02.lodging", "type": "lodging_area", "value": "前门", "must_confirm": false},
+        {"field_id": "bj02.poi1", "type": "poi", "value": "颐和园", "must_confirm": false},
+        {"field_id": "bj02.bicycling", "type": "transport_mode", "value": "bicycling", "must_confirm": false},
+        {"field_id": "bj02.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "bj02.preference", "type": "preference", "value": "园林和博物馆", "must_confirm": false},
+        {"field_id": "bj02.constraint", "type": "constraint", "value": "每天最晚21:00回住处", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-03",
+      "seed": 31003,
+      "city": "北京",
+      "traveler_count": 4,
+      "day_count": 4,
+      "image": {"format": "WebP", "width": 1242, "height": 2688},
+      "layout": "guide_ai",
+      "difficulty": "hard",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "heading", "text": "北京四人四天草案（合成测试）"},
+        {"block_id": "b02", "role": "body", "text": "11月6日早上到首都机场，11月10日下午离开；酒店记成“东直门那家”，具体店名待确认。"},
+        {"block_id": "b03", "role": "body", "text": "第1天雍和宫10:00；第2天八达岭长城07:30，驾车往返；第3天故宫博物院和北海公园；第4天798艺术区。"},
+        {"block_id": "b04", "role": "tip", "text": "同行者希望少爬坡；返程究竟是15:10还是15:40，请确认原计划。"}
+      ],
+      "render_profile": {"rotation_deg": 0.8, "scale": 0.78, "compression_quality": 62, "crop": {"top": 14, "right": 18, "bottom": 12, "left": 10}, "blur_radius": 0.65, "noise_sigma": 3.2, "occlusions": [{"x": 0.68, "y": 0.17, "width": 0.18, "height": 0.018, "opacity": 0.22}], "chat_noise": ["✨", "以下仅为草案"]},
+      "oracle": {"key_fields": [
+        {"field_id": "bj03.city", "type": "city", "value": "北京", "must_confirm": false},
+        {"field_id": "bj03.travelers", "type": "traveler_count", "value": 4, "must_confirm": false},
+        {"field_id": "bj03.days", "type": "day_count", "value": 4, "must_confirm": false},
+        {"field_id": "bj03.arrival", "type": "arrival", "value": "2026-11-06 早上 首都机场", "must_confirm": true},
+        {"field_id": "bj03.departure_time", "type": "time", "value": ["15:10", "15:40"], "must_confirm": true},
+        {"field_id": "bj03.hotel", "type": "hotel", "value": "东直门那家", "must_confirm": true},
+        {"field_id": "bj03.poi1", "type": "poi", "value": "八达岭长城", "must_confirm": false},
+        {"field_id": "bj03.driving", "type": "transport_mode", "value": "driving", "must_confirm": false},
+        {"field_id": "bj03.preference", "type": "preference", "value": "艺术区", "must_confirm": false},
+        {"field_id": "bj03.constraint", "type": "constraint", "value": "少爬坡", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-BJ-04",
+      "seed": 31004,
+      "city": "北京",
+      "traveler_count": 5,
+      "day_count": 5,
+      "image": {"format": "PNG", "width": 1440, "height": 3040},
+      "layout": "chat",
+      "difficulty": "clean",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "peer", "text": "5个人去北京玩5天，12月18日09:15到北京西站。"},
+        {"block_id": "b02", "role": "self", "text": "住国贸附近。D1天坛，D2故宫博物院，D3颐和园，D4中国科学技术馆，D5三里屯太古里。"},
+        {"block_id": "b03", "role": "peer", "text": "12月23日16:00北京西站返程。市内优先公交，短距离步行；带儿童，午后要留休息时间。"}
+      ],
+      "render_profile": {"rotation_deg": 0.0, "scale": 1.0, "compression_quality": 100, "crop": {"top": 0, "right": 0, "bottom": 0, "left": 0}, "blur_radius": 0.0, "noise_sigma": 0.0, "occlusions": [], "chat_noise": ["收到"]},
+      "oracle": {"key_fields": [
+        {"field_id": "bj04.city", "type": "city", "value": "北京", "must_confirm": false},
+        {"field_id": "bj04.travelers", "type": "traveler_count", "value": 5, "must_confirm": false},
+        {"field_id": "bj04.days", "type": "day_count", "value": 5, "must_confirm": false},
+        {"field_id": "bj04.arrival", "type": "arrival", "value": "2026-12-18 09:15 北京西站", "must_confirm": false},
+        {"field_id": "bj04.departure", "type": "departure", "value": "2026-12-23 16:00 北京西站", "must_confirm": false},
+        {"field_id": "bj04.lodging", "type": "lodging_area", "value": "国贸", "must_confirm": false},
+        {"field_id": "bj04.poi1", "type": "poi", "value": "中国科学技术馆", "must_confirm": false},
+        {"field_id": "bj04.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "bj04.walking", "type": "transport_mode", "value": "walking", "must_confirm": false},
+        {"field_id": "bj04.constraint", "type": "constraint", "value": "带儿童且午后留休息时间", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-01",
+      "seed": 32001,
+      "city": "上海",
+      "traveler_count": 2,
+      "day_count": 3,
+      "image": {"format": "JPEG", "width": 1179, "height": 2556},
+      "layout": "note",
+      "difficulty": "clean",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "title", "text": "上海3日｜2人"},
+        {"block_id": "b02", "role": "body", "text": "3月8日11:05虹桥火车站到达；3月11日17:20虹桥火车站出发。住人民广场附近。"},
+        {"block_id": "b03", "role": "body", "text": "D1 14:00上海博物馆；D2 09:00豫园，步行到外滩；D3 10:30上海自然博物馆，公交返程。"},
+        {"block_id": "b04", "role": "footer", "text": "喜欢建筑摄影；不安排酒吧。"}
+      ],
+      "render_profile": {"rotation_deg": 0.0, "scale": 1.0, "compression_quality": 94, "crop": {"top": 0, "right": 0, "bottom": 0, "left": 0}, "blur_radius": 0.0, "noise_sigma": 0.0, "occlusions": [], "chat_noise": []},
+      "oracle": {"key_fields": [
+        {"field_id": "sh01.city", "type": "city", "value": "上海", "must_confirm": false},
+        {"field_id": "sh01.travelers", "type": "traveler_count", "value": 2, "must_confirm": false},
+        {"field_id": "sh01.days", "type": "day_count", "value": 3, "must_confirm": false},
+        {"field_id": "sh01.arrival", "type": "arrival", "value": "2027-03-08 11:05 虹桥火车站", "must_confirm": false},
+        {"field_id": "sh01.departure", "type": "departure", "value": "2027-03-11 17:20 虹桥火车站", "must_confirm": false},
+        {"field_id": "sh01.lodging", "type": "lodging_area", "value": "人民广场", "must_confirm": false},
+        {"field_id": "sh01.poi1", "type": "poi", "value": "上海博物馆", "must_confirm": false},
+        {"field_id": "sh01.walking", "type": "transport_mode", "value": "walking", "must_confirm": false},
+        {"field_id": "sh01.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "sh01.preference", "type": "preference", "value": "建筑摄影", "must_confirm": false},
+        {"field_id": "sh01.constraint", "type": "constraint", "value": "不安排酒吧", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-02",
+      "seed": 32002,
+      "city": "上海",
+      "traveler_count": 3,
+      "day_count": 2,
+      "image": {"format": "WebP", "width": 1080, "height": 2340},
+      "layout": "guide_ai",
+      "difficulty": "medium",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "heading", "text": "上海周末两日建议（合成测试）"},
+        {"block_id": "b02", "role": "body", "text": "三人，4月10日08:45到上海站，4月12日19:10从上海站离开；住宿在静安寺一带。"},
+        {"block_id": "b03", "role": "body", "text": "第一天10:30武康路，骑行到徐家汇；第二天09:00上海科技馆，下午公交去陆家嘴。"},
+        {"block_id": "b04", "role": "tip", "text": "偏好咖啡馆和城市街区；单次步行不超过25分钟。"}
+      ],
+      "render_profile": {"rotation_deg": 0.4, "scale": 0.88, "compression_quality": 72, "crop": {"top": 6, "right": 8, "bottom": 8, "left": 5}, "blur_radius": 0.3, "noise_sigma": 1.8, "occlusions": [], "chat_noise": ["建议仅供核验"]},
+      "oracle": {"key_fields": [
+        {"field_id": "sh02.city", "type": "city", "value": "上海", "must_confirm": false},
+        {"field_id": "sh02.travelers", "type": "traveler_count", "value": 3, "must_confirm": false},
+        {"field_id": "sh02.days", "type": "day_count", "value": 2, "must_confirm": false},
+        {"field_id": "sh02.arrival", "type": "arrival", "value": "2027-04-10 08:45 上海站", "must_confirm": false},
+        {"field_id": "sh02.departure", "type": "departure", "value": "2027-04-12 19:10 上海站", "must_confirm": false},
+        {"field_id": "sh02.lodging", "type": "lodging_area", "value": "静安寺", "must_confirm": false},
+        {"field_id": "sh02.poi1", "type": "poi", "value": "武康路", "must_confirm": false},
+        {"field_id": "sh02.bicycling", "type": "transport_mode", "value": "bicycling", "must_confirm": false},
+        {"field_id": "sh02.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "sh02.preference", "type": "preference", "value": "咖啡馆和城市街区", "must_confirm": false},
+        {"field_id": "sh02.constraint", "type": "constraint", "value": "单次步行不超过25分钟", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-03",
+      "seed": 32003,
+      "city": "上海",
+      "traveler_count": 4,
+      "day_count": 5,
+      "image": {"format": "PNG", "width": 1284, "height": 2778},
+      "layout": "chat",
+      "difficulty": "hard",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "peer", "text": "上海4个人5天，5月1日中午到。"},
+        {"block_id": "b02", "role": "self", "text": "住宿只写了“浦东江边的酒店”，店名没定。D1外滩，D2上海迪士尼乐园，D3豫园，D4上海天文馆，D5田子坊。"},
+        {"block_id": "b03", "role": "peer", "text": "去迪士尼是06:30还是08:30集合？群里两版冲突。市区公交，去天文馆驾车。"},
+        {"block_id": "b04", "role": "self", "text": "5月6日傍晚离开，具体车次时间还没确认。有人怕高空项目，饮食清淡。"}
+      ],
+      "render_profile": {"rotation_deg": -0.9, "scale": 0.76, "compression_quality": 64, "crop": {"top": 12, "right": 12, "bottom": 18, "left": 16}, "blur_radius": 0.7, "noise_sigma": 3.0, "occlusions": [{"x": 0.08, "y": 0.72, "width": 0.22, "height": 0.016, "opacity": 0.2}], "chat_noise": ["未读消息", "🙂", "引用了一条消息"]},
+      "oracle": {"key_fields": [
+        {"field_id": "sh03.city", "type": "city", "value": "上海", "must_confirm": false},
+        {"field_id": "sh03.travelers", "type": "traveler_count", "value": 4, "must_confirm": false},
+        {"field_id": "sh03.days", "type": "day_count", "value": 5, "must_confirm": false},
+        {"field_id": "sh03.arrival", "type": "arrival", "value": "2027-05-01 中午", "must_confirm": true},
+        {"field_id": "sh03.departure", "type": "departure", "value": "2027-05-06 傍晚", "must_confirm": true},
+        {"field_id": "sh03.hotel", "type": "hotel", "value": "浦东江边的酒店", "must_confirm": true},
+        {"field_id": "sh03.meeting_time", "type": "time", "value": ["06:30", "08:30"], "must_confirm": true},
+        {"field_id": "sh03.poi1", "type": "poi", "value": "上海迪士尼乐园", "must_confirm": false},
+        {"field_id": "sh03.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "sh03.driving", "type": "transport_mode", "value": "driving", "must_confirm": false},
+        {"field_id": "sh03.constraint", "type": "constraint", "value": "怕高空项目且饮食清淡", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-SH-04",
+      "seed": 32004,
+      "city": "上海",
+      "traveler_count": 5,
+      "day_count": 4,
+      "image": {"format": "JPEG", "width": 1440, "height": 3120},
+      "layout": "note",
+      "difficulty": "clean",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "title", "text": "上海五人四天行程"},
+        {"block_id": "b02", "role": "body", "text": "6月15日09:30抵达虹桥机场，6月19日15:50虹桥机场返程。住南京西路附近。"},
+        {"block_id": "b03", "role": "body", "text": "D1 13:00外滩；D2 08:00上海迪士尼乐园，驾车；D3 10:00豫园，步行到新天地；D4 09:30上海自然博物馆，公交去机场。"},
+        {"block_id": "b04", "role": "footer", "text": "偏好亲子展馆；有长辈，避免连续久站。"}
+      ],
+      "render_profile": {"rotation_deg": 0.0, "scale": 1.0, "compression_quality": 92, "crop": {"top": 0, "right": 0, "bottom": 0, "left": 0}, "blur_radius": 0.0, "noise_sigma": 0.0, "occlusions": [], "chat_noise": []},
+      "oracle": {"key_fields": [
+        {"field_id": "sh04.city", "type": "city", "value": "上海", "must_confirm": false},
+        {"field_id": "sh04.travelers", "type": "traveler_count", "value": 5, "must_confirm": false},
+        {"field_id": "sh04.days", "type": "day_count", "value": 4, "must_confirm": false},
+        {"field_id": "sh04.arrival", "type": "arrival", "value": "2027-06-15 09:30 虹桥机场", "must_confirm": false},
+        {"field_id": "sh04.departure", "type": "departure", "value": "2027-06-19 15:50 虹桥机场", "must_confirm": false},
+        {"field_id": "sh04.lodging", "type": "lodging_area", "value": "南京西路", "must_confirm": false},
+        {"field_id": "sh04.poi1", "type": "poi", "value": "上海迪士尼乐园", "must_confirm": false},
+        {"field_id": "sh04.driving", "type": "transport_mode", "value": "driving", "must_confirm": false},
+        {"field_id": "sh04.walking", "type": "transport_mode", "value": "walking", "must_confirm": false},
+        {"field_id": "sh04.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "sh04.preference", "type": "preference", "value": "亲子展馆", "must_confirm": false},
+        {"field_id": "sh04.constraint", "type": "constraint", "value": "有长辈且避免连续久站", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-01",
+      "seed": 33001,
+      "city": "杭州",
+      "traveler_count": 2,
+      "day_count": 4,
+      "image": {"format": "WebP", "width": 1170, "height": 2532},
+      "layout": "guide_ai",
+      "difficulty": "medium",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "heading", "text": "杭州两人四日参考（合成测试）"},
+        {"block_id": "b02", "role": "body", "text": "7月3日10:10杭州东站到达，7月7日18:30杭州东站离开，住宿湖滨一带。"},
+        {"block_id": "b03", "role": "body", "text": "D1 14:00西湖风景名胜区；D2 08:30灵隐寺，公交往返；D3 09:00西溪湿地国家公园；D4 10:00中国茶叶博物馆，骑行到龙井村。"},
+        {"block_id": "b04", "role": "tip", "text": "喜欢茶文化和自然；正午减少露天步行。"}
+      ],
+      "render_profile": {"rotation_deg": 0.25, "scale": 0.91, "compression_quality": 78, "crop": {"top": 6, "right": 5, "bottom": 8, "left": 5}, "blur_radius": 0.22, "noise_sigma": 1.3, "occlusions": [], "chat_noise": ["内容较长，已折叠"]},
+      "oracle": {"key_fields": [
+        {"field_id": "hz01.city", "type": "city", "value": "杭州", "must_confirm": false},
+        {"field_id": "hz01.travelers", "type": "traveler_count", "value": 2, "must_confirm": false},
+        {"field_id": "hz01.days", "type": "day_count", "value": 4, "must_confirm": false},
+        {"field_id": "hz01.arrival", "type": "arrival", "value": "2027-07-03 10:10 杭州东站", "must_confirm": false},
+        {"field_id": "hz01.departure", "type": "departure", "value": "2027-07-07 18:30 杭州东站", "must_confirm": false},
+        {"field_id": "hz01.lodging", "type": "lodging_area", "value": "湖滨", "must_confirm": false},
+        {"field_id": "hz01.poi1", "type": "poi", "value": "西湖风景名胜区", "must_confirm": false},
+        {"field_id": "hz01.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "hz01.bicycling", "type": "transport_mode", "value": "bicycling", "must_confirm": false},
+        {"field_id": "hz01.preference", "type": "preference", "value": "茶文化和自然", "must_confirm": false},
+        {"field_id": "hz01.constraint", "type": "constraint", "value": "正午减少露天步行", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-02",
+      "seed": 33002,
+      "city": "杭州",
+      "traveler_count": 3,
+      "day_count": 5,
+      "image": {"format": "PNG", "width": 1080, "height": 2400},
+      "layout": "chat",
+      "difficulty": "medium",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "peer", "text": "杭州3人5天，8月9日12:25到杭州东站。"},
+        {"block_id": "b02", "role": "self", "text": "住武林广场。D1河坊街，D2西湖，D3灵隐寺，D4西溪湿地，D5良渚博物院。"},
+        {"block_id": "b03", "role": "peer", "text": "市区公交为主，湖边可以骑行。8月14日16:45杭州东站返程。想吃杭帮菜，但一人不吃海鲜。"}
+      ],
+      "render_profile": {"rotation_deg": -0.3, "scale": 0.9, "compression_quality": 80, "crop": {"top": 5, "right": 5, "bottom": 9, "left": 5}, "blur_radius": 0.25, "noise_sigma": 1.4, "occlusions": [], "chat_noise": ["3条新消息", "👍"]},
+      "oracle": {"key_fields": [
+        {"field_id": "hz02.city", "type": "city", "value": "杭州", "must_confirm": false},
+        {"field_id": "hz02.travelers", "type": "traveler_count", "value": 3, "must_confirm": false},
+        {"field_id": "hz02.days", "type": "day_count", "value": 5, "must_confirm": false},
+        {"field_id": "hz02.arrival", "type": "arrival", "value": "2027-08-09 12:25 杭州东站", "must_confirm": false},
+        {"field_id": "hz02.departure", "type": "departure", "value": "2027-08-14 16:45 杭州东站", "must_confirm": false},
+        {"field_id": "hz02.lodging", "type": "lodging_area", "value": "武林广场", "must_confirm": false},
+        {"field_id": "hz02.poi1", "type": "poi", "value": "良渚博物院", "must_confirm": false},
+        {"field_id": "hz02.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "hz02.bicycling", "type": "transport_mode", "value": "bicycling", "must_confirm": false},
+        {"field_id": "hz02.preference", "type": "preference", "value": "杭帮菜", "must_confirm": false},
+        {"field_id": "hz02.constraint", "type": "constraint", "value": "一人不吃海鲜", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-03",
+      "seed": 33003,
+      "city": "杭州",
+      "traveler_count": 4,
+      "day_count": 2,
+      "image": {"format": "JPEG", "width": 1242, "height": 2688},
+      "layout": "note",
+      "difficulty": "hard",
+      "theme": "dark",
+      "text_blocks": [
+        {"block_id": "b01", "role": "title", "text": "杭州四人两日｜待确认版"},
+        {"block_id": "b02", "role": "body", "text": "9月20日到达时间写作“下午两点左右”，到杭州西站。住宿暂记“西湖边民宿”，具体名称待定。"},
+        {"block_id": "b03", "role": "body", "text": "D1 16:00断桥残雪，步行到曲院风荷；D2 灵隐寺集合时间有08:00和09:00两版，之后驾车去宋城。"},
+        {"block_id": "b04", "role": "footer", "text": "9月22日晚离开，车次未定。偏好园林；同行者膝盖不适，避免长距离步行。"}
+      ],
+      "render_profile": {"rotation_deg": 0.95, "scale": 0.74, "compression_quality": 58, "crop": {"top": 16, "right": 20, "bottom": 14, "left": 12}, "blur_radius": 0.75, "noise_sigma": 3.5, "occlusions": [{"x": 0.73, "y": 0.43, "width": 0.14, "height": 0.02, "opacity": 0.24}], "chat_noise": ["草稿", "待同步"]},
+      "oracle": {"key_fields": [
+        {"field_id": "hz03.city", "type": "city", "value": "杭州", "must_confirm": false},
+        {"field_id": "hz03.travelers", "type": "traveler_count", "value": 4, "must_confirm": false},
+        {"field_id": "hz03.days", "type": "day_count", "value": 2, "must_confirm": false},
+        {"field_id": "hz03.arrival", "type": "arrival", "value": "2027-09-20 14:00左右 杭州西站", "must_confirm": true},
+        {"field_id": "hz03.departure", "type": "departure", "value": "2027-09-22 晚上", "must_confirm": true},
+        {"field_id": "hz03.hotel", "type": "hotel", "value": "西湖边民宿", "must_confirm": true},
+        {"field_id": "hz03.meeting_time", "type": "time", "value": ["08:00", "09:00"], "must_confirm": true},
+        {"field_id": "hz03.poi1", "type": "poi", "value": "灵隐寺", "must_confirm": false},
+        {"field_id": "hz03.walking", "type": "transport_mode", "value": "walking", "must_confirm": false},
+        {"field_id": "hz03.driving", "type": "transport_mode", "value": "driving", "must_confirm": false},
+        {"field_id": "hz03.constraint", "type": "constraint", "value": "膝盖不适且避免长距离步行", "must_confirm": false}
+      ]}
+    },
+    {
+      "case_id": "TC-P3-OCR-HZ-04",
+      "seed": 33004,
+      "city": "杭州",
+      "traveler_count": 5,
+      "day_count": 3,
+      "image": {"format": "WebP", "width": 1440, "height": 3040},
+      "layout": "guide_ai",
+      "difficulty": "hard",
+      "theme": "light",
+      "text_blocks": [
+        {"block_id": "b01", "role": "heading", "text": "杭州五人三天草案（合成测试）"},
+        {"block_id": "b02", "role": "body", "text": "10月4日早班到杭州萧山国际机场，住宿写作“湖滨附近连锁酒店”，品牌尚未确认。"},
+        {"block_id": "b03", "role": "body", "text": "第一天西湖游船；第二天07:30灵隐寺，公交去中国茶叶博物馆；第三天西溪湿地国家公园，返程考虑驾车去机场。"},
+        {"block_id": "b04", "role": "tip", "text": "10月7日返程，有18:05和20:05两张备选票。偏好安静景点；有幼儿，需要午睡两小时。"}
+      ],
+      "render_profile": {"rotation_deg": -0.75, "scale": 0.77, "compression_quality": 61, "crop": {"top": 10, "right": 16, "bottom": 20, "left": 14}, "blur_radius": 0.68, "noise_sigma": 3.1, "occlusions": [{"x": 0.12, "y": 0.63, "width": 0.16, "height": 0.018, "opacity": 0.21}], "chat_noise": ["AI整理", "⚠ 待确认"]},
+      "oracle": {"key_fields": [
+        {"field_id": "hz04.city", "type": "city", "value": "杭州", "must_confirm": false},
+        {"field_id": "hz04.travelers", "type": "traveler_count", "value": 5, "must_confirm": false},
+        {"field_id": "hz04.days", "type": "day_count", "value": 3, "must_confirm": false},
+        {"field_id": "hz04.arrival", "type": "arrival", "value": "2027-10-04 早班 杭州萧山国际机场", "must_confirm": true},
+        {"field_id": "hz04.departure_time", "type": "time", "value": ["18:05", "20:05"], "must_confirm": true},
+        {"field_id": "hz04.hotel", "type": "hotel", "value": "湖滨附近连锁酒店", "must_confirm": true},
+        {"field_id": "hz04.poi1", "type": "poi", "value": "西溪湿地国家公园", "must_confirm": false},
+        {"field_id": "hz04.transit", "type": "transport_mode", "value": "transit", "must_confirm": false},
+        {"field_id": "hz04.driving", "type": "transport_mode", "value": "driving", "must_confirm": false},
+        {"field_id": "hz04.preference", "type": "preference", "value": "安静景点", "must_confirm": false},
+        {"field_id": "hz04.constraint", "type": "constraint", "value": "幼儿午睡两小时", "must_confirm": false}
+      ]}
+    }
+  ]
+}

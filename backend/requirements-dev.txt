@@ -1,0 +1,9 @@
+-r requirements.txt
+pytest==8.3.5
+pytest-asyncio==0.25.3
+pytest-randomly==3.16.0
+pytest-timeout==2.3.1
+ruff==0.9.10
+
+# P4 local-only solver bake-off; not imported by the default runtime.
+ortools==9.15.6755

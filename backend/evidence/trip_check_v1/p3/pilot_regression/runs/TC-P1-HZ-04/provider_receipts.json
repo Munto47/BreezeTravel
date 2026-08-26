@@ -1,0 +1,38 @@
+[
+  {
+    "query": "灵隐寺",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-lingyin",
+    "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+    "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "西溪湿地国家公园",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-xixi",
+    "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+    "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "龙井村（茶园）",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-longjing",
+    "request_hash": "97b68261c22e01053e14400c073aa07c4cb83b76f167fcae9394860b023de6ec",
+    "response_hash": "35fe63fcaa10bb1ea9f8ab8c58a3b4d58e501b2a2170c5520b12ec4f33293695",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "西湖风景名胜区",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-west-lake",
+    "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+    "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+    "execution_mode": "fixture"
+  }
+]

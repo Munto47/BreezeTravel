@@ -1,0 +1,278 @@
+[
+  {
+    "itinerary_id": "88f5b8a7-533e-4907-b9bb-1bf5653c09c0",
+    "workspace_id": "pilot-tc-p1-sh-01",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "上海",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+            "place_id": "sh-bund",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "外滩",
+            "source_raw_stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+            "place_id": "sh-disney",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "12:00",
+            "end_time": "13:00",
+            "visit_duration_minutes": 60,
+            "transport_to_next": null,
+            "raw_name": "上海迪士尼乐园",
+            "source_raw_stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+            "place_id": "sh-yuyuan",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "10:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "豫园",
+            "source_raw_stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "aa8692f7-e6b5-43e4-970f-78c00dd3c4d0",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f": {
+          "place_id": "sh-bund",
+          "coords": {
+            "lng": 121.49,
+            "lat": 31.241
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "68fe0cb47f69894518b09870cb9f1ae3570b30920661ff7df73bfd4377f72b64",
+          "canonical_name": "外滩"
+        },
+        "1bb581ad-7867-4011-8847-d01285d52151": {
+          "place_id": "sh-disney",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "a04e0a53c09baef7878817d070fd05a3a5fb93aadc80b344b2b4aacc5116bb5b",
+          "canonical_name": "上海迪士尼乐园"
+        },
+        "f095b761-d2cf-443a-9e50-a8480f733c2e": {
+          "place_id": "sh-yuyuan",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "eaa6c8865e7cc28920468fbce814f296f8f7bd1c032459a9216985c3974ea242",
+          "canonical_name": "豫园"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "sh-bund",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-bund",
+          "name": "外滩",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.49,
+          "latitude": 31.241,
+          "request_hash": "1afffd58160b7aeb055e321eb2172d88054620d6ad949229c8ba332e1da610f0",
+          "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-disney",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.657,
+          "latitude": 31.144,
+          "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+          "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-yuyuan",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.493,
+          "latitude": 31.227,
+          "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+          "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "96412fa0a205ec2af1a450ff3162be03cea4479f88b654417e33fe6fdf9f1366"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T03:45:33.842385Z",
+    "content_hash": "3d66ae0d32852774e9cf3c6bd0374eae1d43057059dc83e1b38faffff2a22e80"
+  },
+  {
+    "itinerary_id": "88f5b8a7-533e-4907-b9bb-1bf5653c09c0",
+    "workspace_id": "pilot-tc-p1-sh-01",
+    "revision": 2,
+    "parent_revision": 1,
+    "source_type": "REPAIR",
+    "city": "上海",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+            "place_id": "sh-bund",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": "12:00",
+            "visit_duration_minutes": 180,
+            "transport_to_next": null,
+            "raw_name": "外滩",
+            "source_raw_stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+            "place_id": "sh-disney",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "13:30",
+            "end_time": "14:30",
+            "visit_duration_minutes": 60,
+            "transport_to_next": null,
+            "raw_name": "上海迪士尼乐园",
+            "source_raw_stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+            "place_id": "sh-yuyuan",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "10:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "豫园",
+            "source_raw_stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "kind": "repair_preview",
+      "repair_id": "ee9d0f95-aa63-4572-8c5e-34f9bb82182d",
+      "base_content_hash": "3d66ae0d32852774e9cf3c6bd0374eae1d43057059dc83e1b38faffff2a22e80",
+      "changed_days": [
+        0
+      ],
+      "operation_count": 1
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T03:45:33.861367Z",
+    "content_hash": "0920c292dc5f054085eb160fbd5b6567d37c519373d2e422dea5dd110a9eba0e"
+  }
+]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 
@@ -8,8 +8,7 @@ import type { ThinkingStep } from '@/types/chat'
 
 const NODE_CONFIG: Record<string, { label: string; icon: string; color: string; bg: string }> = {
   router:        { label: '意图分析', icon: '🔀', color: 'text-purple-600', bg: 'bg-purple-50' },
-  rag_retrieval: { label: '游记检索', icon: '📚', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  amap_search:   { label: '高德搜索', icon: '📍', color: 'text-blue-600', bg: 'bg-blue-50' },
+  tool_executor: { label: '工具执行', icon: '🛠️', color: 'text-blue-600', bg: 'bg-blue-50' },
   synthesizer:   { label: '数据合成', icon: '⚡', color: 'text-orange-600', bg: 'bg-orange-50' },
   optimizer:     { label: '路线优化', icon: '🗺️', color: 'text-coral-600', bg: 'bg-coral-50' },
 }
@@ -20,7 +19,11 @@ interface ThinkingStepsProps {
 }
 
 export default function ThinkingSteps({ steps, isStreaming }: ThinkingStepsProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    if (isStreaming) setIsExpanded(true)
+  }, [isStreaming])
 
   if (steps.length === 0 && !isStreaming) return null
 

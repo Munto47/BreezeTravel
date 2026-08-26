@@ -1,0 +1,512 @@
+[
+  {
+    "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "cae420e4-7ff0-5d28-a9bb-aee2f4f6fa94",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2c021429636a656a62915ed848e57a1ac877369da1188c8322686193fa57e10a",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "ad3dddde-d01a-597c-bb10-d6eea4c5b3cb",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "65ee7bd1b1693ad1ede81ec75cb58577329a0fe54ab630151e14655988f8cbdc",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "b9a823d0-1f9d-5442-998f-b1cdcba904f1",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e367bfe717343b970725aedb47569845a0a4b4ba587fdbd2ebfb2d9c22056aaa",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "e86bcc73-f146-5b4c-a08e-f52ff42550eb",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "0cc76b9fbbd45f794396da45648504385c8923808cb83ae4575393a8ac7012a2",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "d2c759c4-948b-5c39-b038-23e5a4b9e9fa",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "96d8643bd3577d6643ad8e958b5e4340111f8a5efea52359de5878e184038ad9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "745941c0-3ed7-5363-ab7e-c709f7791f92",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "d4f13a388a25b832ad3950f087669cba7cc56f5f77ccf2805c7d3c917a54095c",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "563f8179-5cf4-5e96-84e5-540b32ab5786",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 35
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.518812Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "49428485-1dd1-5714-a003-e3ebd7407a91",
+        "snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "08d58b53-c497-4809-9567-62e128032e29",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 2,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.518812Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T07:51:30.518812Z",
+        "response_hash": "dbcffc30ea41115a523cdb70f3b65a07c915327e019467d3a3b66842b10a16b9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T07:51:30.518812Z",
+    "supersedes_snapshot_id": null
+  },
+  {
+    "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_revision": 2,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1",
+      "repair_postcheck"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "caa3d337-41b3-4670-a1db-87834db75fe8",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2c021429636a656a62915ed848e57a1ac877369da1188c8322686193fa57e10a",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "c7896bd8-2886-472e-a4e0-d690d9f77fd4",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "65ee7bd1b1693ad1ede81ec75cb58577329a0fe54ab630151e14655988f8cbdc",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "85a07b37-061d-489b-84ae-ab80d067cd09",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e367bfe717343b970725aedb47569845a0a4b4ba587fdbd2ebfb2d9c22056aaa",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "458c7e3e-7243-42b6-a978-ff27a88c2da4",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "0cc76b9fbbd45f794396da45648504385c8923808cb83ae4575393a8ac7012a2",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "17b1ba4f-d086-4c0d-bb93-0382be282cb5",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "96d8643bd3577d6643ad8e958b5e4340111f8a5efea52359de5878e184038ad9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "0ad269fa-eb57-4f24-abde-f9e0ab9f10a1",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "d4f13a388a25b832ad3950f087669cba7cc56f5f77ccf2805c7d3c917a54095c",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "de901939-6c1f-4479-a118-508cd16c0475",
+        "snapshot_id": "47532e5d-5dec-43f4-93f6-72447dd7782d",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 35
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.518812Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T07:51:30.518812Z",
+    "supersedes_snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be"
+  },
+  {
+    "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+    "workspace_id": "pilot-tc-p1-bj-01",
+    "itinerary_revision": 2,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1",
+      "repair_postcheck"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "427259c9-4fa3-4327-9f75-503e3ecbae54",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2c021429636a656a62915ed848e57a1ac877369da1188c8322686193fa57e10a",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "e06427b8-30a8-4394-830b-cfa091037b0a",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-forbidden-city",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "65ee7bd1b1693ad1ede81ec75cb58577329a0fe54ab630151e14655988f8cbdc",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "ce6eb0a4-84de-453a-8e78-8914d54fcae2",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e367bfe717343b970725aedb47569845a0a4b4ba587fdbd2ebfb2d9c22056aaa",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "5a907e6e-d79c-4a96-94b9-ab06d1239faf",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-temple-of-heaven",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "0cc76b9fbbd45f794396da45648504385c8923808cb83ae4575393a8ac7012a2",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "391c7d85-db75-4799-b737-f595fe48e7ba",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "96d8643bd3577d6643ad8e958b5e4340111f8a5efea52359de5878e184038ad9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "89a9870d-e460-45bc-87b1-b0000b320d4e",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "d4f13a388a25b832ad3950f087669cba7cc56f5f77ccf2805c7d3c917a54095c",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "95328217-1bb2-4581-8ea3-5e1bdd4c0cd8",
+        "snapshot_id": "ade13a22-3f31-48a6-a456-f21755c2feda",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "51ad21d3-5076-4ec7-9786-d221383c706d->c7eb15e9-bf2a-4757-882d-eaf8e382d73d",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 35
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.518812Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T07:51:30.518812Z",
+        "response_hash": "275e9a408288d2366a7d4f6e34b37804fbaa1df66b53425c1037cc7233f61eed",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T07:51:30.518812Z",
+    "supersedes_snapshot_id": "98d11248-40c8-5f4e-a528-4f5211a050be"
+  }
+]

@@ -1,0 +1,11 @@
+[
+  {
+    "stage": "COLLECT_EVIDENCE",
+    "provider": "frozen_provider_snapshot_v1",
+    "category": "PROVIDER_ROUTE_MODE_UNAVAILABLE",
+    "affected_fields": [
+      "route_edges.stop-1->stop-2.walking"
+    ],
+    "retryable": false
+  }
+]

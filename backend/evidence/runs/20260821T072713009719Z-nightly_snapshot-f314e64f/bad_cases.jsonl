@@ -1,0 +1,2 @@
+{"case_id":"reg.bj.builder.four-stop-anchor-restart","failed_step":"create_suggestion_set_3","failure_code":"SUGGESTION_PROVIDER_UNAVAILABLE","reason":"DETERMINISTIC_SCORE_OR_CAPABILITY_FAILED","unsupported_capabilities":[]}
+{"case_id":"reg.hz.builder.four-stop-anchor-session","failed_step":null,"failure_code":null,"reason":"DETERMINISTIC_SCORE_OR_CAPABILITY_FAILED","unsupported_capabilities":[]}

@@ -1,0 +1,285 @@
+{
+  "schema_version": "3.0",
+  "release_status": "dual_entry_local_delivery_candidate",
+  "release_approval_granted": false,
+  "local_delivery_test_execution": "not_run_by_manifest",
+  "manifest_generation_executes_tests": false,
+  "release_id": "1bdf54a75489-dirty-ffdadea8e86e",
+  "commit_sha": "1bdf54a754891a7f0af72a7de0fc43e6d0ba29e9",
+  "working_tree_clean": false,
+  "working_tree_diff_sha256": "ffdadea8e86ef51e02cb30650e229fab12e478736af40f730daef380e01ad26f",
+  "untracked_files_hashed": 0,
+  "created_at": "2026-08-22T02:47:21.559479+00:00",
+  "toolchains": {
+    "python": "3.11",
+    "node": "20",
+    "postgres_pgvector": "0.8.1-pg16",
+    "redis": "7.4.2"
+  },
+  "dependency_locks": {
+    "backend_requirements": "e297181d9fd02a4787361da00c68401fbf93272624417fe960f4df8e9bde40f5",
+    "backend_dev_requirements": "2d82cc505e2ee7d424936e044494e928100b4e4fba65bdf3740762e39de7d854",
+    "frontend_package_lock": "93deadd8f9ec6a210abbd0d964ff4ed1fa0ba5a8a5082e1c5c9288c346479a20",
+    "yjs_package_lock": "9e2fb3bc73a4fe4827b4662eee97bc6b0a0b81baab9896d3f3bbdcbe72d20f7f"
+  },
+  "migrations": [
+    {
+      "name": "001_add_bm25.sql",
+      "sha256": "bf0e4befcf806ff155b44ad6b51c1498881426cc23277070a03890c278492277"
+    },
+    {
+      "name": "002_add_memory.sql",
+      "sha256": "26b9ccf49d5d6407b5c0a69dbec2542cb78a559c9d509365f78e1ef2dce4c720"
+    },
+    {
+      "name": "003_auth_users.sql",
+      "sha256": "aaaeb0c996ac1706af0f40c7294941cca05f3f5941924afec54fba316e0a5cb1"
+    },
+    {
+      "name": "004_email_auth.sql",
+      "sha256": "89b987aab7f68df978559143d8a0e455929ba0ae29609e8870373d3580147cbe"
+    },
+    {
+      "name": "005_place_meta.sql",
+      "sha256": "e358afd8271859764b03bd9acd67b2fc26b5168f3dc34c5b56af21b7a95f1cb3"
+    },
+    {
+      "name": "006_add_rag_source_provenance.sql",
+      "sha256": "66cbb5ac0db3e5f4581da279b4426d65b002ffad38a9c17a9b77dd1904ae1dbd"
+    },
+    {
+      "name": "007_add_public_corpus_revision.sql",
+      "sha256": "5724b3350471351dad29c8c0010a1de1de8cafe8f76244f9eb46f0ccc5232fa3"
+    },
+    {
+      "name": "008_task_security_memory.sql",
+      "sha256": "fd9eaddeb5a44863009b2ad326aaef991d5c32648e49383c3158e8f0653f72c3"
+    },
+    {
+      "name": "009_trip_workspace_core.sql",
+      "sha256": "42d9c3694b655ee70ea572ab0a71c4c484670e4b6872e54446dfed5fd98810b8"
+    },
+    {
+      "name": "010_audit_evidence_repair.sql",
+      "sha256": "61878bc059f3c4ab73d3176921cd6bb43e69eb34ddf97db0ebbbe18aa3fb6382"
+    },
+    {
+      "name": "011_final_tips_artifacts.sql",
+      "sha256": "942123f32fdcb118274149fca30d5dec526ae1eaadd446dbaec359e585be00a3"
+    },
+    {
+      "name": "012_import_mobile_contract.sql",
+      "sha256": "b09f1966957bed3e0363bc0cfdd8f6ed7911f0eda5c48bda7a45a3a34c59ccfe"
+    },
+    {
+      "name": "013_idempotent_creation_commands.sql",
+      "sha256": "1bf68b43454936ad7521fe0b71fedae5af88accc5636ef4f2775c437d12c9b47"
+    },
+    {
+      "name": "014_route_templates_and_suggestions.sql",
+      "sha256": "52888f4e0a67ad7d772d9e3e62f036ab9b05207e750d6db6be0c9db171499079"
+    },
+    {
+      "name": "015_member_share_collaboration.sql",
+      "sha256": "9d10f7c8351cf475c51dd399b6af9239e5dc3c768ccf22669b7219640746b04b"
+    },
+    {
+      "name": "016_pre_trip_recheck_commands.sql",
+      "sha256": "10d71c8f3c9f25d133c177cc241e057e3bbbff84d8d1d01f3fb2f6a7af4333d5"
+    },
+    {
+      "name": "017_changed_route_edge_refresh.sql",
+      "sha256": "9e341cd04bf2166efecb8f7372ddd613c92db35a6b7d08320f80ede390bf1d77"
+    },
+    {
+      "name": "018_import_place_receipts.sql",
+      "sha256": "078093c381f1f4ec3509a125018ca05533a990d181e0370a2d9b4864bd6be6fe"
+    },
+    {
+      "name": "019_suggestion_sets.sql",
+      "sha256": "9150e78a40f4eb037b398cba9f704d251555578214a0698a5ee3ca213b079f7c"
+    },
+    {
+      "name": "020_recommendation_event_commands.sql",
+      "sha256": "659f74791c6d583b92575faadfc85abc867a31c51507b699eeabda39bc5dcdb6"
+    },
+    {
+      "name": "021_atomic_suggestion_undo.sql",
+      "sha256": "c0505bbcd4fcc4a6054339e8fe7f4d08ef061410735169c25d935fa8706c4d15"
+    }
+  ],
+  "latest_migration": "021_atomic_suggestion_undo.sql",
+  "configuration": {
+    "runtime_profile": "closure_checkpoint_offline",
+    "demo_mode": true,
+    "amap_mock": true,
+    "ft_router_enabled": false,
+    "reranker_enabled": false,
+    "auto_migrate": false,
+    "required_migration": "021_atomic_suggestion_undo.sql"
+  },
+  "evaluation_scope": {
+    "supported_and_claimed_cities": [
+      "北京",
+      "上海",
+      "杭州"
+    ],
+    "cases_per_city": 50,
+    "total_cases": 150,
+    "expanded_city_claims": false
+  },
+  "dual_entry_delivery_evidence": {
+    "final_plan": {
+      "path": "docs/BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md",
+      "exists": true,
+      "sha256": "63f9e0006d196b5d61619871f012d6f4d675774a595aebcbf33314938d4232fc"
+    },
+    "capability_status": {
+      "path": "docs/dual-entry/capability-status.md",
+      "exists": true,
+      "sha256": "26fed20a2649d44344bfd1306da9acc3d0fa2640ac4d93fa44027978446046cf"
+    },
+    "local_delivery_acceptance": {
+      "path": "docs/dual-entry/local-delivery-acceptance-2026-08-20.md",
+      "exists": true,
+      "sha256": "9c208a13b42ed0d11ffae27e5f008441114a7249b9a09e68b7cae61d987ad14c"
+    },
+    "m1_dev_dataset_manifest": {
+      "path": "backend/eval_data/auditor_simulated/manifest.json",
+      "exists": true,
+      "sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73"
+    },
+    "m1_dev_proxy_gate": {
+      "path": "backend/results/auditor_simulated/m1_dev_proxy_gate.json",
+      "exists": true,
+      "sha256": "f7010ab66039ede1e0b323663ad0ed104183f2bd4196c3772225c6aba7b739db"
+    },
+    "m1_dev_evidence_type": "synthetic_proxy",
+    "human_validated": false,
+    "publicly_verified": false,
+    "claim_boundary": "The M1-dev proxy gate is a local development gate only. It is not human validation, live-provider proof, public deployment proof, or release approval."
+  },
+  "dual_entry_release_gate_evidence": {
+    "dataset_manifest": {
+      "path": "backend/eval_data/dual_entry_v1/manifest.json",
+      "exists": true,
+      "sha256": "e1c8c89385882feea8ec751ae5f416a8062391ad4e9bbcf1838d9dfd9de493e4"
+    },
+    "latest_import_http_gate": {
+      "path": "backend/evidence/runs/20260821T080522826426Z-pr_offline-e0e2b464/gate.json",
+      "exists": true,
+      "sha256": "8ba284ee5cf26b1e0d08efc96998a67a0267b52317bbb00a186a5319a0bee15b"
+    },
+    "latest_builder_http_gate": {
+      "path": "backend/evidence/runs/20260821T074254336723Z-nightly_snapshot-24edafa9/gate.json",
+      "exists": true,
+      "sha256": "3e7c5c29528bc53b018fdfe5fa7d55a516d7ee6e4193ddf73535bebe65816057"
+    },
+    "g5_restart_evidence": {
+      "path": "backend/evidence/full_stack/dual_user_backend_yjs_restart_2026-08-20.json",
+      "exists": true,
+      "sha256": "aaedd47f37c0c6ba684433d358160e27c664d1fc08d807b497b6d31584b0dc51"
+    },
+    "full_backend_junit": {
+      "path": "backend/results/closure_checkpoint_20260822/backend-pytest.xml",
+      "exists": true,
+      "sha256": "3aaaa7c6bd625c0c20d91b33dc59a8ef8f8f58ac1906e6d5b4099464f4ce614f"
+    },
+    "dataset_release_eligible": false,
+    "import_http": {
+      "run_id": "20260821T080522826426Z-pr_offline-e0e2b464",
+      "phase": "IMPORT_HTTP",
+      "decision": "REJECT",
+      "status": "INVALID",
+      "same_worktree_binding": false,
+      "bound_dirty_diff_sha256": "9b18c8fa1d2bb865482f0134553bb95ebc111eae5ed348e2804010d0b5fa0c17",
+      "failed_case_count": 9
+    },
+    "builder_http": {
+      "run_id": "20260821T074254336723Z-nightly_snapshot-24edafa9",
+      "phase": "BUILDER_SUGGESTION_HTTP",
+      "decision": "REJECT",
+      "status": "INVALID",
+      "same_worktree_binding": false,
+      "bound_dirty_diff_sha256": "f0c036dcac9b5f343083a9bb3e7ff4c6be15843d1516410173eafe47880865d0",
+      "failed_case_count": 0,
+      "reported_decision": "PROMOTE",
+      "g2_four_stop_session_gate": {
+        "status": "MISSING",
+        "reason": "LEGACY_GATE_DID_NOT_PROVE_REQUIRED_SESSION_COUNT"
+      }
+    },
+    "g5_restart_status": "PASSED",
+    "weekly_live_decision": "NOT_RUN",
+    "independent_paired_judge_decision": "NOT_RUN",
+    "baseline_candidate_promotion_decision": "NOT_RUN",
+    "external_blind_bundle_provisioned": false,
+    "human_calibration_case_count": 0,
+    "overall_release_decision": "REJECT",
+    "release_blockers": [
+      "FROZEN_BLIND_CORPUS_BELOW_STATISTICAL_GATE",
+      "IMPORT_AND_RELEASE_PROVIDER_SNAPSHOT_COVERAGE_INCOMPLETE",
+      "FROZEN_BLIND_STATIC_SUBJECT_EVIDENCE_UNAVAILABLE",
+      "TEMPLATE_AND_GENERATOR_LINEAGE_UNAVAILABLE",
+      "FROZEN_BLIND_EXTERNAL_BUNDLE_NOT_PROVISIONED",
+      "G2_FOUR_STOP_PRODUCT_HTTP_NOT_PASSED",
+      "WEEKLY_LIVE_GATE_NOT_RUN",
+      "HUMAN_CALIBRATION_IS_0_OF_30",
+      "LATEST_IMPORT_HTTP_GATE_NOT_PROMOTED",
+      "LATEST_BUILDER_HTTP_GATE_NOT_PROMOTED",
+      "HTTP_GATE_WORKTREE_BINDING_STALE_OR_MISSING",
+      "G3_INDEPENDENT_PAIRED_JUDGE_NOT_RUN",
+      "BASELINE_CANDIDATE_PROMOTION_NOT_RUN"
+    ],
+    "claim_boundary": "This section is an evidence index, not a release approval. A stale worktree binding, missing stage, failed gate, absent blind bundle, or zero human calibration keeps the overall decision REJECT."
+  },
+  "external_api_policy": {
+    "iteration_mode": "frozen_snapshot_zero_external_calls",
+    "paid_live_runs_executed": 0,
+    "paid_live_runs_status": "paused",
+    "paid_generation_requires_explicit_flag": true,
+    "api_llm_judge_allowed": false
+  },
+  "legacy_rc1_judge_policy": {
+    "kind": "independent_codex_subagent_panel",
+    "model": "gpt-5.6-sol",
+    "evaluator_count": 3,
+    "minimum_unanimous_agreement": 0.85,
+    "human_calibration_performed": false,
+    "agreement_threshold_passed": true,
+    "quality_thresholds_passed": false,
+    "allowed_claim": "历史 RC1 Judge 记录；不替代双入口 M1-dev 代理门禁或真人校准"
+  },
+  "evaluation_manifest_sha256": "4ec3fd53736a1b73f3d8193f58a6c682a613cf7629964df5148a656fc11aff73",
+  "evidence_paths": {
+    "local_eval": "backend/evidence/local_eval/summary.json",
+    "fault_injection": "backend/evidence/fault_injection/summary.json",
+    "experiments": "backend/evidence/experiments/summary.json",
+    "multi_instance": "backend/evidence/multi_instance/summary.json",
+    "three_city_rc1": "backend/evidence/three_city_rc1/summary.json"
+  },
+  "verification_commands": [
+    "powershell -ExecutionPolicy Bypass -File .\\verify-local.ps1",
+    "docker compose config --quiet",
+    "docker compose -f docker-compose.multi.yml config --quiet"
+  ],
+  "dual_entry_local_delivery_verification_commands": [
+    "cd backend; python -m pytest tests -q",
+    "cd backend; python -m ruff check app evals scripts tests",
+    "cd backend; python -m scripts.run_m1_dev_proxy_gate --artifact results/auditor_simulated/proxy_role_1.json --artifact results/auditor_simulated/proxy_role_2.json --artifact results/auditor_simulated/proxy_role_3.json",
+    "cd frontend; npm run build",
+    "cd frontend; npx playwright test -c playwright.local.config.js",
+    "cd frontend; npx playwright test -c playwright.workspace.config.js",
+    "docker compose up -d postgres; cd backend; $env:RUN_SERVICE_INTEGRATION='1'; python -m pytest tests/test_migrations_integration.py tests/test_templates_sharing_postgres.py tests/test_dual_entry_postgres_integration.py -q; docker compose stop postgres"
+  ],
+  "excluded_claims": [
+    "full RC1 release",
+    "public deployment",
+    "public smoke",
+    "real-user validation",
+    "human calibration",
+    "Judge-human agreement",
+    "live-provider SLO",
+    "production SLO"
+  ]
+}

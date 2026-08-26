@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/auditor-human-case-v1.json",
+  "title": "BreezeTravel human itinerary audit case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "case_id",
+    "source_document_id",
+    "city",
+    "trip_days",
+    "group_size",
+    "raw_itinerary",
+    "source_kind",
+    "organizer_id_hash",
+    "consent_recorded",
+    "human_findings"
+  ],
+  "properties": {
+    "case_id": {"type": "string", "minLength": 1},
+    "source_document_id": {"type": "string", "minLength": 1},
+    "city": {"enum": ["北京", "上海", "杭州"]},
+    "trip_days": {"type": "integer", "minimum": 2, "maximum": 5},
+    "group_size": {"type": "integer", "minimum": 2, "maximum": 5},
+    "raw_itinerary": {"type": "string", "minLength": 1},
+    "source_kind": {"enum": ["REAL_AI_ITINERARY", "REAL_MANUAL_ITINERARY"]},
+    "organizer_id_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "consent_recorded": {"const": true},
+    "human_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "category", "severity", "description", "is_original_error"],
+        "properties": {
+          "finding_id": {"type": "string", "minLength": 1},
+          "category": {"enum": ["ENTITY", "OPENING", "ROUTE", "PACE", "MEMBER", "OTHER"]},
+          "severity": {"enum": ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]},
+          "description": {"type": "string", "minLength": 1},
+          "is_original_error": {"type": "boolean"},
+          "evidence_url": {"type": ["string", "null"]},
+          "observed_at": {"type": ["string", "null"], "format": "date-time"}
+        }
+      }
+    }
+  }
+}

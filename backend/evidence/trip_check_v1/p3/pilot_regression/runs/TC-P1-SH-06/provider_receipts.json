@@ -1,0 +1,20 @@
+[
+  {
+    "query": "故宫博物院",
+    "target_city": "上海",
+    "returned_city": "北京",
+    "place_id": "bj-forbidden-city",
+    "request_hash": "e1a559ad433444d6f6291e98047c04d8f0127ad2b5a415ac04ab57a3b23711f6",
+    "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "外滩",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-bund",
+    "request_hash": "9a716509aeeb634f1b1ae4967b22cba479316ae0d46465265947be44901bced4",
+    "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+    "execution_mode": "fixture"
+  }
+]

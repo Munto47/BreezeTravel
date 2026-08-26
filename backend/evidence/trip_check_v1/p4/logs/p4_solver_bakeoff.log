@@ -1,0 +1,130 @@
+{
+  "admission": {
+    "authoritative_postcheck_pass": true,
+    "cp_sat_extra_solved_classes": [],
+    "cp_sat_primary_improvement_percentage_points": -16.666666666666664,
+    "default_strategy": "bounded_repair_v1",
+    "effect_threshold_pass": false,
+    "performance_pass": true,
+    "replay_pass": true,
+    "safety_pass": true,
+    "status": "REJECT"
+  },
+  "case_count": 36,
+  "dataset_hash": "d5414e30ef7e4469997eba544ab0cc69be1f56ebd223a53fc439a2e0b6f7a615",
+  "dataset_path": "evals/trip_check_v1/p4/solver_bakeoff_v1.jsonl",
+  "evidence_boundary": {
+    "execution_mode": "controlled_fixture",
+    "frozen_blind": "NOT_RUN",
+    "human_evidence": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "public_e2e": "NOT_RUN"
+  },
+  "manifest_hash": "790917841729b2b311508d882af1337d06f20e91ca5b836dab7748f98ed487cf",
+  "metrics": {
+    "bounded_repair_v1": {
+      "case_count": 36,
+      "dense_25_stop_p95_ms": 0.0619000056758523,
+      "effective_success_count": 24,
+      "failure_classes": [
+        "conflicting_place_receipt",
+        "empty_candidate_set",
+        "locked_time_overlap",
+        "missing_route_evidence"
+      ],
+      "fallback_count": 0,
+      "mean_edit_cost": 280.0,
+      "mean_route_cost": 63.75,
+      "oracle_pass_count": 36,
+      "p95_ms": 0.061700004152953625,
+      "postcheck_pass_count": 24,
+      "primary_success_count": 24,
+      "primary_success_rate": 0.6666666666666666,
+      "replay_match_count": 36,
+      "status_counts": {
+        "SUCCESS": 24,
+        "UNSAT": 12
+      },
+      "timeout_count": 0
+    },
+    "cp_sat_v1": {
+      "case_count": 36,
+      "dense_25_stop_p95_ms": 1042.1850999991875,
+      "effective_success_count": 24,
+      "failure_classes": [
+        "conflicting_place_receipt",
+        "empty_candidate_set",
+        "locked_time_overlap",
+        "missing_route_evidence",
+        "solver_deadline",
+        "strategy_exception"
+      ],
+      "fallback_count": 18,
+      "mean_edit_cost": 775.0,
+      "mean_route_cost": 75.0,
+      "oracle_pass_count": 36,
+      "p95_ms": 1042.1850999991875,
+      "postcheck_pass_count": 24,
+      "primary_success_count": 18,
+      "primary_success_rate": 0.5,
+      "replay_match_count": 36,
+      "status_counts": {
+        "ERROR": 3,
+        "SUCCESS": 18,
+        "TIMEOUT": 3,
+        "UNSAT": 12
+      },
+      "timeout_count": 3
+    },
+    "routing_tsptw_v1": {
+      "case_count": 36,
+      "dense_25_stop_p95_ms": 0.061799975810572505,
+      "effective_success_count": 24,
+      "failure_classes": [
+        "conflicting_place_receipt",
+        "empty_candidate_set",
+        "locked_time_overlap",
+        "missing_route_evidence",
+        "solver_deadline",
+        "strategy_exception"
+      ],
+      "fallback_count": 18,
+      "mean_edit_cost": 350.0,
+      "mean_route_cost": 75.0,
+      "oracle_pass_count": 36,
+      "p95_ms": 0.060999998822808266,
+      "postcheck_pass_count": 24,
+      "primary_success_count": 18,
+      "primary_success_rate": 0.5,
+      "replay_match_count": 36,
+      "status_counts": {
+        "ERROR": 3,
+        "SUCCESS": 18,
+        "TIMEOUT": 3,
+        "UNSAT": 12
+      },
+      "timeout_count": 3
+    }
+  },
+  "record_count": 108,
+  "records_hash": "e23375179135d46cdffaa406e0bb4550a12496bb3627c766f8968fdd0e91d2df",
+  "run_spec": {
+    "objective_order": [
+      "no_new_serious_finding",
+      "postcheck_success",
+      "edit_cost",
+      "route_cost",
+      "stable_id"
+    ],
+    "objective_version": "p4_lexicographic_v1",
+    "seed": 20260823,
+    "strategy_ids": [
+      "bounded_repair_v1",
+      "routing_tsptw_v1",
+      "cp_sat_v1"
+    ],
+    "timeout_ms": 2000
+  },
+  "schema_version": "trip-check-p4-solver-bakeoff-result-v1",
+  "subject_commit": "85368777ca8d2d4e77cf053fc9a74018f9f9fc9a"
+}

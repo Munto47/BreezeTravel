@@ -1,0 +1,10 @@
+{"case_id":"pilot.bj.import.classic-3d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"pilot.sh.import.citywalk-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"pilot.hz.import.west-lake-4d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ambiguous-shorthand","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.natural-missing-time","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.duplicate-alias","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"reg.hz.import.canonical-duplicate","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}

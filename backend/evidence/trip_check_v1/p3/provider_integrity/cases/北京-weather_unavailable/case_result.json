@@ -1,0 +1,13 @@
+{
+  "case_id": "北京-weather_unavailable",
+  "city": "北京",
+  "fault_profile": "weather_unavailable",
+  "status": "PASS",
+  "failures": [],
+  "provider_attempt_count": 6,
+  "receipt_count": 6,
+  "observation_count": 8,
+  "network_call_count": 0,
+  "replay_equal": true,
+  "result_hash": "3c0619de45118f0233dfdef57414a05370316ff23d3458702a062878a0e6aadb"
+}

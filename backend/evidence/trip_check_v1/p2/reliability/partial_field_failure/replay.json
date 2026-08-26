@@ -1,0 +1,14 @@
+{
+  "provider_attempt_count": 1,
+  "partial_failures": [
+    {
+      "stage": "COLLECT_EVIDENCE",
+      "provider": "controlled_route_fixture_v2",
+      "category": "PROVIDER_PARTIAL_FIELD_FAILURE",
+      "affected_fields": [
+        "route_edges.partial-field-failure-stop-1->partial-field-failure-stop-2.duration_minutes"
+      ],
+      "retryable": false
+    }
+  ]
+}

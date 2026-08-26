@@ -1,0 +1,232 @@
+{
+  "config": {
+    "configFile": "<repo>\\frontend\\playwright.trip-check-p1.config.js",
+    "rootDir": "<repo>/frontend/e2e",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "commit_sha": "dd70870a817b84f6364804a5701950c754728f4e",
+      "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
+      "live_provider_evidence": false,
+      "human_evidence": false,
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "../backend/evidence/trip_check_v1/p1/browser-playwright.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "<repo>/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "commit_sha": "dd70870a817b84f6364804a5701950c754728f4e",
+          "evidence_class": "CONTROLLED_BROWSER_FIXTURE",
+          "live_provider_evidence": false,
+          "human_evidence": false,
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "<repo>/frontend/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "trip-check-p1.spec.js"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.52.0",
+    "workers": 16,
+    "webServer": {
+      "command": "npm run dev -- --hostname 127.0.0.1 --port 3101",
+      "url": "http://127.0.0.1:3101",
+      "reuseExistingServer": false,
+      "timeout": 120000,
+      "env": {
+        "NEXT_PUBLIC_API_URL": "http://127.0.0.1:8999",
+        "NEXT_PUBLIC_Y_WEBSOCKET_URL": "ws://127.0.0.1:8998",
+        "NEXT_PUBLIC_TRIP_CHECK_COMMIT_SHA": "dd70870a817b84f6364804a5701950c754728f4e"
+      }
+    }
+  },
+  "suites": [
+    {
+      "title": "trip-check-p1.spec.js",
+      "file": "trip-check-p1.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "北京文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 2214,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T02:25:55.717Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "92c2159f144b56f90e7c-cefbca67e64e88a36b47",
+          "file": "trip-check-p1.spec.js",
+          "line": 509,
+          "column": 3
+        },
+        {
+          "title": "上海文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1478,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T02:25:58.110Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "92c2159f144b56f90e7c-9b14a34fdd693d52d485",
+          "file": "trip-check-p1.spec.js",
+          "line": 509,
+          "column": 3
+        },
+        {
+          "title": "杭州文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 1452,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T02:25:59.591Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "92c2159f144b56f90e7c-5114c66ac260095183fd",
+          "file": "trip-check-p1.spec.js",
+          "line": 509,
+          "column": 3
+        },
+        {
+          "title": "BJ-02 歧义地点未经人工选择不能创建权威 revision 或 Run",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 30000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "",
+              "projectName": "",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 778,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-08-23T02:26:01.046Z",
+                  "annotations": [],
+                  "attachments": []
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "92c2159f144b56f90e7c-addbf29acc5cdccb131a",
+          "file": "trip-check-p1.spec.js",
+          "line": 543,
+          "column": 1
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-08-23T02:25:47.194Z",
+    "duration": 15668.977,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,7 @@
+--extra-index-url https://www.paddlepaddle.org.cn/packages/stable/cu126/
+-r requirements-base.txt
+
+# P6 local candidate OCR performance profile. The public controlled-snapshot
+# deployment remains on requirements.txt and discloses public OCR performance
+# as unproven on its 2-vCPU CPU host.
+paddlepaddle-gpu==3.3.1

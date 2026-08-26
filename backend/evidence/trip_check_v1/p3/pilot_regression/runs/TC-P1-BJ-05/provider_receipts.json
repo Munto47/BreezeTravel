@@ -1,0 +1,47 @@
+[
+  {
+    "query": "故宫博物院",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-forbidden-city",
+    "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+    "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "颐和园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-summer-palace",
+    "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+    "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "天坛公园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-temple-of-heaven",
+    "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+    "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "南锣鼓巷",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-nanluoguxiang",
+    "request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+    "response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "三里屯太古里",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-sanlitun",
+    "request_hash": "b9c2b8931d89dd757712b52968bf403aa840a85ac422a14aa623dde6f7da832b",
+    "response_hash": "34ac6d54b6b30d4f5b03641b45c3539047d19387f93de8b506336a720cfdb979",
+    "execution_mode": "fixture"
+  }
+]

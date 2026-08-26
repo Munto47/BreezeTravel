@@ -1,0 +1,16 @@
+{"case_id":"pilot.bj.import.classic-3d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"pilot.sh.import.citywalk-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"pilot.hz.import.west-lake-4d","message":"full_audit returned HTTP 404, expected [200]","reason":"HTTP_WORKFLOW_FAILED"}
+{"case_id":"dev.sh.import.wrong-city-name","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ctrl-clean-meals-hotel-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ctrl-outside-opening-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.bj.import.ctrl-fixed-visit-3d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.ctrl-clean-meals-hotel-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.ctrl-fixed-visit-3d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.ctrl-placeholder-not-found-5d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.ctrl-clean-meals-hotel-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.ctrl-overlap-2d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.ctrl-fixed-visit-3d","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.hz.import.ctrl-placeholder-not-found-5d","reason":"DETERMINISTIC_SCORE_FAILED"}

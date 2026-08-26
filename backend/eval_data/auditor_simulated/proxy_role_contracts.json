@@ -1,0 +1,73 @@
+{
+  "calibration_lane": "M1-dev",
+  "evidence_type": "synthetic_proxy",
+  "execution_status": "NOT_RUN",
+  "generated_at": "2026-08-20T08:00:00+00:00",
+  "human_validated": false,
+  "roles": [
+    {
+      "blind": true,
+      "calibration_lane": "M1-dev",
+      "evidence_type": "synthetic_proxy",
+      "execution_status": "NOT_RUN",
+      "generated_at": null,
+      "independence_contract": {
+        "may_read_other_evaluator_outputs": false,
+        "may_write_human_fields": false,
+        "system_under_test_is_separate": true
+      },
+      "input_sha256": null,
+      "model": "gpt-5.6-sol",
+      "model_version": "gpt-5.6-sol",
+      "output_sha256": null,
+      "prompt": "You are one independent M1-dev synthetic proxy evaluator for BreezeTravel.\nReview only the supplied simulated itinerary, system audit findings, evidence summaries, and repair preview.\nDo not use outside facts. Mark the BLOCKER/HIGH categories that the supplied input itself supports.\nFor every system BLOCKER/HIGH category, decide whether its evidence can be read back from the supplied record.\nRecord elapsed review seconds and a synthetic repair decision. Never emit human_label, human findings,\nreal-organizer claims, consent, or human-validation metrics. Your output is synthetic_proxy evidence only.\nDo not read or infer another evaluator's output.\n\nIndependent evaluator slot: proxy-evaluator-1.\n",
+      "prompt_sha256": "440ef7bc66d700a4abc46831485bc422fb716cb255f398312ba2609453a45384",
+      "prompt_version": "m1-dev-auditor-proxy-v1",
+      "role_id": "proxy-evaluator-1",
+      "schema_version": "auditor-proxy-role-v1"
+    },
+    {
+      "blind": true,
+      "calibration_lane": "M1-dev",
+      "evidence_type": "synthetic_proxy",
+      "execution_status": "NOT_RUN",
+      "generated_at": null,
+      "independence_contract": {
+        "may_read_other_evaluator_outputs": false,
+        "may_write_human_fields": false,
+        "system_under_test_is_separate": true
+      },
+      "input_sha256": null,
+      "model": "gpt-5.6-sol",
+      "model_version": "gpt-5.6-sol",
+      "output_sha256": null,
+      "prompt": "You are one independent M1-dev synthetic proxy evaluator for BreezeTravel.\nReview only the supplied simulated itinerary, system audit findings, evidence summaries, and repair preview.\nDo not use outside facts. Mark the BLOCKER/HIGH categories that the supplied input itself supports.\nFor every system BLOCKER/HIGH category, decide whether its evidence can be read back from the supplied record.\nRecord elapsed review seconds and a synthetic repair decision. Never emit human_label, human findings,\nreal-organizer claims, consent, or human-validation metrics. Your output is synthetic_proxy evidence only.\nDo not read or infer another evaluator's output.\n\nIndependent evaluator slot: proxy-evaluator-2.\n",
+      "prompt_sha256": "5dfc65e185613ffe72f95b989c60046abc8e1c86c49fe7ad94a553edbfc784cb",
+      "prompt_version": "m1-dev-auditor-proxy-v1",
+      "role_id": "proxy-evaluator-2",
+      "schema_version": "auditor-proxy-role-v1"
+    },
+    {
+      "blind": true,
+      "calibration_lane": "M1-dev",
+      "evidence_type": "synthetic_proxy",
+      "execution_status": "NOT_RUN",
+      "generated_at": null,
+      "independence_contract": {
+        "may_read_other_evaluator_outputs": false,
+        "may_write_human_fields": false,
+        "system_under_test_is_separate": true
+      },
+      "input_sha256": null,
+      "model": "gpt-5.6-sol",
+      "model_version": "gpt-5.6-sol",
+      "output_sha256": null,
+      "prompt": "You are one independent M1-dev synthetic proxy evaluator for BreezeTravel.\nReview only the supplied simulated itinerary, system audit findings, evidence summaries, and repair preview.\nDo not use outside facts. Mark the BLOCKER/HIGH categories that the supplied input itself supports.\nFor every system BLOCKER/HIGH category, decide whether its evidence can be read back from the supplied record.\nRecord elapsed review seconds and a synthetic repair decision. Never emit human_label, human findings,\nreal-organizer claims, consent, or human-validation metrics. Your output is synthetic_proxy evidence only.\nDo not read or infer another evaluator's output.\n\nIndependent evaluator slot: proxy-evaluator-3.\n",
+      "prompt_sha256": "2c939cfd2b20b738995c43ca17d746ab9c8bf215dce2b8e43d8206a0dace4bb0",
+      "prompt_version": "m1-dev-auditor-proxy-v1",
+      "role_id": "proxy-evaluator-3",
+      "schema_version": "auditor-proxy-role-v1"
+    }
+  ],
+  "schema_version": "auditor-proxy-role-v1"
+}

@@ -1,0 +1,29 @@
+{
+  "schema_version": "dual-entry-source-capture-v1",
+  "source_document_id": "official-beijing-route-library-20260821",
+  "canonical_url": "https://s.visitbeijing.com.cn/lines?type=1",
+  "captured_at": "2026-08-21T10:25:20+08:00",
+  "capture_method": "HTTPS GET without authentication",
+  "http": {
+    "status": 200,
+    "content_type": "text/html; charset=UTF-8",
+    "remote_body_sha256": "a3fecfc93c8f608fafe4696416fbde23f3a522311a1d399302a603871dbd56d8"
+  },
+  "robots": {
+    "url": "https://s.visitbeijing.com.cn/robots.txt",
+    "status": 200,
+    "policy_observed": "User-agent: *; Allow: /"
+  },
+  "copyright_observed": "版权所有：北京市文化和旅游局宣传中心（北京市旅游运行监测中心）",
+  "archive_policy": "Metadata and a minimal task-relevant excerpt only; full copyrighted HTML and images are not redistributed.",
+  "minimal_snapshot": {
+    "page_title": "北京旅游网资源库线路库",
+    "linked_detail_url": "https://s.visitbeijing.com.cn/line/258",
+    "linked_route_title": "北京故宫-景山公园皇城一日游",
+    "linked_route_sequence": [
+      "故宫博物院",
+      "景山公园"
+    ],
+    "linked_detail_remote_body_sha256": "ba7490033518d48eb5efe5741b7b4d01c688be89e885d7d20fb7c5a45195df75"
+  }
+}

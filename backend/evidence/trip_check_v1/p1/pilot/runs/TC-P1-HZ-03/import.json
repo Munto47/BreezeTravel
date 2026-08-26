@@ -1,0 +1,238 @@
+{
+  "import_id": "dd3a0e7d-7f89-4d79-9eef-373f1e6d0a1b",
+  "workspace_id": "pilot-tc-p1-hz-03",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "杭州4人住湖滨。第1天西湖风景名胜区；第2天西溪湿地国家公园；第3天河坊街·清河坊。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "e611a4d9-8044-4645-9b5f-d624e94d0bc0",
+      "import_id": "dd3a0e7d-7f89-4d79-9eef-373f1e6d0a1b",
+      "day_index": 0,
+      "raw_name": "西湖风景名胜区",
+      "raw_time": null,
+      "source_span": {
+        "start": 11,
+        "end": 18
+      },
+      "source_sentence": "西湖风景名胜区",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "1c6b76ab-cfae-4f60-a609-474930a32fa6",
+      "import_id": "dd3a0e7d-7f89-4d79-9eef-373f1e6d0a1b",
+      "day_index": 1,
+      "raw_name": "西溪湿地国家公园",
+      "raw_time": null,
+      "source_span": {
+        "start": 22,
+        "end": 30
+      },
+      "source_sentence": "西溪湿地国家公园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "5a1fa8bf-cdb6-4b64-bbd1-9bab762bd678",
+      "import_id": "dd3a0e7d-7f89-4d79-9eef-373f1e6d0a1b",
+      "day_index": 2,
+      "raw_name": "河坊街·清河坊",
+      "raw_time": null,
+      "source_span": {
+        "start": 34,
+        "end": 41
+      },
+      "source_sentence": "河坊街·清河坊",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "e611a4d9-8044-4645-9b5f-d624e94d0bc0",
+      "canonical_place_id": "hz-west-lake",
+      "candidates": [
+        {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "retrieval_response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-west-lake",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-west-lake",
+            "name": "西湖风景名胜区",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.148,
+            "latitude": 30.244,
+            "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+            "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "1c6b76ab-cfae-4f60-a609-474930a32fa6",
+      "canonical_place_id": "hz-xixi",
+      "candidates": [
+        {
+          "place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "retrieval_response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-xixi",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-xixi",
+            "name": "西溪湿地国家公园",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.063,
+            "latitude": 30.268,
+            "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+            "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "5a1fa8bf-cdb6-4b64-bbd1-9bab762bd678",
+      "canonical_place_id": "hz-hefang",
+      "candidates": [
+        {
+          "place_id": "hz-hefang",
+          "name": "河坊街·清河坊",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 120.174,
+            "lat": 30.238
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+          "retrieval_response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "hz-hefang",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "hz-hefang",
+            "name": "河坊街·清河坊",
+            "city": "杭州",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 120.174,
+            "latitude": 30.238,
+            "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+            "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T02:25:45.600743Z",
+  "updated_at": "2026-08-23T02:25:45.600743Z"
+}

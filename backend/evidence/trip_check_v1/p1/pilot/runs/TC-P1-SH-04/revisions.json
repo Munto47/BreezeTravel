@@ -1,0 +1,185 @@
+[
+  {
+    "itinerary_id": "82607860-cbb5-46eb-8575-c14f926037e1",
+    "workspace_id": "pilot-tc-p1-sh-04",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "上海",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "d68e0ff5-76b4-44b4-a5bb-8c233ab4e119",
+            "place_id": "sh-disney",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "08:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "上海迪士尼乐园",
+            "source_raw_stop_id": "d68e0ff5-76b4-44b4-a5bb-8c233ab4e119",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "1c3cf865-863d-4d01-a163-4f8aa62c22ee",
+            "place_id": "sh-yuyuan",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "14:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "豫园",
+            "source_raw_stop_id": "1c3cf865-863d-4d01-a163-4f8aa62c22ee",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "86227390-dbd7-43fd-89c9-76322ddbb28e",
+            "place_id": "sh-tianzifang",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "10:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "田子坊",
+            "source_raw_stop_id": "86227390-dbd7-43fd-89c9-76322ddbb28e",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "8e3877f9-35b0-4725-b0e3-a68cc63b30fd",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "d68e0ff5-76b4-44b4-a5bb-8c233ab4e119": {
+          "place_id": "sh-disney",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "a04e0a53c09baef7878817d070fd05a3a5fb93aadc80b344b2b4aacc5116bb5b",
+          "canonical_name": "上海迪士尼乐园"
+        },
+        "1c3cf865-863d-4d01-a163-4f8aa62c22ee": {
+          "place_id": "sh-yuyuan",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "eaa6c8865e7cc28920468fbce814f296f8f7bd1c032459a9216985c3974ea242",
+          "canonical_name": "豫园"
+        },
+        "86227390-dbd7-43fd-89c9-76322ddbb28e": {
+          "place_id": "sh-tianzifang",
+          "coords": {
+            "lng": 121.475,
+            "lat": 31.211
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "9c211d026605d998de7df2e00230a284e7016e11c929e4292422a4aa95741e2c",
+          "canonical_name": "田子坊"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "sh-disney",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.657,
+          "latitude": 31.144,
+          "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+          "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-yuyuan",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.493,
+          "latitude": 31.227,
+          "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+          "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-tianzifang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-tianzifang",
+          "name": "田子坊",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.475,
+          "latitude": 31.211,
+          "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+          "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "9aaf3265afe9ebef2e8ddfb2900835de11ce3356421dabe9449c575f6097e862"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T02:25:45.526067Z",
+    "content_hash": "a870fd0868eb7b8d00391888290e6e344a5f8affdd577f4c68b39dc12fb78dc9"
+  }
+]

@@ -1,0 +1,29 @@
+[
+  {
+    "query": "上海迪士尼乐园",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-disney",
+    "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+    "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "豫园",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-yuyuan",
+    "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+    "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "田子坊",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-tianzifang",
+    "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+    "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+    "execution_mode": "fixture"
+  }
+]

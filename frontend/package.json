@@ -6,7 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e:local": "playwright test -c playwright.local.config.js",
+    "test:e2e:trip-check-p1": "playwright test -c playwright.trip-check-p1.config.js",
+    "test:e2e:trip-check-p2": "playwright test -c playwright.trip-check-p2.config.js",
+    "test:e2e:trip-check-p3": "playwright test -c playwright.trip-check-p3.config.js",
+    "test:e2e:trip-check-p4": "playwright test -c playwright.trip-check-p4.config.js",
+    "test:e2e:trip-check-p6": "playwright test -c playwright.trip-check-p6.config.js",
+    "test:e2e:suggestions": "playwright test -c playwright.suggestions.config.js",
+    "test:e2e:persistence": "playwright test -c playwright.persistence.config.js",
+    "test:e2e:public": "playwright test -c playwright.config.js"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
@@ -14,7 +23,7 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.8.0",
     "nanoid": "^5.0.7",
-    "next": "15.0.3",
+    "next": "15.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^10.0.0",
@@ -23,13 +32,14 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
-    "eslint-config-next": "15.0.3",
+    "eslint-config-next": "15.0.5",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"

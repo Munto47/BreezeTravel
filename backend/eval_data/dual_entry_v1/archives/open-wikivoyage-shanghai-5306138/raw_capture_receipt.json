@@ -1,0 +1,36 @@
+{
+  "schema_version": "dual-entry-source-capture-v2",
+  "source_document_id": "open-wikivoyage-shanghai-5306138",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Shanghai",
+  "captured_at": "2026-08-21T10:35:46+08:00",
+  "capture_method": "HTTPS MediaWiki Action API at a fixed revision",
+  "http": {
+    "status": 200,
+    "content_type": "application/json; charset=utf-8",
+    "remote_body_sha256": "0b71173140dd87b2d7e6564cf7667b651dff1534283354c5a991eb06c6203383",
+    "request_url": "https://en.wikivoyage.org/w/api.php?action=query&format=json&formatversion=2&prop=info%7Crevisions&rvprop=ids%7Ctimestamp%7Csha1%7Ccontent&rvslots=main&rvstartid=5306138&rvendid=5306138&titles=Shanghai"
+  },
+  "revision": {
+    "source_revision": "5306138",
+    "revision_url": "https://en.wikivoyage.org/w/index.php?title=Shanghai&oldid=5306138",
+    "revision_timestamp": "2026-07-08T17:34:12Z",
+    "parent_revision": "5306137",
+    "mediawiki_sha1": "808f74f96d4fb963372e4856fccbd04aebfc7b66"
+  },
+  "archive_policy": "Only immutable revision metadata, hashes, place-name query hints and task-specific structural tags are retained; no article prose or images are redistributed.",
+  "minimal_snapshot": {
+    "article_title": "Shanghai",
+    "route_sequences": [
+      {
+        "prior_id": "shanghai-bund-to-jingan-east-west",
+        "sequence_kind": "EXPLICIT_DIRECTIONAL_SEQUENCE",
+        "query_hints": ["The Bund", "Nanjing Road East", "People's Square", "Nanjing Road West", "Jing'an Temple"],
+        "basis_code": "ARTICLE_EXPLICIT_NANJING_ROAD_EAST_WEST_ORDER"
+      }
+    ],
+    "related_place_query_hints": ["The Bund", "People's Square", "Jing'an Temple", "Yuyuan Gardens", "Tianzifang", "M50 art district"],
+    "experience_tags": ["early-modern-architecture", "shopping-street", "art-gallery", "urban-walk"],
+    "season_hints": [],
+    "audience_hints": ["architecture-oriented", "art-oriented", "shopping-oriented"]
+  }
+}

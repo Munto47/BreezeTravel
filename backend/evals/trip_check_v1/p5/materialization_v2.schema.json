@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trip-check-p5-materialization-v2",
+  "type": "object",
+  "required": ["schema_version", "materialization_id", "case_id", "source_payload", "provider_snapshot", "evidence_snapshot", "candidate_sets", "fault_script", "receipts", "materialization_hash"],
+  "properties": {
+    "schema_version": {"const": "trip-check-p5-materialization-v2"},
+    "materialization_id": {"type": "string"},
+    "case_id": {"type": "string"},
+    "source_payload": {"type": "object"},
+    "render_receipt": {"type": ["object", "null"]},
+    "ocr_baseline_receipt": {"type": ["object", "null"]},
+    "provider_snapshot": {"type": "object"},
+    "evidence_snapshot": {"type": "object"},
+    "candidate_sets": {"type": "array", "items": {"type": "object"}},
+    "fault_script": {"type": "object"},
+    "receipts": {"type": "array", "items": {"type": "object"}},
+    "materialization_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "additionalProperties": false
+}

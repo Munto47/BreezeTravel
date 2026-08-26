@@ -1,0 +1,21 @@
+
+> agenttravel-frontend@0.1.0 test:e2e:trip-check-p1
+> playwright test -c playwright.trip-check-p1.config.js
+
+
+Running 4 tests using 1 worker
+
+  ok 1 e2e\trip-check-p1.spec.js:509:3 › 北京文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复 (2.2s)
+  ok 2 e2e\trip-check-p1.spec.js:509:3 › 上海文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复 (1.5s)
+  ok 3 e2e\trip-check-p1.spec.js:509:3 › 杭州文本主链完成 Repair、新 Revision、postcheck 与 SSE 断点恢复 (1.5s)
+  ok 4 e2e\trip-check-p1.spec.js:543:1 › BJ-02 歧义地点未经人工选择不能创建权威 revision 或 Run (778ms)
+
+  4 passed (15.7s)
+[2m[WebServer] [22m(node:70428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+[2m[WebServer] [22m(node:70540) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[2m[WebServer] [22m(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:68204) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,0 +1,64 @@
+[
+  {
+    "receipt_id": "50ba7bcf-48d1-506e-8b75-0d60a708cb63",
+    "run_id": "5c709af5-c779-4b03-af0d-fe11606b7757",
+    "stage": "COLLECT_EVIDENCE",
+    "side_effect_key": "trip-check:5c709af5-c779-4b03-af0d-fe11606b7757:COLLECT_EVIDENCE:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
+    "effect_type": "CONTROLLED_FIXTURE_EVIDENCE",
+    "request_hash": "ec40ad781ab6503779dc43b5140f1dc0b9237557fdcb9447d225e96076cdf832",
+    "response_hash": "a2fe6f6c7f6f16646683f855e6e267cbe6da77d3009039c897507860f11d3f11",
+    "provider": "controlled_fixture",
+    "status": "SUCCEEDED",
+    "receipt": {
+      "execution_mode": "fixture",
+      "provider_version": "controlled-fixture-v1",
+      "snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
+      "fact_count": 7,
+      "route_fact_count": 0,
+      "brief_fact_count": 1,
+      "route_option_fact_count": 0,
+      "weather_fact_count": 0,
+      "risk_fact_count": 0,
+      "provider_attempt_count": 0,
+      "provider_receipts": [],
+      "failure_categories": [],
+      "affected_fields": []
+    },
+    "created_at": "2026-08-23T07:51:30.611189Z"
+  },
+  {
+    "receipt_id": "fc789d4f-f3b6-57c9-ba92-8abc114a0447",
+    "run_id": "5c709af5-c779-4b03-af0d-fe11606b7757",
+    "stage": "AUDIT",
+    "side_effect_key": "trip-check:5c709af5-c779-4b03-af0d-fe11606b7757:AUDIT:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
+    "effect_type": "AUTHORITATIVE_AUDIT",
+    "request_hash": "6e605d3a2e55c7cec0cc6dfb49589bc4da58f9d04d6914b17784920d24135699",
+    "response_hash": "efdc54bd6fbf251cc145c1966388b42cf6db1d882c5fb8965b206c98e311826e",
+    "provider": null,
+    "status": "SUCCEEDED",
+    "receipt": {
+      "report_id": "de6ce827-d366-4ea9-a583-dfc88c84c664",
+      "report_input_hash": "56e1d895ab48bb8bbb5181f79aa307a1108c5bc042d6f1f98bed0364d1c40e86",
+      "finding_count": 28,
+      "overall_status": "VIOLATED"
+    },
+    "created_at": "2026-08-23T07:51:30.611189Z"
+  },
+  {
+    "receipt_id": "e7454f90-5cdb-5551-9134-7406c0b2c4cd",
+    "run_id": "5c709af5-c779-4b03-af0d-fe11606b7757",
+    "stage": "BUILD_ADVICE",
+    "side_effect_key": "trip-check:5c709af5-c779-4b03-af0d-fe11606b7757:BUILD_ADVICE:7d22514d051486bd543ec3700e151bb365cf69fc406bca81f526aa32522b0637",
+    "effect_type": "DETERMINISTIC_ADVICE",
+    "request_hash": "594545bf740b50997a6e39d2253bb8b63c06ef011cad97185fe1b8256fa6f14e",
+    "response_hash": "44075c4bf9be6d8c063a8cd0bc5997417769d107f17fbd13840588145b4ed488",
+    "provider": null,
+    "status": "SUCCEEDED",
+    "receipt": {
+      "advice_bundle_id": "74926532-4803-5bcd-a63d-9b5738783124",
+      "action_count": 20,
+      "repair_ids": []
+    },
+    "created_at": "2026-08-23T07:51:30.611189Z"
+  }
+]

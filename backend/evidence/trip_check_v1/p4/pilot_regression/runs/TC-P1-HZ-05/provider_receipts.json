@@ -1,0 +1,47 @@
+[
+  {
+    "query": "西湖风景名胜区",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-west-lake",
+    "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+    "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "灵隐寺",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-lingyin",
+    "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+    "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "雷峰塔",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-leifeng",
+    "request_hash": "923b253752e3be3352fe31a2a02dd016847a996d56c7490f558166faa792b3f8",
+    "response_hash": "75daeaa1723c2b3342eea516d68c8ad21a16f775c5577c910c92844999ed7145",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "西溪湿地国家公园",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-xixi",
+    "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+    "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "河坊街·清河坊",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-hefang",
+    "request_hash": "c02622ac69b0f46c43775e6ab7c26d1e9b544fc576ca8e627b1285ade44d4335",
+    "response_hash": "cde109450f095aabfb01b7f6bb9ec56a7ffd260553adb9908695e0b359c75007",
+    "execution_mode": "fixture"
+  }
+]

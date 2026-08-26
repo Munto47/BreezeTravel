@@ -1,0 +1,20 @@
+{
+  "scores": {
+    "accuracy": 0.91,
+    "avg_latency_ms": 1963.5,
+    "p90_latency_ms": 2654.8,
+    "per_intent": {
+      "weather": 0.9818,
+      "both": 0.8605,
+      "amap": 0.9759,
+      "rag": 0.8421
+    }
+  },
+  "n_test": 300,
+  "train_summary": {
+    "epochs": 3,
+    "final_loss": 0.1784,
+    "token_accuracy": 0.9502,
+    "train_time_sec": 1819
+  }
+}

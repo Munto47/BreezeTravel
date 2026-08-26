@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-candidate-gate-readback-v1.json",
+  "title": "Trip Check P6 post-publication Candidate Gate readback v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject_commit", "manifest_hash", "candidate_evidence_sha256",
+    "url", "health_route", "evidence_route", "health_http_status", "evidence_http_status",
+    "health_response_body_sha256", "evidence_response_body_sha256", "health_status",
+    "evidence_status", "read_only_mount", "observed_at", "receipt_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-candidate-gate-readback-v1"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "manifest_hash": {"$ref": "#/$defs/sha256"},
+    "candidate_evidence_sha256": {"$ref": "#/$defs/sha256"},
+    "url": {"type": "string", "minLength": 9},
+    "health_route": {"const": "/health"},
+    "evidence_route": {"const": "/api/evidence/latest"},
+    "health_http_status": {"const": 200},
+    "evidence_http_status": {"const": 200},
+    "health_response_body_sha256": {"$ref": "#/$defs/sha256"},
+    "evidence_response_body_sha256": {"$ref": "#/$defs/sha256"},
+    "health_status": {"const": "PASS"},
+    "evidence_status": {"const": "PASS"},
+    "read_only_mount": {"const": true},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "receipt_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

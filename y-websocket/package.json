@@ -1,0 +1,14 @@
+{
+  "name": "breezetravel-y-websocket",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test *.test.js"
+  },
+  "dependencies": {
+    "jsonwebtoken": "9.0.2",
+    "ws": "8.18.0",
+    "y-websocket": "1.5.4"
+  }
+}

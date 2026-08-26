@@ -1,0 +1,13 @@
+{
+  "case_id": "北京-snapshot",
+  "city": "北京",
+  "fault_profile": "none",
+  "status": "PASS",
+  "failures": [],
+  "provider_attempt_count": 6,
+  "receipt_count": 6,
+  "observation_count": 8,
+  "network_call_count": 0,
+  "replay_equal": true,
+  "result_hash": "23a8be65badb6d61a219c260ed209f2a94c037e83a9e672aa96544b6535f5f31"
+}

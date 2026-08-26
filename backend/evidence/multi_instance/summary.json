@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-08-15T15:45:50.615378+00:00",
+  "scope": "controlled_local_multi_instance",
+  "passed": true,
+  "health": [
+    {
+      "status": "ok",
+      "version": "2.0.0",
+      "service": "breezetravel-backend",
+      "instance_id": "backend-a",
+      "runtime_profile": "test",
+      "demo_mode": true,
+      "amap_mock": true,
+      "amap_configured": false
+    },
+    {
+      "status": "ok",
+      "version": "2.0.0",
+      "service": "breezetravel-backend",
+      "instance_id": "backend-b",
+      "runtime_profile": "test",
+      "demo_mode": true,
+      "amap_mock": true,
+      "amap_configured": false
+    }
+  ],
+  "chat": [
+    {
+      "port": 18001,
+      "status": 200,
+      "done": true,
+      "response_bytes": 8264
+    },
+    {
+      "port": 18002,
+      "status": 200,
+      "done": true,
+      "response_bytes": 7762
+    }
+  ],
+  "checkpoint_counts": {
+    "after_backend_a": 5,
+    "after_backend_b": 10
+  },
+  "shared_redis_atomic_limit": {
+    "allowed": 3,
+    "attempted": 6
+  },
+  "boundaries": [
+    "Direct backend ports were used because the pinned nginx image could not be pulled in this run.",
+    "Local existing pgvector:pg16 and redis:7-alpine images were used instead of pinned tags.",
+    "This is controlled-local evidence, not public deployment evidence."
+  ]
+}

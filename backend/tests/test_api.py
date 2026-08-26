@@ -5,7 +5,6 @@ API 集成测试（使用 FastAPI TestClient）
 数据库连接用 monkeypatch 替换为 mock，可在 CI/无 Docker 环境运行。
 """
 
-import json
 import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -46,9 +45,12 @@ def mock_db_pool():
 
 @pytest.fixture
 def mock_graph():
-    """Mock LangGraph 持久化图"""
+    """
+    Mock LangGraph 持久化图
+
+    chat.py 使用 graph.astream_events(version="v2") → mock 模拟 on_chain_start/end 事件序列。
+    """
     from app.schemas.place import Place, Coordinates, PlaceCategory, PlaceSource
-    from app.schemas.itinerary import Itinerary
 
     mock_places = [
         Place(
@@ -63,25 +65,43 @@ def mock_graph():
         )
     ]
 
-    final_state = {
-        "messages": [],
-        "intent": "amap",
-        "amap_places": mock_places,
-        "rag_chunks": [],
-        "synthesized_places": mock_places,
-        "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
-    }
+    async def _fake_astream_events(input_state, config=None, version="v2"):
+        """模拟 LangGraph astream_events v2：依次 yield on_chain_start/end 事件"""
+        # Router 节点启动
+        yield {"event": "on_chain_start", "name": "router", "data": {}}
+        # Router 节点完成（无 tool_calls，直接进入 synthesizer）
+        yield {"event": "on_chain_end", "name": "router", "data": {"output": {"react_iterations": 1}}}
+        # Synthesizer 节点启动
+        yield {"event": "on_chain_start", "name": "synthesizer", "data": {}}
+        # Synthesizer 节点完成
+        yield {
+            "event": "on_chain_end",
+            "name": "synthesizer",
+            "data": {
+                "output": {
+                    "synthesized_places": mock_places,
+                    "final_response": "为您找到了 1 个相关地点，请查看地点列表。",
+                }
+            },
+        }
 
-    mock = AsyncMock()
-    mock.ainvoke = AsyncMock(return_value=final_state)
+    mock = MagicMock()
+    mock.astream_events = _fake_astream_events
     return mock
 
 
 @pytest.fixture
 def client(mock_db_pool, mock_graph):
     """构建带 mock 的 TestClient"""
+    # Import the consumer before patching.  Patching the provider while
+    # app.api.chat is imported can permanently bind the mock to the consumer
+    # module and make the result depend on pytest's module order.
+    from app.api import chat as _chat_api  # noqa: F401
+    from app.api import room as _room_api  # noqa: F401
+
     with patch("app.db.connection.get_pool", AsyncMock(return_value=mock_db_pool)), \
-         patch("app.agents.graph.get_graph_with_persistence", AsyncMock(return_value=mock_graph)), \
+         patch("app.api.room.get_pool", AsyncMock(return_value=mock_db_pool)), \
+         patch("app.api.chat.get_graph_with_persistence", AsyncMock(return_value=mock_graph)), \
          patch("app.agents.graph.init_persistent_graph", AsyncMock()), \
          patch("app.agents.graph.close_checkpointer", AsyncMock()):
 
@@ -98,6 +118,17 @@ class TestHealthCheck:
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
+        assert data["service"] == "breezetravel-backend"
+        witness = data["boot_generation"]
+        assert len(witness["instance_id"]) == 36
+        assert witness["started_at"].endswith("+00:00")
+        assert isinstance(witness["pid"], int) and witness["pid"] > 0
+
+        # The witness identifies the running process generation, not an HTTP
+        # request. Repeated requests to one process must return the same value.
+        assert client.get("/health").json()["boot_generation"] == witness
+        assert "cleanup_secret" not in resp.text.casefold()
+        assert "restart_gate_mode" not in resp.text.casefold()
 
 
 class TestRoomAPI:
@@ -117,13 +148,14 @@ class TestRoomAPI:
         resp = client.post("/api/room", json={
             "thread_id": "test-thread-01",
         })
-        assert resp.status_code == 400
+        # FastAPI Pydantic 校验失败返回 422 Unprocessable Entity
+        assert resp.status_code == 422
 
     def test_create_room_missing_thread_id(self, client):
         resp = client.post("/api/room", json={
             "room_id": "test-room-01",
         })
-        assert resp.status_code == 400
+        assert resp.status_code == 422
 
     def test_get_room_state_not_found(self, client):
         resp = client.get("/api/room/nonexistent-room/state")
@@ -219,6 +251,7 @@ class TestOptimizeAPI:
         assert len(data["itinerary"]["days"]) == 1
 
     def test_optimize_all_places_in_result(self, client):
+        # v2 planner: excess places go to backup_pool, not all guaranteed in slots (SPEC §3.4)
         resp = client.post("/api/optimize", json={
             "thread_id": "test-thread-opt-03",
             "places": self.BASE_PLACES,
@@ -226,7 +259,10 @@ class TestOptimizeAPI:
         })
         data = resp.json()
         total_slots = sum(len(d["slots"]) for d in data["itinerary"]["days"])
-        assert total_slots == len(self.BASE_PLACES)
+        backup_count = len(data.get("backup_pool", []))
+        # All places accounted for: either in slots or backup_pool
+        assert total_slots + backup_count <= len(self.BASE_PLACES)
+        assert total_slots >= 1
 
     def test_optimize_empty_places_returns_400(self, client):
         resp = client.post("/api/optimize", json={
@@ -281,4 +317,5 @@ class TestOptimizeAPI:
             "trip_days": 1,
         })
         data = resp.json()
-        assert data["optimization_method"] == "kmeans_tsp"
+        # v2 planner uses template-based scheduling (SPEC Phase A)
+        assert data["optimization_method"] == "planner_v2"

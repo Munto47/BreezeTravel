@@ -1,0 +1,40 @@
+{
+  "schema_version": "community-route-prior-v1",
+  "artifact_kind": "COMMUNITY_ROUTE_PRIOR",
+  "source_kind": "wikivoyage_community",
+  "source_document_id": "open-wikivoyage-hangzhou-5265453",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Hangzhou",
+  "city": "杭州",
+  "article_title": "Hangzhou",
+  "source_revision": "5265453",
+  "revision_url": "https://en.wikivoyage.org/w/index.php?title=Hangzhou&oldid=5265453",
+  "content_sha256": "41f7c5528737d35672091096c3df990f7fe321c951e15343f19c8562ffe4404b",
+  "licence": {
+    "spdx": "CC-BY-SA-4.0",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Wikivoyage contributors, Hangzhou, revision 5265453",
+    "rights_source_document_id": "open-wikivoyage-reuse-policy-20260821"
+  },
+  "identity_policy": "UNRESOLVED_QUERY_HINTS_ONLY_PROVIDER_RECEIPT_REQUIRED",
+  "allowed_use": ["STRUCTURE", "RETRIEVAL", "EVAL_ONLY"],
+  "allowed_contributions": ["CONTENT_RELEVANCE", "DIVERSITY", "ROUTE_ADJACENCY"],
+  "route_sequences": [
+    {
+      "prior_id": "hangzhou-west-lake-cluster",
+      "sequence_kind": "ARTICLE_CLUSTER_ORDER",
+      "query_hints": ["West Lake", "Spring Dawn at Su Causeway"],
+      "basis_code": "ARTICLE_WEST_LAKE_CLUSTER_NOT_GEOGRAPHIC_ORDER"
+    }
+  ],
+  "related_place_query_hints": ["Spring Dawn at Su Causeway", "Lingering Snow on Broken Bridge", "Leifeng Pagoda in Evening Glow", "Three Ponds Mirroring the Moon", "Mid-Lake Pavilion"],
+  "experience_tags": ["lake-circuit", "causeway-walk", "boat-option", "seasonal-theme-diversity"],
+  "season_hints": ["spring-theme", "summer-lotus-theme", "autumn-moon-theme", "snow-theme-not-forecast"],
+  "audience_hints": ["long-walk-tolerant", "scenery-oriented", "boat-interested"],
+  "prohibited_claims": ["CURRENT_OPENING", "CURRENT_RESERVATION", "CURRENT_PRICE", "CURRENT_ACCESSIBILITY", "CURRENT_ROUTE_TIME", "CURRENT_POPULARITY", "CANONICAL_IDENTITY", "COORDINATES"],
+  "derivation": {
+    "raw_archive_path": "archives/open-wikivoyage-hangzhou-5265453/raw_capture_receipt.json",
+    "source_body_sha256": "41f7c5528737d35672091096c3df990f7fe321c951e15343f19c8562ffe4404b",
+    "capture_fields": ["minimal_snapshot.route_sequences", "minimal_snapshot.related_place_query_hints", "minimal_snapshot.experience_tags", "minimal_snapshot.season_hints", "minimal_snapshot.audience_hints"],
+    "method": "Deterministic projection of an article cluster, place-name hints and short categorical tags; cluster order is explicitly not a geographic route."
+  }
+}

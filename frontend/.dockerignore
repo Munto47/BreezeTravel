@@ -1,0 +1,37 @@
+# Node
+node_modules/
+.next/
+out/
+dist/
+build/
+
+# 包管理器临时
+.npm
+.yarn
+.pnp.*
+yarn-error.log
+npm-debug.log*
+
+# 测试 / 覆盖率
+coverage/
+.nyc_output/
+
+# 配置
+.env
+.env.*
+!.env.example
+!.env.production
+!.env.production.local
+# Next.js 真正读的 .env.* 在 builder 阶段不需要（NEXT_PUBLIC_* 由 build args 注入）
+
+# IDE / OS
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.swp
+
+# 文档
+*.md
+README*

@@ -1,0 +1,41 @@
+{
+  "schema_version": "dual-entry-source-extract-v1",
+  "source_document_id": "official-shanghai-citywalk-20240616",
+  "canonical_url": "https://www.meet-in-shanghai.net/cn/news/classics-meet-fashion-and-the-citywalk-route-is-a-good-place-to-visit-the-doorstep-of-shanghaistyle-culture-884445/",
+  "captured_at": "2026-08-21T10:25:20+08:00",
+  "derivation": {
+    "raw_archive_path": "archives/official-shanghai-citywalk-20240616/raw_capture_receipt.json",
+    "source_body_sha256": "71615191d61e339c700716448fbb9b5164da33d1030ec68e027fa1da1cd4e4d1",
+    "capture_fields": [
+      "minimal_snapshot.page_title",
+      "minimal_snapshot.published_at",
+      "minimal_snapshot.route_sequence"
+    ],
+    "method": "Manual deterministic projection of the minimal archived route listing; no generated or inferred POIs."
+  },
+  "structured_route_priors": [
+    {
+      "route_id": "meet-in-shanghai-884445",
+      "theme": "海派文化 citywalk",
+      "ordered_stops": [
+        "淮海中路街道新天地商圈党群服务站",
+        "遇见·南昌路",
+        "思南书局诗歌店",
+        "西王花园弄堂博物馆",
+        "张园·丰盛里",
+        "陕西北路展示咨询中心",
+        "四明体育弄"
+      ]
+    }
+  ],
+  "allowed_use": [
+    "STRUCTURE",
+    "EVAL_ONLY"
+  ],
+  "prohibited_claims": [
+    "current_poi_identity",
+    "current_opening",
+    "current_route_time",
+    "current_popularity"
+  ]
+}

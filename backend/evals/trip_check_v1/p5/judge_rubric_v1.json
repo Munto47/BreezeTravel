@@ -1,0 +1,35 @@
+{
+  "dimensions": {
+    "actionability": {
+      "description": "The response gives a concrete next action without inventing a verified fact.",
+      "maximum": 4,
+      "minimum": 0
+    },
+    "clarity": {
+      "description": "The response explains the issue and its consequence in plain language.",
+      "maximum": 4,
+      "minimum": 0
+    },
+    "evidence_boundary_expression": {
+      "description": "The response distinguishes verified evidence, uncertainty and unavailable facts.",
+      "maximum": 4,
+      "minimum": 0
+    }
+  },
+  "fact_authority": "DETERMINISTIC_ORACLE_ONLY",
+  "human_evidence": false,
+  "judge_may_decide": [
+    "clarity",
+    "actionability",
+    "evidence_boundary_expression"
+  ],
+  "judge_must_not_decide": [
+    "place_or_city_correctness",
+    "route_or_weather_fact",
+    "finding_presence_or_severity",
+    "unknown_preservation",
+    "candidate_receipt_validity",
+    "repair_postcheck_safety"
+  ],
+  "schema_version": "trip-check-p5-judge-rubric-v1"
+}

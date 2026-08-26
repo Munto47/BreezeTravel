@@ -1,0 +1,20 @@
+[
+  {
+    "query": "外滩",
+    "target_city": "杭州",
+    "returned_city": "上海",
+    "place_id": "sh-bund",
+    "request_hash": "9a716509aeeb634f1b1ae4967b22cba479316ae0d46465265947be44901bced4",
+    "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "西湖风景名胜区",
+    "target_city": "杭州",
+    "returned_city": "杭州",
+    "place_id": "hz-west-lake",
+    "request_hash": "e0a7d69c38dc98f947397d582467c312ae9b6df4a24db1756ddce5c6ccd88bda",
+    "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+    "execution_mode": "fixture"
+  }
+]

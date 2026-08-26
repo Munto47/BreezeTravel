@@ -1,0 +1,349 @@
+{
+  "run_id": "74905e7c-f48f-47d0-8f6f-b3fc04edb316",
+  "kind": "end_to_end",
+  "split": "pilot",
+  "commit_sha": "2238c5304e3c17fae8162cbfca345d2fbdf5f076",
+  "dataset_hash": "ebdbfbae7770f095a29d7f8e5f37a7a332bc31a2632f7957b1fcdb55b8f70e82",
+  "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
+  "config_hash": "a79690fbb2b160f32be0d3c3a6acb06d9c009dfacb275a9915c33b69c84b917a",
+  "model": null,
+  "prompt_version": "task-parser-v1",
+  "environment": "local-controlled-mock-providers",
+  "seed": 42,
+  "started_at": "2026-08-20T14:00:18.009669Z",
+  "metrics": {
+    "pass_rate": {
+      "mean": 1.0,
+      "low": 1.0,
+      "high": 1.0,
+      "n": 10
+    },
+    "sample_size": 10
+  },
+  "buckets": {
+    "city": {
+      "上海": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 2
+      },
+      "北京": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 2
+      },
+      "广州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 1
+      },
+      "成都": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 2
+      },
+      "杭州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 2
+      },
+      "深圳": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 1
+      }
+    },
+    "error_category": {
+      "None": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 10
+      }
+    }
+  },
+  "raw_results": [
+    {
+      "case_id": "end_to_end-001",
+      "city": "北京",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 3879.6591000282206,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-001"
+      },
+      "passed": true,
+      "latency_ms": 3879.6591000282206,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-001"
+    },
+    {
+      "case_id": "end_to_end-002",
+      "city": "上海",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places",
+          "search_travel_notes"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 41.59599996637553,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-002"
+      },
+      "passed": true,
+      "latency_ms": 41.59599996637553,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-002"
+    },
+    {
+      "case_id": "end_to_end-003",
+      "city": "杭州",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 40.753600012976676,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-003"
+      },
+      "passed": true,
+      "latency_ms": 40.753600012976676,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-003"
+    },
+    {
+      "case_id": "end_to_end-004",
+      "city": "成都",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places",
+          "search_travel_notes"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 2,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 41.03329998906702,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-004"
+      },
+      "passed": true,
+      "latency_ms": 41.03329998906702,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-004"
+    },
+    {
+      "case_id": "end_to_end-005",
+      "city": "广州",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 41.777600010391325,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-005"
+      },
+      "passed": true,
+      "latency_ms": 41.777600010391325,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-005"
+    },
+    {
+      "case_id": "end_to_end-006",
+      "city": "深圳",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 43.56309998547658,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-006"
+      },
+      "passed": true,
+      "latency_ms": 43.56309998547658,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-006"
+    },
+    {
+      "case_id": "end_to_end-007",
+      "city": "北京",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places",
+          "search_travel_notes"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 41.55429999809712,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-007"
+      },
+      "passed": true,
+      "latency_ms": 41.55429999809712,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-007"
+    },
+    {
+      "case_id": "end_to_end-008",
+      "city": "上海",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 42.4256999976933,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-008"
+      },
+      "passed": true,
+      "latency_ms": 42.4256999976933,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-008"
+    },
+    {
+      "case_id": "end_to_end-009",
+      "city": "杭州",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places",
+          "search_travel_notes"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 2,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 40.939000027719885,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-009"
+      },
+      "passed": true,
+      "latency_ms": 40.939000027719885,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-009"
+    },
+    {
+      "case_id": "end_to_end-010",
+      "city": "成都",
+      "tags": [
+        "multi_constraint"
+      ],
+      "expected": {
+        "required_constraints": [],
+        "tool_set": [
+          "search_places"
+        ],
+        "unknown_honesty": true
+      },
+      "actual": {
+        "passed": true,
+        "days": 3,
+        "verification_status": "UNKNOWN",
+        "violations": [],
+        "unknown_honesty": true,
+        "latency_ms": 41.43360001035035,
+        "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-010"
+      },
+      "passed": true,
+      "latency_ms": 41.43360001035035,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case end_to_end-010"
+    }
+  ],
+  "bad_cases": [],
+  "production_claim_not_made": true
+}

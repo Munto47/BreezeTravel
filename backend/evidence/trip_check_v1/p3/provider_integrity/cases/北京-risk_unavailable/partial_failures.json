@@ -1,0 +1,11 @@
+[
+  {
+    "stage": "COLLECT_EVIDENCE",
+    "provider": "frozen_provider_snapshot_v1",
+    "category": "PROVIDER_RISK_UNAVAILABLE",
+    "affected_fields": [
+      "risk.sources"
+    ],
+    "retryable": false
+  }
+]

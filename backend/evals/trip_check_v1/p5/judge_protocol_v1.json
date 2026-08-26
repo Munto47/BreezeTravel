@@ -1,0 +1,68 @@
+{
+  "agreement_rule": {
+    "dimension_max_spread": 1,
+    "minimum_rate": 0.85,
+    "required_dimensions": [
+      "clarity",
+      "actionability",
+      "evidence_boundary_expression"
+    ],
+    "verdict_unanimity_required_rate": 0.85
+  },
+  "dimension_anchors": {
+    "actionability": {
+      "0": "No usable next action is present, or the proposed action depends on an invented verified fact.",
+      "1": "An action is mentioned but is vague, lacks a target, or cannot be executed from the supplied expression.",
+      "2": "Minimum sufficient: at least one concrete action identifies what should change without inventing verification.",
+      "3": "The action is concrete and also states a useful constraint, dependency, or decision boundary.",
+      "4": "The response provides a concise, prioritized, and fully bounded action path for the represented issue."
+    },
+    "clarity": {
+      "0": "The expression is absent, contradictory, or not understandable.",
+      "1": "The issue or consequence is only implied; labels or actions appear without enough explanation to connect them.",
+      "2": "Minimum sufficient: the issue and practical consequence can be understood from the expression, including a terse structured expression.",
+      "3": "The issue, consequence, and response are explicit and easy to follow in plain language or an equivalent structured form.",
+      "4": "The explanation is unusually precise, concise, and complete without adding unsupported detail."
+    },
+    "evidence_boundary_expression": {
+      "0": "Unavailable or uncertain information is presented as verified, or the expression contradicts the supplied evidence boundary.",
+      "1": "The evidence boundary is materially ambiguous or an important unavailable fact is left unmarked.",
+      "2": "Minimum sufficient: verified, uncertain, and unavailable information are distinguishable without inventing facts.",
+      "3": "The expression explicitly identifies the relevant uncertainty or unavailable evidence and keeps the proposed action conditional.",
+      "4": "All represented claims and actions are explicitly and consistently bounded by the supplied evidence state."
+    }
+  },
+  "evaluator_instruction": [
+    "Read only this bundle and produce one score for every anonymous item and slot.",
+    "Apply the numeric anchors literally; score 2 is the minimum sufficient score and is not a weak failure.",
+    "Treat candidate_expression.advice fields as a structured expression: finding_reason identifies the issue class, action is the proposed next action, uncertainty states its boundary, and the boolean fields state repair and CandidateSet binding.",
+    "Do not require prose when the structured expression communicates the same issue, consequence, action, and boundary.",
+    "Do not infer or decide factual correctness, finding severity, receipt validity, postcheck safety, or any hidden expected answer.",
+    "List an unsupported claim candidate only when its claim_id exists in the item and the expression itself exceeds the supplied evidence summary.",
+    "Derive PASS only when every dimension is at least 2 and no unsupported claim candidate is listed; otherwise derive NEEDS_REVISION.",
+    "Do not inspect repository files, governance records, custodian metadata, another round, or any external API."
+  ],
+  "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+  "human_calibration_performed": false,
+  "human_evidence": false,
+  "judge_class": "automated_proxy_judge",
+  "preblind_calibration": {
+    "minimum_dimension_agreement_rate": 0.85,
+    "minimum_verdict_agreement_rate": 0.85,
+    "required": true,
+    "source_lane": "NONBLIND_SYNTHETIC_ANCHORS"
+  },
+  "rubric_schema_version": "trip-check-p5-judge-rubric-v2",
+  "schema_version": "trip-check-p5-judge-protocol-v1",
+  "structured_expression_fields": [
+    "finding_reason",
+    "action",
+    "uncertainty",
+    "has_repair",
+    "candidate_set_bound"
+  ],
+  "verdict_rule": {
+    "minimum_dimension_score": 2,
+    "unsupported_claim_candidate_count": 0
+  }
+}

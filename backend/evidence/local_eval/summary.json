@@ -1,0 +1,150 @@
+{
+  "runs": [
+    {
+      "kind": "router",
+      "split": "pilot",
+      "samples": 16,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 16
+      },
+      "artifact": "evidence\\local_eval\\router\\pilot.json"
+    },
+    {
+      "kind": "router",
+      "split": "dev",
+      "samples": 32,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 32
+      },
+      "artifact": "evidence\\local_eval\\router\\dev.json"
+    },
+    {
+      "kind": "router",
+      "split": "blind",
+      "samples": 48,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 48
+      },
+      "artifact": "evidence\\local_eval\\router\\blind.json"
+    },
+    {
+      "kind": "task_parse",
+      "split": "pilot",
+      "samples": 12,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 12
+      },
+      "artifact": "evidence\\local_eval\\task_parse\\pilot.json"
+    },
+    {
+      "kind": "task_parse",
+      "split": "dev",
+      "samples": 24,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 24
+      },
+      "artifact": "evidence\\local_eval\\task_parse\\dev.json"
+    },
+    {
+      "kind": "task_parse",
+      "split": "blind",
+      "samples": 36,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 36
+      },
+      "artifact": "evidence\\local_eval\\task_parse\\blind.json"
+    },
+    {
+      "kind": "verifier",
+      "split": "pilot",
+      "samples": 20,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 20
+      },
+      "artifact": "evidence\\local_eval\\verifier\\pilot.json"
+    },
+    {
+      "kind": "verifier",
+      "split": "dev",
+      "samples": 40,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 40
+      },
+      "artifact": "evidence\\local_eval\\verifier\\dev.json"
+    },
+    {
+      "kind": "verifier",
+      "split": "blind",
+      "samples": 60,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 60
+      },
+      "artifact": "evidence\\local_eval\\verifier\\blind.json"
+    },
+    {
+      "kind": "end_to_end",
+      "split": "pilot",
+      "samples": 10,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 10
+      },
+      "artifact": "evidence\\local_eval\\end_to_end\\pilot.json"
+    },
+    {
+      "kind": "end_to_end",
+      "split": "dev",
+      "samples": 20,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 20
+      },
+      "artifact": "evidence\\local_eval\\end_to_end\\dev.json"
+    },
+    {
+      "kind": "end_to_end",
+      "split": "blind",
+      "samples": 30,
+      "pass_rate": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 30
+      },
+      "artifact": "evidence\\local_eval\\end_to_end\\blind.json"
+    }
+  ],
+  "production_claim_not_made": true,
+  "total_samples": 348
+}

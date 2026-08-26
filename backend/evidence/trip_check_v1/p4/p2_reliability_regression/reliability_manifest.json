@@ -1,0 +1,471 @@
+{
+  "schema_version": "trip-check-p2-reliability-manifest-v1",
+  "goal_id": "TC-P2-G01-reliable-run-and-trace",
+  "subject_commit": "85368777ca8d2d4e77cf053fc9a74018f9f9fc9a",
+  "generated_at": "2026-08-23T08:40:47.172504+00:00",
+  "status": "PASS",
+  "evidence_class": [
+    "POSTGRESQL_INTEGRATION",
+    "CONTROLLED_FIXTURE"
+  ],
+  "database": {
+    "engine": "PostgreSQL",
+    "migrations": [
+      22,
+      23,
+      24
+    ],
+    "temporary_database_removed_after_run": true
+  },
+  "dependencies": {
+    "opentelemetry-api": "1.44.0",
+    "opentelemetry-sdk": "1.44.0"
+  },
+  "dataset_hash": "fad793b3088e85090cf5290a737b18f560f8dccab922c5c32bb3c066d3f928a3",
+  "fixture_snapshot_hash": "f4d14fbc02b76a7d474ab067a311cc6b696fe37ad868d15404619d84c22a44db",
+  "canonical_case_count": 6,
+  "canonical_cases_passed": 6,
+  "domain_required_field_coverage": 1.0,
+  "domain_otel_association_rate": 1.0,
+  "sensitive_attribute_hit_count": 0,
+  "cases": [
+    {
+      "case_id": "provider_timeout",
+      "status": "PASS",
+      "run_id": "58bc0a8f-6209-4b33-968a-1ad8ff6920a3",
+      "config_hash": "94cb3cdd0b62c43632fcf2df3327bf228d5997cc2d6d435248256a880f451b85",
+      "fault_profile": "provider_timeout",
+      "artifacts": [
+        {
+          "path": "provider_timeout/attempts.jsonl",
+          "sha256": "f80ecb18884b6aa4c6ace3842c9999de690c20a4d430d49a85ba5e2e3117711b",
+          "bytes": 1215
+        },
+        {
+          "path": "provider_timeout/domain_trace.jsonl",
+          "sha256": "2b6d0c03cc75976f86eabba79f2fda9c156427b92256ae0b0ad4b695ca71c73f",
+          "bytes": 11372
+        },
+        {
+          "path": "provider_timeout/events.jsonl",
+          "sha256": "4ad5ebfb375333a382130519e23abe0687257988a62bb413789df4a8f5dce9b7",
+          "bytes": 1996
+        },
+        {
+          "path": "provider_timeout/metrics.json",
+          "sha256": "ea72ca7d9f35e4ca0c0787dce8d7d95650a6132dc5365debae1da4fdb76f55c6",
+          "bytes": 534
+        },
+        {
+          "path": "provider_timeout/otel_spans.jsonl",
+          "sha256": "2a81f1d3e6eb91a1b28d058e39939b9ed17ddcabf3f34414c8ed0a46c30a9d9b",
+          "bytes": 5011
+        },
+        {
+          "path": "provider_timeout/receipts.jsonl",
+          "sha256": "a8f857b2986f77691cd8ece494980e4cac9919c4340e9d6a376e21bf6170fe17",
+          "bytes": 2610
+        },
+        {
+          "path": "provider_timeout/replay.json",
+          "sha256": "238016946312c97f8081962e67c553b83ebf52fa7e640cad39aca3d48651c1d1",
+          "bytes": 346
+        },
+        {
+          "path": "provider_timeout/run_spec.json",
+          "sha256": "028e840eae7508fb12db27a36372c4ac48c5901cef80112309a099f24ea8ff17",
+          "bytes": 662
+        },
+        {
+          "path": "provider_timeout/snapshot.json",
+          "sha256": "6691136089ed4922d95bd581723fa55579f8a1a0d5046c0eabfe0727114cbc3b",
+          "bytes": 5066
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "58bc0a8f-6209-4b33-968a-1ad8ff6920a3",
+        "final_status": "PARTIAL",
+        "final_stage": "WAIT_ADOPTION",
+        "event_count": 8,
+        "stage_attempt_count": 3,
+        "receipt_count": 3,
+        "domain_trace_count": 14,
+        "otel_span_count": 7,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "expected_provider_attempts": 3,
+          "receipt_status": "PARTIAL",
+          "unknown_finding_count": 2,
+          "successful_fact_count": 5
+        }
+      }
+    },
+    {
+      "case_id": "partial_field_failure",
+      "status": "PASS",
+      "run_id": "7760d823-8aec-4fcd-96d6-e4380a457180",
+      "config_hash": "b607eccc7ca48628bb19e7c89830a425e1fd4d7d874f233b041156f9dcd4b7b6",
+      "fault_profile": "partial_field_failure",
+      "artifacts": [
+        {
+          "path": "partial_field_failure/attempts.jsonl",
+          "sha256": "6875c97426e743064286d509333721a9184a4fc6bf47d351894623afe248a6c2",
+          "bytes": 1215
+        },
+        {
+          "path": "partial_field_failure/domain_trace.jsonl",
+          "sha256": "4a4b94fad836e29375fb9e1f67736042da36c1a9804f1ad995ceb78bedf52ea3",
+          "bytes": 11379
+        },
+        {
+          "path": "partial_field_failure/events.jsonl",
+          "sha256": "8863516e54642f417be3420ebde54e373969613a62ea6d29801530b1943044d2",
+          "bytes": 2003
+        },
+        {
+          "path": "partial_field_failure/metrics.json",
+          "sha256": "05cc483d1487ee2bb683d447954b2eea02b0365b58ce06cdc62290fa65a62005",
+          "bytes": 534
+        },
+        {
+          "path": "partial_field_failure/otel_spans.jsonl",
+          "sha256": "87ae6607728039616844cd462d9f9948fb760e295ea3de6d5a6357ce785172c1",
+          "bytes": 3561
+        },
+        {
+          "path": "partial_field_failure/receipts.jsonl",
+          "sha256": "d25a39641b618352c393b74dcd5bd9ac70b8620e46096e03b6691b7fa107bd0d",
+          "bytes": 2634
+        },
+        {
+          "path": "partial_field_failure/replay.json",
+          "sha256": "6fb28ecf3c25116af90312914b52de4b27c7ec6157c85be9206b32a7c39d2790",
+          "bytes": 370
+        },
+        {
+          "path": "partial_field_failure/run_spec.json",
+          "sha256": "ef06a47cfce2e2b9b28d8cb560c7baa893568e1fe7fe35f2863081319ec141af",
+          "bytes": 667
+        },
+        {
+          "path": "partial_field_failure/snapshot.json",
+          "sha256": "744ca5ce6b949c720a079652c773078db0283cfcaf6f4135285671cfbcfe6bc1",
+          "bytes": 5149
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "7760d823-8aec-4fcd-96d6-e4380a457180",
+        "final_status": "PARTIAL",
+        "final_stage": "WAIT_ADOPTION",
+        "event_count": 8,
+        "stage_attempt_count": 3,
+        "receipt_count": 3,
+        "domain_trace_count": 14,
+        "otel_span_count": 5,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "expected_provider_attempts": 1,
+          "receipt_status": "PARTIAL",
+          "unknown_finding_count": 2,
+          "successful_fact_count": 5
+        }
+      }
+    },
+    {
+      "case_id": "duplicate_submit",
+      "status": "PASS",
+      "run_id": "1021c31f-41a0-41ca-ad8c-b709ad2cf71d",
+      "config_hash": "297319699df758142d3f113a4eaef1f20ccd0915f984ec5fac9137fa7807495e",
+      "fault_profile": "duplicate_submit",
+      "artifacts": [
+        {
+          "path": "duplicate_submit/attempts.jsonl",
+          "sha256": "c42be4d43e86a45a085760ea7290342c7b918b8ab4f04517728a6d02e512522c",
+          "bytes": 1215
+        },
+        {
+          "path": "duplicate_submit/domain_trace.jsonl",
+          "sha256": "33892c5892dadfe5e8e91b7e5de6c9a3b1684dacc342bc4c2b9d0ecd1be8ed85",
+          "bytes": 11382
+        },
+        {
+          "path": "duplicate_submit/events.jsonl",
+          "sha256": "f9b99bad7d04be5e1d041e6be79d011aae0e1062146843c1a22bbb6ac1402d00",
+          "bytes": 2004
+        },
+        {
+          "path": "duplicate_submit/metrics.json",
+          "sha256": "71e4f8f27ba6983fc09ab128ce59d7b12f5f53866f5d939df76462091e2c1888",
+          "bytes": 462
+        },
+        {
+          "path": "duplicate_submit/otel_spans.jsonl",
+          "sha256": "06304376f314b7ee0432fe4b1784d27226fce93c0b5a2c78b588f12b4c5fccb3",
+          "bytes": 3504
+        },
+        {
+          "path": "duplicate_submit/receipts.jsonl",
+          "sha256": "d7c3ce789358732941c92090158674171e21d3652537bae54789ae8c92637e61",
+          "bytes": 2515
+        },
+        {
+          "path": "duplicate_submit/replay.json",
+          "sha256": "78bce9beb8cc243052a7f3484b1f9715207560c4378ac721b605c1305a75e263",
+          "bytes": 400
+        },
+        {
+          "path": "duplicate_submit/run_spec.json",
+          "sha256": "3a3336d4dcbad7fb20c61541c26302cab959bab0473cd7bc1a895c3fdb21c56e",
+          "bytes": 662
+        },
+        {
+          "path": "duplicate_submit/snapshot.json",
+          "sha256": "c6afe24f28f58d93c48d2a2c3c2ae36de338392dac62d05c433a954bdc8657f1",
+          "bytes": 4807
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "1021c31f-41a0-41ca-ad8c-b709ad2cf71d",
+        "final_status": "WAITING",
+        "final_stage": "WAIT_ADOPTION",
+        "event_count": 8,
+        "stage_attempt_count": 3,
+        "receipt_count": 3,
+        "domain_trace_count": 14,
+        "otel_span_count": 5,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "resource_counts_unchanged": true,
+          "new_revision": 2
+        }
+      }
+    },
+    {
+      "case_id": "concurrent_revision",
+      "status": "PASS",
+      "run_id": "515bb8e0-33da-4a83-98b3-d00e2c622086",
+      "config_hash": "dad3c2d5b1e253d41e765ce4013433c065ee24bb3d26c9797bc06d065b80a5ae",
+      "fault_profile": "concurrent_revision",
+      "artifacts": [
+        {
+          "path": "concurrent_revision/attempts.jsonl",
+          "sha256": "0a8bf86e5d80ec43b1b6bf8e1495bc9ca25e4427a273fee1a01eaa9a2a4b70da",
+          "bytes": 1215
+        },
+        {
+          "path": "concurrent_revision/domain_trace.jsonl",
+          "sha256": "c8243948e4c267c56bb2272ed54cdc93a95949cdb0074f615ee9c4a7a0dae5be",
+          "bytes": 11382
+        },
+        {
+          "path": "concurrent_revision/events.jsonl",
+          "sha256": "a59d23624e6a69f4abd77f57495bea03ce97ad3a3c0fbbcf8f108b5d67994fa2",
+          "bytes": 2004
+        },
+        {
+          "path": "concurrent_revision/metrics.json",
+          "sha256": "faaa7e4bc6517bcc1740064819f65b9968bd6b14a0c5140da6a97326376c3eb3",
+          "bytes": 484
+        },
+        {
+          "path": "concurrent_revision/otel_spans.jsonl",
+          "sha256": "373993022ce3de90af936ea7335a013f87a658b6fcb45c58334cf57213f801f6",
+          "bytes": 3504
+        },
+        {
+          "path": "concurrent_revision/receipts.jsonl",
+          "sha256": "2054d7c803be787c35d6622f3902611b3bd05453fa4a7e9ad26f7e9ffc970733",
+          "bytes": 2515
+        },
+        {
+          "path": "concurrent_revision/replay.json",
+          "sha256": "98c458ae7614340a8a4106c93ce7d7a4106901d119a53fc2d2bc38b7aca4a050",
+          "bytes": 125
+        },
+        {
+          "path": "concurrent_revision/run_spec.json",
+          "sha256": "9391c4216a26f8ce85980ec2744fc6bca7d89758e21b8c55f619434c47b68ac7",
+          "bytes": 665
+        },
+        {
+          "path": "concurrent_revision/snapshot.json",
+          "sha256": "a27a309d2a8dca207bd74a964690e24b4bae8f84bede11e9d8bb9e565460e6fd",
+          "bytes": 4834
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "515bb8e0-33da-4a83-98b3-d00e2c622086",
+        "final_status": "WAITING",
+        "final_stage": "WAIT_ADOPTION",
+        "event_count": 8,
+        "stage_attempt_count": 3,
+        "receipt_count": 3,
+        "domain_trace_count": 14,
+        "otel_span_count": 5,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "success_count": 1,
+          "conflict_count": 1,
+          "winner_revision_readback": 2
+        }
+      }
+    },
+    {
+      "case_id": "terminate_after_evidence",
+      "status": "PASS",
+      "run_id": "a35798c7-6b69-48b3-b999-2d4fbdd4ee0d",
+      "config_hash": "c8984137da4f7052775471c24bec90edf2504c5f8a8a4cf1d9fc9cb7216a881c",
+      "fault_profile": "terminate_after_evidence",
+      "artifacts": [
+        {
+          "path": "terminate_after_evidence/attempts.jsonl",
+          "sha256": "8dfc1143d38ef0140c2a5f639b8021a9ce0220cf3406b81bcf01547a6e523194",
+          "bytes": 1215
+        },
+        {
+          "path": "terminate_after_evidence/domain_trace.jsonl",
+          "sha256": "374fa7b959d768e33b879f4d321fb4c9b7515886d45d3261b68ad947c392bb23",
+          "bytes": 12172
+        },
+        {
+          "path": "terminate_after_evidence/events.jsonl",
+          "sha256": "c331874216a15c1d57ffa0f1851034094c5b6f9fa8cb7bc8d3dd7c44985268eb",
+          "bytes": 2215
+        },
+        {
+          "path": "terminate_after_evidence/metrics.json",
+          "sha256": "d3a661893ed7d8e54780f4fba4eac13579be862b71eaa180174cc4e852b72732",
+          "bytes": 524
+        },
+        {
+          "path": "terminate_after_evidence/otel_spans.jsonl",
+          "sha256": "850b7a01a9e9098ae0891af1e35f111b3490420ace2fd19d5bb10b8e7acd8361",
+          "bytes": 4222
+        },
+        {
+          "path": "terminate_after_evidence/receipts.jsonl",
+          "sha256": "0a404dd2aa4ce277ae30b4c4d87f8a616010eccf14b4b32370b93ccb82832a8a",
+          "bytes": 2515
+        },
+        {
+          "path": "terminate_after_evidence/replay.json",
+          "sha256": "3ee9ccefc987f810f438e642f96873c490d6a8259c7f3175333a2e8741b13902",
+          "bytes": 377
+        },
+        {
+          "path": "terminate_after_evidence/run_spec.json",
+          "sha256": "f5d3a8aed81fada867de18b2f964f0537ac41fb0cd7113900dcd67398bc84cd1",
+          "bytes": 670
+        },
+        {
+          "path": "terminate_after_evidence/snapshot.json",
+          "sha256": "fc227e4153a12a8a6e9d18eb2633ae43882bea4baee4f77f6b1e4dbdfb874cbc",
+          "bytes": 4879
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "a35798c7-6b69-48b3-b999-2d4fbdd4ee0d",
+        "final_status": "WAITING",
+        "final_stage": "WAIT_ADOPTION",
+        "event_count": 9,
+        "stage_attempt_count": 3,
+        "receipt_count": 3,
+        "domain_trace_count": 15,
+        "otel_span_count": 6,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "source_snapshot_not_duplicated": true,
+          "revision_count_stable": true,
+          "evidence_receipt_not_duplicated": true
+        }
+      }
+    },
+    {
+      "case_id": "config_drift",
+      "status": "PASS",
+      "run_id": "b359262b-3ea8-4b69-a4b6-5c23d96248c7",
+      "config_hash": "c8984137da4f7052775471c24bec90edf2504c5f8a8a4cf1d9fc9cb7216a881c",
+      "fault_profile": "terminate_after_evidence",
+      "artifacts": [
+        {
+          "path": "config_drift/attempts.jsonl",
+          "sha256": "8c0f0d0ee70668c45083e126aa002a1c3429bb8c0baf219081d8bcc21650d149",
+          "bytes": 410
+        },
+        {
+          "path": "config_drift/domain_trace.jsonl",
+          "sha256": "6d569a7d7e6f9faef4295ae537ecf77ce0a2c495688fca7cdfd9146fe6675690",
+          "bytes": 4874
+        },
+        {
+          "path": "config_drift/events.jsonl",
+          "sha256": "da3cad6b9e854a5679a324c780d762a3fe6933c8b068a324ffa194c4af48f71c",
+          "bytes": 969
+        },
+        {
+          "path": "config_drift/metrics.json",
+          "sha256": "ac7c3c1a1a669dc38dbb30fa5e1016ca35bdd04bef7dbb55fb6e979ccf0db54f",
+          "bytes": 468
+        },
+        {
+          "path": "config_drift/otel_spans.jsonl",
+          "sha256": "aba6f5373632a03bd3c5ce737ffdb382496aeea6fa77b97eb2169979005ca515",
+          "bytes": 2029
+        },
+        {
+          "path": "config_drift/receipts.jsonl",
+          "sha256": "b280f69ae8bda87ad8f6b7b990039bebea28beff9386685c5b7bee8df0118b6d",
+          "bytes": 991
+        },
+        {
+          "path": "config_drift/replay.json",
+          "sha256": "c266f9490bf0dd28418feaa354b892011ca0b31f5461cf317494fca6a9d7e57a",
+          "bytes": 362
+        },
+        {
+          "path": "config_drift/run_spec.json",
+          "sha256": "f5d3a8aed81fada867de18b2f964f0537ac41fb0cd7113900dcd67398bc84cd1",
+          "bytes": 670
+        },
+        {
+          "path": "config_drift/snapshot.json",
+          "sha256": "a97362c538e4ea02bce5c093bf3542d8890763f777aac265813055324e1963bc",
+          "bytes": 4771
+        }
+      ],
+      "metrics": {
+        "status": "PASS",
+        "run_id": "b359262b-3ea8-4b69-a4b6-5c23d96248c7",
+        "final_status": "RUNNING",
+        "final_stage": "AUDIT",
+        "event_count": 4,
+        "stage_attempt_count": 1,
+        "receipt_count": 1,
+        "domain_trace_count": 6,
+        "otel_span_count": 3,
+        "domain_required_field_coverage": 1.0,
+        "domain_otel_association_rate": 1.0,
+        "sensitive_attribute_hit_count": 0,
+        "assertions": {
+          "stage_did_not_advance": true,
+          "side_effect_counts_unchanged": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "trip-check-provider-snapshot-v1",
+  "snapshot_id": "three-city-provider-integrity-v1",
+  "routes": {
+    "北京": {
+      "walking": {"duration_minutes": 18, "distance_km": 1.4, "transfer_count": null},
+      "transit": {"duration_minutes": 14, "distance_km": 2.8, "transfer_count": 0},
+      "bicycling": {"duration_minutes": 9, "distance_km": 1.8, "transfer_count": null},
+      "driving": {"duration_minutes": 12, "distance_km": 2.2, "transfer_count": null}
+    },
+    "上海": {
+      "walking": {"duration_minutes": 22, "distance_km": 1.7, "transfer_count": null},
+      "transit": {"duration_minutes": 16, "distance_km": 3.1, "transfer_count": 0},
+      "bicycling": {"duration_minutes": 11, "distance_km": 2.0, "transfer_count": null},
+      "driving": {"duration_minutes": 15, "distance_km": 2.6, "transfer_count": null}
+    },
+    "杭州": {
+      "walking": {"duration_minutes": 25, "distance_km": 1.9, "transfer_count": null},
+      "transit": {"duration_minutes": 19, "distance_km": 3.4, "transfer_count": 1},
+      "bicycling": {"duration_minutes": 12, "distance_km": 2.3, "transfer_count": null},
+      "driving": {"duration_minutes": 17, "distance_km": 3.0, "transfer_count": null}
+    }
+  },
+  "weather": {
+    "北京": {"condition": "多云", "temp_high": 24, "temp_low": 13, "precip_mm": 0.0, "suggestion": "受控快照：正常核验户外安排"},
+    "上海": {"condition": "小雨", "temp_high": 26, "temp_low": 20, "precip_mm": 3.0, "suggestion": "受控快照：核对户外停留与雨具"},
+    "杭州": {"condition": "晴", "temp_high": 27, "temp_low": 18, "precip_mm": 0.0, "suggestion": "受控快照：关注午间户外强度"}
+  },
+  "risk": {
+    "北京": [{"title": "北京受控风险来源", "url": "fixture://risk/beijing/transport", "published_at": "2026-08-20", "snippet": "受控快照仅验证来源结构，不代表实时风险。", "risk_type": "TRANSPORT", "source_tier": "CONTROLLED_FIXTURE"}],
+    "上海": [{"title": "上海受控风险来源", "url": "fixture://risk/shanghai/weather", "published_at": "2026-08-20", "snippet": "受控快照仅验证来源结构，不代表实时风险。", "risk_type": "WEATHER", "source_tier": "CONTROLLED_FIXTURE"}],
+    "杭州": [{"title": "杭州受控风险来源", "url": "fixture://risk/hangzhou/crowd", "published_at": "2026-08-20", "snippet": "受控快照仅验证来源结构，不代表实时风险。", "risk_type": "CROWD", "source_tier": "CONTROLLED_FIXTURE"}]
+  }
+}

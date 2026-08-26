@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Sparkles, MessageSquare, ChevronRight } from 'lucide-react'
+import { Send, Sparkles, MessageSquare, Brain } from 'lucide-react'
 
 import type { ChatMessage } from '@/types/chat'
 import MessageItem from './MessageItem'
@@ -26,15 +26,20 @@ interface ChatPanelProps {
   messages: ChatMessage[]
   isStreaming: boolean
   weather?: WeatherData | null
+  tripCity?: string
   onSend: (text: string) => void
+  onClickPlace?: (placeId: string) => void
 }
 
-const QUICK_PROMPTS = [
-  { text: '推荐适合拍照的景点', icon: '📸' },
-  { text: '有哪些必吃的美食？', icon: '🍜' },
-  { text: '适合带老人的地方', icon: '👴' },
-  { text: '文艺小众打卡地', icon: '🎨' },
-]
+function getQuickPrompts(city?: string) {
+  const c = city || '目的地'
+  return [
+    { text: `${c}有哪些适合拍照的景点？`, icon: '📸' },
+    { text: `${c}有哪些必吃的美食？`, icon: '🍜' },
+    { text: `${c}适合带老人的地方`, icon: '👴' },
+    { text: `${c}文艺小众打卡地`, icon: '🎨' },
+  ]
+}
 
 // 天气条：显示今日 + 明日（紧凑单行）
 function WeatherBar({ weather }: { weather: WeatherData }) {
@@ -83,18 +88,52 @@ function WeatherBar({ weather }: { weather: WeatherData }) {
   )
 }
 
-export default function ChatPanel({ messages, isStreaming, weather, onSend }: ChatPanelProps) {
-  const [input, setInput] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+/** 从消息的 thinkingSteps 中检测是否加载了长期偏好记忆 */
+function useMemoryActive(messages: ChatMessage[]): boolean {
+  return useMemo(() => {
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      for (const step of msg.thinkingSteps ?? []) {
+        if (step.summary?.includes('历史偏好')) return true
+      }
+    }
+    return false
   }, [messages])
+}
+
+export default function ChatPanel({ messages, isStreaming, weather, tripCity, onSend, onClickPlace }: ChatPanelProps) {
+  const [input, setInput] = useState('')
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const bottomRef = useRef<HTMLDivElement>(null)
+  // true once the user manually scrolls up — suppresses auto-scroll until they send again
+  const userScrolledUpRef = useRef(false)
+  const memoryActive = useMemoryActive(messages)
+
+  // Detect when user scrolls away from the bottom
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    userScrolledUpRef.current = distanceFromBottom > 80
+  }, [])
+
+  // Smart auto-scroll: respect user position during streaming
+  useEffect(() => {
+    if (userScrolledUpRef.current) return
+    const el = scrollContainerRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages])
+
+  // Send a message and always scroll to bottom to show the response
+  const sendText = useCallback((text: string) => {
+    userScrolledUpRef.current = false
+    onSend(text)
+  }, [onSend])
 
   const handleSend = () => {
     const text = input.trim()
     if (!text || isStreaming) return
-    onSend(text)
+    sendText(text)
     setInput('')
   }
 
@@ -117,6 +156,24 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
             <h2 className="text-sm font-bold text-gray-900">AI 旅行顾问</h2>
             <p className="text-[11px] text-gray-400 leading-tight">描述需求，AI 推荐适合的地点</p>
           </div>
+
+          {/* Memory 活跃徽章：检测到历史偏好加载时显示 */}
+          <AnimatePresence>
+            {memoryActive && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, x: 8 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.25 }}
+                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-full
+                           bg-violet-50 border border-violet-200/70 text-violet-600"
+                title="已加载您的历史偏好，推荐将个性化匹配"
+              >
+                <Brain className="w-3 h-3" />
+                <span className="text-[10px] font-medium">记住你了</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -124,7 +181,11 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
       {weather && weather.days.length > 0 && <WeatherBar weather={weather} />}
 
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin"
+      >
         {/* 空状态：快捷提问 */}
         <AnimatePresence>
           {messages.length === 0 && (
@@ -140,10 +201,10 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
               <p className="text-center text-sm font-medium text-gray-500 mb-1">你好！我是你的旅行顾问</p>
               <p className="text-center text-xs text-gray-400 mb-5">试试下面这些问题开始探索</p>
               <div className="grid grid-cols-2 gap-2">
-                {QUICK_PROMPTS.map((q) => (
+                {getQuickPrompts(tripCity).map((q) => (
                   <button
                     key={q.text}
-                    onClick={() => onSend(q.text)}
+                    onClick={() => sendText(q.text)}
                     className="text-left text-xs text-gray-600 hover:text-coral-600
                              px-3 py-2.5 rounded-lg
                              bg-white/60 hover:bg-coral-50/80
@@ -172,7 +233,7 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
             {msg.role === 'assistant' && msg.thinkingSteps && msg.thinkingSteps.length > 0 && (
               <ThinkingSteps steps={msg.thinkingSteps} isStreaming={msg.status === 'streaming'} />
             )}
-            <MessageItem message={msg} />
+            <MessageItem message={msg} onClickPlace={onClickPlace} />
           </motion.div>
         ))}
         <div ref={bottomRef} />
@@ -182,6 +243,7 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
       <div className="p-3 border-t border-gray-100/60 flex-shrink-0">
         <div className="flex gap-2 items-end">
           <textarea
+            data-testid="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -190,6 +252,7 @@ export default function ChatPanel({ messages, isStreaming, weather, onSend }: Ch
             className="input-glass flex-1 resize-none text-sm"
           />
           <button
+            data-testid="chat-send"
             onClick={handleSend}
             disabled={isStreaming || !input.trim()}
             className="btn-coral p-2.5 rounded-lg flex-shrink-0"

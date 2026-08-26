@@ -1,0 +1,15 @@
+{
+  "before": {
+    "revision_count": 2,
+    "snapshot_count": 3,
+    "report_count": 3,
+    "receipt_count": 4
+  },
+  "after": {
+    "revision_count": 2,
+    "snapshot_count": 3,
+    "report_count": 3,
+    "receipt_count": 4
+  },
+  "side_effect_counts_equal": true
+}

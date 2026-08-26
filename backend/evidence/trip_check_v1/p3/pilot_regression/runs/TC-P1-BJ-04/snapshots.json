@@ -1,0 +1,182 @@
+[
+  {
+    "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+    "workspace_id": "pilot-tc-p1-bj-04",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture",
+      "controlled_route_fixture_v1"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "59b4eca0-29c4-53fd-801d-f71fed424740",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "96d8643bd3577d6643ad8e958b5e4340111f8a5efea52359de5878e184038ad9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "7aa77f22-e9f7-51bc-9bd8-77d5339f3634",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-summer-palace",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "d4f13a388a25b832ad3950f087669cba7cc56f5f77ccf2805c7d3c917a54095c",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "afb8bbb7-3818-53ff-8845-c8aa0164438a",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-badaling",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "2588116c9a083fa8fc9dbcdcb99732397043ca14d4632454f6c4050bc6b47df1",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "cf4684e2-3796-5867-8363-8b7c867a5309",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-badaling",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "7ae2c6b0e39e41347c639e2c11faecb2e1108ef7e95f3ba3845fea303fdbf33d",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "17a79297-d0d5-5c73-b6e0-a1b1009ec761",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-nanluoguxiang",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "bj-nanluoguxiang",
+          "name": "南锣鼓巷",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 116.404,
+            "lat": 39.937
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "313b6f9acd0b63d54db2b08c8c4ef2ae42b18dbece5b2054f822286b2656e3f8",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "18c2b4af-743b-5425-9fe3-98bb9abf1072",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "PLACE",
+        "subject_id": "bj-nanluoguxiang",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "b47c453c1216b91e88f401357f4187243d9d09d938c95fc044af9b31a2dbecf8",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "9177cc27-307d-5ce1-8146-017b3ff373ef",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "ROUTE_EDGE",
+        "subject_id": "75d2e441-d00a-4fad-8122-c374220ab8f1->7ccdaf21-b140-4b92-8bb5-9f4e015e8f6a",
+        "fact_type": "ROUTE_TIME",
+        "value": {
+          "mode": "driving",
+          "duration_minutes": 90
+        },
+        "provider": "controlled_route_fixture_v1",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.565478Z",
+        "valid_from": null,
+        "valid_until": "2027-08-23T07:51:30.565478Z",
+        "response_hash": "0550eb42a0bbf859233879def6943fbe54e77ec3bc239e1e8215e35146b9c544",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "f4cb35a2-70be-581e-bc62-e576e233b51a",
+        "snapshot_id": "4aa3953b-0b64-5784-8ec1-235727f587c4",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "87fe6270-c36c-41f0-93ea-e92260028d6e",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 5,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T07:51:30.565478Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T07:51:30.565478Z",
+        "response_hash": "0443465b8f93c235f213b135777fdcbf34bd34e1421a70b7b43f56f35773a4f3",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T07:51:30.565478Z",
+    "supersedes_snapshot_id": null
+  }
+]

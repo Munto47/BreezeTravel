@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "run_id": "b359262b-3ea8-4b69-a4b6-5c23d96248c7",
+  "final_status": "RUNNING",
+  "final_stage": "AUDIT",
+  "event_count": 4,
+  "stage_attempt_count": 1,
+  "receipt_count": 1,
+  "domain_trace_count": 6,
+  "otel_span_count": 3,
+  "domain_required_field_coverage": 1.0,
+  "domain_otel_association_rate": 1.0,
+  "sensitive_attribute_hit_count": 0,
+  "assertions": {
+    "stage_did_not_advance": true,
+    "side_effect_counts_unchanged": true
+  }
+}

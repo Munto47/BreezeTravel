@@ -1,0 +1,154 @@
+[
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:walking",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "walking",
+      "duration_minutes": 18,
+      "distance_km": 1.4,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:transit",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "transit",
+      "duration_minutes": 14,
+      "distance_km": 2.8,
+      "transfer_count": 0
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:bicycling",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "bicycling",
+      "duration_minutes": 9,
+      "distance_km": 1.8,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_OPTION",
+    "subject_id": "stop-1->stop-2:driving",
+    "fact_type": "ROUTE_OPTION",
+    "value": {
+      "mode": "driving",
+      "duration_minutes": 12,
+      "distance_km": 2.2,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "ROUTE_EDGE",
+    "subject_id": "stop-1->stop-2",
+    "fact_type": "ROUTE_TIME",
+    "value": {
+      "mode": "driving",
+      "duration_minutes": 12,
+      "distance_km": 2.2,
+      "transfer_count": null
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T00:15:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "DAY",
+    "subject_id": "0",
+    "fact_type": "WEATHER",
+    "value": {
+      "condition": "多云",
+      "temp_high": 24,
+      "temp_low": 13,
+      "precip_mm": 0.0,
+      "suggestion": "受控快照：正常核验户外安排",
+      "evidence_class": "DETERMINISTIC_PROVIDER_FACT"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T06:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "DAY",
+    "subject_id": "1",
+    "fact_type": "WEATHER",
+    "value": {
+      "condition": "多云",
+      "temp_high": 24,
+      "temp_low": 13,
+      "precip_mm": 0.0,
+      "suggestion": "受控快照：正常核验户外安排",
+      "evidence_class": "DETERMINISTIC_PROVIDER_FACT"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": null,
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-23T06:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  },
+  {
+    "subject_type": "TRIP",
+    "subject_id": "p3-北京-workspace:risk:0",
+    "fact_type": "RISK_SOURCE",
+    "value": {
+      "title": "北京受控风险来源",
+      "url": "fixture://risk/beijing/transport",
+      "published_at": "2026-08-20",
+      "snippet": "受控快照仅验证来源结构，不代表实时风险。",
+      "risk_type": "TRANSPORT",
+      "source_tier": "CONTROLLED_FIXTURE",
+      "retrieved_at": "2026-08-23T00:00:00+00:00",
+      "evidence_class": "ADVISORY_SOURCE"
+    },
+    "provider": "frozen_provider_snapshot_v1",
+    "source_url": "fixture://risk/beijing/transport",
+    "observed_at": "2026-08-23T00:00:00Z",
+    "valid_from": null,
+    "valid_until": "2026-08-24T00:00:00Z",
+    "confidence": 1.0,
+    "freshness_status": null
+  }
+]

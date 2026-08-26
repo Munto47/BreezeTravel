@@ -1,0 +1,52 @@
+{
+  "calibration_lane": "M1-dev",
+  "case_count": 150,
+  "cases_file": "cases.jsonl",
+  "cases_sha256": "81e10cf12bc74247996e5f0fa1d7732ee70568fc47a3d6ac98416b281ceaaaff",
+  "city_counts": {
+    "上海": 50,
+    "北京": 50,
+    "杭州": 50
+  },
+  "constraints": {
+    "cities": [
+      "北京",
+      "上海",
+      "杭州"
+    ],
+    "group_size": [
+      2,
+      5
+    ],
+    "trip_days": [
+      2,
+      5
+    ]
+  },
+  "dataset_id": "breezetravel-auditor-simulated-v3-2026-08-20",
+  "deterministic": true,
+  "evidence_boundary": "synthetic_proxy",
+  "evidence_type": "synthetic_proxy",
+  "generated_by": "deterministic_synthetic_fixture_generator",
+  "human_labels": false,
+  "human_validated": false,
+  "m1_dev_eligible": true,
+  "m1_eligible": false,
+  "m1_human_eligible": false,
+  "m1_policy": "must_not_increment_human_counts_or_satisfy_m1",
+  "proxy_role_contracts_canonical_sha256": "8a3842217b31de3220aa652e2c306ab9ffc8772cc15ff3f6915910de740d55a3",
+  "proxy_role_contracts_file": "proxy_role_contracts.json",
+  "proxy_role_contracts_sha256": "437a8ab0e2fe2d13a40f84a8babe0cbf74fb02ea35ba90d16aeafba2e154ad98",
+  "schema_version": "auditor-simulated-v3",
+  "source_document_count": 90,
+  "source_kind_counts": {
+    "SIMULATED_AI_ITINERARY": 60,
+    "SIMULATED_BOUNDARY": 30,
+    "SIMULATED_CONTROLLED_MUTATION": 60
+  },
+  "split_counts": {
+    "test": 30,
+    "train": 90,
+    "validation": 30
+  }
+}

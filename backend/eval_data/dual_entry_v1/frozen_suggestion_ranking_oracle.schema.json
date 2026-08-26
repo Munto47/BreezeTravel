@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/frozen-suggestion-ranking-oracle-v1.json",
+  "title": "Frozen suggestion deterministic graded ranking oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "content_sha256", "content"],
+  "properties": {
+    "schema_version": {"const": "frozen-suggestion-ranking-oracle-v1"},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "content": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "label_authority", "is_human_label", "is_release_approval", "rubric", "source", "cities"],
+      "properties": {
+        "artifact_kind": {"const": "FROZEN_SUGGESTION_GRADED_RANKING_ORACLE"},
+        "label_authority": {"const": "AUTOMATED_DETERMINISTIC_PROXY_NOT_HUMAN"},
+        "is_human_label": {"const": false},
+        "is_release_approval": {"const": false},
+        "rubric": {"type": "object"},
+        "source": {
+          "type": "object",
+          "required": ["snapshot_path", "snapshot_sha256", "evidence_class", "evidence_subtype", "claim_boundary"],
+          "properties": {
+            "snapshot_path": {"type": "string", "minLength": 1},
+            "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "evidence_class": {"const": "real_provider_local_authorized"},
+            "evidence_subtype": {"const": "suggestion_live_candidate_and_walking_route_snapshot"},
+            "claim_boundary": {"type": "object"}
+          }
+        },
+        "cities": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": ["city", "anchor", "provider_snapshot_id", "candidate_universe_size", "candidates", "relevant_candidate_ids", "city_oracle_sha256"],
+            "properties": {
+              "city": {"enum": ["北京", "上海", "杭州"]},
+              "anchor": {"type": "object"},
+              "provider_snapshot_id": {"type": "string", "minLength": 1},
+              "candidate_universe_size": {"type": "integer", "minimum": 1},
+              "candidates": {"type": "array", "minItems": 1},
+              "relevant_candidate_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+              "city_oracle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    }
+  }
+}

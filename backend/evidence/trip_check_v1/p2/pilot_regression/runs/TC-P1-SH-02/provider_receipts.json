@@ -1,0 +1,29 @@
+[
+  {
+    "query": "东方明珠",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-oriental-pearl",
+    "request_hash": "524949435cc635d8848946b65e9aacbe29c91fc17d274a2ba25ead5a5a8b1a48",
+    "response_hash": "f15408db4bb913eee9302bac6cd56d24073749a76c97a01aa7c1b2e20953f533",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "外滩",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-bund",
+    "request_hash": "cb7b23c0159495d7964105a8338192877c22dba842d543d7ca548744d1aa902f",
+    "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "豫园",
+    "target_city": "上海",
+    "returned_city": "上海",
+    "place_id": "sh-yuyuan",
+    "request_hash": "622e3c65139784e860ed6cfea43d5f961a63c674d23abbbc5b6f47e99ecc673d",
+    "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+    "execution_mode": "fixture"
+  }
+]

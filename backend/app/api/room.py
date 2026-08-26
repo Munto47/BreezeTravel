@@ -12,14 +12,26 @@ GET  /api/user/{user_id}         - 获取用户信息
 place_count 字段由 Yjs 层管理，后端固定返回 0。
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
 from app.db.connection import get_pool
 from app.schemas.api import RoomStateResponse
+from app.utils.auth import create_room_token, get_current_user, get_optional_user
+from app.config import get_settings
+from app.services.room_access import reject_claimed_identity, require_room_member
 
 router = APIRouter()
+
+
+def _resolved_user(current_user: Optional[str], claimed_user: Optional[str] = None) -> str:
+    if current_user:
+        reject_claimed_identity(claimed_user, current_user)
+        return current_user
+    if get_settings().demo_mode:
+        return claimed_user or "demo-user"
+    raise HTTPException(status_code=401, detail="请先登录")
 
 
 # =============================================
@@ -37,8 +49,9 @@ class UserResponse(BaseModel):
 
 
 @router.post("/user", response_model=UserResponse)
-async def upsert_user(body: UpsertUserRequest):
+async def upsert_user(body: UpsertUserRequest, current_user: Optional[str] = Depends(get_optional_user)):
     """注册或更新用户昵称（幂等，前端每次启动时调用）"""
+    current_user = _resolved_user(current_user, body.user_id)
     if not body.user_id or not body.nickname:
         raise HTTPException(status_code=400, detail="user_id 和 nickname 必填")
 
@@ -59,8 +72,9 @@ async def upsert_user(body: UpsertUserRequest):
 
 
 @router.get("/user/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str):
+async def get_user(user_id: str, current_user: Optional[str] = Depends(get_optional_user)):
     """获取用户信息"""
+    current_user = _resolved_user(current_user, user_id)
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -77,9 +91,11 @@ async def get_user(user_id: str):
 # =============================================
 
 @router.get("/room/{room_id}/state", response_model=RoomStateResponse)
-async def get_room_state(room_id: str):
+async def get_room_state(room_id: str, user_id: Optional[str] = Depends(get_optional_user)):
     """获取房间状态元数据"""
     pool = await get_pool()
+    if not get_settings().demo_mode:
+        await require_room_member(room_id, _resolved_user(user_id), pool=pool)
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             "SELECT room_id, thread_id, phase, trip_city, trip_days FROM rooms WHERE room_id = $1",
@@ -91,9 +107,11 @@ async def get_room_state(room_id: str):
 
 
 @router.get("/room/{room_id}/members")
-async def get_room_members(room_id: str):
+async def get_room_members(room_id: str, user_id: Optional[str] = Depends(get_optional_user)):
     """获取房间成员列表（持久化部分，Yjs awareness 的补充）"""
     pool = await get_pool()
+    if not get_settings().demo_mode:
+        await require_room_member(room_id, _resolved_user(user_id), pool=pool)
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
@@ -118,7 +136,7 @@ class CreateRoomRequest(BaseModel):
 
 
 @router.post("/room")
-async def create_room(body: CreateRoomRequest):
+async def create_room(body: CreateRoomRequest, current_user: Optional[str] = Depends(get_optional_user)):
     """
     创建新房间（幂等）。
     同时注册房间创建者到 users 表和 room_members 表。
@@ -127,7 +145,7 @@ async def create_room(body: CreateRoomRequest):
     """
     room_id = body.room_id
     thread_id = body.thread_id
-    user_id = body.user_id
+    user_id = _resolved_user(current_user, body.user_id)
     nickname = body.nickname
 
     pool = await get_pool()
@@ -146,7 +164,7 @@ async def create_room(body: CreateRoomRequest):
         )
 
         # 注册创建者（如果提供了 user_id）
-        if user_id and nickname:
+        if user_id:
             await conn.execute(
                 """
                 INSERT INTO users (user_id, nickname, updated_at)
@@ -155,12 +173,12 @@ async def create_room(body: CreateRoomRequest):
                   SET nickname = EXCLUDED.nickname, updated_at = NOW()
                 """,
                 user_id,
-                nickname.strip() or "旅行者",
+                (nickname or "旅行者").strip() or "旅行者",
             )
             await conn.execute(
                 """
-                INSERT INTO room_members (room_id, user_id)
-                VALUES ($1, $2)
+                INSERT INTO room_members (room_id, user_id, role)
+                VALUES ($1, $2, 'owner')
                 ON CONFLICT DO NOTHING
                 """,
                 room_id,
@@ -171,18 +189,18 @@ async def create_room(body: CreateRoomRequest):
 
 
 class JoinRoomRequest(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     nickname: Optional[str] = "旅行者"
 
 
 @router.post("/room/{room_id}/join")
-async def join_room(room_id: str, body: JoinRoomRequest):
+async def join_room(room_id: str, body: JoinRoomRequest, current_user: Optional[str] = Depends(get_optional_user)):
     """
     加入房间（记录到 room_members 表，关键操作：返回 thread_id + 城市 + 天数）。
 
     请求体：{user_id, nickname}
     """
-    user_id = body.user_id
+    user_id = _resolved_user(current_user, body.user_id)
     nickname = (body.nickname or "旅行者").strip() or "旅行者"
 
     pool = await get_pool()
@@ -209,8 +227,8 @@ async def join_room(room_id: str, body: JoinRoomRequest):
             )
             await conn.execute(
                 """
-                INSERT INTO room_members (room_id, user_id)
-                VALUES ($1, $2)
+                INSERT INTO room_members (room_id, user_id, role)
+                VALUES ($1, $2, 'member')
                 ON CONFLICT DO NOTHING
                 """,
                 room_id,
@@ -226,4 +244,15 @@ async def join_room(room_id: str, body: JoinRoomRequest):
         "thread_id": room["thread_id"],
         "trip_city": room["trip_city"],
         "trip_days": room["trip_days"],
+    }
+
+
+@router.post("/room/{room_id}/ws-token")
+async def issue_ws_token(room_id: str, user_id: str = Depends(get_current_user)):
+    """Issue a short-lived room-bound token; the raw JWT is never logged."""
+    access = await require_room_member(room_id, user_id)
+    return {
+        "token": create_room_token(user_id, room_id),
+        "room_id": access.room_id,
+        "expires_in_seconds": 300,
     }

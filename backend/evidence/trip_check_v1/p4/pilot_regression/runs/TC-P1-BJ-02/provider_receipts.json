@@ -1,0 +1,20 @@
+[
+  {
+    "query": "景山公园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-jingshan",
+    "request_hash": "c974ee0a7aff99d4cffd50997b8a08cb1bafa9603e02a18ad023025c6944c985",
+    "response_hash": "863340c4d0ea9aa95c365ad5f4a1ac5c25d86e5b4e78694263cb005356d3f651",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "颐和园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-summer-palace",
+    "request_hash": "cdf48a5f21421e2096455b283d8d08a225b996035945a4aae25ab2a672d2de73",
+    "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+    "execution_mode": "fixture"
+  }
+]

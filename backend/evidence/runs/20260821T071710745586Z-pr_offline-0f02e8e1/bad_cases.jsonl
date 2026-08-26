@@ -1,0 +1,5 @@
+{"case_id":"pilot.bj.import.classic-3d","message":"generate_repair returned HTTP 422 or non-list JSON","reason":"HTTP_WORKFLOW_FAILED"}
+{"case_id":"pilot.sh.import.citywalk-2d","message":"generate_repair returned HTTP 422 or non-list JSON","reason":"HTTP_WORKFLOW_FAILED"}
+{"case_id":"pilot.hz.import.west-lake-4d","message":"generate_repair returned HTTP 422 or non-list JSON","reason":"HTTP_WORKFLOW_FAILED"}
+{"case_id":"dev.sh.import.table-span","reason":"DETERMINISTIC_SCORE_FAILED"}
+{"case_id":"dev.sh.import.wrong-city-name","reason":"DETERMINISTIC_SCORE_FAILED"}

@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "generator": "build_eval_datasets.py",
+  "datasets": {
+    "router": {
+      "count": 96,
+      "hash": "9a46c1abcfb7d5358ab07f33270f90ed68153f3dd3bf3e6b72d5df71f93cb670",
+      "splits": {
+        "pilot": 16,
+        "dev": 32,
+        "blind": 48
+      }
+    },
+    "rag_claim": {
+      "count": 120,
+      "hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
+      "splits": {
+        "pilot": 20,
+        "dev": 40,
+        "blind": 60
+      }
+    },
+    "task_parse": {
+      "count": 72,
+      "hash": "d2c332f68e674f64ac903fc49e827a16f0155d7b51febb0dd18ea1a81260482f",
+      "splits": {
+        "pilot": 12,
+        "dev": 24,
+        "blind": 36
+      }
+    },
+    "verifier": {
+      "count": 120,
+      "hash": "453bb11da0a5c9724a497ce6b07dd5608174f2d63d7d430527b09de2b39a5340",
+      "splits": {
+        "pilot": 20,
+        "dev": 40,
+        "blind": 60
+      }
+    },
+    "end_to_end": {
+      "count": 60,
+      "hash": "ebdbfbae7770f095a29d7f8e5f37a7a332bc31a2632f7957b1fcdb55b8f70e82",
+      "splits": {
+        "pilot": 10,
+        "dev": 20,
+        "blind": 30
+      }
+    },
+    "fault": {
+      "count": 24,
+      "hash": "85f49e3a591c58ae8f31f83aae24443f626522f7fa575416f348f813b001657d",
+      "splits": {
+        "pilot": 4,
+        "dev": 8,
+        "blind": 12
+      }
+    }
+  },
+  "manifest_hash": "efc608e9b4f4da6a05b148b767bffc5928657df1d8c0d6c00d8ba357eb726dcd"
+}

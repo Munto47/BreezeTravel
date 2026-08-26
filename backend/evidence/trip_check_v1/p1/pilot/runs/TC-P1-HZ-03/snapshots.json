@@ -1,0 +1,162 @@
+[
+  {
+    "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+    "workspace_id": "pilot-tc-p1-hz-03",
+    "itinerary_revision": 1,
+    "provider_set": [
+      "confirmed_trip_brief_revision",
+      "controlled_p1_fixture"
+    ],
+    "policy_version": "evidence-policy-v1",
+    "facts": [
+      {
+        "fact_id": "b36faf9f-b77a-561a-aa55-95f8ebda0475",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "acd2cff9be8435aa37402c2b356541f7253dfa24a00bbb8b815c92731aad23f9",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "ddcaf47c-02d5-590a-a0a6-4f56feea8cb1",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-west-lake",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "2ef201769907ee5687974b9ec25a1d5611f354b0b4fe1f99c13b5b40d77dc88f",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "9f8da46a-30df-5c62-bf3b-a2b8887ca959",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-xixi",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "e8b8c6fb4f6b1e54ce265b21564906bc58bc0e749db5fa9ff1036fe9d11cf6e8",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "fa2a598d-9e53-5e2c-a384-58f08eb020eb",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-xixi",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "3a45e81c92fbaff0a6de1fee651ac8e4f9dbfe64efd6355bad80387b53340612",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "d035323b-8e49-54f6-90a1-d9f1be96fa28",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-hefang",
+        "fact_type": "POI_IDENTITY",
+        "value": {
+          "place_id": "hz-hefang",
+          "name": "河坊街·清河坊",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "coords": {
+            "lng": 120.174,
+            "lat": 30.238
+          },
+          "category": "attraction"
+        },
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-30T00:00:00Z",
+        "response_hash": "dde730b9d6aaf89e877374ac7ed5829a3e6aba7f361594bc4a1572b085783095",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "8e758cdf-28b1-5217-8cf9-4e6d17c34f57",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "PLACE",
+        "subject_id": "hz-hefang",
+        "fact_type": "OPENING_HOURS",
+        "value": "07:00-22:00",
+        "provider": "controlled_p1_fixture",
+        "source_url": null,
+        "observed_at": "2026-08-23T00:00:00Z",
+        "valid_from": null,
+        "valid_until": "2026-08-26T00:00:00Z",
+        "response_hash": "b74cdf52190846cfa7b072537ef8d7566948f584b11b2613b38447fff198494f",
+        "confidence": 0.7,
+        "freshness_status": "FRESH"
+      },
+      {
+        "fact_id": "22d3fd26-8773-5318-b913-2df4c4eb57d3",
+        "snapshot_id": "4367cf00-bd82-5e80-8174-3d5c57ffcae3",
+        "subject_type": "TRIP_BRIEF",
+        "subject_id": "cacf3ad6-6a4d-43ea-aa78-c9b9c1e11272",
+        "fact_type": "TRAVELER_COUNT",
+        "value": 4,
+        "provider": "confirmed_trip_brief_revision",
+        "source_url": null,
+        "observed_at": "2026-08-23T02:25:45.602491Z",
+        "valid_from": null,
+        "valid_until": "2036-08-20T02:25:45.602491Z",
+        "response_hash": "ba8ea105cbf4de0a38c198483ead1766d4b1a97863c54026c9edbaa38288b91c",
+        "confidence": 1.0,
+        "freshness_status": "FRESH"
+      }
+    ],
+    "provider_failures": [],
+    "created_at": "2026-08-23T02:25:45.602491Z",
+    "supersedes_snapshot_id": null
+  }
+]

@@ -1,0 +1,299 @@
+[
+  {
+    "itinerary_id": "a33989ee-a93d-43b1-be86-441c1675c95c",
+    "workspace_id": "pilot-tc-p1-sh-05",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "上海",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-05"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "3d8d75cb-b8cc-40bd-a5a3-769f8b547c4d",
+            "place_id": "sh-bund",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "外滩",
+            "source_raw_stop_id": "3d8d75cb-b8cc-40bd-a5a3-769f8b547c4d",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "8dab5f89-33b1-408b-93a2-1131d9fbc710",
+            "place_id": "sh-yuyuan",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "豫园",
+            "source_raw_stop_id": "8dab5f89-33b1-408b-93a2-1131d9fbc710",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 2,
+        "date": "2026-10-03",
+        "stops": [
+          {
+            "stop_id": "7ed18250-180c-44e5-b105-b0c7760e3c3c",
+            "place_id": "sh-oriental-pearl",
+            "day_index": 2,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "东方明珠广播电视塔",
+            "source_raw_stop_id": "7ed18250-180c-44e5-b105-b0c7760e3c3c",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 3,
+        "date": "2026-10-04",
+        "stops": [
+          {
+            "stop_id": "86d612e8-6ee1-4a7a-bfba-a0097a8a9cb6",
+            "place_id": "sh-tianzifang",
+            "day_index": 3,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "田子坊",
+            "source_raw_stop_id": "86d612e8-6ee1-4a7a-bfba-a0097a8a9cb6",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 4,
+        "date": "2026-10-05",
+        "stops": [
+          {
+            "stop_id": "fe846733-54ea-438b-be39-bff6e3915925",
+            "place_id": "sh-disney",
+            "day_index": 4,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "上海迪士尼乐园",
+            "source_raw_stop_id": "fe846733-54ea-438b-be39-bff6e3915925",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "297d4ca9-f0ec-4d0b-9a54-f9871043c969",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "3d8d75cb-b8cc-40bd-a5a3-769f8b547c4d": {
+          "place_id": "sh-bund",
+          "coords": {
+            "lng": 121.49,
+            "lat": 31.241
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "68fe0cb47f69894518b09870cb9f1ae3570b30920661ff7df73bfd4377f72b64",
+          "canonical_name": "外滩"
+        },
+        "8dab5f89-33b1-408b-93a2-1131d9fbc710": {
+          "place_id": "sh-yuyuan",
+          "coords": {
+            "lng": 121.493,
+            "lat": 31.227
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "eaa6c8865e7cc28920468fbce814f296f8f7bd1c032459a9216985c3974ea242",
+          "canonical_name": "豫园"
+        },
+        "7ed18250-180c-44e5-b105-b0c7760e3c3c": {
+          "place_id": "sh-oriental-pearl",
+          "coords": {
+            "lng": 121.5,
+            "lat": 31.24
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "8c15705f9af554f2878d6649202a8a132280170c44f7c1f147263594774f04b9",
+          "canonical_name": "东方明珠广播电视塔"
+        },
+        "86d612e8-6ee1-4a7a-bfba-a0097a8a9cb6": {
+          "place_id": "sh-tianzifang",
+          "coords": {
+            "lng": 121.475,
+            "lat": 31.211
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "9c211d026605d998de7df2e00230a284e7016e11c929e4292422a4aa95741e2c",
+          "canonical_name": "田子坊"
+        },
+        "fe846733-54ea-438b-be39-bff6e3915925": {
+          "place_id": "sh-disney",
+          "coords": {
+            "lng": 121.657,
+            "lat": 31.144
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "a04e0a53c09baef7878817d070fd05a3a5fb93aadc80b344b2b4aacc5116bb5b",
+          "canonical_name": "上海迪士尼乐园"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "sh-bund",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-bund",
+          "name": "外滩",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.49,
+          "latitude": 31.241,
+          "request_hash": "1afffd58160b7aeb055e321eb2172d88054620d6ad949229c8ba332e1da610f0",
+          "response_hash": "422cf3432ef0b810d9e22377d4e735c261e70214d98195ef419e22957556a13a",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-yuyuan",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-yuyuan",
+          "name": "豫园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.493,
+          "latitude": 31.227,
+          "request_hash": "cbce976613734bc5c9f999d66b6ae7086964461d301dad596144b18f1f805e74",
+          "response_hash": "a01d8839585fdacc0c5cfa94f948139caf472de24155bd6ba652e42ccd959fdf",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-oriental-pearl",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-oriental-pearl",
+          "name": "东方明珠广播电视塔",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.5,
+          "latitude": 31.24,
+          "request_hash": "5bc04f5856dd0794342fcaab6f8534749c40665d5eb931015168e2aa511ce670",
+          "response_hash": "f0904f40973c36fea991fa27c4deed21ae4692a49e90da5f438ff03b021f98f1",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-tianzifang",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-tianzifang",
+          "name": "田子坊",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.475,
+          "latitude": 31.211,
+          "request_hash": "40c9c722af74106f52de064dabb0f8d65de03723ee7df6fd842ef8f5cc84c124",
+          "response_hash": "e741d3172892adbe57a9e5c1d37757e55be4b23665851e85328a40332ee622a1",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "sh-disney",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "sh-disney",
+          "name": "上海迪士尼乐园",
+          "city": "上海",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 121.657,
+          "latitude": 31.144,
+          "request_hash": "186b0ba67aef2caeb213c305a83bfe38b09a09808878ebea726c2d184200bd2b",
+          "response_hash": "acf4b0f40d500f44a68e9bd388dda88181ef3816f2bc110e79c3f85efffe1835",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "b698ff95b312f35a4c5b86762530d2616248f29abac3eea1d97b6c04031713ec"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T03:45:33.892637Z",
+    "content_hash": "dd51d8d854aad0898099a9d5367ebebbce2e4fc6f7022964c2f4e408906530f2"
+  }
+]

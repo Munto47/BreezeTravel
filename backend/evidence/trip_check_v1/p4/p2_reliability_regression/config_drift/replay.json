@@ -1,0 +1,20 @@
+{
+  "error": "RunConfigMismatchError",
+  "public_error_code": "RUN_CONFIG_MISMATCH",
+  "counts_before": {
+    "runs": 1,
+    "revisions": 1,
+    "snapshots": 1,
+    "receipts": 1,
+    "repairs": 0
+  },
+  "counts_after": {
+    "runs": 1,
+    "revisions": 1,
+    "snapshots": 1,
+    "receipts": 1,
+    "repairs": 0
+  },
+  "events_before": 4,
+  "events_after": 4
+}

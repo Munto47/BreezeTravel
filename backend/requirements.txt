@@ -1,40 +1,5 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-pydantic==2.9.2
-pydantic-settings==2.5.2
+-r requirements-base.txt
 
-# 数据库
-asyncpg==0.29.0
-sqlalchemy[asyncio]==2.0.35
-psycopg2-binary==2.9.9
-pgvector==0.3.5
-
-# LangChain & LangGraph
-langchain-anthropic>=0.3.0
-langchain-openai>=0.2.0
-langchain-core>=0.3.13
-langgraph>=0.2.0
-
-# OpenAI SDK（RAG Embedding + ingest_notes）
-openai>=1.0.0
-langgraph-checkpoint-postgres>=2.0.0
-psycopg[binary]>=3.1.0
-
-# 路线优化算法
-numpy>=1.26.0
-scikit-learn>=1.3.0
-
-# 和风天气 JWT 认证（EdDSA/Ed25519）
-PyJWT[crypto]>=2.8.0
-cryptography>=42.0.0
-
-# HTTP 客户端
-aiohttp==3.10.10
-httpx==0.27.2
-
-# 缓存
-redis==5.1.1
-
-# 工具
-python-dotenv==1.0.1
-nanoid==2.0.0
+# Default/public CPU runtime. P6 local OCR performance evidence uses the
+# separately frozen requirements-ocr-gpu-cu126.txt profile.
+paddlepaddle==3.3.1

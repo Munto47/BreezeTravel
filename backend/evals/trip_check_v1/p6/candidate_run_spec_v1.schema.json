@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/trip-check-p6-candidate-run-spec-v1.json",
+  "title": "Trip Check P6 CandidateRunSpec v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subject_commit", "upstream_ref", "upstream_commit", "dirty_tree",
+    "p5_gate_manifest_hash", "scope", "bindings", "provider_live_matrix", "database",
+    "public_candidate", "evidence_root", "human_evidence", "run_spec_hash"
+  ],
+  "properties": {
+    "schema_version": {"const": "trip-check-p6-candidate-run-spec-v1"},
+    "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "upstream_ref": {"const": "origin/codex/trip-check-p6-candidate-evidence"},
+    "upstream_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "dirty_tree": {"const": false},
+    "p5_gate_manifest_hash": {"const": "9a3338a565522577f4514f628b225ad165e87085a992185bd2650b197011187a"},
+    "scope": {"$ref": "#/$defs/scope"},
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_sha256", "ocr_dataset_manifest_sha256", "model_manifest_sha256", "rule_manifest_sha256", "snapshot_manifest_sha256", "migration_manifest_sha256"],
+      "properties": {
+        "config_sha256": {"$ref": "#/$defs/sha256"},
+        "ocr_dataset_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "model_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "rule_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "snapshot_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "migration_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "provider_live_matrix": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_calls", "amap_route_calls", "qweather_forecast_calls", "qweather_alert_calls", "retry_budget", "fixture_fallback_required_zero"],
+      "properties": {
+        "max_calls": {"const": 18},
+        "amap_route_calls": {"const": 12},
+        "qweather_forecast_calls": {"const": 3},
+        "qweather_alert_calls": {"const": 3},
+        "retry_budget": {"const": 0},
+        "fixture_fallback_required_zero": {"const": true}
+      }
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "required_migration", "isolated", "migration_hash_readback_required"],
+      "properties": {
+        "engine": {"const": "postgresql"},
+        "required_migration": {"const": "024_advice_bundles.sql"},
+        "isolated": {"const": true},
+        "migration_hash_readback_required": {"const": true}
+      }
+    },
+    "public_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_url", "controlled_snapshot_only", "health_path", "evidence_path"],
+      "properties": {
+        "base_url": {"type": "string", "minLength": 9},
+        "controlled_snapshot_only": {"const": true},
+        "health_path": {"const": "/health"},
+        "evidence_path": {"const": "/api/evidence/latest"}
+      }
+    },
+    "evidence_root": {"type": "string", "minLength": 3},
+    "human_evidence": {"const": false},
+    "run_spec_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cities", "single_city", "group_size", "trip_days", "input_types"],
+      "properties": {
+        "cities": {"const": ["北京", "上海", "杭州"]},
+        "single_city": {"const": true},
+        "group_size": {"const": {"min": 2, "max": 5}},
+        "trip_days": {"const": {"min": 2, "max": 5}},
+        "input_types": {"const": ["TEXT", "SCREENSHOT"]}
+      }
+    }
+  }
+}

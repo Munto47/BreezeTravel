@@ -1,0 +1,19 @@
+# 通用排除（根目录 docker build 时生效）
+.git
+.gitignore
+.github
+.idea
+.vscode
+.claude
+*.md
+!CLAUDE.md
+
+# 临时 / 编辑器
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 日志
+*.log
+logs/

@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -65,6 +65,46 @@ Thumbs.db
 .env
 .env.local
 .env.production
+.claude/settings.local.json
+.local-artifacts/
 
 # Yjs 数据（避免提交用户协同数据）
 yjs-data/
+
+# LoRA 模型权重（体积 ~500MB，不入库）
+backend/models/
+
+# 临时文件
+*.tar.gz
+.playwright-mcp/
+frontend/playwright-report/
+frontend/test-results/
+backend/data/test_mini.jsonl
+
+# TypeScript 构建缓存
+frontend/tsconfig.tsbuildinfo
+backend/data/generated/
+backend/evidence/corpus/
+
+# Evaluation workbench outputs are local by default.  RC1 keeps only the
+# explicitly bound three-city artifacts below; tracked historical baselines
+# remain tracked even though they match this rule.
+backend/results/*
+!backend/results/three_city_daily_query_candidates_rc1_v22.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay1.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay2.json
+!backend/results/three_city_daily_query_eval_snapshot_rc1_v22_replay3.json
+!backend/results/three_city_daily_query_agent_judge_bundle_rc1_v22.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round1_raw.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round2_raw.json
+!backend/results/three_city_daily_query_agent_judge_rc1_v22_round3_raw.json
+!backend/results/three_city_daily_query_agent_judge_panel_rc1_v22.json
+
+# M1-dev proxy calibration delivery evidence.  These are small, redacted
+# synthetic_proxy role outputs and the derived gate report, not human data.
+!backend/results/auditor_simulated/
+backend/results/auditor_simulated/*
+!backend/results/auditor_simulated/proxy_role_1.json
+!backend/results/auditor_simulated/proxy_role_2.json
+!backend/results/auditor_simulated/proxy_role_3.json
+!backend/results/auditor_simulated/m1_dev_proxy_gate.json

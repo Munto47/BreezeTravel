@@ -1,0 +1,34 @@
+[
+  {
+    "case_id": "clean-balanced-day",
+    "slots": [
+      {"place_id": "a1", "name": "城市博物馆", "category": "attraction", "category_l2": "博物馆", "start_time": "09:00", "end_time": "11:00"},
+      {"place_id": "f1", "name": "午餐厅", "category": "food", "category_l2": "餐厅", "start_time": "12:00", "end_time": "13:00"},
+      {"place_id": "a2", "name": "历史街区", "category": "attraction", "category_l2": "街区", "start_time": "14:00", "end_time": "16:00"}
+    ]
+  },
+  {
+    "case_id": "missing-food",
+    "slots": [
+      {"place_id": "a1", "name": "城市博物馆", "category": "attraction", "category_l2": "博物馆", "start_time": "09:00", "end_time": "11:00"},
+      {"place_id": "a2", "name": "历史街区", "category": "attraction", "category_l2": "街区", "start_time": "14:00", "end_time": "16:00"}
+    ]
+  },
+  {
+    "case_id": "food-cap",
+    "slots": [
+      {"place_id": "f1", "name": "早餐厅", "category": "food", "category_l2": "餐厅", "start_time": "08:00", "end_time": "09:00"},
+      {"place_id": "f2", "name": "午餐厅", "category": "food", "category_l2": "小吃", "start_time": "12:00", "end_time": "13:00"},
+      {"place_id": "f3", "name": "咖啡店", "category": "food", "category_l2": "咖啡", "start_time": "15:00", "end_time": "16:00"},
+      {"place_id": "f4", "name": "晚餐厅", "category": "food", "category_l2": "火锅", "start_time": "18:30", "end_time": "20:00"}
+    ]
+  },
+  {
+    "case_id": "adjacent-secondary-category",
+    "slots": [
+      {"place_id": "a1", "name": "历史博物馆", "category": "attraction", "category_l2": "博物馆", "start_time": "09:00", "end_time": "10:30"},
+      {"place_id": "a2", "name": "城市博物馆", "category": "attraction", "category_l2": "博物馆", "start_time": "11:00", "end_time": "12:00"},
+      {"place_id": "f1", "name": "午餐厅", "category": "food", "category_l2": "餐厅", "start_time": "12:30", "end_time": "13:30"}
+    ]
+  }
+]

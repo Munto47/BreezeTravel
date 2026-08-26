@@ -1,0 +1,37 @@
+{
+  "schema_version": "dual-entry-source-extract-v1",
+  "source_document_id": "official-beijing-route-library-20260821",
+  "canonical_url": "https://s.visitbeijing.com.cn/lines?type=1",
+  "captured_at": "2026-08-21T10:25:20+08:00",
+  "derivation": {
+    "raw_archive_path": "archives/official-beijing-route-library-20260821/raw_capture_receipt.json",
+    "source_body_sha256": "a3fecfc93c8f608fafe4696416fbde23f3a522311a1d399302a603871dbd56d8",
+    "capture_fields": [
+      "minimal_snapshot.page_title",
+      "minimal_snapshot.linked_detail_url",
+      "minimal_snapshot.linked_route_title",
+      "minimal_snapshot.linked_route_sequence"
+    ],
+    "method": "Manual deterministic projection of the minimal archived fields; no generated or inferred POIs."
+  },
+  "structured_route_priors": [
+    {
+      "route_id": "visitbeijing-line-258",
+      "theme": "古都皇城",
+      "ordered_stops": [
+        "故宫博物院",
+        "景山公园"
+      ]
+    }
+  ],
+  "allowed_use": [
+    "STRUCTURE",
+    "EVAL_ONLY"
+  ],
+  "prohibited_claims": [
+    "current_opening",
+    "current_reservation",
+    "current_route_time",
+    "current_popularity"
+  ]
+}

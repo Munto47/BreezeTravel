@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
+import type { VerificationReport } from '@/types/verification'
+import ConstraintPanel from '@/components/itinerary/ConstraintPanel'
 
 const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
 
@@ -115,6 +117,18 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
                   <p className="text-[11px] text-amber-700/80 leading-relaxed">{slot.place.ragMeta.tipSnippets[0]}</p>
                 </div>
               )}
+
+              {/* 温馨提示（TipsGenerator 生成） */}
+              {slot.tips && slot.tips.length > 0 && (
+                <div className="mt-2.5 space-y-1.5">
+                  {slot.tips.map((tip: string, i: number) => (
+                    <div key={i} className="flex gap-1.5 items-start bg-blue-50/80 rounded-lg px-2.5 py-2 border border-blue-100/60">
+                      <Lightbulb className="w-3 h-3 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-blue-700/80 leading-relaxed">{tip}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -188,23 +202,86 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
   )
 }
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+
 export default function ItineraryPage() {
   const params = useParams()
   const router = useRouter()
   const roomId = params.roomId as string
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [verification, setVerification] = useState<VerificationReport | null>(null)
+  const [verificationStale, setVerificationStale] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const stored = localStorage.getItem(`itinerary_${roomId}`)
-    if (stored) {
-      try { setItinerary(JSON.parse(stored)) }
-      catch (e) { console.error('[ItineraryPage] parse failed', e) }
+
+    const cachedItinerary = localStorage.getItem(`itinerary_cache_${roomId}`)
+    const cachedVerification = localStorage.getItem(`verification_cache_${roomId}`)
+    if (cachedVerification) {
+      try {
+        setVerification(JSON.parse(cachedVerification) as VerificationReport)
+        // A cached report is never authoritative; server audit readback will replace this in P2.
+        setVerificationStale(true)
+      } catch {}
     }
+
+    const useCachedItinerary = () => {
+      if (!cachedItinerary) return
+      try { setItinerary(JSON.parse(cachedItinerary) as Itinerary) } catch (e) {
+        console.error('[ItineraryPage] itinerary cache parse failed', e)
+      }
+    }
+
+    // Always prefer the server record so another browser observes the same itinerary.
+    const token = localStorage.getItem('authToken')
+    if (!token) {
+      useCachedItinerary()
+      setLoading(false)
+      return
+    }
+
+    fetch(`${API_BASE}/api/room/${roomId}/itinerary`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(data => {
+        const itin = data.itinerary_data as Itinerary
+        setItinerary(itin)
+        localStorage.setItem(`itinerary_cache_${roomId}`, JSON.stringify(itin))
+      })
+      .catch(() => { useCachedItinerary() })
+      .finally(() => setLoading(false))
   }, [roomId])
 
   const totalPlaces = itinerary?.days.reduce((s, d) => s + d.slots.length, 0) ?? 0
   const totalDays = itinerary?.days.length ?? 0
+
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-sm">
+        <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
+        <div className="w-px h-4 bg-gray-200" />
+        <div className="w-16 h-4 bg-gray-200 rounded animate-pulse" />
+      </header>
+      <div className="max-w-2xl mx-auto w-full p-4 space-y-4 mt-4">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="bg-white rounded-2xl p-4 space-y-3 animate-pulse">
+            <div className="h-5 w-16 bg-gray-200 rounded" />
+            {[1, 2].map(j => (
+              <div key={j} className="flex gap-3">
+                <div className="w-10 h-10 rounded-full bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-32 bg-gray-200 rounded" />
+                  <div className="h-3 w-48 bg-gray-100 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -290,6 +367,7 @@ export default function ItineraryPage() {
             </motion.div>
 
             {/* 每日行程 */}
+            <ConstraintPanel report={verification} stale={verificationStale} />
             {itinerary.days.map((day, i) => (
               <DaySection key={day.dayIndex} day={day} index={i} />
             ))}

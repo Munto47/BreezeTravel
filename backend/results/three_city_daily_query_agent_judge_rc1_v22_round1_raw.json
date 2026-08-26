@@ -1,0 +1,2423 @@
+{
+  "schema_version": "1.0",
+  "kind": "codex_subagent_judge_round",
+  "evaluator": {
+    "kind": "codex_subagent",
+    "model": "gpt-5.6-sol",
+    "evaluator_id": "rc1-v22-judge-1",
+    "round": 1,
+    "blind": true
+  },
+  "bindings": {
+    "source_report_sha256": "64153d3236589732a702f918ef305d8fff408864deed3cfd09a6b747486bb636",
+    "dataset_sha256": "5851eaffa476fefc094f5bf841863132c8da80df5e517d1dbdf7a8964a53b578",
+    "rubric_sha256": "4810dca3b7b31027d961b811b4fcb90eb116efc4b1a487e6e0d1a6a7f7ff5802",
+    "execution_tree_sha256": "ad36860fb5edd627209ef632287365e66825e7213f76b86be88be256caef92fb"
+  },
+  "cases": [
+    {
+      "id": "bj_01_first_time_landmarks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_03_child_science",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_04_teen_history",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_06_rainy_museums",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_09_haidian_student",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_10_798_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_11_hutong_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "胡同候选与城区匹配，生活感未被当作事实，并提供了可执行的复核方式。"
+    },
+    {
+      "id": "bj_12_autumn_foliage",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_13_airport_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_14_forbidden_city_then_jingshan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_15_central_no_great_wall",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_16_roast_duck_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_17_halal_niujie",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_18_peanut_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_19_vegetarian_temple",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_21_family_dinner",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_22_solo_small_portion",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_23_sanlitun_late_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_25_spicy_sichuan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_26_dairy_free_dessert",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_28_early_train_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "早餐候选贴近车站，但实时进站路线仍需核实，整体可用。"
+    },
+    {
+      "id": "bj_29_hutong_boutique_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_30_family_near_palace",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_31_budget_subway_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_32_capital_airport_early",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_33_south_station_late",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_35_business_guomao_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_37_quiet_no_nightlife",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_39_parent_child_day",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 2,
+        "entity_coverage": 5,
+        "constraint_adherence": 2,
+        "persona_fit": 3,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [
+        "obvious_compound_geography_mismatch"
+      ],
+      "passed": false,
+      "root_cause_hint": "compound_geo_evidence",
+      "summary": "两个必需亲子景点相距约10.452公里且路线未核验，不符合集中少换乘要求。"
+    },
+    {
+      "id": "bj_40_elder_temple_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_42_student_haidian_day",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_44_night_view_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 3,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 3
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "exclusion_filter",
+      "summary": "候选中实际包含王府商厦内餐饮，且回复错误声称不含商场，排除项未满足。"
+    },
+    {
+      "id": "bj_46_two_landmarks_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "bj_47_layover_food",
+      "scores": {
+        "intent_relevance": 4,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选距离机场可读且留有返程提醒，但短停留的实时路线与时间仍待确认。"
+    },
+    {
+      "id": "bj_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三类候选覆盖完整且数量合规，但缺少明确首选或可逆取舍步骤。"
+    },
+    {
+      "id": "bj_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "bj_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三类候选齐全并提出紧凑组合，但路线、无障碍和清淡需求仍待逐项核实。"
+    },
+    {
+      "id": "sh_01_first_time_landmarks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_03_child_science",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_04_teen_architecture",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_06_rainy_indoor",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "室内候选可用且范围合理，但仍缺一项非致命的到访决策信息。"
+    },
+    {
+      "id": "sh_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_09_minhang_parks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_10_contemporary_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_11_local_alley_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "街区候选符合本地漫步意图，生活感保持审慎并给出明确复核动作。"
+    },
+    {
+      "id": "sh_12_autumn_plane_trees",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_13_hongqiao_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选没有越界到远端地标，但两小时换乘的实际路线与余量仍需实时核实。"
+    },
+    {
+      "id": "sh_14_disney_then_wildlife",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_15_china_tallest",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_16_shengjian_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_17_vegetarian_minhang",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_18_shellfish_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_19_halal_hongkou",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_21_family_disney_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_22_solo_benbang",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_23_late_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_25_spicy_hunan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_26_dairy_free_cafe",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_28_early_hongqiao_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "早餐候选位于虹桥枢纽，营业信息可读，但进站路线仍需实时确认。"
+    },
+    {
+      "id": "sh_29_boutique_lane_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_30_family_near_disney",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_31_budget_subway_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_32_pudong_airport_early",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_33_hongqiao_late_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_35_lujiazui_business_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_37_quiet_no_bar",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_39_parent_child_pudong",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 4,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "两个亲子地点均在浦东且关系可读，但相距约4.616公里、路线未核验，只能作为可用方案。"
+    },
+    {
+      "id": "sh_40_elder_yuyuan_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_42_student_yangpu",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_44_night_view_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_46_bund_then_tower_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_47_minhang_food_play",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "sh_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三类候选覆盖完整且数量合规，但缺少明确首选或可逆取舍步骤。"
+    },
+    {
+      "id": "sh_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "sh_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_01_first_time_west_lake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_02_elder_low_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_03_child_nature",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_04_teen_song_history",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_05_wheelchair_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_06_rainy_indoor",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "室内候选可用且范围合理，但仍缺一项非致命的到访决策信息。"
+    },
+    {
+      "id": "hz_07_sunrise_photo",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_08_safe_night_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_09_xihu_free",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_10_contemporary_art",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_11_canal_local_walk",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "运河街区与本地餐饮匹配，生活感未被无证据保证且给出复核路径。"
+    },
+    {
+      "id": "hz_12_autumn_osmanthus",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_13_airport_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_14_lingyin_then_westlake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_15_no_theme_park",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_16_local_noodles_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_17_vegetarian_lingyin",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_18_nut_allergy",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_19_halal_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_20_local_breakfast",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_21_family_westlake_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_22_solo_hangbang",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_23_late_supper",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_24_no_chain_snacks",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_25_spicy_sichuan",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_26_dairy_free_tea",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_27_business_lunch",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_28_early_east_station_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_29_westlake_boutique_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_30_family_near_westlake",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_31_budget_metro_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_32_airport_early_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_33_east_station_late_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_34_accessible_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_35_business_qianjiang_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_36_long_stay_laundry",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_37_quiet_no_bar",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_38_pet_friendly_hotel",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_39_parent_child_xihu",
+      "scores": {
+        "intent_relevance": 3,
+        "geographic_fit": 2,
+        "entity_coverage": 5,
+        "constraint_adherence": 2,
+        "persona_fit": 2,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [
+        "obvious_compound_geography_mismatch"
+      ],
+      "passed": false,
+      "root_cause_hint": "category_and_compound_geo_retrieval",
+      "summary": "缺少必需餐饮，且两个亲子景点相距约7.244公里，不符合一天内附近组合要求。"
+    },
+    {
+      "id": "hz_40_elder_lingyin_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_41_art_date",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_42_student_gongshu",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_43_rainy_family",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_44_night_lake_supper",
+      "scores": {
+        "intent_relevance": 3,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 2,
+        "persona_fit": 3,
+        "practical_usefulness": 2,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": false,
+      "root_cause_hint": "category_retrieval",
+      "summary": "只返回西湖景点而没有任何夜宵餐饮，核心品类缺失。"
+    },
+    {
+      "id": "hz_45_no_mall_local",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_46_lingyin_then_lake_food",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 5,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选直接覆盖请求意图与静态约束，地点证据充分且可实际使用。"
+    },
+    {
+      "id": "hz_47_east_station_layover",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "地点和餐饮都紧邻杭州东站，并有误车缓冲提醒，但活动路线仍待确认。"
+    },
+    {
+      "id": "hz_48_three_day_first_visit",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 5,
+        "persona_fit": 5,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "三类候选覆盖完整且数量合规，但缺少明确首选或可逆取舍步骤。"
+    },
+    {
+      "id": "hz_49_family_all_budget",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    },
+    {
+      "id": "hz_50_elder_all_access",
+      "scores": {
+        "intent_relevance": 5,
+        "geographic_fit": 5,
+        "entity_coverage": 5,
+        "constraint_adherence": 4,
+        "persona_fit": 4,
+        "practical_usefulness": 4,
+        "groundedness": 5
+      },
+      "critical_violations": [],
+      "passed": true,
+      "root_cause_hint": "none",
+      "summary": "候选先满足可验证的意图与范围，未证实的动态条件有明确核验动作。"
+    }
+  ]
+}

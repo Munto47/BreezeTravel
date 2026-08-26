@@ -1,0 +1,40 @@
+
+> agenttravel-frontend@0.1.0 build
+> next build
+
+   ▲ Next.js 15.0.5
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/10) ...
+   Generating static pages (2/10)
+   Generating static pages (4/10)
+   Generating static pages (7/10)
+ ✓ Generating static pages (10/10)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    7.88 kB         151 kB
+├ ○ /_not-found                          896 B           101 kB
+├ ○ /about                               4.53 kB         145 kB
+├ ○ /history                             5.19 kB         145 kB
+├ ○ /import                              15.5 kB         119 kB
+├ ○ /login                               7.78 kB         148 kB
+├ ○ /profile                             5.88 kB         146 kB
+├ ƒ /room/[roomId]                       23.7 kB         202 kB
+├ ƒ /room/[roomId]/itinerary             5.6 kB          146 kB
+├ ƒ /share/[token]                       15.6 kB         116 kB
+├ ○ /templates                           6.3 kB          106 kB
+└ ƒ /workspace/[workspaceId]             19 kB           158 kB
++ First Load JS shared by all            100 kB
+  ├ chunks/4bd1b696-6959568433630851.js  52.5 kB
+  ├ chunks/517-b4686212010b27cb.js       45.6 kB
+  └ other shared chunks (total)          1.98 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand

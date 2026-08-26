@@ -1,9 +1,11 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass } from 'lucide-react'
+import { MapPin, Copy, Check, Route, Users, MessageCircle, Compass, ArrowLeft } from 'lucide-react'
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import type { RoomMember } from '@/types/room'
+import { UserMenu } from '@/components/layout/UserMenu'
 
 interface TopNavProps {
   roomId: string
@@ -35,14 +37,38 @@ export default function TopNav({
   onViewItinerary,
 }: TopNavProps) {
   const [copyTip, setCopyTip] = useState(false)
+  const router = useRouter()
 
   const handleCopyLink = useCallback(async () => {
-    // 复制纯 6 位房间号，方便口头分享
+    // 复制完整邀请链接（含城市/天数），好友点开即跳转
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const params = new URLSearchParams()
+    if (tripCity) params.set('city', tripCity)
+    if (tripDays) params.set('days', String(tripDays))
+    const url = `${origin}/room/${roomId}${params.toString() ? `?${params}` : ''}`
+    const shareText = `邀请你一起规划${tripCity || ''}${tripDays ? ` ${tripDays} 天` : ''}行程：${url}\n房间号：${roomId}`
+
+    // 优先调用系统原生分享（移动端微信/iMessage 可直接转发）
+    const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & { share?: (data: ShareData) => Promise<void> }) : null
     try {
-      await navigator.clipboard.writeText(roomId)
+      if (nav?.share) {
+        await nav.share({
+          title: 'BreezeTravel 协同规划邀请',
+          text: shareText,
+          url,
+        })
+        setCopyTip(true)
+        setTimeout(() => setCopyTip(false), 2000)
+        return
+      }
+      if (nav?.clipboard) {
+        await nav.clipboard.writeText(shareText)
+      } else {
+        throw new Error('no clipboard')
+      }
     } catch {
-      const input = document.createElement('input')
-      input.value = roomId
+      const input = document.createElement('textarea')
+      input.value = shareText
       document.body.appendChild(input)
       input.select()
       document.execCommand('copy')
@@ -50,7 +76,7 @@ export default function TopNav({
     }
     setCopyTip(true)
     setTimeout(() => setCopyTip(false), 2000)
-  }, [roomId])
+  }, [roomId, tripCity, tripDays])
 
   return (
     <motion.header
@@ -59,8 +85,21 @@ export default function TopNav({
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className="glass-panel overlay-interactive flex items-center gap-3 px-4 py-2.5 mx-4 mt-3 rounded-glass"
     >
-      {/* ===== 左区：Logo + 聊天切换 + 房间信息 ===== */}
+      {/* ===== 左区：返回 + Logo + 聊天切换 + 房间信息 ===== */}
       <div className="flex items-center gap-3 flex-shrink-0">
+        {/* 返回主界面按钮 */}
+        <button
+          onClick={() => router.push('/')}
+          title="返回主界面"
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-coral-500 hover:bg-coral-50 px-2 py-1.5 rounded-lg transition-all duration-200 border border-transparent hover:border-coral-100"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">主界面</span>
+        </button>
+
+        {/* 分割线 */}
+        <div className="w-px h-5 bg-gray-200/60" />
+
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-coral-500 flex items-center justify-center shadow-sm">
@@ -122,7 +161,7 @@ export default function TopNav({
                 className="flex items-center gap-0.5 text-emerald-500"
               >
                 <Check className="w-3 h-3" />
-                已复制
+                已复制邀请
               </motion.span>
             ) : (
               <motion.span
@@ -133,7 +172,7 @@ export default function TopNav({
                 className="flex items-center gap-0.5"
               >
                 <Copy className="w-3 h-3" />
-                复制号码
+                复制邀请
               </motion.span>
             )}
           </AnimatePresence>
@@ -180,23 +219,36 @@ export default function TopNav({
         )}
 
         {/* 智能排线主按钮 */}
-        <button
-          onClick={onOptimize}
-          disabled={isOptimizing || selectedCount < 2}
-          className="btn-coral text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
-        >
-          {isOptimizing ? (
-            <>
-              <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              排线中...
-            </>
-          ) : (
-            <>
-              <Route className="w-3.5 h-3.5" />
-              智能排线{selectedCount > 0 ? ` · ${selectedCount}` : ''}
-            </>
+        <div className="relative group flex flex-col items-center">
+          <button
+            onClick={onOptimize}
+            disabled={isOptimizing || selectedCount < 2}
+            className="btn-coral text-xs px-4 py-2 flex items-center gap-1.5 shadow-sm"
+          >
+            {isOptimizing ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                排线中...
+              </>
+            ) : (
+              <>
+                <Route className="w-3.5 h-3.5" />
+                智能排线{selectedCount > 0 ? ` · ${selectedCount}` : ''}
+              </>
+            )}
+          </button>
+          {!isOptimizing && selectedCount < 2 && (
+            <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] text-gray-400 bg-white/90 backdrop-blur-sm border border-gray-100 rounded-lg px-2.5 py-1 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+              {selectedCount === 0 ? '点击地点卡片心形 ♡ 选择要去的地点' : `再选 ${2 - selectedCount} 个地点即可排线`}
+            </div>
           )}
-        </button>
+        </div>
+
+        {/* 分割线 */}
+        <div className="w-px h-5 bg-gray-200/60" />
+
+        {/* 用户头像菜单 */}
+        <UserMenu />
       </div>
     </motion.header>
   )

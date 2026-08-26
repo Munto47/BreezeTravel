@@ -1,0 +1,15 @@
+{
+  "schema_version": "dual-entry-run-spec-v1",
+  "lane": "pr_offline",
+  "purpose": "regression",
+  "sut": {"commit_sha":"RESOLVE_AT_RUN_START","dirty_diff_sha256":"RESOLVE_AT_RUN_START","runtime_config_sha256":"RESOLVE_AT_RUN_START","docker_image_digest":"RESOLVE_AT_RUN_START","base_url":"http://127.0.0.1:8000","allow_direct_domain_calls":false,"allow_sql_seed":false},
+  "dataset": {"manifest":"backend/eval_data/dual_entry_v1/manifest.json","manifest_sha256":"RESOLVE_AT_RUN_START","case_ids_sha256":"RESOLVE_AT_RUN_START","case_ids":["pilot.bj.import.classic-3d","pilot.sh.import.citywalk-2d","pilot.hz.import.west-lake-4d","dev.bj.import.day-header","dev.bj.import.ambiguous-shorthand","dev.sh.import.table-span","dev.sh.import.wrong-city-name","dev.hz.import.natural-missing-time","dev.hz.import.duplicate-alias","reg.bj.import.day-header-not-poi","reg.bj.import.fixture-provenance","reg.hz.import.canonical-duplicate"],"splits":["pilot","dev","regression"],"hash_policy":"compute_and_freeze_before_run","label_access":"development_scorer"},
+  "provider": {"mode":"controlled_fixture","fixture_fallback_allowed":true,"receipts_required":true,"snapshot_id":null,"snapshot_sha256":null},
+  "models": {"generator":{"enabled":false,"model":"disabled","prompt_sha256":"disabled"},"parser_fallback":{"enabled":false,"model":"disabled","prompt_sha256":"disabled"},"correction":{"enabled":false,"model":"disabled","prompt_sha256":"disabled"},"judge":{"enabled":false,"model":"disabled","prompt_sha256":"disabled","rubric_version":"semantic-rubric-v1"}},
+  "comparison": {"baseline_run_id":"OPTIONAL_FOR_PR","threshold_set_version":"dual-entry-gates-v1","paired_only":true,"confidence":0.95,"noninferiority_margin":0.02},
+  "execution": {"resume_at_case_boundary":true,"normalize_volatile_fields":true,"cache_namespace_sha256":"RESOLVE_AT_RUN_START","retry_policy_version":"no-paid-retry-v1"},
+  "budget": {"paid_api_allowed":false,"max_total_cost_cny":0,"max_concurrency":4,"max_case_seconds":30},
+  "thresholds": {"schema_valid_rate":1.0,"contract_pass_rate":1.0,"unknown_to_satisfied":0,"silent_entity_mismatch":0,"locked_item_breaks":0,"drag_llm_calls":0,"drag_full_planner_calls":0},
+  "artifacts": ["run_spec.json","product_outputs.jsonl","provider_receipts.jsonl","deterministic_scores.json","bad_cases.jsonl","cost.json","gate.json"],
+  "prohibitions": ["paid_api_call","sql_seed","blind_label_access","fixture_marked_live","synthetic_marked_human"]
+}

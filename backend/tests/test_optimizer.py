@@ -149,7 +149,9 @@ class TestTimeSlotGeneration:
         from app.agents.nodes.optimizer import _generate_time_slots, _nearest_neighbor_tsp
         ordered = _nearest_neighbor_tsp(CHENGDU_PLACES[:4], {})
         slots = _generate_time_slots(ordered, {})
-        assert len(slots) == 4
+        # 过滤 optimizer 自动插入的虚拟用餐占位槽（__meal_*__）后计数
+        real_slots = [s for s in slots if not s.place_id.startswith("__meal_")]
+        assert len(real_slots) == 4
 
     def test_last_slot_has_no_transport(self):
         from app.agents.nodes.optimizer import _generate_time_slots, _nearest_neighbor_tsp
@@ -162,7 +164,9 @@ class TestTimeSlotGeneration:
         from app.agents.nodes.optimizer import _generate_time_slots, _nearest_neighbor_tsp
         ordered = _nearest_neighbor_tsp(CHENGDU_PLACES[:3], {})
         slots = _generate_time_slots(ordered, {})
-        intermediate = sorted(slots, key=lambda s: s.start_time)[:-1]
+        # 虚拟用餐占位槽（__meal_*__）没有出行段，只检查真实地点
+        real_slots = [s for s in slots if not s.place_id.startswith("__meal_")]
+        intermediate = sorted(real_slots, key=lambda s: s.start_time)[:-1]
         for slot in intermediate:
             assert slot.transport is not None, f"中间站 {slot.place_id} 缺少交通段"
             assert slot.transport.duration_mins > 0
@@ -194,9 +198,13 @@ class TestOptimizerFullRun:
             )
 
         itinerary = asyncio.run(_run())
-        total_slots = sum(len(d.slots) for d in itinerary.days)
+        # 过滤虚拟用餐占位槽（__meal_*__），只统计真实地点 slot
+        total_slots = sum(
+            len([s for s in d.slots if not s.place_id.startswith("__meal_")])
+            for d in itinerary.days
+        )
         assert total_slots == len(CHENGDU_PLACES), (
-            f"期望 {len(CHENGDU_PLACES)} 个 slot，实际 {total_slots}"
+            f"期望 {len(CHENGDU_PLACES)} 个真实地点 slot，实际 {total_slots}"
         )
 
     def test_optimizer_itinerary_fields(self):

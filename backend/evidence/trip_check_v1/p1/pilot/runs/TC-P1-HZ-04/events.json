@@ -1,0 +1,90 @@
+[
+  {
+    "event_id": 1,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "run_created",
+    "stage": "COLLECT_EVIDENCE",
+    "run_version": 1,
+    "payload": {
+      "status": "WAITING"
+    },
+    "created_at": "2026-08-23T02:25:45.623601Z"
+  },
+  {
+    "event_id": 2,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "run_claimed",
+    "stage": "COLLECT_EVIDENCE",
+    "run_version": 2,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.632997Z"
+  },
+  {
+    "event_id": 3,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_started",
+    "stage": "COLLECT_EVIDENCE",
+    "run_version": 2,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.634129Z"
+  },
+  {
+    "event_id": 4,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_completed",
+    "stage": "AUDIT",
+    "run_version": 3,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.635630Z"
+  },
+  {
+    "event_id": 5,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_started",
+    "stage": "AUDIT",
+    "run_version": 3,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.636415Z"
+  },
+  {
+    "event_id": 6,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_completed",
+    "stage": "BUILD_ADVICE",
+    "run_version": 4,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.639680Z"
+  },
+  {
+    "event_id": 7,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_started",
+    "stage": "BUILD_ADVICE",
+    "run_version": 4,
+    "payload": {
+      "status": "RUNNING"
+    },
+    "created_at": "2026-08-23T02:25:45.640730Z"
+  },
+  {
+    "event_id": 8,
+    "run_id": "243aa2d7-8588-4c6f-b144-9d4fc887ea4e",
+    "event_type": "stage_completed",
+    "stage": "WAIT_ADOPTION",
+    "run_version": 5,
+    "payload": {
+      "status": "WAITING"
+    },
+    "created_at": "2026-08-23T02:25:45.641190Z"
+  }
+]

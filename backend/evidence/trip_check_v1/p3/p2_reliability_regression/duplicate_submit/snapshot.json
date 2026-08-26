@@ -1,0 +1,137 @@
+{
+  "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+  "workspace_id": "p2-duplicate-submit-workspace",
+  "itinerary_revision": 1,
+  "provider_set": [
+    "confirmed_trip_brief_revision",
+    "controlled_reliability_fixture",
+    "controlled_route_fixture_v1"
+  ],
+  "policy_version": "evidence-policy-v1",
+  "facts": [
+    {
+      "fact_id": "1954a7fe-6a35-5824-af01-43677d43cc68",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-2",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点乙",
+        "coords": {
+          "lat": 39.925,
+          "lng": 116.396
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "duplicate-submit-place-2"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "3f3093a2cf42fb16f4b79ad2567b220afc502c930a625e9f44c2aada29fefc91",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "4440efb9-a157-5d64-82dc-f6e7d5f0207b",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "TRIP_BRIEF",
+      "subject_id": "e7906140-3fea-4ca7-9827-6bd6a533c92e",
+      "fact_type": "TRAVELER_COUNT",
+      "value": 2,
+      "provider": "confirmed_trip_brief_revision",
+      "source_url": null,
+      "observed_at": "2026-08-23T07:53:40.134085Z",
+      "valid_from": null,
+      "valid_until": "2036-08-20T07:53:40.134085Z",
+      "response_hash": "44541a29986f1b461253d707d46372b87860070e1dcb35194ec0fa7846582f75",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "4c63fea5-01b0-5f28-99f9-11b1f753362c",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-2",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "064d3edcd93a10421211f909c756feac25d2f1c217f7750d3ff64c442cd8e168",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "8db61443-a553-5e77-be09-2e69bb18e676",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-1",
+      "fact_type": "POI_IDENTITY",
+      "value": {
+        "city": "北京",
+        "name": "受控地点甲",
+        "coords": {
+          "lat": 39.916,
+          "lng": 116.397
+        },
+        "address": null,
+        "category": "attraction",
+        "district": null,
+        "place_id": "duplicate-submit-place-1"
+      },
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-30T00:00:00Z",
+      "response_hash": "3894eb862a54095e373c5330bce38a3e6f78f7bf819dfc9786db13e8868fc9a4",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "a9bd2e7d-721d-5992-afa2-1c26ca799ba4",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "ROUTE_EDGE",
+      "subject_id": "duplicate-submit-stop-1->duplicate-submit-stop-2",
+      "fact_type": "ROUTE_TIME",
+      "value": {
+        "mode": "driving",
+        "duration_minutes": 25
+      },
+      "provider": "controlled_route_fixture_v1",
+      "source_url": null,
+      "observed_at": "2026-08-23T07:53:40.134085Z",
+      "valid_from": null,
+      "valid_until": "2027-08-23T07:53:40.134085Z",
+      "response_hash": "be4f143c092e046b4d0b4d048e3c2433f5eced03aa07ebc3c0b81f46a636b712",
+      "confidence": 1.0,
+      "freshness_status": "FRESH"
+    },
+    {
+      "fact_id": "f541d09d-8c5a-56ad-88fd-9499a6d409cb",
+      "snapshot_id": "f264150d-7f98-56ee-8cbe-9b3bbec8789e",
+      "subject_type": "PLACE",
+      "subject_id": "duplicate-submit-place-1",
+      "fact_type": "OPENING_HOURS",
+      "value": "08:00-20:00",
+      "provider": "controlled_reliability_fixture",
+      "source_url": null,
+      "observed_at": "2026-08-23T00:00:00Z",
+      "valid_from": null,
+      "valid_until": "2026-08-26T00:00:00Z",
+      "response_hash": "97e0488d2d9a7ff8e9db1215e8ab2197763764452d5c702915428cfcaafb8034",
+      "confidence": 0.7,
+      "freshness_status": "FRESH"
+    }
+  ],
+  "provider_failures": [],
+  "created_at": "2026-08-23T07:53:40.134085Z",
+  "supersedes_snapshot_id": null
+}

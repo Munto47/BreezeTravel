@@ -1,0 +1,40 @@
+{
+  "schema_version": "community-route-prior-v1",
+  "artifact_kind": "COMMUNITY_ROUTE_PRIOR",
+  "source_kind": "wikivoyage_community",
+  "source_document_id": "open-wikivoyage-beijing-5331911",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Beijing",
+  "city": "北京",
+  "article_title": "Beijing",
+  "source_revision": "5331911",
+  "revision_url": "https://en.wikivoyage.org/w/index.php?title=Beijing&oldid=5331911",
+  "content_sha256": "5e8157689cf4aff71d8d33eda6231137a508faa6a115c7f1cd2d7fbd2701ee5d",
+  "licence": {
+    "spdx": "CC-BY-SA-4.0",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Wikivoyage contributors, Beijing, revision 5331911",
+    "rights_source_document_id": "open-wikivoyage-reuse-policy-20260821"
+  },
+  "identity_policy": "UNRESOLVED_QUERY_HINTS_ONLY_PROVIDER_RECEIPT_REQUIRED",
+  "allowed_use": ["STRUCTURE", "RETRIEVAL", "EVAL_ONLY"],
+  "allowed_contributions": ["CONTENT_RELEVANCE", "DIVERSITY", "ROUTE_ADJACENCY"],
+  "route_sequences": [
+    {
+      "prior_id": "beijing-central-axis-north-south",
+      "sequence_kind": "EXPLICIT_DIRECTIONAL_SEQUENCE",
+      "query_hints": ["Drum and Bell Towers", "Forbidden City", "Tiananmen Square", "Zhengyangmen", "Temple of Heaven", "Yongdingmen Gate"],
+      "basis_code": "ARTICLE_EXPLICIT_NORTH_TO_SOUTH_AXIS"
+    }
+  ],
+  "related_place_query_hints": ["Drum and Bell Towers", "Tiananmen Square", "Zhengyangmen", "Temple of Heaven", "Yongdingmen Gate", "Mutianyu Great Wall"],
+  "experience_tags": ["imperial-history", "central-axis", "urban-walk", "great-wall-diversity"],
+  "season_hints": [],
+  "audience_hints": ["history-oriented", "walking-tolerant", "crowd-sensitive-options"],
+  "prohibited_claims": ["CURRENT_OPENING", "CURRENT_RESERVATION", "CURRENT_PRICE", "CURRENT_ACCESSIBILITY", "CURRENT_ROUTE_TIME", "CURRENT_POPULARITY", "CANONICAL_IDENTITY", "COORDINATES"],
+  "derivation": {
+    "raw_archive_path": "archives/open-wikivoyage-beijing-5331911/raw_capture_receipt.json",
+    "source_body_sha256": "5e8157689cf4aff71d8d33eda6231137a508faa6a115c7f1cd2d7fbd2701ee5d",
+    "capture_fields": ["minimal_snapshot.route_sequences", "minimal_snapshot.related_place_query_hints", "minimal_snapshot.experience_tags", "minimal_snapshot.season_hints", "minimal_snapshot.audience_hints"],
+    "method": "Deterministic projection of place-name order and short categorical tags; no prose, coordinates or current operational claims."
+  }
+}

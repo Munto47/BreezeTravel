@@ -13,6 +13,7 @@ class WeatherInfo(BaseModel):
     temp_high: int
     temp_low: int
     suggestion: str     # "适合户外，建议带防晒"
+    precip_mm: Optional[float] = None
 
 
 class TimeSlot(BaseModel):
@@ -21,6 +22,7 @@ class TimeSlot(BaseModel):
     start_time: str     # "09:00"
     end_time: str       # "11:30"
     transport: Optional[TransportLeg] = None  # 与下一地点的交通（最后一个为 None）
+    tips: list[str] = []  # 温馨提示（TipsGenerator 写入）
 
 
 class DayPlan(BaseModel):

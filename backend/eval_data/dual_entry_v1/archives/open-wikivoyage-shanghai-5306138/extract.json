@@ -1,0 +1,40 @@
+{
+  "schema_version": "community-route-prior-v1",
+  "artifact_kind": "COMMUNITY_ROUTE_PRIOR",
+  "source_kind": "wikivoyage_community",
+  "source_document_id": "open-wikivoyage-shanghai-5306138",
+  "canonical_url": "https://en.wikivoyage.org/wiki/Shanghai",
+  "city": "上海",
+  "article_title": "Shanghai",
+  "source_revision": "5306138",
+  "revision_url": "https://en.wikivoyage.org/w/index.php?title=Shanghai&oldid=5306138",
+  "content_sha256": "0b71173140dd87b2d7e6564cf7667b651dff1534283354c5a991eb06c6203383",
+  "licence": {
+    "spdx": "CC-BY-SA-4.0",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Wikivoyage contributors, Shanghai, revision 5306138",
+    "rights_source_document_id": "open-wikivoyage-reuse-policy-20260821"
+  },
+  "identity_policy": "UNRESOLVED_QUERY_HINTS_ONLY_PROVIDER_RECEIPT_REQUIRED",
+  "allowed_use": ["STRUCTURE", "RETRIEVAL", "EVAL_ONLY"],
+  "allowed_contributions": ["CONTENT_RELEVANCE", "DIVERSITY", "ROUTE_ADJACENCY"],
+  "route_sequences": [
+    {
+      "prior_id": "shanghai-bund-to-jingan-east-west",
+      "sequence_kind": "EXPLICIT_DIRECTIONAL_SEQUENCE",
+      "query_hints": ["The Bund", "Nanjing Road East", "People's Square", "Nanjing Road West", "Jing'an Temple"],
+      "basis_code": "ARTICLE_EXPLICIT_NANJING_ROAD_EAST_WEST_ORDER"
+    }
+  ],
+  "related_place_query_hints": ["The Bund", "People's Square", "Jing'an Temple", "Yuyuan Gardens", "Tianzifang", "M50 art district"],
+  "experience_tags": ["early-modern-architecture", "shopping-street", "art-gallery", "urban-walk"],
+  "season_hints": [],
+  "audience_hints": ["architecture-oriented", "art-oriented", "shopping-oriented"],
+  "prohibited_claims": ["CURRENT_OPENING", "CURRENT_RESERVATION", "CURRENT_PRICE", "CURRENT_ACCESSIBILITY", "CURRENT_ROUTE_TIME", "CURRENT_POPULARITY", "CANONICAL_IDENTITY", "COORDINATES"],
+  "derivation": {
+    "raw_archive_path": "archives/open-wikivoyage-shanghai-5306138/raw_capture_receipt.json",
+    "source_body_sha256": "0b71173140dd87b2d7e6564cf7667b651dff1534283354c5a991eb06c6203383",
+    "capture_fields": ["minimal_snapshot.route_sequences", "minimal_snapshot.related_place_query_hints", "minimal_snapshot.experience_tags", "minimal_snapshot.season_hints", "minimal_snapshot.audience_hints"],
+    "method": "Deterministic projection of place-name order and short categorical tags; no prose, coordinates or current operational claims."
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "evidence_class": "nonblind_synthetic_anchor_calibration",
+  "human_calibration_performed": false,
+  "human_evidence": false,
+  "items": [
+    {
+      "calibration_item_id": "cal-001-absent-expression",
+      "candidate_expression": {
+        "advice": [],
+        "requires_user_resolution": null,
+        "terminal_status": "ERROR"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 0, "STALE": 0, "UNAVAILABLE": 2},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 0, "clarity": 0, "derived_verdict": "NEEDS_REVISION", "evidence_boundary_expression": 1},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "第二天的行程信息不完整。"}
+    },
+    {
+      "calibration_item_id": "cal-002-explicit-unavailable",
+      "candidate_expression": {
+        "advice": [],
+        "requires_user_resolution": true,
+        "terminal_status": "NEEDS_USER_RESOLUTION"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 0, "STALE": 0, "UNAVAILABLE": 2},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "PLACE_UNRESOLVED", "severity": "HIGH", "status": "UNKNOWN"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 0, "clarity": 2, "derived_verdict": "NEEDS_REVISION", "evidence_boundary_expression": 3},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "去西湖附近的同名餐厅。"}
+    },
+    {
+      "calibration_item_id": "cal-003-vague-action",
+      "candidate_expression": {
+        "advice": [{"action": "调整一下安排", "candidate_set_bound": false, "claim_id": "claim_001", "finding_reason": "ROUTE_GAP", "has_repair": false, "uncertainty": null}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 1, "STALE": 0, "UNAVAILABLE": 1},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "ROUTE_GAP", "severity": "HIGH", "status": "VIOLATED"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 1, "clarity": 1, "derived_verdict": "NEEDS_REVISION", "evidence_boundary_expression": 1},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "上午从酒店前往博物馆。"}
+    },
+    {
+      "calibration_item_id": "cal-004-issue-without-action",
+      "candidate_expression": {
+        "advice": [{"action": null, "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "HOTEL_LOCATION_RISK", "has_repair": false, "uncertainty": "LOW"}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 2, "STALE": 0, "UNAVAILABLE": 0},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "HOTEL_LOCATION_RISK", "severity": "HIGH", "status": "VIOLATED"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 0, "clarity": 2, "derived_verdict": "NEEDS_REVISION", "evidence_boundary_expression": 2},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "酒店距离连续两天的首个景点较远。"}
+    },
+    {
+      "calibration_item_id": "cal-005-invented-verification",
+      "candidate_expression": {
+        "advice": [{"action": "按已经确认营业的时间直接到店", "candidate_set_bound": false, "claim_id": "claim_001", "finding_reason": "PLACE_AVAILABILITY", "has_repair": true, "uncertainty": "NONE"}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 0, "STALE": 0, "UNAVAILABLE": 2},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "PLACE_AVAILABILITY", "severity": "HIGH", "status": "UNKNOWN"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 0, "clarity": 2, "derived_verdict": "NEEDS_REVISION", "evidence_boundary_expression": 0},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "晚上到一家暂时无法核验营业时间的餐厅。"}
+    },
+    {
+      "calibration_item_id": "cal-006-terse-minimum",
+      "candidate_expression": {
+        "advice": [{"action": "把第二天出发时间推迟 30 分钟，为换乘留出缓冲", "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "ROUTE_GAP", "has_repair": true, "uncertainty": "LOW"}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 2, "STALE": 0, "UNAVAILABLE": 0},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "ROUTE_GAP", "severity": "HIGH", "status": "VIOLATED"}],
+        "postcheck_boundary": {"new_high_count": 0, "new_unknown_count": 0, "overall_status": "PASS", "replay_side_effect_counts_equal": true}
+      },
+      "expected": {"actionability": 2, "clarity": 2, "derived_verdict": "PASS", "evidence_boundary_expression": 2},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "第二天上午连续安排两个相距较远的地点。"}
+    },
+    {
+      "calibration_item_id": "cal-007-clear-conditional-action",
+      "candidate_expression": {
+        "advice": [{"action": "若路线回执仍不可用，保留 UNKNOWN 并让用户确认交通方式；回执恢复后再执行完整 postcheck", "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "ROUTE_UNAVAILABLE", "has_repair": true, "uncertainty": "MEDIUM"}],
+        "requires_user_resolution": true,
+        "terminal_status": "NEEDS_USER_RESOLUTION"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 1, "STALE": 0, "UNAVAILABLE": 1},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "ROUTE_UNAVAILABLE", "severity": "HIGH", "status": "UNKNOWN"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 3, "clarity": 3, "derived_verdict": "PASS", "evidence_boundary_expression": 3},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "路线服务暂时不可用。"}
+    },
+    {
+      "calibration_item_id": "cal-008-conflicting-evidence-boundary",
+      "candidate_expression": {
+        "advice": [{"action": "不要把两个冲突时间中的任一个写成已确认；先让用户选择来源，再按所选时间重跑核验", "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "TIME_CONFLICT", "has_repair": true, "uncertainty": "HIGH"}],
+        "requires_user_resolution": true,
+        "terminal_status": "NEEDS_USER_RESOLUTION"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 2, "FRESH": 0, "STALE": 0, "UNAVAILABLE": 0},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "TIME_CONFLICT", "severity": "HIGH", "status": "UNKNOWN"}],
+        "postcheck_boundary": {"availability": "NOT_PRESENT"}
+      },
+      "expected": {"actionability": 3, "clarity": 3, "derived_verdict": "PASS", "evidence_boundary_expression": 4},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "两个来源给出了不同的开放时间。"}
+    },
+    {
+      "calibration_item_id": "cal-009-complete-bounded-path",
+      "candidate_expression": {
+        "advice": [{"action": "先保留原住宿并比较两个已绑定 CandidateSet 的通勤回执；仅在新方案不新增 HIGH/UNKNOWN 且完整 postcheck 通过后采纳新 revision", "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "HOTEL_LOCATION_RISK", "has_repair": true, "uncertainty": "LOW"}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 4, "STALE": 0, "UNAVAILABLE": 0},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "HOTEL_LOCATION_RISK", "severity": "HIGH", "status": "VIOLATED"}],
+        "postcheck_boundary": {"new_high_count": 0, "new_unknown_count": 0, "overall_status": "PASS", "replay_side_effect_counts_equal": true}
+      },
+      "expected": {"actionability": 4, "clarity": 4, "derived_verdict": "PASS", "evidence_boundary_expression": 4},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "当前酒店导致连续两天通勤时间过长。"}
+    },
+    {
+      "calibration_item_id": "cal-010-second-minimum",
+      "candidate_expression": {
+        "advice": [{"action": "把酒店候选限制在已绑定地点回执的集合内，并选择能减少首段通勤的候选", "candidate_set_bound": true, "claim_id": "claim_001", "finding_reason": "HOTEL_LOCATION_RISK", "has_repair": true, "uncertainty": "LOW"}],
+        "requires_user_resolution": false,
+        "terminal_status": "SUCCEEDED"
+      },
+      "evidence_summary": {
+        "evidence_availability": {"CONFLICTING": 0, "FRESH": 2, "STALE": 0, "UNAVAILABLE": 0},
+        "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+        "finding_summaries": [{"reason_code": "HOTEL_LOCATION_RISK", "severity": "HIGH", "status": "VIOLATED"}],
+        "postcheck_boundary": {"new_high_count": 0, "new_unknown_count": 0, "overall_status": "PASS", "replay_side_effect_counts_equal": true}
+      },
+      "expected": {"actionability": 2, "clarity": 2, "derived_verdict": "PASS", "evidence_boundary_expression": 2},
+      "public_input": {"input_evidence_boundary": "SOURCE_TEXT", "input_kind": "TEXT", "source_type": "PASTED_TEXT", "text": "住宿地点与主要活动区域距离较远。"}
+    }
+  ],
+  "schema_version": "trip-check-p5-judge-calibration-set-v1"
+}

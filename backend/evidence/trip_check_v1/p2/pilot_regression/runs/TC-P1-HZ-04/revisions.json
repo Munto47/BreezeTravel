@@ -1,0 +1,233 @@
+[
+  {
+    "itinerary_id": "65fe0073-ac77-4562-855d-167104ce2847",
+    "workspace_id": "pilot-tc-p1-hz-04",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "杭州",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-02"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "f67aed98-ee96-4aa6-8080-132556a95510",
+            "place_id": "hz-lingyin",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "08:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "灵隐寺",
+            "source_raw_stop_id": "f67aed98-ee96-4aa6-8080-132556a95510",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "e8cbaa34-e8c9-4064-8f63-7fa970cf07f0",
+            "place_id": "hz-xixi",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "12:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西溪湿地国家公园",
+            "source_raw_stop_id": "e8cbaa34-e8c9-4064-8f63-7fa970cf07f0",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "7e2b6165-3cbf-4a9e-991f-2ddf07f6a6bb",
+            "place_id": "hz-longjing",
+            "day_index": 0,
+            "order_index": 2,
+            "start_time": "15:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "龙井村（茶园）",
+            "source_raw_stop_id": "7e2b6165-3cbf-4a9e-991f-2ddf07f6a6bb",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "1ae42d86-cf30-4618-8aac-4781e1de65e1",
+            "place_id": "hz-west-lake",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": null,
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "西湖风景名胜区",
+            "source_raw_stop_id": "1ae42d86-cf30-4618-8aac-4781e1de65e1",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "8f27e607-fe62-43b3-804b-de75ecdde358",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "f67aed98-ee96-4aa6-8080-132556a95510": {
+          "place_id": "hz-lingyin",
+          "coords": {
+            "lng": 120.102,
+            "lat": 30.24
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "4c1c805c85b263be8f3e6d25ffd4097fd1183f22f85b03b45c60de43d2bdcac0",
+          "canonical_name": "灵隐寺"
+        },
+        "e8cbaa34-e8c9-4064-8f63-7fa970cf07f0": {
+          "place_id": "hz-xixi",
+          "coords": {
+            "lng": 120.063,
+            "lat": 30.268
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "e7ee29b15349294e8d6f0301f98bb1b8b51795a6789adc1335a2f5b804991edb",
+          "canonical_name": "西溪湿地国家公园"
+        },
+        "7e2b6165-3cbf-4a9e-991f-2ddf07f6a6bb": {
+          "place_id": "hz-longjing",
+          "coords": {
+            "lng": 120.101,
+            "lat": 30.224
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "403365b733f9ac1c02b65c64a5d41ff7613a95afdb7f78ce62a9c01388f7144e",
+          "canonical_name": "龙井村（茶园）"
+        },
+        "1ae42d86-cf30-4618-8aac-4781e1de65e1": {
+          "place_id": "hz-west-lake",
+          "coords": {
+            "lng": 120.148,
+            "lat": 30.244
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "b7d8660a821fbfaa2a38be0ad1f06c63b33dd568cd3ab77345c96a209141f4e3",
+          "canonical_name": "西湖风景名胜区"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "hz-lingyin",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-lingyin",
+          "name": "灵隐寺",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.102,
+          "latitude": 30.24,
+          "request_hash": "d9a044357c1c32df139328deff0969496d0f1982c152ff04a3de1b731decb597",
+          "response_hash": "f590e732db61579558f4483950828851bc33b44dc89046d8b7161fb711a84352",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-xixi",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-xixi",
+          "name": "西溪湿地国家公园",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.063,
+          "latitude": 30.268,
+          "request_hash": "05f56212edcbd1689d5284cba06b2bc0c4f1f71b0d5312212842fb01197e6973",
+          "response_hash": "ac93efd2ee133f31cda66275f586ddfc08f7a38a23026f2aed75922dbea9c990",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-longjing",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-longjing",
+          "name": "龙井村（茶园）",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.101,
+          "latitude": 30.224,
+          "request_hash": "97b68261c22e01053e14400c073aa07c4cb83b76f167fcae9394860b023de6ec",
+          "response_hash": "35fe63fcaa10bb1ea9f8ab8c58a3b4d58e501b2a2170c5520b12ec4f33293695",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "hz-west-lake",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "hz-west-lake",
+          "name": "西湖风景名胜区",
+          "city": "杭州",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 120.148,
+          "latitude": 30.244,
+          "request_hash": "f3ed0734d8db05bb01ed4d806ff2255ef64077db8c932190974bc2d31279b395",
+          "response_hash": "3d6121ca8ee2a65dcec085f7219ea0c25463786825b0d207cc0427fbd3b631d5",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "aaf4abee3143074e95c467b2a7a563a9b203f803be81d6e889454bcb14cad63e"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T03:45:33.946869Z",
+    "content_hash": "50d0b038c358e9e356b53dc1992e066d6ef714f6725da5f20b29bcd785e662c7"
+  }
+]

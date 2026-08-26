@@ -1,0 +1,239 @@
+[
+  {
+    "itinerary_id": "2116c4be-5f81-423c-837f-9f99020f4e29",
+    "workspace_id": "pilot-tc-p1-bj-03",
+    "revision": 1,
+    "parent_revision": null,
+    "source_type": "IMPORT",
+    "city": "北京",
+    "date_range": {
+      "start": "2026-10-01",
+      "end": "2026-10-03"
+    },
+    "days": [
+      {
+        "day_index": 0,
+        "date": "2026-10-01",
+        "stops": [
+          {
+            "stop_id": "b96f7990-2021-4edc-a20b-f43b2660ade1",
+            "place_id": "bj-tiananmen",
+            "day_index": 0,
+            "order_index": 0,
+            "start_time": "08:30",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "天安门广场",
+            "source_raw_stop_id": "b96f7990-2021-4edc-a20b-f43b2660ade1",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          },
+          {
+            "stop_id": "edbf4e8e-e288-4391-96cb-2f8336f80899",
+            "place_id": "bj-forbidden-city",
+            "day_index": 0,
+            "order_index": 1,
+            "start_time": "10:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "故宫博物院",
+            "source_raw_stop_id": "edbf4e8e-e288-4391-96cb-2f8336f80899",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 1,
+        "date": "2026-10-02",
+        "stops": [
+          {
+            "stop_id": "4a3a222a-b364-403f-aee6-6bd2b165f3fe",
+            "place_id": "bj-badaling",
+            "day_index": 1,
+            "order_index": 0,
+            "start_time": "07:30",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "长城（八达岭）",
+            "source_raw_stop_id": "4a3a222a-b364-403f-aee6-6bd2b165f3fe",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      },
+      {
+        "day_index": 2,
+        "date": "2026-10-03",
+        "stops": [
+          {
+            "stop_id": "b7879fb9-186a-4693-9c6f-9ef4500a25fe",
+            "place_id": "bj-temple-of-heaven",
+            "day_index": 2,
+            "order_index": 0,
+            "start_time": "09:00",
+            "end_time": null,
+            "visit_duration_minutes": null,
+            "transport_to_next": null,
+            "raw_name": "天坛公园",
+            "source_raw_stop_id": "b7879fb9-186a-4693-9c6f-9ef4500a25fe",
+            "resolution_status": "AUTO_MATCHED",
+            "commitment_kind": null,
+            "fixed_commitment": false,
+            "locked": false,
+            "category": "attraction",
+            "notes": ""
+          }
+        ]
+      }
+    ],
+    "locked_commitments": [],
+    "change_summary": {
+      "import_id": "a5827480-c5a9-433e-8f16-a21a88b6af56",
+      "operation": "APPLY_IMPORT",
+      "map_stop_projections": {
+        "b96f7990-2021-4edc-a20b-f43b2660ade1": {
+          "place_id": "bj-tiananmen",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.903
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "8506967648e1013e49c1b688f51aef1ae71464e74def72456bb314b72d7785e4",
+          "canonical_name": "天安门广场"
+        },
+        "edbf4e8e-e288-4391-96cb-2f8336f80899": {
+          "place_id": "bj-forbidden-city",
+          "coords": {
+            "lng": 116.397,
+            "lat": 39.918
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7f3a3063a3a02a107223bfb2fbd85a8ba80357c968784cc3e17d2ab025426d3e",
+          "canonical_name": "故宫博物院"
+        },
+        "4a3a222a-b364-403f-aee6-6bd2b165f3fe": {
+          "place_id": "bj-badaling",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "c67026944b2780b3c88531aeba35753e074f6988794383d248ac3e4aa4f65809",
+          "canonical_name": "长城（八达岭）"
+        },
+        "b7879fb9-186a-4693-9c6f-9ef4500a25fe": {
+          "place_id": "bj-temple-of-heaven",
+          "coords": {
+            "lng": 116.417,
+            "lat": 39.883
+          },
+          "coordinate_role": "CANONICAL_PROVIDER_POI",
+          "provenance": "controlled_p1_fixture:fixture",
+          "receipt_hash": "7ebefbdf15b58195db87677e6c849141d0e043319dffa5338c5d5d5b0ce93940",
+          "canonical_name": "天坛公园"
+        }
+      },
+      "resolved_place_receipts": [
+        {
+          "canonical_place_id": "bj-tiananmen",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-tiananmen",
+          "name": "天安门广场",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.397,
+          "latitude": 39.903,
+          "request_hash": "48141ecf2e8d7f3d7fd6ed264c4f8e9ec9e756af8c393c4e817d0f479f38e655",
+          "response_hash": "4348a0739321ca4b129c3e6aacfe83bba8170dbf4975b6bcad8856a7b6d62584",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-forbidden-city",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-forbidden-city",
+          "name": "故宫博物院",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.397,
+          "latitude": 39.918,
+          "request_hash": "206b09f127ab1b7e4faae3d8b2b677e3f9d8eac4cfd852ae344a0f80b80339ba",
+          "response_hash": "a30af1fd17389cdcb82f8025492e79ad74f0f1e3cfdaab0535f074ff831e0fc9",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-badaling",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.017,
+          "latitude": 40.354,
+          "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+          "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        },
+        {
+          "canonical_place_id": "bj-temple-of-heaven",
+          "provider": "controlled_p1_fixture",
+          "provider_place_id": "bj-temple-of-heaven",
+          "name": "天坛公园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "provider_raw_type": null,
+          "provider_raw_typecode": null,
+          "longitude": 116.417,
+          "latitude": 39.883,
+          "request_hash": "2ce2b1a79028f27b65e4b44ad4bd9cab972e53ccfec4c5d7922c0b7b7b811795",
+          "response_hash": "08a8a8d1eae273c18aef6cdd525a38e73f524bc07543244d9c4227890a32c533",
+          "observed_at": "2026-08-23T00:00:00Z",
+          "execution_mode": "fixture",
+          "source_url": null
+        }
+      ],
+      "materialization_hash": "9c8e498c3bb9560669ca57590315c6807e20da4cde78b9860e850c97d8fd83aa"
+    },
+    "created_by": "controlled-pilot-runner",
+    "created_at": "2026-08-23T08:37:58.644711Z",
+    "content_hash": "975d2faba23384cbfecd5599adbfa581be0028e0951e93132b153e8433e4ed85"
+  }
+]

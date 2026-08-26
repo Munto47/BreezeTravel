@@ -1,0 +1,14 @@
+{
+  "provider_attempt_count": 3,
+  "partial_failures": [
+    {
+      "stage": "COLLECT_EVIDENCE",
+      "provider": "controlled_route_fixture_v2",
+      "category": "PROVIDER_TIMEOUT",
+      "affected_fields": [
+        "route_edges.provider-timeout-stop-1->provider-timeout-stop-2.duration_minutes"
+      ],
+      "retryable": false
+    }
+  ]
+}

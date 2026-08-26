@@ -1,0 +1,240 @@
+{
+  "import_id": "4a85f1d4-3966-4875-8780-0319f746575a",
+  "workspace_id": "pilot-tc-p1-bj-04",
+  "source_type": "MANUAL_TEXT",
+  "raw_text": "北京5人，有长辈，少走路。第1天 09:00 颐和园，13:00 长城（八达岭）；第2天 10:00 南锣鼓巷。",
+  "parse_version": "deterministic-cn-v1",
+  "status": "READY",
+  "raw_stops": [
+    {
+      "raw_stop_id": "51ac75bd-00a9-41d9-a9fe-cd3b6044217f",
+      "import_id": "4a85f1d4-3966-4875-8780-0319f746575a",
+      "day_index": 0,
+      "raw_name": "颐和园",
+      "raw_time": "09:00",
+      "source_span": {
+        "start": 17,
+        "end": 26
+      },
+      "source_sentence": "09:00 颐和园",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "5081363f-7fb5-47ff-9bbe-a03504dbc1e9",
+      "import_id": "4a85f1d4-3966-4875-8780-0319f746575a",
+      "day_index": 0,
+      "raw_name": "长城（八达岭）",
+      "raw_time": "13:00",
+      "source_span": {
+        "start": 27,
+        "end": 40
+      },
+      "source_sentence": "13:00 长城（八达岭）",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    },
+    {
+      "raw_stop_id": "30e9634a-546d-4054-84c5-9df21e342386",
+      "import_id": "4a85f1d4-3966-4875-8780-0319f746575a",
+      "day_index": 1,
+      "raw_name": "南锣鼓巷",
+      "raw_time": "10:00",
+      "source_span": {
+        "start": 45,
+        "end": 55
+      },
+      "source_sentence": "10:00 南锣鼓巷",
+      "commitment_kind": null,
+      "fixed_commitment": false
+    }
+  ],
+  "resolutions": [
+    {
+      "raw_stop_id": "51ac75bd-00a9-41d9-a9fe-cd3b6044217f",
+      "canonical_place_id": "bj-summer-palace",
+      "candidates": [
+        {
+          "place_id": "bj-summer-palace",
+          "name": "颐和园",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.273,
+            "lat": 39.999
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+          "retrieval_response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-summer-palace",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-summer-palace",
+            "name": "颐和园",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.273,
+            "latitude": 39.999,
+            "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+            "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "5081363f-7fb5-47ff-9bbe-a03504dbc1e9",
+      "canonical_place_id": "bj-badaling",
+      "candidates": [
+        {
+          "place_id": "bj-badaling",
+          "name": "长城（八达岭）",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.017,
+            "lat": 40.354
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+          "retrieval_response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-badaling",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-badaling",
+            "name": "长城（八达岭）",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.017,
+            "latitude": 40.354,
+            "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+            "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    },
+    {
+      "raw_stop_id": "30e9634a-546d-4054-84c5-9df21e342386",
+      "canonical_place_id": "bj-nanluoguxiang",
+      "candidates": [
+        {
+          "place_id": "bj-nanluoguxiang",
+          "name": "南锣鼓巷",
+          "city": "北京",
+          "district": "controlled-fixture",
+          "address": "controlled-fixture",
+          "category": "attraction",
+          "coords": {
+            "lng": 116.404,
+            "lat": 39.937
+          },
+          "retrieval_provider": "controlled_p1_fixture",
+          "execution_mode": "fixture",
+          "retrieval_request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+          "retrieval_response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+          "retrieval_observed_at": "2026-08-23T00:00:00Z",
+          "source_url": null,
+          "opening_hours": "07:00-22:00",
+          "phone": null,
+          "amap_rating": null,
+          "amap_price": null,
+          "resolved_place_receipt": {
+            "canonical_place_id": "bj-nanluoguxiang",
+            "provider": "controlled_p1_fixture",
+            "provider_place_id": "bj-nanluoguxiang",
+            "name": "南锣鼓巷",
+            "city": "北京",
+            "district": "controlled-fixture",
+            "address": "controlled-fixture",
+            "category": "attraction",
+            "provider_raw_type": null,
+            "provider_raw_typecode": null,
+            "longitude": 116.404,
+            "latitude": 39.937,
+            "request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+            "response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+            "observed_at": "2026-08-23T00:00:00Z",
+            "execution_mode": "fixture",
+            "source_url": null
+          },
+          "score": 0.95,
+          "reasons": [
+            "NAME_EXACT",
+            "CITY_MATCH",
+            "DISTRICT_AVAILABLE"
+          ]
+        }
+      ],
+      "rejected_candidates": [],
+      "confidence": 0.95,
+      "resolution_status": "AUTO_MATCHED",
+      "resolution_version": 1,
+      "confirmed_by": null,
+      "confirmed_at": null
+    }
+  ],
+  "member_summary": [
+    "北京5人，有长辈，少走路。第1天 09:00 颐和园，13:00 长城（八达岭）；第2天 10:00 南锣鼓巷。"
+  ],
+  "parse_errors": [],
+  "state_version": 2,
+  "applied_revision": null,
+  "created_by": "controlled-pilot-runner",
+  "created_at": "2026-08-23T03:45:33.803443Z",
+  "updated_at": "2026-08-23T03:45:33.803443Z"
+}

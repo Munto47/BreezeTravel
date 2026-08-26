@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import type { YjsPlace } from '@/types/room'
 import type { Itinerary } from '@/types/itinerary'
 import { useRoomStore } from '@/stores/roomStore'
@@ -22,7 +22,19 @@ const CATEGORY_ICON: Record<string, string> = {
   hotel: '🏨',
   transport: '🚉',
 }
-const DEFAULT_CENTER: [number, number] = [104.066, 30.659]
+const DEFAULT_CENTER: [number, number] = [116.407, 39.904] // 无城市时默认北京
+
+// 7 个支持城市的地图中心坐标（高德 WGS-84 偏移后的 GCJ-02）
+const CITY_CENTERS: Record<string, [number, number]> = {
+  '北京': [116.407, 39.904],
+  '上海': [121.474, 31.231],
+  '成都': [104.066, 30.659],
+  '杭州': [120.153, 30.287],
+  '西安': [108.948, 34.264],
+  '厦门': [118.089, 24.479],
+  '广州': [113.264, 23.129],
+  '深圳': [114.057, 22.543],
+}
 
 declare global {
   interface Window {
@@ -40,8 +52,25 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   const routePolylinesRef = useRef<any[]>([])
   const drivingRef      = useRef<any[]>([])
   const infoWindowRef   = useRef<any>(null)
+  const [isMapReady, setIsMapReady] = useState(false)
+  // 记录上次渲染时的 place ID 集合，只有 ID 变化（新增/删除地点）才调 setFitView
+  // 投票只改 votedBy，不触发地图缩放
+  const prevPlaceIdsRef = useRef<Set<string>>(new Set())
+  // ref 透传给异步 init effect，避免闭包捕获初始空值
+  const tripCityRef     = useRef<string | undefined>(tripCity)
+  useEffect(() => { tripCityRef.current = tripCity }, [tripCity])
 
-  const { setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
+  const { selectedPlaceId, setSelectedPlaceId, setHoveredPlaceId, hoveredPlaceId } = useRoomStore()
+
+  // ── selectedPlaceId 变化（卡片点击/AI推荐点击）→ 地图居中并弹出信息窗 ────
+  useEffect(() => {
+    if (!selectedPlaceId || !mapRef.current) return
+    const marker = markersRef.current.get(selectedPlaceId)
+    if (!marker) return
+    mapRef.current.panTo(marker.getPosition())
+    // 触发 marker 点击回调，复用已有信息窗逻辑
+    marker.emit('click')
+  }, [selectedPlaceId])
 
   // ── 初始化地图（仅运行一次）────────────────────────────────────
   useEffect(() => {
@@ -55,8 +84,10 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     let destroyed = false
     ;(async () => {
       try {
-        window._AMapSecurityConfig = {
-          securityJsCode: process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE ?? '',
+        // 仅在安全码非空时设置，避免空字符串触发 AMap 2.0 安全校验失败
+        const secCode = process.env.NEXT_PUBLIC_AMAP_SECURITY_CODE
+        if (secCode) {
+          window._AMapSecurityConfig = { securityJsCode: secCode }
         }
 
         const AMapLoader = (await import('@amap/amap-jsapi-loader')).default
@@ -67,18 +98,23 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
         })
         if (destroyed || !containerRef.current) return
 
+        const city = tripCityRef.current
+        const initialCenter: [number, number] =
+          (city && CITY_CENTERS[city]) ? CITY_CENTERS[city] : DEFAULT_CENTER
+
         const map = new AMap.Map(containerRef.current, {
           zoom: 13,
-          center: DEFAULT_CENTER,
+          center: initialCenter,
           mapStyle: 'amap://styles/macaron',
           viewMode: '3D',
         })
         mapRef.current = map
+        setIsMapReady(true)
 
-        // 通过高德 Geocoder 动态解析城市名 → 经纬度，支持全国任意城市
-        if (tripCity) {
-          const geocoder = new AMap.Geocoder({ city: tripCity })
-          geocoder.getLocation(tripCity, (status: string, result: any) => {
+        // 城市不在预置表里时，用 Geocoder 定位（如用户自定义城市名）
+        if (city && !CITY_CENTERS[city]) {
+          const geocoder = new AMap.Geocoder({ city })
+          geocoder.getLocation(city, (status: string, result: any) => {
             if (status === 'complete' && result.geocodes?.length > 0) {
               map.setCenter(result.geocodes[0].location)
             }
@@ -89,8 +125,13 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
           offset: new AMap.Pixel(0, -30),
           closeWhenClickMap: true,
         })
-      } catch (e) {
-        console.error('[AMap] 初始化失败', e)
+      } catch (e: any) {
+        const msg = e?.message || String(e)
+        if (msg.includes('域名') || msg.includes('domain') || msg.includes('whitelist') || msg.includes('KEY')) {
+          console.error('[AMap] Key 或域名校验失败，请在高德控制台将 localhost:3000 加入 JS API key 的域名白名单。错误：', msg)
+        } else {
+          console.error('[AMap] 初始化失败', e)
+        }
       }
     })()
 
@@ -102,6 +143,25 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
       }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── tripCity 变化时重新定位地图中心 ────────────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !tripCity) return
+    // 优先用预置坐标（即时，无网络请求）
+    if (CITY_CENTERS[tripCity]) {
+      mapRef.current.setCenter(CITY_CENTERS[tripCity])
+      return
+    }
+    // 不在预置表里的城市，走 Geocoder 降级
+    const AMap = (window as any).AMap
+    if (!AMap?.Geocoder) return
+    const geocoder = new AMap.Geocoder({ city: tripCity })
+    geocoder.getLocation(tripCity, (status: string, result: any) => {
+      if (status === 'complete' && result.geocodes?.length > 0) {
+        mapRef.current?.setCenter(result.geocodes[0].location)
+      }
+    })
+  }, [tripCity])
 
   // ── 构建 Marker HTML（抽成辅助函数，hover 时复用） ───────────────
   const buildMarkerContent = useCallback((
@@ -129,6 +189,13 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
   const renderMarkers = useCallback(() => {
     const map = mapRef.current
     if (!map) return
+
+    // 判断 place ID 集合是否变化（新增 / 删除地点），仅此时才调 setFitView
+    const currentIds = new Set(places.map((p) => p.placeId))
+    const idsChanged =
+      currentIds.size !== prevPlaceIdsRef.current.size ||
+      [...currentIds].some((id) => !prevPlaceIdsRef.current.has(id))
+    prevPlaceIdsRef.current = currentIds
 
     markersRef.current.forEach((m) => m.setMap(null))
     markersRef.current.clear()
@@ -176,7 +243,7 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
       markersRef.current.set(place.placeId, marker)
     })
 
-    if (markersRef.current.size > 0) {
+    if (markersRef.current.size > 0 && idsChanged) {
       map.setFitView([...markersRef.current.values()], false, [60, 420, 60, 420])
     }
   }, [places, buildMarkerContent, setSelectedPlaceId, setHoveredPlaceId])
@@ -267,23 +334,18 @@ export default function AMapContainer({ places, itinerary, tripCity }: AMapConta
     })
   }, [itinerary])
 
-  // places 变化 → 重绘 Markers
+  // places 变化或 SDK 刚完成初始化 → 重绘 Markers。过去只做一次固定
+  // 1.5s 重试，SDK 初始化更慢时会永久错过首批地点。
   useEffect(() => {
-    if (!mapRef.current) {
-      const t = setTimeout(renderMarkers, 1500)
-      return () => clearTimeout(t)
-    }
+    if (!isMapReady || !mapRef.current) return
     renderMarkers()
-  }, [places, renderMarkers])
+  }, [places, isMapReady, renderMarkers])
 
   // itinerary 变化 → 重绘静态路线
   useEffect(() => {
-    if (!mapRef.current) {
-      const t = setTimeout(renderRoutes, 1500)
-      return () => clearTimeout(t)
-    }
+    if (!isMapReady || !mapRef.current) return
     renderRoutes()
-  }, [itinerary, renderRoutes])
+  }, [itinerary, isMapReady, renderRoutes])
 
   // hoveredPlaceId 变化 → 更新对应 Marker 高亮样式
   useEffect(() => {

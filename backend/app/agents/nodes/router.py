@@ -1,89 +1,424 @@
 """
-Router 节点：意图分类 + 查询改写
+ReAct Agent 节点（原 Router 升级版）
 
-输入：state.messages（取最后一条 human 消息）
-输出：state.intent ("rag" | "amap" | "both"), state.query_rewrite
+架构升级：规则分类 → LLM Native Tool Calling
+─────────────────────────────────────────────────────────────────
+旧版：Router 用 LLM 输出 {"intent": "amap"/"rag"/"both"} JSON
+      然后图按 intent 硬编码路由到对应节点
 
-路由逻辑：
-- "rag"  → 主观/体验类（避坑、攻略、适合人群、游记经验）→ RAGRetrieval 节点
-- "amap" → 客观/属性类（找餐厅、附近景点、评分、营业时间）→ AmapSearch 节点
-- "both" → 两者都需要 → AmapSearch 节点（完成后再走 RAGRetrieval）
+新版：ReAct Agent 让 LLM 直接通过 tool calling 选择调用哪些工具
+      - Think：LLM 分析用户意图
+      - Act  ：LLM 输出 tool_calls（search_places / search_travel_notes / get_weather）
+      - Observe：tool_executor 节点执行工具，结果以 ToolMessage 返回
+      - 下一轮：LLM 观察工具结果，决定是否再调用其他工具或直接结束
 
-LLM：OpenAI 兼容接口（OpenAI 官方 / SiliconFlow / DeepSeek 等）
+优势
+----
+1. 不再依赖硬编码路由规则，LLM 自主推理
+2. 支持多工具串联调用（先搜景点 + 再查天气 + 再查游记攻略）
+3. ReAct 链路在前端 ThinkingSteps 可视化展示
+4. 充分利用 LLM 原生 function calling 能力，无需自实现路由层
+
+防无限循环
+----------
+react_iterations 字段记录循环次数，超过 MAX_ITERATIONS 强制进入 synthesizer
 """
 
-import json
-import re
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 from app.agents.state import AgentState
 from app.config import settings
+from app.memory.working import extract_from_messages, format_for_prompt
+from app.tools import ALL_TOOLS
+from app.agents.routing_policy import plan_simple_tools, plan_tools
+from app import metrics as _metrics
+from app.constraints.location import extract_explicit_district_from_messages
+from app.constraints.recommendation_intent import (
+    build_category_search_plan,
+    build_place_search_queries,
+    extract_landmark_groups,
+    infer_requested_categories,
+    request_has_all_landmarks,
+    requested_category_argument,
+)
+from app.constraints.recommendation_plan import (
+    build_recommendation_plan,
+    missing_slot_ids as find_missing_slot_ids,
+    slot_coverage,
+)
+from app.schemas.recommendation_plan import RecommendationPlan
 
-ROUTER_SYSTEM_PROMPT = """你是一个旅行助手的意图分类器。
+MAX_REACT_ITERATIONS = 3  # 最多 3 轮工具调用（防止无限循环）
+_CATEGORY_ARGS = {
+    "attraction": "景点",
+    "food": "美食",
+    "hotel": "住宿",
+    "transport": "交通",
+}
 
-分析用户的问题，判断需要：
-- "rag"：主要依赖游记、旅行经验、避坑攻略（主观/体验类问题）
-  例：带老人有什么注意、哪里人少、当地人推荐的地方
-- "amap"：主要依赖真实 POI 数据（客观属性类问题）
-  例：找个附近的火锅、评分高的景点、几点开门、推荐景点
-- "both"：两者都需要
-  例：找个口碑好的景点（需要 POI 评分 + 游记体验）
+_REACT_SYSTEM = """你是一个专业的旅行规划助手，帮助用户发现适合的旅行地点。
 
-同时，将用户查询改写为更适合高德 POI 搜索的形式（去除口语、提取核心 POI 关键词，如"宽窄巷子""火锅""熊猫基地"）。
+你拥有以下工具：
+- search_places      : 搜索高德地图 POI（景点/餐厅/住宿/娱乐），返回结构化地点数据（place_id/坐标/评分）
+- search_travel_notes: 检索真实游记攻略和避坑经验（RAG 语义搜索），只返回文字描述，无结构化地点数据
+- get_weather        : 查询目的地天气预报
 
-必须返回合法 JSON，格式：{"intent": "rag|amap|both", "rewritten_query": "改写后的查询"}
-不要包含任何其他文字。"""
+⚠️ 核心规则——必须严格遵守：
+【规则 A】只要用户询问推荐地点（美食/景点/酒店/住宿/娱乐/打卡），必须调用 search_places。
+  - "有哪些好吃的" "推荐景点" "必吃美食" "哪里好玩" "住哪里" → 全部必须调用 search_places
+  - search_travel_notes 只提供文字描述，前端地图卡片依赖 search_places 的结构化数据
+  - 不调 search_places = 用户看到空列表，绝对不允许
+【规则 B】有攻略/避坑/口碑等主观需求时，在调用 search_places 的同时也调用 search_travel_notes。
+【规则 C】纯天气/行程安排问题 → 调用 get_weather；但如果用户同时问地点，仍需调用 search_places。
+【规则 D】工具返回结果后，信息已足够则不要重复调用同一工具。
+
+{working_memory}
+
+{long_term_prefs}
+
+目的地城市：{city}"""
 
 
-def _get_llm():
-    """获取 LLM 实例（OpenAI 兼容接口）"""
-    if settings.openai_api_key:
-        from langchain_openai import ChatOpenAI
-        return ChatOpenAI(
-            model=settings.llm_model_router,
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_api_url,
-            max_tokens=200,
-            temperature=0,
-        )
-    return None
+def _get_llm_with_tools():
+    """获取绑定了工具的 LLM"""
+    api_key = settings.effective_llm_api_key
+    if not api_key:
+        return None
+
+    from langchain_openai import ChatOpenAI
+    llm = ChatOpenAI(
+        model=settings.llm_model_router,
+        api_key=api_key,
+        base_url=settings.effective_llm_api_url,
+        max_tokens=500,
+        temperature=0,
+    )
+    return llm.bind_tools(ALL_TOOLS)
 
 
 async def run(state: AgentState) -> dict:
-    """Router 节点入口函数"""
-    human_messages = [m for m in state["messages"] if isinstance(m, HumanMessage)]
-    if not human_messages:
-        return {"intent": "amap", "query_rewrite": "旅游景点推荐"}
+    """
+    ReAct Agent 节点入口
 
-    last_query = human_messages[-1].content
+    LLM 通过 tool calling 选择调用哪些工具。
+    如果 LLM 输出 tool_calls → 图路由到 tool_executor
+    如果 LLM 无 tool_calls → 图路由到 synthesizer
+    """
+    messages = state.get("messages", [])
     trip_city = state.get("trip_city") or "成都"
+    iterations = state.get("react_iterations", 0)
 
-    # Demo 模式跳过 LLM
+    # The first deterministic search plus one model-guided expansion normally
+    # provides enough grounded options.  Continuing to a third round after we
+    # already have category diversity adds latency and can starve Synthesizer
+    # under the request-wide deadline.
+    last_query = _get_last_human_query(messages)
+    trip_district = state.get("trip_district") or extract_explicit_district_from_messages(messages)
+    plan = (
+        RecommendationPlan.model_validate(state["recommendation_plan"])
+        if state.get("recommendation_plan")
+        else build_recommendation_plan(last_query, trip_city, trip_district or "")
+    )
+    plan_dict = plan.model_dump(mode="json")
+    # ToolExecutor computes this after canonical merge plus the same hard
+    # category/district/evidence/geo filters used by Synthesizer. Raw provider
+    # hits must not satisfy a slot that will disappear before delivery.
+    current_places = state.get("eligible_amap_places", state.get("amap_places", []))
+    current_coverage = slot_coverage(plan, current_places) if plan.slots else {}
+    missing_slots = find_missing_slot_ids(plan, current_places) if plan.slots else []
+    if iterations >= 1 and plan.slots and not missing_slots:
+        print(f"[ReActAgent] RecommendationPlan {len(plan.slots)} 个槽位均已覆盖，进入 Synthesizer")
+        return {
+            "react_iterations": iterations,
+            "recommendation_plan": plan_dict,
+            "slot_coverage": current_coverage,
+            "missing_slot_ids": [],
+        }
+    if iterations >= 1 and not plan.slots and _has_sufficient_place_evidence(current_places, last_query):
+        print(
+            f"[ReActAgent] 已有 {len(state.get('amap_places', []))} 个多品类地点，"
+            "停止重复检索并进入 Synthesizer"
+        )
+        return {"react_iterations": iterations}
+
+    # The first parallel batch can legitimately return no usable POI for one
+    # category. Repair only the missing category with the same explicit
+    # provider contract; do not hand the gap to a free-form LLM retry.
+    requested_repairs = list(state.get("missing_slot_ids", [])) or missing_slots
+    if plan.slots and requested_repairs and 1 <= iterations < MAX_REACT_ITERATIONS:
+        repair_slots = [slot for slot in plan.slots if slot.slot_id in requested_repairs]
+        tool_calls = []
+        for call_index, slot in enumerate(repair_slots, 1):
+            args = {
+                "query": slot.query,
+                "city": trip_city,
+                "category": _CATEGORY_ARGS[slot.category.value],
+                "slot_id": slot.slot_id,
+                "typecodes": slot.provider_typecodes,
+            }
+            if slot.geo.administrative_district:
+                args["district"] = slot.geo.administrative_district
+            if slot.geo.anchor_place:
+                args["anchor_place"] = slot.geo.anchor_place
+                args["radius_m"] = int((slot.geo.max_radius_km or 3.0) * 1000)
+            tool_calls.append({
+                "name": "search_places",
+                "args": args,
+                "id": f"slot-repair-{iterations}-{call_index}",
+            })
+        if tool_calls:
+            return {
+                "messages": [AIMessage(content="", tool_calls=tool_calls)],
+                "intent": "amap",
+                "query_rewrite": last_query,
+                "routing_signals": [
+                    f"missing:{slot.category.value}"
+                    for slot in repair_slots
+                ],
+                "react_iterations": iterations + 1,
+                "recommendation_plan": plan_dict,
+                "slot_coverage": current_coverage,
+                "missing_slot_ids": [],
+            }
+
+    if not plan.slots and 1 <= iterations < MAX_REACT_ITERATIONS:
+        requested = infer_requested_categories(last_query)
+        covered = _covered_place_categories(
+            state.get("eligible_amap_places", state.get("amap_places", []))
+        )
+        missing = requested - covered
+        repair_plan = build_category_search_plan(last_query, trip_city, missing)
+        if repair_plan:
+            tool_calls = []
+            call_index = 0
+            for category in (
+                "attraction", "food", "hotel", "transport",
+            ):
+                category_enum = next((item for item in missing if item.value == category), None)
+                if category_enum is None:
+                    continue
+                for query in repair_plan.get(category_enum, []):
+                    call_index += 1
+                    args = {
+                        "query": query,
+                        "city": trip_city,
+                        "category": _CATEGORY_ARGS[category],
+                    }
+                    if trip_district:
+                        args["district"] = trip_district
+                    tool_calls.append({
+                        "name": "search_places",
+                        "args": args,
+                        "id": f"category-repair-{iterations}-{call_index}",
+                    })
+            if tool_calls:
+                return {
+                    "messages": [AIMessage(content="", tool_calls=tool_calls)],
+                    "intent": "amap",
+                    "query_rewrite": last_query,
+                    "routing_signals": [f"missing:{item.value}" for item in sorted(missing, key=lambda item: item.value)],
+                    "react_iterations": iterations + 1,
+                }
+
+    # 超出最大循环次数，强制结束（通过不输出 tool_calls 让图路由到 synthesizer）
+    if iterations >= MAX_REACT_ITERATIONS:
+        print(f"[ReActAgent] 已达最大迭代次数 {MAX_REACT_ITERATIONS}，进入 Synthesizer")
+        return {"react_iterations": iterations}
+
+    # Demo 模式：直接给出 intent（向后兼容）
     if settings.demo_mode:
-        return {"intent": "amap", "query_rewrite": last_query}
+        return {"intent": "amap", "query_rewrite": _get_last_human_query(messages)}
 
+    # P0 mixed-intent guard.  Make the minimum complete tool plan explicit
+    # before the optional local classifier or LLM gets a chance to omit one.
+    forced_plan = plan_tools(last_query) if iterations == 0 else None
+    if forced_plan is None and iterations == 0 and settings.deterministic_routing_enabled:
+        forced_plan = plan_simple_tools(last_query)
+    search_queries = build_place_search_queries(last_query, trip_city) if iterations == 0 else []
+    requested_categories = infer_requested_categories(last_query)
+    should_force_place_search = bool(requested_categories or extract_landmark_groups(last_query))
+    if forced_plan or (iterations == 0 and settings.deterministic_routing_enabled and should_force_place_search):
+        tool_calls = []
+        tools = forced_plan.tools if forced_plan else ("search_places",)
+        category_arg = requested_category_argument(last_query)
+        call_index = 0
+        for name in tools:
+            if name == "search_places" and plan.slots:
+                query_entries = [(slot.query, slot) for slot in plan.slots]
+            else:
+                query_entries = [(query, None) for query in (search_queries if name == "search_places" else [last_query])]
+            for query, slot in query_entries:
+                call_index += 1
+                args = {"query": query, "city": trip_city}
+                if name == "search_places":
+                    slot_district = slot.geo.administrative_district if slot else trip_district
+                    if slot_district:
+                        args["district"] = slot_district
+                    query_category = _CATEGORY_ARGS[slot.category.value] if slot else (requested_category_argument(query) or category_arg)
+                    if query_category:
+                        args["category"] = query_category
+                    if slot:
+                        args["slot_id"] = slot.slot_id
+                        args["typecodes"] = slot.provider_typecodes
+                        if slot.geo.anchor_place:
+                            args["anchor_place"] = slot.geo.anchor_place
+                            args["radius_m"] = int((slot.geo.max_radius_km or 3.0) * 1000)
+                tool_calls.append({"name": name, "args": args, "id": f"policy-{call_index}"})
+        signals = list(forced_plan.signals) if forced_plan else [category.value for category in requested_categories]
+        print(f"[ReActAgent] deterministic tool policy: {tuple(signals)}")
+        return {
+            "messages": [AIMessage(content="", tool_calls=tool_calls)],
+            "intent": forced_plan.intent if forced_plan else "amap",
+            "query_rewrite": last_query, "routing_signals": signals,
+            "react_iterations": iterations + 1,
+            "recommendation_plan": plan_dict,
+            "slot_coverage": current_coverage,
+            "missing_slot_ids": [],
+        }
+
+    # Sprint 3 — 微调分类器 fast path
+    # 本地 LoRA 模型快速判断意图，命中则跳过 DeepSeek tool calling
+    # 降级：模型未加载 / 推理失败 → 继续走 ReAct 路径（透明 fallback）
+    if settings.ft_router_enabled and iterations == 0:
+        from app.agents.nodes.router_classifier import classify
+        ft_result = classify(last_query, trip_city, settings.ft_router_model_path)
+        if ft_result is not None:
+            print(f"[ReActAgent] FT Router 命中: intent={ft_result['intent']}")
+            intent_tools = {
+                "amap": ("search_places",),
+                "rag": ("search_travel_notes",),
+                "both": ("search_places", "search_travel_notes"),
+                "weather": ("get_weather",),
+            }
+            tools = intent_tools.get(ft_result["intent"])
+            if tools:
+                # The graph routes by actual tool_calls.  Returning an intent
+                # alone used to skip tool_executor entirely for the local FT
+                # fast path, producing plausible but ungrounded answers.
+                return {
+                    "messages": [AIMessage(content="", tool_calls=[
+                        {"name": name, "args": {"query": last_query, "city": trip_city}, "id": f"ft-{index}"}
+                        for index, name in enumerate(tools, start=1)
+                    ])],
+                    "intent": ft_result["intent"],
+                    "query_rewrite": ft_result["query_rewrite"] or last_query,
+                    "react_iterations": iterations + 1,
+                }
+            return {
+                "intent": ft_result["intent"],
+                "query_rewrite": ft_result["query_rewrite"] or last_query,
+                "react_iterations": iterations + 1,
+            }
+
+    llm_with_tools = _get_llm_with_tools()
+    if llm_with_tools is None:
+        print("[ReActAgent] 无 API Key，回退到默认 amap 搜索")
+        return {
+            "intent": "amap",
+            "query_rewrite": _get_last_human_query(messages),
+            "react_iterations": iterations,
+        }
+
+    # ── 更新工作记忆 ─────────────────────────────────────────────────
+    current_working_ctx = state.get("working_context")
+    updated_ctx = extract_from_messages(messages, current_working_ctx)
+
+    # ── 构建注入了记忆的 System Prompt ───────────────────────────────
+    working_mem_text = format_for_prompt(updated_ctx)
+    long_term_text = state.get("user_long_term_prefs") or ""
+
+    system_content = _REACT_SYSTEM.format(
+        working_memory=working_mem_text if working_mem_text else "（本次对话暂无提取到偏好）",
+        long_term_prefs=long_term_text if long_term_text else "（该用户暂无历史偏好记录）",
+        city=trip_city,
+    )
+
+    # ── 调用 LLM（ReAct Think 步骤） ─────────────────────────────────
     try:
-        llm = _get_llm()
-        if llm is None:
-            print("[Router] 未配置 OPENAI_API_KEY，回退到 amap 模式")
-            return {"intent": "amap", "query_rewrite": last_query}
+        # 构造消息：system + 历史消息（过滤掉 system 消息避免重复）
+        invoke_messages = [SystemMessage(content=system_content)] + [
+            m for m in messages
+            if not isinstance(m, SystemMessage)
+        ]
 
-        response = await llm.ainvoke([
-            SystemMessage(content=ROUTER_SYSTEM_PROMPT),
-            HumanMessage(content=f"目的地城市：{trip_city}\n用户问题：{last_query}"),
-        ])
+        response: AIMessage = await llm_with_tools.ainvoke(invoke_messages)
+        _metrics.observe("model_calls", f"{settings.llm_model_router}:router", 1)
+        usage = getattr(response, "usage_metadata", None) or {}
+        input_tokens = int(usage.get("input_tokens", 0) or 0)
+        output_tokens = int(usage.get("output_tokens", 0) or 0)
+        _metrics.observe("model_usage", f"{settings.llm_model_router}:input_tokens", input_tokens)
+        _metrics.observe("model_usage", f"{settings.llm_model_router}:output_tokens", output_tokens)
+        estimated = (input_tokens * settings.router_input_cost_per_million + output_tokens * settings.router_output_cost_per_million) / 1_000_000
+        _metrics.inc("estimated_llm_cost_usd", estimated)
 
-        raw = response.content.strip()
-        json_match = re.search(r'\{.*\}', raw, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group())
-            intent = result.get("intent", "amap")
-            if intent not in ("rag", "amap", "both"):
-                intent = "amap"
-            rewritten = result.get("rewritten_query", last_query)
-            print(f"[Router] intent={intent}, rewritten_query={rewritten}")
-            return {"intent": intent, "query_rewrite": rewritten}
-    except Exception as e:
-        print(f"[Router] LLM 调用失败，回退到 amap：{e}")
+        tool_names = [tc["name"] for tc in (response.tool_calls or [])]
+        if tool_names:
+            print(f"[ReActAgent] iteration={iterations + 1}, 调用工具: {tool_names}")
+        else:
+            print(f"[ReActAgent] iteration={iterations + 1}, 无工具调用，进入 Synthesizer")
 
-    return {"intent": "amap", "query_rewrite": last_query}
+        return {
+            "messages": [response],
+            "working_context": updated_ctx,
+            "react_iterations": iterations + 1,
+            # 向后兼容：如果 LLM 没有 tool_calls，保留上一次的 query_rewrite
+            "query_rewrite": state.get("query_rewrite") or _get_last_human_query(messages),
+        }
+
+    except Exception as exc:
+        print(f"[ReActAgent] LLM 调用失败，回退到默认搜索：{exc}")
+        return {
+            "intent": "amap",
+            "query_rewrite": _get_last_human_query(messages),
+            "react_iterations": iterations,
+            "working_context": updated_ctx,
+        }
+
+
+def _has_sufficient_place_evidence(places: list, query: str = "") -> bool:
+    """Stop once explicit intent is covered; diversity is not always desired."""
+    unique_ids: set[str] = set()
+    categories: set[str] = set()
+    for place in places:
+        if isinstance(place, dict):
+            place_id = place.get("place_id")
+            category = place.get("category")
+        else:
+            place_id = getattr(place, "place_id", None)
+            category = getattr(place, "category", None)
+        if place_id:
+            unique_ids.add(str(place_id))
+        if category is not None:
+            categories.add(str(getattr(category, "value", category)))
+    requested = {category.value for category in infer_requested_categories(query)}
+    if requested:
+        minimum = max(1, len(extract_landmark_groups(query))) if extract_landmark_groups(query) else 3
+        return (
+            len(unique_ids) >= minimum
+            and requested.issubset(categories)
+            and categories.issubset(requested)
+            and request_has_all_landmarks(places, query)
+        )
+    return len(unique_ids) >= 8 and len(categories) >= 2
+
+
+def _covered_place_categories(places: list) -> set:
+    from app.schemas.place import PlaceCategory
+
+    covered: set[PlaceCategory] = set()
+    for place in places:
+        raw = place.get("category") if isinstance(place, dict) else getattr(place, "category", None)
+        value = getattr(raw, "value", raw)
+        try:
+            covered.add(PlaceCategory(str(value)))
+        except ValueError:
+            continue
+    return covered
+
+
+def _get_last_human_query(messages: list) -> str:
+    """提取最后一条用户消息文本"""
+    for m in reversed(messages):
+        if isinstance(m, HumanMessage):
+            return str(m.content)
+    return "旅游景点推荐"

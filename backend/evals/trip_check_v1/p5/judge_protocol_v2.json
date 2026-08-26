@@ -1,0 +1,118 @@
+{
+  "agreement_rule": {
+    "dimension_max_spread": 1,
+    "minimum_rate": 0.85,
+    "required_dimensions": [
+      "clarity",
+      "actionability",
+      "evidence_boundary_expression"
+    ],
+    "verdict_unanimity_required_rate": 0.85
+  },
+  "actionability_decision_tree": {
+    "aggregation": "Score every non-empty advice entry, then use the minimum entry score. An empty advice list scores 0.",
+    "automatic_repair_boundary": "has_repair describes automatic repair availability only. false never lowers an otherwise executable user or operator action.",
+    "candidate_set_boundary": "candidate_set_bound is evidence provenance. It changes actionability only when the action itself asks the user to select, compare, or confirm a candidate.",
+    "deictic_target_rule": "A phrase such as this fact or this conflict has an executable target when the supplied finding summary identifies exactly one relevant issue.",
+    "numeric_detail_rule": "A number, duration, price, distance, or prose length is never required for score 2 or 3.",
+    "ordered_scores": {
+      "0": "No next action is present, the action is internally contradictory, or executing it requires treating an unavailable or invented fact as verified.",
+      "1": "An action verb is present but no operation target can be resolved from the action plus the single represented finding, or the instruction is only a generic request to improve, optimize, handle, or adjust.",
+      "2": "The instruction names an executable operation and a resolvable target. This is sufficient even when automatic repair is unavailable, no number is given, or the user must supply or confirm information.",
+      "3": "Score 2 is satisfied and the instruction states at least one relevant condition, dependency, constraint, fallback, or decision boundary that governs execution.",
+      "4": "Score 3 is satisfied and the instruction gives an ordered multi-step path with an explicit completion, readback, or recheck condition. Mere verbosity does not qualify."
+    }
+  },
+  "dimension_anchors": {
+    "actionability": {
+      "0": "Apply actionability_decision_tree score 0.",
+      "1": "Apply actionability_decision_tree score 1.",
+      "2": "Apply actionability_decision_tree score 2; this is the minimum sufficient score.",
+      "3": "Apply actionability_decision_tree score 3.",
+      "4": "Apply actionability_decision_tree score 4."
+    },
+    "clarity": {
+      "0": "The expression is absent, contradictory, or not understandable.",
+      "1": "The issue or consequence is only implied; labels or actions appear without enough explanation to connect them.",
+      "2": "Minimum sufficient: the issue and practical consequence can be understood from the expression, including a terse structured expression.",
+      "3": "The issue, consequence, and response are explicit and easy to follow in plain language or an equivalent structured form.",
+      "4": "The explanation is unusually precise, concise, and complete without adding unsupported detail."
+    },
+    "evidence_boundary_expression": {
+      "0": "Unavailable or uncertain information is presented as verified, or the expression contradicts the supplied evidence boundary.",
+      "1": "The evidence boundary is materially ambiguous or an important unavailable fact is left unmarked.",
+      "2": "Minimum sufficient: verified, uncertain, and unavailable information are distinguishable without inventing facts.",
+      "3": "The expression explicitly identifies the relevant uncertainty or unavailable evidence and keeps the proposed action conditional.",
+      "4": "All represented claims and actions are explicitly and consistently bounded by the supplied evidence state."
+    }
+  },
+  "evaluator_instruction": [
+    "Read only the supplied bundle and produce one score for every anonymous item and slot.",
+    "Apply actionability_decision_tree before assigning actionability. Do not replace it with an intuition about answer length, automatic repair availability, or numeric detail.",
+    "Apply the numeric anchors literally; score 2 is the minimum sufficient score and is not a weak failure.",
+    "Treat candidate_expression.advice fields as a structured expression: finding_reason identifies the issue class, action is the proposed next action, uncertainty states its boundary, and the boolean fields state repair and CandidateSet binding.",
+    "Do not require prose when the structured expression communicates the same issue, consequence, action, and boundary.",
+    "Do not infer or decide factual correctness, finding severity, receipt validity, postcheck safety, or any hidden expected answer.",
+    "List an unsupported claim candidate only when its claim_id exists in the item and the expression itself exceeds the supplied evidence summary.",
+    "Derive PASS only when every dimension is at least 2 and no unsupported claim candidate is listed; otherwise derive NEEDS_REVISION.",
+    "Do not inspect repository files, governance records, custodian metadata, another round, or any external API."
+  ],
+  "evaluator_slots": [
+    {
+      "evaluator_profile_id": "p5-judge-v2-slot-1",
+      "model_id": "gpt-5.4",
+      "reasoning_effort": "high",
+      "round_index": 1
+    },
+    {
+      "evaluator_profile_id": "p5-judge-v2-slot-2",
+      "model_id": "gpt-5.6-sol",
+      "reasoning_effort": "high",
+      "round_index": 2
+    },
+    {
+      "evaluator_profile_id": "p5-judge-v2-slot-3",
+      "model_id": "gpt-5.5",
+      "reasoning_effort": "high",
+      "round_index": 3
+    }
+  ],
+  "fact_authority": "DETERMINISTIC_SCORER_ONLY",
+  "formal_attempt_rule": {
+    "invalid_round_replacement": {
+      "allowed_before_scores_accepted_only": true,
+      "maximum_full_panel_replacements": 1,
+      "replacement_scope": "ALL_THREE_ROUNDS"
+    },
+    "maximum_valid_panel_attempts": 1,
+    "quality_blocked_replacement_allowed": false,
+    "selection_policy": "NO_OUTCOME_CONDITIONED_RESAMPLING"
+  },
+  "holdout_calibration": {
+    "exact_actionability_rate_per_slot": 0.9,
+    "expected_dimension_within_one_rate_per_slot": 1.0,
+    "expected_verdict_match_rate_per_slot": 1.0,
+    "item_count": 30,
+    "minimum_panel_dimension_agreement_rate": 0.9,
+    "minimum_panel_verdict_agreement_rate": 0.9,
+    "required": true,
+    "slot_model_config_binding_required": true,
+    "source_lane": "SEALED_NONBLIND_SYNTHETIC_HOLDOUT"
+  },
+  "human_calibration_performed": false,
+  "human_evidence": false,
+  "judge_class": "automated_proxy_judge",
+  "rubric_schema_version": "trip-check-p5-judge-rubric-v2",
+  "schema_version": "trip-check-p5-judge-protocol-v2",
+  "structured_expression_fields": [
+    "finding_reason",
+    "action",
+    "uncertainty",
+    "has_repair",
+    "candidate_set_bound"
+  ],
+  "verdict_rule": {
+    "minimum_dimension_score": 2,
+    "unsupported_claim_candidate_count": 0
+  }
+}

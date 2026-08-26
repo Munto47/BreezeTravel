@@ -1,0 +1,1353 @@
+{
+  "run_id": "816d5ac2-2172-4ac9-a607-ad04e7cb82a9",
+  "kind": "task_parse",
+  "split": "blind",
+  "commit_sha": "2238c5304e3c17fae8162cbfca345d2fbdf5f076",
+  "dataset_hash": "d2c332f68e674f64ac903fc49e827a16f0155d7b51febb0dd18ea1a81260482f",
+  "corpus_hash": "3cac6c29d4edadfe86e811fcc3739a17ead71e401ae770b56fcf0bc4fc5f830f",
+  "config_hash": "0dbfa301d34f1a0018c93a774f45f3f296f3fc78bcc11c53c9040a41bc0100b7",
+  "model": null,
+  "prompt_version": "task-parser-v1",
+  "environment": "local-controlled-mock-providers",
+  "seed": 42,
+  "started_at": "2026-08-20T14:00:13.227122Z",
+  "metrics": {
+    "pass_rate": {
+      "mean": 1.0,
+      "low": 1.0,
+      "high": 1.0,
+      "n": 36
+    },
+    "sample_size": 36
+  },
+  "buckets": {
+    "city": {
+      "上海": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      },
+      "北京": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      },
+      "广州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      },
+      "成都": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      },
+      "杭州": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      },
+      "深圳": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 6
+      }
+    },
+    "error_category": {
+      "None": {
+        "mean": 1.0,
+        "low": 1.0,
+        "high": 1.0,
+        "n": 36
+      }
+    }
+  },
+  "raw_results": [
+    {
+      "case_id": "task_parse-037",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.1338999718427658,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-037"
+      },
+      "passed": true,
+      "latency_ms": 0.1338999718427658,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-037"
+    },
+    {
+      "case_id": "task_parse-038",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.06059999577701092,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-038"
+      },
+      "passed": true,
+      "latency_ms": 0.06059999577701092,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-038"
+    },
+    {
+      "case_id": "task_parse-039",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.03579998156055808,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-039"
+      },
+      "passed": true,
+      "latency_ms": 0.03579998156055808,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-039"
+    },
+    {
+      "case_id": "task_parse-040",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.04850002005696297,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-040"
+      },
+      "passed": true,
+      "latency_ms": 0.04850002005696297,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-040"
+    },
+    {
+      "case_id": "task_parse-041",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03759999526664615,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-041"
+      },
+      "passed": true,
+      "latency_ms": 0.03759999526664615,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-041"
+    },
+    {
+      "case_id": "task_parse-042",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.04349998198449612,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-042"
+      },
+      "passed": true,
+      "latency_ms": 0.04349998198449612,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-042"
+    },
+    {
+      "case_id": "task_parse-043",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.0418000272475183,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-043"
+      },
+      "passed": true,
+      "latency_ms": 0.0418000272475183,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-043"
+    },
+    {
+      "case_id": "task_parse-044",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.0399000127799809,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-044"
+      },
+      "passed": true,
+      "latency_ms": 0.0399000127799809,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-044"
+    },
+    {
+      "case_id": "task_parse-045",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.028999987989664078,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-045"
+      },
+      "passed": true,
+      "latency_ms": 0.028999987989664078,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-045"
+    },
+    {
+      "case_id": "task_parse-046",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.09300000965595245,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-046"
+      },
+      "passed": true,
+      "latency_ms": 0.09300000965595245,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-046"
+    },
+    {
+      "case_id": "task_parse-047",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.057399971410632133,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-047"
+      },
+      "passed": true,
+      "latency_ms": 0.057399971410632133,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-047"
+    },
+    {
+      "case_id": "task_parse-048",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.05169998621568084,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-048"
+      },
+      "passed": true,
+      "latency_ms": 0.05169998621568084,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-048"
+    },
+    {
+      "case_id": "task_parse-049",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.047799956519156694,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-049"
+      },
+      "passed": true,
+      "latency_ms": 0.047799956519156694,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-049"
+    },
+    {
+      "case_id": "task_parse-050",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.0439999857917428,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-050"
+      },
+      "passed": true,
+      "latency_ms": 0.0439999857917428,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-050"
+    },
+    {
+      "case_id": "task_parse-051",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.031400006264448166,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-051"
+      },
+      "passed": true,
+      "latency_ms": 0.031400006264448166,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-051"
+    },
+    {
+      "case_id": "task_parse-052",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.041899969801306725,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-052"
+      },
+      "passed": true,
+      "latency_ms": 0.041899969801306725,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-052"
+    },
+    {
+      "case_id": "task_parse-053",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.034699973184615374,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-053"
+      },
+      "passed": true,
+      "latency_ms": 0.034699973184615374,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-053"
+    },
+    {
+      "case_id": "task_parse-054",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.04040001658722758,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-054"
+      },
+      "passed": true,
+      "latency_ms": 0.04040001658722758,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-054"
+    },
+    {
+      "case_id": "task_parse-055",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.04010001430287957,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-055"
+      },
+      "passed": true,
+      "latency_ms": 0.04010001430287957,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-055"
+    },
+    {
+      "case_id": "task_parse-056",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03840000135824084,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-056"
+      },
+      "passed": true,
+      "latency_ms": 0.03840000135824084,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-056"
+    },
+    {
+      "case_id": "task_parse-057",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.02829998265951872,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-057"
+      },
+      "passed": true,
+      "latency_ms": 0.02829998265951872,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-057"
+    },
+    {
+      "case_id": "task_parse-058",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03940000897273421,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-058"
+      },
+      "passed": true,
+      "latency_ms": 0.03940000897273421,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-058"
+    },
+    {
+      "case_id": "task_parse-059",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03330002073198557,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-059"
+      },
+      "passed": true,
+      "latency_ms": 0.03330002073198557,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-059"
+    },
+    {
+      "case_id": "task_parse-060",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.039000005926936865,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-060"
+      },
+      "passed": true,
+      "latency_ms": 0.039000005926936865,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-060"
+    },
+    {
+      "case_id": "task_parse-061",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.038300000596791506,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-061"
+      },
+      "passed": true,
+      "latency_ms": 0.038300000596791506,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-061"
+    },
+    {
+      "case_id": "task_parse-062",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.036999990697950125,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-062"
+      },
+      "passed": true,
+      "latency_ms": 0.036999990697950125,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-062"
+    },
+    {
+      "case_id": "task_parse-063",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.037299992982298136,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-063"
+      },
+      "passed": true,
+      "latency_ms": 0.037299992982298136,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-063"
+    },
+    {
+      "case_id": "task_parse-064",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.04010001430287957,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-064"
+      },
+      "passed": true,
+      "latency_ms": 0.04010001430287957,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-064"
+    },
+    {
+      "case_id": "task_parse-065",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03250001464039087,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-065"
+      },
+      "passed": true,
+      "latency_ms": 0.03250001464039087,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-065"
+    },
+    {
+      "case_id": "task_parse-066",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.037999998312443495,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-066"
+      },
+      "passed": true,
+      "latency_ms": 0.037999998312443495,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-066"
+    },
+    {
+      "case_id": "task_parse-067",
+      "city": "北京",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget": 3000,
+        "city": "北京",
+        "constraint": "max_daily_travel_minutes",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "北京",
+        "days": 3,
+        "budget": 3000.0,
+        "budget_scope": "per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "max_daily_travel_minutes",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.03819999983534217,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-067"
+      },
+      "passed": true,
+      "latency_ms": 0.03819999983534217,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-067"
+    },
+    {
+      "case_id": "task_parse-068",
+      "city": "上海",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "上海",
+        "days": 2,
+        "exclude": "高强度爬山",
+        "must": "博物馆"
+      },
+      "actual": {
+        "passed": true,
+        "city": "上海",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "博物馆"
+        ],
+        "exclude": [
+          "高强度爬山"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.0371999922208488,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-068"
+      },
+      "passed": true,
+      "latency_ms": 0.0371999922208488,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-068"
+    },
+    {
+      "case_id": "task_parse-069",
+      "city": "杭州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "",
+        "clarification": [
+          "city",
+          "date_range.days"
+        ]
+      },
+      "actual": {
+        "passed": true,
+        "city": "",
+        "days": 0,
+        "budget": null,
+        "budget_scope": null,
+        "must": [],
+        "exclude": [],
+        "constraints": [],
+        "clarification": [
+          "city",
+          "date_range.days"
+        ],
+        "conflict": false,
+        "latency_ms": 0.027100031729787588,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-069"
+      },
+      "passed": true,
+      "latency_ms": 0.027100031729787588,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-069"
+    },
+    {
+      "case_id": "task_parse-070",
+      "city": "成都",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "成都",
+        "constraints": [
+          "avoid_outdoor_on_rain",
+          "max_daily_places"
+        ],
+        "days": 4
+      },
+      "actual": {
+        "passed": true,
+        "city": "成都",
+        "days": 4,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "室内"
+        ],
+        "exclude": [],
+        "constraints": [
+          "max_daily_places",
+          "avoid_outdoor_on_rain",
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.0369000481441617,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-070"
+      },
+      "passed": true,
+      "latency_ms": 0.0369000481441617,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-070"
+    },
+    {
+      "case_id": "task_parse-071",
+      "city": "广州",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "budget_scope": "per_person_per_day",
+        "city": "广州",
+        "days": 3
+      },
+      "actual": {
+        "passed": true,
+        "city": "广州",
+        "days": 3,
+        "budget": 500.0,
+        "budget_scope": "per_person_per_day",
+        "must": [],
+        "exclude": [],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": false,
+        "latency_ms": 0.030800001695752144,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-071"
+      },
+      "passed": true,
+      "latency_ms": 0.030800001695752144,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-071"
+    },
+    {
+      "case_id": "task_parse-072",
+      "city": "深圳",
+      "tags": [
+        "parser"
+      ],
+      "expected": {
+        "city": "深圳",
+        "conflict": true,
+        "days": 2
+      },
+      "actual": {
+        "passed": true,
+        "city": "深圳",
+        "days": 2,
+        "budget": null,
+        "budget_scope": null,
+        "must": [
+          "西湖"
+        ],
+        "exclude": [
+          "西湖"
+        ],
+        "constraints": [
+          "daily_hotel"
+        ],
+        "clarification": [],
+        "conflict": true,
+        "latency_ms": 0.03779999678954482,
+        "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-072"
+      },
+      "passed": true,
+      "latency_ms": 0.03779999678954482,
+      "error_category": null,
+      "reproduce": "python -m scripts.run_local_eval_suite --case task_parse-072"
+    }
+  ],
+  "bad_cases": [],
+  "production_claim_not_made": true
+}

@@ -1,0 +1,2327 @@
+[
+  {
+    "report_id": "3ab7fcb7-7fea-45aa-96df-186b09504c04",
+    "workspace_id": "pilot-tc-p1-sh-01",
+    "itinerary_id": "88f5b8a7-533e-4907-b9bb-1bf5653c09c0",
+    "itinerary_revision": 1,
+    "task_id": "workspace:pilot-tc-p1-sh-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "b4982792-0e79-5d37-bb5d-2d2b025755bc",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "988238ce8690cc14074c5fbcd2dc64ab1ee6e27d217b1a5be33b2385dac2e682",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "7f6d1016-1d21-45fe-bd7a-f02f1bdf3f91",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "533adb5a-c427-4027-b35b-78bd3555274a",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "外滩 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "place_id": "sh-bund",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "8bda296c-ded9-5f4a-825c-c8ed094a2dda"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "03798320-2c16-4610-8d86-cfb51239abc0",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "上海迪士尼乐园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "place_id": "sh-disney",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7f5b2ec0-4887-52d0-a816-3fda2736ed27"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "a91ea03f-323f-4e62-bc74-6a7389ae4d03",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "豫园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+          "place_id": "sh-yuyuan",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "32cbf4bc-a637-5c10-8628-a539f93f252c"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "18f7e771-37f0-4197-b41a-c11a46d7fbac",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "ROUTE_GAP_INSUFFICIENT",
+        "message": "相邻地点仅有 0 分钟空档，少于路线所需 90 分钟",
+        "input_values": {
+          "edge_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f->1bb581ad-7867-4011-8847-d01285d52151",
+          "from_stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "to_stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "available_minutes": 0,
+          "route_duration_minutes": 90,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "880b1003-af1f-5a95-b846-fb7ab93a5092"
+        ],
+        "repairable": true,
+        "confirmation_action": "请调整前后活动时间或更换地点"
+      },
+      {
+        "finding_id": "2758e6ec-2ffa-426e-b6fc-f696a94b3e6a",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "a91742fb-bf04-434c-a603-a87b8c59fa51",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "027d1208-975f-4837-872f-e26809316247",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 2 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "0985002f-ebd4-4d93-9953-0d92d8613b14",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "ff295b89-edc4-44b5-8f8f-74a902e2fb61",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "1e9c1ab6-f1ab-4dc6-9615-c52ce553137f",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "404f5a2b-16ff-4854-afa9-f1f99d96972b",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "9da172ac-5680-43f2-882f-255e2e88bee5",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "36a43040-df26-4f86-8e5f-9ba5857ba525",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c1002d53-55ec-48e5-b71f-f57448f5229a",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "d3681348-585b-4d8e-a8cf-4858fb8258f0",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "0dac46f5-289d-405b-9960-e6456f1ffb67",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "外滩：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-bund",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "8bda296c-ded9-5f4a-825c-c8ed094a2dda",
+          "6c7689c8-c14c-5db9-a959-099c87bef040"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "8b4713ca-6b5b-4a4a-8285-620034351040",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "上海迪士尼乐园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7f5b2ec0-4887-52d0-a816-3fda2736ed27",
+          "14495683-4f30-52cd-8951-7e95c66471ba"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "529ebe98-3038-492f-8e4e-9740301ec826",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "豫园：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "sh-yuyuan",
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "32cbf4bc-a637-5c10-8628-a539f93f252c",
+          "299cc733-395b-52e2-aa04-333d58cb25ce"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "430d18bb-9d56-40f6-ae97-2aceed95003e",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "c687fb96-3fb7-4622-b9e2-31419afde240",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "0fed3430-2f14-479c-a38f-a44dd1a19773",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "7f5b2ec0-4887-52d0-a816-3fda2736ed27",
+          "14495683-4f30-52cd-8951-7e95c66471ba"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T03:45:33.842747Z",
+    "supersedes_report_id": null
+  },
+  {
+    "report_id": "dab79b26-0efe-41f6-9b12-215bfe639f99",
+    "workspace_id": "pilot-tc-p1-sh-01",
+    "itinerary_id": "88f5b8a7-533e-4907-b9bb-1bf5653c09c0",
+    "itinerary_revision": 2,
+    "task_id": "workspace:pilot-tc-p1-sh-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "73117716-abf0-4049-8d48-958d920b4372",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "944699cd39b8e66fc5839bf41fd6f402d9658695addc46673dd8c79b3e190814",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "61c237bb-aaa8-4e01-b913-6a887e55b5fc",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bd116a01-2364-4b80-b432-1e317f350b11",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "外滩 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "place_id": "sh-bund",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "44b164c1-2d63-498e-b4c7-f3b6b32e98d5"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "92f2ccc3-2256-43a2-8ea2-a4aadbf3bc46",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "上海迪士尼乐园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "place_id": "sh-disney",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4d12944b-42ec-48c9-b031-19ccf6849749"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "d96b92da-1152-47d5-a778-c0b9579055f5",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "豫园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+          "place_id": "sh-yuyuan",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "f011f382-dac4-46ae-956d-62a44cd8df46"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "649f829d-a2b2-4684-87d6-05900581f683",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ROUTE_GAP_SUFFICIENT",
+        "message": "相邻地点空档 90 分钟，可覆盖 90 分钟路线",
+        "input_values": {
+          "edge_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f->1bb581ad-7867-4011-8847-d01285d52151",
+          "from_stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "to_stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "available_minutes": 90,
+          "route_duration_minutes": 90,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "da9bb133-495a-4a60-9627-44922b66b487"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "88292979-5c4f-438a-948c-1a3ed73d934c",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "62300f0a-1e90-498e-b5f2-a169881abee4",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "335acb83-b477-46d1-a70f-ca42cafc7e38",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 2 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "32d59867-5501-4034-80cf-b282aff2d523",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "08e405ed-2f69-42aa-9d64-8e03d0eaea95",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "326b6228-2c76-4496-8de2-1fa0bae84947",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "2a02ba4c-b93e-445a-8334-990e59d1a567",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "51c6c7da-bf3d-4001-a26d-bdc9fcab9f53",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "b0150e13-8a28-42aa-a1a3-c016d3a7b08f",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "3545f733-89e4-41ed-a1d3-4aebedc26ff9",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bfa09da2-ebfc-4942-b4c2-6fb9ea2f7c49",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "b1e18dad-34af-4a79-9567-580a2c178bc5",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "外滩：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-bund",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "44b164c1-2d63-498e-b4c7-f3b6b32e98d5",
+          "c62d62de-ed05-4b16-949c-8b963eab1b1f"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "489fa395-9067-415d-9ff5-6cbd5de04cc0",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "上海迪士尼乐园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4d12944b-42ec-48c9-b031-19ccf6849749",
+          "f8d9848f-7e94-4aff-b732-8eddf3ebb693"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "0be0a597-e829-4f4a-bab4-744c6f2209e5",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "豫园：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "sh-yuyuan",
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "f011f382-dac4-46ae-956d-62a44cd8df46",
+          "3bfd179c-dcce-40b7-a000-f9ca2b72824d"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "fbd9868d-8450-4e2f-901c-b3c979f4a8c9",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "515d383e-429f-4730-b217-c576dd16c97a",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "eb09c9f6-024e-4dbc-9964-9de97b9babde",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "10:30",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "12:00",
+              "end_time": "13:00",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "4d12944b-42ec-48c9-b031-19ccf6849749",
+          "f8d9848f-7e94-4aff-b732-8eddf3ebb693"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T03:45:33.842747Z",
+    "supersedes_report_id": "3ab7fcb7-7fea-45aa-96df-186b09504c04"
+  },
+  {
+    "report_id": "dd6ff5d8-1a1c-4b1f-a9de-8b35d9ea643a",
+    "workspace_id": "pilot-tc-p1-sh-01",
+    "itinerary_id": "88f5b8a7-533e-4907-b9bb-1bf5653c09c0",
+    "itinerary_revision": 2,
+    "task_id": "workspace:pilot-tc-p1-sh-01:default",
+    "task_revision": 1,
+    "member_constraint_revision_set": {},
+    "evidence_snapshot_id": "b9b50e03-ce8a-485c-95b7-5f3b7ffa5fda",
+    "audit_rule_set_version": "audit-rules-b6856eaedca7a615",
+    "report_input_hash": "bd5a514385ef9f7d59f78754d1c3bf86c932fa7517c30706a2edc79b8451aafa",
+    "overall_status": "VIOLATED",
+    "findings": [
+      {
+        "finding_id": "c834872d-0105-40b4-9bdc-4f51c96fa477",
+        "rule_id": "audit.input_completeness",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "AUDIT_INPUT_COMPLETE",
+        "message": "行程日期、天数和地点实体满足审计输入要求",
+        "input_values": {},
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bc69fe8e-50db-4a3f-ac83-77026472e806",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "外滩 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "place_id": "sh-bund",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "5dc7b838-b0b7-424c-bd71-c9e26f253960"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "dd616d16-d8b9-4840-b13c-51d509f7e95e",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "上海迪士尼乐园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "place_id": "sh-disney",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "2f37d8d4-1fa3-408d-a489-88717543d845"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "bd3630cf-e2e5-4b53-beab-859c0e51f66e",
+        "rule_id": "audit.place_city",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "PLACE_CITY_MATCH",
+        "message": "豫园 的地点身份城市与行程城市一致",
+        "input_values": {
+          "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+          "place_id": "sh-yuyuan",
+          "target_city": "上海",
+          "observed_cities": [
+            "上海"
+          ],
+          "freshness_statuses": [
+            "FRESH"
+          ],
+          "observed_city": "上海"
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "33a5b352-e02b-4d31-831f-1deaaa78f320"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "837562eb-1a1f-46f2-8482-a86a406b74d1",
+        "rule_id": "audit.route_gap",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ROUTE_GAP_SUFFICIENT",
+        "message": "相邻地点空档 90 分钟，可覆盖 90 分钟路线",
+        "input_values": {
+          "edge_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f->1bb581ad-7867-4011-8847-d01285d52151",
+          "from_stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "to_stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+          "available_minutes": 90,
+          "route_duration_minutes": 90,
+          "expected_mode": "driving",
+          "observed_mode": "driving",
+          "evidence_freshness": [
+            "FRESH"
+          ],
+          "evidence_unknown_reason": null
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "63c3f678-ac68-457d-9fc1-6e0f3fa3b935"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "b38cb6bb-147f-43cf-98e4-49dd52c24675",
+        "rule_id": "constraint.duplicate",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "NO_DUPLICATE_PLACE",
+        "message": "行程没有重复地点",
+        "input_values": {
+          "day_index": null,
+          "place_id": null,
+          "day_stops": []
+        },
+        "affected_days": [],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "7c698bc3-3de3-4e12-baa2-d58a5b8a6347",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "TIME_CHAIN_VALID",
+        "message": "第 1 天时间链连续有效",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c9e855a9-c061-4732-8279-b070d9c38236",
+        "rule_id": "constraint.time_chain",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "TIME_DATA_INVALID",
+        "message": "第 2 天时间链缺少可解析时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充该日程的开始和结束时间后重新审计"
+      },
+      {
+        "finding_id": "848b7d1e-a132-461d-88d5-d45f829825ea",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "c640bf2e-de5f-4321-8807-bf5ada74a48d",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 1 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "05c9298b-c208-4169-95d0-441bbcd9bf71",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天午餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "7ac28365-dfb8-4bd5-aec0-2dd05c360493",
+        "rule_id": "constraint.meal_window",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "MEAL_WINDOW_EMPTY",
+        "message": "第 2 天晚餐时段没有餐饮地点",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "977b0040-0d6d-4974-a5cb-37b9205f26c0",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 1 天没有餐饮安排",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "80dff2c8-6311-465b-8361-bca1938307c2",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 1 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "468ca7d8-fa8b-4958-ad14-3a2ca9379027",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "MEDIUM",
+        "reason_code": "DAILY_FOOD_MISSING",
+        "message": "第 2 天没有餐饮安排",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": true,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "e6c0b455-c5f5-414a-8a9f-2d53ca0f7aa4",
+        "rule_id": "constraint.pacing",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "ADJACENT_CATEGORY_DIVERSE",
+        "message": "第 2 天相邻地点没有可确认的同类重复",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "3336c4d6-f449-4a9a-a1de-d4d1196d909a",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "外滩：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-bund",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "5dc7b838-b0b7-424c-bd71-c9e26f253960",
+          "61501315-24b7-42dc-9e4c-c6dece92fdc9"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "adda3c0c-8139-43c8-9961-5c43a31c2e5b",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "SATISFIED",
+        "severity": "INFO",
+        "reason_code": "WITHIN_OPENING_HOURS",
+        "message": "上海迪士尼乐园：安排在营业时段内",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "2f37d8d4-1fa3-408d-a489-88717543d845",
+          "9c034f48-b820-4603-b4d3-c1d09c72268a"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      },
+      {
+        "finding_id": "f256c018-ab1d-4ebb-9d8b-63cc12f0ff79",
+        "rule_id": "constraint.opening_hours",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "HIGH",
+        "reason_code": "OPENING_HOURS_MISSING",
+        "message": "豫园：缺少可验证营业时间",
+        "input_values": {
+          "day_index": 1,
+          "place_id": "sh-yuyuan",
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [
+          "f095b761-d2cf-443a-9e50-a8480f733c2e"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "33a5b352-e02b-4d31-831f-1deaaa78f320",
+          "5a2783f2-385c-4b06-855b-13cdcdd3bd93"
+        ],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "f04e2aba-b857-4c92-b994-c345c22a4c6f",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 1 天缺少天气数据",
+        "input_values": {
+          "day_index": 0,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "635513af-a39f-4e0d-aa73-c9f8d5feb7a2",
+        "rule_id": "constraint.weather",
+        "rule_version": "1.0.0",
+        "status": "UNKNOWN",
+        "severity": "MEDIUM",
+        "reason_code": "WEATHER_DATA_MISSING",
+        "message": "第 2 天缺少天气数据",
+        "input_values": {
+          "day_index": 1,
+          "place_id": null,
+          "day_stops": [
+            {
+              "stop_id": "f095b761-d2cf-443a-9e50-a8480f733c2e",
+              "place_id": "sh-yuyuan",
+              "start_time": "10:00",
+              "end_time": null,
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          1
+        ],
+        "affected_stop_ids": [],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [],
+        "repairable": false,
+        "confirmation_action": "请补充或刷新对应事实后重新审计"
+      },
+      {
+        "finding_id": "4acd3d15-68a0-4863-acfc-70b0c994b286",
+        "rule_id": "constraint.daily_hotel",
+        "rule_version": "1.0.0",
+        "status": "VIOLATED",
+        "severity": "HIGH",
+        "reason_code": "DAILY_HOTEL_MISSING",
+        "message": "第 1 天末尾缺少酒店",
+        "input_values": {
+          "day_index": 0,
+          "place_id": "sh-disney",
+          "day_stops": [
+            {
+              "stop_id": "3bc51c76-ed9c-47ef-b804-e4d0ab7dc53f",
+              "place_id": "sh-bund",
+              "start_time": "09:00",
+              "end_time": "12:00",
+              "locked": false,
+              "fixed_commitment": false
+            },
+            {
+              "stop_id": "1bb581ad-7867-4011-8847-d01285d52151",
+              "place_id": "sh-disney",
+              "start_time": "13:30",
+              "end_time": "14:30",
+              "locked": false,
+              "fixed_commitment": false
+            }
+          ]
+        },
+        "affected_days": [
+          0
+        ],
+        "affected_stop_ids": [
+          "1bb581ad-7867-4011-8847-d01285d52151"
+        ],
+        "affected_member_ids": [],
+        "evidence_fact_ids": [
+          "2f37d8d4-1fa3-408d-a489-88717543d845",
+          "9c034f48-b820-4603-b4d3-c1d09c72268a"
+        ],
+        "repairable": false,
+        "confirmation_action": null
+      }
+    ],
+    "created_at": "2026-08-23T03:45:33.842747Z",
+    "supersedes_report_id": "3ab7fcb7-7fea-45aa-96df-186b09504c04"
+  }
+]

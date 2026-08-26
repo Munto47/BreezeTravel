@@ -1,0 +1,327 @@
+{
+  "advice_bundle_id": "74926532-4803-5bcd-a63d-9b5738783124",
+  "workspace_id": "pilot-tc-p1-sh-03",
+  "run_id": "5c709af5-c779-4b03-af0d-fe11606b7757",
+  "report_id": "de6ce827-d366-4ea9-a583-dfc88c84c664",
+  "itinerary_revision": 1,
+  "brief_revision": 2,
+  "evidence_snapshot_id": "3946ea83-590c-530b-a11e-4ecd4c27396a",
+  "actions": [
+    {
+      "advice_id": "e8f71627-944b-52c2-a093-2e2fe5808b6c",
+      "finding_id": "b49cb5aa-4125-4059-a62d-9b98ec4dff11",
+      "action": "请补充该日程的开始和结束时间后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "871f51b8-3fca-50bc-adfb-622d4def0a7c",
+      "finding_id": "451338ab-175c-466a-b5c9-2a52604e46da",
+      "action": "请补充该日程的开始和结束时间后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "0c0182fc-0fa7-5d0f-9bb5-0a0cb9a68613",
+      "finding_id": "a4f918a3-8379-4abe-9fb5-dbf7dd1b5e47",
+      "action": "请补充该日程的开始和结束时间后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "6074e1b0-f8b2-587e-a54f-14f7b80e08ae",
+      "finding_id": "a42f3a59-c33f-4bb6-931b-fec309affe0e",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "edcf067e-f540-5bf4-b7c7-4e86e18d2299",
+      "finding_id": "2fe20d8f-ada6-4efa-b13d-a1a3e4c1ce46",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "67061433-05c5-56fb-b139-cb2a6200696c",
+      "finding_id": "568b89b0-7c51-499e-b19d-7c74dcd1ba38",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "e339af92-d002-524f-b312-e13e03a47d36",
+      "finding_id": "401a91be-d88f-48b5-981b-9dd15faa1d4e",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "e53bd785-2bf2-505a-adb7-2175b2870a57",
+      "finding_id": "75fedab5-7414-48b7-aaf1-55f586448a6a",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "41f602ae-effb-52f0-ac06-26c28efbaa1f",
+      "finding_id": "4f031d45-602a-470b-82c8-3885c9296576",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "0cd5357f-7863-59c7-8b65-0bf6f1a7492f",
+      "finding_id": "4b74884c-33af-45b6-ac55-8b2192f05bab",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "f200ada3-0268-573a-85bf-7cac4eb04963",
+      "finding_id": "1081fbd9-aa52-41d1-8d70-ecf378fa4f8e",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "1a1e7610-7f80-5c44-b33a-0528b6e31ec1",
+      "finding_id": "d702f11d-b43d-4307-882e-ad336a4b9021",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "92b2de22-5e43-5964-989c-8d340d5e86e7",
+      "finding_id": "2b904867-147b-45c6-887d-190efd8e43aa",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [
+        "d302b507-ea21-58f4-a493-2bb3380fc36a",
+        "96e65177-5b20-5afb-a6e8-1f6641f92ddd"
+      ],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "ce9d0c3c-156e-5b0a-a383-a1b384438a12",
+      "finding_id": "39fa2644-669a-41b8-97ab-db86d07a09c1",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [
+        "75a35eae-2b1b-5dc7-9af5-45c322a44da9",
+        "51a4112f-f392-52d4-8468-bd371b321280"
+      ],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "f069b4c4-6ea9-5687-bf5b-829d800a07c2",
+      "finding_id": "d5c64bba-e71a-479d-b5d3-6cad1bb0b94b",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [
+        "f06b51c4-63c9-56b8-aef5-6d423f7ba6ce",
+        "b4d50937-9559-5a06-a7c1-cf64961b7823"
+      ],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "9f298b07-6294-5e41-a994-66d335d943f3",
+      "finding_id": "921b3b24-930b-4523-9caf-978541fcb60c",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "59b822c7-0d10-5a31-a327-a99482e9bb9f",
+      "finding_id": "ae20b946-3e37-457e-9ef8-f57004864dc1",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "858ceb36-d53c-5086-b9bc-ef448a4db148",
+      "finding_id": "728f1df4-0b09-4f7b-bb9c-547b12861dd3",
+      "action": "请补充或刷新对应事实后重新审计",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "7d24dfd6-fa67-58fc-b765-733263620fa5",
+      "finding_id": "91d44b3b-58c9-4110-85b0-ddefafc1c800",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [
+        "d302b507-ea21-58f4-a493-2bb3380fc36a",
+        "96e65177-5b20-5afb-a6e8-1f6641f92ddd"
+      ],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    },
+    {
+      "advice_id": "79fadab7-8c68-5925-86cf-3df66cf4e3f3",
+      "finding_id": "c8649981-f06b-4914-9889-4690759492c9",
+      "action": "补充该项事实后重新运行核验",
+      "expected_impact": "补齐不确定事实或解除当前冲突，不会把 UNKNOWN 直接视为通过",
+      "uncertainty": "当前没有通过安全门禁的自动修复，系统不会代替用户确认",
+      "candidate_set_id": null,
+      "evidence_fact_ids": [
+        "75a35eae-2b1b-5dc7-9af5-45c322a44da9",
+        "51a4112f-f392-52d4-8468-bd371b321280"
+      ],
+      "provider_receipt_ids": [
+        "50ba7bcf-48d1-506e-8b75-0d60a708cb63"
+      ],
+      "route_delta": null,
+      "repair_id": null,
+      "tradeoffs": []
+    }
+  ],
+  "created_at": "2026-08-23T07:51:30.611189Z"
+}

@@ -1,0 +1,81 @@
+{
+  "itinerary_id": "p3-北京-itinerary",
+  "workspace_id": "p3-北京-workspace",
+  "revision": 1,
+  "parent_revision": null,
+  "source_type": "IMPORT",
+  "city": "北京",
+  "date_range": {
+    "start": "2026-09-01",
+    "end": "2026-09-02"
+  },
+  "days": [
+    {
+      "day_index": 0,
+      "date": "2026-09-01",
+      "stops": [
+        {
+          "stop_id": "stop-1",
+          "place_id": "北京-place-1",
+          "day_index": 0,
+          "order_index": 0,
+          "start_time": null,
+          "end_time": null,
+          "visit_duration_minutes": null,
+          "transport_to_next": null,
+          "raw_name": "受控地点一",
+          "source_raw_stop_id": null,
+          "resolution_status": "USER_CONFIRMED",
+          "commitment_kind": null,
+          "fixed_commitment": false,
+          "locked": false,
+          "category": "attraction",
+          "notes": ""
+        },
+        {
+          "stop_id": "stop-2",
+          "place_id": "北京-place-2",
+          "day_index": 0,
+          "order_index": 1,
+          "start_time": null,
+          "end_time": null,
+          "visit_duration_minutes": null,
+          "transport_to_next": null,
+          "raw_name": "受控地点二",
+          "source_raw_stop_id": null,
+          "resolution_status": "USER_CONFIRMED",
+          "commitment_kind": null,
+          "fixed_commitment": false,
+          "locked": false,
+          "category": "attraction",
+          "notes": ""
+        }
+      ]
+    },
+    {
+      "day_index": 1,
+      "date": "2026-09-02",
+      "stops": []
+    }
+  ],
+  "locked_commitments": [],
+  "change_summary": {
+    "map_stop_projections": {
+      "stop-1": {
+        "coords": {
+          "lng": 116.397,
+          "lat": 39.918
+        }
+      },
+      "stop-2": {
+        "coords": {
+          "lng": 116.407,
+          "lat": 39.928
+        }
+      }
+    }
+  },
+  "created_by": "p3-provider-runner",
+  "created_at": "2026-08-23T07:51:17.099601Z",
+  "content_hash": "85693afe147935296a2e97d5e0fc1680b981f6231714a5b10d94c29841a83d3d"
+}

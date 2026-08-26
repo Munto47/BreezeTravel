@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "evidence_class": "real_provider_local_authorized",
+  "evidence_subtype": "application_adapter_smoke",
+  "claim_boundary": {
+    "is_real_provider": true,
+    "is_local_authorized": true,
+    "is_public_internet_e2e": false,
+    "is_human_evidence": false,
+    "is_release_approval": false
+  },
+  "runtime": {
+    "runtime_profile": "local_real",
+    "amap_mock": false,
+    "demo_mode": false,
+    "qweather_auth_type": "jwt",
+    "qweather_custom_host_used": true,
+    "authentication_material_persisted": false
+  },
+  "run_started_at": "2026-08-20T14:39:19.812988Z",
+  "run_completed_at": "2026-08-20T14:39:20.359161Z",
+  "overall_status": "passed",
+  "validation_errors": [],
+  "samples": [
+    {
+      "case_id": "adapter_amap_entity_beijing",
+      "adapter_path": "app.importing.entity_resolver.AmapEntityCandidateProvider.search",
+      "status": "ok",
+      "request_hash": "sha256:27e4a15c3b8907acb48117881744623cf7b6fee66e762af9ab33055b1a0e4cb3",
+      "response_hash": "da8239824b96775638f5610f9cc1d44c62dcf549a0d5f3bc00ee47cd82246ed3",
+      "response_hash_scope": "raw_provider_payload",
+      "observed_at": "2026-08-20T14:39:20.049422Z",
+      "latency_ms": 238.78,
+      "result_count": 1,
+      "error_category": null,
+      "sample_result": {
+        "name": "故宫博物院",
+        "provider_place_id": "B000A8UIN8",
+        "execution_mode": "live",
+        "retrieval_provider": "amap"
+      }
+    },
+    {
+      "case_id": "adapter_amap_route_beijing",
+      "adapter_path": "app.itineraries.route_refresh.AmapRouteEvidenceProvider.fetch",
+      "status": "ok",
+      "request_hash": "sha256:1e703c4d0c3e9969047baa0961767a4bec5e585df063e2e6e5bca6a777802894",
+      "response_hash": "e6eea6c0bfd6a667d4711dc34c7eba4a4f6d2866340654ace189f0856c7727a5",
+      "response_hash_scope": "raw_provider_payload",
+      "observed_at": "2026-08-20T14:39:20.126226Z",
+      "latency_ms": 74.81,
+      "result_count": 1,
+      "error_category": null,
+      "sample_result": {
+        "source": "amap_driving_route",
+        "duration_minutes": 20,
+        "distance_km": 6.092
+      }
+    },
+    {
+      "case_id": "adapter_qweather_planner_beijing",
+      "adapter_path": "app.agents.planner.nodes.weather_fetcher.run",
+      "status": "ok",
+      "request_hash": "sha256:e1500e005e859b034955539f84b8f8c514eed0c6b8e8155ee7ffdc95d00ce2a8",
+      "response_hash": "sha256:af64df981393671201da735c04a1c920c30c42b0a4f33cc30a3411332d01cfc0",
+      "response_hash_scope": "normalized_adapter_output",
+      "observed_at": "2026-08-20T14:39:20.359066Z",
+      "latency_ms": 232.32,
+      "result_count": 1,
+      "error_category": null,
+      "sample_result": {
+        "date": "2026-08-20",
+        "condition": "cloudy",
+        "precip_mm": 2.0,
+        "trace": [
+          "[WeatherFetcher] 获取到 1/1 天天气预报"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,200 @@
+{
+  "schema_version": "dual-entry-manifest-v1",
+  "dataset_id": "breezetravel-dual-entry-v1",
+  "dataset_status": "DEVELOPMENT_READY_FINAL_GATE_SEEDED",
+  "created_at": "2026-08-21T00:00:00+08:00",
+  "scope": {
+    "cities": [
+      "北京",
+      "上海",
+      "杭州"
+    ],
+    "trip_days": {
+      "min": 2,
+      "max": 5
+    },
+    "group_size": {
+      "min": 2,
+      "max": 5
+    },
+    "entries": [
+      "IMPORT",
+      "BUILDER"
+    ]
+  },
+  "files": [
+    {
+      "split": "pilot",
+      "inputs": "pilot.inputs.jsonl",
+      "labels": "pilot.labels.jsonl",
+      "case_count": 6
+    },
+    {
+      "split": "dev",
+      "inputs": "dev.inputs.jsonl",
+      "labels": "dev.labels.jsonl",
+      "case_count": 60
+    },
+    {
+      "split": "regression",
+      "inputs": "regression.inputs.jsonl",
+      "labels": "regression.labels.jsonl",
+      "case_count": 12
+    },
+    {
+      "split": "frozen_blind",
+      "inputs": "frozen_blind.inputs.jsonl",
+      "labels_seal": "sealed/frozen_blind.labels.jsonl",
+      "labels_seal_sha256": "cd5e44e1575c8392384f6ef5f6e48e87ac56e4cbee54f4b4e8d6ea2b47d24aa7",
+      "label_storage": "external_bundle_only",
+      "case_count": 18
+    }
+  ],
+  "current_counts": {
+    "total": 96,
+    "by_city": {
+      "北京": 32,
+      "上海": 32,
+      "杭州": 32
+    },
+    "by_entry": {
+      "IMPORT": 55,
+      "BUILDER": 41
+    },
+    "by_split": {
+      "pilot": 6,
+      "dev": 60,
+      "regression": 12,
+      "frozen_blind": 18
+    }
+  },
+  "builder_development_expansion": {
+    "added_dev": 12,
+    "added_regression": 6,
+    "added_frozen_blind": 0,
+    "three_city_added_each": 6,
+    "g2_four_stop_session_seeds": 3,
+    "g5_browser_recovery_seeds": 6,
+    "release_minimums_unchanged": true
+  },
+  "normalization_contract": {
+    "version": "normalized-input-sha256-v1",
+    "scope": "case.input only",
+    "unicode": "NFC",
+    "newlines": "CRLF and CR normalized to LF",
+    "json": "UTF-8, object keys sorted, compact separators, array order preserved",
+    "duplicate_policy": "any duplicate normalized input fails structural validation"
+  },
+  "receipt_evidence_contract": {
+    "subject_registry_scope": "static case input subtrees only",
+    "legacy_unbound_builder_subjects": 111,
+    "provider_binding_rule": "Exact canonical identity plus immutable source artifact and receipt bytes are required; name, coordinates, current time, source prior, UGC and official route structure never establish a Provider receipt.",
+    "development_static_subjects": "CONTROLLED_FIXTURE_EXECUTION with provider_call_attempted=false and current_fact_authority=false",
+    "frozen_blind_static_subjects": "UNAVAILABLE until an external historical-call artifact is provisioned",
+    "runtime_receipts_are_separate": true,
+    "reference_provider_snapshot": {
+      "path": "backend/evidence/real_provider_local_authorized/suggestion_snapshot_2026-08-21.json",
+      "sha256": "9e93086e4c764ac7c5aa628d6e857a7b03f3a8939a9971a7631e27607a792c04",
+      "identity_field": "provider_receipt.canonical_place_id",
+      "binding_status": "REFERENCE_ONLY_NOT_STATIC_CASE_RECEIPT"
+    }
+  },
+  "runtime_receipt_policy": {
+    "required_subjects": [
+      "IMPORT_OFFERED_CANDIDATE",
+      "IMPORT_REJECTED_CANDIDATE",
+      "IMPORT_MATERIALIZED_PLACE",
+      "BUILDER_CANDIDATE",
+      "BUILDER_ROUTE_LEG",
+      "BUILDER_CURRENT_FACT"
+    ],
+    "static_fixture_substitution_allowed": false,
+    "source_prior_substitution_allowed": false,
+    "required_run_artifact": "provider_receipts.jsonl"
+  },
+  "family_isolation_contract": {
+    "development_splits": [
+      "pilot",
+      "dev",
+      "regression"
+    ],
+    "blind_split": "frozen_blind",
+    "fields": [
+      "source_family_id",
+      "template_family_id",
+      "generator_family_id",
+      "mutation_parent_case_id"
+    ],
+    "policy": "a family or mutation ancestry crossing development and blind fails closed",
+    "current_assignment": "recorded source document sets are hash-grouped; unavailable source/template/generator lineage uses a shared sentinel plus explicit UNAVAILABLE status, never a case-ID pseudo-family"
+  },
+  "final_gate_minimums": {
+    "frozen_blind_import": 90,
+    "frozen_blind_builder_suggestion": 45,
+    "frozen_blind_fault_or_recovery": 24,
+    "nightly_http_import": 30,
+    "nightly_four_stop_builder_sessions": 9,
+    "browser_recovery_scenarios": 9,
+    "weekly_live_cases": 30,
+    "human_itineraries": 30,
+    "human_organizers_min": 15
+  },
+  "release_eligible": false,
+  "release_blockers": [
+    "FROZEN_BLIND_CORPUS_BELOW_STATISTICAL_GATE",
+    "IMPORT_AND_RELEASE_PROVIDER_SNAPSHOT_COVERAGE_INCOMPLETE",
+    "FROZEN_BLIND_STATIC_SUBJECT_EVIDENCE_UNAVAILABLE",
+    "TEMPLATE_AND_GENERATOR_LINEAGE_UNAVAILABLE",
+    "FROZEN_BLIND_EXTERNAL_BUNDLE_NOT_PROVISIONED",
+    "G2_FOUR_STOP_PRODUCT_HTTP_NOT_PASSED",
+    "WEEKLY_LIVE_GATE_NOT_RUN",
+    "HUMAN_CALIBRATION_IS_0_OF_30"
+  ],
+  "blind_label_policy": {
+    "repository_scoring_payload_present": false,
+    "repository_seal_only": true,
+    "generator_access": false,
+    "sut_access": false,
+    "judge_access": false,
+    "scorer_access": "after_product_output_only",
+    "production_storage": "CI secret artifact or separately encrypted object storage",
+    "required_bindings": [
+      "bundle_sha256",
+      "dataset_content_sha256",
+      "case_ids_sha256",
+      "run_id",
+      "run_spec_sha256",
+      "product_outputs_sha256"
+    ]
+  },
+  "truth_boundaries": {
+    "high_fidelity_synthetic": "Development diagnostics and deterministic controlled truth only; never human evidence.",
+    "automated_proxy_judge": "Semantic scoring only; never decides current facts or human adoption.",
+    "provider_receipt": "Proves only the observed call and time; fixture or snapshot is not live.",
+    "metric_oracle": "Structured synthetic or controlled truth makes metrics computable but is not human-calibrated truth; N_A is mandatory when exact truth is absent.",
+    "human_calibration": "Only consented real organizers may increment the human manifest."
+  },
+  "source_registry": "source_registry.jsonl",
+  "subject_receipt_registry": "subject_receipt_registry.jsonl",
+  "subject_receipt_registry_sha256": "105d0c1db36b19bfc93c6020c089035495d4b84636c9389160990c5c4846ac81",
+  "schemas": {
+    "case": "case.schema.json",
+    "label": "label.schema.json",
+    "blind_bundle": "blind_bundle.schema.json",
+    "sealed_label_manifest": "sealed_label_manifest.schema.json",
+    "frozen_suggestion_ranking_oracle": "frozen_suggestion_ranking_oracle.schema.json",
+    "source": "source.schema.json",
+    "subject_receipt": "subject_receipt.schema.json",
+    "run_spec": "run_spec.schema.json"
+  },
+  "controlled_fixture_import_http_30": {
+    "case_count": 30,
+    "city_counts": {
+      "北京": 11,
+      "上海": 9,
+      "杭州": 10
+    },
+    "claim_scope": "controlled_fixture_development_30",
+    "g2_frozen_snapshot_claim": false
+  }
+}

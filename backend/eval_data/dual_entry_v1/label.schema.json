@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/dual-entry-label-v1.json",
+  "title": "BreezeTravel deterministic and semantic evaluation oracle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "case_id", "deterministic_truth", "metric_oracles", "gate_assertions"],
+  "properties": {
+    "schema_version": {"const": "dual-entry-label-v1"},
+    "case_id": {"type": "string", "minLength": 3},
+    "deterministic_truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["must_pass", "must_fail", "must_be_unknown", "must_not_happen"],
+      "properties": {
+        "must_pass": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "must_fail": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "must_be_unknown": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "must_not_happen": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "expected_parse": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "stop_names": {"type": "array", "items": {"type": "string"}},
+            "fixed_commitment_names": {"type": "array", "items": {"type": "string"}},
+            "source_span_readback_rate": {"type": "number", "minimum": 0, "maximum": 1},
+            "expected_error_codes": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "expected_resolutions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["raw_name", "status"],
+            "properties": {
+              "raw_name": {"type": "string"},
+              "status": {"enum": ["AUTO_MATCHED", "AMBIGUOUS", "USER_CONFIRMED", "NOT_FOUND"]},
+              "canonical_place_id": {"type": ["string", "null"]},
+              "requires_user_confirmation": {"type": "boolean"}
+            }
+          }
+        },
+        "expected_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason_code", "status", "severity"],
+            "properties": {
+              "reason_code": {"type": "string"},
+              "status": {"enum": ["SATISFIED", "VIOLATED", "UNKNOWN"]},
+              "severity": {"enum": ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]},
+              "subject": {"type": ["string", "null"]},
+              "affected_member": {"type": ["string", "null"]}
+            }
+          }
+        },
+        "repair_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max_options": {"type": "integer", "minimum": 0, "maximum": 2},
+            "postcheck_required": {"type": "boolean"},
+            "locked_items_preserved": {"type": "boolean"},
+            "no_new_hard_violation": {"type": "boolean"},
+            "allowed_operation_types": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "suggestion_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minimum_visible": {"type": "integer", "minimum": 0, "maximum": 6},
+            "maximum_visible": {"type": "integer", "minimum": 0, "maximum": 6},
+            "top3_must_contain_usable": {"type": "boolean"},
+            "required_intent_coverage": {"type": "array", "items": {"enum": ["NEARBY", "POPULAR", "FUN", "FOOD"]}},
+            "no_llm_calls": {"type": "boolean"},
+            "no_full_planner_calls": {"type": "boolean"},
+            "required_events": {"type": "array", "items": {"type": "string"}},
+            "changed_route_edges_only": {"type": "boolean"},
+            "visible_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "excluded_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "shortage_reason_required": {"type": "boolean"},
+            "fixed_snapshot_order_stable": {"type": "boolean"}
+          }
+        },
+        "query_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query_mode", "uses_current_time", "uses_member_constraints", "uses_selected_places"],
+          "properties": {
+            "query_mode": {"enum": ["ANCHOR", "INSERT_EDGE"]},
+            "anchor_stop_id": {"type": "string"},
+            "insert_after_stop_id": {"type": "string"},
+            "insert_before_stop_id": {"type": "string"},
+            "uses_current_time": {"type": "boolean"},
+            "uses_member_constraints": {"type": "boolean"},
+            "uses_selected_places": {"type": "boolean"},
+            "provider_query_center": {"enum": ["ANCHOR_COORDS", "INSERT_EDGE_GEOMETRY"]}
+          }
+        },
+        "suggestion_set_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frozen_fields": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"enum": ["candidate_id", "canonical_place_id", "coordinates", "classification", "route_delta", "hard_gate", "evidence_freshness", "score_components", "explanation_codes", "provider_receipt_id"]}
+            },
+            "rejected_mutations": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "expected_error_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "cross_workspace_rejected": {"type": "boolean"},
+            "expired_rejected": {"type": "boolean"},
+            "stale_revision_rejected": {"type": "boolean"}
+          }
+        },
+        "acceptance_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "next_anchor_place_id": {"type": "string"},
+            "revision_increment": {"type": "integer", "minimum": 0, "maximum": 1},
+            "atomic_writes": {"type": "array", "uniqueItems": true, "items": {"enum": ["revision", "projection", "provider_receipt", "recommendation_event"]}},
+            "rollback_fault_points": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "same_key_same_request_replays": {"type": "boolean"},
+            "same_key_different_request_conflicts": {"type": "boolean"},
+            "client_place_facts_ignored": {"type": "boolean"},
+            "if_match_required": {"type": "boolean"}
+          }
+        },
+        "event_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ordered_types": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+            "required_correlation_fields": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "append_only": {"type": "boolean"},
+            "readable_after_restart": {"type": "boolean"}
+          }
+        },
+        "interaction_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "drag_button_command_hash_equal": {"type": "boolean"},
+            "semantic_content_hash_equal": {"type": "boolean"},
+            "changed_days_equal": {"type": "boolean"},
+            "changed_edges_equal": {"type": "boolean"},
+            "affected_rules_equal": {"type": "boolean"},
+            "undo_revision_increment": {"type": "integer", "minimum": 0, "maximum": 1},
+            "restored_semantic_state": {"type": "boolean"}
+          }
+        },
+        "recovery_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authoritative_store": {"const": "POSTGRESQL"},
+            "new_client_readback": {"type": "boolean"},
+            "revision_preserved": {"type": "boolean"},
+            "projection_preserved": {"type": "boolean"},
+            "receipts_preserved": {"type": "boolean"},
+            "events_preserved": {"type": "boolean"},
+            "yjs_is_fact_source": {"const": false}
+          }
+        },
+        "expected_candidate_order": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "acceptable_candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "expected_tiers": {"type": "object", "additionalProperties": {"enum": ["ON_ROUTE", "ACCEPTABLE_DETOUR", "DEFER_TO_OTHER_DAY", "INFEASIBLE"]}}
+      }
+    },
+    "judge_rubric": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "required_dimensions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["entity_intent", "route_pacing", "member_fit", "minimal_repair", "explanation", "overall_usefulness"]}
+        },
+        "minimum_score": {"type": "number", "minimum": 1, "maximum": 5},
+        "fact_id_citation_required": {"type": "boolean"}
+      }
+    },
+    "metric_oracles": {"$ref": "#/$defs/metricOracles"},
+    "gate_assertions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "notApplicableMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "reason_code"],
+      "properties": {
+        "applicability": {"const": "N_A"},
+        "reason_code": {
+          "enum": [
+            "NO_STRUCTURED_PARSE_TRUTH",
+            "NO_STRUCTURED_ENTITY_TRUTH",
+            "NO_STRUCTURED_FINDING_TRUTH",
+            "NO_STRUCTURED_REPAIR_TRUTH",
+            "NO_GRADED_RANKING_TRUTH",
+            "NO_RELEVANT_CANDIDATE_TRUTH"
+          ]
+        }
+      }
+    },
+    "parseMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "normalization", "ground_truth_items"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"const": "set-f1-v1"},
+        "normalization": {"const": "unicode-nfc-trim-collapse-space"},
+        "ground_truth_items": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["stop_name"],
+            "properties": {"stop_name": {"type": "string", "minLength": 1}}
+          }
+        }
+      }
+    },
+    "entityMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "unit_key_fields", "ground_truth_items"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"const": "exact-set-precision-recall-v1"},
+        "unit_key_fields": {"const": ["raw_name", "status", "canonical_place_id"]},
+        "ground_truth_items": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["raw_name", "status", "canonical_place_id"],
+            "properties": {
+              "raw_name": {"type": "string", "minLength": 1},
+              "status": {"enum": ["AUTO_MATCHED", "AMBIGUOUS", "USER_CONFIRMED", "NOT_FOUND"]},
+              "canonical_place_id": {"type": ["string", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "findingMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "unit_key_fields", "ground_truth_items"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"enum": ["exact-set-precision-recall-v1", "exact-set-blocker-high-v1"]},
+        "unit_key_fields": {"const": ["reason_code", "status", "subject", "affected_member"]},
+        "scope_severities": {
+          "type": "array",
+          "prefixItems": [{"const": "BLOCKER"}, {"const": "HIGH"}],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "ground_truth_items": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["reason_code", "status", "subject", "affected_member"],
+            "properties": {
+              "reason_code": {"type": "string", "minLength": 1},
+              "status": {"enum": ["SATISFIED", "VIOLATED", "UNKNOWN"]},
+              "subject": {"type": ["string", "null"]},
+              "affected_member": {"type": ["string", "null"]}
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"metric_version": {"const": "exact-set-blocker-high-v1"}}},
+          "then": {"required": ["scope_severities"]}
+        },
+        {
+          "if": {"properties": {"metric_version": {"const": "exact-set-precision-recall-v1"}}},
+          "then": {"properties": {"ground_truth_items": {"minItems": 1}}}
+        }
+      ]
+    },
+    "repairMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "max_options", "allowed_operation_types", "required_predicates"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"const": "predicate-pass-rate-v1"},
+        "max_options": {"type": "integer", "minimum": 0, "maximum": 2},
+        "allowed_operation_types": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "required_predicates": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["predicate", "expected"],
+            "properties": {
+              "predicate": {"enum": ["postcheck_executed", "locked_items_preserved", "no_new_hard_violation"]},
+              "expected": {"type": "boolean"}
+            }
+          }
+        }
+      }
+    },
+    "ndcgMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "k", "relevance_items"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"const": "ndcg-v1"},
+        "k": {"const": 5},
+        "relevance_items": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["candidate_id", "relevance_grade"],
+            "properties": {
+              "candidate_id": {"type": "string", "minLength": 1},
+              "relevance_grade": {"type": "integer", "minimum": 0, "maximum": 5}
+            }
+          }
+        }
+      }
+    },
+    "recallMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["applicability", "metric_version", "k", "relevant_candidate_ids"],
+      "properties": {
+        "applicability": {"const": "APPLICABLE"},
+        "metric_version": {"const": "recall-at-k-v1"},
+        "k": {"const": 5},
+        "relevant_candidate_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "metricOracles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parse_f1", "entity_precision_recall", "finding_precision_recall", "repair_postcheck", "builder_ndcg_at_5", "builder_recall_at_5"],
+      "properties": {
+        "parse_f1": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/parseMetric"}]},
+        "entity_precision_recall": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/entityMetric"}]},
+        "finding_precision_recall": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/findingMetric"}]},
+        "repair_postcheck": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/repairMetric"}]},
+        "builder_ndcg_at_5": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/ndcgMetric"}]},
+        "builder_recall_at_5": {"oneOf": [{"$ref": "#/$defs/notApplicableMetric"}, {"$ref": "#/$defs/recallMetric"}]}
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "query": "颐和园",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-summer-palace",
+    "request_hash": "fe4f8af3d44b5dc1738c75d95c37a808cbd3b88402e430b3cd021927a47ccdc3",
+    "response_hash": "910db33ddd4ce046f647a8a3ee1c6d26aa71728d2d432cfa8d1649763b32a93b",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "长城（八达岭）",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-badaling",
+    "request_hash": "018ae0ed4565d4766e56e526815e23ce1439a4fd54af6de4b2a87a4bcbfc625a",
+    "response_hash": "352d1ca4493ea477a7e2a55a4f7b3f1e6e7a76e3c28722a6f3e767f89fa26a47",
+    "execution_mode": "fixture"
+  },
+  {
+    "query": "南锣鼓巷",
+    "target_city": "北京",
+    "returned_city": "北京",
+    "place_id": "bj-nanluoguxiang",
+    "request_hash": "b9724e7f347e9cd9746fcf8da73ece2c7758311b0e723d42ad5f05dbf6d9f94a",
+    "response_hash": "df15f0d3b8f0a12809d4a3ca4b4029f80037f6840527206a95f72e6cff11b4dd",
+    "execution_mode": "fixture"
+  }
+]
