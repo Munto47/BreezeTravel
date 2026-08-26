@@ -13,6 +13,13 @@
 
 实现 pre-workspace `TripIntakeRevision v2`、字段证据、用户确认、幂等物化和 120 条隔离 NLU 数据集；将当前单城市主链从三城/2～5 人/2～5 天放宽为任意国内城市和正整数人数/天数，同时保持事实、隐私、revision、receipt 和 postcheck 不变量。
 
+## Authority
+
+- `AGENTS.md`、`docs/product/PROJECT_CHARTER.md`、`docs/product/TRIP_CHECK_SPEC.md`；
+- `docs/product/TRIP_CHECK_API_CONTRACT.md` 的 Intake v2 公共合同；
+- 用户于 2026-08-26 明确批准的《BreezeTravel 行程 Intake v2 与 120 条 NLU 测试集计划》；
+- 已完成 P0～P6 Goal 仅保留历史 evidence 含义，不作为本 Goal 的旧范围上限或 NLU Gate 证明。
+
 ## Scope
 
 - v2 Pydantic/schema、LLM extractor 接口和确定性 validator；

@@ -7,8 +7,23 @@ from app.importing.models import ImportParseDraft, RawStop, SourceSpan
 from app.itineraries.models import CommitmentKind
 
 
-_DAY_NUMBER = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5}
-_DAY_PATTERN = re.compile(r"^\s*(?:第\s*([一二三四五1-5])\s*天|day\s*([1-5])|d\s*([1-5]))\s*[:：.、-]?\s*", re.I)
+_DAY_NUMBER = {
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+_DAY_PATTERN = re.compile(
+    r"^\s*(?:第\s*([一二三四五六七八九十百]+|[1-9]\d*)\s*天|"
+    r"day\s*([1-9]\d*)|d\s*([1-9]\d*))\s*[:：.、-]?\s*",
+    re.I,
+)
 _CLOCK_POINT = (
     r"(?:(?:上午|下午|晚上|中午|早上)\s*\d{1,2}(?::\d{2}|点(?:半|\d{1,2}分)?)?"
     r"|\d{1,2}(?::\d{2}|点(?:半|\d{1,2}分)?))"
@@ -38,7 +53,8 @@ _UNTRUSTED_INSTRUCTION = re.compile(
     re.I,
 )
 _INLINE_DAY_PATTERN = re.compile(
-    r"(?:第\s*[一二三四五1-5]\s*天|day\s*[1-5]|d\s*[1-5])",
+    r"(?:第\s*(?:[一二三四五六七八九十百]+|[1-9]\d*)\s*天|"
+    r"day\s*[1-9]\d*|d\s*[1-9]\d*)",
     re.I,
 )
 _LATEST_RETURN_PATTERN = re.compile(rf"(?:{_CLOCK_POINT})\s*前\s*(?:回|返回|到达)\s*(?:酒店|住宿|住处|民宿)\s*$")
@@ -72,7 +88,20 @@ def _table_columns(sentence: str) -> list[str] | None:
 
 def _day_number(match: re.Match[str]) -> int:
     raw = next(group for group in match.groups() if group is not None)
-    return int(raw) if raw.isdigit() else _DAY_NUMBER.get(raw, 1)
+    if raw.isdigit():
+        return int(raw)
+    if raw in _DAY_NUMBER:
+        return _DAY_NUMBER[raw]
+    units = {"十": 10, "百": 100}
+    total = 0
+    current = 0
+    for character in raw:
+        if character in units:
+            total += (current or 1) * units[character]
+            current = 0
+        else:
+            current = _DAY_NUMBER[character]
+    return total + current
 
 
 def _clean_name(segment: str) -> str:
@@ -228,7 +257,7 @@ class ItineraryTextParser:
             if _UNTRUSTED_INSTRUCTION.search(sentence):
                 continue
             if re.fullmatch(
-                r"(?:北京|上海|杭州)?\s*[2-5]\s*(?:日|天)(?:游|行程)"
+                r"(?:[\u4e00-\u9fff]{2,12})?\s*[1-9]\d*\s*(?:日|天)(?:游|行程)"
                 r"(?:[，,]\s*\d+\s*(?:位|人).*)?",
                 sentence,
             ):

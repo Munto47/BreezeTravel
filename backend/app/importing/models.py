@@ -13,6 +13,7 @@ from app.schemas.place import Coordinates, RetrievalExecutionMode
 class ImportSourceType(str, Enum):
     AI_TEXT = "AI_TEXT"
     MANUAL_TEXT = "MANUAL_TEXT"
+    SCREENSHOT_OCR = "SCREENSHOT_OCR"
 
 
 class ImportStatus(str, Enum):
@@ -41,7 +42,7 @@ class RawStop(BaseModel):
 
     raw_stop_id: str
     import_id: str
-    day_index: int | None = Field(default=None, ge=0, le=4)
+    day_index: int | None = Field(default=None, ge=0)
     raw_name: str = Field(min_length=1, max_length=160)
     raw_time: str | None = Field(default=None, max_length=80)
     source_span: SourceSpan

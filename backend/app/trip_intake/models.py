@@ -23,6 +23,7 @@ class IntakeSource(BaseModel):
     source_type: IntakeSourceType
     text: str = Field(min_length=1, max_length=12000)
     text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def validate_hash(self) -> "IntakeSource":

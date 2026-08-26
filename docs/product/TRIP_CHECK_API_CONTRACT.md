@@ -1,12 +1,13 @@
-# 「行程查」V1 API 与持久化合同
+# 「行程查」V2 API 与持久化合同
 
 > 状态：`ACCEPTED`
 >
-> 版本：`trip-check-api-v1`
+> 版本：`trip-check-api-v2`
 
 ## 1. 兼容原则
 
 - 保留现有 `POST /trip-workspaces/{workspace_id}/imports` 文本导入语义；旧 import、revision、repair、suggestion 和 evidence 保持可读。
+- v1 workspace-first 路由继续兼容读取；v2 的新建主路径从 room 下的 `TripIntakeRevision` 开始，不把 v1 默认值迁入 v2 权威事实。
 - 新资源只追加，不创建第二套 itinerary 编辑或“已解决”协议。
 - 所有创建、确认、恢复和采纳命令要求 `Idempotency-Key`；基于 revision/state 的更新要求 `If-Match`。
 - 服务端生成 canonical POI、Provider 事实、Finding 和 resolved 状态；客户端不能提交这些字段作为权威值。
@@ -26,7 +27,7 @@
 - 四种交通方式与限制、预算、餐饮/住宿风格、饮食限制、每日节奏和活动强度；
 - 字段级 `source_span`、`confidence`、`origin` 和确认状态；
 - `DRAFT / NEEDS_CONFIRMATION / CONFIRMED`；
-- `NO_PREFERENCE` 作为显式值；`INFERRED` 不得成为 `HARD`。
+- `UNSPECIFIED` 表示未提及；只有用户明确确认时才使用 `NO_PREFERENCE`；`INFERRED` 不得成为 `HARD`。
 
 ### 2.2 TripCheckRun
 

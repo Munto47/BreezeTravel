@@ -100,7 +100,7 @@ export default function HomePage() {
   const handleEnterRoom = () => {
     if (!createdRoomInfo) return
     router.push(
-      `/import?roomId=${createdRoomInfo.roomId}&city=${encodeURIComponent(city)}&days=${days}`
+      `/intake?roomId=${createdRoomInfo.roomId}`
     )
   }
 

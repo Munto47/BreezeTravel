@@ -343,7 +343,7 @@ class SuggestionSetCreateInput(BaseModel):
     suggestion_set_id: str | None = None
     workspace_id: str = Field(min_length=1)
     base_revision: int = Field(gt=0)
-    day_index: int = Field(ge=0, le=4)
+    day_index: int = Field(ge=0)
     insert_after_stop_id: str | None = None
     insert_before_stop_id: str | None = None
     intents: list[SuggestionIntent] = Field(min_length=1)
@@ -385,7 +385,7 @@ class SuggestionSet(BaseModel):
     suggestion_set_id: str = Field(min_length=1)
     workspace_id: str = Field(min_length=1)
     base_revision: int = Field(gt=0)
-    day_index: int = Field(ge=0, le=4)
+    day_index: int = Field(ge=0)
     insert_after_stop_id: str | None = None
     insert_before_stop_id: str | None = None
     intents: list[SuggestionIntent]

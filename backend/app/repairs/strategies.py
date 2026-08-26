@@ -27,7 +27,7 @@ class RepairProblemStop(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     stop_id: str
-    day_index: int = Field(ge=0, le=4)
+    day_index: int = Field(ge=0)
     duration_minutes: int = Field(gt=0)
     earliest_start: int = Field(ge=0, lt=24 * 60)
     latest_end: int = Field(gt=0, le=24 * 60)
@@ -41,7 +41,7 @@ class RepairProblem(BaseModel):
     case_id: str
     case_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     city: str
-    day_count: int = Field(ge=2, le=5)
+    day_count: int = Field(ge=1)
     stops: tuple[RepairProblemStop, ...]
     travel_minutes: int = Field(default=15, ge=0)
     evidence_ready: bool = True
@@ -117,7 +117,7 @@ def _schedule_result(problem: RepairProblem, starts: dict[str, int]) -> RepairSt
     edit_cost = sum(abs(item.start_minute - by_id[item.stop_id].original_start) for item in schedule)
     route_edges = sum(
         max(0, len([item for item in schedule if item.day_index == day_index]) - 1)
-        for day_index in range(5)
+        for day_index in range(problem.day_count)
     )
     return RepairStrategyResult(
         status=StrategyStatus.SUCCESS,
