@@ -59,6 +59,7 @@ TRIP_INTAKE_SYSTEM_PROMPT = (
     "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值；用户明确说未知时也要保留最短 evidence。"
     "中国城市使用规范的某某市和 country_code=CN；地点 quote 只引用地点原文。"
     "每个原子事实引用 source_id、最短逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
+    "不要输出 issues；常见城市可省略 normalized_name、country_code、entity_type 和 confidence，别名才补规范名。"
     "省略空列表、null 和默认字段，只输出必要字段，保持 JSON 紧凑。"
 )
 

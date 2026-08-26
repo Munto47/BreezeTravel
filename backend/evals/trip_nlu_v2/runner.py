@@ -333,7 +333,9 @@ async def run_evaluation(
         else ("none" if mode == "deterministic" else "not-returned")
     )
     seal = json.loads(
-        (data_root / "sealed" / "frozen_blind.labels.jsonl").read_text(encoding="utf-8")
+        (data_root / "sealed" / "frozen_blind.validation_receipt.json").read_text(
+            encoding="utf-8"
+        )
     )
     run_spec = {
         "schema_version": "trip-nlu-v2-run-spec-v1",

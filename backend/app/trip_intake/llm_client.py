@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from dataclasses import dataclass
@@ -78,34 +79,35 @@ class DeepSeekJsonClient:
     ) -> StructuredJsonResult:
         started = time.perf_counter()
         try:
-            response = await self._client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            f"{system_prompt}\n"
-                            "只返回一个 JSON 对象，不要 Markdown、解释或思维过程。"
-                            "输出必须符合下面的 JSON Schema：\n"
-                            f"{json.dumps(json_schema, ensure_ascii=False, separators=(',', ':'))}"
-                        ),
-                    },
-                    {
-                        "role": "user",
-                        "content": json.dumps(
-                            input_payload,
-                            ensure_ascii=False,
-                            separators=(",", ":"),
-                        ),
-                    },
-                ],
-                response_format={"type": "json_object"},
-                temperature=temperature,
-                max_tokens=self.max_output_tokens,
-                stream=False,
-                timeout=self.timeout_seconds,
-                extra_body={"thinking": {"type": "disabled"}},
-            )
+            async with asyncio.timeout(self.timeout_seconds):
+                response = await self._client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                f"{system_prompt}\n"
+                                "只返回一个 JSON 对象，不要 Markdown、解释或思维过程。"
+                                "输出必须符合下面的 JSON Schema：\n"
+                                f"{json.dumps(json_schema, ensure_ascii=False, separators=(',', ':'))}"
+                            ),
+                        },
+                        {
+                            "role": "user",
+                            "content": json.dumps(
+                                input_payload,
+                                ensure_ascii=False,
+                                separators=(",", ":"),
+                            ),
+                        },
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=temperature,
+                    max_tokens=self.max_output_tokens,
+                    stream=False,
+                    timeout=self.timeout_seconds,
+                    extra_body={"thinking": {"type": "disabled"}},
+                )
         except Exception as exc:
             receipt = StructuredJsonReceipt(
                 requested_model=model_name,
