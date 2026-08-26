@@ -57,6 +57,14 @@
 - locations、party size、duration 结构化 micro-F1 各 ≥95%，preferences/requirements ≥90%，hard 子集关键字段 ≥90%；
 - 本 Gate 只证明文本需求抽取，不能替代 OCR、live Provider、公网或真人证据。
 
+### Trip NLU O1～O4 优化 Gate
+
+- 正式 prediction 必须来自绑定 `deepseek-v4-flash` 的 hybrid 产品抽取路径，禁止以 gold label 或兼容导出充当 prediction；
+- dev 用于定位和优化，validation 最多两次，frozen blind 对每个冻结候选只允许一次正式聚合评分；
+- blind scorer 不得返回逐例 truth；blind 失败不得修改 oracle 或按 blind 文本打补丁；
+- 实际模型调用 ≤300、估算费用 ≤30 CNY，RunSpec 必须记录实际调用、token、成本和预算停止状态；
+- 本 Goal 单并发端到端 P95 ≤5 秒。该阶段门槛不覆盖或降低 V1 Candidate Gate 的解析与确认页 P95 ≤3 秒。
+
 ## 4. 性能硬门槛
 
 - 标准文本首次进度 ≤1 秒；

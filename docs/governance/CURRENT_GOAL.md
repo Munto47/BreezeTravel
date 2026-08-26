@@ -1,63 +1,52 @@
-# COMPLETE GOAL：I1～I4 Trip Intake v2 纵向闭环
+# APPROVED GOAL：O1～O4 Trip NLU v2 真实抽取与优化
 
 ## Metadata
 
-- Goal ID：`TC-I1-I4-trip-intake-v2`
+- Goal ID：`TC-NLU-O1-O4`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`COMPLETE`
-- Branch：`codex/trip-intake-v2`
-- Baseline：`d51d78fd004d46b105f05134c61d5fbee385c974`
+- Status：`APPROVED`
+- Branch：`codex/trip-nlu-v2-optimization`
+- Baseline：`d967e774e8eab208234c2af9fb677a90877a1766`
 - Approved by / at：User / 2026-08-26
 
 ## Outcome
 
-实现 pre-workspace `TripIntakeRevision v2`、字段证据、用户确认、幂等物化和 120 条隔离 NLU 数据集；将当前单城市主链从三城/2～5 人/2～5 天放宽为任意国内城市和正整数人数/天数，同时保持事实、隐私、revision、receipt 和 postcheck 不变量。
-
-## Authority
-
-- `AGENTS.md`、`docs/product/PROJECT_CHARTER.md`、`docs/product/TRIP_CHECK_SPEC.md`；
-- `docs/product/TRIP_CHECK_API_CONTRACT.md` 的 Intake v2 公共合同；
-- 用户于 2026-08-26 明确批准的《BreezeTravel 行程 Intake v2 与 120 条 NLU 测试集计划》；
-- 已完成 P0～P6 Goal 仅保留历史 evidence 含义，不作为本 Goal 的旧范围上限或 NLU Gate 证明。
+让 `deepseek-v4-flash` 的真实 hybrid prediction 跑通固定 Trip NLU v2 数据，建立可复现 deterministic/hybrid baseline，在 blind 隔离下优化并交付 Validation 与 Frozen blind 的准确率、安全、时延、成本和绑定回执。
 
 ## Scope
 
-- v2 Pydantic/schema、LLM extractor 接口和确定性 validator；
-- 不可变 PostgreSQL Intake/revision/source/materialization；
-- 文本与截图 Intake API、确认、materialize、恢复和前端入口；
-- 放宽 workspace/brief/itinerary 的城市、人数、日期与 day index 约束；
-- 72 dev / 24 validation / 24 frozen blind 数据、validator、scorer、gate 和 v1 exporter。
+- 内部 semantic draft、Unicode 证据编译、DeepSeek OpenAI-compatible JSON 客户端和 hybrid merge；
+- 默认 deterministic、显式 hybrid 的应用服务注入与 fail-closed fallback；
+- dev/validation 通用 scorer、真实 prediction runner、RunSpec、调用/成本/时延预算；
+- 72 dev baseline、最多两轮各 60 条 dev 回放、最多两次 validation、一次 frozen blind；
+- 单元、API/应用集成、全量回归和最终证据报告。
 
 ## Non-goals
 
-- 跨城 workspace、Builder/Planner/RAG/LoRA/Yjs 扩建、新基础设施；
-- 扩大 live Provider 矩阵、公网、H1、production、main merge、release；
-- 把文本 NLU Gate 当作 OCR、Provider、真人或全国 live 证据。
+- 修改 120 条数据、oracle、split、template/mutation family 或 blind labels；
+- 新公共 API/schema、migration、生产默认启用 DeepSeek、其他模型 bake-off；
+- real OCR、live Provider、全国覆盖、公网、H1、production、main merge 或 release；
+- 用文本 NLU 结果证明行程合理性、Provider 事实或真人可用性。
 
 ## Invariants
 
-- 模糊解析只存在 Intake；权威 Brief 只含用户确认的精确值；
-- LLM 不调用工具、不验真地点；确定性 validator 验证 schema、数量关系和逐字 source span；
-- 缺失人数不得默认为 2；未提及偏好不得自动成为用户明确 `NO_PREFERENCE`；
-- materialize 事务只创建数据库权威资源，Provider 调用在提交后且保持幂等/可恢复；
-- 原图隐私、Evidence/Audit 权威、UNKNOWN/UNAVAILABLE、revision/stale/postcheck 合同不变；
-- 当前工作区用户的未跟踪 `tests/` 不得读取为正式 oracle、修改或提交。
+- 模型不调用工具、不验证地点真假；未知、冲突和无效证据不得变成确定事实；
+- 模型只提出语义草稿，服务端按原文 Unicode code point 编译并逐字验证 evidence span；
+- hybrid 冲突降级为不确定并产生 issue，失败使用 deterministic fallback 且不注入默认值；
+- 运行回执绑定 commit/dataset/model/prompt/schema/config/predictions，但不记录密钥；
+- blind labels 只由隔离 scorer 读取，正式输出不含逐例 truth；每个候选只正式评分一次。
 
 ## Verification
 
-- 新增模型、validator、extractor、repository、API、迁移和 scorer 定向测试；
-- 025 migration 静态合同、repository transaction/idempotency 与进程内 restart readback；
-- frontend build 与文本/截图/恢复组件回归；
-- 120 条 schema/distribution/family/span validator；sealed blind 严格 NLU Gate；
-- 全量 backend pytest、Ruff、frontend build、dual-entry validator。
-
-### Goal completion boundary
-
-经用户于 2026-08-26 明确批准，本 Goal 达到 `INTAKE_V2_DEVELOPMENT_READY` 即可完成：上述离线验证必须在候选 commit 全部通过，dual-entry validator 必须 `structurally_valid=true` 且无 errors。旧 dual-entry 统计覆盖、Builder G2/G5、P5 历史 blind/Judge、真实 PostgreSQL 服务、完整浏览器性能矩阵、real OCR、live Provider、公网和真人证据继续归入 V1 Candidate Gate，不再阻断 I1～I4 开发切片完成，也不得因此宣称 `V1_CANDIDATE_READY`。
+- Validation 与 blind：schema/evidence/coverage 100%，六类关键错误为 0；
+- locations、party size、duration micro-F1 ≥0.95，preferences/requirements ≥0.90，contract controls=1.0，hard key fields ≥0.90；
+- 单并发端到端 P95 ≤5 秒；实际模型调用 ≤300，估算费用 ≤30 CNY；
+- backend pytest、Ruff、frontend build、dual-entry validator、Trip NLU v2 validator 全部重跑。
 
 ## Budget / HITL / Stop
 
-- 外部 live Provider 增量调用：0；新增费用：0；
-- LLM 开发验证优先使用 mock/fixture；真实运行模型调用不作为本 Goal release 证据；
-- migration/API/schema 已由用户在本 Goal 请求中批准；
-- frozen blind 修改、付费、外部数据扩大、公网/H1/production、跨城或降低 Gate 时停止请求批准。
+- 固定模型：`deepseek-v4-flash`；非思考 JSON 模式，temperature=0，max output=4096，单请求 deadline=4.5 秒；
+- 调用预算：dev baseline 72、两轮 dev 回放 120、两次 validation 48、blind 24、预热 3、dev 故障余量 33，总上限 300；
+- 成本按运行时冻结的官方单价和内部 `1 USD = 8 CNY` 计算，总上限 30 CNY；
+- 任一预算到达、需要修改 blind、扩大付费范围、降低 Gate 或发生隐私/证据矛盾时立即停止；
+- blind 失败不得用逐例结果优化；只能从 dev/validation 生成独立 regression，并在新 blind 版本获批后重新晋级。
