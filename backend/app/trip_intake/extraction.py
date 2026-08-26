@@ -990,6 +990,12 @@ def _enrich_semantic_locations(
                 update={
                     "normalized_name": match.normalized_name or item.normalized_name,
                     "country_code": match.country_code or item.country_code,
+                    "role": (
+                        match.role
+                        if item.mention_id != semantic.primary_mention_id
+                        or match.role == LocationRole.PRIMARY_DESTINATION
+                        else item.role
+                    ),
                     "entity_type": (
                         match.entity_type
                         if item.entity_type == LocationEntityType.UNKNOWN
@@ -1110,9 +1116,11 @@ def _merge_preferences(
     }
     for item in semantic.items:
         if any(
-            (evidence.source_id, evidence.start, evidence.end)
-            in deterministic_pace_spans
+            evidence.source_id == pace_source
+            and evidence.start < pace_end
+            and pace_start < evidence.end
             for evidence in item.evidence
+            for pace_source, pace_start, pace_end in deterministic_pace_spans
         ):
             continue
         span = next(
@@ -1192,7 +1200,19 @@ def _merge_extractions(
 ) -> TripIntakeExtraction:
     merge_issues: list[ExtractionIssue] = []
     locations = _enrich_semantic_locations(semantic.locations, deterministic.locations)
-    semantic_identity = _primary_identity(semantic)
+    enriched_primary = next(
+        (
+            item
+            for item in locations.mentions
+            if item.mention_id == locations.primary_mention_id
+        ),
+        None,
+    )
+    semantic_identity = (
+        (enriched_primary.normalized_name or enriched_primary.raw_text).removesuffix("市")
+        if enriched_primary is not None
+        else None
+    )
     deterministic_identity = _primary_identity(deterministic)
     if not semantic.locations.mentions:
         locations = deterministic.locations

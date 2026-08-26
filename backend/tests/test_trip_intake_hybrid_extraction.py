@@ -575,6 +575,80 @@ async def test_hybrid_rejects_inferred_composition_and_nights_without_explicit_u
     assert outcome.extraction.temporal.nights.quantifier.value == "UNKNOWN"
 
 
+@pytest.mark.asyncio
+async def test_hybrid_enriches_alias_and_fictional_place_without_duplicates() -> None:
+    source = _source("还想去星河旧巷，名字别纠正；这次确定改去上诲；2人；玩3天")
+    payload = {
+        "locations": [
+            {
+                "raw_text": "星河旧巷",
+                "entity_type": "PLACE",
+                "role": "DESTINATION_CANDIDATE",
+                "evidence": [{"source_id": "source-1", "quote": "星河旧巷"}],
+            },
+            {
+                "raw_text": "上诲",
+                "role": "PRIMARY_DESTINATION",
+                "evidence": [{"source_id": "source-1", "quote": "上诲"}],
+            },
+        ],
+        "location_status": "EXACT",
+        "primary_location_index": 1,
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert len(outcome.extraction.locations.mentions) == 2
+    assert [item.role.value for item in outcome.extraction.locations.mentions] == [
+        "REQUESTED_PLACE",
+        "PRIMARY_DESTINATION",
+    ]
+    assert outcome.extraction.locations.mentions[1].normalized_name == "上海市"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_drops_preference_item_overlapping_deterministic_pace() -> None:
+    source = _source("去上海，2人，玩3天，想高密度打卡")
+    payload = {
+        "preferences": {
+            "status": "SPECIFIED",
+            "items": [
+                {
+                    "category": "activity",
+                    "label": "高密度打卡",
+                    "polarity": "LIKE",
+                    "evidence": [
+                        {"source_id": "source-1", "quote": "高密度打卡"}
+                    ],
+                }
+            ],
+            "pace": {
+                "value": "INTENSIVE",
+                "evidence": [
+                    {"source_id": "source-1", "quote": "想高密度打卡"}
+                ],
+            },
+        }
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.preferences.items == []
+    assert outcome.extraction.preferences.pace.value.value == "INTENSIVE"
+
+
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:
     source = _source("目的地还没定")
     draft = TripIntakeSemanticDraft.model_validate(

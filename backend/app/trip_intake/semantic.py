@@ -478,9 +478,21 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 "solo": "独自",
             }
             if isinstance(composition.get("tags"), list):
-                composition["tags"] = [
+                normalized_tags = [
                     tag_aliases.get(tag, tag) if isinstance(tag, str) else tag
                     for tag in composition["tags"]
+                ]
+                composition["tags"] = [
+                    tag
+                    for tag in normalized_tags
+                    if tag
+                    in {
+                        "家庭",
+                        "情侣",
+                        "朋友",
+                        "独自",
+                        "同行人员尚未确定",
+                    }
                 ]
     temporal = value.get("temporal")
     if isinstance(temporal, dict):
