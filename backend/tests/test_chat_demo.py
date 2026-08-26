@@ -379,7 +379,7 @@ class TestSynthesizerDemoModeDataLoad:
         """验证 mock fixture 每个城市每类 ≥5 条（确保 cap 有效）"""
         import json
         from pathlib import Path
-        fixture = Path(__file__).parent / "fixtures" / "amap_mock_places.json"
+        fixture = Path(__file__).parents[1] / "app" / "data" / "amap_mock_places.json"
         data = json.loads(fixture.read_text(encoding="utf-8"))
         for city, places in data.items():
             cats: dict[str, int] = {}

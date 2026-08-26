@@ -5,7 +5,7 @@ AmapSearch 节点：高德 POI 搜索
 输出：state.amap_places（Place 列表）
 
 Mock 模式（AMAP_MOCK=true）：
-  从 backend/tests/fixtures/amap_mock_places.json 读取预设数据
+  从 backend/app/data/amap_mock_places.json 读取受控快照数据
 
 真实模式（AMAP_MOCK=false）：
   调用高德搜索 POI 2.0 API: https://restapi.amap.com/v5/place/text
@@ -44,7 +44,7 @@ from app.constraints.recommendation_intent import (
 from app.constraints.amap_types import classify_amap_type
 from app.constraints.city_knowledge import provider_query_for_geo_anchor
 
-MOCK_DATA_PATH = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures" / "amap_mock_places.json"
+MOCK_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "amap_mock_places.json"
 
 # 默认游览时长（分钟），按 category
 DEFAULT_DURATION = {

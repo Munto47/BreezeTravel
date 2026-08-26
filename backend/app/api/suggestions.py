@@ -114,7 +114,7 @@ _INTENT_RADIUS_M: dict[SuggestionIntent, int] = {
     SuggestionIntent.FUN: 12_000,
     SuggestionIntent.FOOD: 5_000,
 }
-_FIXTURE_PATH = Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "amap_mock_places.json"
+_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
 
 
 def _unique(values):

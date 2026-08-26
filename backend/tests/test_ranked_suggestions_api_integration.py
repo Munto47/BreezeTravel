@@ -38,7 +38,7 @@ CITY_ANCHORS = {
     "上海": ("B00155H52F", "外滩", Coordinates(lng=121.4896, lat=31.2393)),
     "杭州": ("B0FFHZ0001", "西湖风景名胜区", Coordinates(lng=120.1551, lat=30.2523)),
 }
-FIXTURE_PATH = Path(__file__).parent / "fixtures" / "amap_mock_places.json"
+FIXTURE_PATH = Path(__file__).parents[1] / "app" / "data" / "amap_mock_places.json"
 
 
 class AvailableRoutes:

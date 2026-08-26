@@ -29,8 +29,10 @@ CONFIG_PATHS = (
     "docker-compose.yml",
     "deploy/p6/docker-compose.candidate.yml",
     "deploy/p6/nginx-breezetravel-candidate.conf",
+    "backend/.dockerignore",
     "backend/Dockerfile",
     "backend/app/config.py",
+    "backend/app/data/amap_mock_places.json",
     "frontend/Dockerfile",
     "frontend/package-lock.json",
 )

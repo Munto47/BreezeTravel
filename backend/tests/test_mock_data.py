@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
-FIXTURE_PATH = Path(__file__).parent / "fixtures" / "amap_mock_places.json"
+FIXTURE_PATH = Path(__file__).parents[1] / "app" / "data" / "amap_mock_places.json"
 REQUIRED_CITIES = ["成都", "北京", "上海", "厦门"]
 REQUIRED_PLACE_FIELDS = [
     "place_id", "name", "category", "address",

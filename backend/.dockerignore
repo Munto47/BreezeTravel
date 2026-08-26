@@ -25,6 +25,8 @@ models/
 *.db
 data/
 cache/
+!app/data/
+!app/data/amap_mock_places.json
 
 # 配置
 .env

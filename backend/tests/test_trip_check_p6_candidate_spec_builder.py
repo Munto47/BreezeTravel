@@ -9,7 +9,7 @@ from evals.trip_check_v1.p6.candidate_spec_builder import (
     _validate_p5_gate_manifest,
     build_candidate_run_spec,
 )
-from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest
+from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest, file_sha256
 from tests.test_trip_check_p6_real_ocr_runner import SUBJECT, _fixture
 
 
@@ -68,6 +68,16 @@ def test_candidate_spec_builder_binds_all_inputs(tmp_path: Path) -> None:
         "rule_manifest.json",
         "snapshot_manifest.json",
     }
+    config_manifest = json.loads(
+        (spec_path.parent / "config_manifest.json").read_text(encoding="utf-8")
+    )
+    controlled_snapshot = Path(__file__).parents[1] / "app" / "data" / "amap_mock_places.json"
+    assert {
+        "path": "backend/app/data/amap_mock_places.json",
+        "sha256": file_sha256(controlled_snapshot),
+        "bytes": controlled_snapshot.stat().st_size,
+    } in config_manifest["files"]
+    assert any(item["path"] == "backend/.dockerignore" for item in config_manifest["files"])
 
 
 def test_candidate_spec_builder_rejects_dataset_subject_mismatch(tmp_path: Path) -> None:
