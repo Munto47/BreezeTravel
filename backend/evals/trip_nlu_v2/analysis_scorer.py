@@ -213,18 +213,18 @@ def main() -> None:
     parser.add_argument("predictions", type=Path)
     parser.add_argument("labels", type=Path)
     parser.add_argument("--aggregate-only", action="store_true")
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    print(
-        json.dumps(
-            score_nonblind(
-                args.predictions,
-                args.labels,
-                include_case_details=not args.aggregate_only,
-            ),
-            ensure_ascii=False,
-            sort_keys=True,
-        )
+    receipt = score_nonblind(
+        args.predictions,
+        args.labels,
+        include_case_details=not args.aggregate_only,
     )
+    rendered = json.dumps(receipt, ensure_ascii=False, sort_keys=True)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered + "\n", encoding="utf-8")
+    print(rendered)
 
 
 if __name__ == "__main__":
