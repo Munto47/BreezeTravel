@@ -38,6 +38,14 @@
 - 固定 snapshot 重放 hash 一致率 100%；
 - 浏览器关键链、刷新、断线、进程重启、并发与幂等场景全部通过。
 
+### Trip Intake v2 NLU Gate
+
+- 固定 120 条：72 dev / 24 validation / 24 frozen blind；easy/medium/hard 为 30/54/36；
+- JSON/schema、证据子串和评分覆盖率 100%；generator/template/mutation family 不跨 split；
+- 编造、出发地/目的地反转、否定反转、旧计划反转、数字串类和 `UNKNOWN → EXACT` 均为 0；
+- locations、party size、duration 结构化 micro-F1 各 ≥95%，preferences/requirements ≥90%，hard 子集关键字段 ≥90%；
+- 本 Gate 只证明文本需求抽取，不能替代 OCR、live Provider、公网或真人证据。
+
 ## 4. 性能硬门槛
 
 - 标准文本首次进度 ≤1 秒；

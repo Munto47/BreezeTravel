@@ -27,12 +27,13 @@
 P1 必须先使用文本和受控 Provider fixture 交付：
 
 ```text
-文本 Import → TripBrief 确认 → 歧义 POI 确认 → EvidenceSnapshot
+文本 Intake → TripIntakeRevision 确认 → Workspace/TripBrief/Import 物化
+→ 歧义 POI 确认 → EvidenceSnapshot
 → 事实/路线冲突 → Advice → Repair 预览 → 新 Revision
 → 完整 postcheck → Evidence 后杀进程并恢复
 ```
 
-该闭环覆盖北京、上海、杭州各至少一个浏览器案例，并同步建立 18 条 pilot。OCR 是后续输入 adapter，不得阻塞第一条可演示闭环。
+该闭环覆盖北京、上海、杭州和至少一个其他国内城市浏览器案例。OCR 是同一 Intake 的输入 adapter，但文本纵向闭环不得被批量 OCR 建设阻塞。
 
 ## 2. 输入合同
 
@@ -57,9 +58,13 @@ P1 必须先使用文本和受控 Provider fixture 交付：
 
 必填字段未确认时不得进入核验。没有特殊偏好的字段显式保存 `NO_PREFERENCE`。已确认档案可复用，但本次行程设置优先；`INFERRED` 信息不得成为 `HARD`。
 
+### 2.3.1 TripIntakeRevision
+
+`TripIntakeRevision` 是解析中间态，发生在 workspace 之前。它保存地点角色、人数与天/晚数量表达、部分日期、到离、住宿、交通、偏好、字段证据、置信度、冲突和确认状态。范围、约数、至少、最多、未知和多城市候选不得被强制转换成精确值。只有用户确认单一国内主城市、完整日期范围和正整数人数后，才可幂等物化为 `TripWorkspace + confirmed TripBriefRevision + ItineraryImport`。
+
 ### 2.4 早期拒绝
 
-城市不受支持、检测到跨城、人数不在 2～5、行程不在 2～5 天时，在事实采集前返回结构化拒绝原因。
+检测到跨城，或城市、日期、人数尚未确认成权威精确值时，在事实采集前返回结构化阻断原因。数据合同不因城市名称、人数上限或天数上限拒绝单城市行程；Provider 无法覆盖的事实必须保留为 `UNAVAILABLE`，不能伪装成全国 live 能力。
 
 ## 3. 核验合同
 

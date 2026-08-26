@@ -13,6 +13,10 @@
 
 ## 2. 资源模型
 
+### 2.0 TripIntakeRevision v2
+
+必须包含版本、revision/content hash、原始文本 hash、解析器绑定，以及地点、人数、时间、偏好、问题和 readiness。每个原子值携带 `source_id/start/end/quote`，偏移按原始文本 Unicode code point 的半开区间解释。解析中间态允许范围、约数、至少、最多、未知、多候选和冲突，不得写入权威 Brief。
+
 ### 2.1 TripBriefRevision
 
 必须包含：
@@ -60,6 +64,11 @@ PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
 - `GET /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：返回 ETag。
 - `PATCH /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：要求 `If-Match` 和 `Idempotency-Key`，产生新 brief revision。
 - `POST /trip-workspaces/{workspace_id}/trip-briefs/{revision}/confirm`：要求完整必填确认；成功后只读。
+- `POST /rooms/{room_id}/trip-intakes`：创建文本 Intake 草稿，要求 `Idempotency-Key`。
+- `POST /rooms/{room_id}/trip-intakes/screenshots`：OCR 后创建同合同 Intake；原图清理规则不变。
+- `GET/PATCH /trip-intakes/{intake_id}/revisions/{revision}`：读取或创建修正 revision；PATCH 要求 `If-Match` 与 `Idempotency-Key`。
+- `POST /trip-intakes/{intake_id}/revisions/{revision}/confirm`：确认精确物化前提并创建只读 READY revision。
+- `POST /trip-intakes/{intake_id}/revisions/{revision}/materialize`：幂等创建 workspace、confirmed Brief、Import 与 lineage receipt；Provider 解析不在数据库事务内执行。
 
 ### 3.2 Run 与进度
 
@@ -88,5 +97,6 @@ PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
 - `022_trip_brief_revisions.sql`：brief、字段来源/确认和临时资产清理 receipt；
 - `023_trip_check_runs.sql`：Run、stage、lease、attempt 和阶段幂等；
 - `024_advice_bundles.sql`：Advice、CandidateSet 引用和 postcheck lineage。
+- `025_trip_intake_v2.sql`：不可变 Intake revision/field source/materialization，并把城市、人数和天数的历史固定范围放宽为确认后的正值合同。
 
 Migration 只追加；应用启动只检查兼容性，不自动执行 DDL。

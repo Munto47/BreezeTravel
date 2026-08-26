@@ -2,12 +2,13 @@
 
 ## 当前唯一产品目标
 
-BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程核验）：帮助 2～5 人核验北京、上海或杭州的 2～5 天单城市行程，并对地点、时间、交通、住宿、偏好、强度、天气和风险给出有依据的结论与可执行调整。
+BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程核验）：从用户不受控文本或截图中忠实抽取任意国内单城市行程需求，在用户确认精确城市、日期与正整数人数后，对地点、时间、交通、住宿、偏好、强度、天气和风险给出有依据的结论与可执行调整。
 
 当前固定主链：
 
 ```text
-文本/截图 → OCR/结构解析 → TripBrief 确认 → 地点消歧
+文本/截图 → OCR/结构解析 → TripIntakeRevision 确认
+→ TripWorkspace + TripBrief + Import 物化 → 地点消歧
 → 事实采集 → Audit → 风险补充 → Advice
 → 预览/采纳 → 新 Revision → 完整 postcheck
 ```
@@ -21,7 +22,8 @@ BreezeTravel 下一阶段只建设「行程查」（内部技术名称：行程�
 采用模块化单体：
 
 ```text
-文本/截图 → OCR/Parser → TripBriefRevision 确认 → ItineraryRevision
+文本/截图 → OCR/Parser → TripIntakeRevision 确认
+→ TripBriefRevision + ItineraryRevision
 → Provider Adapters → EvidenceSnapshot → AuditEngine
 → Advice/Constraint Repair → 预览采纳 → 新 Revision → 完整 postcheck
 ```
@@ -57,11 +59,12 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 
 ## 固定范围与停止项
 
-- 只支持北京、上海、杭州；只支持单城市、2～5 人、2～5 天。
+- 解析层保存任意国内地点、人数和天数表达，包括范围、约数、至少、最多、未知、多候选、否定和历史提及；不得为满足核验条件改写原意。
+- 权威核验仍以单城市为一个 workspace；只有用户确认国内主城市、完整日期范围和正整数人数后才能物化并进入 Provider 事实采集。数据合同不设置城市白名单、人数上限或天数上限。
 - 输入只包括粘贴文本、手工文字和截图；截图限 PNG/JPEG/WebP，最多 6 张，每张不超过 10MB。
-- 不扩城、不支持跨城，不新增产品运行时 Agent、消息队列、Kubernetes、GraphRAG，不重新微调模型。
+- 不支持一个 workspace 内跨城，不新增产品运行时 Agent、消息队列、Kubernetes、GraphRAG，不重新微调模型。
 - 不启动拖拽 Builder，不把历史 RAGAS、LoRA、Planner 或推荐指标作为「行程查」放行证据。
-- 不承诺实时客流、医疗安全、自动订票、最低价、全国覆盖或跨城规划。
+- 不承诺实时客流、医疗安全、自动订票、最低价、跨城规划或未经 live Gate 证明的全国 Provider 覆盖。
 
 ## 领域与证据不可变量
 
@@ -76,7 +79,7 @@ Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
 
 ## 单一 Goal 合同
 
-任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 或 `IN_PROGRESS` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片只允许按已批准 `PROGRAM.md` 的固定顺序自动生成并激活 P1～P6 下一阶段，不代表获准进入 H1、公开、发布或任何未预定义阶段。
+任何开发只能执行 `docs/governance/CURRENT_GOAL.md` 中唯一处于 `APPROVED` 或 `IN_PROGRESS` 的切片。Goal 必须写明 Outcome、Scope、Non-goals、Authority、Baseline、Invariants、Verification、Budget、HITL 和 Stop conditions。完成当前切片只允许按已批准 `PROGRAM.md` 的固定顺序自动生成并激活下一阶段，不代表获准进入 H1、公开、发布或任何未预定义阶段。
 
 `PROGRAM.md` 已预定义的下一 Goal 可以在当前 Goal 验收、对应 Gate、clean tree、远端 checkpoint 和 evidence readback 全部通过后自动生成；任何时刻仍只允许一个 Goal 为 `APPROVED/IN_PROGRESS`。自动推进不得扩大 Program 范围，不得自动合并 `main`。
 
