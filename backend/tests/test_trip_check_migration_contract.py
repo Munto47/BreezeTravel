@@ -45,3 +45,13 @@ def test_advice_migration_reuses_existing_repair_and_candidate_protocols():
     assert "REFERENCES suggestion_sets(suggestion_set_id)" in sql
     assert "REFERENCES repair_options(repair_id)" in sql
     assert "trip_check_postcheck_lineage" in sql
+
+
+def test_miniapp_migration_hashes_wechat_identity_and_stages_atomic_uploads():
+    sql = (MIGRATIONS / "025_miniapp_identity_and_upload_batches.sql").read_text(encoding="utf-8")
+    assert "openid_hmac CHAR(64)" in sql
+    assert "openid TEXT" not in sql
+    assert "session_key" not in sql
+    assert "screenshot_upload_batches" in sql
+    assert "idx_trip_temporary_assets_batch_position" in sql
+    assert "expected_count BETWEEN 1 AND 6" in sql

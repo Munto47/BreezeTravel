@@ -101,6 +101,13 @@ class Settings(BaseSettings):
     # ── JWT 鉴权 ──────────────────────────────────────────────────────
     jwt_secret_key: str = "change-me-in-production-please"
 
+    # ── 微信小程序身份 ────────────────────────────────────────────────
+    # 三项均必须显式配置；openid 只以独立密钥 HMAC 后的摘要落库。
+    wechat_miniprogram_app_id: str = ""
+    wechat_miniprogram_app_secret: str = ""
+    wechat_identity_hash_key: str = ""
+    wechat_code2session_url: str = "https://api.weixin.qq.com/sns/jscode2session"
+
     # ── Demo 模式 ─────────────────────────────────────────────────────
     demo_mode: bool = False
     # Public demo guard.  It is disabled locally by default; use an edge/WAF or
@@ -127,7 +134,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "024_advice_bundles.sql"
+    required_migration: str = "025_miniapp_identity_and_upload_batches.sql"
     memory_enabled_default: bool = True
     memory_min_confidence: float = 0.65
     memory_ttl_days: int = 180

@@ -9,11 +9,17 @@ import random
 import re
 import string
 from datetime import datetime, timedelta, timezone
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
+from app.authentication.wechat import (
+    HttpxWechatSessionProvider,
+    PostgresWechatIdentityRepository,
+    WechatAuthError,
+    WechatAuthService,
+)
 from app.config import settings
 from app.db.connection import get_pool
 from app.utils.sms import send_code
@@ -21,6 +27,22 @@ from app.utils.auth import create_token
 from app.utils.password import hash_password, verify_password
 
 router = APIRouter()
+
+
+def get_wechat_auth_service() -> WechatAuthService:
+    return WechatAuthService(
+        app_id=settings.wechat_miniprogram_app_id,
+        identity_hash_key=settings.wechat_identity_hash_key,
+        provider=HttpxWechatSessionProvider(
+            app_id=settings.wechat_miniprogram_app_id,
+            app_secret=settings.wechat_miniprogram_app_secret,
+            endpoint=settings.wechat_code2session_url,
+        ),
+        repository=PostgresWechatIdentityRepository(),
+    )
+
+
+WechatAuthServiceDep = Annotated[WechatAuthService, Depends(get_wechat_auth_service)]
 
 # 邮箱兜底登录密码强度：≥8 位，含字母 + 数字（不强制特殊字符以降低注册阻力）
 _PASSWORD_RE = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{8,64}$")
@@ -56,6 +78,38 @@ class VerifyRequest(BaseModel):
     phone: str
     code: str
     nickname: Optional[str] = None
+
+
+class WechatLoginRequest(BaseModel):
+    code: str
+    nickname: Optional[str] = None
+
+
+class WechatLoginResponse(BaseModel):
+    token: str
+    user_id: str
+    nickname: str
+    is_new_user: bool
+
+
+@router.post("/auth/wechat/login", response_model=WechatLoginResponse)
+async def wechat_login(body: WechatLoginRequest, service: WechatAuthServiceDep):
+    code = body.code.strip()
+    if not code or len(code) > 256:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "WECHAT_LOGIN_CODE_INVALID", "message": "微信登录凭证格式无效"},
+        )
+    try:
+        identity = await service.login(code=code, nickname=body.nickname)
+    except WechatAuthError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail()) from exc
+    return WechatLoginResponse(
+        token=create_token(identity.user_id),
+        user_id=identity.user_id,
+        nickname=identity.nickname,
+        is_new_user=identity.is_new_user,
+    )
 
 
 @router.post("/auth/send-code")

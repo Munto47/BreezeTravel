@@ -10043,6 +10043,58 @@
         "title": "WeatherResponse",
         "type": "object"
       },
+      "WechatLoginRequest": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "nickname": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nickname"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WechatLoginRequest",
+        "type": "object"
+      },
+      "WechatLoginResponse": {
+        "properties": {
+          "is_new_user": {
+            "title": "Is New User",
+            "type": "boolean"
+          },
+          "nickname": {
+            "title": "Nickname",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "user_id",
+          "nickname",
+          "is_new_user"
+        ],
+        "title": "WechatLoginResponse",
+        "type": "object"
+      },
       "WorkspaceCandidatesResponse": {
         "properties": {
           "candidates": {
@@ -11400,6 +11452,47 @@
           }
         },
         "summary": "Verify Code",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/wechat/login": {
+      "post": {
+        "operationId": "wechat_login_api_auth_wechat_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WechatLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WechatLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Wechat Login",
         "tags": [
           "auth"
         ]
