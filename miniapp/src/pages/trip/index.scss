@@ -1,0 +1,36 @@
+.trip-page { height: 100vh; box-sizing: border-box; padding: 32rpx; }
+.loading { display: flex; min-height: 100vh; align-items: center; justify-content: center; color: #667085; }
+.hero { padding: 20rpx 8rpx 32rpx; }
+.eyebrow { display: block; color: #f06f5f; font-size: 22rpx; font-weight: 700; letter-spacing: 2rpx; }
+.heading { display: block; margin-top: 10rpx; font-size: 36rpx; font-weight: 750; }
+.subtle { display: block; margin-top: 8rpx; color: #98a2b3; font-size: 21rpx; line-height: 1.5; }
+.card { margin-bottom: 24rpx; border: 1rpx solid #eee7e2; border-radius: 26rpx; background: #fff; box-shadow: 0 12rpx 32rpx rgba(91, 61, 47, .06); }
+.section { padding: 28rpx; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 16rpx; }
+.section-title { font-size: 30rpx; font-weight: 750; }
+.badge { padding: 6rpx 12rpx; border-radius: 999rpx; background: #eef1f5; color: #475467; font-size: 19rpx; }
+.badge.confirmed, .badge.succeeded, .badge.satisfied { background: #e8f7ee; color: #067647; }
+.badge.partial, .badge.waiting, .badge.needs_confirmation, .badge.violated { background: #fff4e5; color: #b54708; }
+.badge.failed, .badge.privacy_blocked { background: #ffedeb; color: #b42318; }
+.copy { display: block; margin-top: 14rpx; color: #475467; font-size: 24rpx; line-height: 1.65; }
+.label { display: block; margin: 22rpx 0 10rpx; color: #667085; font-size: 23rpx; }
+.field { padding: 20rpx; border: 1rpx solid #e4e7ec; border-radius: 16rpx; background: #fbfcfd; font-size: 26rpx; }
+.primary { margin-top: 24rpx; border-radius: 18rpx; background: #172033; color: #fff; font-size: 25rpx; }
+.secondary { border: 1rpx solid #d0d5dd; border-radius: 18rpx; background: #fff; color: #344054; font-size: 24rpx; }
+.compact { margin-top: 20rpx; }
+.resolution, .finding, .advice, .repair { margin-top: 22rpx; padding: 22rpx; border: 1rpx solid #eaecf0; border-radius: 18rpx; }
+.resolution-name, .finding-title { display: block; font-size: 25rpx; font-weight: 700; }
+.candidate { display: flex; align-items: flex-start; gap: 12rpx; margin-top: 16rpx; padding: 16rpx; border-radius: 14rpx; background: #f9fafb; }
+.candidate-copy { flex: 1; font-size: 24rpx; }
+.search-row { display: flex; gap: 12rpx; margin-top: 18rpx; }
+.search-input { flex: 1; box-sizing: border-box; height: 72rpx; padding: 0 18rpx; border: 1rpx solid #d0d5dd; border-radius: 14rpx; font-size: 23rpx; }
+.small { width: 140rpx; height: 72rpx; line-height: 72rpx; border-radius: 14rpx; background: #eef1f5; color: #344054; font-size: 23rpx; }
+.progress { height: 12rpx; margin-top: 20rpx; overflow: hidden; border-radius: 999rpx; background: #eaecf0; }
+.progress-fill { height: 100%; border-radius: 999rpx; background: #f06f5f; }
+.warning { display: block; margin-top: 14rpx; color: #b54708; font-size: 22rpx; }
+.advice { background: #f6fbf8; }
+.button-row { display: flex; gap: 16rpx; margin-top: 8rpx; }
+.half { flex: 1; min-width: 0; }
+.success { display: block; margin-top: 16rpx; color: #067647; font-size: 22rpx; }
+.error { display: block; margin-bottom: 24rpx; padding: 18rpx; border-radius: 14rpx; background: #fff0ef; color: #b42318; font-size: 23rpx; }
+.bottom-space { height: 48rpx; }

@@ -14,10 +14,11 @@ export default defineConfig<'webpack5'>(async (merge, { command, mode }) => {
     cache: { enable: false },
     alias: {
       '@': path.resolve(__dirname, '..', 'src'),
-      '@breezetravel/trip-check-client': path.resolve(__dirname, '..', '..', 'packages', 'trip-check-client', 'src'),
+      '@breezetravel/trip-check-client': path.resolve(__dirname, '..', '..', 'packages', 'trip-check-client', 'dist', 'index.js'),
     },
     defineConstants: {
       'process.env.TARO_APP_API_URL': JSON.stringify(process.env.TARO_APP_API_URL || 'http://127.0.0.1:8000'),
+      'process.env.TARO_APP_TRIP_CHECK_COMMIT_SHA': JSON.stringify(process.env.TARO_APP_TRIP_CHECK_COMMIT_SHA || ''),
     },
     mini: {
       postcss: {

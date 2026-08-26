@@ -1,0 +1,22 @@
+.home-page { padding: 40rpx 32rpx 64rpx; box-sizing: border-box; }
+.topline { display: flex; align-items: center; justify-content: space-between; margin-bottom: 32rpx; }
+.eyebrow { display: block; color: #f06f5f; font-size: 22rpx; font-weight: 700; letter-spacing: 2rpx; }
+.heading { display: block; margin-top: 8rpx; font-size: 42rpx; font-weight: 750; }
+.link { color: #667085; font-size: 26rpx; }
+.card { border: 1rpx solid #eee7e2; border-radius: 28rpx; background: #fff; box-shadow: 0 16rpx 40rpx rgba(91, 61, 47, .07); }
+.form-card { padding: 32rpx; }
+.label { display: block; margin: 20rpx 0 12rpx; color: #596174; font-size: 24rpx; }
+.field { box-sizing: border-box; min-height: 84rpx; padding: 24rpx; border: 1rpx solid #e4e7ec; border-radius: 18rpx; background: #fbfcfd; font-size: 28rpx; }
+.row { display: flex; gap: 20rpx; }
+.grow { flex: 1; min-width: 0; }
+.segmented { display: flex; gap: 8rpx; margin: 32rpx 0 20rpx; padding: 8rpx; border-radius: 18rpx; background: #f3f4f6; }
+.segment { flex: 1; padding: 18rpx; border-radius: 14rpx; color: #667085; text-align: center; font-size: 26rpx; }
+.segment.active { background: #fff; color: #172033; font-weight: 700; box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, .06); }
+.textarea { box-sizing: border-box; width: 100%; height: 300rpx; padding: 24rpx; border: 1rpx solid #e4e7ec; border-radius: 18rpx; background: #fbfcfd; font-size: 26rpx; }
+.upload-box { display: flex; min-height: 220rpx; flex-direction: column; align-items: center; justify-content: center; padding: 24rpx; border: 2rpx dashed #f0a79e; border-radius: 20rpx; background: #fff7f5; color: #7b3d35; text-align: center; font-size: 26rpx; }
+.hint { margin-top: 14rpx; color: #9a6b64; font-size: 22rpx; }
+.primary { margin-top: 32rpx; border-radius: 20rpx; background: #172033; color: #fff; font-size: 28rpx; }
+.primary[disabled] { opacity: .45; }
+.secondary { margin-top: 28rpx; border: 1rpx solid #d9dde5; border-radius: 20rpx; background: #fff; color: #344054; font-size: 27rpx; }
+.error { display: block; margin-top: 20rpx; padding: 18rpx; border-radius: 14rpx; background: #fff0ef; color: #b42318; font-size: 24rpx; }
+.privacy { display: block; margin: 28rpx 12rpx 0; color: #98a2b3; font-size: 21rpx; line-height: 1.6; text-align: center; }
