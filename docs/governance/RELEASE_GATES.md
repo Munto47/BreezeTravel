@@ -3,6 +3,17 @@
 > 状态：`ACCEPTED`
 > 适用目标：进入真人内测前的 V1 内测候选版
 
+## 0. Ready 状态分层
+
+经用户于 2026-08-26 批准，`TC-I1-I4-trip-intake-v2` 使用独立的开发完成态，避免历史双入口候选门禁反向阻断当前已批准的 Intake 纵向切片：
+
+- `INTAKE_V2_DEVELOPMENT_READY`：候选 commit 上 backend 全套 pytest、Ruff、frontend build、dual-entry 结构 validator 和 120 条 NLU Gate 全部通过；025 migration、revision/CAS/idempotency/materialization 的离线合同与回归通过；
+- dual-entry 的旧统计规模、Builder G2/G5 seeds、P5 历史 blind/Judge、real OCR、live Provider、公网和真人证据不属于 Intake v2 文本抽取开发完成态，保持各自原状态；
+- `V1_CANDIDATE_READY`：仍必须满足下文 G0～G6、零容忍项及候选证据要求。`INTAKE_V2_DEVELOPMENT_READY` 不得改写或替代该结论；
+- validator 存在结构错误、哈希错误、blind 泄漏、默认事实注入、关键字段反转或新增测试失败时，两个状态都必须 fail closed。
+
+这是一项范围调整，不是质量阈值下调：历史能力不再作为当前 Goal 的完成前置，但其缺失证据不得被标记为 PASS。
+
 ## 1. 评分门槛
 
 | 分桶 | 权重 | 最低要求 |

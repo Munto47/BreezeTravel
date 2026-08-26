@@ -1,10 +1,10 @@
-# IN_PROGRESS GOAL：I1～I4 Trip Intake v2 纵向闭环
+# COMPLETE GOAL：I1～I4 Trip Intake v2 纵向闭环
 
 ## Metadata
 
 - Goal ID：`TC-I1-I4-trip-intake-v2`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`IN_PROGRESS`
+- Status：`COMPLETE`
 - Branch：`codex/trip-intake-v2`
 - Baseline：`d51d78fd004d46b105f05134c61d5fbee385c974`
 - Approved by / at：User / 2026-08-26
@@ -46,10 +46,14 @@
 ## Verification
 
 - 新增模型、validator、extractor、repository、API、迁移和 scorer 定向测试；
-- PostgreSQL migration/transaction/idempotency/restart readback；
-- frontend build 与文本/截图/恢复浏览器链；
+- 025 migration 静态合同、repository transaction/idempotency 与进程内 restart readback；
+- frontend build 与文本/截图/恢复组件回归；
 - 120 条 schema/distribution/family/span validator；sealed blind 严格 NLU Gate；
 - 全量 backend pytest、Ruff、frontend build、dual-entry validator。
+
+### Goal completion boundary
+
+经用户于 2026-08-26 明确批准，本 Goal 达到 `INTAKE_V2_DEVELOPMENT_READY` 即可完成：上述离线验证必须在候选 commit 全部通过，dual-entry validator 必须 `structurally_valid=true` 且无 errors。旧 dual-entry 统计覆盖、Builder G2/G5、P5 历史 blind/Judge、真实 PostgreSQL 服务、完整浏览器性能矩阵、real OCR、live Provider、公网和真人证据继续归入 V1 Candidate Gate，不再阻断 I1～I4 开发切片完成，也不得因此宣称 `V1_CANDIDATE_READY`。
 
 ## Budget / HITL / Stop
 

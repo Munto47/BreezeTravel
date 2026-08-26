@@ -6,9 +6,13 @@ The module name is retained to avoid breaking existing targeted test commands.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from scripts.build_release_manifest import build
 from scripts.verify_dual_entry_delivery import verify
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
@@ -82,3 +86,14 @@ def test_verifier_accepts_externally_generated_trip_check_baseline(tmp_path):
     assert result["publicly_verified"] is False
     assert result["overall_release_decision"] == "REJECT"
     assert result["release_blockers"]
+
+
+def test_intake_development_ready_scope_cannot_promote_v1_candidate_release():
+    gates = (ROOT / "docs/governance/RELEASE_GATES.md").read_text(encoding="utf-8")
+    goal = (ROOT / "docs/governance/CURRENT_GOAL.md").read_text(encoding="utf-8")
+
+    assert "INTAKE_V2_DEVELOPMENT_READY" in gates
+    assert "V1_CANDIDATE_READY" in gates
+    assert "不得改写或替代" in gates
+    assert "structurally_valid=true" in goal
+    assert "不得因此宣称 `V1_CANDIDATE_READY`" in goal
