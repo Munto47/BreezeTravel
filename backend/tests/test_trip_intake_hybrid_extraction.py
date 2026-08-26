@@ -201,6 +201,24 @@ def test_semantic_payload_canonicalizes_explicit_preference_phrases() -> None:
     }
 
 
+def test_semantic_payload_normalizes_return_time_commitment() -> None:
+    normalized = normalize_semantic_payload(
+        {
+            "temporal": {
+                "departure": {
+                    "location_text": "返程",
+                    "evidence": [
+                        {"source_id": "source-1", "quote": "最后一天中午返程"}
+                    ],
+                }
+            }
+        }
+    )
+
+    assert normalized["temporal"]["departure"]["location_text"] is None
+    assert normalized["temporal"]["departure"]["at_text"] == "最后一天中午"
+
+
 @pytest.mark.asyncio
 async def test_deterministic_rules_preserve_explicit_unknown_evidence_and_tags() -> None:
     source = _source(
@@ -240,6 +258,30 @@ async def test_deterministic_rules_parse_ranges_and_inclusive_date_duration() ->
 
 
 @pytest.mark.asyncio
+async def test_deterministic_rules_parse_nights_and_canonical_preferences() -> None:
+    source = _source(
+        "去北京，4人，玩5天；喜欢自然风景，避开人挤人，想高密度打卡，"
+        "总预算不超过2000元，公共交通优先，住宿靠近地铁；住2晚"
+    )
+
+    outcome = await DeterministicTripIntakeExtractor().extract([source])
+
+    assert outcome.extraction.temporal.nights.min == 2
+    assert outcome.extraction.preferences.pace.evidence[0].quote == "想高密度打卡"
+    assert [item.item_id for item in outcome.extraction.preferences.items] == [
+        "preference-like",
+        "preference-dislike",
+        "requirement-transport",
+        "requirement-themed",
+        "requirement-budget",
+    ]
+    budget = next(
+        item for item in outcome.extraction.preferences.items if item.category == "budget"
+    )
+    assert (budget.value, budget.unit, budget.currency) == (2000, "元", "CNY")
+
+
+@pytest.mark.asyncio
 async def test_hybrid_keeps_more_complete_evidence_for_equal_unknown_values() -> None:
     source = _source("去北京；人数还没定，可能有人临时加入；时间还没定，有空就多待几天")
     payload = {
@@ -273,6 +315,42 @@ async def test_hybrid_keeps_more_complete_evidence_for_equal_unknown_values() ->
     assert outcome.extraction.temporal.days.evidence[0].quote == (
         "时间还没定，有空就多待几天"
     )
+
+
+@pytest.mark.asyncio
+async def test_hybrid_marks_unresolved_destination_disagreement_uncertain() -> None:
+    source = _source("有人说去杭州也有人坚持北京，目前矛盾没解决；5人；玩7天")
+    payload = {
+        "locations": [
+            {
+                "raw_text": "杭州",
+                "normalized_name": "杭州市",
+                "country_code": "CN",
+                "entity_type": "CITY",
+                "role": "DESTINATION_CANDIDATE",
+                "evidence": [{"source_id": "source-1", "quote": "杭州"}],
+            },
+            {
+                "raw_text": "北京",
+                "normalized_name": "北京市",
+                "country_code": "CN",
+                "entity_type": "CITY",
+                "role": "DESTINATION_CANDIDATE",
+                "evidence": [{"source_id": "source-1", "quote": "北京"}],
+            },
+        ],
+        "location_status": "MULTIPLE",
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.locations.status.value == "UNCERTAIN"
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:

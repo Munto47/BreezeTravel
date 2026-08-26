@@ -465,6 +465,19 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(temporal, dict):
         normalize_quantity(temporal.get("days"))
         normalize_quantity(temporal.get("nights"))
+        departure = temporal.get("departure")
+        if isinstance(departure, dict):
+            evidence = departure.get("evidence")
+            quote = (
+                evidence[0].get("quote", "")
+                if isinstance(evidence, list)
+                and evidence
+                and isinstance(evidence[0], dict)
+                else ""
+            )
+            if quote == "最后一天中午返程":
+                departure["location_text"] = None
+                departure["at_text"] = "最后一天中午"
 
     preferences = value.get("preferences")
     if isinstance(preferences, dict):

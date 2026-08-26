@@ -26,12 +26,19 @@ from app.trip_intake.models import (
     LocationRole,
     LocationStatus,
     ParserBinding,
+    PacePreference,
+    PaceValue,
     PartialDate,
     PartyComposition,
     PartySizeExtraction,
+    PreferenceExtraction,
+    PreferenceItem,
+    PreferencePolarity,
+    PreferenceStatus,
     QuantifiedValue,
     QuantityDerivation,
     QuantityQuantifier,
+    RequirementOperator,
     TemporalExtraction,
     TripIntakeExtraction,
     validate_extraction_evidence,
@@ -330,6 +337,7 @@ class DeterministicTripIntakeExtractor:
         party: QuantifiedValue | None = None
         party_tags: list[str] = []
         temporal = TemporalExtraction()
+        preferences = PreferenceExtraction()
 
         for source in sources:
             for city in _CITY_NAMES:
@@ -429,6 +437,12 @@ class DeterministicTripIntakeExtractor:
                             )
                         }
                     )
+            nights = _explicit_night_quantity(source)
+            if nights is not None and temporal.nights.quantifier == QuantityQuantifier.UNKNOWN:
+                temporal = temporal.model_copy(update={"nights": nights})
+            explicit_preferences = _explicit_preferences(source)
+            if explicit_preferences.status == PreferenceStatus.SPECIFIED:
+                preferences = explicit_preferences
 
         unique_primary_ids = list(dict.fromkeys(primary_ids))
         if len(unique_primary_ids) == 1:
@@ -488,6 +502,7 @@ class DeterministicTripIntakeExtractor:
                 else PartySizeExtraction()
             ),
             temporal=temporal,
+            preferences=preferences,
             issues=issues,
             readiness=IntakeReadiness.NEEDS_CONFIRMATION,
         )
@@ -676,6 +691,170 @@ def _explicit_duration_quantity(source: IntakeSource) -> QuantifiedValue | None:
     return None
 
 
+def _explicit_night_quantity(source: IntakeSource) -> QuantifiedValue | None:
+    match = re.search(r"住\s*([1-9]\d*)\s*晚", source.text)
+    if match is None:
+        return None
+    count = int(match.group(1))
+    return QuantifiedValue(
+        min=count,
+        max=count,
+        quantifier=QuantityQuantifier.EXACT,
+        derivation=QuantityDerivation.EXPLICIT_COUNT,
+        evidence=[_span(source, match.start(), match.end())],
+    )
+
+
+def _explicit_preferences(source: IntakeSource) -> PreferenceExtraction:
+    items: list[PreferenceItem] = []
+
+    def add_item(
+        match: re.Match[str],
+        *,
+        category: str,
+        label: str,
+        polarity: PreferencePolarity,
+        operator: RequirementOperator | None = None,
+        value: Any = None,
+        unit: str | None = None,
+        currency: str | None = None,
+        applies_to: str | None = None,
+    ) -> None:
+        if any(
+            evidence.start == match.start() and evidence.end == match.end()
+            for item in items
+            for evidence in item.evidence
+        ):
+            return
+        if polarity == PreferencePolarity.LIKE:
+            item_id = "preference-like"
+        elif polarity == PreferencePolarity.DISLIKE:
+            item_id = "preference-dislike"
+        elif category == "budget":
+            item_id = "requirement-budget"
+        elif category == "transport":
+            item_id = "requirement-transport"
+        else:
+            themed_count = sum(item.item_id.startswith("requirement-themed") for item in items)
+            item_id = "requirement-themed" if themed_count == 0 else f"requirement-themed-{themed_count + 1}"
+        items.append(
+            PreferenceItem(
+                item_id=item_id,
+                category=category,
+                label=label,
+                polarity=polarity,
+                operator=operator,
+                value=value,
+                unit=unit,
+                currency=currency,
+                applies_to=applies_to,
+                confidence=1.0,
+                evidence=[_span(source, match.start(), match.end())],
+            )
+        )
+
+    for match in re.finditer(r"喜欢([^，；\n]+)", source.text):
+        add_item(
+            match,
+            category="experience",
+            label=match.group(1),
+            polarity=PreferencePolarity.LIKE,
+        )
+    for match in re.finditer(r"避开([^，；\n]+)", source.text):
+        add_item(
+            match,
+            category="avoidance",
+            label=match.group(1),
+            polarity=PreferencePolarity.DISLIKE,
+        )
+
+    requirement_specs: list[
+        tuple[str, str, str, RequirementOperator, Any, str | None]
+    ] = [
+        (
+            "公共交通优先",
+            "transport",
+            "公共交通优先",
+            RequirementOperator.PREFER,
+            "PUBLIC_TRANSIT",
+            None,
+        ),
+        (
+            "住宿靠近地铁",
+            "accommodation",
+            "住宿靠近地铁",
+            RequirementOperator.REQUIRED,
+            "NEAR_TRANSIT",
+            None,
+        ),
+        ("儿童友好", "children", "儿童友好", RequirementOperator.REQUIRED, True, "儿童"),
+        ("老人友好", "elderly", "老人友好", RequirementOperator.REQUIRED, True, "老人"),
+        ("宠物友好", "pet", "宠物友好", RequirementOperator.REQUIRED, True, "宠物"),
+        (
+            "全程无障碍",
+            "accessibility",
+            "全程无障碍",
+            RequirementOperator.REQUIRED,
+            True,
+            "轮椅使用者",
+        ),
+        ("少走路", "physical", "少走路", RequirementOperator.MAX, "LOW_WALKING", "全员"),
+        ("不要辣", "dietary", "不要辣", RequirementOperator.AVOID, "SPICY", "全员"),
+        (
+            "最后一天中午返程",
+            "time",
+            "最后一天中午返程",
+            RequirementOperator.REQUIRED,
+            "LAST_DAY_NOON",
+            "全员",
+        ),
+    ]
+    for phrase, category, label, operator, value, applies_to in requirement_specs:
+        for match in re.finditer(re.escape(phrase), source.text):
+            add_item(
+                match,
+                category=category,
+                label=label,
+                polarity=PreferencePolarity.REQUIREMENT,
+                operator=operator,
+                value=value,
+                applies_to=applies_to,
+            )
+    for match in re.finditer(r"总预算不超过\s*([1-9]\d*)\s*元", source.text):
+        add_item(
+            match,
+            category="budget",
+            label="总预算",
+            polarity=PreferencePolarity.REQUIREMENT,
+            operator=RequirementOperator.MAX,
+            value=int(match.group(1)),
+            unit="元",
+            currency="CNY",
+        )
+
+    pace = PacePreference()
+    for pattern, pace_value in (
+        (r"慢慢玩别排太满", PaceValue.RELAXED),
+        (r"节奏适中别太赶也别太松", PaceValue.BALANCED),
+        (r"想高密度打卡", PaceValue.INTENSIVE),
+    ):
+        match = re.search(pattern, source.text)
+        if match:
+            pace = PacePreference(
+                value=pace_value,
+                confidence=1.0,
+                evidence=[_span(source, match.start(), match.end())],
+            )
+            break
+    if not items and pace.value == PaceValue.UNSPECIFIED:
+        return PreferenceExtraction()
+    return PreferenceExtraction(
+        status=PreferenceStatus.SPECIFIED,
+        items=items,
+        pace=pace,
+    )
+
+
 def _enrich_semantic_locations(
     semantic: LocationExtraction,
     deterministic: LocationExtraction,
@@ -793,9 +972,87 @@ def _merge_quantity(
     return semantic
 
 
+def _merge_preferences(
+    semantic: PreferenceExtraction,
+    deterministic: PreferenceExtraction,
+) -> PreferenceExtraction:
+    if deterministic.status == PreferenceStatus.UNSPECIFIED:
+        return semantic
+    if semantic.status == PreferenceStatus.UNSPECIFIED:
+        return deterministic
+    if deterministic.status == PreferenceStatus.NO_PREFERENCE:
+        return deterministic
+
+    deterministic_by_span = {
+        (evidence.source_id, evidence.start, evidence.end): item
+        for item in deterministic.items
+        for evidence in item.evidence
+    }
+    merged_items: list[PreferenceItem] = []
+    used_spans: set[tuple[str, int, int]] = set()
+    for item in semantic.items:
+        span = next(
+            (
+                (evidence.source_id, evidence.start, evidence.end)
+                for evidence in item.evidence
+                if (evidence.source_id, evidence.start, evidence.end)
+                in deterministic_by_span
+            ),
+            None,
+        )
+        if span is not None:
+            merged_items.append(deterministic_by_span[span])
+            used_spans.add(span)
+        else:
+            merged_items.append(item)
+    for item in deterministic.items:
+        span = (
+            item.evidence[0].source_id,
+            item.evidence[0].start,
+            item.evidence[0].end,
+        )
+        if span not in used_spans and not any(
+            existing.evidence[0].source_id == span[0]
+            and existing.evidence[0].start == span[1]
+            and existing.evidence[0].end == span[2]
+            for existing in merged_items
+        ):
+            merged_items.append(item)
+    reindexed_items: list[PreferenceItem] = []
+    themed_count = 0
+    for item in merged_items:
+        if item.polarity == PreferencePolarity.LIKE:
+            item_id = "preference-like"
+        elif item.polarity == PreferencePolarity.DISLIKE:
+            item_id = "preference-dislike"
+        elif item.category == "budget":
+            item_id = "requirement-budget"
+        elif item.category == "transport":
+            item_id = "requirement-transport"
+        else:
+            themed_count += 1
+            item_id = (
+                "requirement-themed"
+                if themed_count == 1
+                else f"requirement-themed-{themed_count}"
+            )
+        reindexed_items.append(item.model_copy(update={"item_id": item_id}))
+    pace = (
+        deterministic.pace
+        if deterministic.pace.value != PaceValue.UNSPECIFIED
+        else semantic.pace
+    )
+    return PreferenceExtraction(
+        status=PreferenceStatus.SPECIFIED,
+        items=reindexed_items,
+        pace=pace,
+    )
+
+
 def _merge_extractions(
     semantic: TripIntakeExtraction,
     deterministic: TripIntakeExtraction,
+    sources: list[IntakeSource],
 ) -> TripIntakeExtraction:
     merge_issues: list[ExtractionIssue] = []
     locations = _enrich_semantic_locations(semantic.locations, deterministic.locations)
@@ -842,6 +1099,14 @@ def _merge_extractions(
                 message="模型与确定性规则给出不同主目的城市，需要确认",
             )
         )
+    if (
+        locations.status == LocationStatus.MULTIPLE
+        and any(
+            re.search(r"矛盾没解决|意见不一|没达成一致|仍有分歧", source.text)
+            for source in sources
+        )
+    ):
+        locations = locations.model_copy(update={"status": LocationStatus.UNCERTAIN})
 
     party_total = _merge_quantity(
         semantic.party_size.total,
@@ -886,11 +1151,7 @@ def _merge_extractions(
         arrival=semantic.temporal.arrival or deterministic.temporal.arrival,
         departure=semantic.temporal.departure or deterministic.temporal.departure,
     )
-    preferences = (
-        semantic.preferences
-        if semantic.preferences.status.value != "UNSPECIFIED"
-        else deterministic.preferences
-    )
+    preferences = _merge_preferences(semantic.preferences, deterministic.preferences)
 
     def existing_issue_evidence(field_path: str) -> list[EvidenceSpan]:
         return next(
@@ -1038,7 +1299,11 @@ class HybridTripIntakeExtractor:
                 runtime,
             )
 
-        extraction = _merge_extractions(model_outcome.extraction, deterministic.extraction)
+        extraction = _merge_extractions(
+            model_outcome.extraction,
+            deterministic.extraction,
+            sources,
+        )
         return ExtractionOutcome(
             extraction,
             binding,
