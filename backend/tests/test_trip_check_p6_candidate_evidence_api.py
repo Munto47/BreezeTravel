@@ -180,6 +180,25 @@ def test_candidate_evidence_must_be_external_and_use_distinct_files(tmp_path, mo
         asyncio.run(evidence_api.latest_evidence())
 
 
+def test_deployed_repo_root_supports_repository_and_backend_only_images(tmp_path):
+    repository_module = tmp_path / "repo" / "backend" / "app" / "api" / "evidence.py"
+    image_module = tmp_path / "image" / "app" / "app" / "api" / "evidence.py"
+
+    assert evidence_api._deployed_repo_root(repository_module) == tmp_path / "repo"
+    assert evidence_api._deployed_repo_root(image_module) == tmp_path / "image" / "app"
+
+
+def test_backend_only_image_rejects_internal_but_accepts_read_only_mount(tmp_path, monkeypatch):
+    source_root = tmp_path / "app"
+    internal = source_root / "evidence" / "candidate.json"
+    external = tmp_path / "run" / "breezetravel-evidence" / "candidate.json"
+    monkeypatch.setattr(evidence_api, "_REPO_ROOT", source_root)
+
+    with pytest.raises(HTTPException, match="503"):
+        evidence_api._external_path(str(internal))
+    assert evidence_api._external_path(str(external)) == external.resolve()
+
+
 def test_candidate_gate_pass_requires_bound_external_receipt(tmp_path, monkeypatch):
     evidence_path, release_path = _files(tmp_path)
     receipt_path = tmp_path / "candidate-gate-receipt.json"

@@ -18,8 +18,16 @@ from evals.trip_check_v1.p6.contracts_v1 import (
 router = APIRouter()
 
 _LEGACY_MANIFEST = Path(__file__).resolve().parents[2] / "evidence" / "latest.json"
-_REPO_ROOT = Path(__file__).resolve().parents[3]
 _UNAVAILABLE = "CANDIDATE_EVIDENCE_UNAVAILABLE"
+
+
+def _deployed_repo_root(module_path: Path) -> Path:
+    """Return the source boundary in both repository and backend-only images."""
+    backend_root = module_path.resolve(strict=False).parents[2]
+    return backend_root.parent if backend_root.name == "backend" else backend_root
+
+
+_REPO_ROOT = _deployed_repo_root(Path(__file__))
 
 
 def _read_json(path: Path) -> dict[str, Any]:
