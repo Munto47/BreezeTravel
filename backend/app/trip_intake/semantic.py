@@ -171,6 +171,221 @@ class TripIntakeSemanticDraft(BaseModel):
     issues: list[SemanticIssueDraft] = Field(default_factory=list)
 
 
+def trip_intake_semantic_prompt_schema() -> dict[str, Any]:
+    """Compact model contract; full Pydantic validation remains authoritative."""
+
+    evidence_ref = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "source_id": {"type": "string"},
+            "quote": {"type": "string"},
+            "occurrence": {"type": "integer", "minimum": 0},
+        },
+        "required": ["source_id", "quote"],
+    }
+    quantity = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "min": {"type": ["integer", "null"], "minimum": 0},
+            "max": {"type": ["integer", "null"], "minimum": 0},
+            "quantifier": {
+                "enum": [item.value for item in QuantityQuantifier]
+            },
+            "derivation": {
+                "enum": [item.value for item in QuantityDerivation]
+            },
+            "evidence": {"type": "array", "items": {"$ref": "#/$defs/e"}},
+        },
+        "required": ["quantifier", "derivation"],
+    }
+    commitment = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "location_text": {"type": ["string", "null"]},
+            "at_text": {"type": ["string", "null"]},
+            "evidence": {"type": "array", "items": {"$ref": "#/$defs/e"}},
+        },
+    }
+    partial_date = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "year": {"type": ["integer", "null"]},
+            "month": {"type": "integer", "minimum": 1, "maximum": 12},
+            "day": {"type": "integer", "minimum": 1, "maximum": 31},
+        },
+        "required": ["month", "day"],
+    }
+    return {
+        "$defs": {
+            "e": evidence_ref,
+            "q": quantity,
+            "c": commitment,
+            "d": partial_date,
+        },
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "schema_version": {"const": "trip-intake-semantic-draft-v1"},
+            "locations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "raw_text": {"type": "string"},
+                        "normalized_name": {"type": ["string", "null"]},
+                        "country_code": {"type": ["string", "null"]},
+                        "entity_type": {
+                            "enum": [item.value for item in LocationEntityType]
+                        },
+                        "role": {"enum": [item.value for item in LocationRole]},
+                        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                        "evidence": {
+                            "type": "array",
+                            "items": {"$ref": "#/$defs/e"},
+                        },
+                    },
+                    "required": ["raw_text", "role", "evidence"],
+                },
+            },
+            "location_status": {"enum": [item.value for item in LocationStatus]},
+            "primary_location_index": {"type": ["integer", "null"], "minimum": 0},
+            "party_size": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "total": {"$ref": "#/$defs/q"},
+                    "composition": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "adults": {"anyOf": [{"$ref": "#/$defs/q"}, {"type": "null"}]},
+                            "children": {
+                                "anyOf": [{"$ref": "#/$defs/q"}, {"type": "null"}]
+                            },
+                            "elderly": {"anyOf": [{"$ref": "#/$defs/q"}, {"type": "null"}]},
+                            "tags": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                },
+            },
+            "temporal": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "days": {"$ref": "#/$defs/q"},
+                    "nights": {"$ref": "#/$defs/q"},
+                    "date_range": {
+                        "anyOf": [
+                            {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "raw_text": {"type": "string"},
+                                    "start": {"$ref": "#/$defs/d"},
+                                    "end": {"$ref": "#/$defs/d"},
+                                    "inclusive": {"type": "boolean"},
+                                    "evidence": {
+                                        "type": "array",
+                                        "items": {"$ref": "#/$defs/e"},
+                                    },
+                                },
+                                "required": ["raw_text", "start", "end", "evidence"],
+                            },
+                            {"type": "null"},
+                        ]
+                    },
+                    "arrival": {"anyOf": [{"$ref": "#/$defs/c"}, {"type": "null"}]},
+                    "departure": {"anyOf": [{"$ref": "#/$defs/c"}, {"type": "null"}]},
+                },
+            },
+            "preferences": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "status": {"enum": [item.value for item in PreferenceStatus]},
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "properties": {
+                                "category": {"type": "string"},
+                                "label": {"type": "string"},
+                                "polarity": {
+                                    "enum": [item.value for item in PreferencePolarity]
+                                },
+                                "operator": {
+                                    "anyOf": [
+                                        {"enum": [item.value for item in RequirementOperator]},
+                                        {"type": "null"},
+                                    ]
+                                },
+                                "value": {},
+                                "unit": {"type": ["string", "null"]},
+                                "currency": {"type": ["string", "null"]},
+                                "applies_to": {"type": ["string", "null"]},
+                                "confidence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1,
+                                },
+                                "evidence": {
+                                    "type": "array",
+                                    "items": {"$ref": "#/$defs/e"},
+                                },
+                            },
+                            "required": ["category", "label", "polarity", "evidence"],
+                        },
+                    },
+                    "pace": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "value": {"enum": [item.value for item in PaceValue]},
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                            },
+                            "evidence": {
+                                "type": "array",
+                                "items": {"$ref": "#/$defs/e"},
+                            },
+                        },
+                    },
+                    "no_preference_evidence": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/e"},
+                    },
+                },
+            },
+            "issues": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "code": {"type": "string"},
+                        "field_path": {"type": "string"},
+                        "message": {"type": "string"},
+                        "blocking": {"type": "boolean"},
+                        "evidence": {
+                            "type": "array",
+                            "items": {"$ref": "#/$defs/e"},
+                        },
+                    },
+                    "required": ["code", "field_path", "message"],
+                },
+            },
+        },
+    }
+
+
 class SemanticCompilationError(ValueError):
     pass
 

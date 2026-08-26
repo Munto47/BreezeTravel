@@ -32,15 +32,22 @@ from app.trip_intake.models import (
     TripIntakeExtraction,
     validate_extraction_evidence,
 )
-from app.trip_intake.semantic import TripIntakeSemanticDraft, compile_semantic_draft
+from app.trip_intake.semantic import (
+    TripIntakeSemanticDraft,
+    compile_semantic_draft,
+    trip_intake_semantic_prompt_schema,
+)
 
 
 TRIP_INTAKE_SYSTEM_PROMPT = (
     "你是行程需求信息抽取器，只忠实记录当前有效陈述，不规划、不调用工具、"
     "不验证或修正地点真假。过去、取消、排除、出发、返程和候选地点必须区分角色；"
     "修正后的新陈述优先。人数、天数、晚数、日期、预算和其他数字不可串类。"
+    "年龄、车次、时间、房间数、票数和预算不得当成人数或天数；只出现年龄不能推出儿童人数。"
     "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值。"
-    "每个原子事实引用 source_id、逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
+    "中国城市使用规范的某某市和 country_code=CN；地点 quote 只引用地点原文。"
+    "每个原子事实引用 source_id、最短逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
+    "省略空列表、null 和默认字段，只输出必要字段，保持 JSON 紧凑。"
 )
 
 
@@ -157,7 +164,7 @@ class SchemaConstrainedTripIntakeExtractor:
             parser_version=self.parser_version,
             model_name=self.model_name,
             prompt_version=self.prompt_version,
-            schema=TripIntakeSemanticDraft.model_json_schema(),
+            schema=trip_intake_semantic_prompt_schema(),
             config={"evidence_offsets": "server-compiled-code-points"},
         )
         source_payload = [
@@ -171,7 +178,7 @@ class SchemaConstrainedTripIntakeExtractor:
                     "schema_version": "trip-intake-semantic-request-v1",
                     "sources": source_payload,
                 },
-                json_schema=TripIntakeSemanticDraft.model_json_schema(),
+                json_schema=trip_intake_semantic_prompt_schema(),
                 model_name=self.model_name,
                 temperature=0,
             )
@@ -790,7 +797,7 @@ class HybridTripIntakeExtractor:
             parser_version=self.parser_version,
             model_name=self.model_extractor.model_name,
             prompt_version=self.prompt_version,
-            schema=TripIntakeSemanticDraft.model_json_schema(),
+            schema=trip_intake_semantic_prompt_schema(),
             config={
                 "evidence_offsets": "server-compiled-code-points",
                 "fallback": DeterministicTripIntakeExtractor.parser_version,
@@ -851,7 +858,7 @@ class UnavailableHybridTripIntakeExtractor:
             parser_version=HybridTripIntakeExtractor.parser_version,
             model_name=self.model_name,
             prompt_version=HybridTripIntakeExtractor.prompt_version,
-            schema=TripIntakeSemanticDraft.model_json_schema(),
+            schema=trip_intake_semantic_prompt_schema(),
             config={"unavailable": "missing_api_key"},
         )
         return ExtractionOutcome(

@@ -20,7 +20,11 @@ from app.trip_intake.llm_client import (
 )
 from app.trip_intake.models import IntakeSource, IntakeSourceType, IntakeStatus
 from app.trip_intake.runtime import build_trip_intake_extractor
-from app.trip_intake.semantic import TripIntakeSemanticDraft, compile_semantic_draft
+from app.trip_intake.semantic import (
+    TripIntakeSemanticDraft,
+    compile_semantic_draft,
+    trip_intake_semantic_prompt_schema,
+)
 
 
 def _source(text: str, source_id: str = "source-1") -> IntakeSource:
@@ -93,6 +97,18 @@ def test_semantic_compiler_resolves_unicode_and_repeated_quote() -> None:
 
     span = extraction.locations.mentions[0].evidence[0]
     assert (span.start, span.end, span.quote) == (8, 10, "杭州")
+
+
+def test_model_prompt_schema_is_compact_and_keeps_local_validation_separate() -> None:
+    rendered = json.dumps(
+        trip_intake_semantic_prompt_schema(),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+    assert len(rendered) < 5000
+    assert '"title"' not in rendered
+    assert TripIntakeSemanticDraft.model_json_schema()["title"] == "TripIntakeSemanticDraft"
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:

@@ -22,7 +22,7 @@ from app.trip_intake.extraction import (
 )
 from app.trip_intake.models import IntakeSource, IntakeSourceType
 from app.trip_intake.runtime import build_trip_intake_extractor
-from app.trip_intake.semantic import TripIntakeSemanticDraft
+from app.trip_intake.semantic import trip_intake_semantic_prompt_schema
 from evals.trip_nlu_v2.validator import _read_jsonl
 
 
@@ -65,13 +65,6 @@ def _file_sha256(path: Path) -> str:
 def _write_json(path: Path, value: Any) -> None:
     path.write_text(
         json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-
-def _write_jsonl(path: Path, values: list[dict[str, Any]]) -> None:
-    path.write_text(
-        "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n" for item in values),
         encoding="utf-8",
     )
 
@@ -305,29 +298,32 @@ async def run_evaluation(
     error_categories: Counter[str] = Counter()
     fallback_count = 0
     parser_binding = None
-    for case in cases:
-        outcome, elapsed_ms = await invoke(case)
-        parser_binding = outcome.parser_binding
-        latencies.append(elapsed_ms)
-        runtime = outcome.runtime_receipt
-        if runtime is not None:
-            if runtime.actual_model:
-                actual_models[runtime.actual_model] += 1
-            if runtime.error_category:
-                error_categories[runtime.error_category] += 1
-            fallback_count += int(runtime.fallback_used)
-        predictions.append(
-            {
+    predictions_path = output_dir / "predictions.jsonl"
+    with predictions_path.open("x", encoding="utf-8", newline="\n") as prediction_stream:
+        for case in cases:
+            outcome, elapsed_ms = await invoke(case)
+            parser_binding = outcome.parser_binding
+            latencies.append(elapsed_ms)
+            runtime = outcome.runtime_receipt
+            if runtime is not None:
+                if runtime.actual_model:
+                    actual_models[runtime.actual_model] += 1
+                if runtime.error_category:
+                    error_categories[runtime.error_category] += 1
+                fallback_count += int(runtime.fallback_used)
+            prediction = {
                 "case_id": case["case_id"],
                 "prediction": outcome.extraction.model_dump(mode="json"),
                 "runtime": asdict(runtime) if runtime is not None else None,
                 "status": outcome.status.value,
                 "elapsed_ms": round(elapsed_ms, 3),
             }
-        )
+            predictions.append(prediction)
+            prediction_stream.write(
+                json.dumps(prediction, ensure_ascii=False, sort_keys=True) + "\n"
+            )
+            prediction_stream.flush()
 
-    predictions_path = output_dir / "predictions.jsonl"
-    _write_jsonl(predictions_path, predictions)
     predictions_sha256 = _file_sha256(predictions_path)
     if parser_binding is None:
         raise AssertionError("evaluation did not produce a parser binding")
@@ -361,7 +357,7 @@ async def run_evaluation(
             ).hexdigest(),
             "schema_sha256": manifest["code_bindings"]["schema_sha256"],
             "semantic_schema_sha256": _canonical_sha256(
-                TripIntakeSemanticDraft.model_json_schema()
+                trip_intake_semantic_prompt_schema()
             ),
             "config_sha256": parser_binding.config_hash,
         },
