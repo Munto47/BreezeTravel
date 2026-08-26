@@ -37,6 +37,7 @@ from app.trip_intake.models import (
 from app.trip_intake.semantic import (
     TripIntakeSemanticDraft,
     compile_semantic_draft,
+    normalize_semantic_payload,
     trip_intake_semantic_prompt_schema,
 )
 
@@ -156,8 +157,8 @@ def _failed_extraction(message: str) -> TripIntakeExtraction:
 class SchemaConstrainedTripIntakeExtractor:
     """Model semantic proposal with deterministic evidence compilation."""
 
-    parser_version = "trip-intake-semantic-compiler-v1"
-    prompt_version = "trip-intake-extraction-zh-v3"
+    parser_version = "trip-intake-semantic-compiler-v2"
+    prompt_version = "trip-intake-extraction-zh-v4"
 
     def __init__(self, client: StructuredExtractionClient, *, model_name: str):
         self.client = client
@@ -188,7 +189,9 @@ class SchemaConstrainedTripIntakeExtractor:
                 model_name=self.model_name,
                 temperature=0,
             )
-            draft = TripIntakeSemanticDraft.model_validate(result.payload)
+            draft = TripIntakeSemanticDraft.model_validate(
+                normalize_semantic_payload(result.payload)
+            )
             extraction = compile_semantic_draft(draft, sources)
             return ExtractionOutcome(
                 extraction,

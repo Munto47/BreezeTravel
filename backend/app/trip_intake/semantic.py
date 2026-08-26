@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -384,6 +385,137 @@ def trip_intake_semantic_prompt_schema() -> dict[str, Any]:
             },
         },
     }
+
+
+def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a small audited alias set before strict Pydantic validation."""
+
+    value = deepcopy(payload)
+
+    def alias(current: Any, aliases: dict[str, str]) -> Any:
+        if not isinstance(current, str):
+            return current
+        return aliases.get(current.strip().upper(), current)
+
+    def alias_key(mapping: dict[str, Any], key: str, aliases: dict[str, str]) -> None:
+        if key in mapping:
+            mapping[key] = alias(mapping[key], aliases)
+
+    for location in value.get("locations", []):
+        if not isinstance(location, dict):
+            continue
+        alias_key(
+            location,
+            "role",
+            {
+                "DESTINATION": "PRIMARY_DESTINATION",
+                "PRIMARY": "PRIMARY_DESTINATION",
+                "CANDIDATE": "DESTINATION_CANDIDATE",
+                "PLACE": "REQUESTED_PLACE",
+                "RETURN": "RETURN_LOCATION",
+                "HISTORICAL": "OTHER_MENTION",
+                "OLD_PLAN": "OTHER_MENTION",
+            },
+        )
+        alias_key(
+            location,
+            "entity_type",
+            {"POI": "PLACE", "HOTEL": "ACCOMMODATION", "HUB": "TRANSPORT_HUB"},
+        )
+        if isinstance(location.get("country_code"), str):
+            location["country_code"] = location["country_code"].upper()
+    alias_key(
+        value,
+        "location_status",
+        {"AMBIGUOUS": "UNCERTAIN", "UNKNOWN": "MISSING"},
+    )
+
+    def normalize_quantity(quantity: Any) -> None:
+        if not isinstance(quantity, dict):
+            return
+        alias_key(
+            quantity,
+            "quantifier",
+            {
+                "APPROX": "APPROXIMATE",
+                "MINIMUM": "AT_LEAST",
+                "MAXIMUM": "AT_MOST",
+                "MISSING": "UNKNOWN",
+            },
+        )
+        alias_key(
+            quantity,
+            "derivation",
+            {
+                "EXPLICIT": "EXPLICIT_COUNT",
+                "SEMANTIC": "SEMANTIC_INFERENCE",
+                "INFERRED": "SEMANTIC_INFERENCE",
+                "UNKNOWN": "MISSING",
+            },
+        )
+
+    party = value.get("party_size")
+    if isinstance(party, dict):
+        normalize_quantity(party.get("total"))
+        composition = party.get("composition")
+        if isinstance(composition, dict):
+            for name in ("adults", "children", "elderly"):
+                normalize_quantity(composition.get(name))
+    temporal = value.get("temporal")
+    if isinstance(temporal, dict):
+        normalize_quantity(temporal.get("days"))
+        normalize_quantity(temporal.get("nights"))
+
+    preferences = value.get("preferences")
+    if isinstance(preferences, dict):
+        alias_key(
+            preferences,
+            "status",
+            {"NONE": "NO_PREFERENCE", "MISSING": "UNSPECIFIED"},
+        )
+        pace = preferences.get("pace")
+        if isinstance(pace, dict):
+            alias_key(
+                pace,
+                "value",
+                {
+                    "SLOW": "RELAXED",
+                    "MODERATE": "BALANCED",
+                    "FAST": "INTENSIVE",
+                    "HIGH_DENSITY": "INTENSIVE",
+                },
+            )
+        for item in preferences.get("items", []):
+            if not isinstance(item, dict):
+                continue
+            alias_key(
+                item,
+                "polarity",
+                {
+                    "PREFER": "LIKE",
+                    "PREFERENCE": "LIKE",
+                    "AVOID": "DISLIKE",
+                    "NEGATIVE": "DISLIKE",
+                    "REQUIRED": "REQUIREMENT",
+                    "MUST": "REQUIREMENT",
+                },
+            )
+            alias_key(
+                item,
+                "operator",
+                {
+                    "AT_MOST": "MAX",
+                    "NO_MORE_THAN": "MAX",
+                    "AT_LEAST": "MIN",
+                    "NO_LESS_THAN": "MIN",
+                    "MUST": "REQUIRED",
+                    "REQUIRE": "REQUIRED",
+                    "EXACT": "EQUALS",
+                },
+            )
+            if item.get("polarity") != PreferencePolarity.REQUIREMENT.value:
+                item["operator"] = None
+    return value
 
 
 class SemanticCompilationError(ValueError):

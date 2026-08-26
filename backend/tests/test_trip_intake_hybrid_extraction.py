@@ -23,6 +23,7 @@ from app.trip_intake.runtime import build_trip_intake_extractor
 from app.trip_intake.semantic import (
     TripIntakeSemanticDraft,
     compile_semantic_draft,
+    normalize_semantic_payload,
     trip_intake_semantic_prompt_schema,
 )
 
@@ -109,6 +110,52 @@ def test_model_prompt_schema_is_compact_and_keeps_local_validation_separate() ->
     assert len(rendered) < 5000
     assert '"title"' not in rendered
     assert TripIntakeSemanticDraft.model_json_schema()["title"] == "TripIntakeSemanticDraft"
+
+
+def test_semantic_payload_normalizes_only_audited_enum_aliases() -> None:
+    payload = {
+        "location_status": "AMBIGUOUS",
+        "preferences": {
+            "status": "UNSPECIFIED",
+            "items": [
+                {
+                    "category": "food",
+                    "label": "本帮菜",
+                    "polarity": "PREFER",
+                    "operator": "PREFER",
+                    "evidence": [],
+                },
+                {
+                    "category": "pace",
+                    "label": "不要太赶",
+                    "polarity": "AVOID",
+                    "operator": "AVOID",
+                    "evidence": [],
+                },
+            ],
+        },
+    }
+
+    normalized = normalize_semantic_payload(payload)
+
+    assert normalized["location_status"] == "UNCERTAIN"
+    assert normalized["preferences"]["items"][0]["polarity"] == "LIKE"
+    assert normalized["preferences"]["items"][0]["operator"] is None
+    assert normalized["preferences"]["items"][1]["polarity"] == "DISLIKE"
+    assert normalized["preferences"]["items"][1]["operator"] is None
+    assert payload["location_status"] == "AMBIGUOUS"
+
+
+def test_semantic_payload_does_not_normalize_unapproved_aliases() -> None:
+    normalized = normalize_semantic_payload(
+        {
+            "location_status": "MAYBE",
+            "preferences": {"items": []},
+        }
+    )
+
+    with pytest.raises(ValueError):
+        TripIntakeSemanticDraft.model_validate(normalized)
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:
