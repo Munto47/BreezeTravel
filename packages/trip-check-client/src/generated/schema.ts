@@ -1268,6 +1268,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Screenshot Upload Batch */
+        post: operations["create_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel Screenshot Upload Batch */
+        delete: operations["cancel_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Screenshot Upload Batch */
+        post: operations["commit_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/files/{position}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Screenshot Batch File */
+        post: operations["upload_screenshot_batch_file_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__files__position__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/trip-workspaces/{workspace_id}/share-links": {
         parameters: {
             query?: never;
@@ -2404,6 +2472,11 @@ export interface components {
             trip_days: number;
             /** User Id */
             user_id?: string | null;
+        };
+        /** CreateScreenshotUploadBatchRequest */
+        CreateScreenshotUploadBatchRequest: {
+            /** Expected Count */
+            expected_count: number;
         };
         /** CreateSuggestionSetRequest */
         CreateSuggestionSetRequest: {
@@ -4430,6 +4503,49 @@ export interface components {
              * Format: date-time
              */
             observed_at: string;
+        };
+        /** ScreenshotUploadBatch */
+        ScreenshotUploadBatch: {
+            /** Batch Id */
+            batch_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Expected Count */
+            expected_count: number;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Result Import Id */
+            result_import_id?: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Uploaded Positions */
+            uploaded_positions?: number[];
+            /** Version */
+            version: number;
+            /** Workspace Id */
+            workspace_id: string;
+        };
+        /** ScreenshotUploadBatchCancelResult */
+        ScreenshotUploadBatchCancelResult: {
+            batch: components["schemas"]["ScreenshotUploadBatch"];
+            /** Cleanup Receipts */
+            cleanup_receipts: components["schemas"]["AssetCleanupReceipt"][];
+        };
+        /** ScreenshotUploadBatchCommitResult */
+        ScreenshotUploadBatchCommitResult: {
+            batch: components["schemas"]["ScreenshotUploadBatch"];
+            import_result: components["schemas"]["ScreenshotImportResult"];
         };
         /** SendCodeRequest */
         SendCodeRequest: {
@@ -7933,6 +8049,153 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapProjection"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateScreenshotUploadBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotUploadBatch"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                workspace_id: string;
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotUploadBatchCancelResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                workspace_id: string;
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotUploadBatchCommitResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_screenshot_batch_file_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__files__position__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                workspace_id: string;
+                batch_id: string;
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotUploadBatch"];
                 };
             };
             /** @description Validation Error */

@@ -21,6 +21,8 @@ from app.importing.screenshots import (
     ScreenshotOcrReceipt,
     TemporaryAssetRecord,
 )
+from app.importing.upload_batches import PostgresScreenshotUploadBatchRepository
+from app.itineraries.hash_service import sha256_canonical
 from app.itineraries.models import TripDateRange, TripWorkspace
 from app.itineraries.repositories import PostgresItineraryRepository
 
@@ -83,6 +85,61 @@ async def test_postgres_screenshot_cleanup_and_ocr_artifact_readback(tmp_path):
             created_by="screenshot-pg-user",
         )
         await PostgresItineraryRepository(pool).create_workspace(workspace)
+        batch_repository = PostgresScreenshotUploadBatchRepository(pool)
+        batch_request_hash = sha256_canonical({"operation": "controlled-create"})
+        batch, created_replayed = await batch_repository.create(
+            workspace_id=workspace.workspace_id,
+            actor_user_id="screenshot-pg-user",
+            expected_count=1,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            idempotency_key="postgres-create-batch",
+            request_hash=batch_request_hash,
+        )
+        assert created_replayed is False
+        replayed_batch, batch_replayed = await batch_repository.create(
+            workspace_id=workspace.workspace_id,
+            actor_user_id="screenshot-pg-user",
+            expected_count=1,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            idempotency_key="postgres-create-batch",
+            request_hash=batch_request_hash,
+        )
+        assert batch_replayed is True
+        assert replayed_batch.batch_id == batch.batch_id
+
+        staged_path = tmp_path / "batch-asset.png"
+        staged_path.write_bytes(PNG)
+        staged_asset = TemporaryAssetRecord(
+            asset_id="screenshot-pg-batch-asset",
+            workspace_id=workspace.workspace_id,
+            content_hash="b" * 64,
+            media_type="image/png",
+            byte_size=len(PNG),
+            storage_locator=str(staged_path),
+            upload_batch_id=batch.batch_id,
+            upload_position=0,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=15),
+            created_at=datetime.now(timezone.utc),
+        )
+        stored, stored_replayed = await batch_repository.store_file(
+            batch_id=batch.batch_id,
+            workspace_id=workspace.workspace_id,
+            actor_user_id="screenshot-pg-user",
+            position=0,
+            expected_version=1,
+            asset=staged_asset,
+            idempotency_key="postgres-upload-file",
+            request_hash=sha256_canonical({"operation": "controlled-upload"}),
+        )
+        assert stored_replayed is False
+        assert stored.uploaded_positions == [0]
+        assert stored.version == 2
+        await ScreenshotAssetCleanupService(
+            PostgresScreenshotAssetRepository(pool),
+            temp_root=tmp_path,
+        ).cleanup(staged_asset, terminal_reason="CANCELLED")
+        assert not staged_path.exists()
+
         itinerary_import = ItineraryImport(
             import_id="screenshot-pg-import",
             workspace_id=workspace.workspace_id,

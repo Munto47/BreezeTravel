@@ -39,3 +39,13 @@ class OcrProcessingError(ItineraryDomainError):
 class PrivacyBlockedError(ItineraryDomainError):
     code = "PRIVACY_BLOCKED"
     status_code = 500
+
+
+class ScreenshotBatchStateConflictError(ItineraryDomainError):
+    code = "SCREENSHOT_UPLOAD_BATCH_CONFLICT"
+    status_code = 409
+
+
+class ScreenshotBatchVersionConflictError(ItineraryDomainError):
+    code = "SCREENSHOT_UPLOAD_BATCH_VERSION_CONFLICT"
+    status_code = 409

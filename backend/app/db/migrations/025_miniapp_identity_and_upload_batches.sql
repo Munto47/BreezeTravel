@@ -57,9 +57,10 @@ CREATE TABLE IF NOT EXISTS screenshot_upload_commands (
     command_id TEXT PRIMARY KEY,
     batch_id TEXT NOT NULL REFERENCES screenshot_upload_batches(batch_id) ON DELETE CASCADE,
     actor_user_id TEXT NOT NULL REFERENCES users(user_id),
-    operation TEXT NOT NULL CHECK (operation IN ('UPLOAD_FILE', 'COMMIT', 'CANCEL')),
+    operation TEXT NOT NULL CHECK (operation IN ('CREATE_BATCH', 'UPLOAD_FILE', 'COMMIT', 'CANCEL')),
     idempotency_key TEXT NOT NULL CHECK (char_length(idempotency_key) BETWEEN 1 AND 200),
     request_hash CHAR(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+    response_status INT NOT NULL CHECK (response_status BETWEEN 200 AND 599),
     response_json JSONB NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (batch_id, idempotency_key)

@@ -154,6 +154,8 @@ class TemporaryAssetRecord(BaseModel):
     byte_size: int = Field(gt=0, le=MAX_SCREENSHOT_BYTES)
     storage_locator: str
     state: str = "PENDING"
+    upload_batch_id: str | None = None
+    upload_position: int | None = Field(default=None, ge=0, lt=MAX_SCREENSHOTS)
     expires_at: datetime
     created_at: datetime
 
@@ -190,6 +192,8 @@ class ScreenshotAssetRepository(Protocol):
 
     async def list_expired_assets(self, *, now: datetime) -> list[TemporaryAssetRecord]: ...
 
+    async def list_batch_assets(self, batch_id: str) -> list[TemporaryAssetRecord]: ...
+
 
 def _json_value(value: Any) -> Any:
     return json.loads(value) if isinstance(value, str) else value
@@ -210,8 +214,9 @@ class PostgresScreenshotAssetRepository:
                     """
                     INSERT INTO trip_temporary_assets (
                         asset_id, workspace_id, content_hash, media_type, byte_size,
-                        storage_locator, state, expires_at, created_at, updated_at
-                    ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $8)
+                        storage_locator, state, upload_batch_id, upload_position,
+                        expires_at, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, 'PENDING', $7, $8, $9, $10, $10)
                     """,
                     asset.asset_id,
                     asset.workspace_id,
@@ -219,6 +224,8 @@ class PostgresScreenshotAssetRepository:
                     asset.media_type,
                     asset.byte_size,
                     asset.storage_locator,
+                    asset.upload_batch_id,
+                    asset.upload_position,
                     asset.expires_at,
                     asset.created_at,
                 )
@@ -335,6 +342,36 @@ class PostgresScreenshotAssetRepository:
                 byte_size=row["byte_size"],
                 storage_locator=row["storage_locator"],
                 state=row["state"],
+                upload_batch_id=row.get("upload_batch_id"),
+                upload_position=row.get("upload_position"),
+                expires_at=row["expires_at"],
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    async def list_batch_assets(self, batch_id: str) -> list[TemporaryAssetRecord]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM trip_temporary_assets
+                WHERE upload_batch_id = $1
+                ORDER BY upload_position
+                """,
+                batch_id,
+            )
+        return [
+            TemporaryAssetRecord(
+                asset_id=row["asset_id"],
+                workspace_id=row["workspace_id"],
+                content_hash=row["content_hash"].strip(),
+                media_type=row["media_type"],
+                byte_size=row["byte_size"],
+                storage_locator=row["storage_locator"],
+                state=row["state"],
+                upload_batch_id=row["upload_batch_id"],
+                upload_position=row["upload_position"],
                 expires_at=row["expires_at"],
                 created_at=row["created_at"],
             )
@@ -394,6 +431,12 @@ class InMemoryScreenshotAssetRepository:
             for asset in self.assets.values()
             if asset.state in {"PENDING", "PROCESSING", "CLEANUP_FAILED"} and asset.expires_at <= now
         ]
+
+    async def list_batch_assets(self, batch_id: str) -> list[TemporaryAssetRecord]:
+        return sorted(
+            (asset for asset in self.assets.values() if asset.upload_batch_id == batch_id),
+            key=lambda asset: asset.upload_position if asset.upload_position is not None else -1,
+        )
 
 
 class PaddleOcrEngine:
@@ -578,22 +621,43 @@ class ScreenshotImportService:
         self,
         *,
         workspace_id: str,
-        uploads: list[ScreenshotUpload],
+        uploads: list[ScreenshotUpload] | None = None,
+        staged_assets: list[TemporaryAssetRecord] | None = None,
         actor_user_id: str,
         idempotency_key: str,
     ) -> tuple[ScreenshotImportResult, bool]:
-        validate_screenshot_batch(uploads)
+        if (uploads is None) == (staged_assets is None):
+            raise ValueError("provide either uploads or staged_assets")
+        if uploads is not None:
+            validate_screenshot_batch(uploads)
+            upload_facts = [
+                {
+                    "media_type": upload.media_type,
+                    "byte_size": len(upload.content),
+                    "content_hash": hashlib.sha256(upload.content).hexdigest(),
+                }
+                for upload in uploads
+            ]
+        else:
+            assert staged_assets is not None
+            if not 1 <= len(staged_assets) <= MAX_SCREENSHOTS:
+                raise ScreenshotBatchInvalidError("screenshot batch must contain 1 to 6 images")
+            for asset in staged_assets:
+                if asset.workspace_id != workspace_id or asset.state != "PENDING":
+                    raise ScreenshotBatchInvalidError("staged screenshot assets are not ready")
+                if asset.media_type not in SUPPORTED_MEDIA_TYPES:
+                    raise ScreenshotBatchInvalidError("screenshots must be PNG, JPEG or WebP")
+            upload_facts = [
+                {
+                    "media_type": asset.media_type,
+                    "byte_size": asset.byte_size,
+                    "content_hash": asset.content_hash,
+                }
+                for asset in staged_assets
+            ]
         workspace = await self.itinerary_repository.get_workspace(workspace_id)
         if workspace is None:
             raise ResourceNotFound("workspace does not exist")
-        upload_facts = [
-            {
-                "media_type": upload.media_type,
-                "byte_size": len(upload.content),
-                "content_hash": hashlib.sha256(upload.content).hexdigest(),
-            }
-            for upload in uploads
-        ]
         request_hash = sha256_canonical(
             {
                 "schema_version": 1,
@@ -616,30 +680,35 @@ class ScreenshotImportService:
             return ScreenshotImportResult.model_validate(claim.replay.body), True
 
         now = datetime.now(timezone.utc)
-        assets: list[TemporaryAssetRecord] = []
-        try:
-            for upload, fact in zip(uploads, upload_facts, strict=True):
-                asset_id = str(uuid4())
-                path = self._safe_asset_path(asset_id, upload.media_type)
-                path.write_bytes(upload.content)
-                assets.append(
-                    TemporaryAssetRecord(
-                        asset_id=asset_id,
-                        workspace_id=workspace_id,
-                        content_hash=fact["content_hash"],
-                        media_type=upload.media_type,
-                        byte_size=fact["byte_size"],
-                        storage_locator=str(path),
-                        expires_at=now + self.asset_ttl,
-                        created_at=now,
+        assets: list[TemporaryAssetRecord]
+        if staged_assets is not None:
+            assets = list(staged_assets)
+        else:
+            assets = []
+            assert uploads is not None
+            try:
+                for upload, fact in zip(uploads, upload_facts, strict=True):
+                    asset_id = str(uuid4())
+                    path = self._safe_asset_path(asset_id, upload.media_type)
+                    path.write_bytes(upload.content)
+                    assets.append(
+                        TemporaryAssetRecord(
+                            asset_id=asset_id,
+                            workspace_id=workspace_id,
+                            content_hash=fact["content_hash"],
+                            media_type=upload.media_type,
+                            byte_size=fact["byte_size"],
+                            storage_locator=str(path),
+                            expires_at=now + self.asset_ttl,
+                            created_at=now,
+                        )
                     )
-                )
-            await self.asset_repository.create_assets(assets)
-        except Exception:
-            for asset in assets:
-                Path(asset.storage_locator).unlink(missing_ok=True)
-            await self.command_repository.abandon(claim)
-            raise
+                await self.asset_repository.create_assets(assets)
+            except Exception:
+                for asset in assets:
+                    Path(asset.storage_locator).unlink(missing_ok=True)
+                await self.command_repository.abandon(claim)
+                raise
 
         ocr_receipts: list[ScreenshotOcrReceipt] = []
         processing_error: Exception | None = None

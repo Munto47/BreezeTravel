@@ -27,6 +27,10 @@ from app.suggestions.frozen_snapshot import (
     validate_suggestion_provider_configuration,
 )
 from app.importing.screenshots import PostgresScreenshotAssetRepository, ScreenshotAssetCleanupService
+from app.importing.upload_batches import (
+    PostgresScreenshotUploadBatchRepository,
+    ScreenshotUploadBatchService,
+)
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -69,7 +73,12 @@ async def lifespan(app: FastAPI):
     # Reuse the startup pool instead of resolving a separately imported
     # connection function. This keeps cleanup on the same authoritative
     # transaction boundary and preserves the existing test/dependency seam.
-    await ScreenshotAssetCleanupService(PostgresScreenshotAssetRepository(pool)).recover_expired()
+    screenshot_assets = PostgresScreenshotAssetRepository(pool)
+    await ScreenshotAssetCleanupService(screenshot_assets).recover_expired()
+    await ScreenshotUploadBatchService(
+        repository=PostgresScreenshotUploadBatchRepository(pool),
+        asset_repository=screenshot_assets,
+    ).recover_expired()
     if cfg.checkpoint_bootstrap_on_start:
         await agent_graph.init_persistent_graph()
     yield

@@ -1701,6 +1701,21 @@
         "title": "CreateRoomRequest",
         "type": "object"
       },
+      "CreateScreenshotUploadBatchRequest": {
+        "properties": {
+          "expected_count": {
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Expected Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expected_count"
+        ],
+        "title": "CreateScreenshotUploadBatchRequest",
+        "type": "object"
+      },
       "CreateSuggestionSetRequest": {
         "additionalProperties": false,
         "properties": {
@@ -7474,6 +7489,114 @@
           "lines"
         ],
         "title": "ScreenshotOcrReceipt",
+        "type": "object"
+      },
+      "ScreenshotUploadBatch": {
+        "properties": {
+          "batch_id": {
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expected_count": {
+            "maximum": 6.0,
+            "minimum": 1.0,
+            "title": "Expected Count",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "result_import_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Import Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "uploaded_positions": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Uploaded Positions",
+            "type": "array"
+          },
+          "version": {
+            "exclusiveMinimum": 0.0,
+            "title": "Version",
+            "type": "integer"
+          },
+          "workspace_id": {
+            "title": "Workspace Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_id",
+          "workspace_id",
+          "expected_count",
+          "status",
+          "version",
+          "expires_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScreenshotUploadBatch",
+        "type": "object"
+      },
+      "ScreenshotUploadBatchCancelResult": {
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/ScreenshotUploadBatch"
+          },
+          "cleanup_receipts": {
+            "items": {
+              "$ref": "#/components/schemas/AssetCleanupReceipt"
+            },
+            "title": "Cleanup Receipts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch",
+          "cleanup_receipts"
+        ],
+        "title": "ScreenshotUploadBatchCancelResult",
+        "type": "object"
+      },
+      "ScreenshotUploadBatchCommitResult": {
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/ScreenshotUploadBatch"
+          },
+          "import_result": {
+            "$ref": "#/components/schemas/ScreenshotImportResult"
+          }
+        },
+        "required": [
+          "batch",
+          "import_result"
+        ],
+        "title": "ScreenshotUploadBatchCommitResult",
         "type": "object"
       },
       "SendCodeRequest": {
@@ -14818,6 +14941,372 @@
         "summary": "Get Trip Revision Map Projection",
         "tags": [
           "trip-workspaces"
+        ]
+      }
+    },
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches": {
+      "post": {
+        "operationId": "create_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateScreenshotUploadBatchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenshotUploadBatch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Screenshot Upload Batch",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}": {
+      "delete": {
+        "operationId": "cancel_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenshotUploadBatchCancelResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Screenshot Upload Batch",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/commit": {
+      "post": {
+        "operationId": "commit_screenshot_upload_batch_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__commit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenshotUploadBatchCommitResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Commit Screenshot Upload Batch",
+        "tags": [
+          "imports"
+        ]
+      }
+    },
+    "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/files/{position}": {
+      "post": {
+        "operationId": "upload_screenshot_batch_file_api_trip_workspaces__workspace_id__screenshot_upload_batches__batch_id__files__position__post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workspace_id",
+            "required": true,
+            "schema": {
+              "title": "Workspace Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "title": "Batch Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "position",
+            "required": true,
+            "schema": {
+              "title": "Position",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenshotUploadBatch"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upload Screenshot Batch File",
+        "tags": [
+          "imports"
         ]
       }
     },

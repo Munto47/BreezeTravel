@@ -21,6 +21,15 @@ from app.importing.screenshots import (
     ScreenshotImportService,
     ScreenshotUpload,
 )
+from app.importing.upload_batches import (
+    BatchCommandReplay,
+    PostgresScreenshotUploadBatchRepository,
+    ScreenshotUploadBatch,
+    ScreenshotUploadBatchCancelResult,
+    ScreenshotUploadBatchCommitResult,
+    ScreenshotUploadBatchRepository,
+    ScreenshotUploadBatchService,
+)
 from app.itineraries.errors import ItineraryDomainError
 from app.itineraries.repositories import ItineraryRepository, PostgresItineraryRepository
 from app.operations.http import require_idempotency_key
@@ -64,6 +73,10 @@ def get_ocr_engine():
     return PaddleOcrEngine()
 
 
+def get_screenshot_upload_batch_repository() -> ScreenshotUploadBatchRepository:
+    return PostgresScreenshotUploadBatchRepository()
+
+
 ImportRepositoryDep = Annotated[ImportRepository, Depends(get_import_repository)]
 ItineraryRepositoryDep = Annotated[ItineraryRepository, Depends(get_itinerary_repository)]
 EntityProviderDep = Annotated[EntityCandidateProvider, Depends(get_entity_candidate_provider)]
@@ -78,6 +91,10 @@ ScreenshotAssetRepositoryDep = Annotated[
     Depends(get_screenshot_asset_repository),
 ]
 OcrEngineDep = Annotated[OcrEngine, Depends(get_ocr_engine)]
+ScreenshotUploadBatchRepositoryDep = Annotated[
+    ScreenshotUploadBatchRepository,
+    Depends(get_screenshot_upload_batch_repository),
+]
 
 
 class CreateImportRequest(BaseModel):
@@ -109,6 +126,10 @@ class ImportListResponse(BaseModel):
     items: list[ItineraryImport]
     limit: int
     unfinished_only: bool
+
+
+class CreateScreenshotUploadBatchRequest(BaseModel):
+    expected_count: int = Field(ge=1, le=6)
 
 
 def _domain_error(exc: ItineraryDomainError):
@@ -143,6 +164,37 @@ def _parse_if_match(raw: str | None) -> int:
 def _set_import_headers(response: Response, itinerary_import: ItineraryImport) -> None:
     response.headers["ETag"] = f'"{itinerary_import.state_version}"'
     response.headers["Cache-Control"] = "no-store"
+
+
+def _set_batch_headers(response: Response, batch: ScreenshotUploadBatch) -> None:
+    response.headers["ETag"] = f'"{batch.version}"'
+    response.headers["Cache-Control"] = "no-store"
+
+
+def _batch_service(
+    *,
+    batch_repository: ScreenshotUploadBatchRepository,
+    import_repository: ImportRepository,
+    itinerary_repository: ItineraryRepository,
+    trip_brief_repository: TripBriefRepository,
+    entity_provider: EntityCandidateProvider,
+    command_repository: CreationCommandRepository,
+    asset_repository: ScreenshotAssetRepository,
+    ocr_engine: OcrEngine,
+) -> ScreenshotUploadBatchService:
+    return ScreenshotUploadBatchService(
+        repository=batch_repository,
+        asset_repository=asset_repository,
+        import_service=ScreenshotImportService(
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_resolver=EntityResolver(entity_provider),
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ),
+    )
 
 
 def _idempotency_key(raw: str | None, *, import_id: str) -> str:
@@ -204,7 +256,7 @@ async def _read_screenshot_multipart(request: Request) -> list[ScreenshotUpload]
     for part in message.iter_parts():
         if part.get_content_disposition() != "form-data":
             continue
-        if part.get_param("name", header="content-disposition") not in {"screenshots", "files"}:
+        if part.get_param("name", header="content-disposition") not in {"screenshot", "screenshots", "file", "files"}:
             continue
         payload = part.get_payload(decode=True)
         if payload is None:
@@ -315,6 +367,217 @@ async def create_screenshot_import(
         if replayed:
             response.headers["Idempotency-Replayed"] = "true"
         return result
+    except ItineraryDomainError as exc:
+        _domain_error(exc)
+
+
+@router.post(
+    "/trip-workspaces/{workspace_id}/screenshot-upload-batches",
+    response_model=ScreenshotUploadBatch,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_screenshot_upload_batch(
+    workspace_id: str,
+    body: CreateScreenshotUploadBatchRequest,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    import_repository: ImportRepositoryDep,
+    entity_provider: EntityProviderDep,
+    command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
+    asset_repository: ScreenshotAssetRepositoryDep,
+    batch_repository: ScreenshotUploadBatchRepositoryDep,
+    ocr_engine: OcrEngineDep,
+    response: Response,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    await _workspace_access(workspace_id, current_user, itinerary_repository)
+    try:
+        batch, replayed = await _batch_service(
+            batch_repository=batch_repository,
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_provider=entity_provider,
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ).create_batch(
+            workspace_id=workspace_id,
+            actor_user_id=current_user,
+            expected_count=body.expected_count,
+            idempotency_key=require_idempotency_key(idempotency_key),
+        )
+        _set_batch_headers(response, batch)
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+        return batch
+    except ItineraryDomainError as exc:
+        _domain_error(exc)
+
+
+@router.post(
+    "/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/files/{position}",
+    response_model=ScreenshotUploadBatch,
+)
+async def upload_screenshot_batch_file(
+    workspace_id: str,
+    batch_id: str,
+    position: int,
+    request: Request,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    import_repository: ImportRepositoryDep,
+    entity_provider: EntityProviderDep,
+    command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
+    asset_repository: ScreenshotAssetRepositoryDep,
+    batch_repository: ScreenshotUploadBatchRepositoryDep,
+    ocr_engine: OcrEngineDep,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    await _workspace_access(workspace_id, current_user, itinerary_repository)
+    if not 0 <= position < 6:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "SCREENSHOT_POSITION_INVALID", "message": "position must be between 0 and 5"},
+        )
+    uploads = await _read_screenshot_multipart(request)
+    if len(uploads) != 1:
+        raise HTTPException(
+            status_code=422,
+            detail={"code": "SCREENSHOT_BATCH_INVALID", "message": "exactly one screenshot file is required"},
+        )
+    try:
+        batch, replayed = await _batch_service(
+            batch_repository=batch_repository,
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_provider=entity_provider,
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ).upload_file(
+            batch_id=batch_id,
+            workspace_id=workspace_id,
+            actor_user_id=current_user,
+            position=position,
+            expected_version=_parse_if_match(if_match),
+            upload=uploads[0],
+            idempotency_key=require_idempotency_key(idempotency_key),
+        )
+        _set_batch_headers(response, batch)
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+        return batch
+    except ItineraryDomainError as exc:
+        _domain_error(exc)
+
+
+@router.post(
+    "/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/commit",
+    response_model=ScreenshotUploadBatchCommitResult,
+    status_code=status.HTTP_201_CREATED,
+)
+async def commit_screenshot_upload_batch(
+    workspace_id: str,
+    batch_id: str,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    import_repository: ImportRepositoryDep,
+    entity_provider: EntityProviderDep,
+    command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
+    asset_repository: ScreenshotAssetRepositoryDep,
+    batch_repository: ScreenshotUploadBatchRepositoryDep,
+    ocr_engine: OcrEngineDep,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    await _workspace_access(workspace_id, current_user, itinerary_repository)
+    try:
+        result, replayed = await _batch_service(
+            batch_repository=batch_repository,
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_provider=entity_provider,
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ).commit(
+            batch_id=batch_id,
+            workspace_id=workspace_id,
+            actor_user_id=current_user,
+            expected_version=_parse_if_match(if_match),
+            idempotency_key=require_idempotency_key(idempotency_key),
+        )
+        if isinstance(result, BatchCommandReplay):
+            if result.status_code >= 400:
+                raise HTTPException(status_code=result.status_code, detail=result.body["detail"])
+            parsed = ScreenshotUploadBatchCommitResult.model_validate(result.body)
+        else:
+            parsed = result
+        _set_batch_headers(response, parsed.batch)
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+        return parsed
+    except ItineraryDomainError as exc:
+        _domain_error(exc)
+
+
+@router.delete(
+    "/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}",
+    response_model=ScreenshotUploadBatchCancelResult,
+)
+async def cancel_screenshot_upload_batch(
+    workspace_id: str,
+    batch_id: str,
+    current_user: CurrentUserDep,
+    itinerary_repository: ItineraryRepositoryDep,
+    import_repository: ImportRepositoryDep,
+    entity_provider: EntityProviderDep,
+    command_repository: CreationCommandRepositoryDep,
+    trip_brief_repository: TripBriefRepositoryDep,
+    asset_repository: ScreenshotAssetRepositoryDep,
+    batch_repository: ScreenshotUploadBatchRepositoryDep,
+    ocr_engine: OcrEngineDep,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    await _workspace_access(workspace_id, current_user, itinerary_repository)
+    try:
+        result, replayed = await _batch_service(
+            batch_repository=batch_repository,
+            import_repository=import_repository,
+            itinerary_repository=itinerary_repository,
+            trip_brief_repository=trip_brief_repository,
+            entity_provider=entity_provider,
+            command_repository=command_repository,
+            asset_repository=asset_repository,
+            ocr_engine=ocr_engine,
+        ).cancel(
+            batch_id=batch_id,
+            workspace_id=workspace_id,
+            actor_user_id=current_user,
+            expected_version=_parse_if_match(if_match),
+            idempotency_key=require_idempotency_key(idempotency_key),
+        )
+        if isinstance(result, BatchCommandReplay):
+            if result.status_code >= 400:
+                raise HTTPException(status_code=result.status_code, detail=result.body["detail"])
+            parsed = ScreenshotUploadBatchCancelResult.model_validate(result.body)
+        else:
+            parsed = result
+        _set_batch_headers(response, parsed.batch)
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+        return parsed
     except ItineraryDomainError as exc:
         _domain_error(exc)
 
