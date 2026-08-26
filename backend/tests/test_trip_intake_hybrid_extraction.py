@@ -770,6 +770,56 @@ async def test_hybrid_preserves_model_range_instead_of_rule_suffix_number() -> N
 
 
 @pytest.mark.asyncio
+async def test_hybrid_rejects_exact_duration_when_quote_is_approximate() -> None:
+    source = _source("2027年10月1日到10月5日去北京，2人，大概玩5天")
+    payload = {
+        "locations": [
+            {
+                "raw_text": "北京",
+                "role": "PRIMARY_DESTINATION",
+                "evidence": [{"source_id": "source-1", "quote": "北京"}],
+            }
+        ],
+        "location_status": "EXACT",
+        "primary_location_index": 0,
+        "party_size": {
+            "total": {
+                "min": 2,
+                "max": 2,
+                "quantifier": "EXACT",
+                "derivation": "EXPLICIT_COUNT",
+                "evidence": [{"source_id": "source-1", "quote": "2人"}],
+            }
+        },
+        "temporal": {
+            "days": {
+                "min": 5,
+                "max": 5,
+                "quantifier": "EXACT",
+                "derivation": "EXPLICIT_COUNT",
+                "evidence": [{"source_id": "source-1", "quote": "大概玩5天"}],
+            }
+        },
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.temporal.days.quantifier.value == "APPROXIMATE"
+    assert outcome.extraction.temporal.days.min == 5
+    assert outcome.extraction.temporal.days.max == 5
+    assert any(
+        issue.code == "DURATION_NEEDS_CONFIRMATION"
+        for issue in outcome.extraction.issues
+    )
+
+
+@pytest.mark.asyncio
 async def test_hybrid_timeout_falls_back_and_keeps_failure_receipt() -> None:
     source = _source("2027年10月1日到10月7日去成都，12人")
     extractor = HybridTripIntakeExtractor(

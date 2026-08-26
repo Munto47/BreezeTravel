@@ -813,6 +813,28 @@ def _compile_quantity(
     field_path: str,
     issues: list[ExtractionIssue],
 ) -> QuantifiedValue:
+    if draft.derivation == QuantityDerivation.EXPLICIT_COUNT and draft.evidence:
+        joined_quote = " ".join(item.quote for item in draft.evidence)
+        explicit_quantifier: QuantityQuantifier | None = None
+        if re.search(r"(?:到|至|[-—~～])", joined_quote):
+            explicit_quantifier = QuantityQuantifier.RANGE
+        elif re.search(r"大概|大约|约|左右", joined_quote):
+            explicit_quantifier = QuantityQuantifier.APPROXIMATE
+        elif re.search(r"至少|不低于|不少于", joined_quote):
+            explicit_quantifier = QuantityQuantifier.AT_LEAST
+        elif re.search(r"最多|不超过|不高于", joined_quote):
+            explicit_quantifier = QuantityQuantifier.AT_MOST
+        if explicit_quantifier is not None and draft.quantifier != explicit_quantifier:
+            issues.append(
+                _compiler_issue(
+                    field_path,
+                    "quantity quantifier conflicts with explicit wording",
+                )
+            )
+            return QuantifiedValue(
+                quantifier=QuantityQuantifier.UNKNOWN,
+                derivation=QuantityDerivation.MISSING,
+            )
     if field_path == "temporal.nights" and draft.evidence and not any(
         "晚" in item.quote for item in draft.evidence
     ):
