@@ -17,4 +17,3 @@
 ## Completion boundary
 
 候选 commit 上 backend 全套 pytest、Ruff、frontend build、dual-entry 结构 validator 和 120 条数据合同验证通过，达到 `INTAKE_V2_DEVELOPMENT_READY`。真实模型 prediction、real OCR、live Provider、公网、H1、production、main merge 和 release 未由该 Goal 证明。
-
