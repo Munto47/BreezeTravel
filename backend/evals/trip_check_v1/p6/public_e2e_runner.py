@@ -243,8 +243,16 @@ def _execute_public_flow(spec: Mapping[str, Any], credentials: Mapping[str, str]
             "Idempotency-Key": f"p6-confirm-{suffix}",
         },
     )
-    if not isinstance(confirmed, Mapping) or confirmed.get("status") != "CONFIRMED":
+    confirmed_revision = confirmed.get("revision") if isinstance(confirmed, Mapping) else None
+    if (
+        not isinstance(confirmed, Mapping)
+        or confirmed.get("status") != "CONFIRMED"
+        or not isinstance(confirmed_revision, int)
+        or isinstance(confirmed_revision, bool)
+        or confirmed_revision <= brief_revision
+    ):
         raise P6ContractError("P6_G5_PUBLIC_BRIEF_CONFIRM_FAILED")
+    brief_revision = confirmed_revision
     import_id = imported.get("import_id")
     state_version = imported.get("state_version")
     if not isinstance(import_id, str) or not isinstance(state_version, int):

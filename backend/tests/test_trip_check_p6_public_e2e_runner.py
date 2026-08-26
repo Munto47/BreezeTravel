@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from evals.trip_check_v1.p6.contracts_v1 import P6ContractError
-from evals.trip_check_v1.p6.public_e2e_runner import run_public_e2e
+from evals.trip_check_v1.p6.public_e2e_runner import _execute_public_flow, run_public_e2e
 from tests.test_trip_check_p6_performance_runner import _spec
 
 
@@ -62,3 +62,108 @@ def test_public_e2e_runner_rejects_missing_postcheck(tmp_path: Path) -> None:
             formal=False,
             flow_runner=failed,
         )
+
+
+def test_public_flow_uses_the_confirmed_brief_revision(monkeypatch) -> None:  # noqa: ANN001
+    class FakeClient:
+        def __init__(self, base_url: str) -> None:
+            assert base_url == "https://example.test"
+            self.token = None
+            self.steps = []
+            self.login_count = 0
+            self.resume_count = 0
+
+        def request(  # noqa: ANN201, PLR0911
+            self,
+            method: str,
+            route: str,
+            *,
+            body=None,  # noqa: ANN001
+            headers=None,  # noqa: ANN001
+            expected=(200,),  # noqa: ANN001
+            record: bool = True,
+        ):
+            del headers, expected
+            status = 200
+            if route == "/health":
+                value = {"status": "ok"}
+            elif route == "/api/auth/email-login":
+                self.login_count += 1
+                status = 401 if self.login_count == 1 else 200
+                value = {} if status == 401 else {"token": "token"}
+            elif route == "/api/auth/email-register":
+                value = {"user_id": "user"}
+            elif route == "/api/room":
+                value = {"room_id": "room"}
+            elif route == "/api/trip-workspaces":
+                status = 201
+                value = {"workspace_id": "workspace"}
+            elif route.endswith("/imports"):
+                status = 201
+                value = {"status": "READY", "import_id": "import", "state_version": 1}
+            elif route.endswith("/resume"):
+                self.resume_count += 1
+                value = (
+                    {"current_brief": {"revision": 1}}
+                    if self.resume_count == 1
+                    else {
+                        "current_revision": {"revision": 2},
+                        "current_trip_check_run": {"stage": "POSTCHECK", "status": "SUCCEEDED"},
+                    }
+                )
+            elif route.endswith("/trip-briefs/1/confirm"):
+                value = {"status": "CONFIRMED", "revision": 2}
+            elif route.endswith("/imports/import/apply"):
+                value = {"revision": {"revision": 1}}
+            elif route.endswith("/trip-check-runs"):
+                assert body["brief_revision"] == 2
+                status = 201
+                value = {"run_id": "run"}
+            elif route == "/api/trip-check-runs/run":
+                value = {
+                    "status": "WAITING",
+                    "stage": "WAIT_ADOPTION",
+                    "report_id": "report",
+                    "advice_bundle_id": "advice",
+                    "partial_failures": [],
+                }
+            elif route == "/api/audits/report":
+                value = {"overall_status": "VIOLATED"}
+            elif route == "/api/audits/report/evidence":
+                value = {"provider_failures": []}
+            elif route.endswith("/reports/report/advice"):
+                value = {"actions": [{"action_id": "action"}]}
+            elif route == "/api/audits/report/repairs":
+                value = [{"repair_id": "repair", "base_itinerary_revision": 1}]
+            elif route == "/api/audits/report/repairs/repair/apply":
+                value = {"postcheck_report_id": "postcheck", "new_revision": 2}
+            elif route == "/api/audits/postcheck":
+                value = {"itinerary_revision": 2}
+            else:
+                raise AssertionError(f"unexpected request: {method} {route}")
+            if record:
+                self.steps.append(
+                    {"method": method, "route": route, "status": status, "body_sha256": "a" * 64}
+                )
+            return value, "a" * 64, status
+
+    monkeypatch.setattr(
+        "evals.trip_check_v1.p6.public_e2e_runner._HttpClient",
+        FakeClient,
+    )
+    result = _execute_public_flow(
+        {
+            "subject_commit": "1" * 40,
+            "public_candidate": {"base_url": "https://example.test"},
+            "bindings": {
+                "ocr_dataset_manifest_sha256": "2" * 64,
+                "snapshot_manifest_sha256": "3" * 64,
+            },
+        },
+        {
+            "P6_PUBLIC_TEST_EMAIL": "e2e@example.org",
+            "P6_PUBLIC_TEST_PASSWORD": "password-1",
+        },
+    )
+    assert result["initial_revision"] == 1
+    assert result["final_revision"] == 2
