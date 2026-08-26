@@ -1,0 +1,13 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "BreezeTravel",
+  "description": "BreezeTravel 行程查微信小程序",
+  "appid": "touristappid",
+  "setting": {
+    "es6": false,
+    "minified": false,
+    "postcss": false,
+    "urlCheck": true
+  },
+  "compileType": "miniprogram"
+}

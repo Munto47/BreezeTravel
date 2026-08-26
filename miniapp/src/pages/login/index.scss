@@ -1,0 +1,27 @@
+.login-page {
+  display: flex;
+  min-height: 100vh;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px;
+}
+
+.brand-mark {
+  display: flex;
+  width: 112px;
+  height: 112px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 32px;
+  background: #f37d6b;
+  color: white;
+  font-size: 52px;
+  font-weight: 700;
+}
+
+.title { margin-top: 32px; font-size: 44px; font-weight: 700; }
+.subtitle { margin-top: 12px; color: #7c8494; font-size: 26px; }
+.primary { width: 100%; margin-top: 64px; border-radius: 24px; background: #172033; color: white; font-size: 30px; }
+.disclosure { margin-top: 24px; color: #9ca3af; font-size: 22px; text-align: center; }

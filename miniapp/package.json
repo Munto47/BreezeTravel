@@ -1,0 +1,36 @@
+{
+  "name": "breezetravel-miniapp",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev:weapp": "taro build --type weapp --watch",
+    "build:weapp": "taro build --type weapp",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tarojs/components": "4.2.1",
+    "@tarojs/helper": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "nanoid": "5.0.7",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "5.0.1"
+  },
+  "devDependencies": {
+    "@babel/core": "7.28.5",
+    "@babel/preset-react": "7.28.5",
+    "@prefresh/babel-plugin": "0.5.3",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/webpack5-runner": "4.2.1",
+    "@types/react": "18.3.3",
+    "@types/react-dom": "18.3.0",
+    "babel-preset-taro": "4.2.1",
+    "react-refresh": "0.14.2",
+    "sass": "1.80.6",
+    "typescript": "5.7.3"
+  }
+}
