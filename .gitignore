@@ -38,6 +38,7 @@ out/
 build/
 .cache/
 .turbo/
+.swc/
 
 # 数据库
 *.db
