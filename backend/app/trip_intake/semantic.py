@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -201,6 +202,26 @@ def _compile_evidence(
     return spans
 
 
+def _narrow_location_evidence(
+    spans: list[EvidenceSpan],
+    raw_text: str,
+) -> list[EvidenceSpan]:
+    narrowed: list[EvidenceSpan] = []
+    for span in spans:
+        offset = span.quote.find(raw_text)
+        if offset < 0:
+            raise SemanticCompilationError("location raw_text is absent from evidence quote")
+        narrowed.append(
+            EvidenceSpan(
+                source_id=span.source_id,
+                start=span.start + offset,
+                end=span.start + offset + len(raw_text),
+                quote=raw_text,
+            )
+        )
+    return narrowed
+
+
 def _compiler_issue(field_path: str, reason: str) -> ExtractionIssue:
     return ExtractionIssue(
         code="SEMANTIC_FIELD_DROPPED",
@@ -255,6 +276,24 @@ def _compile_quantity(
         )
 
 
+def _compile_composition_quantity(
+    draft: SemanticQuantityDraft | None,
+    source_texts: dict[str, str],
+    field_path: str,
+    issues: list[ExtractionIssue],
+) -> QuantifiedValue | None:
+    if draft is None:
+        return None
+    if any("岁" in item.quote for item in draft.evidence):
+        count_pattern = r"(?:[1-9]\d*|[一二两三四五六七八九十]+)\s*(?:个|名|位)?(?:孩子|儿童|小孩|老人|长辈)"
+        if not any(re.search(count_pattern, item.quote) for item in draft.evidence):
+            issues.append(
+                _compiler_issue(field_path, "age evidence cannot establish party composition")
+            )
+            return None
+    return _compile_quantity(draft, source_texts, field_path, issues)
+
+
 def _compile_commitment(
     draft: SemanticTravelCommitmentDraft | None,
     source_texts: dict[str, str],
@@ -296,7 +335,10 @@ def compile_semantic_draft(
                     entity_type=item.entity_type,
                     role=item.role,
                     confidence=item.confidence,
-                    evidence=_compile_evidence(item.evidence, source_texts),
+                    evidence=_narrow_location_evidence(
+                        _compile_evidence(item.evidence, source_texts),
+                        item.raw_text,
+                    ),
                 )
             )
             index_to_id[index] = mention_id
@@ -350,35 +392,23 @@ def compile_semantic_draft(
             party_issues,
         ),
         composition=PartyComposition(
-            adults=(
-                _compile_quantity(
-                    draft.party_size.composition.adults,
-                    source_texts,
-                    "party_size.composition.adults",
-                    party_issues,
-                )
-                if draft.party_size.composition.adults is not None
-                else None
+            adults=_compile_composition_quantity(
+                draft.party_size.composition.adults,
+                source_texts,
+                "party_size.composition.adults",
+                party_issues,
             ),
-            children=(
-                _compile_quantity(
-                    draft.party_size.composition.children,
-                    source_texts,
-                    "party_size.composition.children",
-                    party_issues,
-                )
-                if draft.party_size.composition.children is not None
-                else None
+            children=_compile_composition_quantity(
+                draft.party_size.composition.children,
+                source_texts,
+                "party_size.composition.children",
+                party_issues,
             ),
-            elderly=(
-                _compile_quantity(
-                    draft.party_size.composition.elderly,
-                    source_texts,
-                    "party_size.composition.elderly",
-                    party_issues,
-                )
-                if draft.party_size.composition.elderly is not None
-                else None
+            elderly=_compile_composition_quantity(
+                draft.party_size.composition.elderly,
+                source_texts,
+                "party_size.composition.elderly",
+                party_issues,
             ),
             tags=list(dict.fromkeys(draft.party_size.composition.tags)),
         ),

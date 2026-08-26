@@ -120,16 +120,18 @@ def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> No
 
 @pytest.mark.asyncio
 async def test_hybrid_preserves_model_range_instead_of_rule_suffix_number() -> None:
-    source = _source("这次去杭州，同行3到5人，玩3天")
+    source = _source("孩子6岁，玩3天，同行3到5人，这次目的地是杭州")
     payload = {
         "locations": [
             {
                 "raw_text": "杭州",
-                "normalized_name": "杭州市",
-                "country_code": "CN",
+                "normalized_name": "杭州",
+                "country_code": None,
                 "entity_type": "CITY",
                 "role": "PRIMARY_DESTINATION",
-                "evidence": [{"source_id": "source-1", "quote": "杭州"}],
+                "evidence": [
+                    {"source_id": "source-1", "quote": "这次目的地是杭州"}
+                ],
             }
         ],
         "location_status": "EXACT",
@@ -141,7 +143,16 @@ async def test_hybrid_preserves_model_range_instead_of_rule_suffix_number() -> N
                 "quantifier": "RANGE",
                 "derivation": "EXPLICIT_COUNT",
                 "evidence": [{"source_id": "source-1", "quote": "3到5人"}],
-            }
+            },
+            "composition": {
+                "children": {
+                    "min": 1,
+                    "max": 1,
+                    "quantifier": "EXACT",
+                    "derivation": "EXPLICIT_COUNT",
+                    "evidence": [{"source_id": "source-1", "quote": "孩子6岁"}],
+                }
+            },
         },
         "temporal": {
             "days": {
@@ -166,6 +177,16 @@ async def test_hybrid_preserves_model_range_instead_of_rule_suffix_number() -> N
     assert outcome.extraction.party_size.total.quantifier.value == "RANGE"
     assert outcome.extraction.party_size.total.min == 3
     assert outcome.extraction.party_size.total.max == 5
+    assert outcome.extraction.party_size.composition.children is None
+    primary = outcome.extraction.locations.mentions[0]
+    assert primary.normalized_name == "杭州市"
+    assert primary.country_code == "CN"
+    assert primary.evidence[0].quote == "杭州"
+    assert [issue.code for issue in outcome.extraction.issues] == [
+        "PRIMARY_CITY_CONFIRMATION_REQUIRED",
+        "PARTY_SIZE_NEEDS_CONFIRMATION",
+        "DATE_RANGE_MISSING_OR_INCOMPLETE",
+    ]
     assert outcome.runtime_receipt is not None
     assert outcome.runtime_receipt.actual_model == "DeepSeek-V4-Flash-0731"
 

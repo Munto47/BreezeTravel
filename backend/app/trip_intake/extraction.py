@@ -464,7 +464,52 @@ def _primary_identity(extraction: TripIntakeExtraction) -> str | None:
     )
     if primary is None:
         return None
-    return primary.normalized_name or primary.raw_text
+    return (primary.normalized_name or primary.raw_text).removesuffix("市")
+
+
+def _enrich_semantic_locations(
+    semantic: LocationExtraction,
+    deterministic: LocationExtraction,
+) -> LocationExtraction:
+    enriched: list[LocationMention] = []
+    for item in semantic.mentions:
+        match = next(
+            (
+                candidate
+                for candidate in deterministic.mentions
+                if candidate.raw_text == item.raw_text
+                and any(
+                    left.source_id == right.source_id
+                    and left.start == right.start
+                    and left.end == right.end
+                    for left in item.evidence
+                    for right in candidate.evidence
+                )
+            ),
+            None,
+        )
+        if match is None:
+            enriched.append(item)
+            continue
+        enriched.append(
+            item.model_copy(
+                update={
+                    "normalized_name": match.normalized_name or item.normalized_name,
+                    "country_code": match.country_code or item.country_code,
+                    "entity_type": (
+                        match.entity_type
+                        if item.entity_type == LocationEntityType.UNKNOWN
+                        or match.entity_type == LocationEntityType.CITY
+                        else item.entity_type
+                    ),
+                }
+            )
+        )
+    return LocationExtraction(
+        mentions=enriched,
+        primary_mention_id=semantic.primary_mention_id,
+        status=semantic.status,
+    )
 
 
 def _conflicting_exact_quantity(
@@ -534,7 +579,7 @@ def _merge_extractions(
     deterministic: TripIntakeExtraction,
 ) -> TripIntakeExtraction:
     merge_issues: list[ExtractionIssue] = []
-    locations = semantic.locations
+    locations = _enrich_semantic_locations(semantic.locations, deterministic.locations)
     semantic_identity = _primary_identity(semantic)
     deterministic_identity = _primary_identity(deterministic)
     if not semantic.locations.mentions:
@@ -628,35 +673,97 @@ def _merge_extractions(
         else deterministic.preferences
     )
 
-    issues = [*semantic.issues, *merge_issues]
-    if locations.status != LocationStatus.EXACT:
-        issues.extend(
-            item
-            for item in deterministic.issues
-            if item.field_path == "locations.primary_city"
+    def existing_issue_evidence(field_path: str) -> list[EvidenceSpan]:
+        return next(
+            (item.evidence for item in semantic.issues if item.field_path == field_path and item.evidence),
+            [],
         )
-    if party.total.quantifier == QuantityQuantifier.UNKNOWN:
-        issues.extend(
-            item for item in deterministic.issues if item.field_path == "party_size.total"
+
+    if locations.status == LocationStatus.EXACT:
+        primary = next(
+            (
+                item
+                for item in locations.mentions
+                if item.mention_id == locations.primary_mention_id
+            ),
+            None,
         )
-    if temporal.date_range is None:
-        issues.extend(
-            item for item in deterministic.issues if item.field_path == "temporal.date_range"
+        location_evidence = primary.evidence if primary is not None else []
+        location_code = "PRIMARY_CITY_CONFIRMATION_REQUIRED"
+        location_message = "主城市尚未由用户确认"
+    else:
+        location_evidence = [
+            evidence
+            for item in locations.mentions
+            if item.role
+            in {
+                LocationRole.PRIMARY_DESTINATION,
+                LocationRole.DESTINATION_CANDIDATE,
+                LocationRole.REQUESTED_PLACE,
+            }
+            for evidence in item.evidence
+        ] or existing_issue_evidence("locations.primary_city")
+        location_code = "DESTINATION_NEEDS_CONFIRMATION"
+        location_message = "目的地不是单一精确城市"
+    confirmation_issues = [
+        ExtractionIssue(
+            code=location_code,
+            field_path="locations.primary_city",
+            message=location_message,
+            evidence=_deduplicate_evidence(location_evidence),
+        ),
+        ExtractionIssue(
+            code=(
+                "PARTY_SIZE_CONFIRMATION_REQUIRED"
+                if party.total.quantifier == QuantityQuantifier.EXACT
+                else "PARTY_SIZE_NEEDS_CONFIRMATION"
+            ),
+            field_path="party_size.total",
+            message=(
+                "人数尚未由用户确认"
+                if party.total.quantifier == QuantityQuantifier.EXACT
+                else "人数不是精确值，需要用户确认"
+            ),
+            evidence=(
+                party.total.evidence
+                or existing_issue_evidence("party_size.total")
+            ),
+        ),
+    ]
+    date_evidence = (
+        temporal.date_range.evidence
+        if temporal.date_range is not None
+        else temporal.days.evidence
+        or temporal.nights.evidence
+        or existing_issue_evidence("temporal.date_range")
+    )
+    confirmation_issues.append(
+        ExtractionIssue(
+            code="DATE_RANGE_MISSING_OR_INCOMPLETE",
+            field_path="temporal.date_range",
+            message="缺少含年份的完整日期范围，需要用户确认",
+            evidence=date_evidence,
         )
-    deduplicated_issues: list[ExtractionIssue] = []
-    seen_issues: set[tuple[str, str, str]] = set()
-    for item in issues:
-        key = (item.code, item.field_path, item.message)
-        if key not in seen_issues:
-            seen_issues.add(key)
-            deduplicated_issues.append(item)
+    )
+    if temporal.days.quantifier != QuantityQuantifier.EXACT:
+        confirmation_issues.append(
+            ExtractionIssue(
+                code="DURATION_NEEDS_CONFIRMATION",
+                field_path="temporal.days",
+                message="旅行天数不是精确值，需要用户确认",
+                evidence=(
+                    temporal.days.evidence
+                    or existing_issue_evidence("temporal.days")
+                ),
+            )
+        )
 
     merged = TripIntakeExtraction(
         locations=locations,
         party_size=party,
         temporal=temporal,
         preferences=preferences,
-        issues=deduplicated_issues,
+        issues=confirmation_issues,
         readiness=IntakeReadiness.NEEDS_CONFIRMATION,
     )
     return merged
