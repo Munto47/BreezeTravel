@@ -412,7 +412,9 @@ def main() -> None:
     parser.add_argument("--blind-ledger", type=Path)
     parser.add_argument("--case-id", action="append", dest="case_ids")
     parser.add_argument("--warmup-calls", type=int, default=0)
+    parser.add_argument("--env-file", type=Path)
     args = parser.parse_args()
+    settings = Settings(_env_file=args.env_file) if args.env_file is not None else None
     receipt = asyncio.run(
         run_evaluation(
             data_root=args.data_root,
@@ -423,6 +425,7 @@ def main() -> None:
             blind_ledger_path=args.blind_ledger,
             case_ids=set(args.case_ids) if args.case_ids else None,
             warmup_calls=args.warmup_calls,
+            settings=settings,
         )
     )
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True))
