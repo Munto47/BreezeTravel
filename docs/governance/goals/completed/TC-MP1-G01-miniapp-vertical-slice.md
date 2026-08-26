@@ -83,10 +83,6 @@
 - 当前未跟踪 `tests/` 属于用户，不读取、不修改、不暂存、不提交；
 - 需要扩大公共合同、无法保持旧 Web 兼容、发现隐私/secret 泄漏、连续两个切片无法改善同一门禁或需要真实凭据时停止。
 
-## Completion rule
-
-只有 `Miniapp Automated Gate=PASS`、工作树除用户 `tests/` 外干净、所有 commit 已推送且 upstream 可确认时，才可归档本 Goal。完成不代表开发者工具预览、真机验证、公网部署、生产发布或 P6 evidence 晋级。
-
 ## Completion record
 
 - Gate subject：`b616eaff1e06150d933fca70f8f18ebba1225cd3`；运行时代码、migration 025、共享客户端、Web 兼容与小程序纵向闭环均已提交；
