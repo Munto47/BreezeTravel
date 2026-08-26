@@ -35,6 +35,15 @@ from app.trip_intake.models import (
 from app.trip_intake.semantic import TripIntakeSemanticDraft, compile_semantic_draft
 
 
+TRIP_INTAKE_SYSTEM_PROMPT = (
+    "你是行程需求信息抽取器，只忠实记录当前有效陈述，不规划、不调用工具、"
+    "不验证或修正地点真假。过去、取消、排除、出发、返程和候选地点必须区分角色；"
+    "修正后的新陈述优先。人数、天数、晚数、日期、预算和其他数字不可串类。"
+    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值。"
+    "每个原子事实引用 source_id、逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
+)
+
+
 @dataclass(frozen=True)
 class ExtractionRuntimeReceipt:
     requested_model: str
@@ -157,13 +166,7 @@ class SchemaConstrainedTripIntakeExtractor:
         ]
         try:
             result = await self.client.generate_json(
-                system_prompt=(
-                    "你是行程需求信息抽取器，只忠实记录当前有效陈述，不规划、不调用工具、"
-                    "不验证或修正地点真假。过去、取消、排除、出发、返程和候选地点必须区分角色；"
-                    "修正后的新陈述优先。人数、天数、晚数、日期、预算和其他数字不可串类。"
-                    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值。"
-                    "每个原子事实引用 source_id、逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
-                ),
+                system_prompt=TRIP_INTAKE_SYSTEM_PROMPT,
                 input_payload={
                     "schema_version": "trip-intake-semantic-request-v1",
                     "sources": source_payload,

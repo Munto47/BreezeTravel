@@ -210,6 +210,29 @@ def _compiler_issue(field_path: str, reason: str) -> ExtractionIssue:
     )
 
 
+def _preference_item_id(
+    item: SemanticPreferenceItemDraft,
+    used: set[str],
+) -> str:
+    if item.polarity == PreferencePolarity.LIKE:
+        base = "preference-like"
+    elif item.polarity == PreferencePolarity.DISLIKE:
+        base = "preference-dislike"
+    elif item.category == "budget":
+        base = "requirement-budget"
+    elif item.category == "transport":
+        base = "requirement-transport"
+    else:
+        base = "requirement-themed"
+    candidate = base
+    suffix = 2
+    while candidate in used:
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    used.add(candidate)
+    return candidate
+
+
 def _compile_quantity(
     draft: SemanticQuantityDraft,
     source_texts: dict[str, str],
@@ -410,11 +433,12 @@ def compile_semantic_draft(
 
     preference_issues: list[ExtractionIssue] = []
     preference_items: list[PreferenceItem] = []
+    preference_ids: set[str] = set()
     for index, item in enumerate(draft.preferences.items):
         try:
             preference_items.append(
                 PreferenceItem(
-                    item_id=f"preference-{len(preference_items) + 1}",
+                    item_id=_preference_item_id(item, preference_ids),
                     category=item.category,
                     label=item.label,
                     polarity=item.polarity,
