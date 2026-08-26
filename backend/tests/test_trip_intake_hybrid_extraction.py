@@ -240,6 +240,31 @@ def test_semantic_payload_normalizes_return_time_commitment() -> None:
     assert normalized["temporal"]["departure"]["at_text"] == "最后一天中午"
 
 
+def test_semantic_payload_drops_numeric_interference_preference() -> None:
+    normalized = normalize_semantic_payload(
+        {
+            "preferences": {
+                "status": "SPECIFIED",
+                "items": [
+                    {
+                        "category": "budget",
+                        "label": "预算",
+                        "polarity": "REQUIREMENT",
+                        "operator": "EQUALS",
+                        "value": 2000,
+                        "evidence": [
+                            {"source_id": "source-1", "quote": "预算另记2000元"}
+                        ],
+                    }
+                ],
+            }
+        }
+    )
+
+    assert normalized["preferences"]["items"] == []
+    assert normalized["preferences"]["status"] == "UNSPECIFIED"
+
+
 @pytest.mark.asyncio
 async def test_deterministic_rules_preserve_explicit_unknown_evidence_and_tags() -> None:
     source = _source(
@@ -499,6 +524,55 @@ async def test_hybrid_deduplicates_preference_identity_with_different_quote_widt
     assert len(outcome.extraction.preferences.items) == 1
     assert outcome.extraction.preferences.items[0].item_id == "preference-like"
     assert outcome.extraction.preferences.items[0].evidence[0].quote == "喜欢自然风景"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_rejects_inferred_composition_and_nights_without_explicit_units() -> None:
+    source = _source("去上海，我和对象，10月3日到10月5日")
+    payload = {
+        "party_size": {
+            "total": {
+                "min": 2,
+                "max": 2,
+                "quantifier": "EXACT",
+                "derivation": "EXPLICIT_COUNT",
+                "evidence": [{"source_id": "source-1", "quote": "我和对象"}],
+            },
+            "composition": {
+                "adults": {
+                    "min": 2,
+                    "max": 2,
+                    "quantifier": "EXACT",
+                    "derivation": "EXPLICIT_COUNT",
+                    "evidence": [{"source_id": "source-1", "quote": "我和对象"}],
+                }
+            },
+        },
+        "temporal": {
+            "nights": {
+                "min": 2,
+                "max": 2,
+                "quantifier": "EXACT",
+                "derivation": "DATE_RANGE",
+                "evidence": [
+                    {"source_id": "source-1", "quote": "10月3日到10月5日"}
+                ],
+            }
+        },
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.party_size.total.derivation.value == "SEMANTIC_INFERENCE"
+    assert outcome.extraction.party_size.composition.adults is None
+    assert outcome.extraction.party_size.composition.tags == ["情侣"]
+    assert outcome.extraction.temporal.nights.quantifier.value == "UNKNOWN"
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:

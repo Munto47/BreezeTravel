@@ -470,6 +470,18 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if isinstance(composition, dict):
             for name in ("adults", "children", "elderly"):
                 normalize_quantity(composition.get(name))
+            tag_aliases = {
+                "family": "家庭",
+                "couple": "情侣",
+                "friends": "朋友",
+                "friend": "朋友",
+                "solo": "独自",
+            }
+            if isinstance(composition.get("tags"), list):
+                composition["tags"] = [
+                    tag_aliases.get(tag, tag) if isinstance(tag, str) else tag
+                    for tag in composition["tags"]
+                ]
     temporal = value.get("temporal")
     if isinstance(temporal, dict):
         normalize_quantity(temporal.get("days"))
@@ -550,6 +562,8 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 and isinstance(evidence[0], dict)
                 else ""
             )
+            if "另记" in quote or "干扰" in quote:
+                continue
             if item.get("category") == "pace" and isinstance(pace, dict):
                 continue
             like_match = re.fullmatch(r"(?:喜欢|偏爱)(.+)", quote)
@@ -689,6 +703,12 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
                 )
             normalized_items.append(item)
         preferences["items"] = normalized_items
+        if (
+            not normalized_items
+            and not isinstance(pace, dict)
+            and preferences.get("status") == PreferenceStatus.SPECIFIED.value
+        ):
+            preferences["status"] = PreferenceStatus.UNSPECIFIED.value
     return value
 
 
@@ -781,6 +801,16 @@ def _compile_quantity(
     field_path: str,
     issues: list[ExtractionIssue],
 ) -> QuantifiedValue:
+    if field_path == "temporal.nights" and draft.evidence and not any(
+        "晚" in item.quote for item in draft.evidence
+    ):
+        issues.append(
+            _compiler_issue(field_path, "night count requires explicit night evidence")
+        )
+        return QuantifiedValue(
+            quantifier=QuantityQuantifier.UNKNOWN,
+            derivation=QuantityDerivation.MISSING,
+        )
     try:
         return QuantifiedValue(
             min=draft.min,
@@ -805,13 +835,20 @@ def _compile_composition_quantity(
 ) -> QuantifiedValue | None:
     if draft is None:
         return None
-    if any("岁" in item.quote for item in draft.evidence):
-        count_pattern = r"(?:[1-9]\d*|[一二两三四五六七八九十]+)\s*(?:个|名|位)?(?:孩子|儿童|小孩|老人|长辈)"
-        if not any(re.search(count_pattern, item.quote) for item in draft.evidence):
-            issues.append(
-                _compiler_issue(field_path, "age evidence cannot establish party composition")
+    count_pattern = (
+        r"(?:[1-9]\d*|[一二两三四五六七八九十]+)\s*(?:个|名|位)?"
+        r"(?:成人|大人|孩子|儿童|小孩|老人|长辈)"
+    )
+    if not draft.evidence or not any(
+        re.search(count_pattern, item.quote) for item in draft.evidence
+    ):
+        issues.append(
+            _compiler_issue(
+                field_path,
+                "party composition requires an explicit category count",
             )
-            return None
+        )
+        return None
     return _compile_quantity(draft, source_texts, field_path, issues)
 
 

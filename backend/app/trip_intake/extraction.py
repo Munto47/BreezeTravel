@@ -1043,14 +1043,17 @@ def _merge_quantity(
     field_path: str,
     issues: list[ExtractionIssue],
 ) -> QuantifiedValue:
-    same_value = (
+    same_bounds = (
         semantic.quantifier == deterministic.quantifier
-        and semantic.derivation == deterministic.derivation
         and semantic.min == deterministic.min
         and semantic.max == deterministic.max
     )
-    if same_value and sum(len(item.quote) for item in deterministic.evidence) > sum(
-        len(item.quote) for item in semantic.evidence
+    if deterministic.quantifier == QuantityQuantifier.UNKNOWN and deterministic.evidence:
+        return deterministic
+    if same_bounds and (
+        deterministic.derivation != QuantityDerivation.MISSING
+        or sum(len(item.quote) for item in deterministic.evidence)
+        > sum(len(item.quote) for item in semantic.evidence)
     ):
         return deterministic
     if semantic.quantifier == QuantityQuantifier.UNKNOWN:
@@ -1101,7 +1104,17 @@ def _merge_preferences(
     merged_items: list[PreferenceItem] = []
     used_spans: set[tuple[str, int, int]] = set()
     used_identities: set[tuple[PreferencePolarity, str, str]] = set()
+    deterministic_pace_spans = {
+        (evidence.source_id, evidence.start, evidence.end)
+        for evidence in deterministic.pace.evidence
+    }
     for item in semantic.items:
+        if any(
+            (evidence.source_id, evidence.start, evidence.end)
+            in deterministic_pace_spans
+            for evidence in item.evidence
+        ):
+            continue
         span = next(
             (
                 (evidence.source_id, evidence.start, evidence.end)
@@ -1241,17 +1254,17 @@ def _merge_extractions(
     deterministic_composition = deterministic.party_size.composition
     party = PartySizeExtraction(
         total=party_total,
-        composition=(
-            semantic_composition
-            if any(
-                (
-                    semantic_composition.adults,
-                    semantic_composition.children,
-                    semantic_composition.elderly,
-                    semantic_composition.tags,
-                )
-            )
-            else deterministic_composition
+        composition=PartyComposition(
+            adults=semantic_composition.adults or deterministic_composition.adults,
+            children=(
+                semantic_composition.children or deterministic_composition.children
+            ),
+            elderly=semantic_composition.elderly or deterministic_composition.elderly,
+            tags=(
+                deterministic_composition.tags
+                if deterministic_composition.tags
+                else semantic_composition.tags
+            ),
         ),
     )
 
