@@ -411,9 +411,11 @@ async def test_deterministic_rules_handle_no_preference_and_no_punctuation() -> 
 @pytest.mark.asyncio
 async def test_deterministic_rules_compile_return_time_commitment() -> None:
     outcome = await DeterministicTripIntakeExtractor().extract(
-        [_source("去昆明，最多1人，玩2到4天，最后一天中午返程")]
+        [_source("预计早上到达，去昆明，最多1人，玩2到4天，最后一天中午返程")]
     )
 
+    assert outcome.extraction.temporal.arrival is not None
+    assert outcome.extraction.temporal.arrival.at_text == "早上"
     assert outcome.extraction.temporal.departure is not None
     assert outcome.extraction.temporal.departure.at_text == "最后一天中午"
 
@@ -647,6 +649,28 @@ async def test_hybrid_drops_preference_item_overlapping_deterministic_pace() -> 
 
     assert outcome.extraction.preferences.items == []
     assert outcome.extraction.preferences.pace.value.value == "INTENSIVE"
+
+
+@pytest.mark.asyncio
+async def test_hybrid_builds_missing_destination_and_days_nights_conflict_issues() -> None:
+    source = _source("目的地还没想好，3人，玩1天，住2晚")
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result({})),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    issues = {item.code: item for item in outcome.extraction.issues}
+    assert issues["DESTINATION_NEEDS_CONFIRMATION"].evidence[0].quote == (
+        "目的地还没想好"
+    )
+    assert [item.quote for item in issues["DAYS_NIGHTS_CONFLICT"].evidence] == [
+        "玩1天",
+        "住2晚",
+    ]
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:

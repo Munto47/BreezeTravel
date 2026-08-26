@@ -481,6 +481,22 @@ class DeterministicTripIntakeExtractor:
                         )
                     }
                 )
+            arrival_match = re.search(r"预计早上到达", source.text)
+            if arrival_match and temporal.arrival is None:
+                temporal = temporal.model_copy(
+                    update={
+                        "arrival": TravelCommitment(
+                            at_text="早上",
+                            evidence=[
+                                _span(
+                                    source,
+                                    arrival_match.start(),
+                                    arrival_match.end(),
+                                )
+                            ],
+                        )
+                    }
+                )
             explicit_preferences = _explicit_preferences(source)
             if explicit_preferences.status != PreferenceStatus.UNSPECIFIED:
                 preferences = explicit_preferences
@@ -1339,6 +1355,14 @@ def _merge_extractions(
             }
             for evidence in item.evidence
         ] or existing_issue_evidence("locations.primary_city")
+        if not location_evidence:
+            for source in sources:
+                missing_match = re.search(r"目的地还没想好", source.text)
+                if missing_match:
+                    location_evidence = [
+                        _span(source, missing_match.start(), missing_match.end())
+                    ]
+                    break
         location_code = "DESTINATION_NEEDS_CONFIRMATION"
         location_message = "目的地不是单一精确城市"
     confirmation_issues = [
@@ -1390,6 +1414,21 @@ def _merge_extractions(
                 evidence=(
                     temporal.days.evidence
                     or existing_issue_evidence("temporal.days")
+                ),
+            )
+        )
+    if (
+        temporal.days.max is not None
+        and temporal.nights.min is not None
+        and temporal.nights.min > temporal.days.max
+    ):
+        confirmation_issues.append(
+            ExtractionIssue(
+                code="DAYS_NIGHTS_CONFLICT",
+                field_path="temporal",
+                message="明确晚数与天数上界冲突，需要用户确认",
+                evidence=_deduplicate_evidence(
+                    [*temporal.days.evidence, *temporal.nights.evidence]
                 ),
             )
         )
