@@ -8,6 +8,7 @@ import pytest
 
 from app.config import Settings
 from app.trip_intake.extraction import (
+    DeterministicTripIntakeExtractor,
     HybridTripIntakeExtractor,
     SchemaConstrainedTripIntakeExtractor,
     UnavailableHybridTripIntakeExtractor,
@@ -156,6 +157,86 @@ def test_semantic_payload_does_not_normalize_unapproved_aliases() -> None:
 
     with pytest.raises(ValueError):
         TripIntakeSemanticDraft.model_validate(normalized)
+
+
+def test_semantic_payload_canonicalizes_explicit_preference_phrases() -> None:
+    normalized = normalize_semantic_payload(
+        {
+            "preferences": {
+                "items": [
+                    {
+                        "category": "SCENERY",
+                        "label": "喜欢自然风景",
+                        "polarity": "LIKE",
+                        "evidence": [{"source_id": "source-1", "quote": "喜欢自然风景"}],
+                    },
+                    {
+                        "category": "BUDGET",
+                        "label": "预算",
+                        "polarity": "REQUIREMENT",
+                        "operator": "MAX",
+                        "value": 2000,
+                        "unit": "CNY",
+                        "evidence": [
+                            {"source_id": "source-1", "quote": "总预算不超过2000元"}
+                        ],
+                    },
+                ]
+            }
+        }
+    )
+
+    like, budget = normalized["preferences"]["items"]
+    assert (like["category"], like["label"]) == ("experience", "自然风景")
+    assert budget == {
+        "category": "budget",
+        "label": "总预算",
+        "polarity": "REQUIREMENT",
+        "operator": "MAX",
+        "value": 2000,
+        "unit": "元",
+        "currency": "CNY",
+        "applies_to": None,
+        "evidence": [{"source_id": "source-1", "quote": "总预算不超过2000元"}],
+    }
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_preserve_explicit_unknown_evidence_and_tags() -> None:
+    source = _source(
+        "去北京；人数还没定，可能有人临时加入；时间还没定，有空就多待几天"
+    )
+
+    outcome = await DeterministicTripIntakeExtractor().extract([source])
+
+    assert outcome.extraction.party_size.total.quantifier.value == "UNKNOWN"
+    assert outcome.extraction.party_size.total.evidence[0].quote == "人数还没定，可能有人临时加入"
+    assert outcome.extraction.party_size.composition.tags == ["同行人员尚未确定"]
+    assert outcome.extraction.temporal.days.quantifier.value == "UNKNOWN"
+    assert outcome.extraction.temporal.days.evidence[0].quote == "时间还没定，有空就多待几天"
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_parse_ranges_and_inclusive_date_duration() -> None:
+    range_outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("去杭州，4到6人，最多待4天")]
+    )
+    date_outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("去上海，我自己，10月3日到10月5日")]
+    )
+
+    assert range_outcome.extraction.party_size.total.model_dump(exclude={"evidence"}) == {
+        "min": 4,
+        "max": 6,
+        "quantifier": "RANGE",
+        "derivation": "EXPLICIT_COUNT",
+    }
+    assert range_outcome.extraction.temporal.days.max == 4
+    assert range_outcome.extraction.temporal.days.quantifier.value == "AT_MOST"
+    assert date_outcome.extraction.party_size.total.min == 1
+    assert date_outcome.extraction.party_size.composition.tags == ["独自"]
+    assert date_outcome.extraction.temporal.days.min == 3
+    assert date_outcome.extraction.temporal.days.derivation.value == "DATE_RANGE"
 
 
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:

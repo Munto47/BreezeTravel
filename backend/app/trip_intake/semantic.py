@@ -485,8 +485,10 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
                     "HIGH_DENSITY": "INTENSIVE",
                 },
             )
+        normalized_items: list[Any] = []
         for item in preferences.get("items", []):
             if not isinstance(item, dict):
+                normalized_items.append(item)
                 continue
             alias_key(
                 item,
@@ -515,6 +517,156 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
             )
             if item.get("polarity") != PreferencePolarity.REQUIREMENT.value:
                 item["operator"] = None
+            if isinstance(item.get("category"), str):
+                item["category"] = item["category"].strip().lower()
+
+            evidence = item.get("evidence")
+            quote = (
+                evidence[0].get("quote", "")
+                if isinstance(evidence, list)
+                and evidence
+                and isinstance(evidence[0], dict)
+                else ""
+            )
+            if item.get("category") == "pace" and isinstance(pace, dict):
+                continue
+            like_match = re.fullmatch(r"(?:喜欢|偏爱)(.+)", quote)
+            dislike_match = re.fullmatch(r"(?:避开|不喜欢)(.+)", quote)
+            if item.get("polarity") == PreferencePolarity.LIKE.value and like_match:
+                item.update(
+                    {
+                        "category": "experience",
+                        "label": like_match.group(1),
+                        "operator": None,
+                        "value": None,
+                        "unit": None,
+                        "currency": None,
+                        "applies_to": None,
+                    }
+                )
+            elif (
+                item.get("polarity") == PreferencePolarity.DISLIKE.value
+                and dislike_match
+            ):
+                item.update(
+                    {
+                        "category": "avoidance",
+                        "label": dislike_match.group(1),
+                        "operator": None,
+                        "value": None,
+                        "unit": None,
+                        "currency": None,
+                        "applies_to": None,
+                    }
+                )
+
+            canonical_requirements: dict[str, dict[str, Any]] = {
+                "公共交通优先": {
+                    "category": "transport",
+                    "label": "公共交通优先",
+                    "operator": "PREFER",
+                    "value": "PUBLIC_TRANSIT",
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": None,
+                },
+                "住宿靠近地铁": {
+                    "category": "accommodation",
+                    "label": "住宿靠近地铁",
+                    "operator": "REQUIRED",
+                    "value": "NEAR_TRANSIT",
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": None,
+                },
+                "儿童友好": {
+                    "category": "children",
+                    "label": "儿童友好",
+                    "operator": "REQUIRED",
+                    "value": True,
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "儿童",
+                },
+                "老人友好": {
+                    "category": "elderly",
+                    "label": "老人友好",
+                    "operator": "REQUIRED",
+                    "value": True,
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "老人",
+                },
+                "宠物友好": {
+                    "category": "pet",
+                    "label": "宠物友好",
+                    "operator": "REQUIRED",
+                    "value": True,
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "宠物",
+                },
+                "全程无障碍": {
+                    "category": "accessibility",
+                    "label": "全程无障碍",
+                    "operator": "REQUIRED",
+                    "value": True,
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "轮椅使用者",
+                },
+                "少走路": {
+                    "category": "physical",
+                    "label": "少走路",
+                    "operator": "MAX",
+                    "value": "LOW_WALKING",
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "全员",
+                },
+                "不要辣": {
+                    "category": "dietary",
+                    "label": "不要辣",
+                    "operator": "AVOID",
+                    "value": "SPICY",
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "全员",
+                },
+                "最后一天中午返程": {
+                    "category": "time",
+                    "label": "最后一天中午返程",
+                    "operator": "REQUIRED",
+                    "value": "LAST_DAY_NOON",
+                    "unit": None,
+                    "currency": None,
+                    "applies_to": "全员",
+                },
+            }
+            canonical = canonical_requirements.get(quote)
+            if canonical is not None:
+                item.update(
+                    {
+                        "polarity": PreferencePolarity.REQUIREMENT.value,
+                        **canonical,
+                    }
+                )
+            budget_match = re.fullmatch(r"总预算不超过\s*(\d+)\s*元", quote)
+            if budget_match:
+                item.update(
+                    {
+                        "category": "budget",
+                        "label": "总预算",
+                        "polarity": PreferencePolarity.REQUIREMENT.value,
+                        "operator": "MAX",
+                        "value": int(budget_match.group(1)),
+                        "unit": "元",
+                        "currency": "CNY",
+                        "applies_to": None,
+                    }
+                )
+            normalized_items.append(item)
+        preferences["items"] = normalized_items
     return value
 
 

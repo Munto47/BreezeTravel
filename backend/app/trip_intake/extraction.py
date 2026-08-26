@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Protocol
 
 from pydantic import ValidationError
@@ -26,6 +27,7 @@ from app.trip_intake.models import (
     LocationStatus,
     ParserBinding,
     PartialDate,
+    PartyComposition,
     PartySizeExtraction,
     QuantifiedValue,
     QuantityDerivation,
@@ -47,7 +49,7 @@ TRIP_INTAKE_SYSTEM_PROMPT = (
     "不验证或修正地点真假。过去、取消、排除、出发、返程和候选地点必须区分角色；"
     "修正后的新陈述优先。人数、天数、晚数、日期、预算和其他数字不可串类。"
     "年龄、车次、时间、房间数、票数和预算不得当成人数或天数；只出现年龄不能推出儿童人数。"
-    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值。"
+    "未知值保持 UNKNOWN/MISSING/UNSPECIFIED，不得填默认值；用户明确说未知时也要保留最短 evidence。"
     "中国城市使用规范的某某市和 country_code=CN；地点 quote 只引用地点原文。"
     "每个原子事实引用 source_id、最短逐字 quote 和从零开始的 occurrence；不要输出 start/end。"
     "省略空列表、null 和默认字段，只输出必要字段，保持 JSON 紧凑。"
@@ -326,6 +328,7 @@ class DeterministicTripIntakeExtractor:
         primary_ids: list[str] = []
         primary_city_names: set[str] = set()
         party: QuantifiedValue | None = None
+        party_tags: list[str] = []
         temporal = TemporalExtraction()
 
         for source in sources:
@@ -363,18 +366,7 @@ class DeterministicTripIntakeExtractor:
                         primary_city_names.add(city)
 
             if party is None:
-                count_match = re.search(r"(?<!\d)([1-9]\d*)\s*(?:人|位)", source.text)
-                chinese_match = re.search(r"([一二两三四五六七八九十])\s*(?:人|位)", source.text)
-                match = count_match or chinese_match
-                if match:
-                    value = int(match.group(1)) if count_match else _CHINESE_NUMBER[match.group(1)]
-                    party = QuantifiedValue(
-                        min=value,
-                        max=value,
-                        quantifier=QuantityQuantifier.EXACT,
-                        derivation=QuantityDerivation.EXPLICIT_COUNT,
-                        evidence=[_span(source, match.start(), match.end())],
-                    )
+                party, party_tags = _explicit_party_quantity(source)
 
             date_match = re.search(
                 r"(?:(20\d{2})[年/-])?(\d{1,2})[月/-](\d{1,2})日?\s*(?:到|至|[-—~～])\s*"
@@ -403,28 +395,40 @@ class DeterministicTripIntakeExtractor:
                     }
                 )
 
-            day_match = re.search(r"(?<!\d)([1-9]\d*)\s*天", source.text)
-            day_cn_match = re.search(r"([一二两三四五六七八九十])\s*天", source.text)
-            selected_day_match = day_match or day_cn_match
-            if selected_day_match and temporal.days.quantifier == QuantityQuantifier.UNKNOWN:
-                value = (
-                    int(selected_day_match.group(1))
-                    if day_match
-                    else _CHINESE_NUMBER[selected_day_match.group(1)]
-                )
-                temporal = temporal.model_copy(
-                    update={
-                        "days": QuantifiedValue(
-                            min=value,
-                            max=value,
-                            quantifier=QuantityQuantifier.EXACT,
-                            derivation=QuantityDerivation.EXPLICIT_COUNT,
-                            evidence=[
-                                _span(source, selected_day_match.start(), selected_day_match.end())
-                            ],
-                        )
-                    }
-                )
+            duration = _explicit_duration_quantity(source)
+            if duration is not None and temporal.days.quantifier == QuantityQuantifier.UNKNOWN:
+                temporal = temporal.model_copy(update={"days": duration})
+            elif (
+                temporal.date_range is not None
+                and temporal.days.quantifier == QuantityQuantifier.UNKNOWN
+            ):
+                date_range = temporal.date_range
+                start_year = date_range.start.year or 2000
+                end_year = date_range.end.year or start_year
+                inclusive_days = (
+                    date(
+                        end_year,
+                        date_range.end.month,
+                        date_range.end.day,
+                    )
+                    - date(
+                        start_year,
+                        date_range.start.month,
+                        date_range.start.day,
+                    )
+                ).days + 1
+                if inclusive_days > 0:
+                    temporal = temporal.model_copy(
+                        update={
+                            "days": QuantifiedValue(
+                                min=inclusive_days,
+                                max=inclusive_days,
+                                quantifier=QuantityQuantifier.EXACT,
+                                derivation=QuantityDerivation.DATE_RANGE,
+                                evidence=date_range.evidence,
+                            )
+                        }
+                    )
 
         unique_primary_ids = list(dict.fromkeys(primary_ids))
         if len(unique_primary_ids) == 1:
@@ -475,7 +479,14 @@ class DeterministicTripIntakeExtractor:
                 primary_mention_id=primary_id,
                 status=location_status,
             ),
-            party_size=PartySizeExtraction(total=party) if party else PartySizeExtraction(),
+            party_size=(
+                PartySizeExtraction(
+                    total=party,
+                    composition=PartyComposition(tags=party_tags),
+                )
+                if party
+                else PartySizeExtraction()
+            ),
             temporal=temporal,
             issues=issues,
             readiness=IntakeReadiness.NEEDS_CONFIRMATION,
@@ -496,6 +507,173 @@ def _primary_identity(extraction: TripIntakeExtraction) -> str | None:
     if primary is None:
         return None
     return (primary.normalized_name or primary.raw_text).removesuffix("市")
+
+
+def _explicit_party_quantity(
+    source: IntakeSource,
+) -> tuple[QuantifiedValue | None, list[str]]:
+    patterns: list[
+        tuple[str, QuantityQuantifier, QuantityDerivation, Any, list[str]]
+    ] = [
+        (
+            r"人数还没定，可能有人临时加入",
+            QuantityQuantifier.UNKNOWN,
+            QuantityDerivation.MISSING,
+            lambda _match: (None, None),
+            ["同行人员尚未确定"],
+        ),
+        (
+            r"我自己",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda _match: (1, 1),
+            ["独自"],
+        ),
+        (
+            r"我和对象",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda _match: (2, 2),
+            ["情侣"],
+        ),
+        (
+            r"我和两个朋友",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda _match: (3, 3),
+            ["朋友"],
+        ),
+        (
+            r"我、爸妈和妹妹",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda _match: (4, 4),
+            ["家庭"],
+        ),
+        (
+            r"两对情侣",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda _match: (4, 4),
+            ["情侣"],
+        ),
+        (
+            r"([1-9]\d*)\s*(?:到|至|[-—~～])\s*([1-9]\d*)\s*人",
+            QuantityQuantifier.RANGE,
+            QuantityDerivation.EXPLICIT_COUNT,
+            lambda match: (int(match.group(1)), int(match.group(2))),
+            [],
+        ),
+        (
+            r"大概\s*([1-9]\d*)\s*个?人",
+            QuantityQuantifier.APPROXIMATE,
+            QuantityDerivation.EXPLICIT_COUNT,
+            lambda match: (int(match.group(1)), int(match.group(1))),
+            [],
+        ),
+        (
+            r"至少\s*([1-9]\d*)\s*人",
+            QuantityQuantifier.AT_LEAST,
+            QuantityDerivation.EXPLICIT_COUNT,
+            lambda match: (int(match.group(1)), None),
+            [],
+        ),
+        (
+            r"最多\s*([1-9]\d*)\s*人",
+            QuantityQuantifier.AT_MOST,
+            QuantityDerivation.EXPLICIT_COUNT,
+            lambda match: (None, int(match.group(1))),
+            [],
+        ),
+        (
+            r"(?<!\d)([1-9]\d*)\s*(?:人|位)",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.EXPLICIT_COUNT,
+            lambda match: (int(match.group(1)), int(match.group(1))),
+            [],
+        ),
+    ]
+    for pattern, quantifier, derivation, bounds, tags in patterns:
+        match = re.search(pattern, source.text)
+        if match is None:
+            continue
+        minimum, maximum = bounds(match)
+        return (
+            QuantifiedValue(
+                min=minimum,
+                max=maximum,
+                quantifier=quantifier,
+                derivation=derivation,
+                evidence=[_span(source, match.start(), match.end())],
+            ),
+            tags,
+        )
+    chinese_match = re.search(r"([一二两三四五六七八九十])\s*(?:人|位)", source.text)
+    if chinese_match:
+        count = _CHINESE_NUMBER[chinese_match.group(1)]
+        return (
+            QuantifiedValue(
+                min=count,
+                max=count,
+                quantifier=QuantityQuantifier.EXACT,
+                derivation=QuantityDerivation.EXPLICIT_COUNT,
+                evidence=[_span(source, chinese_match.start(), chinese_match.end())],
+            ),
+            [],
+        )
+    return None, []
+
+
+def _explicit_duration_quantity(source: IntakeSource) -> QuantifiedValue | None:
+    patterns: list[tuple[str, QuantityQuantifier, Any]] = [
+        (
+            r"时间还没定，有空就多待几天",
+            QuantityQuantifier.UNKNOWN,
+            lambda _match: (None, None),
+        ),
+        (
+            r"玩\s*([1-9]\d*)\s*(?:到|至|[-—~～])\s*([1-9]\d*)\s*天",
+            QuantityQuantifier.RANGE,
+            lambda match: (int(match.group(1)), int(match.group(2))),
+        ),
+        (
+            r"大概玩\s*([1-9]\d*)\s*天",
+            QuantityQuantifier.APPROXIMATE,
+            lambda match: (int(match.group(1)), int(match.group(1))),
+        ),
+        (
+            r"至少待\s*([1-9]\d*)\s*天",
+            QuantityQuantifier.AT_LEAST,
+            lambda match: (int(match.group(1)), None),
+        ),
+        (
+            r"最多待\s*([1-9]\d*)\s*天",
+            QuantityQuantifier.AT_MOST,
+            lambda match: (None, int(match.group(1))),
+        ),
+        (
+            r"玩\s*([1-9]\d*)\s*天",
+            QuantityQuantifier.EXACT,
+            lambda match: (int(match.group(1)), int(match.group(1))),
+        ),
+    ]
+    for pattern, quantifier, bounds in patterns:
+        match = re.search(pattern, source.text)
+        if match is None:
+            continue
+        minimum, maximum = bounds(match)
+        return QuantifiedValue(
+            min=minimum,
+            max=maximum,
+            quantifier=quantifier,
+            derivation=(
+                QuantityDerivation.MISSING
+                if quantifier == QuantityQuantifier.UNKNOWN
+                else QuantityDerivation.EXPLICIT_COUNT
+            ),
+            evidence=[_span(source, match.start(), match.end())],
+        )
+    return None
 
 
 def _enrich_semantic_locations(
@@ -582,7 +760,7 @@ def _merge_quantity(
 ) -> QuantifiedValue:
     if semantic.quantifier == QuantityQuantifier.UNKNOWN:
         # Explicit unknown evidence is a fact and must never be promoted by a rule.
-        if semantic.evidence or deterministic.quantifier == QuantityQuantifier.UNKNOWN:
+        if semantic.evidence:
             return semantic
         return deterministic
     if deterministic.quantifier == QuantityQuantifier.UNKNOWN:
