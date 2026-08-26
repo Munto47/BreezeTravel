@@ -58,7 +58,7 @@
 - O3：最终 72 条 Dev 全量 Gate=`PASS`，两次 Validation Gate 均为 `REJECT`；
 - O4：因 Validation 前置 Gate 未通过，正式 frozen blind=`NOT_RUN`，blind labels 未被评分进程读取；
 - 数据集 validator：`structurally_valid=true`、120/120、evidence span validity=1.0、`blind_labels_read=false`；
-- `INTAKE_V2_DEVELOPMENT_READY=false`：首次完整 backend 回归为 1987 passed / 32 skipped / 1 failed，唯一失败是本 Goal 当时缺少上述 `structurally_valid=true` 状态声明；补写后必须重跑失败测试和全套回归，旧结果不得直接记为 PASS；
+- `INTAKE_V2_DEVELOPMENT_READY=false`：最终 backend 回归为 1988 passed / 32 skipped，Ruff、frontend build、dual-entry validator 和 120 条结构 validator 均通过；但两次 Validation NLU Gate 均为 `REJECT`，因此不能标记开发完成态；
 - `V1_CANDIDATE_READY=false`：本 Goal 不得改写或替代既有 Candidate Gate，不得因此宣称 `V1_CANDIDATE_READY`；
 - Budget：297/300 次，估算 5.10609568 CNY / 30 CNY；
 - Promotion decision：`REJECT`，不进入 frozen blind、G0～G6、H1、公网、release 或 main merge；

@@ -70,7 +70,8 @@
 - frontend production build：PASS；
 - dual-entry validator：`structurally_valid=true`、`release_ready=false`，历史 release blockers 未被当前阶段覆盖；
 - Trip NLU v2 validator：120/120、证据 100%、固定分布匹配、`blind_labels_read=false`；
-- backend 首次全套：1987 passed / 32 skipped / 1 failed。唯一失败为 `CURRENT_GOAL.md` 缺少治理回归要求的 `structurally_valid=true` 声明；本报告提交前已补写，需重跑该失败测试和完整 backend/Ruff 后才能将工程回归记为 PASS。
+- backend 首次全套：1987 passed / 32 skipped / 1 failed，唯一失败为 `CURRENT_GOAL.md` 缺少治理回归要求的 `structurally_valid=true` 声明；
+- 修正文档并推送 `bd3702e` 后完整重跑：1988 passed / 32 skipped，Ruff PASS。工程回归通过，但不能覆盖 Validation NLU Gate 的 `REJECT`。
 
 ## 最终边界
 
