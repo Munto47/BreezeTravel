@@ -404,6 +404,15 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
     for location in value.get("locations", []):
         if not isinstance(location, dict):
             continue
+        alias_city = {
+            "帝都": "北京市",
+            "魔都": "上海市",
+            "杭城": "杭州市",
+        }.get(location.get("raw_text"))
+        if alias_city is not None:
+            location["normalized_name"] = alias_city
+            location["country_code"] = "CN"
+            location["entity_type"] = "CITY"
         alias_key(
             location,
             "role",

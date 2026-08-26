@@ -343,18 +343,11 @@ class DeterministicTripIntakeExtractor:
         for source in sources:
             for city in _CITY_NAMES:
                 for match in re.finditer(re.escape(city), source.text):
-                    prefix = source.text[max(0, match.start() - 8) : match.start()]
-                    suffix = source.text[match.end() : match.end() + 8]
-                    if re.search(r"出发|来自|从\s*$", prefix):
-                        role = LocationRole.ORIGIN
-                    elif re.search(r"不去|排除|别去", prefix):
-                        role = LocationRole.EXCLUDED
-                    elif re.search(r"以前|去年|上次|旧计划", prefix):
-                        role = LocationRole.OTHER_MENTION
-                    elif re.search(r"去|到|目的地|玩|旅行|旅游", prefix + suffix):
-                        role = LocationRole.PRIMARY_DESTINATION
-                    else:
-                        role = LocationRole.OTHER_MENTION
+                    role = _deterministic_location_role(
+                        source.text,
+                        match.start(),
+                        match.end(),
+                    )
                     mention_id = f"location-{len(locations) + 1}"
                     if role == LocationRole.PRIMARY_DESTINATION and city in primary_city_names:
                         role = LocationRole.OTHER_MENTION
@@ -523,6 +516,32 @@ def _primary_identity(extraction: TripIntakeExtraction) -> str | None:
     if primary is None:
         return None
     return (primary.normalized_name or primary.raw_text).removesuffix("市")
+
+
+def _deterministic_location_role(text: str, start: int, end: int) -> LocationRole:
+    clause_start = max(
+        text.rfind(separator, 0, start)
+        for separator in ("，", "；", ";", "。", "\n")
+    ) + 1
+    following = [
+        position
+        for separator in ("，", "；", ";", "。", "\n")
+        if (position := text.find(separator, end)) >= 0
+    ]
+    clause_end = min(following) if following else len(text)
+    clause = text[clause_start:clause_end]
+    prefix = text[clause_start:start]
+    if re.search(r"不去|排除|别去", prefix):
+        return LocationRole.EXCLUDED
+    if re.search(r"返程|最后.*回|回到", clause):
+        return LocationRole.RETURN_LOCATION
+    if re.search(r"出发|来自", clause):
+        return LocationRole.ORIGIN
+    if re.search(r"去年|以前|上次|过去|本来|原计划|旧计划|取消|去过", clause):
+        return LocationRole.OTHER_MENTION
+    if re.search(r"目的地|这次|确定|改去|去|到|玩|旅行|旅游", clause):
+        return LocationRole.PRIMARY_DESTINATION
+    return LocationRole.OTHER_MENTION
 
 
 def _explicit_party_quantity(
@@ -1295,11 +1314,11 @@ class HybridTripIntakeExtractor:
             },
         )
         if model_outcome.status == IntakeStatus.EXTRACTION_FAILED:
-            failure_issue = model_outcome.extraction.issues[0]
-            extraction = deterministic.extraction.model_copy(
-                update={"issues": [*deterministic.extraction.issues, failure_issue]}
+            extraction = _merge_extractions(
+                deterministic.extraction,
+                deterministic.extraction,
+                sources,
             )
-            extraction = TripIntakeExtraction.model_validate(extraction.model_dump())
             runtime = model_outcome.runtime_receipt or ExtractionRuntimeReceipt(
                 requested_model=self.model_extractor.model_name,
                 error_category="unknown_model_failure",

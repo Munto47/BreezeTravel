@@ -147,6 +147,27 @@ def test_semantic_payload_normalizes_only_audited_enum_aliases() -> None:
     assert payload["location_status"] == "AMBIGUOUS"
 
 
+def test_semantic_payload_normalizes_supported_city_alias() -> None:
+    normalized = normalize_semantic_payload(
+        {
+            "locations": [
+                {
+                    "raw_text": "帝都",
+                    "role": "PRIMARY_DESTINATION",
+                    "evidence": [{"source_id": "source-1", "quote": "帝都"}],
+                }
+            ]
+        }
+    )
+
+    location = normalized["locations"][0]
+    assert (location["normalized_name"], location["country_code"]) == (
+        "北京市",
+        "CN",
+    )
+    assert location["entity_type"] == "CITY"
+
+
 def test_semantic_payload_does_not_normalize_unapproved_aliases() -> None:
     normalized = normalize_semantic_payload(
         {
@@ -279,6 +300,27 @@ async def test_deterministic_rules_parse_nights_and_canonical_preferences() -> N
         item for item in outcome.extraction.preferences.items if item.category == "budget"
     )
     assert (budget.value, budget.unit, budget.currency) == (2000, "元", "CNY")
+
+
+@pytest.mark.asyncio
+async def test_deterministic_location_roles_follow_clause_level_corrections() -> None:
+    source = _source(
+        "从广州出发，去年去过西安，本来想去天津后来取消，这次确定改去杭州，"
+        "不去重庆，最后返程回深圳；5人；玩5天"
+    )
+
+    outcome = await DeterministicTripIntakeExtractor().extract([source])
+
+    roles = {item.raw_text: item.role.value for item in outcome.extraction.locations.mentions}
+    assert roles == {
+        "广州": "ORIGIN",
+        "深圳": "RETURN_LOCATION",
+        "杭州": "PRIMARY_DESTINATION",
+        "西安": "OTHER_MENTION",
+        "重庆": "EXCLUDED",
+        "天津": "OTHER_MENTION",
+    }
+    assert outcome.extraction.locations.status.value == "EXACT"
 
 
 @pytest.mark.asyncio
@@ -502,7 +544,7 @@ async def test_hybrid_timeout_falls_back_and_keeps_failure_receipt() -> None:
     assert outcome.runtime_receipt is not None
     assert outcome.runtime_receipt.fallback_used is True
     assert outcome.runtime_receipt.error_category == "timeout"
-    assert any(issue.code == "EXTRACTION_FAILED" for issue in outcome.extraction.issues)
+    assert not any(issue.code == "EXTRACTION_FAILED" for issue in outcome.extraction.issues)
 
 
 @pytest.mark.asyncio
