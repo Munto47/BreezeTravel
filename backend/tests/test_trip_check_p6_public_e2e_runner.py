@@ -132,10 +132,13 @@ def test_public_flow_uses_the_confirmed_brief_revision(monkeypatch) -> None:  # 
             elif route == "/api/audits/report/evidence":
                 value = {"provider_failures": []}
             elif route.endswith("/reports/report/advice"):
-                value = {"actions": [{"action_id": "action"}]}
+                value = {"actions": [{"action_id": "action", "repair_id": "advice-repair"}]}
             elif route == "/api/audits/report/repairs":
-                value = [{"repair_id": "repair", "base_itinerary_revision": 1}]
-            elif route == "/api/audits/report/repairs/repair/apply":
+                value = [
+                    {"repair_id": "unlinked-repair", "base_itinerary_revision": 1},
+                    {"repair_id": "advice-repair", "base_itinerary_revision": 1},
+                ]
+            elif route == "/api/audits/report/repairs/advice-repair/apply":
                 value = {"postcheck_report_id": "postcheck", "new_revision": 2}
             elif route == "/api/audits/postcheck":
                 value = {"itinerary_revision": 2}

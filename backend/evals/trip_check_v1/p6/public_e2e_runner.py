@@ -329,19 +329,35 @@ def _execute_public_flow(spec: Mapping[str, Any], credentials: Mapping[str, str]
         f"/api/trip-workspaces/{workspace_id}/reports/{report_id}/advice",
     )
     repairs, _, _ = client.request("GET", f"/api/audits/{report_id}/repairs")
+    advice_actions = advice.get("actions") if isinstance(advice, Mapping) else None
     if not (
         isinstance(report, Mapping)
         and report.get("overall_status") == "VIOLATED"
         and isinstance(evidence, Mapping)
         and not evidence.get("provider_failures")
         and isinstance(advice, Mapping)
-        and advice.get("actions")
+        and isinstance(advice_actions, list)
+        and advice_actions
         and isinstance(repairs, list)
         and repairs
-        and isinstance(repairs[0], Mapping)
     ):
         raise P6ContractError("P6_G5_PUBLIC_ADVICE_OR_REPAIR_MISSING")
-    repair = repairs[0]
+    advice_repair_ids = sorted({
+        action.get("repair_id")
+        for action in advice_actions
+        if isinstance(action, Mapping) and isinstance(action.get("repair_id"), str)
+    })
+    repair = next(
+        (
+            item
+            for repair_id in advice_repair_ids
+            for item in repairs
+            if isinstance(item, Mapping) and item.get("repair_id") == repair_id
+        ),
+        None,
+    )
+    if repair is None:
+        raise P6ContractError("P6_G5_PUBLIC_ADVICE_OR_REPAIR_MISSING")
     repair_id = repair.get("repair_id")
     base_revision = repair.get("base_itinerary_revision")
     if not isinstance(repair_id, str) or base_revision != 1:
@@ -382,7 +398,7 @@ def _execute_public_flow(spec: Mapping[str, Any], credentials: Mapping[str, str]
         "final_resume_body_sha256": final_resume_sha,
         "initial_revision": 1,
         "final_revision": 2,
-        "advice_action_count": len(advice["actions"]),
+        "advice_action_count": len(advice_actions),
         "repair_count": len(repairs),
         "provider_failure_count": 0,
         "postcheck_status": "SUCCEEDED",
