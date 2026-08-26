@@ -227,6 +227,25 @@ async def test_hybrid_timeout_falls_back_and_keeps_failure_receipt() -> None:
     assert any(issue.code == "EXTRACTION_FAILED" for issue in outcome.extraction.issues)
 
 
+@pytest.mark.asyncio
+async def test_schema_error_keeps_usage_and_only_reports_safe_field_path() -> None:
+    source = _source("目的地还没定")
+    extractor = SchemaConstrainedTripIntakeExtractor(
+        StubStructuredClient(_result({"unexpected": "must not be echoed"})),
+        model_name="deepseek-v4-flash",
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.status == IntakeStatus.EXTRACTION_FAILED
+    assert outcome.runtime_receipt is not None
+    assert outcome.runtime_receipt.input_tokens == 100
+    assert outcome.runtime_receipt.output_tokens == 50
+    assert outcome.runtime_receipt.error_category == "schema_invalid"
+    assert outcome.runtime_receipt.error_detail == "unexpected:extra_forbidden"
+    assert "must not be echoed" not in outcome.runtime_receipt.error_detail
+
+
 def test_explicit_hybrid_without_key_is_fail_closed() -> None:
     settings = Settings(
         _env_file=None,

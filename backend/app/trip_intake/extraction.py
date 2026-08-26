@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from pydantic import ValidationError
+
 from app.itineraries.hash_service import sha256_canonical
 from app.trip_intake.llm_client import (
     StructuredExtractionClientError,
@@ -60,6 +62,7 @@ class ExtractionRuntimeReceipt:
     latency_ms: float = 0
     fallback_used: bool = False
     error_category: str | None = None
+    error_detail: str | None = None
 
     @classmethod
     def from_client(
@@ -68,6 +71,7 @@ class ExtractionRuntimeReceipt:
         *,
         fallback_used: bool = False,
         error_category: str | None = None,
+        error_detail: str | None = None,
     ) -> "ExtractionRuntimeReceipt":
         return cls(
             requested_model=receipt.requested_model,
@@ -77,6 +81,7 @@ class ExtractionRuntimeReceipt:
             latency_ms=receipt.latency_ms,
             fallback_used=fallback_used,
             error_category=error_category,
+            error_detail=error_detail,
         )
 
 
@@ -171,6 +176,7 @@ class SchemaConstrainedTripIntakeExtractor:
             {"source_id": source.source_id, "source_type": source.source_type.value, "text": source.text}
             for source in sources
         ]
+        result: StructuredJsonResult | None = None
         try:
             result = await self.client.generate_json(
                 system_prompt=TRIP_INTAKE_SYSTEM_PROMPT,
@@ -202,18 +208,33 @@ class SchemaConstrainedTripIntakeExtractor:
                 ),
             )
         except Exception as exc:
+            if isinstance(exc, ValidationError):
+                error_category = "schema_invalid"
+                error_detail = ";".join(
+                    f"{'.'.join(str(part) for part in item['loc'])}:{item['type']}"
+                    for item in exc.errors(include_input=False, include_url=False)
+                )[:500]
+            else:
+                error_category = "evidence_invalid"
+                error_detail = type(exc).__name__
+            runtime = (
+                ExtractionRuntimeReceipt.from_client(
+                    result.receipt,
+                    error_category=error_category,
+                    error_detail=error_detail,
+                )
+                if result is not None
+                else ExtractionRuntimeReceipt(
+                    requested_model=self.model_name,
+                    error_category=error_category,
+                    error_detail=error_detail,
+                )
+            )
             return ExtractionOutcome(
                 _failed_extraction(f"schema-constrained extraction failed: {type(exc).__name__}"),
                 binding,
                 IntakeStatus.EXTRACTION_FAILED,
-                ExtractionRuntimeReceipt(
-                    requested_model=self.model_name,
-                    error_category=(
-                        "schema_invalid"
-                        if type(exc).__name__ == "ValidationError"
-                        else "evidence_invalid"
-                    ),
-                ),
+                runtime,
             )
 
 
