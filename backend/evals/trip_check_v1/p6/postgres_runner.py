@@ -33,7 +33,7 @@ G2_TEST_NODES = (
     "tests/test_repair_concurrency_postgres.py::test_postgres_apply_and_reject_choose_exactly_one_terminal_state",
     "tests/test_screenshot_postgres_integration.py::test_postgres_screenshot_cleanup_and_ocr_artifact_readback",
 )
-LATEST_MIGRATION = "024_advice_bundles.sql"
+LATEST_MIGRATION = "025_miniapp_identity_and_upload_batches.sql"
 
 
 def _load_json(path: Path, reason: str) -> dict[str, Any]:

@@ -49,7 +49,7 @@
       "required": ["engine", "required_migration", "isolated", "migration_hash_readback_required"],
       "properties": {
         "engine": {"const": "postgresql"},
-        "required_migration": {"const": "024_advice_bundles.sql"},
+        "required_migration": {"const": "025_miniapp_identity_and_upload_batches.sql"},
         "isolated": {"const": true},
         "migration_hash_readback_required": {"const": true}
       }
