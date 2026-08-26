@@ -239,6 +239,42 @@ async def test_deterministic_rules_parse_ranges_and_inclusive_date_duration() ->
     assert date_outcome.extraction.temporal.days.derivation.value == "DATE_RANGE"
 
 
+@pytest.mark.asyncio
+async def test_hybrid_keeps_more_complete_evidence_for_equal_unknown_values() -> None:
+    source = _source("去北京；人数还没定，可能有人临时加入；时间还没定，有空就多待几天")
+    payload = {
+        "party_size": {
+            "total": {
+                "quantifier": "UNKNOWN",
+                "derivation": "MISSING",
+                "evidence": [{"source_id": "source-1", "quote": "人数还没定"}],
+            }
+        },
+        "temporal": {
+            "days": {
+                "quantifier": "UNKNOWN",
+                "derivation": "MISSING",
+                "evidence": [{"source_id": "source-1", "quote": "时间还没定"}],
+            }
+        },
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.party_size.total.evidence[0].quote == (
+        "人数还没定，可能有人临时加入"
+    )
+    assert outcome.extraction.temporal.days.evidence[0].quote == (
+        "时间还没定，有空就多待几天"
+    )
+
+
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:
     source = _source("目的地还没定")
     draft = TripIntakeSemanticDraft.model_validate(

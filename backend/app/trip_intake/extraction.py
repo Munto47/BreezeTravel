@@ -758,6 +758,16 @@ def _merge_quantity(
     field_path: str,
     issues: list[ExtractionIssue],
 ) -> QuantifiedValue:
+    same_value = (
+        semantic.quantifier == deterministic.quantifier
+        and semantic.derivation == deterministic.derivation
+        and semantic.min == deterministic.min
+        and semantic.max == deterministic.max
+    )
+    if same_value and sum(len(item.quote) for item in deterministic.evidence) > sum(
+        len(item.quote) for item in semantic.evidence
+    ):
+        return deterministic
     if semantic.quantifier == QuantityQuantifier.UNKNOWN:
         # Explicit unknown evidence is a fact and must never be promoted by a rule.
         if semantic.evidence:
