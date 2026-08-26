@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -79,6 +81,54 @@ def test_candidate_spec_builder_binds_all_inputs(tmp_path: Path) -> None:
     } in config_manifest["files"]
     assert any(item["path"] == ".gitattributes" for item in config_manifest["files"])
     assert any(item["path"] == "backend/.dockerignore" for item in config_manifest["files"])
+
+
+def test_provider_snapshot_release_bytes_match_git_index_and_archive(tmp_path: Path) -> None:
+    repo_root = Path(__file__).parents[2]
+    relative_path = "backend/evals/fixtures/trip_check_provider_integrity_v1.json"
+    snapshot_path = repo_root / relative_path
+
+    indexed = subprocess.run(
+        ["git", "-C", str(repo_root), "show", f":{relative_path}"],
+        check=True,
+        stdout=subprocess.PIPE,
+    ).stdout
+    attributes = subprocess.run(
+        ["git", "-C", str(repo_root), "check-attr", "text", "eol", "--", relative_path],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    ).stdout
+    tree = subprocess.run(
+        ["git", "-C", str(repo_root), "write-tree"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="ascii",
+    ).stdout.strip()
+    archive_path = tmp_path / "release.tar"
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo_root),
+            "archive",
+            "--format=tar",
+            f"--output={archive_path}",
+            tree,
+        ],
+        check=True,
+    )
+    with tarfile.open(archive_path, mode="r") as archive:
+        archived = archive.extractfile(relative_path)
+        assert archived is not None
+        archived_bytes = archived.read()
+
+    assert snapshot_path.read_bytes() == indexed
+    assert snapshot_path.read_bytes() == archived_bytes
+    assert f"{relative_path}: text: set" in attributes
+    assert f"{relative_path}: eol: lf" in attributes
 
 
 def test_candidate_spec_builder_rejects_dataset_subject_mismatch(tmp_path: Path) -> None:
