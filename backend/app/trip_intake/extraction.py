@@ -988,8 +988,13 @@ def _merge_preferences(
         for item in deterministic.items
         for evidence in item.evidence
     }
+    deterministic_by_identity = {
+        (item.polarity, item.category, item.label): item
+        for item in deterministic.items
+    }
     merged_items: list[PreferenceItem] = []
     used_spans: set[tuple[str, int, int]] = set()
+    used_identities: set[tuple[PreferencePolarity, str, str]] = set()
     for item in semantic.items:
         span = next(
             (
@@ -1000,26 +1005,40 @@ def _merge_preferences(
             ),
             None,
         )
-        if span is not None:
-            merged_items.append(deterministic_by_span[span])
-            used_spans.add(span)
-        else:
+        identity = (item.polarity, item.category, item.label)
+        deterministic_item = (
+            deterministic_by_span[span]
+            if span is not None
+            else deterministic_by_identity.get(identity)
+        )
+        if deterministic_item is not None:
+            deterministic_identity = (
+                deterministic_item.polarity,
+                deterministic_item.category,
+                deterministic_item.label,
+            )
+            if deterministic_identity not in used_identities:
+                merged_items.append(deterministic_item)
+                used_identities.add(deterministic_identity)
+            for evidence in deterministic_item.evidence:
+                used_spans.add((evidence.source_id, evidence.start, evidence.end))
+        elif identity not in used_identities:
             merged_items.append(item)
+            used_identities.add(identity)
+        if span is not None:
+            used_spans.add(span)
     for item in deterministic.items:
         span = (
             item.evidence[0].source_id,
             item.evidence[0].start,
             item.evidence[0].end,
         )
-        if span not in used_spans and not any(
-            existing.evidence[0].source_id == span[0]
-            and existing.evidence[0].start == span[1]
-            and existing.evidence[0].end == span[2]
-            for existing in merged_items
-        ):
+        identity = (item.polarity, item.category, item.label)
+        if span not in used_spans and identity not in used_identities:
             merged_items.append(item)
+            used_identities.add(identity)
     reindexed_items: list[PreferenceItem] = []
-    themed_count = 0
+    id_counts: dict[str, int] = {}
     for item in merged_items:
         if item.polarity == PreferencePolarity.LIKE:
             item_id = "preference-like"
@@ -1030,12 +1049,10 @@ def _merge_preferences(
         elif item.category == "transport":
             item_id = "requirement-transport"
         else:
-            themed_count += 1
-            item_id = (
-                "requirement-themed"
-                if themed_count == 1
-                else f"requirement-themed-{themed_count}"
-            )
+            item_id = "requirement-themed"
+        id_counts[item_id] = id_counts.get(item_id, 0) + 1
+        if id_counts[item_id] > 1:
+            item_id = f"{item_id}-{id_counts[item_id]}"
         reindexed_items.append(item.model_copy(update={"item_id": item_id}))
     pace = (
         deterministic.pace

@@ -353,6 +353,42 @@ async def test_hybrid_marks_unresolved_destination_disagreement_uncertain() -> N
     assert outcome.extraction.locations.status.value == "UNCERTAIN"
 
 
+@pytest.mark.asyncio
+async def test_hybrid_deduplicates_preference_identity_with_different_quote_widths() -> None:
+    source = _source("去北京，2人，玩3天，喜欢自然风景")
+    payload = {
+        "preferences": {
+            "status": "SPECIFIED",
+            "items": [
+                {
+                    "category": "experience",
+                    "label": "自然风景",
+                    "polarity": "LIKE",
+                    "evidence": [{"source_id": "source-1", "quote": "自然风景"}],
+                },
+                {
+                    "category": "experience",
+                    "label": "自然风景",
+                    "polarity": "LIKE",
+                    "evidence": [{"source_id": "source-1", "quote": "喜欢自然风景"}],
+                },
+            ],
+        }
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert len(outcome.extraction.preferences.items) == 1
+    assert outcome.extraction.preferences.items[0].item_id == "preference-like"
+    assert outcome.extraction.preferences.items[0].evidence[0].quote == "喜欢自然风景"
+
+
 def test_semantic_compiler_drops_invalid_field_without_inventing_offsets() -> None:
     source = _source("目的地还没定")
     draft = TripIntakeSemanticDraft.model_validate(
