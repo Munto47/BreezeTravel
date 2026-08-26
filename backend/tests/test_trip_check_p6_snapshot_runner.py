@@ -47,7 +47,7 @@ def _spec(tmp_path: Path) -> Path:
         "database": {
             "engine": "postgresql",
             "isolated": True,
-            "required_migration": "024_advice_bundles.sql",
+            "required_migration": "025_miniapp_identity_and_upload_batches.sql",
             "migration_hash_readback_required": True,
         },
         "public_candidate": {

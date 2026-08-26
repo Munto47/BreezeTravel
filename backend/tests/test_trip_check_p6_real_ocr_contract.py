@@ -51,7 +51,7 @@ def _run_spec() -> dict:
         },
         "database": {
             "engine": "postgresql",
-            "required_migration": "024_advice_bundles.sql",
+            "required_migration": "025_miniapp_identity_and_upload_batches.sql",
             "isolated": True,
             "migration_hash_readback_required": True,
         },
