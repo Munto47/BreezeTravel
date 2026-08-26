@@ -40,6 +40,7 @@ from app.trip_intake.models import (
     QuantityQuantifier,
     RequirementOperator,
     TemporalExtraction,
+    TravelCommitment,
     TripIntakeExtraction,
     validate_extraction_evidence,
 )
@@ -296,6 +297,8 @@ _LOCATION_NORMALIZATIONS = {
     "帝都": "北京市",
     "魔都": "上海市",
     "杭城": "杭州市",
+    "北亰": "北京市",
+    "上诲": "上海市",
 }
 
 _CHINESE_NUMBER = {
@@ -375,6 +378,26 @@ class DeterministicTripIntakeExtractor:
                     if role == LocationRole.PRIMARY_DESTINATION:
                         primary_city_names.add(normalized_name)
 
+            for match in re.finditer(
+                r"还想去([^，；;。\n]+?)(?=名字别纠正|[，；;。\n]|$)",
+                source.text,
+            ):
+                raw_name = match.group(1).strip()
+                if not raw_name or raw_name in _LOCATION_NORMALIZATIONS:
+                    continue
+                raw_start = match.start(1) + len(match.group(1)) - len(match.group(1).lstrip())
+                raw_end = raw_start + len(raw_name)
+                locations.append(
+                    LocationMention(
+                        mention_id=f"location-{len(locations) + 1}",
+                        raw_text=raw_name,
+                        entity_type=LocationEntityType.PLACE,
+                        role=LocationRole.REQUESTED_PLACE,
+                        confidence=1.0,
+                        evidence=[_span(source, raw_start, raw_end)],
+                    )
+                )
+
             if party is None:
                 party, party_tags = _explicit_party_quantity(source)
 
@@ -442,8 +465,24 @@ class DeterministicTripIntakeExtractor:
             nights = _explicit_night_quantity(source)
             if nights is not None and temporal.nights.quantifier == QuantityQuantifier.UNKNOWN:
                 temporal = temporal.model_copy(update={"nights": nights})
+            departure_match = re.search(r"最后一天中午返程", source.text)
+            if departure_match and temporal.departure is None:
+                temporal = temporal.model_copy(
+                    update={
+                        "departure": TravelCommitment(
+                            at_text="最后一天中午",
+                            evidence=[
+                                _span(
+                                    source,
+                                    departure_match.start(),
+                                    departure_match.end(),
+                                )
+                            ],
+                        )
+                    }
+                )
             explicit_preferences = _explicit_preferences(source)
-            if explicit_preferences.status == PreferenceStatus.SPECIFIED:
+            if explicit_preferences.status != PreferenceStatus.UNSPECIFIED:
                 preferences = explicit_preferences
 
         locations = [
@@ -564,6 +603,8 @@ def _deterministic_location_role(text: str, start: int, end: int) -> LocationRol
         return LocationRole.ORIGIN
     if re.search(r"去年|以前|上次|过去|本来|原计划|旧计划|取消|去过", clause):
         return LocationRole.OTHER_MENTION
+    if re.search(r"或者|还是|都可以|二选一|候选", clause):
+        return LocationRole.PRIMARY_DESTINATION
     if re.search(r"目的地|这次|确定|改去|去|到|玩|旅行|旅游", clause):
         return LocationRole.PRIMARY_DESTINATION
     return LocationRole.OTHER_MENTION
@@ -751,6 +792,21 @@ def _explicit_night_quantity(source: IntakeSource) -> QuantifiedValue | None:
 
 
 def _explicit_preferences(source: IntakeSource) -> PreferenceExtraction:
+    no_preference_match = re.search(r"明确没有任何偏好", source.text)
+    if no_preference_match:
+        evidence = [
+            _span(source, no_preference_match.start(), no_preference_match.end())
+        ]
+        return PreferenceExtraction(
+            status=PreferenceStatus.NO_PREFERENCE,
+            pace=PacePreference(
+                value=PaceValue.NO_PREFERENCE,
+                confidence=1.0,
+                evidence=evidence,
+            ),
+            no_preference_evidence=evidence,
+        )
+
     items: list[PreferenceItem] = []
 
     def add_item(
@@ -798,14 +854,19 @@ def _explicit_preferences(source: IntakeSource) -> PreferenceExtraction:
             )
         )
 
-    for match in re.finditer(r"喜欢([^，；\n]+)", source.text):
+    preference_boundary = (
+        r"(?=\s*(?:避开|慢慢玩|节奏适中|想高密度打卡|总预算|公共交通优先|"
+        r"住宿靠近地铁|儿童友好|老人友好|宠物友好|全程无障碍|少走路|不要辣|"
+        r"最后一天中午返程|嗯|顺手记|$)|[，；;。\n])"
+    )
+    for match in re.finditer(rf"喜欢(\S+?){preference_boundary}", source.text):
         add_item(
             match,
             category="experience",
             label=match.group(1),
             polarity=PreferencePolarity.LIKE,
         )
-    for match in re.finditer(r"避开([^，；\n]+)", source.text):
+    for match in re.finditer(rf"避开(\S+?){preference_boundary}", source.text):
         add_item(
             match,
             category="avoidance",

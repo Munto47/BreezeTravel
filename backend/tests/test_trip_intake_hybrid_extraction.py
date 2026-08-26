@@ -346,6 +346,54 @@ async def test_deterministic_rules_normalize_supported_city_alias() -> None:
 
 
 @pytest.mark.asyncio
+async def test_deterministic_rules_keep_alternatives_and_fictional_place_roles() -> None:
+    outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("北京或者上海都可以，还没二选一；还想去星河旧巷，名字别纠正；2人；玩3天")]
+    )
+
+    assert outcome.extraction.locations.status.value == "MULTIPLE"
+    assert [item.role.value for item in outcome.extraction.locations.mentions] == [
+        "DESTINATION_CANDIDATE",
+        "DESTINATION_CANDIDATE",
+        "REQUESTED_PLACE",
+    ]
+    assert outcome.extraction.locations.mentions[2].normalized_name is None
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_handle_no_preference_and_no_punctuation() -> None:
+    no_preference = await DeterministicTripIntakeExtractor().extract(
+        [_source("这次目的地是魔都 5人 玩2天 这次明确没有任何偏好")]
+    )
+    specified = await DeterministicTripIntakeExtractor().extract(
+        [
+            _source(
+                "这次目的地是杭州 7人 最多待5天 喜欢城市漫步 避开高消费 "
+                "节奏适中别太赶也别太松 总预算不超过2000元并且公共交通优先 不要辣"
+            )
+        ]
+    )
+
+    assert no_preference.extraction.preferences.status.value == "NO_PREFERENCE"
+    assert no_preference.extraction.preferences.no_preference_evidence[0].quote == (
+        "明确没有任何偏好"
+    )
+    assert [
+        (item.category, item.label) for item in specified.extraction.preferences.items[:2]
+    ] == [("experience", "城市漫步"), ("avoidance", "高消费")]
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_compile_return_time_commitment() -> None:
+    outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("去昆明，最多1人，玩2到4天，最后一天中午返程")]
+    )
+
+    assert outcome.extraction.temporal.departure is not None
+    assert outcome.extraction.temporal.departure.at_text == "最后一天中午"
+
+
+@pytest.mark.asyncio
 async def test_hybrid_keeps_more_complete_evidence_for_equal_unknown_values() -> None:
     source = _source("去北京；人数还没定，可能有人临时加入；时间还没定，有空就多待几天")
     payload = {
