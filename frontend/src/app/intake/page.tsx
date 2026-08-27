@@ -29,13 +29,22 @@ function extractionMatchesCoreFields(
   endDate: string,
   partySize: number,
 ): boolean {
+  const coreFieldPaths = new Set([
+    'locations.primary_city',
+    'party_size.total',
+    'temporal.date_range',
+  ])
   const primary = intake.extraction.locations.mentions.find(
     item => item.mention_id === intake.extraction.locations.primary_mention_id,
   )
   const total = intake.extraction.party_size.total
   const range = intake.extraction.temporal.date_range
+  const hasBlockingCoreIssue = intake.extraction.issues.some(
+    issue => issue.blocking && coreFieldPaths.has(issue.field_path),
+  )
   return (
-    intake.extraction.locations.status === 'EXACT'
+    !hasBlockingCoreIssue
+    && intake.extraction.locations.status === 'EXACT'
     && Boolean(primary?.normalized_name)
     && normalizedCity(primary?.normalized_name || '') === normalizedCity(city)
     && total.quantifier === 'EXACT'
