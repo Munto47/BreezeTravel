@@ -36,6 +36,48 @@ from app.trip_intake.models import (
 from app.trip_intake.repository import TripIntakeRepository
 
 
+def _with_date_range_derived_days(extraction: TripIntakeExtraction) -> TripIntakeExtraction:
+    date_range = extraction.temporal.date_range
+    if (
+        date_range is None
+        or date_range.start.year is None
+        or date_range.end.year is None
+    ):
+        return extraction
+    start = date(
+        date_range.start.year,
+        date_range.start.month,
+        date_range.start.day,
+    )
+    end = date(
+        date_range.end.year,
+        date_range.end.month,
+        date_range.end.day,
+    )
+    inclusive_days = (end - start).days + 1
+    temporal = extraction.temporal.model_copy(
+        update={
+            "days": QuantifiedValue(
+                min=inclusive_days,
+                max=inclusive_days,
+                quantifier=QuantityQuantifier.EXACT,
+                derivation=QuantityDerivation.DATE_RANGE,
+                evidence=date_range.evidence,
+            )
+        }
+    )
+    return extraction.model_copy(
+        update={
+            "temporal": temporal,
+            "issues": [
+                issue
+                for issue in extraction.issues
+                if issue.field_path != "temporal.days"
+            ],
+        }
+    )
+
+
 class TripIntakeApplicationService:
     def __init__(
         self,
@@ -243,6 +285,7 @@ class TripIntakeApplicationService:
                 "readiness": IntakeReadiness.NEEDS_CONFIRMATION,
             }
         )
+        extraction = _with_date_range_derived_days(extraction)
         raw_text = f"{base.raw_text}\n\n{correction_text}"
         now = datetime.now(timezone.utc)
         candidate = base.model_copy(
@@ -299,8 +342,11 @@ class TripIntakeApplicationService:
         if base.status == IntakeStatus.READY:
             raise ValueError("confirmed intake revisions are immutable")
         try:
+            reconciled_extraction = _with_date_range_derived_days(base.extraction)
             ready_extraction = TripIntakeExtraction.model_validate(
-                base.extraction.model_copy(update={"readiness": IntakeReadiness.READY}).model_dump()
+                reconciled_extraction.model_copy(
+                    update={"readiness": IntakeReadiness.READY}
+                ).model_dump()
             )
         except ValidationError as exc:
             raise ValueError(

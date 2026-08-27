@@ -3,7 +3,13 @@ from __future__ import annotations
 import pytest
 
 from app.itineraries.errors import IdempotencyKeyReusedError
-from app.trip_intake.models import IntakeSourceType, IntakeStatus, QuantityQuantifier
+from app.trip_intake.models import (
+    ExtractionIssue,
+    IntakeSourceType,
+    IntakeStatus,
+    QuantityQuantifier,
+    unknown_quantity,
+)
 from app.trip_intake.repository import InMemoryTripIntakeRepository
 from app.trip_intake.service import TripIntakeApplicationService
 
@@ -64,6 +70,57 @@ async def test_missing_party_stays_unknown_and_blocks_confirmation() -> None:
             actor_user_id="user-1",
             idempotency_key="confirm-missing-party",
         )
+
+
+@pytest.mark.asyncio
+async def test_confirm_reconciles_stale_unknown_days_from_complete_date_range() -> None:
+    repository = InMemoryTripIntakeRepository()
+    service = TripIntakeApplicationService(repository)
+    created = await service.create(
+        room_id="room-1",
+        source_type=IntakeSourceType.MANUAL_TEXT,
+        source_texts=["2027年10月1日到10月4日去成都，4人"],
+        actor_user_id="user-1",
+    )
+    stale_extraction = created.extraction.model_copy(
+        update={
+            "temporal": created.extraction.temporal.model_copy(
+                update={"days": unknown_quantity()}
+            ),
+            "issues": [
+                *created.extraction.issues,
+                ExtractionIssue(
+                    code="DURATION_NEEDS_CONFIRMATION",
+                    field_path="temporal.days",
+                    message="旅行天数不是精确值，需要用户确认",
+                ),
+            ],
+        }
+    )
+    stale, _ = await service.patch(
+        intake_id=created.intake_id,
+        revision=1,
+        extraction=stale_extraction,
+        actor_user_id="user-1",
+        idempotency_key="make-stale-duration",
+    )
+
+    confirmed, replayed = await service.confirm(
+        intake_id=created.intake_id,
+        revision=stale.revision,
+        actor_user_id="user-1",
+        idempotency_key="confirm-stale-duration",
+    )
+
+    assert not replayed
+    assert confirmed.status == IntakeStatus.READY
+    assert confirmed.extraction.temporal.days.quantifier == QuantityQuantifier.EXACT
+    assert confirmed.extraction.temporal.days.min == 4
+    assert confirmed.extraction.temporal.days.max == 4
+    assert all(
+        issue.field_path != "temporal.days"
+        for issue in confirmed.extraction.issues
+    )
 
 
 @pytest.mark.asyncio

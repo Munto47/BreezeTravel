@@ -133,6 +133,13 @@ def test_user_correction_becomes_a_new_evidence_source_before_confirmation(monke
     assert payload["extraction"]["party_size"]["total"]["min"] == 1
     source_id = payload["sources"][1]["source_id"]
     assert payload["extraction"]["temporal"]["date_range"]["evidence"][0]["source_id"] == source_id
+    assert payload["extraction"]["temporal"]["days"]["quantifier"] == "EXACT"
+    assert payload["extraction"]["temporal"]["days"]["min"] == 12
+    assert payload["extraction"]["temporal"]["days"]["max"] == 12
+    assert all(
+        issue["field_path"] != "temporal.days"
+        for issue in payload["extraction"]["issues"]
+    )
 
     confirmed = client.post(
         f"/api/trip-intakes/{intake_id}/revisions/2/confirm",
