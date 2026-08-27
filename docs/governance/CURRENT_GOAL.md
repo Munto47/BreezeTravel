@@ -45,10 +45,11 @@
 ## Completion record
 
 - Status：`COMPLETED`；
-- Product subject commit：`660cb1804cef74d43a269eb28892a6df29995004`；
-- 三城 API E2E：北京、上海、杭州 `3/3 PASS`，真实模型 `deepseek-v4-flash`，正常链 `fallback=0`，共 82 个 HTTP 步骤、意外 5xx 为 0，receipt SHA-256 为 `5b296d489a3c47533a718174f77c75d483ed45c79bf887c157eb18a7dd4d552b`；
+- Product subject commit：`b53d5e638611f0df3d24bb0576f56ac0c5267e6a`；
+- 三城 API E2E：北京、上海、杭州 `3/3 PASS`，真实模型 `deepseek-v4-flash`，正常链 `fallback=0`，共 82 个 HTTP 步骤、意外 5xx 为 0，receipt SHA-256 为 `afdda84d98985aa6e1fa23be51fb9ef77abf92d3f5eb7d21a430f5b126fdd678`；
 - 内置浏览器 E2E：测试数据完成 Intake、确认、materialize、地点确认、Audit、Advice、采纳、新 revision 与完整 postcheck；最终权威状态为 `SUCCEEDED/POSTCHECK`，revision 从 1 变为 2，未出现 Pydantic 或 `crypto.randomUUID` 错误；
-- 工程复核：backend `2019 passed, 32 skipped`，Ruff PASS，frontend production build PASS，candidate 绑定的原 120 条 validator PASS，remediation validator PASS；
+- 确认一致性复核：既存 revision 5 的完整日期范围与 `temporal.days=UNKNOWN` 冲突已由确认动作安全归一；浏览器回读 revision 6 为 `READY`、`EXACT 4 天`、阻断项 0，并已成功 materialize；
+- 工程复核：backend `2020 passed, 32 skipped`，Ruff PASS，frontend production build PASS，candidate 绑定的原 120 条 validator PASS，remediation validator PASS；
 - Goal contract：`structurally_valid=true`；
 - `INTAKE_V2_DEVELOPMENT_READY=false`：本次热修复不得覆盖 frozen blind `REJECT`；
 - 本 Goal 不得改写发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。
