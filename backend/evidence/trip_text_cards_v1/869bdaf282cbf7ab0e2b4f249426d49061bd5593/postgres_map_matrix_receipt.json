@@ -1,0 +1,23 @@
+{
+  "dataset_version": "g01-map-positive-v1",
+  "execution_scope": "FRESH_POSTGRESQL_CONTROLLED_FIXTURE",
+  "external_calls": 0,
+  "full_text_card_gate_claim": "NOT_RUN",
+  "legacy_rooms_table_preserved": true,
+  "live_provider_claim": "NOT_RUN",
+  "logical_duplicate_provider_requests": 0,
+  "map_jobs": 30,
+  "mode_facts": 240,
+  "provider_effect_receipts": 240,
+  "ready_jobs": 30,
+  "ready_snapshots": 30,
+  "route_edges": 120,
+  "schema_version": "g01-postgres-map-positive-receipt-v1",
+  "subject_commit": "869bdaf282cbf7ab0e2b4f249426d49061bd5593",
+  "test_result": "1 PASSED IN 3.91S",
+  "usable_edge_coverage": 1.0,
+  "worker_to_snapshot_p95_threshold": {
+    "assertion": "PASS",
+    "maximum_ms": 15000
+  }
+}
