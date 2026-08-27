@@ -1,125 +1,260 @@
-# BreezeTravel「行程查」V1 架构
+# BreezeTravel「行程查」目标架构
 
-> 状态：`ACCEPTED`
+> 状态：`ACCEPTED_BLUEPRINT`
 >
-> 决策依据：`adr/ADR-005-modular-trip-check-and-evidence-lab.md`
+> 架构版本：`Blueprint 1.0`
+>
+> 实现状态：`INCREMENTAL`
+>
+> 日期：2026-08-27
 
-## 1. 模块化单体
+## 1. 架构目标
+
+使用现有可靠后端资产，把“整句切分后逐句搜索 POI”的旧链替换为：
 
 ```text
-文本/截图
-→ OCR / Parser
-→ TripBriefRevision 确认
+Text / Screenshot
+→ SourceDocument
+→ TripUnderstandingRevision
+→ DayDraft / ActivityMention / SourceClaim
+→ ExecutablePlaceMention
+→ PlaceResolution
+→ UserFacingTripResult
+→ MapRenderSnapshot
 → ItineraryRevision
-→ Provider Adapters
 → EvidenceSnapshot
 → AuditEngine
-→ Advice / Constraint Repair
-→ 用户预览采纳
-→ 新 ItineraryRevision
-→ 完整 postcheck
+→ Top-3 Finding
+→ RepairOption / EditCommand
+→ 新 Revision
+→ 手动地图更新 + 完整 postcheck
 ```
 
-HTTP API、领域服务、工作流、Provider adapter、评测 runner 和后台任务仍部署在同一个 FastAPI 应用中。模块通过 Pydantic 合同和 repository 边界协作，不通过网络拆成服务。
+采用 FastAPI 模块化单体、Next.js/React 和 PostgreSQL。HTTP、领域服务、固定工作流、Provider adapter、评测 runner 与后台任务部署在同一应用边界，不为技术展示拆成微服务。
 
-## 2. 权威对象
+## 2. 分层与依赖方向
 
 ```text
+Public Web / Miniapp
+    ↓ user-facing contracts only
+Application Services
+    ↓
+Understanding / Itinerary / Map / Stay / Audit domains
+    ↓
+Repositories + Provider ports
+    ↓
+PostgreSQL / Redis / Qwen / AMap / Weather
+```
+
+公共 UI 不能直接消费内部 domain model。`UserFacingTripResultProjector` 负责把内部 revision、匹配、地图和 Finding 投影为用户语言，并通过字段 allowlist 防止原文、证据和内部术语泄漏。
+
+内部诊断读取 repository/receipt，不复用公共结果组件；生产默认关闭且必须独立授权。
+
+## 3. 核心对象
+
+```text
+TripUnderstanding
+  ├─ TripUnderstandingRevision
+  │    ├─ DestinationHypothesis
+  │    ├─ WorkingAssumption
+  │    ├─ DayDraft / ActivityMention
+  │    ├─ SourceClaim
+  │    └─ InferenceReceipt
+  ├─ PlaceResolutionReceipt
+  ├─ UserFacingTripResult
+  ├─ TripUnderstandingJob / Event
+  ├─ MapRenderJob
+  ├─ MapRenderSnapshot
+  └─ StayRecommendationSnapshot
+
 TripWorkspace
-  ├─ TripBriefRevision
   ├─ ItineraryRevision
-  ├─ TripCheckRun ─ RunSpec
-  ├─ EvidenceSnapshot ─ EvidenceFact / ProviderFailure
-  ├─ AuditReport ─ AuditFinding
-  └─ AdviceBundle ─ CandidateSet / RepairOption / EditCommand
+  ├─ TripBriefRevision (兼容/正式核验条件)
+  ├─ TripCheckRun / RunSpec
+  ├─ EvidenceSnapshot
+  ├─ AuditReport / AuditFinding
+  └─ AdviceBundle / RepairOption / EditCommand
 ```
 
-- TripBrief 保存本次已确认输入；推断字段不能成为 HARD。
-- ItineraryRevision 是不可变行程版本；所有语义编辑产生新 revision。
-- EvidenceSnapshot 保存特定 revision/config 下的事实和局部 Provider 失败。
-- AuditEngine 是三态 Finding 唯一来源。
-- Advice 只能引用 Finding、Evidence 和冻结候选；采纳后必须完整 postcheck。
+`TripUnderstandingRevision` 是用户输入到可信卡片之间的内部权威层。它不会替代正式 `ItineraryRevision`，而是在 materialize 前承载不完整日期、软人数、城市假设和非地点语义。
 
-## 3. TripCheckRun
+所有可编辑计划、地图和住宿对象都绑定统一引用：
 
 ```text
-PARSE
-→ WAIT_BRIEF_CONFIRMATION
-→ RESOLVE_PLACES
-→ COLLECT_EVIDENCE
-→ AUDIT
-→ BUILD_ADVICE
-→ WAIT_ADOPTION
-→ POSTCHECK
+PlanRevisionRef =
+  kind: UNDERSTANDING | ITINERARY
+  aggregate_id
+  revision
+  stop_set_hash
 ```
 
-LangGraph 负责编排阶段、HITL、SSE 和 checkpoint。PostgreSQL `TripCheckRun` 记录业务阶段、lease、attempt、config hash 和每阶段回执；checkpoint 只表示可恢复计算进度。
+materialize 前，commands 和 `StayAnchor` 只创建 `TripUnderstandingRevision`；G03 materialize 在同一事务内创建首个 `ItineraryRevision`、写入 `MaterializationLineage(source_ref, target_ref)` 并切换 current plan pointer。materialize 后的v3 commands只创建`ItineraryRevision`。ETag是不可逆不透明CAS validator，服务端绑定当前`PlanRevisionRef`但不序列化其中字段，不能跨kind重放。地图和住宿必须绑定完整引用，不能只写模糊的revision数字。
 
-Provider 请求和写操作使用由 `run_id + stage + normalized_input_hash` 派生的稳定幂等键。数据库 mutation 在事务内写业务状态和命令回执；外部 Provider 不能宣称 exactly-once，重复执行必须通过幂等键、缓存 receipt 或安全重放约束其影响。
+## 4. 语义编译
 
-进程重启后，worker 只接管过期 lease，并校验 RunSpec/config hash。配置漂移时拒绝恢复，创建新 Run；不同配置的阶段结果不得拼接。
+`StructuredInferenceProvider` 接收：
 
-## 4. 状态所有权
+- task type；
+- schema version；
+- 经本地高风险字段遮蔽后的 `redacted_input_payload`；
+- fixed model snapshot；
+- prompt/config hash；
+- deadline 和失败预算。
 
-- PostgreSQL：brief、revision、run、lease、幂等命令、receipt、evidence、finding、advice 和 lineage。
-- Redis：缓存、限流和可丢失协调；Redis 丢失不改变权威结果。
-- 临时文件：原始截图；成功、失败、取消和超时终态均删除。
-- SSE：进度投影；断线不取消后台 Run，重连按稳定事件 ID 续传。
+它返回结构化提案与 `InferenceReceipt`。服务端语义编译器负责：
 
-## 5. Evidence 与失败
+- schema 再验证；
+- 原文证据编译；
+- 角色、日序和顺序一致性；
+- 原子地点资格；
+- 描述、预约、时长和路线主张分离；
+- 冲突降级和确定性 fallback。
 
-Provider adapter 返回字段级事实、规范化请求/响应 hash、observed_at、有效期和失败类别。部分字段失败时保留成功事实，缺失字段保持 `UNKNOWN/UNAVAILABLE`。
+LLM不能调用地图工具、写数据库、选择最终 POI 或创建 EvidenceFact。
+
+模型 adapter 默认支持 Qwen OpenAI-compatible API；DeepSeek adapter保留为冻结 Baseline。业务层不得出现模型专属 response 字段。
+
+## 5. 地点解析
+
+`PlaceResolutionService` 只接收 `ExecutablePlaceMention`：
+
+1. 确定性规范化和别名；
+2. 可选的 LLM 查询改写；
+3. AMap POI搜索；
+4. 城市、类别、行政区和上下文过滤；
+5. 候选排序与校准；
+6. `AUTO_SELECTED / SUGGESTED / UNRESOLVED / PROVIDER_UNAVAILABLE`。
+
+自动选择门槛按冻结 Validation/Blind 校准，不由模型自报 confidence 决定。严重错配为零容忍；覆盖不足通过待确认处理。
+
+## 6. 用户投影
+
+`UserFacingTripResultProjector` 使用显式 DTO allowlist：
+
+- assumption chips；
+- daily place cards；
+- friendly availability/status；
+- map readiness；
+- stay suggestion；
+- allowed actions。
+
+以下字段在序列化测试中必须不存在：source、quote、offset、confidence、model、provider、hash、revision、receipt、run、stage、Evidence、Audit、Repair、Postcheck。
+
+资源 token仍可用于命令，但前端禁止渲染、复制或放入用户文案。
+
+## 7. 可恢复理解任务与地图后台状态机
+
+`POST 202 + SSE` 由 PostgreSQL 中的 `TripUnderstandingJob` 承载，保存状态、lease、attempt、事件游标、幂等创建回执和终态结果指针。进程重启后只接管过期 lease；事件重放不能再次调用模型、POI 或创建 revision。不能用进程内 background task 充当权威执行模型。
+
+卡片 READY 后，应用服务写入可变的 `MapRenderJob(QUEUED)`，数据库 worker通过 lease接管：
+
+```text
+QUEUED
+→ BUILDING
+→ READY / PARTIAL / UNAVAILABLE
+```
+
+终态 job 产生不可变 `MapRenderSnapshot`；`STALE` 不是快照状态，而是快照 `PlanRevisionRef` 与 current plan pointer 比较得到的 freshness。任务绑定完整 `PlanRevisionRef`、route config hash 和幂等键。逻辑唯一键固定为：
+
+```text
+(trip_understanding_id, revision_kind, revision,
+ stop_set_hash, route_config_hash)
+```
+
+即使客户端换了 `Idempotency-Key`，相同逻辑任务也复用已有 job/snapshot，不产生第二轮 Provider 调用。每条相邻边并行查询 walking/transit，保存规范化事实和短期 geometry ref。默认模式由确定性策略选择。
+
+编辑流程：
+
+```text
+Revision N + Map READY
+→ card command creates Revision N+1
+→ latest compatible map remains N and projects NEEDS_UPDATE
+→ no route provider call
+→ user clicks rerender
+→ idempotent MapRenderJob for N+1
+```
+
+公共 `MapReadinessView` 只使用 `PREPARING / AVAILABLE / NEEDS_UPDATE / LIMITED / UNAVAILABLE`；内部 job 状态和 freshness 不进入普通用户API。迟到 N 任务不能写 current N+1 pointer。SSE断线不取消任务；重复事件不产生副作用。不引入消息队列。
+
+## 8. 住宿推荐
+
+`StayAreaPlanner` 按冻结的 `StayScoringPolicyVersion` 工作。N日计划默认过夜日是Day 1…Day N-1；只有原文明确在最后一日继续住宿时才包含Day N。每个过夜日形成两条有方向的通勤边：`STAY_TO_FIRST` 和 `LAST_TO_STAY`。锚点使用GCJ-02坐标，经本地等距投影后求几何中位区域。`StayCandidateProvider` 按 2/4/8 km 和同城逐级查询，并使用版本化 `HotelBrandRegistry` 和类别过滤；每一层合格候选达到12家即停止扩圈，否则继续。
+
+最多 12 家进入路线矩阵，评分为：
+
+```text
+total_best_minutes
++ 0.5 * max_single_leg_minutes
++ 8 * total_transfers
++ evidence_penalty
+```
+
+缺坐标、单向路线失败、双模式失败的惩罚值、上限和tie-break均属于版本化策略；未冻结前不得进入默认运行时。总分相同依次按缺失边更少、最差单程更短、canonical place ID排序。
+
+`StayRecommendationSnapshot` 冻结候选与评分。公共投影最多展示3家，并只解释区域、首末站通勤摘要、最差单程、换乘数、证据缺口和简短推荐理由。选择后在materialize前创建新 understanding revision、materialize后创建新 itinerary revision，并共享同一 `StayAnchor`；地图投影为 `NEEDS_UPDATE`。住宿边进入下一次地图任务，最后一天默认不追加酒店。价格、房态、星级和服务质量不在 V0.2 权威范围。
+
+## 9. 核验与建议
+
+Provider adapters产生字段级事实、observed_at、有效期、规范化 hash 和失败类别。`AuditEngine` 是 Finding 唯一权威。
+
+G03通过必需的日历兼容桥接支持：
+
+```text
+calendar_basis = ABSOLUTE | DAY_INDEX_ONLY
+calendar_range = nullable
+party_size_basis = EXPLICIT | SOFT_DEFAULT
+```
+
+`DAY_INDEX_ONLY` 可以进入不依赖具体日期的地点、路线、容量、住宿和用餐核验，但日期天气、临时闭馆和特定日期营业保持 `UNKNOWN`。它不是“用户已确认日期”，也不得为兼容旧表虚构日历日期。
 
 ```text
 AuditFinding
-→ rule_id/rule_version
+→ rule_id / rule_version
 → EvidenceFact
 → EvidenceSnapshot
 → Provider receipt
-→ RunSpec/config hash
+→ RunSpec / config hash
 ```
 
-模型生成的解释不能创建 EvidenceFact；无来源、过期或冲突证据不能转成 PASS。
+Top-3排序由确定性 severity、confidence tier、actionability 和 itinerary impact完成；LLM只能把已选 Finding 与 RepairOption表达成用户语言。内部必须保留全部未解决HARD Finding。公共页一次只展示前三个；剩余项留在未解决队列并显示中性汇总“还有N个必须处理的问题”，绝不显示“已通过”。同原因、同一天且同一修复动作的HARD项可确定性聚合，解决后下一项自动补位。
 
-## 6. 约束修复
+模型解释不能创建 EvidenceFact；无来源、过期或冲突证据不能转成 PASS。采纳后必须创建新 revision、刷新相关 Evidence并完整 postcheck。
 
-默认先使用现有 BoundedRepairSearch。P4 通过统一 RepairEngine adapter 比较：
+## 10. 状态所有权
 
-- RoutingModel/TSPTW：固定候选集合、路线顺序、等待和时间窗；
-- CP-SAT：地点选择、锁定事件、软约束和最小修改成本。
+- PostgreSQL：understanding/itinerary revision、run、lease、幂等命令、map/stay snapshot、receipt、evidence、finding、advice、lineage。
+- Redis：缓存、限流、短期路线几何和可重建协调；丢失不能改变权威结论。
+- 临时文件：原始截图；所有终态删除。
+- SSE：用户进度投影；断线不取消后台工作。
+- LangGraph checkpoint：可恢复计算进度，不是业务状态或 exactly-once 证明。
 
-所有候选必须生成 preview revision、刷新受影响 Evidence，并执行完整 postcheck。只有通过 `RELEASE_GATES.md` 的 Solver Admission Gate 才能成为默认策略。
+Provider副作用使用稳定幂等键、事务外调用和事务内回执写入。配置漂移创建新任务，不能拼接旧阶段。
 
-## 7. 证据实验台
+## 11. 隐私与可观测性
 
-```text
-Versioned RunSpec + Fault Profile
-→ Trace / Receipt / Snapshot
-→ Deterministic Replay
-→ Legacy A / Core B / Solver C
-→ Release Manifest
-```
+日志和 Trace允许记录 opaque correlation token、task、版本、耗时、token、失败类别和 hash。禁止记录原图、完整 prompt、原始文本、密钥、Authorization、未脱敏 Provider 响应或个人身份字段。
 
-固定故障包括 Provider 超时、字段级失败、重复提交、并发编辑、进程终止和 config 漂移。每次实验输出原始结果、指标、hash 和不可变 manifest，不能只保存摘要。
+发送模型前本地遮蔽手机号、证件号、订单号等高风险信息；映射只存在服务端受限范围。登录用户的原始文本和SourceClaim加密保存，默认最长30天或直到用户主动删除行程/账号，以先到者为准；终态后只保留生成卡片所需的结构化结果，30天后删除原文和可还原quote，仅保留不可逆hash、版本和删除回执。训练、评测或公共知识使用必须另行同意。
 
-## 8. OpenTelemetry
+路线 geometry按 Provider条款短期缓存；正式持久化前取得许可。KnowledgeClaim与用户记忆分别执行来源许可和 consent Gate。
 
-领域 Span 覆盖 Run stage、Provider、模型、Audit、Repair 和 postcheck，固定属性为：
+## 12. 资产处置
 
-```text
-bt.run_id
-bt.itinerary_revision
-bt.brief_revision
-bt.evidence_snapshot_id
-bt.config_hash
-bt.rule_set_version
-bt.provider
-bt.execution_mode
-bt.failure_category
-```
+| 资产 | 决定 | 用途 |
+|---|---|---|
+| Revision/CAS/Idempotency/SSE/lease | KEEP | 新主链可靠性底座 |
+| EvidenceSnapshot/AuditEngine/EditCommand/Postcheck | KEEP | 正式核验权威链 |
+| TripIntake v2 evidence compiler | ADAPT | 复用证据与失败语义，不沿用强制确认 UX |
+| 现有 AMap POI/route adapters | ADAPT | 原子地点、walking/transit、许可边界 |
+| Workspace map projection | ADAPT | 替换几何虚线为 revision 绑定地图 |
+| 手机验证码/邮箱认证 | KEEP | 新入口复用 |
+| 房间首页与编号分享 | REMOVE_FROM_ENTRY | 保留兼容，不进入新用户主链 |
+| Builder/Planner/Yjs/旧 RAG/ReAct/Critic/LoRA | FREEZE | 最低回归或消融 Baseline |
+| 旧整句 ItineraryTextParser materialization | REMOVE_FROM_RUNTIME | 不得继续产生地点卡片 |
+| 旧 Candidate/Intake evidence | ARCHIVE | 历史证据，不晋级新版 |
 
-禁止记录原图、完整 Prompt、原始用户文本、密钥、Authorization、未脱敏 Provider 响应或可还原个人身份的字段。
+## 13. 技术准入
 
-## 9. Legacy 边界
+拒绝运行时多 Agent、微服务、Kafka、Temporal、Kubernetes、GraphRAG和重新微调。新技术只有在对应产品问题、固定数据、预设指标、失败降级和回滚都明确时才可进入默认运行时。
 
-`backend/app/agents/graph.py` 的 ReAct/Critic 图、旧 Planner、RAG、LoRA Router 和 Yjs 只保留最低回归，并在 P5 作为 Legacy A 运行。它们不得写入 V1 Finding、修改权威 revision，或替代 V1 Gate。
+版本实施顺序与门禁以 `governance/PROGRAM.md` 和 `governance/RELEASE_GATES.md` 为准。

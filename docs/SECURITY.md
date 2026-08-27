@@ -1,5 +1,7 @@
 # Security and governance boundaries
 
+> `LEGACY_BASELINE / NOT_VNEXT_AUTHORITY`：本文件描述旧room/memory安全资产，保留为兼容基线；新版v3匿名资源、source TTL、用户投影和Provider隐私以[`product/TRIP_CHECK_API_CONTRACT.md`](product/TRIP_CHECK_API_CONTRACT.md)与当前Goal为准。
+
 ## Identity and room authorization
 
 HTTP identity is derived from the verified bearer token, never from a request

@@ -1,9 +1,11 @@
 # ADR-001：双入口可验证行程工作台
 
-- 状态：Accepted
+- 状态：Partially superseded by ADR-004、ADR-007、ADR-012
 - 日期：2026-08-20
 - 决策基线：[BreezeTravel 双入口可验证行程产品与架构重构最终方案](../BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md)
 - 适用范围：北京、上海、杭州；2～5 人；2～5 天国内城市自由行
+
+> `TC-VNEXT-2026`仅保留本ADR的`TripWorkspace → ItineraryRevision → EvidenceSnapshot → Audit/Repair`权威链、追加revision、LLM不决定事实和UNKNOWN不伪装成功。双入口、Builder入口、2～5人/天、旧P0～P8/M1顺序均已取代，不再授权当前开发。
 
 ## 背景
 
@@ -47,4 +49,3 @@ BreezeTravel 转型为面向小团体的可验证行程工作台，保留两个�
 - 每个阶段按最终方案的完成门禁独立验证，不跨证据层级推断；
 - legacy `/api/optimize`、`/api/edit`、`Itinerary` 和 `VerificationReport` 在 adapter parity 与调用量证据充足前保留；
 - 新模块发生问题时停止新路由写入，旧接口仍可走 legacy 路径；数据库 append-only 记录不通过回滚删除。
-

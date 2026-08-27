@@ -1,5 +1,7 @@
 # 「行程查」V1 可靠性合同
 
+> `LEGACY_BASELINE / NOT_VNEXT_AUTHORITY`：以下机制是可复用历史基线，不是`TC-VNEXT-2026`当前Gate。新版可靠性、地图job和理解job要求以[`governance/RELEASE_GATES.md`](governance/RELEASE_GATES.md)为准。
+
 ## 权威与恢复
 
 - PostgreSQL 保存 Run、stage、lease、attempt、幂等命令、receipt 和业务结果。

@@ -1,104 +1,214 @@
-# 「行程查」V2 API 与持久化合同
+# 「行程查」v3 API 与持久化目标合同
 
-> 状态：`ACCEPTED`
+> 状态：`ACCEPTED_TARGET`
 >
-> 版本：`trip-check-api-v2`
+> 版本：`trip-check-api-v3`
+>
+> 实现状态：`NOT_IMPLEMENTED`
+>
+> 日期：2026-08-27
 
-## 1. 兼容原则
+## 1. 兼容与安全原则
 
-- 保留现有 `POST /trip-workspaces/{workspace_id}/imports` 文本导入语义；旧 import、revision、repair、suggestion 和 evidence 保持可读。
-- v1 workspace-first 路由继续兼容读取；v2 的新建主路径从 room 下的 `TripIntakeRevision` 开始，不把 v1 默认值迁入 v2 权威事实。
-- 新资源只追加，不创建第二套 itinerary 编辑或“已解决”协议。
-- 所有创建、确认、恢复和采纳命令要求 `Idempotency-Key`；基于 revision/state 的更新要求 `If-Match`。
-- 服务端生成 canonical POI、Provider 事实、Finding 和 resolved 状态；客户端不能提交这些字段作为权威值。
+- v3 是附加式合同；现有 room、workspace、import、revision、repair、suggestion 和 evidence 数据保持可读。
+- 新首页只调用v3；现有未版本化 `/api/trip-intakes`、workspace/room/import/revision/repair等路径保持兼容。G01以基线OpenAPI snapshot冻结实际端点清单，不能用模糊“v2”称谓代替兼容测试；删除另立Goal并需人工批准。
+- v3 不创建第二套“已解决”权威；正式 materialize 后仍使用 `ItineraryRevision → EvidenceSnapshot → AuditEngine → EditCommand → postcheck`。
+- 所有创建和命令要求 `Idempotency-Key`；基于 revision 的写入要求 `If-Match`。
+- 公共结果是严格用户投影，不返回内部证据、模型或流程。
+- 服务端生成 canonical POI、路线事实、Finding 和 resolved 状态；客户端不能提交它们作为权威值。
 
-## 2. 资源模型
+## 2. 内部资源
 
-### 2.0 TripIntakeRevision v2
-
-必须包含版本、revision/content hash、原始文本 hash、解析器绑定，以及地点、人数、时间、偏好、问题和 readiness。每个原子值携带 `source_id/start/end/quote`，偏移按原始文本 Unicode code point 的半开区间解释。解析中间态允许范围、约数、至少、最多、未知、多候选和冲突，不得写入权威 Brief。
-
-### 2.1 TripBriefRevision
-
-必须包含：
-
-- `brief_id`、`workspace_id`、`revision`、`parent_revision`、`content_hash`；
-- 城市、日期、人数、到离信息、酒店或住宿区域；
-- 四种交通方式与限制、预算、餐饮/住宿风格、饮食限制、每日节奏和活动强度；
-- 字段级 `source_span`、`confidence`、`origin` 和确认状态；
-- `DRAFT / NEEDS_CONFIRMATION / CONFIRMED`；
-- `UNSPECIFIED` 表示未提及；只有用户明确确认时才使用 `NO_PREFERENCE`；`INFERRED` 不得成为 `HARD`。
-
-### 2.2 TripCheckRun
+### 2.1 TripUnderstandingRevision
 
 必须包含：
 
-- `run_id`、`workspace_id`、`itinerary_revision`、`brief_revision`；
-- `stage`、`stage_attempt`、`lease_owner`、`lease_until`；
-- `run_spec`、`config_hash`、已完成阶段和局部失败；
-- `WAITING / RUNNING / PARTIAL / SUCCEEDED / FAILED / PRIVACY_BLOCKED / CANCELLED`；
-- 稳定创建幂等键和每阶段副作用幂等键。
+- understanding ID、revision、parent revision、content hash；
+- SourceDocument refs 与原始内容 hash；
+- DestinationHypothesis、WorkingAssumption；
+- DayDraft、ActivityMention、SourceClaim、ExcludedMention；
+- inference binding、fallback、内部 source evidence；
+- `DRAFT / PROCESSING / PARTIAL / READY / FAILED`。
 
-阶段固定为：
+内部 source span 以 Unicode code point 半开区间解释并由服务端验证。该资源不直接作为公共结果返回。
+
+### 2.2 UserFacingTripResult
+
+只包含：
+
+- `assumptions: AssumptionChipView[]`；
+- `days: TripDayView[]`；
+- `map: MapReadinessView`；
+- `stay: StaySuggestionView`；
+- `available_actions`；
+- 用户可理解的状态和消息。
+
+`MapReadinessView.status` 只允许用户语义：
+
+- `PREPARING`：正在准备；
+- `AVAILABLE`：可查看且与当前计划一致；
+- `NEEDS_UPDATE`：行程已修改，仍可看上次结果；
+- `LIMITED`：部分路线可用；
+- `UNAVAILABLE`：暂时无法生成。
+
+公共结果不得返回 `QUEUED / BUILDING / READY / PARTIAL / STALE` 等内部生命周期枚举。
+
+`StayCandidateView` 只返回地点名称、类别、地址/区域、到各过夜日首末站的通勤摘要、最差单程、总换乘、证据缺口、简短推荐理由和允许动作。不得返回内部评分、价格、房态、星级或质量承诺。
+
+禁止字段：
+
+- 原文、quote、source ID、offset；
+- confidence 数字、model、prompt、provider；
+- UUID/hash/revision/receipt/run/stage 的展示文案；
+- Evidence、Audit、Repair 或 Postcheck 内部结构。
+
+命令 token 可以作为不展示的 opaque 字段返回。
+
+### 2.3 PlanRevisionRef、MapRenderJob 与 MapRenderSnapshot
+
+所有commands、map和stay资源绑定：
 
 ```text
-PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
-→ AUDIT → BUILD_ADVICE → WAIT_ADOPTION → POSTCHECK
+PlanRevisionRef {
+  kind: UNDERSTANDING | ITINERARY
+  aggregate_id
+  revision
+  stop_set_hash
+}
 ```
 
-恢复时 config hash 必须与原 Run 相同；不一致返回 `RUN_CONFIG_MISMATCH`，不得拼接旧结果。
+materialize前v3命令只写understanding revision；materialize原子写 `MaterializationLineage` 并切换current pointer；之后只写itinerary revision。ETag是不可逆、不透明的CAS validator，服务端绑定完整引用；不得把kind、aggregate ID、revision或stop hash编码成可恢复JSON/Base64，也不得写入payload或DOM。
 
-### 2.3 RunSpec
+`MapRenderJob` 是可变任务，状态为 `QUEUED / BUILDING / READY / PARTIAL / UNAVAILABLE`，保存lease、attempt、event和失败。终态生成不可变 `MapRenderSnapshot`。`STALE`不是资源状态，而是snapshot引用与current pointer比较得到的内部freshness，并投影为公共 `NEEDS_UPDATE`。
 
-绑定 commit SHA、Prompt/model/provider/rule 版本、execution mode、dataset/snapshot hash、fault profile、seed，以及 token、查询、重试、时间和成本预算。
+绑定：
 
-### 2.4 AdviceBundle
+- 完整 `PlanRevisionRef`；
+- canonical stops 与 coordinate binding；
+- 每日颜色、顺序和缺失地点；
+- walking/transit alternatives、selected mode；
+- normalized route facts、response hash、短期 geometry ref；
+- started/finished/observed/expires 时间；
+- provider failures 与 idempotency receipt。
 
-绑定 Finding、具体行动、预期影响、不确定性、CandidateSet、Evidence/receipt、route delta、trade-off 和 RepairOption。具体地点必须来自冻结 CandidateSet；无可靠候选时只返回搜索区域和筛选条件。
+除请求幂等键外，逻辑唯一键为 `(understanding_id, revision_kind, revision, stop_set_hash, route_config_hash)`；不同请求键命中同一逻辑任务也必须复用，不能重复调用路线Provider。
 
-## 3. API
+### 2.4 StayRecommendationSnapshot
 
-### 3.1 输入与 TripBrief
+绑定同一 revision 和 MapRenderSnapshot，包含：
 
-- `POST /trip-workspaces/{workspace_id}/imports`：保留文本导入。
-- `POST /trip-workspaces/{workspace_id}/imports/screenshots`：multipart，PNG/JPEG/WebP，最多 6 张、每张 10MB；整批校验后接收。
-- `GET /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：返回 ETag。
-- `PATCH /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：要求 `If-Match` 和 `Idempotency-Key`，产生新 brief revision。
-- `POST /trip-workspaces/{workspace_id}/trip-briefs/{revision}/confirm`：要求完整必填确认；成功后只读。
-- `POST /rooms/{room_id}/trip-intakes`：创建文本 Intake 草稿，要求 `Idempotency-Key`。
-- `POST /rooms/{room_id}/trip-intakes/screenshots`：OCR 后创建同合同 Intake；原图清理规则不变。
-- `GET/PATCH /trip-intakes/{intake_id}/revisions/{revision}`：读取或创建修正 revision；PATCH 要求 `If-Match` 与 `Idempotency-Key`。
-- `POST /trip-intakes/{intake_id}/revisions/{revision}/confirm`：确认精确物化前提并创建只读 READY revision。
-- `POST /trip-intakes/{intake_id}/revisions/{revision}/materialize`：幂等创建 workspace、confirmed Brief、Import 与 lineage receipt；Provider 解析不在数据库事务内执行。
+- overnight anchors；
+- 2/4/8 km 或 citywide 搜索阶段；
+- `HotelBrandRegistry` 版本；
+- 最多 12 个内部 shortlist；
+- 最多 3 个用户候选；
+- 路线评分、缺失证据和 Provider 回执。
 
-### 3.2 Run 与进度
+### 2.5 InferenceReceipt
 
-- `POST /trip-workspaces/{workspace_id}/trip-check-runs`：绑定已确认 brief 和 itinerary revision，要求 `Idempotency-Key`。
-- `GET /trip-check-runs/{run_id}`：返回当前阶段、已完成阶段、局部失败和 ETag。
-- `GET /trip-check-runs/{run_id}/events`：SSE；断线不取消后台 Run，重连按 `Last-Event-ID` 续传。
-- `POST /trip-check-runs/{run_id}/resume`：只恢复 retryable/lease-expired Run，要求 `If-Match` 和 `Idempotency-Key`。
+绑定 task、schema、model snapshot、prompt hash、input hash、output hash、token、latency、repair call、fallback、error category 和估算费用，不保存密钥、完整原文或未脱敏响应。
 
-### 3.3 Advice 与 Repair
+## 3. v3 API
 
-- `GET /trip-workspaces/{workspace_id}/reports/{report_id}/advice`：只返回与报告 revision/evidence 绑定的 Advice。
-- Repair 预览、应用和 postcheck 继续使用现有 Repair/EditCommand 接口；旧报告在新 revision 后立即 stale。
+所有路径使用现有 `/api` 前缀。
+
+### 3.1 创建与结果
+
+- `POST /api/v3/trip-understandings`
+  - 输入：文本来源、`FULL/DEMO` 模式；`FULL`必须登录，`DEMO`只使用固定北京示例；
+  - 要求 `Idempotency-Key`；
+  - 返回 `202`、随机非秘密`public_resource_id`、用户状态与events URL；它不含内部UID且不承担授权，不能进入用户文案或分析事件。访问日志必须记录路由模板或脱敏值，不能记录实际路径ID。
+- `GET /api/v3/trip-understandings/{id}/result`
+  - 返回 `UserFacingTripResult` 和 ETag；
+  - 不返回内部理解资源。
+- `GET /api/v3/trip-understandings/{id}/events`
+  - SSE，支持 `Last-Event-ID`；
+  - 只发送“正在整理每天行程 / 正在核对地点 / 卡片已可用 / 地图准备中”等用户事件；
+  - 不发送模型、Provider、Run stage 或错误详情。
+
+`POST 202 + SSE` 必须由持久化 `TripUnderstandingJob`、lease、attempt、event游标和终态结果指针支撑；不得依赖进程内临时任务。`DEMO`绑定HttpOnly、SameSite匿名capability，秘密值永不进入URL/JSON/日志；result/events/commands仍做资源级授权，未claim内容24小时后清除。G01必须实现一次性 `POST /api/v3/trip-understandings/{id}/claim`：用户登录后原子转移体验内容所有权、轮换resource ID并废止匿名capability；成功`200`返回新`public_resource_id`和不透明ETag，并用`Location`指向新资源，旧ID随后返回`410`。materialize、audit和share必须登录。
+
+### 3.2 卡片命令
+
+`POST /api/v3/trip-understandings/{id}/commands` 要求 `If-Match` 和 `Idempotency-Key`。
+
+命令 union：
+
+- `ACTIVITY_INSERT`；
+- `ACTIVITY_DELETE`；
+- `ACTIVITY_MOVE`；
+- `ACTIVITY_TEXT_EDIT`；
+- `PLACE_REPLACE`；
+- `ASSUMPTION_SET`。
+
+成功返回新的用户结果 ETag、changed days 和 `map_readiness=NEEDS_UPDATE`；不得返回内部freshness，也不得自动调用路线 Provider。
+
+### 3.3 地图
+
+- `GET /api/v3/trip-understandings/{id}/map-renders/latest`：返回最新快照的用户投影；旧revision只返回 `NEEDS_UPDATE` 和用户提示。
+- `POST /api/v3/trip-understandings/{id}/map-renders`：为当前 revision 手动重绘，要求 `If-Match` 和 `Idempotency-Key`。
+- 初次卡片 READY 后，服务端可使用内部命令自动创建一次地图任务；后续编辑不得自动创建。
+- 相同请求幂等键重放返回原资源并增加 `Idempotency-Replayed: true`；不同键但逻辑唯一键相同仍复用同一job/snapshot。
+- 迟到任务只能完成其绑定 revision，不更新 current pointer。
+
+### 3.4 住宿
+
+- `GET /api/v3/trip-understandings/{id}/stay-suggestions`：返回最多 3 个用户候选和搜索区域说明。
+- `POST /api/v3/trip-understandings/{id}/stay-selection`：选择一个冻结候选，要求 `If-Match` 和 `Idempotency-Key`；按current `PlanRevisionRef.kind`创建新revision，并把地图投影为 `NEEDS_UPDATE`。
+- 没有候选返回 `200` 和空列表、已搜索范围及下一动作，不返回红色错误。
+
+### 3.5 正式物化与核验
+
+- `POST /api/v3/trip-understandings/{id}/materialize`：在用户开始正式核验时，幂等创建或绑定 TripWorkspace/ItineraryRevision/lineage。
+- 原子创建首个 `ItineraryRevision`、`MaterializationLineage`并切换current pointer；旧understanding地图只能作为旧版本查看，不能成为current。
+- 日期允许为空；G03使用 `calendar_basis=ABSOLUTE|DAY_INDEX_ONLY` 的兼容结构，日期相关事实保持 UNKNOWN，不伪造TripBrief确认。
+- 人数软默认可以进入非人数相关核验，但不能成为 HARD 来源。
+- 正式 Audit、Advice 和 postcheck 复用现有权威主干，公共输出再投影为用户友好 Top-3。
+
+### 3.6 Source、行程与账号旅行数据删除
+
+- `DELETE /api/v3/trip-understandings/{id}/source`：仅登录owner；事务删除原始文本、可还原quote和PII映射，保留卡片、不可逆hash、版本与内部删除回执；成功`204`，之后source读取永久不可用。
+- `DELETE /api/v3/trip-understandings/{id}`：登录owner或持有该DEMO HttpOnly session；事务删除understanding、source、匿名编辑和其map/stay派生资源，成功`204`；之后result/events/commands均返回`410`，不能用删除回执恢复业务值。
+- `DELETE /api/v3/me/travel-data`：已重新验证身份的登录用户；级联删除所有v3 source、行程、map/stay派生数据和G01范围内的关联值，返回`202`与用户友好删除状态URL。
+- `GET /api/v3/me/travel-data-deletion`：只返回`IN_PROGRESS / COMPLETED / RETRY_REQUIRED`及稳定下一动作，不返回内部表、job或receipt。完成后fresh readback不得出现业务值；最小审计tombstone不可包含原文、地点或可还原身份内容。
+
+三类删除都必须做资源级授权、幂等、失败重试和缓存清理。用户看到“已删除”只允许在事务/级联完成后；内部删除receipt不进入公共API。
 
 ## 4. 通用响应与错误
 
-- 创建成功：`201`；幂等重放增加 `Idempotency-Replayed: true`。
-- 乐观并发冲突：`409 ITINERARY_REVISION_CONFLICT` 或对应 brief/run conflict。
+- 创建任务：`202`。
+- 幂等重放：原状态码或 `200`，响应头 `Idempotency-Replayed: true`。
 - 缺少 `If-Match`：`428 IF_MATCH_REQUIRED`。
-- config 漂移：`409 RUN_CONFIG_MISMATCH`。
-- 不支持范围：`422 SCOPE_NOT_SUPPORTED`，必须在 Provider 事实采集前返回。
-- 原图清理失败：Run 为 `PRIVACY_BLOCKED`，不得返回成功。
-- Provider 局部失败：HTTP 可以成功返回 `PARTIAL`，字段保持 `UNKNOWN/UNAVAILABLE` 并附失败类别。
+- revision 冲突：`409 REVISION_CONFLICT`，客户端回读最新结果。
+- schema 无效且修复失败：固定 `200` + `PARTIAL_RESULT` 业务状态，返回可用卡片，不泄漏模型错误；不使用HTTP 206。
+- Provider不可用：`200 PARTIAL_RESULT`，受影响字段为用户友好的“暂不可用”。
+- 深核验范围外：`200 BASIC_ONLY`，不得以 422 阻断基础卡片。
+- 隐私清理失败：内部 `PRIVACY_BLOCKED`，用户收到稳定删除/重试动作。
 
-## 5. Migration
+内部错误码与用户文案必须通过 allowlist 映射；未知异常返回通用可恢复消息和不展示的关联 token。
 
-- `022_trip_brief_revisions.sql`：brief、字段来源/确认和临时资产清理 receipt；
-- `023_trip_check_runs.sql`：Run、stage、lease、attempt 和阶段幂等；
-- `024_advice_bundles.sql`：Advice、CandidateSet 引用和 postcheck lineage。
-- `026_trip_intake_v2.sql`：不可变 Intake revision/field source/materialization，并把城市、人数和天数的历史固定范围放宽为确认后的正值合同。
-- `027_trip_intake_revision_lineage.sql`：移除与不可变 revision 主键冲突的 room/intake 唯一约束，使同一 Intake 可以创建后续 revision。
+## 5. 持久化与 migration 路线
 
-Migration 只追加；应用启动只检查兼容性，不自动执行 DDL。
+已执行 migration 001～027 保持不可变。
+
+Program 预批准的附加式目标：
+
+- `028_trip_understanding_v3.sql`：内部理解revision、持久job/lease/event、活动、主张、用户结果pointer、匿名session/ownership、source TTL/delete receipt和幂等命令；
+- `029_map_render_snapshots.sql`：G01交付地图job、不可变snapshot、`PlanRevisionRef`、路线事实、逻辑唯一键和迟到保护；
+- `030_stay_recommendation_snapshots.sql`：住宿区域、候选、评分和选择 lineage；
+- `031_day_index_trip_bridge.sql`：G03必需的materialization lineage、`calendar_basis`、nullable calendar range与软人数来源桥接；不得虚构日期适配旧表；
+- `032_knowledge_claims.sql`：仅在 G05 数据许可 Gate 通过后使用；
+- `033_user_memory_and_feedback.sql`：仅在 G06 consent 合同通过后使用。
+
+具体 Goal 激活前不得创建或执行对应 migration。migration 只追加；应用启动只检查兼容性，不自动执行 DDL。
+
+## 6. 数据留存
+
+- PostgreSQL：内部 revision、最小规范化 Provider 事实、hash、状态和 lineage。
+- Redis/短期缓存：路线 geometry 和按 Provider 条款允许的临时响应。
+- 日志：不记录原始文本、原图、完整 prompt、Authorization、密钥或可还原身份字段。
+- Demo：精确示例 hash 可使用冻结回执；匿名编辑短期存在，保存前要求登录。
+- 登录用户原始文本和可还原SourceClaim：加密保存，默认最长30天或直到用户删除行程/账号，以先到者为准；到期后保留不可逆hash、结构化结果、版本和删除回执。
+- G01必须提供source主动删除、行程删除和账号删除的级联清理与可回读删除回执；G06只新增偏好和反馈consent，不延后source隐私。
+
+本合同是目标接口，不代表当前分支已实现。

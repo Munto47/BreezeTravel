@@ -1,8 +1,10 @@
 # ADR-002：Final 基线后的迁移编号
 
-- 状态：Accepted
+- 状态：Partially superseded by ADR-012 / TC-VNEXT Program
 - 日期：2026-08-20
 - 关联基线：[BreezeTravel 双入口可验证行程产品与架构重构最终方案](../BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md)
+
+> 当前只保留“已执行migration不重编号、后续只追加”的不变量。旧M1/P5和`014_route_templates.sql`计划不再有效；TC-VNEXT从当前实际末号027之后预定义028～033。
 
 ## 背景
 

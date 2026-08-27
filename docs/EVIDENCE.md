@@ -1,5 +1,7 @@
 # 「行程查」V1 证据索引
 
+> `LEGACY_EVIDENCE / NOT_VNEXT_AUTHORITY`：以下数值只绑定旧commit和旧Program，原样保留供追溯；它们不能证明Blueprint、V0.1～V0.9、H1或生产状态。新版当前状态只读[`governance/CURRENT_GOAL.md`](governance/CURRENT_GOAL.md)。
+
 > 当前结论：`D1 PASS / RELIABILITY GATE PASS / CONTROLLED_EVIDENCE_ONLY`
 
 P1 文本纵向闭环已完成 D1；P2 六类故障、领域 Trace、真实 PostgreSQL 接管与本地受控浏览器恢复已完成 Reliability Gate。该结论不等于 V1 候选版放行：OCR、真实 Provider、360 数据、候选 commit 上的 G0～G6、公网和真人证据仍未完成。

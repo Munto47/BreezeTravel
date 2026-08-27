@@ -1,174 +1,237 @@
-# 「行程查」V1 Release Gates
+# 「行程查」Blueprint 1.0 Release Gates
 
 > 状态：`ACCEPTED`
-> 适用目标：进入真人内测前的 V1 内测候选版
+>
+> Program：`TC-VNEXT-2026`
+>
+> 日期：2026-08-27
 
-## 0. Ready 状态分层
+## 0. 证据状态分层
 
-经用户于 2026-08-26 批准，`TC-I1-I4-trip-intake-v2` 使用独立的开发完成态，避免历史双入口候选门禁反向阻断当前已批准的 Intake 纵向切片：
+新版状态：
 
-- `INTAKE_V2_DEVELOPMENT_READY`：候选 commit 上 backend 全套 pytest、Ruff、frontend build、dual-entry 结构 validator 和 120 条 NLU Gate 全部通过；025 migration、revision/CAS/idempotency/materialization 的离线合同与回归通过；
-- dual-entry 的旧统计规模、Builder G2/G5 seeds、P5 历史 blind/Judge、real OCR、live Provider、公网和真人证据不属于 Intake v2 文本抽取开发完成态，保持各自原状态；
-- `V1_CANDIDATE_READY`：仍必须满足下文 G0～G6、零容忍项及候选证据要求。`INTAKE_V2_DEVELOPMENT_READY` 不得改写或替代该结论；
-- validator 存在结构错误、哈希错误、blind 泄漏、默认事实注入、关键字段反转或新增测试失败时，两个状态都必须 fail closed。
+- `BLUEPRINT_READY`：权威文档、ADR、Program、Goal和风险/Provider合同一致；不含产品代码。
+- `TEXT_CARDS_READY`：V0.1文本到可信卡片开发门禁通过。
+- `MAP_STAY_READY`：V0.2地图与住宿门禁通过。
+- `TOP3_AUDIT_READY`：V0.3核心核验门禁通过。
+- `SCREENSHOT_PARITY_READY`：V0.4截图一致性门禁通过。
+- `CITY_KNOWLEDGE_READY`：V0.5知识层准入通过。
+- `MEMORY_SHARE_READY`：V0.6 consent与分享门禁通过。
+- `VNEXT_CANDIDATE_READY`：G07同绑定Candidate Gate通过。
+- `HUMAN_USABILITY_READY`：经人工批准的H1通过。
 
-这是一项范围调整，不是质量阈值下调：历史能力不再作为当前 Goal 的完成前置，但其缺失证据不得被标记为 PASS。
+历史状态 `INTAKE_V2_DEVELOPMENT_READY` 和 `V1_CANDIDATE_READY` 保持只读，前者不得改写或替代后者，也都不能升级新版。历史 PASS、REJECT和NOT_RUN不得复制到新commit。
 
-## 1. 评分门槛
+## 1. Blueprint Gate
 
-| 分桶 | 权重 | 最低要求 |
-|---|---:|---:|
-| OCR/解析 | 15% | 建议性分桶通用下限 80；关键字段另有硬门槛 |
-| 地点与城市事实 | 20% | 90 |
-| 时间、路线与酒店衔接 | 20% | 90 |
-| 偏好与活动强度 | 10% | 80 |
-| 天气、月份与风险 | 10% | 80 |
-| 行动建议与备选地点 | 20% | 80 |
-| 稳定性与性能 | 5% | 80 |
+G00必须同时满足：
 
-综合分必须 ≥88；所有建议性分桶 ≥80；地点和路线事实分桶 ≥90。加权总分不能抵消任一硬门槛失败。
+- AGENTS、Charter、Spec、API、Architecture、Program、Roadmap、Release Gates和ADR无权威冲突；
+- 当前Goal只有一个 `APPROVED/IN_PROGRESS`；
+- G01～G07均有完整预定义合同、Dependencies、Authority、Baseline占位、Invariants、Budget、HITL、Checkpoint、Auto-advance、Completion和Stop conditions；
+- 旧用户入口、强制确认、默认驾车、卡片原文和内部术语不再是目标要求；
+- 新v3 API明确为 `NOT_IMPLEMENTED`，没有伪造当前能力；
+- 风险登记和Provider准入表完整；
+- 产品代码、migration、依赖锁文件diff为0；
+- 历史Goal和证据保留；
+- 文档链接、manifest引用和现有治理测试通过；
+- 独立产品、架构、反方和商业审查的高优先级意见已处理；
+- checkpoint已推送并远端回读。
+- README、CLAUDE、docs索引、旧ADR和旧证据入口不会再自称新版当前权威；独立审查处理记录可远端回读。
 
-## 2. 零容忍阻断项
+通过只能标记 `BLUEPRINT_READY`，不代表V0.1代码存在。
 
-以下任一非零即 `REJECT`：
+## 2. 全版本零容忍项
 
-- 错城或错误 POI 被自动接受；
-- HARD 冲突漏检；
-- 虚构事实或模型举例被写成真实候选；
-- 最终地点候选缺少地点或路线 receipt；
-- 修复后新增 BLOCKER/HIGH；
-- 原始截图未按终态策略删除。
+以下任一非零即对应版本 `REJECT`：
 
-## 3. 功能质量硬门槛
+- 错城或错类别POI自动进入行程；
+- 描述句、URL、预约说明或模型举例成为地点卡片；
+- 原文映射、置信度、长ID或内部流程泄漏到普通用户界面；
+- LLM输出成为Provider事实、Finding或已解决状态；
+- HARD冲突漏检；
+- `UNKNOWN/UNAVAILABLE` 被展示为通过；
+- 旧revision地图被标记为当前地图；
+- 卡片编辑后隐藏触发路线Provider或自动重绘；
+- 虚构酒店价格、房态、星级或服务质量；
+- 原始截图终态未删除；
+- 未授权数据被持久化、训练或分享；
+- 修改sealed blind/oracle消除失败。
 
-- OCR/解析关键字段 F1 ≥95%，低置信关键字段 100% 进入确认；候选版 G1 必须由真实来源 OCR 数据集证明，synthetic stress 只能用于开发阶段回归；
-- 路线问题 precision 和 recall 均 ≥90%；
-- 备选地点与路线 receipt 绑定率 100%；
-- 非 PASS Finding 的行动建议覆盖率 100%；
-- 返回具体地点的最终建议 100% 来自冻结真实 CandidateSet；
-- 固定 snapshot 重放 hash 一致率 100%；
-- 浏览器关键链、刷新、断线、进程重启、并发与幂等场景全部通过。
+## 3. Text Card Gate — G01
 
-### Trip Intake v2 NLU Gate
+数据：
 
-- 固定 120 条：72 dev / 24 validation / 24 frozen blind；easy/medium/hard 为 30/54/36；
-- JSON/schema、证据子串和评分覆盖率 100%；generator/template/mutation family 不跨 split；
-- 编造、出发地/目的地反转、否定反转、旧计划反转、数字串类和 `UNKNOWN → EXACT` 均为 0；
-- locations、party size、duration 结构化 micro-F1 各 ≥95%，preferences/requirements ≥90%，hard 子集关键字段 ≥90%；
-- 本 Gate 只证明文本需求抽取，不能替代 OCR、live Provider、公网或真人证据。
+- 90条family-isolated主集：54 dev / 18 validation / 18 sealed blind；
+- 北京/上海/杭州60条、其他城市15条、对抗15条；
+- 当前19条用户文本只作regression；
+- 双人独立标注与冲突裁决；
+- family不跨split。
 
-### Trip NLU O1～O4 优化 Gate
+硬指标：
 
-- 正式 prediction 必须来自绑定 `deepseek-v4-flash` 的 hybrid 产品抽取路径，禁止以 gold label 或兼容导出充当 prediction；
-- dev 用于定位和优化，validation 最多两次，frozen blind 对每个冻结候选只允许一次正式聚合评分；
-- blind scorer 不得返回逐例 truth；blind 失败不得修改 oracle 或按 blind 文本打补丁；
-- 实际模型调用 ≤300、估算费用 ≤30 CNY，RunSpec 必须记录实际调用、token、成本和预算停止状态；
-- 本 Goal 单并发端到端 P95 ≤5 秒。该阶段门槛不覆盖或降低 V1 Candidate Gate 的解析与确认页 P95 ≤3 秒。
+- schema、评分覆盖和内部原文证据有效率100%；
+- 整句/URL/描述/预约成为地点0；
+- 错城、错类别严重自动匹配0；
+- 自动地点匹配precision = 正确canonical auto-selected实例数 / 全部auto-selected实例数，≥99%；validation与sealed blind分别要求分母≥50，分母不足即Gate无效而非PASS；
+- 可执行地点提及precision ≥98%、recall ≥95%；
+- day assignment F1 ≥97%；
+- `PLANNED/OPTIONAL/REFERENCE/EXCLUDED/PASS_THROUGH` macro-F1 ≥94%；
+- 三城自动匹配coverage ≥80%；
+- 每份输入人工地点确认中位数≤1，P90≤3；
+- 普通用户API/DOM中禁用字段命中0；
+- 首次进度≤500ms，首批卡片P95≤8s；
+- Qwen或AMap失败仍返回可编辑部分结果；
+- 登录、体验、编辑、刷新、并发和幂等浏览器场景通过。
+- `TripUnderstandingJob`在进程重启、lease接管和SSE重连后可恢复，重复事件副作用0；
+- FULL越权访问0，DEMO资源越权0，24小时TTL、一次性claim、source/行程/账号删除回执100%可回读；
+- 原始文本、PII、`public_resource_id`和匿名capability在日志、trace和分析事件中命中0；访问日志只记录路由模板或脱敏路径；
+- 首批卡片READY后自动创建并实际执行一次同`PlanRevisionRef`的walking/transit地图job；相同逻辑任务即使请求key不同也只有一次Provider副作用；
+- 地图job失败不影响卡片，迟到结果不更新current pointer；
+- 冻结标准负载（3～12个已映射地点、并发1；仅用于性能测量而非产品范围）下，从首批卡片READY到每条可解析相邻边至少有一种路线的snapshot，snapshot矩阵P95≤15秒、受控live dev矩阵P95≤20秒；Provider不可用单列，不混入成功延迟；
+- 地图正例集至少30份行程、120条已冻结为可成功的相邻边；fixture/snapshot中每条边至少一种模式成功率100%，受控live dev中≥95%，全局永远`UNAVAILABLE`或零可用边不能通过Gate；
+- 输入/活动/并发/模型/POI/路线预算均有边界，超限返回可编辑`LIMITED`而非静默截断。
 
-## 4. 性能硬门槛
+模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后sealed blind只运行一次。
 
-- 标准文本首次进度 ≤1 秒；
-- 解析与确认页 P95 ≤3 秒；
-- 三张截图 OCR P95 ≤12 秒；
-- 基础报告 P95 ≤30 秒；
-- 含风险搜索的完整报告 P95 ≤45 秒。
+## 4. Map & Stay Gate — G02
 
-## 5. Evidence Gate
+地图：
 
-| Gate | 必须实际证明的内容 |
+- 复用G01已验证的首次后台地图快照，不把G02 UI当作首次路线计算；
+- 编辑后自动路线Provider调用为0；
+- stale投影100%绑定正确revision；
+- 手动rerender只计算当前revision；
+- 相同请求key和相同逻辑唯一键均不产生第二任务或Provider调用；
+- 迟到任务覆盖新revision为0；
+- walking/transit独立保存成功/失败；
+- 差值≤10分钟时优先步行；
+- 地图失败不影响卡片；
+- fixture/snapshot重放hash一致率100%。
+- 普通API只返回 `PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`，内部job/freshness枚举泄漏0；
+- 卡片详情在stale时不把旧“到下一站”路线表达为当前事实。
+- 已有snapshot时地图首屏几何P95≤1.5秒；尚未完成时地图壳与用户状态≤500ms且不阻塞卡片。
+
+住宿：
+
+- 使用全部过夜日第一/最后站；
+- N日默认只含Day1…DayN-1过夜日；方向固定为酒店→第一站、最后一站→酒店；
+- 2/4/8km和同城扩展顺序正确；
+- 候选错城、非酒店、非注册连锁品牌为0；
+- 路线矩阵最多12家，公共候选最多3家；
+- 评分公式与缺失证据惩罚确定性重放一致；
+- 坐标系、候选充足阈值、失败惩罚、上限和tie-break均绑定 `StayScoringPolicyVersion`；
+- 不展示价格、房态、星级或质量承诺；
+- 选择同店创建新revision并使地图stale；
+- 无候选为中性待选择，不阻断。
+- 住宿正例集至少30组锚点（北京/上海/杭州各10），冻结snapshot中每组已知存在≥3家同城注册连锁酒店；Top-3非空率100%、首位属于合格集100%，受控live dev非空率≥90%。失败/空候选case另测，不能替代正例覆盖。
+
+## 5. Top-3 Audit Gate — G03
+
+- 地点、路线、营业/预约、日容量、酒店往返和用餐空档各有固定oracle；
+- 路线Finding precision/recall均≥90%；
+- HARD冲突漏检0；
+- 具体地点候选100%来自冻结CandidateSet并绑定地点/路线receipt；
+- 内部全部未解决HARD Finding保留；公共结果最多3个Finding，剩余队列显示数量且不得显示已通过，解决后按序补位；
+- 排序使用severity、evidence、actionability和全程影响；
+- 采纳创建新revision；
+- 完整postcheck前不得显示已解决；
+- Repair后新增BLOCKER/HIGH/UNKNOWN为0；
+- 无绝对日期时具体天气/闭馆日期硬结论0。
+- `calendar_basis=DAY_INDEX_ONLY`可materialize且不伪造日期/确认；ABSOLUTE与DAY_INDEX_ONLY lineage、ETag和map/stay current pointer回读100%一致。
+
+## 6. Screenshot Parity Gate — G04
+
+- PNG/JPEG/WebP、1～6张、单张≤10MB；
+- 真实来源OCR关键字段F1≥95%；
+- 低置信关键字段确认召回100%；
+- 冻结paired set上阅读顺序adjacency-F1≥97%；
+- 使用人工校正转写作为同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；
+- 原图泄漏0，清理receipt 100%；
+- 三张1080×1920图片在候选RunSpec冻结CPU/GPU/内存和并发1环境下P95≤12秒；
+- Qwen-VL若晋级，关键字段、阅读顺序、卡片结果、bbox来源追踪和P95均不得低于PaddleOCR，且至少一项错误率相对下降≥20%；
+- synthetic、自动视觉复核和真人OCR证据分别披露。
+
+## 7. Knowledge Admission Gate — G05
+
+每类`KnowledgeClaim`必须有：
+
+- canonical place；
+- claim type和适用条件；
+- source tier、URL和短证据；
+- observed/effective/expires；
+- license/storage status；
+- reviewer和版本。
+
+要求：
+
+- 硬事实只来自官方/政府/运营方或已准入Provider；
+- 正规媒体和授权创作者只作建议；
+- 未授权社交内容0；
+- 过期claim不得进入当前建议；
+- 同一validation set的有/无知识消融中，带来源且可执行的建议precision≥90%、unsupported claim=0、actionability rubric提升≥5个百分点，P95回退≤20%；
+- RAG决定POI、路线或HARD Finding为0。
+
+## 8. Consent & Share Gate — G06
+
+- 记忆默认关闭；
+- 只保存结构化偏好；
+- 查看、更改、清空和删除全部可回读；
+- 原文、截图、聊天默认长期留存0；
+- 训练/评测consent与产品记忆consent分离；
+- 分享token不可枚举、可撤销、过期并最小披露；
+- 越权读取/修改0；
+- 分享页内部字段泄漏0。
+
+## 9. Candidate Evidence Gate — G07
+
+| Gate | 必须实际证明 |
 |---|---|
-| G0 文档/schema | 权威文件一致、schema/API 合同通过审核、migration 只追加 |
-| G1 离线单测 | 规则、解析、隐私清理、状态机、幂等和失败语义 |
-| G2 PostgreSQL 集成 | migration、事务、并发、租约接管、重启回读、旧数据兼容 |
-| G3 固定快照 | 冻结 Provider snapshot 重放、hash 一致、无网络依赖 |
-| G4 真实 Provider | 高德路线、和风天气预报与实时预警的请求/响应/时间/配置回执与局部失败；其他风险发现 Provider 必须先通过数据留存与来源准入 |
-| G5 浏览器与性能 | 主链、确认、刷新、断线、重启、采纳/postcheck 和 P95 |
-| G6 Release manifest | 同一 commit/config/dataset/model/rule/provider receipt 的不可变汇总 |
+| G0 文档/schema | 权威文件、OpenAPI、migration只追加、风险和Provider准入 |
+| G1 离线 | 语义、地点、地图、住宿、Audit、隐私、状态机和失败 |
+| G2 PostgreSQL | migration、事务、CAS、幂等、lease、重启和旧数据兼容 |
+| G3 固定快照 | Qwen/Provider snapshot、hash和确定性replay |
+| G4 真实Provider | 高德POI/步行/公交、天气与许可范围的脱敏回执 |
+| G5 浏览器/性能 | 登录、体验、卡片、地图stale/rerender、住宿、Top-3、刷新、断线和P95 |
+| G6 Manifest | 同一commit/config/dataset/model/rule/provider的不可变汇总 |
 
-G0～G6 必须在候选 commit 上重新运行。旧 manifest、历史报告或不同 dirty tree 的结果不能拼接。
+G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不同配置不能拼接。候选材料包括受控演示、90秒视频、5分钟完整演示、架构图、恢复时序图、模型消融和已知边界。
 
-## 5.1 开发阶段 Gate
+`VNEXT_CANDIDATE_READY`不等于H1、生产、公开发布或商业验证。
 
-### D1：第 6 周文本纵向闭环
+## 10. Reliability Gate
 
-- 北京、上海、杭州各至少一个浏览器主链通过；
-- 18 条 pilot 可由固定 runner 执行；
-- 错 POI/错城自动接受为 0；
-- Repair 后新增 BLOCKER/HIGH/UNKNOWN 为 0；
-- Evidence 后终止进程，恢复后 Run、receipt、revision 和 postcheck 一致；
-- 同一幂等键不产生第二个 Run、repair 或 revision。
-
-### Reliability Gate
-
-六类固定故障必须产生预期机器可读结果：
+固定故障：
 
 | 故障 | 预期 |
 |---|---|
-| Provider timeout | 有界重试，受影响字段 UNKNOWN，其他事实保留 |
-| 字段部分失败 | Run 为 PARTIAL，成功事实不丢失 |
-| 重复提交 | 返回同一资源并标记 idempotent replay |
-| 并发编辑 | 一个成功，失败方 409 并回读当前 revision |
-| 进程终止 | 过期 lease 接管，不重复副作用 |
-| config 漂移 | `RUN_CONFIG_MISMATCH`，禁止拼接恢复 |
+| Qwen timeout/schema invalid | 最多一次修复调用，之后确定性PARTIAL |
+| POI部分失败 | 成功卡片保留，失败卡片待确认 |
+| 路线部分失败 | 另一模式保留；两者失败为不可用 |
+| 重复提交 | 返回同一资源并标记幂等重放 |
+| 并发编辑 | 一个成功，失败方409并回读 |
+| 进程终止 | 过期lease接管，不重复副作用 |
+| 迟到地图任务 | 只写旧revision |
+| config漂移 | 新任务或`CONFIG_MISMATCH`，不拼接 |
+| Redis丢失 | 权威状态不改变 |
+| screenshot cleanup失败 | `PRIVACY_BLOCKED` |
 
-Trace 必须包含 `bt.run_id`、revision、brief、evidence、config、rule、provider、execution mode 和失败类别，且敏感字段扫描为 0 命中。
+Trace与日志敏感字段扫描必须0命中。
 
-### P3 Synthetic OCR Phase Gate
+## 11. Human Usability Gate — H1
 
-本条是经现场批准的 P3 开发阶段例外，不改变候选版 G1：
+H1需用户现场批准招募、consent和公网/环境范围。
 
-- 冻结 12 例 `synthetic_stress`，北京、上海、杭州各 4 例；
-- PNG/JPEG/WebP、聊天/备忘录/攻略或 AI 回复、clean/medium/hard 各 4 例，明暗主题各 6 例；
-- spec、oracle、render 参数和 seed 必须在首次 OCR 前冻结，看到结果后不得修改标签或样本来消除失败；
-- 关键字段 micro-F1 ≥95%，预标记低置信关键字段确认召回率 100%，原图泄漏命中 0；
-- 阶段通过只能标记 `synthetic_ocr_stress=PASS`；`real_ocr_dataset` 与候选版 G1 继续为 `NOT_RUN`。
-- P3 phase status 只硬要求本 Gate、G2、G3 与对应离线回归；G4 live receipt、G5、G6 是候选证据债，保持 `NOT_RUN/REJECT` 不得反向把离线 P3 判为失败。
-- 合成图片必须有可回读的确定性 render-integrity receipt（解码、格式、尺寸、内容 hash、可复现性、非空/无溢出、字体与终态清理）；开发代理视觉复核只能标记 `automated_agent`，不得冒充人工证据。
+- 8～12名目标用户；
+- ≥80%无需开发者代操作完成输入、理解卡片、查看/更新地图、处理住宿和采纳建议；
+- 关键问题理解率≥80%；
+- 严重错误地点或虚构事实被当作可靠建议0；
+- 内部术语被普通用户主动报告0；
+- 隐私事故0；
+- 严重误导和主链阻断全部进入regression并重跑相关Gates。
 
-### Solver Admission Gate
+H1只能表述为小样本真人可用性证据，不等于统计显著、生产SLO或市场验证。
 
-在固定 36 条 bake-off 上按以下顺序判定：
+## 12. 禁止替代
 
-1. 新增 BLOCKER/HIGH/UNKNOWN 为 0；
-2. 完整 postcheck 成功率优先；
-3. 相比 BoundedRepair 成功率提高至少 10 个百分点，或稳定解决至少 3 类其无法解决的问题；
-4. 5 天 25 站 P95 ≤2 秒；
-5. 安全条件相同时比较编辑成本和路线代价。
-
-未通过时 OR-Tools 保持实验资产，不得进入默认运行时。
-
-### Evaluation Gate
-
-- 数据为 18 pilot / 180 dev / 72 regression / 90 frozen blind，三城各 120；
-- 同源/变异案例不跨 split；
-- Legacy A、Core B、Solver C 使用相同 RunSpec 和 oracle；
-- blind 标签对开发 Agent、运行模型和 Judge 隔离；
-- 结果包含任务成功、错 POI、HARD 漏检、UNKNOWN 保留、postcheck、unsupported claim、P95、token、成本和 replay hash；
-- 消融结果只决定默认运行时，不替代 G0～G6。
-
-### Candidate Gate
-
-候选版除 G0～G6 外还必须交付受控公网演示、90 秒视频、5 分钟完整演示、架构图、恢复时序图、消融表和可回读 manifest。公网演示默认使用受控 snapshot；live Provider Gate 单独执行。
-
-## 6. Judge 与人工证据
-
-自动语义 Judge 使用独立、无 API 的模型评审流程；运行时 DeepSeek 不得评价自己的输出。结果只标记为 `automated_proxy_judge`，不等于真人校准、public E2E 或发布批准。
-
-`frozen_blind` 标签与开发 Agent、运行模型和 Judge 隔离；blind 失败只进入 `dev/regression` 的复现形式，禁止修改 blind/oracle 以消除失败。
-
-真人内测不属于本 V1 候选版 Gate。候选版通过后进入 H1，并由用户现场批准公网、招募与 consent。
-
-### Human Usability Gate（H1）
-
-- 8～12 人；每人完成一个统一受控任务，并可自愿使用真实行程；
-- ≥80% 无需开发者代操作完成输入、确认、报告理解和采纳；
-- 关键 Finding 理解率 ≥80%；
-- 虚构事实/错误地点被当作可靠建议为 0；
-- 原图留存和隐私事故为 0；
-- 严重误导或主链阻断全部进入 regression，修复后重跑相关 G1～G6 并生成新 manifest。
-
-H1 只能描述为小样本真人可用性证据，不得宣称统计显著、市场验证或生产 SLO。
-
-## 7. 禁止替代
-
-Builder、旧推荐指标、历史 RAGAS、synthetic proxy、source prior、旧 release manifest、测试数量或单个演示不得替代上述任何门禁。
+历史Intake/Builder、旧Candidate、测试数量、synthetic proxy、自动Judge、source prior、旧RAGAS、单个演示或计划文档不得替代任何新版Gate。

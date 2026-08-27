@@ -1,98 +1,149 @@
-# Goal Contract 模板
+# Goal 合同模板
 
-> `Status` 只能是 `DRAFT / APPROVED / IN_PROGRESS / BLOCKED / COMPLETED / REJECTED`。只有一个 Goal 可为 `APPROVED` 或 `IN_PROGRESS`。
+> 每个Goal复制本模板。`CURRENT_GOAL.md`只能存在一个`APPROVED`或`IN_PROGRESS` Goal。
 
 ## Metadata
 
 - Goal ID：
-- Program ID：
-- Phase：
-- Status：
-- Branch：`codex/trip-check-p<n>-<scope>`
+- Program ID：`TC-VNEXT-2026`
+- Product version：
+- Status：`DRAFT / APPROVED / IN_PROGRESS / EVIDENCE_READY / COMPLETED / REJECTED`
+- Goal type：
+- Branch：
 - Baseline commit：
 - Approved by / at：
-- Predecessor gate：
+- Required gate：
+- Next Goal：
 
-## Outcome
+## Dependencies
 
-本切片结束后，用户能完成什么可观察行为。
+- 唯一激活依赖是上一Goal已归档且Gate通过；满足后按Program顺序置为`APPROVED`。
+- 账号、Provider、consent、schema、migration和证据在Goal首个preflight现场回读；缺失lane标记`NOT_READY`，不得伪造或fallback，但不阻止其他安全独立切片。
+- 当Goal Outcome确实需要缺失lane且无替代时，按HITL/Stop请求最小外部动作；不得留下0个active Goal。
+
+## User Outcome
+
+本Goal结束后，普通用户能完成什么可观察行为。禁止用“新增模块”“增加测试”代替。
 
 ## Scope
 
-- 允许修改的模块：
-- 允许新增的文件/依赖：
-- 唯一纵向链路：
+- 唯一纵向链：
+- 允许修改的产品子系统：
+- 允许新增的API/schema/migration：
+- 数据集与Provider范围：
+- 用户界面变化：
 
 ## Non-goals
 
-明确本切片不做的功能、城市、Provider、数据、基础设施和重构。
+明确本Goal不做的产品能力、Provider、数据、基础设施、部署、真人和商业行为。
 
 ## Authority
 
-引用适用的 Charter、Spec、Roadmap、Gate、ADR 和 schema/API 合同。
-
-## Contract versions
-
-- API/schema version：
-- Dataset increment：
-- Fault profiles：
-- Evidence output path：
+引用适用的AGENTS、Charter、Spec、API、Architecture、Program、Roadmap、Release Gates和ADR。
 
 ## Baseline
 
-- 分支/commit/dirty tree：
-- 已通过测试：
-- 已知失败或 `NOT_RUN`：
-- 当前 evidence 等级：
+- branch/commit/upstream：
+- root worktree保护边界：
+- 当前用户可见行为：
+- 已知失败：
+- 已通过验证：
+- `NOT_RUN`：
+- 历史证据边界：
+
+## Decisions locked
+
+列出本Goal不得重新发明的产品和技术决策，包括默认值、用户文案、状态机、模型、Provider、失败和兼容策略。
 
 ## Invariants
 
-列出不能破坏的 revision、UNKNOWN、evidence、privacy、idempotency、compatibility 边界。
+列出：
+
+- 用户视图禁止字段；
+- revision/CAS/idempotency；
+- LLM与确定性权威；
+- `UNKNOWN/UNAVAILABLE`；
+- map/stay snapshot；
+- privacy/licensing；
+- compatibility；
+- evidence等级。
 
 ## Acceptance cases
 
-列出可执行输入、预期输出和失败行为，不以“增加测试”代替。
+列出可执行输入、用户输出、内部状态和失败行为。每个案例应能由测试、浏览器或回读证明。
+
+## Required Gate
+
+引用`RELEASE_GATES.md`的具体Gate，并写出本Goal的零容忍项、指标、数据split和性能目标。
 
 ## Verification
 
-- Targeted：
-- G1/G2/G3/G4/G5：
-- Readback / raw artifacts：
-- 必须保持 `NOT_RUN` 的层级：
+- Targeted tests：
+- Backend/Frontend：
+- PostgreSQL：
+- Snapshot：
+- Live Provider：
+- Browser：
+- Security/privacy：
+- Diff/compatibility：
+- Remote readback：
+- 必须保持`NOT_RUN`的层级：
 
 ## Budget
 
-- 时间窗口：
-- 外部 API/模型预算：
-- 最大重试：
-- diff/切片边界：
+- 模型/API账本：
+- 费用与账号边界：
+- deadline/retry：
+- 每切片最大diff：
+- checkpoint频率：
 
 ## Pre-approved actions
 
-列出 Program 已明确批准、无需逐文件重复请求的 migration、依赖、Provider 模式和开发分支动作。
-同时列出无人值守开发动作：synthetic/dev/regression 数据与截图的子代理生成/独立复核、本地依赖服务自动启停、定向/完整 Gate、故障诊断和 checkpoint commit/push。
+只列Program已批准的migration、API、依赖、Provider模式、离线数据、commit和push。未列出的受保护动作不是默认授权。
 
 ## HITL
 
-只列出受保护边界：新增或付费 Provider、新账号/绑卡、扩大外部数据范围、未预批准 schema/migration/依赖、修改 frozen blind/oracle、证据晋级、H1/真人/公网、合并 `main`、release/deploy。不要把普通开发测试或既有零增量费用 Provider 矩阵写成人工阻塞。
+只列新账号/付费、扩大外部数据、未批准schema/migration/依赖、sealed blind/oracle、H1/真人/公网、`main`、release/deploy和破坏性数据操作。
+
+## Checkpoint ledger
+
+每个切片追加一行：
+
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|
 
 ## Auto-advance
 
 - Required gate：
 - Next Goal template：
-- 自动推进必须同时满足：验收全 PASS、clean tree、commit 已推送、evidence 可回读、无 Stop condition。
+- 条件：Outcome完成、Gate全PASS、clean tree、subject checkpoint push/readback、无Stop condition。
+- 过渡：从当前Goal完整内容生成最终completed归档；同一治理过渡commit把`CURRENT_GOAL.md`替换为下一完整`APPROVED`合同；transition push/readback后只有一个active Goal。
+- H1、生产、公网、商业和`main`永不自动推进。
 
 ## Stop conditions
 
-至少包含：连续两个切片无改善、范围扩大、新基础设施、blind/oracle 修改、证据矛盾、成本超限。
+至少包括：
+
+- 产品目标或Program顺序改变；
+- 未预批准公共合同或依赖；
+- 新账号/付费/外部数据；
+- Provider许可或隐私无法满足；
+- sealed blind/oracle修改；
+- 证据矛盾；
+- 两个不同切片仍无改善；
+- 真人、部署、release或破坏性操作。
 
 ## Completion record
 
-- Commits：
-- Remote branch / upstream：
-- Verification results：
-- Evidence paths：
+- Status：
+- Subject commits：
+- Remote branch/upstream：
+- Verification：
+- Evidence/artifacts：
 - Gate result：
-- Next Goal generated：
+- `structurally_valid=true/false`：
+- User-visible result：
 - Remaining red lights：
+- Goal archived：
+- Next Goal activated：
 - Promotion decision：`NOT_REQUESTED / REJECT / APPROVE_NEXT_PHASE`

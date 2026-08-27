@@ -1,5 +1,7 @@
 # 「行程查」V1 评测合同
 
+> `LEGACY_BASELINE / NOT_VNEXT_AUTHORITY`：本文件冻结旧V1评测设计，只供历史复现。`TC-VNEXT-2026`的数据、模型选择和Gate以[`governance/PROGRAM.md`](governance/PROGRAM.md)与[`governance/RELEASE_GATES.md`](governance/RELEASE_GATES.md)为准；下列状态不得晋级Blueprint/V0.x。
+
 > 状态：`ACCEPTED`
 >
 > 当前 V1 数据与候选运行：`NOT_RUN`

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted，2026-08-23。
+Partially superseded by ADR-011 / TC-VNEXT Provider Admission，2026-08-23。
+
+> 当前保留Provider必须证明存储权/成本/来源/回执、搜索候选不得直接成为权威事实、天气无预警不等于无旅行风险。旧P3、三城18次live matrix和既有凭据足够的结论只属历史，不授权TC-VNEXT调用或持久化。
 
 ## Context
 

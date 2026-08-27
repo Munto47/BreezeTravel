@@ -1,5 +1,7 @@
 # 公开 RAG 语料与引用边界
 
+> `FROZEN_LEGACY_ASSET / NOT_VNEXT_AUTHORITY`：旧公开RAG只作冻结基线，不进入V0.1～V0.4主链。V0.5只允许通过Provider Admission Gate的`KnowledgeClaim`，本文件不能授权采集或持久化。
+
 正式 Demo 和评测只能使用 `corpus_kind=public` 的已审核资料。合成游记仅可用于离线开发或对照，界面会明确标记为“演示语料”。
 
 ## 收录规则

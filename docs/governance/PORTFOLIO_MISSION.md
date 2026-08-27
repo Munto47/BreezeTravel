@@ -1,41 +1,79 @@
-# BreezeTravel 面试与公开证据使命
+# BreezeTravel 工程与公开证据使命
 
 > 状态：`ACCEPTED`
 >
-> Program：`TC-INTAKE-V2-2026`
+> Program：`TC-VNEXT-2026`
+>
+> 生效日期：2026-08-27
 
 ## 1. 使命
 
-BreezeTravel 是一个以 AI 应用与可靠后端岗位的面试竞争力为首要交付目标、以真实用户价值验证为必要约束的工程项目。
+BreezeTravel 首先解决真实旅行组织者的问题，同时形成能够经受 AI 应用与可靠后端岗位追问的工程证据。
 
-面试目标不能覆盖产品正确性、隐私或证据边界。任何技术进入默认运行时必须同时满足：
+技术亮点必须来自真实问题：
 
-1. 对应一个已经定义的产品或可靠性问题；
-2. 有明确职责、权限、预算、失败和降级边界；
-3. 能通过固定数据、消融或门禁证明增量价值；
-4. 能把结论回读到 commit、RunSpec、原始 artifact 和 release manifest。
+- 长文本语义编译而不是逐句搜索；
+- 高精度地点匹配与失败保留；
+- revision 绑定的后台地图和手动更新；
+- Provider事实、局部失败和可回放回执；
+- 模型中立接口、冻结消融和成本/延迟账本；
+- 隐私、许可、幂等、并发和恢复边界。
 
-## 2. 三类成功
+不得为了简历关键词牺牲用户体验、事实正确性或证据诚实度。
 
-### 2.1 简历识别
+## 2. 四类成功
 
-项目描述可以使用 LangGraph、PostgreSQL、Provider Evidence、约束求解、OpenTelemetry、故障注入和可复现实验等准确术语，但不得把计划、代码存在或历史资产写成已通过能力。
+### 2.1 产品成功
 
-### 2.2 面试抗追问
+用户无需理解内部流程即可得到可信卡片、路线、住宿和少量重点建议。第一优先指标是用户结果，不是代码量或测试数量。
 
-每项核心设计必须能说明：为什么存在、替代方案、状态所有者、失败时间线、幂等/事务边界、验证命令、当前红灯和真实测量结果。
+### 2.2 工程成功
 
-### 2.3 公开证据
+每个核心设计能回答：
 
-最终交付应包含受控公网演示、真实 Provider 脱敏回执、snapshot replay、故障恢复演示、Legacy/Core/Solver 消融和同绑定 release manifest。公网、live Provider 和真人证据始终分开报告。
+- 为什么存在；
+- 状态归谁所有；
+- LLM与确定性代码如何分工；
+- 失败时间线和恢复方式；
+- 幂等、事务、revision和Provider边界；
+- 验证命令、当前红灯和回滚方案。
+
+### 2.3 面试成功
+
+可以准确使用 FastAPI、PostgreSQL、LangGraph、Qwen、Evidence、约束修复、OpenTelemetry和故障注入等术语，但必须同时展示准入实验、失败结果和未完成证据。
+
+### 2.4 公开证据成功
+
+候选版包含同一 commit/config/dataset/model/provider 绑定的：
+
+- 产品演示；
+- 结构化评测；
+- snapshot replay；
+- Provider局部失败；
+- 并发、幂等和恢复；
+- 架构与时序图；
+- release manifest。
+
+自动、live Provider、公网、真人和商业证据分别报告。
 
 ## 3. 技术准入
 
-- FastAPI、Next.js、Pydantic 等用于高效交付，不单独作为创新声明。
-- 新运行时组件先作为实验实现；只有达到 `RELEASE_GATES.md` 的预设门槛才可晋级。
-- 旧 ReAct/Critic、RAG、LoRA Router、Planner 和 Yjs 是冻结 Baseline，不进入「行程查」权威主链。
-- 禁止为了关键词新增 Multi-Agent、微服务、消息队列、Kubernetes、GraphRAG 或重新微调模型。
+新组件进入默认运行时前必须：
+
+1. 对应已定义的用户或可靠性问题；
+2. 有明确合同、权限、预算、失败和降级；
+3. 在冻结数据或实验上优于 Baseline；
+4. 绑定可回读 commit、RunSpec、原始 artifact 和 receipt；
+5. 不扩大隐私、许可或生产风险。
+
+旧 ReAct/Critic、Planner、Yjs、LoRA和无来源 RAG 是冻结 Baseline。禁止为炫技新增运行时多 Agent、微服务、消息队列、Kubernetes、GraphRAG或重新微调。
 
 ## 4. 表述边界
 
-项目目标是形成明显高于普通旅行 Agent、RAG 聊天机器人和 CRUD 项目的证据密度，不承诺“打败所有人”。算法基础、系统基础、实习经历和面试表达仍需独立证明。
+- Blueprint、代码存在和Dev PASS不等于候选版。
+- Candidate PASS不等于真人可用、生产或商业验证。
+- H1只是小样本真人可用性证据，不等于市场验证。
+- 付费、留存和增长必须由真实行为证明。
+- 历史 Intake、Builder或Candidate结果不自动适用于新产品 commit。
+
+项目目标是形成明显高于普通旅行聊天机器人和CRUD项目的证据密度，但不使用“行业最好”等无法证明的绝对声明。

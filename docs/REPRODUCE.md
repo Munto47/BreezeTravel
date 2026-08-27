@@ -1,5 +1,7 @@
 # Reproducing the controlled-local release
 
+> `LEGACY_REPRODUCTION / NOT_VNEXT_AUTHORITY`：本手册复现旧controlled-local候选，不证明Blueprint/V0.x。新版复现入口将在G07绑定同一commit/config/dataset/model/provider后生成；当前不得据此宣称候选或发布。
+
 Target runtime is Python 3.11 and Node 20. Dependency versions are pinned in
 `backend/requirements.txt`, `backend/requirements-dev.txt` and both npm lockfiles.
 

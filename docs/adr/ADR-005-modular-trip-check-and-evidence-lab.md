@@ -1,9 +1,11 @@
 # ADR-005：模块化行程核验单体与证据实验台
 
-- 状态：Accepted
+- 状态：Partially superseded by ADR-007～ADR-012
 - 日期：2026-08-22
 - Program：`TC-V1-INTERVIEW-2026`
 - 取代范围：`docs/ARCHITECTURE.md` 中旧 Router/Planner/RAG 权威主链
+
+> 当前保留模块化单体、PostgreSQL权威、LangGraph边界、AuditEngine权威、receipt/replay和不新增微服务/MQ/运行时多Agent。旧P5消融、OR-Tools默认候选、TripBrief前置及`TC-V1-INTERVIEW-2026`顺序不再授权运行时或当前Goal。
 
 ## 背景
 

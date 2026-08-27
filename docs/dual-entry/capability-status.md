@@ -1,5 +1,7 @@
 # 「行程查」V1 能力与证据状态
 
+> `LEGACY_CAPABILITY_SNAPSHOT / NOT_VNEXT_AUTHORITY`：下表冻结2026-08-23旧Program状态，历史数值不改写；它不能成为`TC-VNEXT-2026`当前Goal、Gate或完成声明。新版状态只读[`../governance/CURRENT_GOAL.md`](../governance/CURRENT_GOAL.md)。
+
 > 更新时间：2026-08-23
 > 本表只报告当前状态，不构成产品授权或发布证明。
 

@@ -1,16 +1,16 @@
 # BreezeTravel「行程查」
 
-BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上海或杭州的 2～5 天单城市行程，发现地点、时间、交通、住宿、偏好、强度、天气和风险问题，并给出可执行调整或有真实依据的备选地点。
+BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图，系统先生成高准确率逐日卡片并后台准备路线，再用最多三个用户友好的重点问题帮助用户把计划变得可执行。北京、上海、杭州提供深度核验；其他国内城市先提供基础整理并明确边界。
 
 ```text
-文本/截图 → OCR/结构解析 → TripBrief 确认 → 地点消歧
-→ 事实采集与核验 → 风险与 Advice → 采纳
-→ 新 Revision → 完整 postcheck
+文本/截图 → 语义行程与原子地点 → 用户卡片
+→ 后台步行/公交地图 → 住宿补全 → Top-3 核验
+→ 最小修改 → 新版本 → 手动地图更新与完整复检
 ```
 
 ## 当前状态
 
-当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。现有代码已经包含文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand、PostgreSQL 恢复等可复用底座，但不等于「行程查 V1」已经完成。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。Blueprint 1.0是目标合同，v3能力目前标记为`NOT_IMPLEMENTED`；现有文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand和PostgreSQL恢复只是可复用底座。
 
 以下是冻结的历史技术资产，不再作为产品愿景或无条件完成声明：
 
@@ -20,7 +20,7 @@ BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上
 - Yjs 多人协同与路线 Builder；
 - K-Means/TSP 路线优化、MCP 和旧评测/发布证据。
 
-它们只保留最低回归；当前禁止扩城、跨城、新增 Agent、MQ、Kubernetes、GraphRAG、重新微调或主动建设拖拽 Builder。
+它们只保留最低回归；当前禁止新增运行时Agent、MQ、Kubernetes、GraphRAG、重新微调或主动建设拖拽Builder。跨城输入可以忠实整理，但不能宣称已完成跨城深核验。
 
 ## 权威文档
 
@@ -28,12 +28,12 @@ BreezeTravel 当前只建设「行程查」：帮助 2～5 人核验北京、上
 
 1. [AGENTS.md](AGENTS.md)
 2. [产品章程](docs/product/PROJECT_CHARTER.md)
-3. [V1 行为规格](docs/product/TRIP_CHECK_SPEC.md)
-4. [作品集使命](docs/governance/PORTFOLIO_MISSION.md)
-5. [V1 Program](docs/governance/PROGRAM.md)
-6. [当前唯一 Goal](docs/governance/CURRENT_GOAL.md) 与 [纵向 Roadmap](docs/governance/ROADMAP.md)
-7. [Release Gates](docs/governance/RELEASE_GATES.md)
-8. [能力与证据状态](docs/dual-entry/capability-status.md)
+3. [目标行为规格](docs/product/TRIP_CHECK_SPEC.md) 与 [v3 API目标合同](docs/product/TRIP_CHECK_API_CONTRACT.md)
+4. [目标架构](docs/ARCHITECTURE.md) 与已接受ADR
+5. [作品集使命](docs/governance/PORTFOLIO_MISSION.md)
+6. [Blueprint Program](docs/governance/PROGRAM.md)
+7. [当前唯一Goal](docs/governance/CURRENT_GOAL.md)、[Roadmap](docs/governance/ROADMAP.md) 与 [Release Gates](docs/governance/RELEASE_GATES.md)
+8. 当前commit/config/dataset对应的证据；[历史能力状态](docs/dual-entry/capability-status.md)不能晋级新版
 
 旧双入口 Final 2.0 已移入 [历史方案目录](docs/archive/plans/)，仅供追溯。
 
@@ -94,7 +94,7 @@ npm run build
 backend/             FastAPI、领域模型、Provider、migration、测试与 evidence
 frontend/            Next.js UI 与浏览器测试
 y-websocket/         历史协同服务（冻结资产）
-docs/product/        当前产品章程与 V1 规格
+docs/product/        当前产品章程、目标规格与v3 API合同
 docs/governance/     Program、Roadmap、Goal 合同、Release Gates 与基线
 docs/adr/            架构决策
 docs/archive/        历史方案与 Review
@@ -105,7 +105,7 @@ docs/archive/        历史方案与 Review
 - 代码存在不等于能力完成；
 - unit、integration、snapshot、live、public、human 是不同证据等级；
 - 自动 Judge 只属于 `automated_proxy_judge`，不等于真人验证；
-- 当前没有「行程查 V1 已发布」或「真人内测已通过」的声明。
+- 当前没有「V0.1已实现」「V0.9候选已通过」「真人内测已通过」或「已发布」的声明。
 
 ## License
 

@@ -1,5 +1,7 @@
 # 公网 Demo 运行手册
 
+> `LEGACY_RUNBOOK / NOT_VNEXT_AUTHORITY / DO_NOT_EXECUTE_FOR_VNEXT`：这是旧room/RAG演示手册，不是Blueprint/V0.x发布步骤。任何公网、部署、真人或production动作仍需人工批准和新Runbook；下列历史命令不得作为新版完成证据。
+
 当前仓库提供部署配置与健康检查。虽然 `breezetravel.cn` 可返回前端页面，但 2026-07-29 的核验中其 `/api/health` 与 `/api/evidence/latest` 均为 404，故**尚不能声明公网全栈 Demo 已上线**。只有以下 smoke 通过后，才能更新 README 的上线表述。
 
 ## 环境分层
