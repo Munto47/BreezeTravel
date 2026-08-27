@@ -1,0 +1,44 @@
+{
+  "blind_inputs_read": 0,
+  "blind_labels_read": 0,
+  "code_bindings": {
+    "dataset_contract_sha256": "e14203e190a3f0533a0c7c01b01b6aa7c96b45c9c2310c473f9df82758649bff",
+    "pipeline_sha256": "7498f39a5ae7467859fbad69da076d0b935a950ae9397ac526824cb680a61a12",
+    "provider_sha256": "dc3f7be3fb20ea52c3b16cd29323029ad71512745011178fbb0fa642c0d4044b",
+    "runner_sha256": "c86d55d7a7d1eeed0e556f250f70c44a4ac6f1f6607d7026d23d7a23e3334a61"
+  },
+  "dataset_version": "g01-text-card-dataset-v1",
+  "gate_claim": "NOT_RUN",
+  "human_labels_read": 0,
+  "lane": "DETERMINISTIC_CONTROLLED_FIXTURE",
+  "provider_binding": {
+    "place_resolver": "controlled_fixture_snapshot",
+    "provider": "deterministic-controlled-text",
+    "version": "v1"
+  },
+  "quality_metrics": "NOT_SCORED_NO_HUMAN_GOLD",
+  "run_at": "2026-08-27T16:50:57.077211+00:00",
+  "schema_version": "g01-text-card-local-baseline-receipt-v1",
+  "splits": {
+    "dev": {
+      "auto_matched_count": 53,
+      "case_count": 54,
+      "eligible_mention_count": 80,
+      "external_calls": 0,
+      "measurement_scope": "LOCAL_PIPELINE_ONLY",
+      "predicted_mention_count": 147,
+      "prediction_sha256": "181d43e77b9af8726cf11ae8ca3850c4ff76ed8641b55dff1f57e895d7ddfbad"
+    },
+    "validation": {
+      "auto_matched_count": 5,
+      "case_count": 18,
+      "eligible_mention_count": 5,
+      "external_calls": 0,
+      "measurement_scope": "LOCAL_PIPELINE_ONLY",
+      "predicted_mention_count": 10,
+      "prediction_sha256": "296276c9d4719e965c752adb8924e607dad758f1af1077109764a1ccb345eaef"
+    }
+  },
+  "subject_commit": "9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4",
+  "total_external_calls": 0
+}

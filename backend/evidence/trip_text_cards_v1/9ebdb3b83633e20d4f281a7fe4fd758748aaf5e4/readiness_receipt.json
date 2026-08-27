@@ -1,0 +1,51 @@
+{
+  "automated_gate_pass_claim": false,
+  "baseline": {
+    "dev": {
+      "auto_matched_count": 53,
+      "case_count": 54,
+      "eligible_mention_count": 80
+    },
+    "external_calls": 0,
+    "human_labels_read": 0,
+    "quality_metrics": "NOT_SCORED_NO_HUMAN_GOLD",
+    "run_receipt_sha256": "8b473fc434551de338715151d1b376d18663231c3bd98c19d7b29cfd7b199c85",
+    "validation": {
+      "auto_matched_count": 5,
+      "case_count": 18,
+      "eligible_mention_count": 5,
+      "required_auto_selected_denominator": 50
+    }
+  },
+  "blocking_requirements": [
+    "DEV_VALIDATION_DUAL_HUMAN_ANNOTATION_AND_ADJUDICATION",
+    "QWEN_ACCOUNT_REGION_WORKSPACE_EXACT_MODEL_AND_PRICE_BINDING",
+    "AMAP_WRITTEN_PERSISTENCE_PERMISSION",
+    "FROZEN_BLIND_EXTERNAL_CUSTODIAN_AND_ONE_SHOT_RUN_AFTER_CANDIDATE_FREEZE",
+    "FULL_TEXT_CARD_GATE_RUNTIME_MATRIX"
+  ],
+  "dataset": {
+    "case_count": 90,
+    "cohort_counts": {
+      "ADVERSARIAL": 15,
+      "DEEP_CITY": 60,
+      "OTHER_CITY": 15
+    },
+    "family_count": 30,
+    "family_isolation": "PASS",
+    "repository_human_labels": 0,
+    "split_counts": {
+      "dev": 54,
+      "frozen_blind": 18,
+      "validation": 18
+    },
+    "valid": true
+  },
+  "gate": "HITL_PENDING",
+  "provider_readback": {
+    "amap_live_persistence": "BLOCKED_PENDING_WRITTEN_PERMISSION",
+    "qwen_live_lane": "NOT_READY"
+  },
+  "schema_version": "g01-text-card-gate-readiness-v1",
+  "subject_commit": "9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4"
+}
