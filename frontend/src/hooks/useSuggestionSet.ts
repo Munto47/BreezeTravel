@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 
 import { api, ApiRequestError } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import type {
   AcceptSuggestionResult,
   CreateSuggestionSetRequest,
@@ -41,7 +42,7 @@ export function useSuggestionSet(workspaceId: string) {
   const acceptedSuggestionCount = useRef(0)
 
   const getSessionId = () => {
-    if (!sessionId.current) sessionId.current = crypto.randomUUID()
+    if (!sessionId.current) sessionId.current = randomUuid()
     return sessionId.current
   }
 
@@ -49,7 +50,7 @@ export function useSuggestionSet(workspaceId: string) {
     const identity = `${action}:${setId}:${candidateId}`
     const existing = eventIdempotencyKeys.current.get(identity)
     if (existing) return existing
-    const created = crypto.randomUUID()
+    const created = randomUuid()
     eventIdempotencyKeys.current.set(identity, created)
     return created
   }
@@ -116,7 +117,7 @@ export function useSuggestionSet(workspaceId: string) {
     setPending('ACCEPT')
     setMessage(null)
     try {
-      const idempotencyKey = crypto.randomUUID()
+      const idempotencyKey = randomUuid()
       // The empty body is intentional. Canonical POI, coordinates, scores and
       // evidence remain server-frozen and are never echoed as edit authority.
       const result = await api.postWithHeaders<AcceptSuggestionResult>(

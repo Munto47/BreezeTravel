@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, FileImage, Loader2, MapPin, ShieldCheck } from 'lucide-react'
 
 import { ApiRequestError, api } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import { useAuthStore } from '@/stores/authStore'
 import type { IntakeMaterializationResult, TripIntakeRevision } from '@/types/tripIntake'
 import { codePointSlice, evidenceMatchesSource } from '@/types/tripIntake'
@@ -35,7 +36,7 @@ export default function TripIntakePage() {
   const keyFor = (scope: string) => {
     const existing = commandKeys.current.get(scope)
     if (existing) return existing
-    const value = crypto.randomUUID()
+    const value = randomUuid()
     commandKeys.current.set(scope, value)
     return value
   }

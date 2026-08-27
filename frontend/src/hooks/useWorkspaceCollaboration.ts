@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 
+import { randomUuid } from '@/lib/randomUuid'
+
 
 const Y_WEBSOCKET_URL = process.env.NEXT_PUBLIC_Y_WEBSOCKET_URL || 'ws://localhost:1234'
 
@@ -126,7 +128,7 @@ export function useWorkspaceCollaboration(
     if (!doc || !userId) return
     const intents = doc.getArray<WorkspaceEditIntent>('workspaceEditIntents')
     const item: WorkspaceEditIntent = {
-      intentId: crypto.randomUUID(), userId, operation, baseRevision, createdAt: new Date().toISOString(),
+      intentId: randomUuid(), userId, operation, baseRevision, createdAt: new Date().toISOString(),
     }
     doc.transact(() => {
       const retained = intents.toArray().filter(existing => (

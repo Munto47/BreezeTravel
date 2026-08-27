@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation'
 import { CheckCircle2, Loader2, LockKeyhole, ShieldAlert } from 'lucide-react'
 
 import { api, ApiRequestError } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import { useAuthStore } from '@/stores/authStore'
 import type { SharedWorkspaceView } from '@/types/workspace'
 
@@ -99,7 +100,7 @@ export default function SharedItineraryPage() {
         action: 'CONSTRAINT',
         expected_base_revision: shared.constraint_write_context.expected_base_revision,
         constraint: {
-          constraint_id: crypto.randomUUID(),
+          constraint_id: randomUuid(),
           owner_member_id: user.userId,
           type,
           operator: 'EQ',

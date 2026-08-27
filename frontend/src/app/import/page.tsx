@@ -11,6 +11,7 @@ import RepairCompare from '@/components/workspace/RepairCompare'
 import TripBriefConfirmationPanel from '@/components/workspace/TripBriefConfirmationPanel'
 import TripCheckRunPanel from '@/components/workspace/TripCheckRunPanel'
 import { api } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import { useAuthStore } from '@/stores/authStore'
 import type {
   AuditReport,
@@ -112,7 +113,7 @@ export default function ImportItineraryPage() {
     const fingerprint = JSON.stringify(payload)
     const existing = idempotencyKeys.current.get(scope)
     if (existing?.fingerprint === fingerprint) return existing.key
-    const key = crypto.randomUUID()
+    const key = randomUuid()
     idempotencyKeys.current.set(scope, { fingerprint, key })
     return key
   }

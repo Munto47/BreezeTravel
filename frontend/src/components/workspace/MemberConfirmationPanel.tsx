@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, Copy, Link2, Loader2, RefreshCw, ShieldAlert, Trash2, Users } from 'lucide-react'
 
 import { api } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import type { IssuedShareLink, MemberConstraintWriteResult, ShareScope, WorkspaceMemberView } from '@/types/workspace'
 
 type IssuedLinkState = { link: IssuedShareLink['link']; rawToken: string | null }
@@ -80,7 +81,7 @@ export default function MemberConfirmationPanel({
         {
           expected_base_revision: memberConstraintRevision ?? 0,
           constraint: {
-            constraint_id: crypto.randomUUID(),
+            constraint_id: randomUuid(),
             owner_member_id: currentUserId,
             type: constraintType.trim(),
             operator: 'EQ',

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CalendarDays, CheckCircle2, Loader2, Route, ShieldAlert, Sparkles } from 'lucide-react'
 
 import { api } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import { useAuthStore } from '@/stores/authStore'
 import type { CityRouteTemplate, TemplateApplyResponse, TripWorkspace } from '@/types/workspace'
 
@@ -27,7 +28,7 @@ function idempotencyKey(scope: string): string {
   const key = `breeze:${scope}`
   const existing = sessionStorage.getItem(key)
   if (existing) return existing
-  const created = crypto.randomUUID()
+  const created = randomUuid()
   sessionStorage.setItem(key, created)
   return created
 }

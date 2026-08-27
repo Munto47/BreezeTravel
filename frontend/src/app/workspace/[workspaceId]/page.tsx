@@ -13,6 +13,7 @@ import SuggestionSetPanel from '@/components/workspace/SuggestionSetPanel'
 import { useSuggestionSet } from '@/hooks/useSuggestionSet'
 import { useWorkspaceCollaboration } from '@/hooks/useWorkspaceCollaboration'
 import { api, ApiRequestError } from '@/lib/api'
+import { randomUuid } from '@/lib/randomUuid'
 import { applyOptimisticCommand } from '@/lib/workspaceCommands'
 import { useAuthStore } from '@/stores/authStore'
 import type {
@@ -219,7 +220,7 @@ export default function WorkspacePage() {
   const envelope = () => {
     if (!revision) throw new Error('当前版本尚未加载')
     return {
-      command_id: crypto.randomUUID(),
+      command_id: randomUuid(),
       base_revision: revision.revision,
       client_timestamp: new Date().toISOString(),
     }
@@ -263,7 +264,7 @@ export default function WorkspacePage() {
 
   const undo = async () => {
     if (!revision || !previousRevision.current || busy) return
-    const commandId = crypto.randomUUID()
+    const commandId = randomUuid()
     collaboration.publishEditIntent('UNDO', revision.revision)
     setBusy('UNDO')
     suggestions.clear()
@@ -366,7 +367,7 @@ export default function WorkspacePage() {
 
   const createFullAudit = async (): Promise<AuditReport> => {
     const report = await api.postWithHeaders<AuditReport>(
-      `/api/trip-workspaces/${workspaceId}/audits`, {}, { 'Idempotency-Key': crypto.randomUUID() },
+      `/api/trip-workspaces/${workspaceId}/audits`, {}, { 'Idempotency-Key': randomUuid() },
     )
     setFinalReport(report)
     setEvidence(await api.get<EvidenceSnapshot>(`/api/audits/${report.report_id}/evidence`))
@@ -397,7 +398,7 @@ export default function WorkspacePage() {
       const result = await api.postWithHeaders<PreTripRecheckResult>(
         `/api/audits/${recheckableReport.report_id}/pre-trip-recheck`,
         {},
-        { 'Idempotency-Key': crypto.randomUUID() },
+        { 'Idempotency-Key': randomUuid() },
       )
 
       // Re-read the workspace's authoritative references.  This matters when
@@ -425,7 +426,7 @@ export default function WorkspacePage() {
       const result = await api.postWithHeaders<ChangedRouteEdgeRefreshResult>(
         `/api/trip-workspaces/${workspaceId}/revisions/${revision.revision}/changed-route-edges/refresh`,
         {},
-        { 'Idempotency-Key': crypto.randomUUID() },
+        { 'Idempotency-Key': randomUuid() },
       )
       // This is a new immutable audit bundle for the current revision.  The
       // historical pre-edit report remains untouched on the server.
@@ -455,7 +456,7 @@ export default function WorkspacePage() {
       // previously displayed report can be stale after a member constraint or
       // task-spec update even when this browser's itinerary revision is same.
       const report = await createFullAudit()
-      const commandId = crypto.randomUUID()
+      const commandId = randomUuid()
       const result = await api.postWithHeaders<ItineraryPatchResult>(
         `/api/trip-workspaces/${workspaceId}/confirm`,
         {
