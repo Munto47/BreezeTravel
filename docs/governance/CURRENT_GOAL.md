@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.1 可信文本卡片
+# IN_PROGRESS GOAL：V0.1 可信文本卡片
 
 Goal ID: TC-VNEXT-G01-TEXT-CARDS
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Metadata
@@ -9,10 +9,11 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Goal ID：`TC-VNEXT-G01-TEXT-CARDS`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.1`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
-- Canonical integration subject：`origin/develop@1e679dc7e006b84e9a984eba1ace028b291fa493`，远端readback `PASS`
+- Canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`
+- Implementation baseline/upstream：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`，现场`ls-remote`与clean-tree readback `PASS`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
@@ -129,10 +130,14 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Baseline
 
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
-- canonical integration subject：`origin/develop@1e679dc7e006b84e9a984eba1ace028b291fa493`，远端readback `PASS`；
+- canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
+- implementation baseline：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`；写入前`ls-remote`、HEAD与clean-tree一致；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
-- 当前用户可见行为、旧OpenAPI snapshot、Qwen/AMap准入结果：首个preflight现场记录，不从历史推断；
+- 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
+- Qwen live lane：`NOT_READY`（key与通用兼容URL存在；账号region/workspace/exact model ID/价格绑定未确认；当前runtime仍为DeepSeek）；
+- AMap live persistence：`BLOCKED_PENDING_WRITTEN_PERMISSION`（凭据存在但没有持久化书面许可；仅允许fixture且本切片不发起live调用）；
+- 历史Candidate：`HISTORICAL_BINDING_INVALID / FROZEN`；10/10数据、schema和generator绑定有效，validator/scorer/gate绑定失效；不得修改manifest、blind、oracle或冻结证据；
 - G00治理结构验证`structurally_valid=true`；这只证明蓝图结构，不证明V0.1产品能力；
 - 历史Intake/Candidate只作资产基线，不是G01 PASS，不得因此宣称 `V1_CANDIDATE_READY`；
 - H1、公网、生产、商业：`NOT_RUN`。
@@ -177,7 +182,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Verification / Evidence / Gate result：`NOT_RUN / NOT_IMPLEMENTED / PENDING`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`NOT_IMPLEMENTED`；
-- Remaining risks：Qwen/高德准入、现有合同冲突和产品实现均待首个preflight；
+- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；v3产品实现、Text Card Gate和初次地图任务尚未完成；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。

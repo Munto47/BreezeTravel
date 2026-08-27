@@ -4,7 +4,7 @@
 >
 > 版本：`trip-check-api-v3`
 >
-> 实现状态：`NOT_IMPLEMENTED`
+> 实现状态：`G01_S0_BOUNDARY_FROZEN / DEMO_NOT_YET_IMPLEMENTED`
 >
 > 日期：2026-08-27
 
@@ -111,6 +111,20 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
 ## 3. v3 API
 
 所有路径使用现有 `/api` 前缀。
+
+### 3.0 G01 首个纵向切片边界
+
+S0固定以下可公开实现范围，未列出的目标合同仍保持`NOT_IMPLEMENTED`：
+
+- create请求在首切片只接受严格对象`{"mode":"DEMO"}`，未知字段拒绝；`FULL`保留为后续discriminated union分支，真实文本链完成前不得加入OpenAPI或返回fixture伪实现；
+- create响应为`202 TripUnderstandingAcceptedView`：`public_resource_id`、`status`、`message`、`result_url`、`events_url`；资源ID是路由值，不承担授权，也不得渲染到DOM或分析事件；
+- 匿名capability是独立随机秘密，经服务端签名后只写`HttpOnly`、`SameSite=Lax`、`Path=/` cookie；数据库只保存不可逆摘要，公共响应和日志均不含秘密；public profile额外要求`Secure`；
+- result处理中返回`202 TripUnderstandingProgressView`，只含`status / message / retry_after_ms`；卡片可用后返回`200 UserFacingTripResult`和不可逆opaque ETag；
+- `UserFacingTripResult`顶层严格为`status / assumptions / days / map / stay / available_actions`；activity严格为`activity_token / name / category / area_or_address / time_hint / status / available_actions`；
+- events持久化单调游标并接受`Last-Event-ID`，首切片事件类型allowlist为`progress / result_available`，文案allowlist为“正在整理每天行程”“正在核对地点”“卡片已可用”；
+- 首切片的`map.status`与`stay.status`均可诚实返回`UNAVAILABLE`，不得返回内部job/freshness枚举，也不得伪装成Provider正在执行。
+
+首切片不改变后续commands union：写命令仍要求`If-Match + Idempotency-Key`，成功创建新revision和新ETag，并把已有地图公共投影改为`NEEDS_UPDATE`；旧API不成为v3权威。
 
 ### 3.1 创建与结果
 

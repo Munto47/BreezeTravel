@@ -1,0 +1,336 @@
+{
+  "schema_version": "g01-s0-asset-disposition-v1",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "observed_at": "2026-08-27",
+  "baseline": {
+    "branch": "codex/trip-check-product-reset",
+    "upstream": "origin/codex/trip-check-product-reset",
+    "commit": "d114d6a1e9a06b1e26fb62519710e35d50300d70",
+    "origin_develop": "d114d6a1e9a06b1e26fb62519710e35d50300d70"
+  },
+  "allowed_dispositions": [
+    "KEEP",
+    "ADAPT",
+    "FREEZE",
+    "REMOVE_FROM_ENTRY"
+  ],
+  "legacy_openapi": {
+    "snapshot": "packages/trip-check-client/openapi.json",
+    "sha256": "0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81",
+    "path_count": 99,
+    "operation_count": 106,
+    "compatibility_rule": "Every frozen path and HTTP method remains registered; v3 is additive."
+  },
+  "live_container_observation": {
+    "path_count": 94,
+    "v3_path_count": 0,
+    "classification": "LEGACY_CONTAINER_DRIFT",
+    "missing_paths": [
+      "/api/auth/wechat/login",
+      "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches",
+      "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}",
+      "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/commit",
+      "/api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/files/{position}"
+    ]
+  },
+  "source_openapi_observation": {
+    "path_count": 105,
+    "v3_path_count": 0,
+    "legacy_99_missing_methods": [],
+    "paths_not_in_legacy_snapshot": [
+      "/api/rooms/{room_id}/trip-intakes",
+      "/api/rooms/{room_id}/trip-intakes/latest",
+      "/api/rooms/{room_id}/trip-intakes/screenshots",
+      "/api/trip-intakes/{intake_id}/revisions/{revision}",
+      "/api/trip-intakes/{intake_id}/revisions/{revision}/confirm",
+      "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize"
+    ]
+  },
+  "surfaces": {
+    "repository_components": {
+      "observed_count": 6,
+      "assets": [
+        "backend",
+        "frontend",
+        "miniapp",
+        "models",
+        "packages/trip-check-client",
+        "y-websocket"
+      ],
+      "rules": [
+        {
+          "disposition": "KEEP",
+          "patterns": [
+            "miniapp"
+          ]
+        },
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "backend",
+            "frontend",
+            "packages/trip-check-client"
+          ]
+        },
+        {
+          "disposition": "FREEZE",
+          "patterns": [
+            "models",
+            "y-websocket"
+          ]
+        }
+      ]
+    },
+    "pages": {
+      "root": "frontend/src/app",
+      "selector": "**/page.tsx",
+      "observed_count": 12,
+      "rules": [
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "frontend/src/app/page.tsx",
+            "frontend/src/app/about/page.tsx",
+            "frontend/src/app/history/page.tsx",
+            "frontend/src/app/login/page.tsx",
+            "frontend/src/app/profile/page.tsx"
+          ]
+        },
+        {
+          "disposition": "FREEZE",
+          "patterns": [
+            "frontend/src/app/share/*",
+            "frontend/src/app/templates/page.tsx"
+          ]
+        },
+        {
+          "disposition": "REMOVE_FROM_ENTRY",
+          "patterns": [
+            "frontend/src/app/import/page.tsx",
+            "frontend/src/app/intake/page.tsx",
+            "frontend/src/app/room/*",
+            "frontend/src/app/workspace/*"
+          ]
+        }
+      ]
+    },
+    "legacy_openapi_paths": {
+      "source": "packages/trip-check-client/openapi.json",
+      "observed_count": 99,
+      "rules": [
+        {
+          "disposition": "KEEP",
+          "patterns": [
+            "/api/audits/*",
+            "/api/auth/*",
+            "/api/e2e/cleanup",
+            "/api/edit",
+            "/api/evidence/latest",
+            "/api/itinerary/*",
+            "/api/trip-check-runs/*",
+            "/api/user",
+            "/api/user/{user_id}",
+            "/api/user/itineraries",
+            "/api/user/me",
+            "/api/user/profile",
+            "/health",
+            "/metrics",
+            "/metrics/prometheus"
+          ]
+        },
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "/api/cities/supported",
+            "/api/weather"
+          ]
+        },
+        {
+          "disposition": "FREEZE",
+          "patterns": [
+            "/api/chat",
+            "/api/cities/{city}/route-templates",
+            "/api/optimize",
+            "/api/recommend",
+            "/api/route-candidates:rank",
+            "/api/route-hotels:score-area",
+            "/api/route-templates",
+            "/api/route-templates/*",
+            "/api/share/*",
+            "/api/themes",
+            "/api/user/memories*",
+            "/api/user/memory-settings"
+          ]
+        },
+        {
+          "disposition": "REMOVE_FROM_ENTRY",
+          "patterns": [
+            "/api/room",
+            "/api/room/*",
+            "/api/trip-workspaces",
+            "/api/trip-workspaces/*",
+            "/api/user/rooms"
+          ]
+        }
+      ]
+    },
+    "source_api_additions": {
+      "observed_count": 6,
+      "assets": [
+        "/api/rooms/{room_id}/trip-intakes",
+        "/api/rooms/{room_id}/trip-intakes/latest",
+        "/api/rooms/{room_id}/trip-intakes/screenshots",
+        "/api/trip-intakes/{intake_id}/revisions/{revision}",
+        "/api/trip-intakes/{intake_id}/revisions/{revision}/confirm",
+        "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize"
+      ],
+      "rules": [
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "/api/trip-intakes/*"
+          ]
+        },
+        {
+          "disposition": "REMOVE_FROM_ENTRY",
+          "patterns": [
+            "/api/rooms/*"
+          ]
+        }
+      ]
+    },
+    "backend_modules": {
+      "root": "backend/app",
+      "observed_count": 29,
+      "rules": [
+        {
+          "disposition": "KEEP",
+          "patterns": [
+            "backend/app/__init__.py",
+            "backend/app/audit",
+            "backend/app/authentication",
+            "backend/app/constraints",
+            "backend/app/db",
+            "backend/app/itineraries",
+            "backend/app/members",
+            "backend/app/metrics.py",
+            "backend/app/observability",
+            "backend/app/operations",
+            "backend/app/repairs",
+            "backend/app/schemas",
+            "backend/app/services",
+            "backend/app/trip_check",
+            "backend/app/utils"
+          ]
+        },
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "backend/app/api",
+            "backend/app/config.py",
+            "backend/app/data",
+            "backend/app/main.py",
+            "backend/app/tools",
+            "backend/app/trip_intake"
+          ]
+        },
+        {
+          "disposition": "FREEZE",
+          "patterns": [
+            "backend/app/agents",
+            "backend/app/mcp_server.py",
+            "backend/app/memory",
+            "backend/app/rag",
+            "backend/app/route_priors",
+            "backend/app/suggestions",
+            "backend/app/templates"
+          ]
+        },
+        {
+          "disposition": "REMOVE_FROM_ENTRY",
+          "patterns": [
+            "backend/app/importing"
+          ]
+        }
+      ]
+    },
+    "backend_test_groups": {
+      "root": "backend/tests",
+      "selector": "test_*.py",
+      "observed_minimum_count": 220,
+      "default_disposition": "KEEP",
+      "rules": [
+        {
+          "disposition": "ADAPT",
+          "patterns": [
+            "backend/tests/test_g01_*",
+            "backend/tests/test_trip_understanding_v3*"
+          ]
+        },
+        {
+          "disposition": "FREEZE",
+          "patterns": [
+            "backend/tests/test_agent*",
+            "backend/tests/test_auditor*",
+            "backend/tests/test_build_trip_check_p[0-6]*",
+            "backend/tests/test_daily_query*",
+            "backend/tests/test_dual_entry*",
+            "backend/tests/test_eval*",
+            "backend/tests/test_evaluate_auditor*",
+            "backend/tests/test_frozen*",
+            "backend/tests/test_m1_*",
+            "backend/tests/test_planner*",
+            "backend/tests/test_prepare_public_eval.py",
+            "backend/tests/test_public_corpus.py",
+            "backend/tests/test_publish_evidence.py",
+            "backend/tests/test_rag*",
+            "backend/tests/test_real_provider_evidence.py",
+            "backend/tests/test_router*",
+            "backend/tests/test_run_auditor*",
+            "backend/tests/test_*suggestion*",
+            "backend/tests/test_template*",
+            "backend/tests/test_trip_check_*",
+            "backend/tests/test_trip_nlu_v2*"
+          ]
+        }
+      ]
+    }
+  },
+  "frozen_guards": {
+    "baseline": "d114d6a1e9a06b1e26fb62519710e35d50300d70",
+    "pathspecs": [
+      "backend/eval_data/trip_nlu_v2",
+      "backend/eval_data/trip_nlu_v2_remediation",
+      "backend/eval_data/trip_check_v1",
+      "backend/evals/trip_nlu_v2",
+      "backend/evals/trip_check_v1",
+      "backend/evidence/trip_check_v1",
+      ":(glob)backend/tests/test_trip_check_p*.py",
+      "backend/tests/test_trip_nlu_v2_gate.py",
+      ":(glob)backend/tests/test_frozen*.py",
+      ":(glob)backend/tests/test_dual_entry*.py"
+    ]
+  },
+  "historical_candidate": {
+    "classification": "HISTORICAL_BINDING_INVALID / FROZEN",
+    "pytest_result": "18 passed / 3 skipped / 2 failed",
+    "data_file_hashes": "10/10 valid",
+    "valid_bindings": [
+      "schema_sha256",
+      "generator_sha256"
+    ],
+    "invalid_bindings": [
+      "validator_sha256",
+      "scorer_sha256",
+      "gate_sha256"
+    ],
+    "temporary_diagnostic": "Current evaluator bindings validate all 120 public cases; an in-repository blind path is still rejected.",
+    "mutation_authority": "NONE"
+  },
+  "provider_readback": {
+    "qwen_live_lane": "NOT_READY",
+    "qwen_reason": "A key and generic compatible URL are present, but account region, workspace, exact model ID and account price binding are not confirmed; runtime remains DeepSeek-bound.",
+    "amap_live_persistence": "BLOCKED_PENDING_WRITTEN_PERMISSION",
+    "amap_reason": "Credentials exist, but persistence rights are not established under the current standard terms; G01 uses fixtures and performs no live call."
+  }
+}
