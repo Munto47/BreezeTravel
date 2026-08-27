@@ -137,7 +137,7 @@ G01新建语义/地点数据集：
 - 15 条其他城市；
 - 15 条多城市、URL、描述、备选、否定和经过地点对抗样本；
 - 54 dev / 18 validation / 18 sealed blind；
-- 当前 19 条用户文本只作 regression，不进入 blind；
+- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不进入regression、oracle或blind；G01的90条数据必须按本Program重新生成、双人标注并冻结；
 - 双人独立标注，冲突裁决；
 - blind schema/oracle冻结后禁止修改；标签由独立custodian保管，开发代理和运行模型不可读；
 - Max/Plus/Flash只在dev/validation选择，唯一候选、prompt、schema、threshold和最小预测分母冻结后才运行sealed blind一次；

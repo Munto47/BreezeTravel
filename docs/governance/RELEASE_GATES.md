@@ -64,7 +64,7 @@ G00必须同时满足：
 
 - 90条family-isolated主集：54 dev / 18 validation / 18 sealed blind；
 - 北京/上海/杭州60条、其他城市15条、对抗15条；
-- 当前19条用户文本只作regression；
+- 已删除的旧根`tests/`旅行文本不得作为regression、oracle或Gate证据；
 - 双人独立标注与冲突裁决；
 - family不跨split。
 

@@ -12,6 +12,8 @@ BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图�
 
 当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。Blueprint 1.0是目标合同，v3能力目前标记为`NOT_IMPLEMENTED`；现有文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand和PostgreSQL恢复只是可复用底座。
 
+`origin/develop`是唯一集成基线；当前分支收口、已合并资产和冻结分支见[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)。新开发不得从历史实验分支继续生长。
+
 以下是冻结的历史技术资产，不再作为产品愿景或无条件完成声明：
 
 - LangGraph/ReAct/Critic 与多 Agent Planner；
@@ -93,12 +95,16 @@ npm run build
 ```text
 backend/             FastAPI、领域模型、Provider、migration、测试与 evidence
 frontend/            Next.js UI 与浏览器测试
+miniapp/             已纳入Git的Taro小程序与自动化测试（当前为可复用客户端资产）
+packages/            共享trip-check-client合同与生成类型
 y-websocket/         历史协同服务（冻结资产）
 docs/product/        当前产品章程、目标规格与v3 API合同
 docs/governance/     Program、Roadmap、Goal 合同、Release Gates 与基线
 docs/adr/            架构决策
 docs/archive/        历史方案与 Review
 ```
+
+根目录旧`tests/`旅行文本草稿已按项目所有者要求删除并禁止重新提交；自动化测试仍位于`backend/tests/`、前端测试目录和`miniapp/__test__/`。
 
 ## 能力声明边界
 

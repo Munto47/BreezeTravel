@@ -12,6 +12,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Status：`APPROVED`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
+- Canonical integration base：`origin/develop`；本次分支收口完成后记录exact commit与readback
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
@@ -82,7 +83,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 - 90条：54 dev / 18 validation / 18 sealed blind；
 - 三城60、其他城市15、对抗15；
-- 当前19条用户文本只作regression；
+- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不再作为regression、oracle或当前数据源；G01必须从本合同的90条受治理数据重新建立可复现基线；
 - 双人独立标注、冲突裁决、family隔离；
 - validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
 - blind标签由独立custodian保管；只在dev/validation选模，唯一候选冻结后blind一次。
@@ -128,6 +129,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Baseline
 
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
+- canonical integration：`origin/develop`；分支收口subject push/readback后填写exact commit；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 当前用户可见行为、旧OpenAPI snapshot、Qwen/AMap准入结果：首个preflight现场记录，不从历史推断；
@@ -159,6 +161,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|
 | 2026-08-27 | Blueprint完成并激活V0.1可信文本卡片Goal；尚未修改产品代码 | `f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac` | G00 Blueprint Gate `PASS`；单active Goal结构检查；remote readback `PASS` | `BLUEPRINT_ONLY` | 依赖readback、代码/合同现场审计与G01纵向切片 | Qwen/高德准入尚未现场确认 | 执行G01首个preflight与当前实现/合同审计 |
+| 2026-08-27 | 完成全仓分支与worktree审计；确认miniapp源码已入Git，删除根临时`tests/`并建立唯一develop基线规则 | consolidation subject（本commit，exact hash由readback receipt记录） | Ruff、Web build、共享client typecheck/build、小程序typecheck/7 tests/build、双入口结构检查、12项治理兼容均PASS；backend全量2017 PASS/32 SKIP/3 FAIL | `REPOSITORY_CONSOLIDATION_WITH_LEGACY_FAILURES` | push、develop快进、远端树回读、本地develop同步 | backend 3项均是未改动旧NLU冻结数据/代码绑定：1项由缺失LF属性导致，2项旧candidate manifest绑定已漂移；另有两个旧P5 v5 worktree未提交草稿，全部不并入 | 添加remediation LF属性；提交收口subject并在新checkout复核旧门禁 |
 
 ## Auto-advance
 
@@ -170,7 +173,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 - Status：`PENDING`；
 - Subject commits：`PENDING`；
-- Remote branch：`origin/codex/trip-check-product-reset`；
+- Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
 - Verification / Evidence / Gate result：`NOT_RUN / NOT_IMPLEMENTED / PENDING`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`NOT_IMPLEMENTED`；

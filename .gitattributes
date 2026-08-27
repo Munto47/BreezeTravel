@@ -10,6 +10,7 @@ backend/evals/trip_check_v1/p5/sealed/*.json -text
 backend/app/data/amap_mock_places.json text eol=lf
 backend/evals/fixtures/trip_check_provider_integrity_v1.json text eol=lf
 backend/eval_data/trip_nlu_v2/** text eol=lf
+backend/eval_data/trip_nlu_v2_remediation/** text eol=lf
 
 # Preserve imported itinerary text fixtures byte-for-byte. Their original
 # whitespace and CRLF layout are source data, not formatting to normalize.

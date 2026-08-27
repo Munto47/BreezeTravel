@@ -40,6 +40,10 @@ build/
 .turbo/
 .swc/
 
+# Owner-removed root itinerary drafts. Automated suites remain under
+# backend/tests/, frontend tests, and miniapp/__test__/.
+/tests/
+
 # 数据库
 *.db
 *.sqlite

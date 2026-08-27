@@ -73,7 +73,7 @@
 
 - 90条：54 dev / 18 validation / 18 sealed blind；
 - 三城60、其他城市15、对抗15；
-- 当前19条用户文本只作regression；
+- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不再作为regression、oracle或数据源；本Goal从90条受治理数据重新建立基线；
 - 双人独立标注、冲突裁决、family隔离；
 - validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
 - blind标签由独立custodian保管；只在dev/validation选模，唯一候选冻结后blind一次。

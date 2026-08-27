@@ -27,6 +27,8 @@
 - `archive/`：被取代的方案和 Review，只供追溯，不驱动当前开发；
 - `interview-review/`：面试复习资料，不参与产品门禁。
 
+分支与worktree的统一边界见[`governance/BRANCH_CONSOLIDATION.md`](governance/BRANCH_CONSOLIDATION.md)。只有从当前`origin/develop`创建、并携带同一份根`AGENTS.md`与`CURRENT_GOAL.md`的分支可以继续写入。
+
 ## 历史方案
 
 Final 2.0 已归档到 [`archive/plans/BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md`](archive/plans/BreezeTravel_双入口可验证行程产品与架构重构最终方案_2026-08-20.md)。原路径保留迁移说明，避免历史链接失效，但不再具有权威效力。
