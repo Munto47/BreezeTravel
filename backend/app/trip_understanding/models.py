@@ -218,6 +218,82 @@ class CreateOutcome(StrictModel):
     replayed: bool = False
 
 
+class ActivityInsertCommand(StrictModel):
+    command_type: Literal["ACTIVITY_INSERT"]
+    day_index: int = Field(ge=1, le=14)
+    position: int = Field(ge=0, le=80)
+    name: str = Field(min_length=1, max_length=40)
+    category: str = Field(default="地点", min_length=1, max_length=40)
+    area_or_address: str = Field(default="地点待确认", min_length=1, max_length=120)
+    time_hint: str | None = Field(default=None, max_length=80)
+
+
+class ActivityDeleteCommand(StrictModel):
+    command_type: Literal["ACTIVITY_DELETE"]
+    activity_token: str = Field(min_length=20, max_length=80)
+
+
+class ActivityMoveCommand(StrictModel):
+    command_type: Literal["ACTIVITY_MOVE"]
+    activity_token: str = Field(min_length=20, max_length=80)
+    target_day_index: int = Field(ge=1, le=14)
+    target_position: int = Field(ge=0, le=80)
+
+
+class ActivityTextEditCommand(StrictModel):
+    command_type: Literal["ACTIVITY_TEXT_EDIT"]
+    activity_token: str = Field(min_length=20, max_length=80)
+    name: str | None = Field(default=None, min_length=1, max_length=40)
+    time_hint: str | None = Field(default=None, max_length=80)
+
+    @model_validator(mode="after")
+    def has_edit(self) -> "ActivityTextEditCommand":
+        if self.name is None and self.time_hint is None:
+            raise ValueError("activity text edit requires name or time_hint")
+        return self
+
+
+class PlaceReplacementInput(StrictModel):
+    name: str = Field(min_length=1, max_length=40)
+    category: str = Field(min_length=1, max_length=40)
+    area_or_address: str = Field(min_length=1, max_length=120)
+
+
+class PlaceReplaceCommand(StrictModel):
+    command_type: Literal["PLACE_REPLACE"]
+    activity_token: str = Field(min_length=20, max_length=80)
+    replacement: PlaceReplacementInput
+
+
+class AssumptionSetCommand(StrictModel):
+    command_type: Literal["ASSUMPTION_SET"]
+    key: Literal["destination", "calendar", "party_size"]
+    value: str = Field(min_length=1, max_length=100)
+
+
+TripUnderstandingCommand = Annotated[
+    ActivityInsertCommand
+    | ActivityDeleteCommand
+    | ActivityMoveCommand
+    | ActivityTextEditCommand
+    | PlaceReplaceCommand
+    | AssumptionSetCommand,
+    Field(discriminator="command_type"),
+]
+
+
+class CommandAppliedView(StrictModel):
+    status: Literal["APPLIED"] = "APPLIED"
+    changed_days: list[str]
+    map_readiness: Literal["NEEDS_UPDATE"] = "NEEDS_UPDATE"
+
+
+class CommandOutcome(StrictModel):
+    applied: CommandAppliedView
+    opaque_etag: str
+    replayed: bool = False
+
+
 class TripUnderstandingJobRecord(StrictModel):
     job_id: str
     understanding_id: str

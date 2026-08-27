@@ -10,9 +10,10 @@ import asyncpg
 import pytest
 
 from app.trip_understanding.demo import DEMO_SOURCE_TEXT, build_demo_pipeline
-from app.trip_understanding.errors import ResourceAccessDeniedError
+from app.trip_understanding.errors import ResourceAccessDeniedError, RevisionConflictError
 from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.models import ActivityMoveCommand
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
 from app.trip_understanding.source_crypto import SourceCipher
@@ -198,6 +199,76 @@ Day 3：颐和园、圆明园。
                 """,
                 full_resource.understanding_id,
             )
+
+        first_token = full_result.result.days[0].activities[0].activity_token
+        move = ActivityMoveCommand(
+            command_type="ACTIVITY_MOVE",
+            activity_token=first_token,
+            target_day_index=3,
+            target_position=1,
+        )
+        command_request_hash = canonical_sha256(
+            {
+                "command": move.model_dump(mode="json"),
+                "if_match": full_result.opaque_etag,
+            }
+        )
+        command_outcome = await repository.apply_command(
+            full_resource,
+            move,
+            expected_etag=full_result.opaque_etag,
+            idempotency_key="postgres-move",
+            request_hash=command_request_hash,
+            now=now,
+        )
+        assert command_outcome.applied.changed_days == ["Day 1", "Day 3"]
+        replayed_command = await repository.apply_command(
+            full_resource,
+            move,
+            expected_etag=full_result.opaque_etag,
+            idempotency_key="postgres-move",
+            request_hash=command_request_hash,
+            now=now,
+        )
+        assert replayed_command.replayed is True
+        assert replayed_command.opaque_etag == command_outcome.opaque_etag
+        with pytest.raises(RevisionConflictError):
+            await repository.apply_command(
+                full_resource,
+                move,
+                expected_etag=full_result.opaque_etag,
+                idempotency_key="postgres-stale-move",
+                request_hash=command_request_hash,
+                now=now,
+            )
+        updated_resource = await repository.authorize(
+            full_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+        updated_result = await repository.get_result(updated_resource)
+        assert updated_result is not None
+        assert updated_result.opaque_etag == command_outcome.opaque_etag
+        assert updated_result.result.map.status == "NEEDS_UPDATE"
+        assert [item.name for item in updated_result.result.days[2].activities] == [
+            "颐和园",
+            "故宫博物院",
+            "圆明园",
+        ]
+        async with pool.acquire() as conn:
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_revisions WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) == 3
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_jobs WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) == 1
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_side_effect_receipts WHERE job_id = $1",
+                full_job.job_id,
+            ) == 1
             assert encrypted is not None
             assert full_text.encode("utf-8") not in bytes(encrypted)
             assert await conn.fetchval(

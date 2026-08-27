@@ -47,6 +47,46 @@ export interface UserFacingTripResult {
   available_actions: Array<'EDIT_ASSUMPTIONS' | 'EDIT_CARDS'>
 }
 
+export type TripUnderstandingCommand =
+  | {
+      command_type: 'ACTIVITY_INSERT'
+      day_index: number
+      position: number
+      name: string
+      category?: string
+      area_or_address?: string
+      time_hint?: string | null
+    }
+  | { command_type: 'ACTIVITY_DELETE'; activity_token: string }
+  | {
+      command_type: 'ACTIVITY_MOVE'
+      activity_token: string
+      target_day_index: number
+      target_position: number
+    }
+  | {
+      command_type: 'ACTIVITY_TEXT_EDIT'
+      activity_token: string
+      name?: string
+      time_hint?: string | null
+    }
+  | {
+      command_type: 'PLACE_REPLACE'
+      activity_token: string
+      replacement: { name: string; category: string; area_or_address: string }
+    }
+  | {
+      command_type: 'ASSUMPTION_SET'
+      key: 'destination' | 'calendar' | 'party_size'
+      value: string
+    }
+
+export interface CommandAppliedView {
+  status: 'APPLIED'
+  changed_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
+}
+
 function requestKey(): string {
   const values = new Uint32Array(4)
   crypto.getRandomValues(values)
@@ -110,6 +150,38 @@ export async function readTripUnderstandingResult(publicResourceId: string): Pro
     status: response.status,
     body: (await response.json()) as TripUnderstandingProgressView | UserFacingTripResult,
     etag: response.headers.get('etag'),
+  }
+}
+
+export async function applyTripUnderstandingCommand(
+  publicResourceId: string,
+  etag: string,
+  command: TripUnderstandingCommand,
+): Promise<{ body: CommandAppliedView; etag: string }> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/commands`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': requestKey(),
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify(command),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 428) throw new Error('IF_MATCH_REQUIRED')
+    throw new Error('COMMAND_FAILED')
+  }
+  const nextEtag = response.headers.get('etag')
+  if (!nextEtag) throw new Error('COMMAND_ETAG_MISSING')
+  return {
+    body: (await response.json()) as CommandAppliedView,
+    etag: nextEtag,
   }
 }
 

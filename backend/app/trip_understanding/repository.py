@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from app.config import get_settings
 from app.db.connection import get_pool
+from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -18,12 +19,17 @@ from app.trip_understanding.errors import (
     IdempotencyConflictError,
     IdempotencyInProgressError,
     JobLeaseLostError,
+    ResourceNotReadyError,
     ResourceAccessDeniedError,
     ResourceGoneError,
     ResourceNotFoundError,
+    RevisionConflictError,
     SourceUnavailableError,
 )
 from app.trip_understanding.models import (
+    ActivityTextEditCommand,
+    CommandAppliedView,
+    CommandOutcome,
     CreateOutcome,
     PipelineOutput,
     PublicEventPayload,
@@ -32,6 +38,7 @@ from app.trip_understanding.models import (
     StoredResult,
     TripUnderstandingAcceptedView,
     TripUnderstandingJobRecord,
+    TripUnderstandingCommand,
     TripUnderstandingSourcePayload,
     UserFacingTripResult,
 )
@@ -100,6 +107,17 @@ class TripUnderstandingRepository(Protocol):
     ) -> PublicResourceRecord: ...
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None: ...
+
+    async def apply_command(
+        self,
+        resource: PublicResourceRecord,
+        command: TripUnderstandingCommand,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> CommandOutcome: ...
 
     async def list_events(
         self,
@@ -600,6 +618,284 @@ class PostgresTripUnderstandingRepository:
             opaque_etag=row["opaque_etag"],
         )
 
+    async def apply_command(
+        self,
+        resource: PublicResourceRecord,
+        command: TripUnderstandingCommand,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> CommandOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        scope = f"understanding:{resource.understanding_id}:command"
+        key_hash = _sha256_text(idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING
+                RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json, response_headers_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different request"
+                    )
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError("matching command is still in progress")
+                headers = _json_value(existing["response_headers_json"])
+                return CommandOutcome(
+                    applied=CommandAppliedView.model_validate(_json_value(existing["response_json"])),
+                    opaque_etag=str(headers["ETag"]).strip('"'),
+                    replayed=True,
+                )
+
+            aggregate = await conn.fetchrow(
+                "SELECT * FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
+                resource.understanding_id,
+            )
+            if aggregate is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if aggregate["state"] == "DELETED":
+                raise ResourceGoneError("trip resource is no longer available")
+            if aggregate["current_result_id"] is None:
+                raise ResourceNotReadyError("trip cards are not ready for editing")
+            current = await conn.fetchrow(
+                """
+                SELECT r.source_id, r.destination_json, r.assumptions_json,
+                       result.public_json, result.opaque_etag
+                FROM trip_understanding_revisions r
+                JOIN trip_understanding_results result
+                  ON result.understanding_id = r.understanding_id
+                 AND result.revision = r.revision
+                WHERE r.understanding_id = $1 AND r.revision = $2
+                """,
+                resource.understanding_id,
+                aggregate["current_revision"],
+            )
+            if current is None:
+                raise ResourceNotReadyError("current trip result is unavailable")
+            if not hmac.compare_digest(current["opaque_etag"], expected_etag):
+                raise RevisionConflictError("command precondition does not match current result")
+
+            current_result = UserFacingTripResult.model_validate(_json_value(current["public_json"]))
+            mutation = apply_public_command(current_result, command)
+            public_payload = mutation.result.model_dump(mode="json")
+            public_hash = canonical_sha256(public_payload)
+            parent_revision = int(aggregate["current_revision"])
+            result_revision = parent_revision + 1
+            terminal_state = "READY" if mutation.result.status == "READY" else "PARTIAL"
+            destination = _json_value(current["destination_json"])
+            assumptions = _json_value(current["assumptions_json"])
+            if command.command_type == "ASSUMPTION_SET":
+                assumptions = [item for item in assumptions if item.get("key") != command.key]
+                assumptions.append(
+                    {"key": command.key, "value": command.value, "source": "USER_EDIT"}
+                )
+                if command.key == "destination":
+                    destination = {"name": command.value, "status": "USER_EDITED"}
+            revision_content = {
+                "parent_revision": parent_revision,
+                "command_hash": request_hash,
+                "public_hash": public_hash,
+            }
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_revisions (
+                    understanding_id, revision, parent_revision, source_id, status,
+                    content_hash, destination_json, assumptions_json, proposal_json,
+                    inference_binding_json, compiler_receipt_json, created_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb,
+                    $10::jsonb, $11::jsonb, $12
+                )
+                """,
+                resource.understanding_id,
+                result_revision,
+                parent_revision,
+                current["source_id"],
+                terminal_state,
+                canonical_sha256(revision_content),
+                json.dumps(destination, ensure_ascii=False),
+                json.dumps(assumptions, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "kind": "USER_EDIT",
+                        "command_type": command.command_type,
+                        "source_quotes": "PARENT_REVISION_ONLY",
+                    },
+                    ensure_ascii=False,
+                ),
+                json.dumps(
+                    {"provider_calls": 0, "route_provider_calls": 0},
+                    ensure_ascii=False,
+                ),
+                json.dumps(
+                    {"kind": "USER_EDIT", "source_claims_copied": 0},
+                    ensure_ascii=False,
+                ),
+                now,
+            )
+
+            current_activities = await conn.fetch(
+                """
+                SELECT * FROM trip_understanding_activities
+                WHERE understanding_id = $1 AND revision = $2
+                ORDER BY day_index NULLS LAST, sequence_index, activity_id
+                """,
+                resource.understanding_id,
+                parent_revision,
+            )
+            old_by_token = {row["public_activity_token"]: row for row in current_activities}
+            old_token_by_new = {new: old for old, new in mutation.token_map.items()}
+            invalidated_token = None
+            if command.command_type == "PLACE_REPLACE":
+                invalidated_token = command.activity_token
+            elif isinstance(command, ActivityTextEditCommand) and command.name is not None:
+                invalidated_token = command.activity_token
+            for day_index, day in enumerate(mutation.result.days, start=1):
+                for sequence_index, card in enumerate(day.activities):
+                    old_token = old_token_by_new.get(card.activity_token)
+                    old = old_by_token.get(old_token) if old_token else None
+                    preserve_resolution = old is not None and old_token != invalidated_token
+                    resolver_receipt = (
+                        _json_value(old["resolver_receipt_json"])
+                        if preserve_resolution
+                        else {
+                            "status": "USER_EDITED_NEEDS_CONFIRMATION",
+                            "category": card.category,
+                            "area_or_address": card.area_or_address,
+                            "external_calls": 0,
+                        }
+                    )
+                    await conn.execute(
+                        """
+                        INSERT INTO trip_understanding_activities (
+                            activity_id, understanding_id, revision, public_activity_token,
+                            day_index, sequence_index, role, mention_text, atomic_place_name,
+                            category_hint, time_hint, eligible_for_place_search,
+                            resolution_status, canonical_place_id, resolver_receipt_json, created_at
+                        ) VALUES (
+                            $1, $2, $3, $4, $5, $6, 'PLANNED', $7, $7, $8, $9,
+                            $10, $11, $12, $13::jsonb, $14
+                        )
+                        """,
+                        str(uuid4()),
+                        resource.understanding_id,
+                        result_revision,
+                        card.activity_token,
+                        day_index,
+                        sequence_index,
+                        card.name,
+                        card.category,
+                        card.time_hint,
+                        bool(old["eligible_for_place_search"]) if preserve_resolution else False,
+                        old["resolution_status"] if preserve_resolution else "NEEDS_CONFIRMATION",
+                        old["canonical_place_id"] if preserve_resolution else None,
+                        json.dumps(resolver_receipt, ensure_ascii=False),
+                        now,
+                    )
+            for old in current_activities:
+                if old["role"] == "PLANNED":
+                    continue
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_activities (
+                        activity_id, understanding_id, revision, public_activity_token,
+                        day_index, sequence_index, role, mention_text, atomic_place_name,
+                        category_hint, time_hint, eligible_for_place_search,
+                        resolution_status, canonical_place_id, resolver_receipt_json, created_at
+                    ) VALUES (
+                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                        $12, $13, $14, $15::jsonb, $16
+                    )
+                    """,
+                    str(uuid4()),
+                    resource.understanding_id,
+                    result_revision,
+                    secrets.token_urlsafe(24),
+                    old["day_index"],
+                    old["sequence_index"],
+                    old["role"],
+                    old["mention_text"],
+                    old["atomic_place_name"],
+                    old["category_hint"],
+                    old["time_hint"],
+                    old["eligible_for_place_search"],
+                    old["resolution_status"],
+                    old["canonical_place_id"],
+                    json.dumps(_json_value(old["resolver_receipt_json"]), ensure_ascii=False),
+                    now,
+                )
+
+            result_id = str(uuid4())
+            opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_results (
+                    result_id, understanding_id, revision, public_json,
+                    public_sha256, opaque_etag, created_at
+                ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+                """,
+                result_id,
+                resource.understanding_id,
+                result_revision,
+                json.dumps(public_payload, ensure_ascii=False),
+                public_hash,
+                opaque_etag,
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understandings
+                SET state = $2, current_revision = $3, result_revision = $3,
+                    current_result_id = $4, updated_at = $5
+                WHERE understanding_id = $1
+                """,
+                resource.understanding_id,
+                terminal_state,
+                result_revision,
+                result_id,
+                now,
+            )
+            applied = CommandAppliedView(changed_days=mutation.changed_days)
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 200,
+                    response_json = $3::jsonb, response_headers_json = $4::jsonb,
+                    lease_until = NULL, completed_at = $5
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps(applied.model_dump(mode="json"), ensure_ascii=False),
+                json.dumps({"ETag": f'"{opaque_etag}"'}, ensure_ascii=False),
+                now,
+            )
+        return CommandOutcome(applied=applied, opaque_etag=opaque_etag)
+
     async def list_events(
         self,
         resource: PublicResourceRecord,
@@ -1028,6 +1324,7 @@ class InMemoryTripUnderstandingRepository:
         self.results: dict[str, StoredResult] = {}
         self.side_effects: dict[str, tuple[str, str]] = {}
         self.sources: dict[str, TripUnderstandingSourcePayload] = {}
+        self.command_idempotency: dict[tuple[str, str], tuple[str, CommandOutcome]] = {}
 
     async def create_demo(
         self,
@@ -1194,6 +1491,54 @@ class InMemoryTripUnderstandingRepository:
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None:
         return self.results.get(resource.current_result_id or "")
+
+    async def apply_command(
+        self,
+        resource: PublicResourceRecord,
+        command: TripUnderstandingCommand,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> CommandOutcome:
+        del now
+        scope = f"understanding:{resource.understanding_id}:command"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.command_idempotency.get(key)
+        if existing:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError(
+                    "idempotency key was already used with a different request"
+                )
+            return existing[1].model_copy(update={"replayed": True})
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        aggregate = self.resources[public_id]
+        stored = self.results.get(aggregate["current_result_id"] or "")
+        if stored is None:
+            raise ResourceNotReadyError("trip cards are not ready for editing")
+        if not hmac.compare_digest(stored.opaque_etag, expected_etag):
+            raise RevisionConflictError("command precondition does not match current result")
+        mutation = apply_public_command(stored.result, command)
+        result_id = str(uuid4())
+        opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
+        self.results[result_id] = StoredResult(
+            result=mutation.result,
+            opaque_etag=opaque_etag,
+        )
+        aggregate.update(
+            {
+                "state": "READY" if mutation.result.status == "READY" else "PARTIAL",
+                "current_result_id": result_id,
+                "current_revision": aggregate["current_revision"] + 1,
+            }
+        )
+        outcome = CommandOutcome(
+            applied=CommandAppliedView(changed_days=mutation.changed_days),
+            opaque_etag=opaque_etag,
+        )
+        self.command_idempotency[key] = (request_hash, outcome)
+        return outcome
 
     async def list_events(
         self,

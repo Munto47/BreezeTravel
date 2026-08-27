@@ -36,3 +36,15 @@ class JobLeaseLostError(TripUnderstandingError):
 
 class SourceUnavailableError(TripUnderstandingError):
     pass
+
+
+class RevisionConflictError(TripUnderstandingError):
+    pass
+
+
+class ResourceNotReadyError(TripUnderstandingError):
+    pass
+
+
+class CommandTargetChangedError(TripUnderstandingError):
+    pass

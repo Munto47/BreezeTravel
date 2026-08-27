@@ -11,17 +11,22 @@ from app.config import get_settings
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
+    CommandTargetChangedError,
     ConcurrentJobLimitError,
     IdempotencyConflictError,
     IdempotencyInProgressError,
     ResourceAccessDeniedError,
     ResourceGoneError,
+    ResourceNotReadyError,
     ResourceNotFoundError,
+    RevisionConflictError,
 )
 from app.trip_understanding.models import (
+    CommandAppliedView,
     CreateFullRequest,
     CreateTripUnderstandingRequest,
     TripUnderstandingAcceptedView,
+    TripUnderstandingCommand,
     TripUnderstandingProgressView,
     UserFacingTripResult,
 )
@@ -63,6 +68,28 @@ def _require_idempotency_key(raw: str | None) -> str:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_IDEMPOTENCY_KEY", "message": "请求标识过长，请重新开始"},
+        )
+    return value
+
+
+def _require_if_match(raw: str | None) -> str:
+    if raw is None or not raw.strip():
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail={"code": "IF_MATCH_REQUIRED", "message": "请先刷新到最新卡片"},
+        )
+    value = raw.strip()
+    if value.startswith("W/") or "," in value or len(value) < 3:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_IF_MATCH", "message": "版本标识无效，请刷新后重试"},
+        )
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1]
+    if not value.startswith("tu3_") or len(value) > 120:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_IF_MATCH", "message": "版本标识无效，请刷新后重试"},
         )
     return value
 
@@ -209,6 +236,67 @@ async def get_trip_understanding_result(
         return TripUnderstandingProgressView(message="正在整理每天行程")
     response.headers["ETag"] = f'"{stored.opaque_etag}"'
     return stored.result
+
+
+@router.post(
+    "/{public_resource_id}/commands",
+    response_model=CommandAppliedView,
+)
+async def apply_trip_understanding_command(
+    public_resource_id: str,
+    body: TripUnderstandingCommand,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    expected_etag = _require_if_match(if_match)
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(repository).apply_command(
+            resource,
+            body,
+            expected_etag=expected_etag,
+            idempotency_key=key,
+        )
+    except RevisionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REVISION_CONFLICT", "message": "卡片已经更新，请刷新后再试"},
+        ) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CARDS_NOT_READY", "message": "卡片还在整理，请稍后再试"},
+        ) from exc
+    except CommandTargetChangedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "COMMAND_TARGET_CHANGED", "message": "这张卡片已经变化，请刷新后再试"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新执行这次调整"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在处理同一个调整，请稍后查看"},
+        ) from exc
+    response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.applied
 
 
 def _parse_last_event_id(raw: str | None) -> int:

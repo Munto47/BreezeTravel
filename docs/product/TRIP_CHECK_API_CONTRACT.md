@@ -151,14 +151,14 @@ S0首先冻结DEMO边界；随后FULL文本纵向切片在同一持久链上开�
 
 命令 union：
 
-- `ACTIVITY_INSERT`；
-- `ACTIVITY_DELETE`；
-- `ACTIVITY_MOVE`；
-- `ACTIVITY_TEXT_EDIT`；
-- `PLACE_REPLACE`；
-- `ASSUMPTION_SET`。
+- `ACTIVITY_INSERT`：`day_index / position / name / category? / area_or_address? / time_hint?`；用户输入的新地点保持`NEEDS_CONFIRMATION`，不自动查询Provider；
+- `ACTIVITY_DELETE`：`activity_token`；
+- `ACTIVITY_MOVE`：`activity_token / target_day_index / target_position`；
+- `ACTIVITY_TEXT_EDIT`：`activity_token`加`name / time_hint`至少一项；名称变化会撤销旧地点匹配，只有时间变化保留地点身份；
+- `PLACE_REPLACE`：`activity_token / replacement{name,category,area_or_address}`；在候选选择合同接入前仍保持`NEEDS_CONFIRMATION`；
+- `ASSUMPTION_SET`：`key=destination|calendar|party_size / value`。
 
-成功返回新的用户结果 ETag、changed days 和 `map_readiness=NEEDS_UPDATE`；不得返回内部freshness，也不得自动调用路线 Provider。
+请求对象以`command_type`为discriminator并拒绝未知字段。成功严格返回`status=APPLIED / changed_days / map_readiness=NEEDS_UPDATE`及响应头中的新ETag；卡片token随revision轮换，客户端必须回读新结果。不得返回内部freshness，也不得自动调用路线 Provider。相同幂等键和相同请求重放原响应，即使其原If-Match此时已过期；新幂等键携带旧ETag则返回`409 REVISION_CONFLICT`。
 
 ### 3.3 地图
 

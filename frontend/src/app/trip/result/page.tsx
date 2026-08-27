@@ -7,11 +7,17 @@ import {
   ArrowRight,
   BedDouble,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
   Compass,
   Map,
   MapPin,
+  Pencil,
+  Plus,
+  Replace,
   Sparkles,
+  Trash2,
   Users,
   X,
 } from 'lucide-react'
@@ -19,7 +25,9 @@ import type { LucideIcon } from 'lucide-react'
 
 import {
   type ActivityCardView,
+  type TripUnderstandingCommand,
   type UserFacingTripResult,
+  applyTripUnderstandingCommand,
   readTripUnderstandingResult,
   streamTripUnderstandingEvents,
 } from '@/lib/trip-understanding-v3'
@@ -32,20 +40,45 @@ const ASSUMPTION_ICONS = {
 }
 
 
+type SelectedCard = {
+  card: ActivityCardView
+  dayIndex: number
+  position: number
+}
+
+type EditorState = {
+  mode: 'INSERT' | 'EDIT' | 'REPLACE'
+  dayIndex: number
+  position: number
+  card?: ActivityCardView
+}
+
+
 export default function TripResultPage() {
   const router = useRouter()
   const [resourceRef, setResourceRef] = useState<string | null>(null)
   const [result, setResult] = useState<UserFacingTripResult | null>(null)
+  const [etag, setEtag] = useState<string | null>(null)
   const [message, setMessage] = useState('正在整理每天行程')
   const [error, setError] = useState('')
-  const [selected, setSelected] = useState<ActivityCardView | null>(null)
+  const [commandError, setCommandError] = useState('')
+  const [isApplying, setIsApplying] = useState(false)
+  const [selected, setSelected] = useState<SelectedCard | null>(null)
+  const [editor, setEditor] = useState<EditorState | null>(null)
+  const [editorName, setEditorName] = useState('')
+  const [editorCategory, setEditorCategory] = useState('地点')
+  const [editorAddress, setEditorAddress] = useState('地点待确认')
+  const [editorTime, setEditorTime] = useState('')
 
   const refresh = useCallback(async (reference: string) => {
     try {
       const response = await readTripUnderstandingResult(reference)
       if (response.body.status !== 'PROCESSING') {
         setResult(response.body)
-        if (response.etag) sessionStorage.setItem('bt_active_trip_etag', response.etag)
+        if (response.etag) {
+          setEtag(response.etag)
+          sessionStorage.setItem('bt_active_trip_etag', response.etag)
+        }
         setMessage('卡片已可用')
         return true
       }
@@ -56,6 +89,74 @@ export default function TripResultPage() {
       return false
     }
   }, [])
+
+  const runCommand = useCallback(async (command: TripUnderstandingCommand) => {
+    if (!resourceRef || !etag || isApplying) return
+    setIsApplying(true)
+    setCommandError('')
+    try {
+      const applied = await applyTripUnderstandingCommand(resourceRef, etag, command)
+      setEtag(applied.etag)
+      sessionStorage.setItem('bt_active_trip_etag', applied.etag)
+      await refresh(resourceRef)
+      setSelected(null)
+      setEditor(null)
+    } catch (commandFailure) {
+      if (commandFailure instanceof Error && commandFailure.message === 'REVISION_CONFLICT') {
+        setCommandError('卡片刚刚有更新，已为你读取最新版本，请再试一次。')
+        await refresh(resourceRef)
+      } else {
+        setCommandError('这次调整暂时没有保存，卡片内容没有丢失。')
+      }
+    } finally {
+      setIsApplying(false)
+    }
+  }, [etag, isApplying, refresh, resourceRef])
+
+  const openEditor = (state: EditorState) => {
+    setSelected(null)
+    setEditor(state)
+    setEditorName(state.card?.name || '')
+    setEditorCategory(state.card?.category || '地点')
+    setEditorAddress(state.card?.area_or_address || '地点待确认')
+    setEditorTime(state.card?.time_hint || '')
+    setCommandError('')
+  }
+
+  const submitEditor = async () => {
+    if (!editor || !editorName.trim()) {
+      setCommandError('请填写地点名称。')
+      return
+    }
+    if (editor.mode === 'INSERT') {
+      await runCommand({
+        command_type: 'ACTIVITY_INSERT',
+        day_index: editor.dayIndex,
+        position: editor.position,
+        name: editorName.trim(),
+        category: editorCategory.trim() || '地点',
+        area_or_address: editorAddress.trim() || '地点待确认',
+        time_hint: editorTime.trim() || null,
+      })
+    } else if (editor.mode === 'EDIT' && editor.card) {
+      await runCommand({
+        command_type: 'ACTIVITY_TEXT_EDIT',
+        activity_token: editor.card.activity_token,
+        name: editorName.trim(),
+        time_hint: editorTime.trim() || null,
+      })
+    } else if (editor.mode === 'REPLACE' && editor.card) {
+      await runCommand({
+        command_type: 'PLACE_REPLACE',
+        activity_token: editor.card.activity_token,
+        replacement: {
+          name: editorName.trim(),
+          category: editorCategory.trim() || '地点',
+          area_or_address: editorAddress.trim() || '地点待确认',
+        },
+      })
+    }
+  }
 
   useEffect(() => {
     const reference = sessionStorage.getItem('bt_active_trip_ref')
@@ -159,20 +260,39 @@ export default function TripResultPage() {
               {result.assumptions.map((assumption) => {
                 const Icon = ASSUMPTION_ICONS[assumption.key]
                 return (
-                  <div key={assumption.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                  <button
+                    key={assumption.key}
+                    type="button"
+                    disabled={isApplying || !assumption.editable}
+                    onClick={() => {
+                      const value = window.prompt(`修改${assumption.label}`, assumption.value)?.trim()
+                      if (value && value !== assumption.value) {
+                        void runCommand({ command_type: 'ASSUMPTION_SET', key: assumption.key, value })
+                      }
+                    }}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-emerald-200 disabled:cursor-wait"
+                    aria-label={`修改${assumption.label}`}
+                  >
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       {assumption.label}
+                      <Pencil className="h-3 w-3" aria-hidden="true" />
                     </div>
                     <p className="mt-1 text-sm font-medium text-slate-700">{assumption.value}</p>
-                  </div>
+                  </button>
                 )
               })}
             </div>
           </div>
 
+          {commandError && (
+            <p role="status" className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {commandError}
+            </p>
+          )}
+
           <div data-testid="trip-days" className="mt-8 grid gap-5 lg:grid-cols-3">
-            {result.days.map((day) => (
+            {result.days.map((day, dayOffset) => (
               <section key={day.label} className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-lg shadow-slate-200/45">
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-lg font-semibold">{day.label}</h2>
@@ -180,30 +300,79 @@ export default function TripResultPage() {
                 </div>
                 <div className="space-y-3">
                   {day.activities.map((activity, index) => (
-                    <button
+                    <div
                       key={activity.activity_token}
-                      type="button"
-                      onClick={() => setSelected(activity)}
-                      className="group w-full rounded-2xl border border-slate-100 bg-[#fbfaf7] p-4 text-left transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
+                      data-testid="activity-card"
+                      className="group overflow-hidden rounded-2xl border border-slate-100 bg-[#fbfaf7] transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
                     >
-                      <div className="flex items-start gap-3">
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white">{index + 1}</span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <h3 className="truncate font-semibold text-slate-800">{activity.name}</h3>
-                            <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-emerald-600" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => setSelected({ card: activity, dayIndex: dayOffset + 1, position: index })}
+                        className="w-full p-4 text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white">{index + 1}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="truncate font-semibold text-slate-800">{activity.name}</h3>
+                              <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-emerald-600" aria-hidden="true" />
+                            </div>
+                            <p className="mt-1 text-xs text-slate-500">{activity.category} · {activity.time_hint || '时间待定'}</p>
+                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{activity.area_or_address}</p>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">{activity.category} · {activity.time_hint || '时间待定'}</p>
-                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{activity.area_or_address}</p>
                         </div>
+                      </button>
+                      <div className="flex justify-end gap-1 border-t border-slate-100 px-3 py-2">
+                        <button
+                          type="button"
+                          disabled={isApplying || index === 0}
+                          onClick={() => void runCommand({
+                            command_type: 'ACTIVITY_MOVE',
+                            activity_token: activity.activity_token,
+                            target_day_index: dayOffset + 1,
+                            target_position: index - 1,
+                          })}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-emerald-700 disabled:opacity-30"
+                          aria-label={`上移 ${activity.name}`}
+                        >
+                          <ChevronUp className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isApplying || index === day.activities.length - 1}
+                          onClick={() => void runCommand({
+                            command_type: 'ACTIVITY_MOVE',
+                            activity_token: activity.activity_token,
+                            target_day_index: dayOffset + 1,
+                            target_position: index + 1,
+                          })}
+                          className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-emerald-700 disabled:opacity-30"
+                          aria-label={`下移 ${activity.name}`}
+                        >
+                          <ChevronDown className="h-4 w-4" aria-hidden="true" />
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   ))}
                   {day.activities.length === 0 && (
                     <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500">
                       还没有能确认的地点，可以稍后补充或调整文字。
                     </div>
                   )}
+                  <button
+                    type="button"
+                    disabled={isApplying}
+                    onClick={() => openEditor({
+                      mode: 'INSERT',
+                      dayIndex: dayOffset + 1,
+                      position: day.activities.length,
+                    })}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 transition hover:border-emerald-400 hover:text-emerald-700 disabled:cursor-wait"
+                    aria-label={`新增地点到 ${day.label}`}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    新增地点
+                  </button>
                 </div>
               </section>
             ))}
@@ -221,18 +390,131 @@ export default function TripResultPage() {
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs font-medium text-emerald-700">{selected.category}</p>
-                <h2 className="mt-1 text-2xl font-semibold">{selected.name}</h2>
+                <p className="text-xs font-medium text-emerald-700">{selected.card.category}</p>
+                <h2 className="mt-1 text-2xl font-semibold">{selected.card.name}</h2>
               </div>
               <button type="button" onClick={() => setSelected(null)} className="rounded-full bg-slate-100 p-2 text-slate-500" aria-label="关闭地点详情">
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
             <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-              <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.area_or_address}</p>
-              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.time_hint || '时间待定'}</p>
+              <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.card.area_or_address}</p>
+              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.card.time_hint || '时间待定'}</p>
             </div>
-            <p className="mt-4 text-xs leading-5 text-slate-400">替换、删除和排序会在下一切片开放；这里不展示攻略原文或内部判断数字。</p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={isApplying}
+                onClick={() => openEditor({ ...selected, mode: 'EDIT', card: selected.card })}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700"
+              >
+                <Pencil className="h-4 w-4" aria-hidden="true" />编辑文字
+              </button>
+              <button
+                type="button"
+                disabled={isApplying}
+                onClick={() => openEditor({ ...selected, mode: 'REPLACE', card: selected.card })}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700"
+              >
+                <Replace className="h-4 w-4" aria-hidden="true" />替换地点
+              </button>
+              <button
+                type="button"
+                disabled={isApplying || selected.dayIndex === 1}
+                onClick={() => void runCommand({
+                  command_type: 'ACTIVITY_MOVE',
+                  activity_token: selected.card.activity_token,
+                  target_day_index: selected.dayIndex - 1,
+                  target_position: result.days[selected.dayIndex - 2]?.activities.length || 0,
+                })}
+                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 disabled:opacity-40"
+              >
+                移到前一天
+              </button>
+              <button
+                type="button"
+                disabled={isApplying || selected.dayIndex === 14}
+                onClick={() => void runCommand({
+                  command_type: 'ACTIVITY_MOVE',
+                  activity_token: selected.card.activity_token,
+                  target_day_index: selected.dayIndex + 1,
+                  target_position: result.days[selected.dayIndex]?.activities.length || 0,
+                })}
+                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 disabled:opacity-40"
+              >
+                移到后一天
+              </button>
+            </div>
+            <button
+              type="button"
+              disabled={isApplying}
+              onClick={() => {
+                if (window.confirm(`删除“${selected.card.name}”这张卡片？`)) {
+                  void runCommand({
+                    command_type: 'ACTIVITY_DELETE',
+                    activity_token: selected.card.activity_token,
+                  })
+                }
+              }}
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-500 hover:border-rose-200 hover:text-rose-700"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />删除这张卡片
+            </button>
+            <p className="mt-4 text-xs leading-5 text-slate-400">调整会保存为新版本；路线不会自动重算。这里不展示攻略原文或内部判断数字。</p>
+          </div>
+        </div>
+      )}
+
+      {editor && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="编辑地点卡片">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-xl font-semibold">
+                {editor.mode === 'INSERT' ? '新增地点' : editor.mode === 'REPLACE' ? '替换地点' : '编辑卡片文字'}
+              </h2>
+              <button type="button" onClick={() => setEditor(null)} className="rounded-full bg-slate-100 p-2 text-slate-500" aria-label="关闭编辑">
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="mt-5 space-y-4">
+              <label className="block text-sm font-medium text-slate-700">
+                地点名称
+                <input
+                  data-testid="card-editor-name"
+                  value={editorName}
+                  onChange={(event) => setEditorName(event.target.value)}
+                  maxLength={40}
+                  className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500"
+                />
+              </label>
+              {editor.mode !== 'EDIT' && (
+                <>
+                  <label className="block text-sm font-medium text-slate-700">
+                    类别
+                    <input value={editorCategory} onChange={(event) => setEditorCategory(event.target.value)} maxLength={40} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                  </label>
+                  <label className="block text-sm font-medium text-slate-700">
+                    区域或地址
+                    <input value={editorAddress} onChange={(event) => setEditorAddress(event.target.value)} maxLength={120} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                  </label>
+                </>
+              )}
+              {editor.mode !== 'REPLACE' && (
+                <label className="block text-sm font-medium text-slate-700">
+                  时间提示（可选）
+                  <input value={editorTime} onChange={(event) => setEditorTime(event.target.value)} maxLength={80} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                </label>
+              )}
+            </div>
+            <button
+              data-testid="save-card-editor"
+              type="button"
+              disabled={isApplying}
+              onClick={() => void submitEditor()}
+              className="mt-6 w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+            >
+              {isApplying ? '正在保存…' : '保存调整'}
+            </button>
           </div>
         </div>
       )}

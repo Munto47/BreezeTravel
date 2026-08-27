@@ -83,6 +83,65 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
     assert "event: result_available" in resumed.text
     assert "id: 3" in resumed.text
 
+    first_token = result.json()["days"][0]["activities"][0]["activity_token"]
+    command_body = {
+        "command_type": "ACTIVITY_MOVE",
+        "activity_token": first_token,
+        "target_day_index": 3,
+        "target_position": 1,
+    }
+    missing_precondition = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/commands",
+        headers={"Idempotency-Key": "move-1"},
+        json=command_body,
+    )
+    assert missing_precondition.status_code == 428
+    applied = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/commands",
+        headers={
+            "Idempotency-Key": "move-1",
+            "If-Match": result.headers["etag"],
+        },
+        json=command_body,
+    )
+    assert applied.status_code == 200
+    assert applied.json() == {
+        "status": "APPLIED",
+        "changed_days": ["Day 1", "Day 3"],
+        "map_readiness": "NEEDS_UPDATE",
+    }
+    assert applied.headers["etag"] != result.headers["etag"]
+    replayed_command = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/commands",
+        headers={
+            "Idempotency-Key": "move-1",
+            "If-Match": result.headers["etag"],
+        },
+        json=command_body,
+    )
+    assert replayed_command.status_code == 200
+    assert replayed_command.headers["Idempotency-Replayed"] == "true"
+    assert replayed_command.headers["etag"] == applied.headers["etag"]
+    stale = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/commands",
+        headers={
+            "Idempotency-Key": "move-stale",
+            "If-Match": result.headers["etag"],
+        },
+        json=command_body,
+    )
+    assert stale.status_code == 409
+    assert stale.json()["detail"]["code"] == "REVISION_CONFLICT"
+    updated = client.get(payload["result_url"])
+    assert updated.headers["etag"] == applied.headers["etag"]
+    assert updated.json()["map"]["status"] == "NEEDS_UPDATE"
+    assert [item["name"] for item in updated.json()["days"][2]["activities"]] == [
+        "颐和园",
+        "故宫博物院",
+        "圆明园",
+    ]
+    assert repository.side_effect_count == 1
+
     other_browser = TestClient(app)
     denied = other_browser.get(payload["result_url"])
     assert denied.status_code == 404
@@ -91,6 +150,15 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
     assert '"DEMO"' in openapi_text
     assert '"FULL"' in openapi_text
     assert '"discriminator"' in openapi_text
+    for command_type in (
+        "ACTIVITY_INSERT",
+        "ACTIVITY_DELETE",
+        "ACTIVITY_MOVE",
+        "ACTIVITY_TEXT_EDIT",
+        "PLACE_REPLACE",
+        "ASSUMPTION_SET",
+    ):
+        assert f'"{command_type}"' in openapi_text
 
 
 def test_full_api_requires_login_and_uses_user_owned_persistent_chain() -> None:

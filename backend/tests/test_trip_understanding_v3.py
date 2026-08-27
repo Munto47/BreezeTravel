@@ -14,12 +14,22 @@ from app.trip_understanding.demo import (
     FixedBeijingPlaceResolver,
 )
 from app.trip_understanding.errors import (
+    CommandTargetChangedError,
     IdempotencyConflictError,
     JobLeaseLostError,
     ResourceAccessDeniedError,
 )
 from app.trip_understanding.full_text import build_full_text_pipeline
-from app.trip_understanding.models import ActivityRole
+from app.trip_understanding.commands import apply_public_command
+from app.trip_understanding.models import (
+    ActivityDeleteCommand,
+    ActivityInsertCommand,
+    ActivityMoveCommand,
+    ActivityRole,
+    ActivityTextEditCommand,
+    AssumptionSetCommand,
+    PlaceReplaceCommand,
+)
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH, TripUnderstandingApplicationService
@@ -146,6 +156,100 @@ def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:
     assert cipher.decrypt(first, source_id="source-a", content_hash=source_hash) == "北京行程"
     with pytest.raises(Exception):
         cipher.decrypt(first, source_id="source-b", content_hash=source_hash)
+
+
+@pytest.mark.asyncio
+async def test_all_card_commands_create_stale_map_projection_without_provider_side_effects() -> None:
+    current = (await build_full_text_pipeline().run(FULL_BEIJING_TEXT)).public_result
+    first_token = current.days[0].activities[0].activity_token
+
+    inserted = apply_public_command(
+        current,
+        ActivityInsertCommand(
+            command_type="ACTIVITY_INSERT",
+            day_index=2,
+            position=1,
+            name="北京动物园",
+        ),
+    )
+    assert inserted.changed_days == ["Day 2"]
+    assert inserted.result.days[1].activities[1].name == "北京动物园"
+    assert inserted.result.days[1].activities[1].status == "NEEDS_CONFIRMATION"
+    assert inserted.result.map.status == "NEEDS_UPDATE"
+    assert inserted.result.map.available_actions == ["RENDER_MAP"]
+
+    deleted = apply_public_command(
+        current,
+        ActivityDeleteCommand(command_type="ACTIVITY_DELETE", activity_token=first_token),
+    )
+    assert [item.name for item in deleted.result.days[0].activities] == ["景山公园"]
+
+    moved = apply_public_command(
+        current,
+        ActivityMoveCommand(
+            command_type="ACTIVITY_MOVE",
+            activity_token=first_token,
+            target_day_index=3,
+            target_position=1,
+        ),
+    )
+    assert moved.changed_days == ["Day 1", "Day 3"]
+    assert [item.name for item in moved.result.days[2].activities] == [
+        "颐和园",
+        "故宫博物院",
+        "圆明园",
+    ]
+
+    edited = apply_public_command(
+        current,
+        ActivityTextEditCommand(
+            command_type="ACTIVITY_TEXT_EDIT",
+            activity_token=first_token,
+            name="故宫入口待确认",
+        ),
+    )
+    assert edited.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
+    assert edited.result.days[0].activities[0].area_or_address == "地点待确认"
+
+    replaced = apply_public_command(
+        current,
+        PlaceReplaceCommand.model_validate(
+            {
+                "command_type": "PLACE_REPLACE",
+                "activity_token": first_token,
+                "replacement": {
+                    "name": "北海公园",
+                    "category": "公园",
+                    "area_or_address": "西城区·文津街1号",
+                },
+            }
+        ),
+    )
+    assert replaced.result.days[0].activities[0].name == "北海公园"
+    assert replaced.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
+
+    assumption = apply_public_command(
+        current,
+        AssumptionSetCommand(
+            command_type="ASSUMPTION_SET",
+            key="party_size",
+            value="3 人",
+        ),
+    )
+    assert assumption.changed_days == ["Day 1", "Day 2", "Day 3"]
+    assert next(item for item in assumption.result.assumptions if item.key == "party_size").value == "3 人"
+    assert all(
+        new != old for old, new in assumption.token_map.items()
+    )
+
+    with pytest.raises(CommandTargetChangedError):
+        apply_public_command(
+            current,
+            ActivityDeleteCommand(
+                command_type="ACTIVITY_DELETE",
+                activity_token="missing-activity-token-0000",
+            ),
+        )
 
 
 def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -> None:

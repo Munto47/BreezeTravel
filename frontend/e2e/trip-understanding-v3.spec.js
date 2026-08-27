@@ -148,7 +148,49 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   expect(visibleText).not.toContain('南锣鼓巷')
   expect(visibleText).not.toContain('上海迪士尼乐园')
 
+  const applyVisibleCommand = async (action) => {
+    const commandResponse = page.waitForResponse((response) => {
+      const requestData = response.request()
+      return requestData.method() === 'POST'
+        && /\/api\/v3\/trip-understandings\/[^/]+\/commands$/.test(new URL(response.url()).pathname)
+    })
+    const refreshedResult = page.waitForResponse((response) => {
+      const path = new URL(response.url()).pathname
+      return response.status() === 200 && /\/api\/v3\/trip-understandings\/[^/]+\/result$/.test(path)
+    })
+    await action()
+    expect((await commandResponse).status()).toBe(200)
+    await refreshedResult
+  }
+
+  await applyVisibleCommand(() => page.getByRole('button', { name: '下移 故宫博物院' }).click())
+  expect(await page.getByTestId('trip-days').locator('section').nth(0).locator('h3').allTextContents()).toEqual([
+    '景山公园',
+    '故宫博物院',
+  ])
+
+  await page.getByRole('button', { name: '新增地点到 Day 1' }).click()
+  await page.getByTestId('card-editor-name').fill('北海公园')
+  await applyVisibleCommand(() => page.getByTestId('save-card-editor').click())
+  await expect(page.getByRole('heading', { name: '北海公园' })).toBeVisible()
+
+  await page.getByRole('heading', { name: '景山公园' }).click()
+  await page.getByRole('button', { name: '编辑文字' }).click()
+  await page.getByTestId('card-editor-name').fill('景山公园东门')
+  await applyVisibleCommand(() => page.getByTestId('save-card-editor').click())
+  await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
+
+  await page.getByRole('heading', { name: '北海公园' }).click()
+  page.once('dialog', (dialog) => dialog.accept())
+  await applyVisibleCommand(() => page.getByRole('button', { name: '删除这张卡片' }).click())
+  await expect(page.getByRole('heading', { name: '北海公园' })).toHaveCount(0)
+  await expect(page.getByText('卡片已调整，路线地图需要手动更新')).toBeVisible()
+
   await page.reload()
-  await expect(page.getByRole('heading', { name: '故宫博物院' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
+  expect(await page.getByTestId('trip-days').locator('section').nth(0).locator('h3').allTextContents()).toEqual([
+    '景山公园东门',
+    '故宫博物院',
+  ])
   expect(await page.locator('body').innerText()).not.toContain(accepted.public_resource_id)
 })

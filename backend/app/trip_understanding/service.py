@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from app.trip_understanding.models import CreateFullRequest, CreateOutcome, PublicResourceRecord
+from app.trip_understanding.models import (
+    CommandOutcome,
+    CreateFullRequest,
+    CreateOutcome,
+    PublicResourceRecord,
+    TripUnderstandingCommand,
+)
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.repository import TripUnderstandingRepository
 
@@ -67,5 +73,29 @@ class TripUnderstandingApplicationService:
             public_resource_id,
             capability_hash=capability_hash,
             user_id=user_id,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def apply_command(
+        self,
+        resource: PublicResourceRecord,
+        command: TripUnderstandingCommand,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> CommandOutcome:
+        request_hash = canonical_sha256(
+            {
+                "command": command.model_dump(mode="json"),
+                "if_match": expected_etag,
+            }
+        )
+        return await self.repository.apply_command(
+            resource,
+            command,
+            expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
             now=now or datetime.now(timezone.utc),
         )
