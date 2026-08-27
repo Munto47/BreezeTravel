@@ -11,6 +11,10 @@ backend/app/data/amap_mock_places.json text eol=lf
 backend/evals/fixtures/trip_check_provider_integrity_v1.json text eol=lf
 backend/eval_data/trip_nlu_v2/** text eol=lf
 
+# Preserve imported itinerary text fixtures byte-for-byte. Their original
+# whitespace and CRLF layout are source data, not formatting to normalize.
+tests/*.txt -text -diff
+
 # These contracts bind SHA-256 to repository bytes. Keep checkout bytes
 # identical on Windows and POSIX so CRLF conversion cannot break evidence.
 backend/eval_data/dual_entry_v1/** text eol=lf
