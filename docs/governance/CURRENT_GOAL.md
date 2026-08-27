@@ -13,6 +13,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
+- Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
 - Required gate：`Text Card Gate`
@@ -21,7 +22,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Dependencies
 
 - 唯一激活依赖`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`；本Goal已按Program置为`APPROVED`。
-- 首个preflight填写activation commit与现场baseline，并readback Qwen账号、region、endpoint、exact model ID、pricing/privacy条款和高德POI/route最小持久化许可；缺失lane标记`NOT_READY`，不阻止schema、UI、fixture和其他安全独立切片。
+- 首个preflight读取已固化的activation commit并填写现场baseline，同时readback Qwen账号、region、endpoint、exact model ID、pricing/privacy条款和高德POI/route最小持久化许可；缺失lane标记`NOT_READY`，不阻止schema、UI、fixture和其他安全独立切片。
 - 到真实模型/Provider Gate前仍缺失时按HITL请求最小动作；不得用fixture冒充live准入，也不得留下0个active Goal。
 
 ## User Outcome
@@ -127,7 +128,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Baseline
 
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
-- activation transition：本文件首次成为`APPROVED`的治理commit；exact hash在push/readback后的首个checkpoint receipt填写；
+- activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 当前用户可见行为、旧OpenAPI snapshot、Qwen/AMap准入结果：首个preflight现场记录，不从历史推断；
 - G00治理结构验证`structurally_valid=true`；这只证明蓝图结构，不证明V0.1产品能力；
@@ -157,7 +158,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|
-| 2026-08-27 | Blueprint完成并激活V0.1可信文本卡片Goal；尚未修改产品代码 | activation transition（本commit；exact hash由下一receipt填写） | G00 Blueprint Gate `PASS`；单active Goal结构检查 | `BLUEPRINT_ONLY` | 依赖readback、代码/合同现场审计与G01纵向切片 | Qwen/高德准入尚未现场确认 | 记录transition远端hash，随后执行G01首个preflight |
+| 2026-08-27 | Blueprint完成并激活V0.1可信文本卡片Goal；尚未修改产品代码 | `f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac` | G00 Blueprint Gate `PASS`；单active Goal结构检查；remote readback `PASS` | `BLUEPRINT_ONLY` | 依赖readback、代码/合同现场审计与G01纵向切片 | Qwen/高德准入尚未现场确认 | 执行G01首个preflight与当前实现/合同审计 |
 
 ## Auto-advance
 

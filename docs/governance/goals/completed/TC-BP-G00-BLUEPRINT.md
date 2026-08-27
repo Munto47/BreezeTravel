@@ -137,7 +137,7 @@ Goal type: GOVERNANCE_AND_ARCHITECTURE_ONLY
 |---|---|---|---|---|---|---|---|
 | 2026-08-27 | 已保护根工作区，并从最新`origin/develop`建立隔离分支 | baseline `1c3adf3` | Git/worktree/branch审计 | G00 baseline | Blueprint文档 | 无用户阻塞 | 重写Blueprint 1.0合同 |
 | 2026-08-27 | Blueprint权威、G01～G07完整合同、风险/Provider表和旧资产边界已形成；独立复审P0/P1为0 | `3fb3d0566c5742ecf4fac4179021ee538ef5b516` | 字段/单active/历史归档/链接/职责漂移PASS；历史兼容pytest 12 PASS；docs-only；remote readback PASS | `BLUEPRINT_ONLY` | 治理transition | 产品代码与外部能力仍`NOT_IMPLEMENTED/NOT_RUN` | 原子归档G00并激活G01 |
-| 2026-08-27 | G00完成归档并原子激活G01 | 本transition commit；exact hash由下一治理receipt记录 | G00 archive + G01 single-active结构检查 | `BLUEPRINT_READY` | G01依赖preflight与产品实现 | Qwen/高德准入尚未现场回读 | 推送transition并记录远端hash |
+| 2026-08-27 | G00完成归档并原子激活G01 | `f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac` | G00 archive + G01 single-active结构检查；remote readback `PASS` | `BLUEPRINT_READY` | G01依赖preflight与产品实现 | Qwen/高德准入尚未现场回读 | 执行G01首个preflight |
 
 ## Auto-advance
 
@@ -161,8 +161,8 @@ Goal type: GOVERNANCE_AND_ARCHITECTURE_ONLY
 
 - Status：`COMPLETED`；
 - Subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`；
-- Transition commit：本归档与G01激活所在commit，exact hash由下一治理receipt记录；
-- Remote branch：`origin/codex/trip-check-product-reset`，subject readback `PASS`；
+- Transition commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`；
+- Remote branch：`origin/codex/trip-check-product-reset`，subject与transition readback均`PASS`；
 - Verification：结构、链接、历史归档、职责漂移、docs-only与12项历史兼容检查全部通过；
 - Independent review：产品/商业、架构/API、反方治理均`P0=0, P1=0`；
 - Evidence level：`BLUEPRINT_ONLY`；
