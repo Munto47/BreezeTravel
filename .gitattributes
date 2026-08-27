@@ -12,6 +12,7 @@ backend/evals/fixtures/trip_check_provider_integrity_v1.json text eol=lf
 backend/eval_data/trip_nlu_v2/** text eol=lf
 backend/eval_data/trip_nlu_v2_remediation/** text eol=lf
 backend/eval_data/trip_text_cards_v1/** text eol=lf
+backend/eval_data/g01_map_positive_v1/** text eol=lf
 backend/evidence/trip_text_cards_v1/** text eol=lf
 
 # Preserve imported itinerary text fixtures byte-for-byte. Their original

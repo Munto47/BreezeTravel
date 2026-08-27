@@ -1,0 +1,2651 @@
+{
+  "authority": "NON_LIVE_SYNTHETIC_ROUTE_FACTS",
+  "dataset_version": "g01-map-positive-v1",
+  "execution_mode": "CONTROLLED_FIXTURE",
+  "external_calls": 0,
+  "observed_at": "2026-08-28T00:00:00Z",
+  "plans": [
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "景山公园",
+          "edge_id": "G01-MAP-E001",
+          "origin": "故宫博物院",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "前门大街",
+          "edge_id": "G01-MAP-E002",
+          "origin": "景山公园",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1628,
+            "duration_minutes": 22,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "颐和园",
+          "edge_id": "G01-MAP-E003",
+          "origin": "前门大街",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "钟鼓楼",
+          "edge_id": "G01-MAP-E004",
+          "origin": "颐和园",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P001",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-00",
+          "name": "故宫博物院"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-01",
+          "name": "景山公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-03",
+          "name": "前门大街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-06",
+          "name": "颐和园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-10",
+          "name": "钟鼓楼"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "天坛公园",
+          "edge_id": "G01-MAP-E005",
+          "origin": "景山公园",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1776,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "北海公园",
+          "edge_id": "G01-MAP-E006",
+          "origin": "天坛公园",
+          "transit": {
+            "distance_meters": 5940,
+            "duration_minutes": 33,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2146,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "圆明园",
+          "edge_id": "G01-MAP-E007",
+          "origin": "北海公园",
+          "transit": {
+            "distance_meters": 7200,
+            "duration_minutes": 40,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "什刹海",
+          "edge_id": "G01-MAP-E008",
+          "origin": "圆明园",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P002",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-01",
+          "name": "景山公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-02",
+          "name": "天坛公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-04",
+          "name": "北海公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-07",
+          "name": "圆明园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-11",
+          "name": "什刹海"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "前门大街",
+          "edge_id": "G01-MAP-E009",
+          "origin": "天坛公园",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2294,
+            "duration_minutes": 31,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "恭王府",
+          "edge_id": "G01-MAP-E010",
+          "origin": "前门大街",
+          "transit": {
+            "distance_meters": 6480,
+            "duration_minutes": 36,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2664,
+            "duration_minutes": 36,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "雍和宫",
+          "edge_id": "G01-MAP-E011",
+          "origin": "恭王府",
+          "transit": {
+            "distance_meters": 2880,
+            "duration_minutes": 16,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "奥林匹克森林公园",
+          "edge_id": "G01-MAP-E012",
+          "origin": "雍和宫",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P003",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-02",
+          "name": "天坛公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-03",
+          "name": "前门大街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-05",
+          "name": "恭王府"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-08",
+          "name": "雍和宫"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-12",
+          "name": "奥林匹克森林公园"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "北海公园",
+          "edge_id": "G01-MAP-E013",
+          "origin": "前门大街",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2812,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "颐和园",
+          "edge_id": "G01-MAP-E014",
+          "origin": "北海公园",
+          "transit": {
+            "distance_meters": 7020,
+            "duration_minutes": 39,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3182,
+            "duration_minutes": 43,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "国子监",
+          "edge_id": "G01-MAP-E015",
+          "origin": "颐和园",
+          "transit": {
+            "distance_meters": 3420,
+            "duration_minutes": 19,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3552,
+            "duration_minutes": 48,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "国家体育场",
+          "edge_id": "G01-MAP-E016",
+          "origin": "国子监",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1036,
+            "duration_minutes": 14,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P004",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-03",
+          "name": "前门大街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-04",
+          "name": "北海公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-06",
+          "name": "颐和园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-09",
+          "name": "国子监"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-13",
+          "name": "国家体育场"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "恭王府",
+          "edge_id": "G01-MAP-E017",
+          "origin": "北海公园",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3330,
+            "duration_minutes": 45,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "圆明园",
+          "edge_id": "G01-MAP-E018",
+          "origin": "恭王府",
+          "transit": {
+            "distance_meters": 7560,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3700,
+            "duration_minutes": 50,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "钟鼓楼",
+          "edge_id": "G01-MAP-E019",
+          "origin": "圆明园",
+          "transit": {
+            "distance_meters": 3960,
+            "duration_minutes": 22,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1184,
+            "duration_minutes": 16,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "中国科学技术馆",
+          "edge_id": "G01-MAP-E020",
+          "origin": "钟鼓楼",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1554,
+            "duration_minutes": 21,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P005",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-04",
+          "name": "北海公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-05",
+          "name": "恭王府"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-07",
+          "name": "圆明园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-10",
+          "name": "钟鼓楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-14",
+          "name": "中国科学技术馆"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "颐和园",
+          "edge_id": "G01-MAP-E021",
+          "origin": "恭王府",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 962,
+            "duration_minutes": 13,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "雍和宫",
+          "edge_id": "G01-MAP-E022",
+          "origin": "颐和园",
+          "transit": {
+            "distance_meters": 3240,
+            "duration_minutes": 18,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1332,
+            "duration_minutes": 18,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "什刹海",
+          "edge_id": "G01-MAP-E023",
+          "origin": "雍和宫",
+          "transit": {
+            "distance_meters": 4500,
+            "duration_minutes": 25,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1702,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "798艺术区",
+          "edge_id": "G01-MAP-E024",
+          "origin": "什刹海",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2072,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P006",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-05",
+          "name": "恭王府"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-06",
+          "name": "颐和园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-08",
+          "name": "雍和宫"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-11",
+          "name": "什刹海"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-15",
+          "name": "798艺术区"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "圆明园",
+          "edge_id": "G01-MAP-E025",
+          "origin": "颐和园",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1480,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "国子监",
+          "edge_id": "G01-MAP-E026",
+          "origin": "圆明园",
+          "transit": {
+            "distance_meters": 3780,
+            "duration_minutes": 21,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1850,
+            "duration_minutes": 25,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "奥林匹克森林公园",
+          "edge_id": "G01-MAP-E027",
+          "origin": "国子监",
+          "transit": {
+            "distance_meters": 5040,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2220,
+            "duration_minutes": 30,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "首都博物馆",
+          "edge_id": "G01-MAP-E028",
+          "origin": "奥林匹克森林公园",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2590,
+            "duration_minutes": 35,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P007",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-06",
+          "name": "颐和园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-07",
+          "name": "圆明园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-09",
+          "name": "国子监"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-12",
+          "name": "奥林匹克森林公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-16",
+          "name": "首都博物馆"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "雍和宫",
+          "edge_id": "G01-MAP-E029",
+          "origin": "圆明园",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "钟鼓楼",
+          "edge_id": "G01-MAP-E030",
+          "origin": "雍和宫",
+          "transit": {
+            "distance_meters": 4320,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "国家体育场",
+          "edge_id": "G01-MAP-E031",
+          "origin": "钟鼓楼",
+          "transit": {
+            "distance_meters": 5580,
+            "duration_minutes": 31,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2738,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "中国美术馆",
+          "edge_id": "G01-MAP-E032",
+          "origin": "国家体育场",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3108,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P008",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-07",
+          "name": "圆明园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-08",
+          "name": "雍和宫"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-10",
+          "name": "钟鼓楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-13",
+          "name": "国家体育场"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-17",
+          "name": "中国美术馆"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "国子监",
+          "edge_id": "G01-MAP-E033",
+          "origin": "雍和宫",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "什刹海",
+          "edge_id": "G01-MAP-E034",
+          "origin": "国子监",
+          "transit": {
+            "distance_meters": 4860,
+            "duration_minutes": 27,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "中国科学技术馆",
+          "edge_id": "G01-MAP-E035",
+          "origin": "什刹海",
+          "transit": {
+            "distance_meters": 6120,
+            "duration_minutes": 34,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3256,
+            "duration_minutes": 44,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "北京天文馆",
+          "edge_id": "G01-MAP-E036",
+          "origin": "中国科学技术馆",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3626,
+            "duration_minutes": 49,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P009",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-08",
+          "name": "雍和宫"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-09",
+          "name": "国子监"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-11",
+          "name": "什刹海"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-14",
+          "name": "中国科学技术馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-18",
+          "name": "北京天文馆"
+        }
+      ]
+    },
+    {
+      "city": "北京",
+      "edges": [
+        {
+          "destination": "钟鼓楼",
+          "edge_id": "G01-MAP-E037",
+          "origin": "国子监",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "奥林匹克森林公园",
+          "edge_id": "G01-MAP-E038",
+          "origin": "钟鼓楼",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "798艺术区",
+          "edge_id": "G01-MAP-E039",
+          "origin": "奥林匹克森林公园",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 888,
+            "duration_minutes": 12,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "陶然亭公园",
+          "edge_id": "G01-MAP-E040",
+          "origin": "798艺术区",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P010",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-bj-09",
+          "name": "国子监"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-10",
+          "name": "钟鼓楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-12",
+          "name": "奥林匹克森林公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-15",
+          "name": "798艺术区"
+        },
+        {
+          "canonical_place_id": "g01-fixture-bj-19",
+          "name": "陶然亭公园"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "豫园",
+          "edge_id": "G01-MAP-E041",
+          "origin": "外滩",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "人民广场",
+          "edge_id": "G01-MAP-E042",
+          "origin": "豫园",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1628,
+            "duration_minutes": 22,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "新天地",
+          "edge_id": "G01-MAP-E043",
+          "origin": "人民广场",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "西岸美术馆",
+          "edge_id": "G01-MAP-E044",
+          "origin": "新天地",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P011",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-00",
+          "name": "外滩"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-01",
+          "name": "豫园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-03",
+          "name": "人民广场"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-06",
+          "name": "新天地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-10",
+          "name": "西岸美术馆"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "上海博物馆",
+          "edge_id": "G01-MAP-E045",
+          "origin": "豫园",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1776,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "南京东路步行街",
+          "edge_id": "G01-MAP-E046",
+          "origin": "上海博物馆",
+          "transit": {
+            "distance_meters": 5940,
+            "duration_minutes": 33,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2146,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "田子坊",
+          "edge_id": "G01-MAP-E047",
+          "origin": "南京东路步行街",
+          "transit": {
+            "distance_meters": 7200,
+            "duration_minutes": 40,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "上海当代艺术博物馆",
+          "edge_id": "G01-MAP-E048",
+          "origin": "田子坊",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P012",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-01",
+          "name": "豫园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-02",
+          "name": "上海博物馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-04",
+          "name": "南京东路步行街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-07",
+          "name": "田子坊"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-11",
+          "name": "上海当代艺术博物馆"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "人民广场",
+          "edge_id": "G01-MAP-E049",
+          "origin": "上海博物馆",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2294,
+            "duration_minutes": 31,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "苏州河步道",
+          "edge_id": "G01-MAP-E050",
+          "origin": "人民广场",
+          "transit": {
+            "distance_meters": 6480,
+            "duration_minutes": 36,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2664,
+            "duration_minutes": 36,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "武康大楼",
+          "edge_id": "G01-MAP-E051",
+          "origin": "苏州河步道",
+          "transit": {
+            "distance_meters": 2880,
+            "duration_minutes": 16,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "陆家嘴中心绿地",
+          "edge_id": "G01-MAP-E052",
+          "origin": "武康大楼",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P013",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-02",
+          "name": "上海博物馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-03",
+          "name": "人民广场"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-05",
+          "name": "苏州河步道"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-08",
+          "name": "武康大楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-12",
+          "name": "陆家嘴中心绿地"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "南京东路步行街",
+          "edge_id": "G01-MAP-E053",
+          "origin": "人民广场",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2812,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "新天地",
+          "edge_id": "G01-MAP-E054",
+          "origin": "南京东路步行街",
+          "transit": {
+            "distance_meters": 7020,
+            "duration_minutes": 39,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3182,
+            "duration_minutes": 43,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "徐家汇书院",
+          "edge_id": "G01-MAP-E055",
+          "origin": "新天地",
+          "transit": {
+            "distance_meters": 3420,
+            "duration_minutes": 19,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3552,
+            "duration_minutes": 48,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "上海科技馆",
+          "edge_id": "G01-MAP-E056",
+          "origin": "徐家汇书院",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1036,
+            "duration_minutes": 14,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P014",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-03",
+          "name": "人民广场"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-04",
+          "name": "南京东路步行街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-06",
+          "name": "新天地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-09",
+          "name": "徐家汇书院"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-13",
+          "name": "上海科技馆"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "苏州河步道",
+          "edge_id": "G01-MAP-E057",
+          "origin": "南京东路步行街",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3330,
+            "duration_minutes": 45,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "田子坊",
+          "edge_id": "G01-MAP-E058",
+          "origin": "苏州河步道",
+          "transit": {
+            "distance_meters": 7560,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3700,
+            "duration_minutes": 50,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "西岸美术馆",
+          "edge_id": "G01-MAP-E059",
+          "origin": "田子坊",
+          "transit": {
+            "distance_meters": 3960,
+            "duration_minutes": 22,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1184,
+            "duration_minutes": 16,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "世纪公园",
+          "edge_id": "G01-MAP-E060",
+          "origin": "西岸美术馆",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1554,
+            "duration_minutes": 21,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P015",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-04",
+          "name": "南京东路步行街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-05",
+          "name": "苏州河步道"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-07",
+          "name": "田子坊"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-10",
+          "name": "西岸美术馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-14",
+          "name": "世纪公园"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "新天地",
+          "edge_id": "G01-MAP-E061",
+          "origin": "苏州河步道",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 962,
+            "duration_minutes": 13,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "武康大楼",
+          "edge_id": "G01-MAP-E062",
+          "origin": "新天地",
+          "transit": {
+            "distance_meters": 3240,
+            "duration_minutes": 18,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1332,
+            "duration_minutes": 18,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "上海当代艺术博物馆",
+          "edge_id": "G01-MAP-E063",
+          "origin": "武康大楼",
+          "transit": {
+            "distance_meters": 4500,
+            "duration_minutes": 25,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1702,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "浦东美术馆",
+          "edge_id": "G01-MAP-E064",
+          "origin": "上海当代艺术博物馆",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2072,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P016",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-05",
+          "name": "苏州河步道"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-06",
+          "name": "新天地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-08",
+          "name": "武康大楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-11",
+          "name": "上海当代艺术博物馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-15",
+          "name": "浦东美术馆"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "田子坊",
+          "edge_id": "G01-MAP-E065",
+          "origin": "新天地",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1480,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "徐家汇书院",
+          "edge_id": "G01-MAP-E066",
+          "origin": "田子坊",
+          "transit": {
+            "distance_meters": 3780,
+            "duration_minutes": 21,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1850,
+            "duration_minutes": 25,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "陆家嘴中心绿地",
+          "edge_id": "G01-MAP-E067",
+          "origin": "徐家汇书院",
+          "transit": {
+            "distance_meters": 5040,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2220,
+            "duration_minutes": 30,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "杨浦滨江",
+          "edge_id": "G01-MAP-E068",
+          "origin": "陆家嘴中心绿地",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2590,
+            "duration_minutes": 35,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P017",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-06",
+          "name": "新天地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-07",
+          "name": "田子坊"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-09",
+          "name": "徐家汇书院"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-12",
+          "name": "陆家嘴中心绿地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-16",
+          "name": "杨浦滨江"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "武康大楼",
+          "edge_id": "G01-MAP-E069",
+          "origin": "田子坊",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "西岸美术馆",
+          "edge_id": "G01-MAP-E070",
+          "origin": "武康大楼",
+          "transit": {
+            "distance_meters": 4320,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "上海科技馆",
+          "edge_id": "G01-MAP-E071",
+          "origin": "西岸美术馆",
+          "transit": {
+            "distance_meters": 5580,
+            "duration_minutes": 31,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2738,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "鲁迅公园",
+          "edge_id": "G01-MAP-E072",
+          "origin": "上海科技馆",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3108,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P018",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-07",
+          "name": "田子坊"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-08",
+          "name": "武康大楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-10",
+          "name": "西岸美术馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-13",
+          "name": "上海科技馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-17",
+          "name": "鲁迅公园"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "徐家汇书院",
+          "edge_id": "G01-MAP-E073",
+          "origin": "武康大楼",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "上海当代艺术博物馆",
+          "edge_id": "G01-MAP-E074",
+          "origin": "徐家汇书院",
+          "transit": {
+            "distance_meters": 4860,
+            "duration_minutes": 27,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "世纪公园",
+          "edge_id": "G01-MAP-E075",
+          "origin": "上海当代艺术博物馆",
+          "transit": {
+            "distance_meters": 6120,
+            "duration_minutes": 34,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3256,
+            "duration_minutes": 44,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "北外滩国客中心",
+          "edge_id": "G01-MAP-E076",
+          "origin": "世纪公园",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3626,
+            "duration_minutes": 49,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P019",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-08",
+          "name": "武康大楼"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-09",
+          "name": "徐家汇书院"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-11",
+          "name": "上海当代艺术博物馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-14",
+          "name": "世纪公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-18",
+          "name": "北外滩国客中心"
+        }
+      ]
+    },
+    {
+      "city": "上海",
+      "edges": [
+        {
+          "destination": "西岸美术馆",
+          "edge_id": "G01-MAP-E077",
+          "origin": "徐家汇书院",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "陆家嘴中心绿地",
+          "edge_id": "G01-MAP-E078",
+          "origin": "西岸美术馆",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "浦东美术馆",
+          "edge_id": "G01-MAP-E079",
+          "origin": "陆家嘴中心绿地",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 888,
+            "duration_minutes": 12,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "静安雕塑公园",
+          "edge_id": "G01-MAP-E080",
+          "origin": "浦东美术馆",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P020",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-sh-09",
+          "name": "徐家汇书院"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-10",
+          "name": "西岸美术馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-12",
+          "name": "陆家嘴中心绿地"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-15",
+          "name": "浦东美术馆"
+        },
+        {
+          "canonical_place_id": "g01-fixture-sh-19",
+          "name": "静安雕塑公园"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "白堤",
+          "edge_id": "G01-MAP-E081",
+          "origin": "断桥残雪",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "曲院风荷",
+          "edge_id": "G01-MAP-E082",
+          "origin": "白堤",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1628,
+            "duration_minutes": 22,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "灵隐寺",
+          "edge_id": "G01-MAP-E083",
+          "origin": "曲院风荷",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "梅家坞",
+          "edge_id": "G01-MAP-E084",
+          "origin": "灵隐寺",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P021",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-00",
+          "name": "断桥残雪"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-01",
+          "name": "白堤"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-03",
+          "name": "曲院风荷"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-06",
+          "name": "灵隐寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-10",
+          "name": "梅家坞"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "孤山",
+          "edge_id": "G01-MAP-E085",
+          "origin": "白堤",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1776,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "苏堤",
+          "edge_id": "G01-MAP-E086",
+          "origin": "孤山",
+          "transit": {
+            "distance_meters": 5940,
+            "duration_minutes": 33,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2146,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "飞来峰",
+          "edge_id": "G01-MAP-E087",
+          "origin": "苏堤",
+          "transit": {
+            "distance_meters": 7200,
+            "duration_minutes": 40,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "龙井村",
+          "edge_id": "G01-MAP-E088",
+          "origin": "飞来峰",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P022",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-01",
+          "name": "白堤"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-02",
+          "name": "孤山"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-04",
+          "name": "苏堤"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-07",
+          "name": "飞来峰"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-11",
+          "name": "龙井村"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "曲院风荷",
+          "edge_id": "G01-MAP-E089",
+          "origin": "孤山",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2294,
+            "duration_minutes": 31,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "雷峰塔",
+          "edge_id": "G01-MAP-E090",
+          "origin": "曲院风荷",
+          "transit": {
+            "distance_meters": 6480,
+            "duration_minutes": 36,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2664,
+            "duration_minutes": 36,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "永福寺",
+          "edge_id": "G01-MAP-E091",
+          "origin": "雷峰塔",
+          "transit": {
+            "distance_meters": 2880,
+            "duration_minutes": 16,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "拱宸桥",
+          "edge_id": "G01-MAP-E092",
+          "origin": "永福寺",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P023",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-02",
+          "name": "孤山"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-03",
+          "name": "曲院风荷"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-05",
+          "name": "雷峰塔"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-08",
+          "name": "永福寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-12",
+          "name": "拱宸桥"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "苏堤",
+          "edge_id": "G01-MAP-E093",
+          "origin": "曲院风荷",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2812,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "灵隐寺",
+          "edge_id": "G01-MAP-E094",
+          "origin": "苏堤",
+          "transit": {
+            "distance_meters": 7020,
+            "duration_minutes": 39,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3182,
+            "duration_minutes": 43,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "法喜寺",
+          "edge_id": "G01-MAP-E095",
+          "origin": "灵隐寺",
+          "transit": {
+            "distance_meters": 3420,
+            "duration_minutes": 19,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3552,
+            "duration_minutes": 48,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "小河直街",
+          "edge_id": "G01-MAP-E096",
+          "origin": "法喜寺",
+          "transit": {
+            "distance_meters": 4680,
+            "duration_minutes": 26,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1036,
+            "duration_minutes": 14,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P024",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-03",
+          "name": "曲院风荷"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-04",
+          "name": "苏堤"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-06",
+          "name": "灵隐寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-09",
+          "name": "法喜寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-13",
+          "name": "小河直街"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "雷峰塔",
+          "edge_id": "G01-MAP-E097",
+          "origin": "苏堤",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3330,
+            "duration_minutes": 45,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "飞来峰",
+          "edge_id": "G01-MAP-E098",
+          "origin": "雷峰塔",
+          "transit": {
+            "distance_meters": 7560,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3700,
+            "duration_minutes": 50,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "梅家坞",
+          "edge_id": "G01-MAP-E099",
+          "origin": "飞来峰",
+          "transit": {
+            "distance_meters": 3960,
+            "duration_minutes": 22,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1184,
+            "duration_minutes": 16,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "香积寺",
+          "edge_id": "G01-MAP-E100",
+          "origin": "梅家坞",
+          "transit": {
+            "distance_meters": 5220,
+            "duration_minutes": 29,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1554,
+            "duration_minutes": 21,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P025",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-04",
+          "name": "苏堤"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-05",
+          "name": "雷峰塔"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-07",
+          "name": "飞来峰"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-10",
+          "name": "梅家坞"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-14",
+          "name": "香积寺"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "灵隐寺",
+          "edge_id": "G01-MAP-E101",
+          "origin": "雷峰塔",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 962,
+            "duration_minutes": 13,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "永福寺",
+          "edge_id": "G01-MAP-E102",
+          "origin": "灵隐寺",
+          "transit": {
+            "distance_meters": 3240,
+            "duration_minutes": 18,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1332,
+            "duration_minutes": 18,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "龙井村",
+          "edge_id": "G01-MAP-E103",
+          "origin": "永福寺",
+          "transit": {
+            "distance_meters": 4500,
+            "duration_minutes": 25,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1702,
+            "duration_minutes": 23,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "西溪湿地国家公园",
+          "edge_id": "G01-MAP-E104",
+          "origin": "龙井村",
+          "transit": {
+            "distance_meters": 5760,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2072,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P026",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-05",
+          "name": "雷峰塔"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-06",
+          "name": "灵隐寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-08",
+          "name": "永福寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-11",
+          "name": "龙井村"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-15",
+          "name": "西溪湿地国家公园"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "飞来峰",
+          "edge_id": "G01-MAP-E105",
+          "origin": "灵隐寺",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1480,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "法喜寺",
+          "edge_id": "G01-MAP-E106",
+          "origin": "飞来峰",
+          "transit": {
+            "distance_meters": 3780,
+            "duration_minutes": 21,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1850,
+            "duration_minutes": 25,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "拱宸桥",
+          "edge_id": "G01-MAP-E107",
+          "origin": "法喜寺",
+          "transit": {
+            "distance_meters": 5040,
+            "duration_minutes": 28,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2220,
+            "duration_minutes": 30,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "良渚博物院",
+          "edge_id": "G01-MAP-E108",
+          "origin": "拱宸桥",
+          "transit": {
+            "distance_meters": 6300,
+            "duration_minutes": 35,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2590,
+            "duration_minutes": 35,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P027",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-06",
+          "name": "灵隐寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-07",
+          "name": "飞来峰"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-09",
+          "name": "法喜寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-12",
+          "name": "拱宸桥"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-16",
+          "name": "良渚博物院"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "永福寺",
+          "edge_id": "G01-MAP-E109",
+          "origin": "飞来峰",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 1998,
+            "duration_minutes": 27,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "梅家坞",
+          "edge_id": "G01-MAP-E110",
+          "origin": "永福寺",
+          "transit": {
+            "distance_meters": 4320,
+            "duration_minutes": 24,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2368,
+            "duration_minutes": 32,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "小河直街",
+          "edge_id": "G01-MAP-E111",
+          "origin": "梅家坞",
+          "transit": {
+            "distance_meters": 5580,
+            "duration_minutes": 31,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2738,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "杭州植物园",
+          "edge_id": "G01-MAP-E112",
+          "origin": "小河直街",
+          "transit": {
+            "distance_meters": 6840,
+            "duration_minutes": 38,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3108,
+            "duration_minutes": 42,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P028",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-07",
+          "name": "飞来峰"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-08",
+          "name": "永福寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-10",
+          "name": "梅家坞"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-13",
+          "name": "小河直街"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-17",
+          "name": "杭州植物园"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "法喜寺",
+          "edge_id": "G01-MAP-E113",
+          "origin": "永福寺",
+          "transit": {
+            "distance_meters": 3600,
+            "duration_minutes": 20,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 2516,
+            "duration_minutes": 34,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "龙井村",
+          "edge_id": "G01-MAP-E114",
+          "origin": "法喜寺",
+          "transit": {
+            "distance_meters": 4860,
+            "duration_minutes": 27,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 2886,
+            "duration_minutes": 39,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "香积寺",
+          "edge_id": "G01-MAP-E115",
+          "origin": "龙井村",
+          "transit": {
+            "distance_meters": 6120,
+            "duration_minutes": 34,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3256,
+            "duration_minutes": 44,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "太子湾公园",
+          "edge_id": "G01-MAP-E116",
+          "origin": "香积寺",
+          "transit": {
+            "distance_meters": 7380,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 3626,
+            "duration_minutes": 49,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P029",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-08",
+          "name": "永福寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-09",
+          "name": "法喜寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-11",
+          "name": "龙井村"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-14",
+          "name": "香积寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-18",
+          "name": "太子湾公园"
+        }
+      ]
+    },
+    {
+      "city": "杭州",
+      "edges": [
+        {
+          "destination": "梅家坞",
+          "edge_id": "G01-MAP-E117",
+          "origin": "法喜寺",
+          "transit": {
+            "distance_meters": 4140,
+            "duration_minutes": 23,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 3034,
+            "duration_minutes": 41,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "拱宸桥",
+          "edge_id": "G01-MAP-E118",
+          "origin": "梅家坞",
+          "transit": {
+            "distance_meters": 5400,
+            "duration_minutes": 30,
+            "transfer_count": 2
+          },
+          "walking": {
+            "distance_meters": 3404,
+            "duration_minutes": 46,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "西溪湿地国家公园",
+          "edge_id": "G01-MAP-E119",
+          "origin": "拱宸桥",
+          "transit": {
+            "distance_meters": 6660,
+            "duration_minutes": 37,
+            "transfer_count": 0
+          },
+          "walking": {
+            "distance_meters": 888,
+            "duration_minutes": 12,
+            "transfer_count": 0
+          }
+        },
+        {
+          "destination": "南宋德寿宫遗址博物馆",
+          "edge_id": "G01-MAP-E120",
+          "origin": "西溪湿地国家公园",
+          "transit": {
+            "distance_meters": 3060,
+            "duration_minutes": 17,
+            "transfer_count": 1
+          },
+          "walking": {
+            "distance_meters": 1258,
+            "duration_minutes": 17,
+            "transfer_count": 0
+          }
+        }
+      ],
+      "plan_id": "G01-MAP-P030",
+      "stops": [
+        {
+          "canonical_place_id": "g01-fixture-hz-09",
+          "name": "法喜寺"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-10",
+          "name": "梅家坞"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-12",
+          "name": "拱宸桥"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-15",
+          "name": "西溪湿地国家公园"
+        },
+        {
+          "canonical_place_id": "g01-fixture-hz-19",
+          "name": "南宋德寿宫遗址博物馆"
+        }
+      ]
+    }
+  ],
+  "schema_version": "g01-map-positive-fixture-v1",
+  "selection_policy": "walking-within-10-minutes-v1"
+}

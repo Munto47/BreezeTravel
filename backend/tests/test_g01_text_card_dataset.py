@@ -13,12 +13,15 @@ from evals.trip_text_cards_v1.annotations import (
 )
 from evals.trip_text_cards_v1.contracts import TextCardInputCase
 from evals.trip_text_cards_v1.gate import assess_semantic_score, readiness_receipt
+from evals.trip_text_cards_v1.map_positive import load_and_validate_fixture, run as run_map_positive
 from evals.trip_text_cards_v1.runner import BaselineRunError, write_baseline
 from evals.trip_text_cards_v1.validator import load_cases, validate_dataset
+from scripts.generate_g01_map_positive_fixture import generate as generate_map_positive
 from scripts.generate_g01_text_card_inputs import generate
 
 
 DATA_ROOT = Path("eval_data/trip_text_cards_v1")
+MAP_DATA_ROOT = Path("eval_data/g01_map_positive_v1")
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -217,3 +220,48 @@ def test_current_gate_readiness_is_honestly_hitl_pending() -> None:
     assert receipt["automated_gate_pass_claim"] is False
     assert receipt["provider_readback"]["qwen_live_lane"] == "NOT_READY"
     assert receipt["provider_readback"]["amap_live_persistence"] == "BLOCKED_PENDING_WRITTEN_PERMISSION"
+
+
+def test_map_positive_fixture_is_exactly_30_trips_and_120_unique_edges() -> None:
+    _fixture, receipt = load_and_validate_fixture(MAP_DATA_ROOT)
+
+    assert receipt["valid"] is True
+    assert receipt["plan_count"] == 30
+    assert receipt["edge_count"] == 120
+    assert receipt["unique_directed_edges"] == 120
+    assert receipt["city_plan_counts"] == {"北京": 10, "上海": 10, "杭州": 10}
+    assert receipt["external_calls"] == 0
+    assert receipt["live_provider_claim"] == "NOT_RUN"
+
+
+def test_map_positive_generator_reproduces_frozen_fixture(tmp_path: Path) -> None:
+    regenerated = tmp_path / "g01_map_positive_v1"
+    generate_map_positive(regenerated)
+
+    assert (regenerated / "fixture.json").read_bytes() == (MAP_DATA_ROOT / "fixture.json").read_bytes()
+    assert (regenerated / "dataset_contract.json").read_bytes() == (
+        MAP_DATA_ROOT / "dataset_contract.json"
+    ).read_bytes()
+
+
+def test_real_map_worker_renders_all_positive_fixture_edges_without_external_calls() -> None:
+    receipt = run_map_positive(MAP_DATA_ROOT)
+
+    assert receipt["fixture_subgate"] == "PASS"
+    assert receipt["execution_scope"] == "IN_MEMORY_MAP_WORKER_CONTROLLED_FIXTURE"
+    assert receipt["plan_count"] == 30
+    assert receipt["ready_snapshot_count"] == 30
+    assert receipt["edge_count"] == 120
+    assert receipt["usable_edge_count"] == 120
+    assert receipt["usable_coverage"] == 1
+    assert receipt["walking_mode_fact_count"] == 120
+    assert receipt["transit_mode_fact_count"] == 120
+    assert receipt["selected_mode_counts"]["walking"] > 0
+    assert receipt["selected_mode_counts"]["transit"] > 0
+    assert receipt["logical_duplicate_provider_requests"] == 0
+    assert receipt["external_calls"] == 0
+    assert receipt["worker_failure_count"] == 0
+    assert receipt["worker_to_snapshot_p95_ms"] <= 15_000
+    assert receipt["live_provider_claim"] == "NOT_RUN"
+    assert receipt["postgres_persistence_matrix_claim"] == "NOT_RUN"
+    assert receipt["full_text_card_gate_claim"] == "NOT_RUN"
