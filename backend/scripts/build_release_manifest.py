@@ -77,7 +77,9 @@ def config_summary() -> dict[str, object]:
         "ft_router_enabled": os.getenv("FT_ROUTER_ENABLED", "false").lower() == "true",
         "reranker_enabled": os.getenv("RERANKER_ENABLED", "false").lower() == "true",
         "auto_migrate": os.getenv("AUTO_MIGRATE", "false").lower() == "true",
-        "required_migration": os.getenv("REQUIRED_MIGRATION", "026_trip_intake_v2.sql"),
+        "required_migration": os.getenv(
+            "REQUIRED_MIGRATION", "027_trip_intake_revision_lineage.sql"
+        ),
     }
 
 

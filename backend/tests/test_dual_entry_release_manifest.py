@@ -23,8 +23,10 @@ def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
     assert payload["schema_version"] == "4.0"
     assert payload["release_status"] == "trip_check_v1_p3_input_provider_draft"
     assert payload["release_approval_granted"] is False
-    assert payload["latest_migration"] == "026_trip_intake_v2.sql"
-    assert payload["configuration"]["required_migration"] == "026_trip_intake_v2.sql"
+    assert payload["latest_migration"] == "027_trip_intake_revision_lineage.sql"
+    assert payload["configuration"]["required_migration"] == (
+        "027_trip_intake_revision_lineage.sql"
+    )
 
     authority = payload["product_authority"]
     for name in (
@@ -81,7 +83,7 @@ def test_verifier_accepts_externally_generated_trip_check_baseline(tmp_path):
     result = verify(tmp_path / "latest.json")
 
     assert result["status"] == "TRIP_CHECK_V1_IN_PROGRESS_EVIDENCE_VALID"
-    assert result["latest_migration"] == "026_trip_intake_v2.sql"
+    assert result["latest_migration"] == "027_trip_intake_revision_lineage.sql"
     assert result["human_validated"] is False
     assert result["publicly_verified"] is False
     assert result["overall_release_decision"] == "REJECT"

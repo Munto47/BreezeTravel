@@ -28,6 +28,7 @@
 ## 预批准事项
 
 - 新增 `026_trip_intake_v2.sql`、Intake schema/repository/API、字段证据与 materialization receipt；
+- O6 经用户单独批准新增 `027_trip_intake_revision_lineage.sql`，仅删除阻止同一 Intake 创建后续 revision 的冲突唯一约束；
 - 放宽当前主链的城市白名单、2～5 人、2～5 天和 `day_index <= 4` 数据约束；
 - 复用现有 OpenAI-compatible LLM 依赖做无工具 schema extraction，并提供无密钥/失败时的 fail-closed 结果；
 - 生成 120 条 synthetic text NLU 数据，使用开发子代理独立复核并封存 blind；

@@ -4,10 +4,23 @@ from app.config import Settings
 
 
 MIGRATION = Path("app/db/migrations/026_trip_intake_v2.sql")
+LINEAGE_MIGRATION = Path("app/db/migrations/027_trip_intake_revision_lineage.sql")
 
 
 def test_runtime_requires_trip_intake_v2_migration() -> None:
-    assert Settings().required_migration == "026_trip_intake_v2.sql"
+    assert Settings().required_migration == "027_trip_intake_revision_lineage.sql"
+
+
+def test_lineage_migration_removes_only_the_conflicting_room_intake_constraint() -> None:
+    sql = LINEAGE_MIGRATION.read_text(encoding="utf-8")
+
+    assert "ALTER TABLE trip_intake_revisions" in sql
+    assert (
+        "DROP CONSTRAINT IF EXISTS trip_intake_revisions_room_id_intake_id_key"
+        in sql
+    )
+    assert "DROP TABLE" not in sql
+    assert "DROP COLUMN" not in sql
 
 
 def test_migration_adds_immutable_intake_lineage_and_relaxes_only_product_scope_checks() -> None:

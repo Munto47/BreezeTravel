@@ -99,5 +99,6 @@ PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
 - `023_trip_check_runs.sql`：Run、stage、lease、attempt 和阶段幂等；
 - `024_advice_bundles.sql`：Advice、CandidateSet 引用和 postcheck lineage。
 - `026_trip_intake_v2.sql`：不可变 Intake revision/field source/materialization，并把城市、人数和天数的历史固定范围放宽为确认后的正值合同。
+- `027_trip_intake_revision_lineage.sql`：移除与不可变 revision 主键冲突的 room/intake 唯一约束，使同一 Intake 可以创建后续 revision。
 
 Migration 只追加；应用启动只检查兼容性，不自动执行 DDL。
