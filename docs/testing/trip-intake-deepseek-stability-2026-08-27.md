@@ -44,3 +44,13 @@ The external label artifact was found outside the repository and matched the sea
 The current Goal therefore terminates as `REJECTED` even though the engineering and local E2E gates pass. A future attempt requires a separately approved Goal and a newly governed blind version; this run cannot be promoted by changing thresholds, inspecting per-case truth, or retrying the model.
 
 `INTAKE_V2_DEVELOPMENT_READY=false` and `V1_CANDIDATE_READY=false` until the applicable remaining gates are actually run and pass.
+
+## Confirmation and browser E2E follow-up
+
+The confirmation hotfix is bound to product subject commit `660cb1804cef74d43a269eb28892a6df29995004`. It converts incomplete READY validation failures into a stable business error, persists corrected city/date/party values before confirmation, exposes initial frozen-candidate place search, waits for authoritative terminal run state, and reconciles adoption of either offered repair without duplicate revisions.
+
+The final three-city API receipt passed Beijing, Shanghai, and Hangzhou `3/3` with actual model `deepseek-v4-flash`, normal-chain fallback 0, 82 HTTP steps, no unexpected 5xx, revision 1 to 2, successful postcheck, SSE reconnect, idempotent replay, timeout/schema-invalid fallback, and Provider partial-failure `UNKNOWN` retention. Its SHA-256 is `5b296d489a3c47533a718174f77c75d483ed45c79bf887c157eb18a7dd4d552b`.
+
+The in-app browser independently completed a Beijing test-data chain through Intake, confirmation, materialization, frozen-candidate place binding, Audit, Advice, repair adoption, new revision, and full postcheck. Reload readback showed revision 2 and authoritative `SUCCEEDED/POSTCHECK`; browser-facing logs contained neither the Pydantic validation leak nor `crypto.randomUUID is not a function`, and the browser backend recorded zero 5xx responses.
+
+Final verification after the follow-up fixes: backend `2019 passed, 32 skipped`; Ruff PASS; frontend production build PASS; candidate-bound original 120-case validator PASS with evidence validity 1.0 and `blind_labels_read=false`; remediation validator PASS with frozen blind hash unchanged. These results complete the local hotfix Goal only. The frozen blind result remains `REJECT`, so `INTAKE_V2_DEVELOPMENT_READY=false` and `V1_CANDIDATE_READY=false` remain unchanged.

@@ -1,10 +1,10 @@
-# IN_PROGRESS GOAL：Trip Intake 确认恢复与完整本地 E2E
+# COMPLETED GOAL：Trip Intake 确认恢复与完整本地 E2E
 
 ## Metadata
 
 - Goal ID：`TC-INTAKE-CONFIRM-E2E-HOTFIX`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`IN_PROGRESS`
+- Status：`COMPLETED`
 - Branch：`codex/trip-intake-deepseek-stability`
 - Baseline：`d1292d71e635b0ab36323d168e0ddc054aa00ea5`
 - Approved by / at：User / 2026-08-27
@@ -44,7 +44,11 @@
 
 ## Completion record
 
-- Status：`IN_PROGRESS`；
+- Status：`COMPLETED`；
+- Product subject commit：`660cb1804cef74d43a269eb28892a6df29995004`；
+- 三城 API E2E：北京、上海、杭州 `3/3 PASS`，真实模型 `deepseek-v4-flash`，正常链 `fallback=0`，共 82 个 HTTP 步骤、意外 5xx 为 0，receipt SHA-256 为 `5b296d489a3c47533a718174f77c75d483ed45c79bf887c157eb18a7dd4d552b`；
+- 内置浏览器 E2E：测试数据完成 Intake、确认、materialize、地点确认、Audit、Advice、采纳、新 revision 与完整 postcheck；最终权威状态为 `SUCCEEDED/POSTCHECK`，revision 从 1 变为 2，未出现 Pydantic 或 `crypto.randomUUID` 错误；
+- 工程复核：backend `2019 passed, 32 skipped`，Ruff PASS，frontend production build PASS，candidate 绑定的原 120 条 validator PASS，remediation validator PASS；
 - Goal contract：`structurally_valid=true`；
 - `INTAKE_V2_DEVELOPMENT_READY=false`：本次热修复不得覆盖 frozen blind `REJECT`；
 - 本 Goal 不得改写发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。
