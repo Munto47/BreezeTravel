@@ -37,8 +37,9 @@ export default function AboutPage() {
           </div>
           <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-5xl">把一段攻略整理成每天都能照着走的卡片</h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-            用户粘贴攻略或上传截图后，系统按天整理地点，给出路线、住宿和少量可直接采纳的建议。北京、上海和杭州会提供更深入的地点与路线核对；其他国内城市先提供基础整理，并如实提示能力边界。
+            用户粘贴攻略或上传截图后，系统按天整理地点，给出路线、住宿和少量可直接采纳的建议。北京、上海或杭州会提供更深入的地点与路线核对；其他国内城市先提供基础整理，并如实提示能力边界。
           </p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">新版不再把同行人数限制为 2～5 人；当前示例只把 2 人作为可编辑的软假设。</p>
 
           <div className="mt-9 grid gap-4 sm:grid-cols-3">
             <Feature icon={FileText} title="直接给攻略" text="不要求先选城市、日期、人数，也不用理解项目术语。" />

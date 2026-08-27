@@ -83,7 +83,7 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   }
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toContain(accepted.public_resource_id)
-  expect(visibleText).not.toMatch(/原文映射|source span|confidence|Provider|revision|receipt|RunSpec|Audit|Repair|postcheck/i)
+  expect(visibleText).not.toMatch(/原文映射|source span|confidence|Provider|revision|receipt|RunSpec|Audit|Repair|postcheck|UNKNOWN|自动验证/i)
   expect(apiPaths.length).toBeGreaterThan(0)
   expect(apiPaths.every((path) => path.startsWith('/api/v3/trip-understandings'))).toBe(true)
 

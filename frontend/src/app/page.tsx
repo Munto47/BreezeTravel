@@ -65,7 +65,7 @@ export default function HomePage() {
               <span className="block text-emerald-700">每天都能照着走的卡片</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              以后只需粘贴攻略。现在先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
+              正式文本功能开放后，可以直接创建并导入行程，一步完成“导入行程并核验”。现在先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
             </p>
 
             <div data-testid="home-no-prerequisites" className="mt-7 flex flex-wrap gap-2">

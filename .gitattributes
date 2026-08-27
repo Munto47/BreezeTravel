@@ -27,3 +27,7 @@ backend/evals/trip_check_v1/p5/** text eol=lf
 backend/eval_data/dual_entry_v1/subject_receipt_registry.jsonl text eol=crlf
 backend/eval_data/dual_entry_v1/builder_oracles/three_city_frozen_suggestion_ranking_v1.json text eol=crlf
 backend/evidence/real_provider_local_authorized/suggestion_snapshot_2026-08-21.json text eol=crlf
+
+# G01 freezes the legacy 99-path OpenAPI snapshot from its original CRLF
+# checkout bytes. This is compatibility evidence, not the evolving v3 schema.
+packages/trip-check-client/openapi.json text eol=crlf
