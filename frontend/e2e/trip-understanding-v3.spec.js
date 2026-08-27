@@ -97,3 +97,58 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   expect(denied.status()).toBe(404)
   await isolatedContext.close()
 })
+
+
+test('logged-in text creates user-owned cards through the durable FULL chain', async ({ page, request }) => {
+  const login = await request.post('/api/auth/test-login')
+  expect(login.ok()).toBe(true)
+  const auth = await login.json()
+  await page.addInitScript(({ token, userId, nickname }) => {
+    localStorage.setItem('authToken', token)
+    localStorage.setItem('authUser', JSON.stringify({ userId, nickname }))
+  }, { token: auth.token, userId: auth.user_id, nickname: auth.nickname })
+
+  const sourceText = [
+    '北京三日行程',
+    'Day 1：故宫博物院、景山公园。',
+    'Day 2：天坛公园、前门大街。',
+    'Day 3：颐和园、圆明园。',
+    '有空可以考虑南锣鼓巷，不去上海迪士尼乐园。',
+    '预约说明：https://example.com/booking',
+  ].join('\n')
+
+  await page.goto('/')
+  await expect(page.getByTestId('trip-source-text')).toBeVisible()
+  await page.getByTestId('trip-source-text').fill(sourceText)
+  const createdPromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'POST'
+      && new URL(response.url()).pathname === '/api/v3/trip-understandings'
+      && requestData.postDataJSON()?.mode === 'FULL'
+  })
+  const readyPromise = page.waitForResponse((response) => {
+    const path = new URL(response.url()).pathname
+    return response.status() === 200 && /\/api\/v3\/trip-understandings\/[^/]+\/result$/.test(path)
+  })
+
+  await page.getByTestId('create-full-trip').click()
+  const created = await createdPromise
+  expect(created.status()).toBe(202)
+  const accepted = await created.json()
+  const result = await (await readyPromise).json()
+  expect(result.status).toBe('READY')
+  expect(result.days.map((day) => day.activities.map((activity) => activity.name))).toEqual(EXPECTED_DAYS)
+  expect(collectKeys(result).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
+
+  await expect(page).toHaveURL(/\/trip\/result$/)
+  await expect(page.getByTestId('trip-days').locator('section')).toHaveCount(3)
+  const visibleText = await page.locator('body').innerText()
+  expect(visibleText).not.toContain(accepted.public_resource_id)
+  expect(visibleText).not.toContain(sourceText)
+  expect(visibleText).not.toContain('南锣鼓巷')
+  expect(visibleText).not.toContain('上海迪士尼乐园')
+
+  await page.reload()
+  await expect(page.getByRole('heading', { name: '故宫博物院' })).toBeVisible()
+  expect(await page.locator('body').innerText()).not.toContain(accepted.public_resource_id)
+})

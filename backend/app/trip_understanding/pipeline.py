@@ -110,8 +110,18 @@ class EvidenceCompiler:
 
 class PublicResultProjector:
     def project(self, destination_name: str, activities: list[ResolvedActivity]) -> UserFacingTripResult:
+        planned = [
+            activity
+            for activity in activities
+            if activity.compiled.mention.role == ActivityRole.PLANNED
+            and activity.compiled.mention.day_index is not None
+        ]
+        day_count = max(
+            (activity.compiled.mention.day_index or 1 for activity in planned),
+            default=1,
+        )
         day_views: list[TripDayView] = []
-        for day_index in range(1, 4):
+        for day_index in range(1, day_count + 1):
             cards = []
             for item in sorted(
                 (
@@ -136,8 +146,15 @@ class PublicResultProjector:
                     )
                 )
             day_views.append(TripDayView(label=f"Day {day_index}", activities=cards))
+        resolved_count = sum(item.place is not None for item in planned)
+        if planned and resolved_count == len(planned):
+            result_status = "READY"
+        elif resolved_count:
+            result_status = "PARTIAL_RESULT"
+        else:
+            result_status = "BASIC_ONLY"
         return UserFacingTripResult(
-            status="READY",
+            status=result_status,
             assumptions=[
                 AssumptionChipView(
                     key="destination",
@@ -148,7 +165,11 @@ class PublicResultProjector:
                 AssumptionChipView(
                     key="calendar",
                     label="日期",
-                    value="未填写，按 Day 1～Day 3 展示",
+                    value=(
+                        f"未填写，按 Day 1～Day {day_count} 展示"
+                        if day_count > 1
+                        else "未填写，按 Day 1 展示"
+                    ),
                     editable=True,
                 ),
                 AssumptionChipView(

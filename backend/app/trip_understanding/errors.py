@@ -14,6 +14,10 @@ class IdempotencyInProgressError(TripUnderstandingError):
     pass
 
 
+class ConcurrentJobLimitError(TripUnderstandingError):
+    pass
+
+
 class ResourceNotFoundError(TripUnderstandingError):
     pass
 
@@ -27,4 +31,8 @@ class ResourceAccessDeniedError(TripUnderstandingError):
 
 
 class JobLeaseLostError(TripUnderstandingError):
+    pass
+
+
+class SourceUnavailableError(TripUnderstandingError):
     pass

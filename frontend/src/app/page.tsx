@@ -1,16 +1,30 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Compass, FileText, Map, ShieldCheck, Sparkles } from 'lucide-react'
 
-import { createDemoTripUnderstanding } from '@/lib/trip-understanding-v3'
+import { createDemoTripUnderstanding, createFullTripUnderstanding } from '@/lib/trip-understanding-v3'
+import { useAuthStore } from '@/stores/authStore'
 
 
 export default function HomePage() {
   const router = useRouter()
+  const { user, isHydrated, hydrate } = useAuthStore()
   const [isStarting, setIsStarting] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const [sourceText, setSourceText] = useState('')
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
+
+  const rememberAcceptedResource = (publicResourceId: string) => {
+    sessionStorage.setItem('bt_active_trip_ref', publicResourceId)
+    sessionStorage.removeItem('bt_active_trip_event_cursor')
+    sessionStorage.removeItem('bt_active_trip_etag')
+  }
 
   const startDemo = async () => {
     if (isStarting) return
@@ -18,11 +32,41 @@ export default function HomePage() {
     setError('')
     try {
       const accepted = await createDemoTripUnderstanding()
-      sessionStorage.setItem('bt_active_trip_ref', accepted.public_resource_id)
+      rememberAcceptedResource(accepted.public_resource_id)
       router.push('/trip/result')
     } catch {
       setError('暂时没有启动成功，请稍后再试。')
       setIsStarting(false)
+    }
+  }
+
+  const createFromText = async () => {
+    if (isCreating) return
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    const text = sourceText.trim()
+    if (!text) {
+      setError('请先粘贴攻略或行程文字。')
+      return
+    }
+    setIsCreating(true)
+    setError('')
+    try {
+      const accepted = await createFullTripUnderstanding(text)
+      rememberAcceptedResource(accepted.public_resource_id)
+      setSourceText('')
+      router.push('/trip/result')
+    } catch (createError) {
+      if (createError instanceof Error && createError.message === 'ACTIVE_LIMIT_REACHED') {
+        setError('已有两份行程正在整理，请稍后再试。')
+      } else if (createError instanceof Error && createError.message === 'LOGIN_REQUIRED') {
+        setError('登录状态已失效，请重新登录。')
+      } else {
+        setError('暂时没有整理成功，文字仍保留在当前页面，可以稍后重试。')
+      }
+      setIsCreating(false)
     }
   }
 
@@ -48,8 +92,8 @@ export default function HomePage() {
             <button type="button" onClick={() => router.push('/about')} className="rounded-full px-4 py-2 text-slate-600 transition hover:bg-white hover:text-slate-900">
               关于
             </button>
-            <button type="button" onClick={() => router.push('/login')} className="rounded-full border border-slate-300 bg-white/80 px-4 py-2 font-medium text-slate-700 transition hover:border-slate-500">
-              登录
+            <button type="button" onClick={() => router.push(user ? '/profile' : '/login')} className="rounded-full border border-slate-300 bg-white/80 px-4 py-2 font-medium text-slate-700 transition hover:border-slate-500">
+              {isHydrated && user ? user.nickname : '登录'}
             </button>
           </nav>
         </header>
@@ -65,8 +109,38 @@ export default function HomePage() {
               <span className="block text-emerald-700">每天都能照着走的卡片</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              正式文本功能开放后，可以直接创建并导入行程，一步完成“导入行程并核验”。现在先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
+              登录后直接粘贴自己的长文本；没有把握的地点会留给你确认。未登录也可以先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
             </p>
+
+            {isHydrated && user && (
+              <div className="mt-7 rounded-3xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-slate-200/40 backdrop-blur">
+                <label htmlFor="trip-source" className="text-sm font-semibold text-slate-800">粘贴攻略或行程文字</label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">不需要先选城市、日期或人数；最多 50,000 个字符。</p>
+                <textarea
+                  id="trip-source"
+                  data-testid="trip-source-text"
+                  value={sourceText}
+                  onChange={(event) => setSourceText(event.target.value)}
+                  maxLength={50_000}
+                  rows={7}
+                  placeholder={'例如：\nDay 1 去故宫博物院、景山公园\nDay 2 去天坛公园、前门大街'}
+                  className="mt-3 w-full resize-y rounded-2xl border border-slate-200 bg-[#fbfaf7] px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs text-slate-400">{sourceText.length.toLocaleString()} / 50,000</span>
+                  <button
+                    data-testid="create-full-trip"
+                    type="button"
+                    onClick={createFromText}
+                    disabled={isCreating}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {isCreating ? '正在整理你的行程…' : '生成逐日卡片'}
+                    {!isCreating && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div data-testid="home-no-prerequisites" className="mt-7 flex flex-wrap gap-2">
               {['不用先选城市', '不用填写日期', '不用填写人数', '不用创建房间'].map((label) => (

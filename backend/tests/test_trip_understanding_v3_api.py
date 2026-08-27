@@ -12,7 +12,9 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api import trip_understandings_v3  # noqa: E402
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository  # noqa: E402
+from app.trip_understanding.service import TripUnderstandingApplicationService  # noqa: E402
 from app.trip_understanding.worker import TripUnderstandingWorker  # noqa: E402
+from app.utils.auth import get_optional_user  # noqa: E402
 
 
 def _client():
@@ -87,4 +89,92 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
 
     openapi_text = json.dumps(app.openapi(), ensure_ascii=False)
     assert '"DEMO"' in openapi_text
-    assert '"FULL"' not in openapi_text
+    assert '"FULL"' in openapi_text
+    assert '"discriminator"' in openapi_text
+
+
+def test_full_api_requires_login_and_uses_user_owned_persistent_chain() -> None:
+    client, repository, app = _client()
+    text = """北京三日行程
+Day 1：故宫博物院、景山公园。
+Day 2：天坛公园、前门大街。
+Day 3：颐和园、圆明园。
+有空可以考虑南锣鼓巷，不去上海迪士尼乐园。
+"""
+    request_body = {"mode": "FULL", "source": {"type": "TEXT", "text": text}}
+
+    anonymous = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "full-anonymous"},
+        json=request_body,
+    )
+    assert anonymous.status_code == 401
+    assert anonymous.json()["detail"]["code"] == "LOGIN_REQUIRED"
+
+    app.dependency_overrides[get_optional_user] = lambda: "user-a"
+    created = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "full-user-a"},
+        json=request_body,
+    )
+    assert created.status_code == 202
+    assert "set-cookie" not in created.headers
+    payload = created.json()
+    assert client.get(payload["result_url"]).status_code == 202
+
+    asyncio.run(TripUnderstandingWorker(repository).run_once("full-api-worker"))
+    result = client.get(payload["result_url"])
+    assert result.status_code == 200
+    assert result.json()["status"] == "READY"
+    assert [len(day["activities"]) for day in result.json()["days"]] == [2, 2, 2]
+    serialized = json.dumps(result.json(), ensure_ascii=False)
+    assert text not in serialized
+    assert "南锣鼓巷" not in serialized
+    assert "上海迪士尼乐园" not in serialized
+
+    app.dependency_overrides[get_optional_user] = lambda: "user-b"
+    assert client.get(payload["result_url"]).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_full_service_replay_conflict_and_two_active_job_limit() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    from app.trip_understanding.models import CreateFullRequest
+    from app.trip_understanding.errors import ConcurrentJobLimitError, IdempotencyConflictError
+
+    first_body = CreateFullRequest.model_validate(
+        {"mode": "FULL", "source": {"type": "TEXT", "text": "Day 1 去故宫博物院"}}
+    )
+    first = await service.create_full(
+        first_body,
+        owner_user_id="user-a",
+        idempotency_key="full-1",
+    )
+    replay = await service.create_full(
+        first_body,
+        owner_user_id="user-a",
+        idempotency_key="full-1",
+    )
+    assert replay.replayed is True
+    assert replay.accepted == first.accepted
+    conflicting_body = CreateFullRequest.model_validate(
+        {"mode": "FULL", "source": {"type": "TEXT", "text": "Day 1 去天坛公园"}}
+    )
+    with pytest.raises(IdempotencyConflictError):
+        await service.create_full(
+            conflicting_body,
+            owner_user_id="user-a",
+            idempotency_key="full-1",
+        )
+    await service.create_full(
+        conflicting_body,
+        owner_user_id="user-a",
+        idempotency_key="full-2",
+    )
+    with pytest.raises(ConcurrentJobLimitError):
+        await service.create_full(
+            conflicting_body,
+            owner_user_id="user-a",
+            idempotency_key="full-3",
+        )

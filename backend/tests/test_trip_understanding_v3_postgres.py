@@ -11,8 +11,11 @@ import pytest
 
 from app.trip_understanding.demo import DEMO_SOURCE_TEXT, build_demo_pipeline
 from app.trip_understanding.errors import ResourceAccessDeniedError
+from app.trip_understanding.full_text import build_full_text_pipeline
+from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
+from app.trip_understanding.source_crypto import SourceCipher
 
 
 pytestmark = pytest.mark.integration
@@ -64,7 +67,10 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
             await migration_connection.close()
 
         pool = await asyncpg.create_pool(database_dsn, min_size=2, max_size=4)
-        repository = PostgresTripUnderstandingRepository(pool)
+        repository = PostgresTripUnderstandingRepository(
+            pool,
+            SourceCipher("postgres-integration-root-secret"),
+        )
         now = datetime(2026, 8, 27, tzinfo=timezone.utc)
         created = await repository.create_demo(
             capability_hash="a" * 64,
@@ -127,6 +133,97 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
                 "SELECT EXISTS(SELECT 1 FROM applied_migrations WHERE filename = '028_trip_understanding_v3.sql')"
             )
             assert await conn.fetchval("SELECT to_regclass('public.rooms') IS NOT NULL")
+
+        full_text = """北京三日行程
+Day 1：故宫博物院、景山公园。
+Day 2：天坛公园、前门大街。
+Day 3：颐和园、圆明园。
+有空可以考虑南锣鼓巷，不去上海迪士尼乐园。
+"""
+        owner_user_id = str(uuid4())
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO users (user_id, nickname) VALUES ($1, 'FULL owner')",
+                owner_user_id,
+            )
+        full_request_hash = canonical_sha256(
+            {"mode": "FULL", "source": {"type": "TEXT", "text": full_text}}
+        )
+        full_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=full_text,
+            idempotency_key="postgres-full",
+            request_hash=full_request_hash,
+            now=now,
+            retention_days=30,
+        )
+        full_replay = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=full_text,
+            idempotency_key="postgres-full",
+            request_hash=full_request_hash,
+            now=now,
+            retention_days=30,
+        )
+        assert full_replay.replayed is True
+        full_job = await repository.claim_next(worker_id="postgres-full-worker", now=now, lease_seconds=30)
+        assert full_job is not None
+        source = await repository.load_source(full_job, now=now)
+        assert source.source_type == "TEXT"
+        assert source.text == full_text
+        full_output = await build_full_text_pipeline().run(source.text)
+        await repository.complete_job(full_job, full_output, now=now)
+        full_resource = await repository.authorize(
+            full_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+        full_result = await repository.get_result(full_resource)
+        assert full_result is not None
+        assert full_result.result.status == "READY"
+        assert [len(day.activities) for day in full_result.result.days] == [2, 2, 2]
+        with pytest.raises(ResourceAccessDeniedError):
+            await repository.authorize(
+                full_created.accepted.public_resource_id,
+                capability_hash=None,
+                user_id=str(uuid4()),
+                now=now,
+            )
+        async with pool.acquire() as conn:
+            encrypted = await conn.fetchval(
+                """
+                SELECT encrypted_content FROM trip_understanding_sources
+                WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
+            assert encrypted is not None
+            assert full_text.encode("utf-8") not in bytes(encrypted)
+            assert await conn.fetchval(
+                """
+                SELECT bool_and(quote LIKE 'enc:v1:%')
+                FROM trip_understanding_source_claims WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
+            persisted_proposal = await conn.fetchval(
+                """
+                SELECT proposal_json::text FROM trip_understanding_revisions
+                WHERE understanding_id = $1 AND revision = 2
+                """,
+                full_resource.understanding_id,
+            )
+            assert "预约说明" not in persisted_proposal
+            assert '"raw_text"' not in persisted_proposal
+            assert "ENCRYPTED_IN_SOURCE_CLAIMS" in persisted_proposal
+            assert await conn.fetchval(
+                """
+                SELECT retention_until - created_at <= INTERVAL '30 days 1 second'
+                FROM trip_understanding_sources WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
     finally:
         if pool is not None:
             await pool.close()

@@ -18,10 +18,12 @@ from app.trip_understanding.errors import (
     JobLeaseLostError,
     ResourceAccessDeniedError,
 )
+from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.models import ActivityRole
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH, TripUnderstandingApplicationService
+from app.trip_understanding.source_crypto import SourceCipher
 
 
 FORBIDDEN_PUBLIC_KEYS = {
@@ -52,6 +54,15 @@ def _walk_keys(value):
     elif isinstance(value, list):
         for child in value:
             yield from _walk_keys(child)
+
+
+FULL_BEIJING_TEXT = """北京三日行程
+Day 1：故宫博物院、景山公园。
+Day 2：天坛公园、前门大街。
+Day 3：颐和园、圆明园。
+有空可以考虑南锣鼓巷，不去上海迪士尼乐园。
+预约说明：https://example.com/booking
+"""
 
 
 @pytest.mark.asyncio
@@ -89,6 +100,52 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     assert "北京环球影城" not in serialized
     assert "提前预约" not in serialized
     assert "https://" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_full_text_conservative_chain_resolves_only_planned_atomic_places() -> None:
+    output = await build_full_text_pipeline().run(FULL_BEIJING_TEXT)
+
+    result = output.public_result.model_dump(mode="json")
+    assert result["status"] == "READY"
+    assert [[card["name"] for card in day["activities"]] for day in result["days"]] == [
+        ["故宫博物院", "景山公园"],
+        ["天坛公园", "前门大街"],
+        ["颐和园", "圆明园"],
+    ]
+    roles = {item.compiled.mention.raw_text: item.compiled.mention.role for item in output.activities}
+    assert roles["南锣鼓巷"] == ActivityRole.OPTIONAL
+    assert roles["上海迪士尼乐园"] == ActivityRole.EXCLUDED
+    assert output.compiler_receipt["eligible_place_count"] == 6
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(result))
+    serialized = json.dumps(result, ensure_ascii=False)
+    assert "南锣鼓巷" not in serialized
+    assert "上海迪士尼乐园" not in serialized
+    assert "https://" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_full_text_unknown_or_reference_only_input_does_not_invent_a_place() -> None:
+    output = await build_full_text_pipeline().run(
+        "北京随手记：攻略提到故宫博物院。预约说明 https://example.com/place/天坛公园"
+    )
+
+    assert output.public_result.status == "BASIC_ONLY"
+    assert [day.activities for day in output.public_result.days] == [[]]
+    assert all(not item.compiled.eligible_for_place_search for item in output.activities)
+
+
+def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:
+    cipher = SourceCipher("unit-test-root-secret")
+    source_hash = "a" * 64
+    first = cipher.encrypt("北京行程", source_id="source-a", content_hash=source_hash)
+    second = cipher.encrypt("北京行程", source_id="source-a", content_hash=source_hash)
+
+    assert first != second
+    assert b"\xe5\x8c\x97\xe4\xba\xac" not in first
+    assert cipher.decrypt(first, source_id="source-a", content_hash=source_hash) == "北京行程"
+    with pytest.raises(Exception):
+        cipher.decrypt(first, source_id="source-b", content_hash=source_hash)
 
 
 def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -> None:

@@ -4,7 +4,7 @@
 >
 > 版本：`trip-check-api-v3`
 >
-> 实现状态：`G01_DEMO_VERTICAL_SLICE_IMPLEMENTED / FULL_NOT_YET_EXPOSED`
+> 实现状态：`G01_DEMO_AND_CONSERVATIVE_FULL_VERTICAL_SLICES_IMPLEMENTED / LIVE_MODEL_AND_AMAP_NOT_READY`
 >
 > 日期：2026-08-27
 
@@ -112,13 +112,16 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
 
 所有路径使用现有 `/api` 前缀。
 
-### 3.0 G01 首个纵向切片边界
+### 3.0 G01 当前公共边界
 
-S0固定以下可公开实现范围，未列出的目标合同仍保持`NOT_IMPLEMENTED`：
+S0首先冻结DEMO边界；随后FULL文本纵向切片在同一持久链上开放。未列出的目标合同仍保持`NOT_IMPLEMENTED`：
 
-- create请求在首切片只接受严格对象`{"mode":"DEMO"}`，未知字段拒绝；`FULL`保留为后续discriminated union分支，真实文本链完成前不得加入OpenAPI或返回fixture伪实现；
+- create请求是严格的`mode` discriminated union，未知字段拒绝：
+  - `{"mode":"DEMO"}`使用服务端固定示例并绑定匿名capability；
+  - `{"mode":"FULL","source":{"type":"TEXT","text":"..."}}`必须登录，`text`为1～50,000 Unicode code point且不得仅含空白；
+- FULL文本由加密Source、持久job/lease/event、模型中立proposal、证据编译、原子`PLANNED`资格判断、受控地点snapshot和公共projector贯穿；当前在live候选未准入前只采用保守确定性语义和fixture POI，无法确认时返回`BASIC_ONLY/PARTIAL_RESULT`，不伪装Qwen或高德已调用；
 - create响应为`202 TripUnderstandingAcceptedView`：`public_resource_id`、`status`、`message`、`result_url`、`events_url`；资源ID是路由值，不承担授权，也不得渲染到DOM或分析事件；
-- 匿名capability是独立随机秘密，经服务端签名后只写`HttpOnly`、`SameSite=Lax`、`Path=/` cookie；数据库只保存不可逆摘要，公共响应和日志均不含秘密；public profile额外要求`Secure`；
+- 匿名capability是独立随机秘密，经服务端签名后只写`HttpOnly`、`SameSite=Lax`、`Path=/api/v3/trip-understandings` cookie；数据库只保存不可逆摘要，公共响应和日志均不含秘密；public profile额外要求`Secure`；
 - result处理中返回`202 TripUnderstandingProgressView`，只含`status / message / retry_after_ms`；卡片可用后返回`200 UserFacingTripResult`和不可逆opaque ETag；
 - `UserFacingTripResult`顶层严格为`status / assumptions / days / map / stay / available_actions`；activity严格为`activity_token / name / category / area_or_address / time_hint / status / available_actions`；
 - events持久化单调游标并接受`Last-Event-ID`，首切片事件类型allowlist为`progress / result_available`，文案allowlist为“正在整理每天行程”“正在核对地点”“卡片已可用”；
@@ -129,7 +132,7 @@ S0固定以下可公开实现范围，未列出的目标合同仍保持`NOT_IMPL
 ### 3.1 创建与结果
 
 - `POST /api/v3/trip-understandings`
-  - 当前首切片只接受严格对象`{"mode":"DEMO"}`并使用固定北京示例；未来文本来源使用独立`FULL`分支，真实文本链完成前不进入OpenAPI；
+  - 接受3.0定义的严格`DEMO | FULL` union；FULL只接受TEXT且必须登录，截图分支尚未开放；
   - 要求 `Idempotency-Key`；
   - 返回 `202`、随机非秘密`public_resource_id`、用户状态与events URL；它不含内部UID且不承担授权，不能进入用户文案或分析事件。访问日志必须记录路由模板或脱敏值，不能记录实际路径ID。
 - `GET /api/v3/trip-understandings/{id}/result`

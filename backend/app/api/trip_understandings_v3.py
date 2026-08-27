@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
+    ConcurrentJobLimitError,
     IdempotencyConflictError,
     IdempotencyInProgressError,
     ResourceAccessDeniedError,
@@ -18,7 +19,8 @@ from app.trip_understanding.errors import (
     ResourceNotFoundError,
 )
 from app.trip_understanding.models import (
-    CreateDemoRequest,
+    CreateFullRequest,
+    CreateTripUnderstandingRequest,
     TripUnderstandingAcceptedView,
     TripUnderstandingProgressView,
     UserFacingTripResult,
@@ -119,28 +121,44 @@ async def _authorize(
     status_code=status.HTTP_202_ACCEPTED,
 )
 async def create_trip_understanding(
-    body: CreateDemoRequest,
+    body: CreateTripUnderstandingRequest,
     request: Request,
     response: Response,
     repository: RepositoryDep,
+    current_user: OptionalUserDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
-    del body
     key = _require_idempotency_key(idempotency_key)
     settings = get_settings()
-    cookie_value = request.cookies.get(settings.trip_understanding_cookie_name)
-    digest = _capability_from_cookie(cookie_value)
-    if digest is None:
-        cookie_value, digest = mint_capability(_settings_signing_key())
     service = TripUnderstandingApplicationService(
         repository,
         ttl_hours=settings.trip_understanding_demo_ttl_hours,
+        full_retention_days=settings.trip_understanding_full_retention_days,
     )
     try:
-        outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
-    except CapabilityExpiredError:
-        cookie_value, digest = mint_capability(_settings_signing_key())
-        outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
+        if body.mode == "FULL":
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={"code": "LOGIN_REQUIRED", "message": "登录后可以整理自己的行程"},
+                )
+            assert isinstance(body, CreateFullRequest)
+            outcome = await service.create_full(
+                body,
+                owner_user_id=current_user,
+                idempotency_key=key,
+            )
+            cookie_value = None
+        else:
+            cookie_value = request.cookies.get(settings.trip_understanding_cookie_name)
+            digest = _capability_from_cookie(cookie_value)
+            if digest is None:
+                cookie_value, digest = mint_capability(_settings_signing_key())
+            try:
+                outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
+            except CapabilityExpiredError:
+                cookie_value, digest = mint_capability(_settings_signing_key())
+                outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
     except IdempotencyConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -151,7 +169,13 @@ async def create_trip_understanding(
             status_code=status.HTTP_409_CONFLICT,
             detail={"code": "REQUEST_IN_PROGRESS", "message": "正在处理同一个请求，请稍后查看"},
         ) from exc
-    _set_capability_cookie(response, cookie_value)
+    except ConcurrentJobLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "TOO_MANY_ACTIVE_REQUESTS", "message": "已有两份行程正在整理，请稍后再试"},
+        ) from exc
+    if cookie_value is not None:
+        _set_capability_cookie(response, cookie_value)
     response.headers["Cache-Control"] = "no-store"
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"

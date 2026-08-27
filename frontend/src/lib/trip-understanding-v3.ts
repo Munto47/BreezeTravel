@@ -53,6 +53,12 @@ function requestKey(): string {
   return Array.from(values, (value) => value.toString(16).padStart(8, '0')).join('')
 }
 
+function authorizationHeaders(): Record<string, string> {
+  if (typeof window === 'undefined') return {}
+  const token = localStorage.getItem('authToken')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
@@ -67,6 +73,25 @@ export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAc
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
+export async function createFullTripUnderstanding(text: string): Promise<TripUnderstandingAcceptedView> {
+  const response = await fetch('/api/v3/trip-understandings', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': requestKey(),
+      ...authorizationHeaders(),
+    },
+    body: JSON.stringify({ mode: 'FULL', source: { type: 'TEXT', text } }),
+  })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 429) throw new Error('ACTIVE_LIMIT_REACHED')
+    throw new Error('FULL_CREATE_FAILED')
+  }
+  return response.json() as Promise<TripUnderstandingAcceptedView>
+}
+
 export async function readTripUnderstandingResult(publicResourceId: string): Promise<{
   status: number
   body: TripUnderstandingProgressView | UserFacingTripResult
@@ -74,7 +99,11 @@ export async function readTripUnderstandingResult(publicResourceId: string): Pro
 }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
-    { credentials: 'include', cache: 'no-store' },
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    },
   )
   if (!response.ok) throw new Error('TRIP_RESULT_UNAVAILABLE')
   return {
@@ -86,4 +115,66 @@ export async function readTripUnderstandingResult(publicResourceId: string): Pro
 
 export function tripUnderstandingEventsUrl(publicResourceId: string): string {
   return `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/events`
+}
+
+export interface TripUnderstandingPublicEvent {
+  id: number
+  type: 'progress' | 'result_available'
+  message: string
+}
+
+export async function streamTripUnderstandingEvents(
+  publicResourceId: string,
+  onEvent: (event: TripUnderstandingPublicEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  const cursor = typeof window === 'undefined' ? null : sessionStorage.getItem('bt_active_trip_event_cursor')
+  const response = await fetch(tripUnderstandingEventsUrl(publicResourceId), {
+    credentials: 'include',
+    cache: 'no-store',
+    headers: {
+      Accept: 'text/event-stream',
+      ...(cursor ? { 'Last-Event-ID': cursor } : {}),
+      ...authorizationHeaders(),
+    },
+    signal,
+  })
+  if (!response.ok || !response.body) throw new Error('TRIP_EVENTS_UNAVAILABLE')
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  while (!signal.aborted) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, '\n')
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+      const fields = Object.fromEntries(
+        block
+          .split('\n')
+          .filter((line) => line.includes(':') && !line.startsWith(':'))
+          .map((line) => {
+            const separator = line.indexOf(':')
+            return [line.slice(0, separator), line.slice(separator + 1).trimStart()]
+          }),
+      )
+      if (fields.id && fields.event && fields.data) {
+        const id = Number(fields.id)
+        const payload = JSON.parse(fields.data) as { message?: string }
+        if (
+          Number.isSafeInteger(id)
+          && id > 0
+          && (fields.event === 'progress' || fields.event === 'result_available')
+          && typeof payload.message === 'string'
+        ) {
+          sessionStorage.setItem('bt_active_trip_event_cursor', String(id))
+          onEvent({ id, type: fields.event, message: payload.message })
+        }
+      }
+      boundary = buffer.indexOf('\n\n')
+    }
+    if (done) return
+  }
 }

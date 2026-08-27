@@ -9,7 +9,8 @@ from uuid import uuid4
 
 from app.config import get_settings
 from app.db.connection import close_pool
-from app.trip_understanding.demo import DEMO_SOURCE_TEXT, build_demo_pipeline
+from app.trip_understanding.demo import build_demo_pipeline
+from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.repository import (
     PostgresTripUnderstandingRepository,
     TripUnderstandingRepository,
@@ -28,7 +29,8 @@ class TripUnderstandingWorker:
     ) -> None:
         self.repository = repository
         self.lease_seconds = lease_seconds
-        self.pipeline = build_demo_pipeline()
+        self.demo_pipeline = build_demo_pipeline()
+        self.full_pipeline = build_full_text_pipeline()
 
     async def run_once(self, worker_id: str, *, now: datetime | None = None) -> bool:
         observed_at = now or datetime.now(timezone.utc)
@@ -40,7 +42,9 @@ class TripUnderstandingWorker:
         if job is None:
             return False
         try:
-            output = await self.pipeline.run(DEMO_SOURCE_TEXT)
+            source = await self.repository.load_source(job, now=observed_at)
+            pipeline = self.demo_pipeline if source.source_type == "FIXED_DEMO" else self.full_pipeline
+            output = await pipeline.run(source.text)
             await self.repository.complete_job(
                 job,
                 output,
@@ -54,7 +58,7 @@ class TripUnderstandingWorker:
                 category="PIPELINE_ERROR",
                 now=datetime.now(timezone.utc),
             )
-            logger.exception("trip understanding fixture job failed")
+            logger.exception("trip understanding job failed")
         return True
 
 

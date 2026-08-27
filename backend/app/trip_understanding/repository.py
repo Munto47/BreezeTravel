@@ -4,20 +4,24 @@ import hashlib
 import hmac
 import json
 import secrets
+import base64
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 from uuid import uuid4
 
+from app.config import get_settings
 from app.db.connection import get_pool
-from app.trip_understanding.demo import DEMO_SOURCE_SHA256
+from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
+    ConcurrentJobLimitError,
     IdempotencyConflictError,
     IdempotencyInProgressError,
     JobLeaseLostError,
     ResourceAccessDeniedError,
     ResourceGoneError,
     ResourceNotFoundError,
+    SourceUnavailableError,
 )
 from app.trip_understanding.models import (
     CreateOutcome,
@@ -28,9 +32,11 @@ from app.trip_understanding.models import (
     StoredResult,
     TripUnderstandingAcceptedView,
     TripUnderstandingJobRecord,
+    TripUnderstandingSourcePayload,
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.source_crypto import SourceCipher
 
 
 def _json_value(value: Any) -> Any:
@@ -50,6 +56,18 @@ def _accepted(public_resource_id: str) -> TripUnderstandingAcceptedView:
     )
 
 
+def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
+    """Persist structural semantics without duplicating verbatim source quotes."""
+    return {
+        "schema_version": output.proposal.schema_version,
+        "source_hash": output.proposal.source_hash,
+        "destination_name": output.proposal.destination_name,
+        "mention_count": len(output.proposal.mentions),
+        "binding": output.proposal.binding,
+        "verbatim_quotes": "ENCRYPTED_IN_SOURCE_CLAIMS",
+    }
+
+
 class TripUnderstandingRepository(Protocol):
     async def create_demo(
         self,
@@ -59,6 +77,17 @@ class TripUnderstandingRepository(Protocol):
         request_hash: str,
         now: datetime,
         ttl_hours: int,
+    ) -> CreateOutcome: ...
+
+    async def create_full(
+        self,
+        *,
+        owner_user_id: str,
+        source_text: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
     ) -> CreateOutcome: ...
 
     async def authorize(
@@ -87,6 +116,13 @@ class TripUnderstandingRepository(Protocol):
         lease_seconds: int,
     ) -> TripUnderstandingJobRecord | None: ...
 
+    async def load_source(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+    ) -> TripUnderstandingSourcePayload: ...
+
     async def complete_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -105,11 +141,23 @@ class TripUnderstandingRepository(Protocol):
 
 
 class PostgresTripUnderstandingRepository:
-    def __init__(self, pool: Any | None = None):
+    def __init__(self, pool: Any | None = None, source_cipher: SourceCipher | None = None):
         self._pool = pool
+        self._source_cipher = source_cipher
 
     async def _get_pool(self):
         return self._pool or await get_pool()
+
+    def _get_source_cipher(self) -> SourceCipher:
+        if self._source_cipher is None:
+            settings = get_settings()
+            secret = (
+                settings.trip_understanding_source_encryption_key
+                or settings.trip_understanding_cookie_signing_key
+                or settings.jwt_secret_key
+            )
+            self._source_cipher = SourceCipher(secret)
+        return self._source_cipher
 
     async def create_demo(
         self,
@@ -304,6 +352,189 @@ class PostgresTripUnderstandingRepository:
             )
         return CreateOutcome(accepted=accepted)
 
+    async def create_full(
+        self,
+        *,
+        owner_user_id: str,
+        source_text: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> CreateOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        if not source_text.strip() or len(source_text) > 50_000:
+            raise ValueError("text source is outside the supported size")
+        expires_at = now + timedelta(days=retention_days)
+        content_hash = _sha256_text(source_text)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            scope = f"user:{owner_user_id}:create"
+            key_hash = _sha256_text(idempotency_key)
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING
+                RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different request"
+                    )
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError("matching create request is still in progress")
+                return CreateOutcome(
+                    accepted=TripUnderstandingAcceptedView.model_validate(
+                        _json_value(existing["response_json"])
+                    ),
+                    replayed=True,
+                )
+
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-create:{owner_user_id}",
+            )
+            active_count = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understandings
+                WHERE owner_user_id = $1 AND state = 'PROCESSING'
+                """,
+                owner_user_id,
+            )
+            if active_count >= 2:
+                raise ConcurrentJobLimitError("user already has two understanding jobs in progress")
+
+            understanding_id = str(uuid4())
+            public_resource_id = secrets.token_urlsafe(24)
+            source_id = str(uuid4())
+            job_id = str(uuid4())
+            cipher = self._get_source_cipher()
+            encrypted_content = cipher.encrypt(
+                source_text,
+                source_id=source_id,
+                content_hash=content_hash,
+            )
+            draft_payload = {
+                "source_hash": content_hash,
+                "destination": {"status": "PENDING"},
+                "assumptions": [],
+                "proposal": {},
+                "inference_binding": {"status": "NOT_RUN"},
+                "compiler_receipt": {"status": "NOT_RUN"},
+            }
+            await conn.execute(
+                """
+                INSERT INTO trip_understandings (
+                    understanding_id, public_resource_id, owner_user_id,
+                    state, current_revision, etag_nonce, source_expires_at,
+                    created_at, updated_at
+                ) VALUES ($1, $2, $3, 'PROCESSING', 1, $4, $5, $6, $6)
+                """,
+                understanding_id,
+                public_resource_id,
+                owner_user_id,
+                secrets.token_hex(32),
+                expires_at,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_sources (
+                    source_id, understanding_id, source_type, content_hash,
+                    encrypted_content, encryption_key_ref, retention_until, created_at
+                ) VALUES ($1, $2, 'TEXT', $3, $4, $5, $6, $7)
+                """,
+                source_id,
+                understanding_id,
+                content_hash,
+                encrypted_content,
+                cipher.key_ref,
+                expires_at,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_revisions (
+                    understanding_id, revision, parent_revision, source_id, status,
+                    content_hash, destination_json, assumptions_json, proposal_json,
+                    inference_binding_json, compiler_receipt_json, created_at
+                ) VALUES (
+                    $1, 1, NULL, $2, 'PROCESSING', $3, $4::jsonb, $5::jsonb,
+                    $6::jsonb, $7::jsonb, $8::jsonb, $9
+                )
+                """,
+                understanding_id,
+                source_id,
+                canonical_sha256(draft_payload),
+                json.dumps(draft_payload["destination"], ensure_ascii=False),
+                json.dumps(draft_payload["assumptions"], ensure_ascii=False),
+                json.dumps(draft_payload["proposal"], ensure_ascii=False),
+                json.dumps(draft_payload["inference_binding"], ensure_ascii=False),
+                json.dumps(draft_payload["compiler_receipt"], ensure_ascii=False),
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_jobs (
+                    job_id, understanding_id, revision, job_type, status,
+                    input_hash, available_at, created_at, updated_at
+                ) VALUES ($1, $2, 1, 'UNDERSTAND', 'QUEUED', $3, $4, $4, $4)
+                """,
+                job_id,
+                understanding_id,
+                content_hash,
+                now,
+            )
+            event_payload = PublicEventPayload(
+                status="PROCESSING",
+                message="正在整理每天行程",
+            ).model_dump(mode="json")
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_events (
+                    understanding_id, event_key, event_type, public_payload_json, created_at
+                ) VALUES ($1, 'created', 'progress', $2::jsonb, $3)
+                """,
+                understanding_id,
+                json.dumps(event_payload, ensure_ascii=False),
+                now,
+            )
+            accepted = _accepted(public_resource_id)
+            response_json = accepted.model_dump(mode="json")
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 202,
+                    response_json = $3::jsonb, response_headers_json = '{}'::jsonb,
+                    lease_until = NULL, completed_at = $4
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps(response_json, ensure_ascii=False),
+                now,
+            )
+        return CreateOutcome(accepted=accepted)
+
     async def authorize(
         self,
         public_resource_id: str,
@@ -463,6 +694,51 @@ class PostgresTripUnderstandingRepository:
             input_hash=row["input_hash"].strip(),
         )
 
+    async def load_source(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+    ) -> TripUnderstandingSourcePayload:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT s.source_id, s.source_type, s.content_hash, s.encrypted_content,
+                       s.encryption_key_ref, s.retention_until, s.deleted_at
+                FROM trip_understanding_jobs j
+                JOIN trip_understanding_revisions r
+                  ON r.understanding_id = j.understanding_id AND r.revision = j.revision
+                JOIN trip_understanding_sources s ON s.source_id = r.source_id
+                WHERE j.job_id = $1
+                """,
+                job.job_id,
+            )
+        if row is None:
+            raise ResourceNotFoundError("understanding source does not exist")
+        content_hash = row["content_hash"].strip()
+        if content_hash != job.input_hash:
+            raise ValueError("claimed job is not bound to its source")
+        if row["deleted_at"] is not None or row["retention_until"] <= now:
+            raise SourceUnavailableError("understanding source is no longer available")
+        if row["source_type"] == "FIXED_DEMO":
+            if content_hash != DEMO_SOURCE_SHA256:
+                raise ValueError("fixed demo source hash is invalid")
+            return TripUnderstandingSourcePayload(source_type="FIXED_DEMO", text=DEMO_SOURCE_TEXT)
+        if row["source_type"] != "TEXT" or row["encrypted_content"] is None:
+            raise SourceUnavailableError("recoverable text source is unavailable")
+        cipher = self._get_source_cipher()
+        if row["encryption_key_ref"] != cipher.key_ref:
+            raise SourceUnavailableError("source encryption key is unavailable")
+        text = cipher.decrypt(
+            bytes(row["encrypted_content"]),
+            source_id=row["source_id"],
+            content_hash=content_hash,
+        )
+        if _sha256_text(text) != content_hash:
+            raise ValueError("decrypted source hash mismatch")
+        return TripUnderstandingSourcePayload(source_type="TEXT", text=text)
+
     async def complete_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -472,9 +748,10 @@ class PostgresTripUnderstandingRepository:
     ) -> bool:
         if output.source_hash != job.input_hash:
             raise ValueError("worker output is not bound to the claimed source")
-        effect_key = f"trip-understanding:{job.understanding_id}:r{job.revision}:fixture-pipeline-v1"
+        effect_key = f"trip-understanding:{job.understanding_id}:r{job.revision}:pipeline-v1"
         public_payload = output.public_result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
+        terminal_state = "READY" if output.public_result.status == "READY" else "PARTIAL"
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
             current_job = await conn.fetchrow(
@@ -509,10 +786,21 @@ class PostgresTripUnderstandingRepository:
             )
             if aggregate["state"] == "DELETED":
                 raise ResourceGoneError("trip resource was deleted during processing")
-            source_id = await conn.fetchval(
-                "SELECT source_id FROM trip_understanding_sources WHERE understanding_id = $1",
+            source_row = await conn.fetchrow(
+                """
+                SELECT s.source_id, s.source_type, s.content_hash
+                FROM trip_understanding_revisions r
+                JOIN trip_understanding_sources s ON s.source_id = r.source_id
+                WHERE r.understanding_id = $1 AND r.revision = $2
+                """,
                 job.understanding_id,
+                job.revision,
             )
+            if source_row is None:
+                raise ResourceNotFoundError("understanding source does not exist")
+            source_id = source_row["source_id"]
+            source_type = source_row["source_type"]
+            source_hash = source_row["content_hash"].strip()
             result_revision = int(aggregate["current_revision"]) + 1
             await conn.execute(
                 """
@@ -521,18 +809,19 @@ class PostgresTripUnderstandingRepository:
                     content_hash, destination_json, assumptions_json, proposal_json,
                     inference_binding_json, compiler_receipt_json, created_at
                 ) VALUES (
-                    $1, $2, $3, $4, 'READY', $5, $6::jsonb, $7::jsonb,
-                    $8::jsonb, $9::jsonb, $10::jsonb, $11
+                    $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb,
+                    $9::jsonb, $10::jsonb, $11::jsonb, $12
                 )
                 """,
                 job.understanding_id,
                 result_revision,
                 job.revision,
                 source_id,
+                terminal_state,
                 output.content_hash,
                 json.dumps(output.destination, ensure_ascii=False),
                 json.dumps(output.assumptions, ensure_ascii=False),
-                json.dumps(output.proposal.model_dump(mode="json"), ensure_ascii=False),
+                json.dumps(_persisted_proposal(output), ensure_ascii=False),
                 json.dumps(output.inference_binding, ensure_ascii=False),
                 json.dumps(output.compiler_receipt, ensure_ascii=False),
                 now,
@@ -578,6 +867,15 @@ class PostgresTripUnderstandingRepository:
                     now,
                 )
             for claim in output.claims:
+                stored_quote = claim.quote
+                if source_type == "TEXT":
+                    quote_envelope = self._get_source_cipher().encrypt(
+                        claim.quote,
+                        source_id=source_id,
+                        content_hash=source_hash,
+                        purpose=f"claim:{claim.claim_id}",
+                    )
+                    stored_quote = "enc:v1:" + base64.urlsafe_b64encode(quote_envelope).decode("ascii")
                 await conn.execute(
                     """
                     INSERT INTO trip_understanding_source_claims (
@@ -593,7 +891,7 @@ class PostgresTripUnderstandingRepository:
                     claim.claim_type,
                     claim.span_start,
                     claim.span_end,
-                    claim.quote,
+                    stored_quote,
                     now,
                 )
             result_id = str(uuid4())
@@ -629,7 +927,7 @@ class PostgresTripUnderstandingRepository:
                 json.dumps(
                     {
                         "inference": output.inference_binding,
-                        "place_resolver": "frozen_beijing_fixture",
+                        "place_resolution": "controlled_fixture_snapshot",
                         "external_calls": 0,
                     },
                     ensure_ascii=False,
@@ -639,11 +937,12 @@ class PostgresTripUnderstandingRepository:
             await conn.execute(
                 """
                 UPDATE trip_understandings
-                SET state = 'READY', current_revision = $2, result_revision = $2,
-                    current_result_id = $3, updated_at = $4
+                SET state = $2, current_revision = $3, result_revision = $3,
+                    current_result_id = $4, updated_at = $5
                 WHERE understanding_id = $1
                 """,
                 job.understanding_id,
+                terminal_state,
                 result_revision,
                 result_id,
                 now,
@@ -728,6 +1027,7 @@ class InMemoryTripUnderstandingRepository:
         self.events: dict[str, list[PublicEventRecord]] = {}
         self.results: dict[str, StoredResult] = {}
         self.side_effects: dict[str, tuple[str, str]] = {}
+        self.sources: dict[str, TripUnderstandingSourcePayload] = {}
 
     async def create_demo(
         self,
@@ -767,6 +1067,7 @@ class InMemoryTripUnderstandingRepository:
             "state": "PROCESSING",
             "current_result_id": result_id,
             "capability_hash": capability_hash,
+            "owner_user_id": None,
             "expires_at": session["expires_at"],
             "current_revision": 1,
         }
@@ -784,6 +1085,78 @@ class InMemoryTripUnderstandingRepository:
             "input_hash": DEMO_SOURCE_SHA256,
             "available_at": now,
         }
+        self.sources[job_id] = TripUnderstandingSourcePayload(
+            source_type="FIXED_DEMO",
+            text=DEMO_SOURCE_TEXT,
+        )
+        self.events[understanding_id] = [
+            PublicEventRecord(
+                event_id=1,
+                event_type="progress",
+                payload=PublicEventPayload(status="PROCESSING", message="正在整理每天行程"),
+            )
+        ]
+        return CreateOutcome(accepted=accepted)
+
+    async def create_full(
+        self,
+        *,
+        owner_user_id: str,
+        source_text: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> CreateOutcome:
+        if not source_text.strip() or len(source_text) > 50_000:
+            raise ValueError("text source is outside the supported size")
+        scope = f"user:{owner_user_id}:create"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.idempotency.get(key)
+        if existing:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError(
+                    "idempotency key was already used with a different request"
+                )
+            return CreateOutcome(accepted=existing[1], replayed=True)
+        active_count = sum(
+            row["owner_user_id"] == owner_user_id and row["state"] == "PROCESSING"
+            for row in self.resources.values()
+        )
+        if active_count >= 2:
+            raise ConcurrentJobLimitError("user already has two understanding jobs in progress")
+        understanding_id = str(uuid4())
+        public_resource_id = secrets.token_urlsafe(24)
+        accepted = _accepted(public_resource_id)
+        self.idempotency[key] = (request_hash, accepted)
+        self.resources[public_resource_id] = {
+            "understanding_id": understanding_id,
+            "public_resource_id": public_resource_id,
+            "state": "PROCESSING",
+            "current_result_id": None,
+            "capability_hash": None,
+            "owner_user_id": owner_user_id,
+            "expires_at": now + timedelta(days=retention_days),
+            "current_revision": 1,
+        }
+        self.resources_by_understanding[understanding_id] = public_resource_id
+        job_id = str(uuid4())
+        self.jobs[job_id] = {
+            "job_id": job_id,
+            "understanding_id": understanding_id,
+            "revision": 1,
+            "status": "QUEUED",
+            "lease_owner": None,
+            "lease_until": None,
+            "attempt": 0,
+            "max_attempts": 3,
+            "input_hash": _sha256_text(source_text),
+            "available_at": now,
+        }
+        self.sources[job_id] = TripUnderstandingSourcePayload(
+            source_type="TEXT",
+            text=source_text,
+        )
         self.events[understanding_id] = [
             PublicEventRecord(
                 event_id=1,
@@ -801,13 +1174,15 @@ class InMemoryTripUnderstandingRepository:
         user_id: str | None = None,
         now: datetime,
     ) -> PublicResourceRecord:
-        del user_id
         row = self.resources.get(public_resource_id)
         if row is None:
             raise ResourceNotFoundError("trip resource does not exist")
         if row["state"] == "DELETED":
             raise ResourceGoneError("trip resource is no longer available")
-        if (
+        if row["owner_user_id"] is not None:
+            if user_id != row["owner_user_id"]:
+                raise ResourceAccessDeniedError("trip resource is not available to this session")
+        elif (
             not capability_hash
             or not hmac.compare_digest(row["capability_hash"], capability_hash)
             or row["expires_at"] <= now
@@ -876,6 +1251,18 @@ class InMemoryTripUnderstandingRepository:
             {key: item[key] for key in TripUnderstandingJobRecord.model_fields}
         )
 
+    async def load_source(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+    ) -> TripUnderstandingSourcePayload:
+        del now
+        source = self.sources.get(job.job_id)
+        if source is None or _sha256_text(source.text) != job.input_hash:
+            raise SourceUnavailableError("understanding source is unavailable")
+        return source
+
     async def complete_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -886,7 +1273,7 @@ class InMemoryTripUnderstandingRepository:
         item = self.jobs[job.job_id]
         public_payload = output.public_result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
-        effect_key = f"trip-understanding:{job.understanding_id}:r{job.revision}:fixture-pipeline-v1"
+        effect_key = f"trip-understanding:{job.understanding_id}:r{job.revision}:pipeline-v1"
         existing = self.side_effects.get(effect_key)
         if existing:
             if existing != (job.input_hash, public_hash):
@@ -906,7 +1293,7 @@ class InMemoryTripUnderstandingRepository:
         public_id = self.resources_by_understanding[job.understanding_id]
         self.resources[public_id].update(
             {
-                "state": "READY",
+                "state": "READY" if output.public_result.status == "READY" else "PARTIAL",
                 "current_result_id": result_id,
                 "current_revision": 2,
             }

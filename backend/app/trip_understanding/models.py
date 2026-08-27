@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -154,6 +154,28 @@ class CreateDemoRequest(StrictModel):
     mode: Literal["DEMO"]
 
 
+class TextSourceRequest(StrictModel):
+    type: Literal["TEXT"]
+    text: str = Field(min_length=1, max_length=50_000)
+
+    @model_validator(mode="after")
+    def source_is_not_blank(self) -> "TextSourceRequest":
+        if not self.text.strip():
+            raise ValueError("text source must contain visible content")
+        return self
+
+
+class CreateFullRequest(StrictModel):
+    mode: Literal["FULL"]
+    source: TextSourceRequest
+
+
+CreateTripUnderstandingRequest = Annotated[
+    CreateDemoRequest | CreateFullRequest,
+    Field(discriminator="mode"),
+]
+
+
 class TripUnderstandingAcceptedView(StrictModel):
     public_resource_id: str
     status: Literal["PROCESSING"] = "PROCESSING"
@@ -206,6 +228,11 @@ class TripUnderstandingJobRecord(StrictModel):
     attempt: int = Field(gt=0)
     max_attempts: int = Field(gt=0)
     input_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class TripUnderstandingSourcePayload(StrictModel):
+    source_type: Literal["FIXED_DEMO", "TEXT"]
+    text: str
 
 
 class PipelineOutput(StrictModel):

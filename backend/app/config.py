@@ -154,7 +154,9 @@ class Settings(BaseSettings):
     # secret; public deployments must already provide a non-default secret.
     trip_understanding_cookie_name: str = "bt_demo_capability"
     trip_understanding_cookie_signing_key: str = ""
+    trip_understanding_source_encryption_key: str = ""
     trip_understanding_demo_ttl_hours: int = 24
+    trip_understanding_full_retention_days: int = 30
     trip_understanding_job_lease_seconds: int = 30
     trip_understanding_worker_poll_seconds: float = 0.5
     trip_understanding_sse_poll_seconds: float = 0.25

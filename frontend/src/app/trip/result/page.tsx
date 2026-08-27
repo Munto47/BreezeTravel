@@ -21,7 +21,7 @@ import {
   type ActivityCardView,
   type UserFacingTripResult,
   readTripUnderstandingResult,
-  tripUnderstandingEventsUrl,
+  streamTripUnderstandingEvents,
 } from '@/lib/trip-understanding-v3'
 
 
@@ -45,6 +45,7 @@ export default function TripResultPage() {
       const response = await readTripUnderstandingResult(reference)
       if (response.body.status !== 'PROCESSING') {
         setResult(response.body)
+        if (response.etag) sessionStorage.setItem('bt_active_trip_etag', response.etag)
         setMessage('卡片已可用')
         return true
       }
@@ -65,25 +66,24 @@ export default function TripResultPage() {
     setResourceRef(reference)
     let disposed = false
     let interval: ReturnType<typeof setInterval> | undefined
-    const events = new EventSource(tripUnderstandingEventsUrl(reference), { withCredentials: true })
-    const onProgress = (event: MessageEvent<string>) => {
-      try {
-        const payload = JSON.parse(event.data) as { message?: string }
-        if (payload.message && !disposed) setMessage(payload.message)
-      } catch {
-        if (!disposed) setMessage('正在整理每天行程')
+    const eventController = new AbortController()
+    void streamTripUnderstandingEvents(
+      reference,
+      (event) => {
+        if (disposed) return
+        setMessage(event.message)
+        if (event.type === 'result_available') {
+          void refresh(reference).then((ready) => {
+            if (ready) eventController.abort()
+          })
+        }
+      },
+      eventController.signal,
+    ).catch((streamError: unknown) => {
+      if (!disposed && !(streamError instanceof DOMException && streamError.name === 'AbortError')) {
+        void refresh(reference)
       }
-    }
-    const onAvailable = () => {
-      void refresh(reference).then((ready) => {
-        if (ready) events.close()
-      })
-    }
-    events.addEventListener('progress', onProgress as EventListener)
-    events.addEventListener('result_available', onAvailable)
-    events.onerror = () => {
-      if (!disposed) void refresh(reference)
-    }
+    })
     void refresh(reference)
     interval = setInterval(() => {
       if (!disposed) {
@@ -94,7 +94,7 @@ export default function TripResultPage() {
     }, 1000)
     return () => {
       disposed = true
-      events.close()
+      eventController.abort()
       if (interval) clearInterval(interval)
     }
   }, [refresh])
@@ -141,7 +141,7 @@ export default function TripResultPage() {
           </button>
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Compass className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-            北京三日卡片
+            {result.assumptions.find((item) => item.key === 'destination')?.value || '行程卡片'}
           </div>
         </header>
 
@@ -150,10 +150,10 @@ export default function TripResultPage() {
             <div>
               <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                地点卡片已整理
+                {result.status === 'READY' ? '地点卡片已整理' : '已整理可确认的内容'}
               </div>
               <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">按天查看，随时可以调整</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">没有日历日期时先用 Day 1～Day 3；人数是可修改的软假设。</p>
+              <p className="mt-2 text-sm leading-6 text-slate-500">没有日历日期时先用 Day 编号；人数是可修改的软假设。</p>
             </div>
             <div className="flex flex-wrap gap-2" aria-label="当前假设">
               {result.assumptions.map((assumption) => {
@@ -199,6 +199,11 @@ export default function TripResultPage() {
                       </div>
                     </button>
                   ))}
+                  {day.activities.length === 0 && (
+                    <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500">
+                      还没有能确认的地点，可以稍后补充或调整文字。
+                    </div>
+                  )}
                 </div>
               </section>
             ))}
