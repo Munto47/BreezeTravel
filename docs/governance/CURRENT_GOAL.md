@@ -16,6 +16,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Implementation baseline/upstream：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`，现场`ls-remote`与clean-tree readback `PASS`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
+- Latest delivered checkpoint：Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c` + compatibility `3106fe00b755e603bce5517f5ddea71e78e17214`，远端hash/subject/tree/file readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
 - Required gate：`Text Card Gate`
@@ -132,6 +133,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
 - canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
 - implementation baseline：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`；写入前`ls-remote`、HEAD与clean-tree一致；
+- current delivered subject：`origin/codex/trip-check-product-reset@3106fe00b755e603bce5517f5ddea71e78e17214`，tree `d82cd0b8de3e7530f23d1cf677f70d474fcd981a`，远端文件readback与clean-tree `PASS`；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
@@ -168,6 +170,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 | 2026-08-27 | Blueprint完成并激活V0.1可信文本卡片Goal；尚未修改产品代码 | `f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac` | G00 Blueprint Gate `PASS`；单active Goal结构检查；remote readback `PASS` | `BLUEPRINT_ONLY` | 依赖readback、代码/合同现场审计与G01纵向切片 | Qwen/高德准入尚未现场确认 | 执行G01首个preflight与当前实现/合同审计 |
 | 2026-08-27 | 完成全仓分支与worktree审计；miniapp 33个源码/配置/测试文件纳入统一Git基线；删除根`tests/`；`develop`与当前实现分支统一到Blueprint | `1e679dc7e006b84e9a984eba1ace028b291fa493` | subject与`origin/develop`readback PASS；Ruff、Web build、共享client typecheck/build、小程序typecheck/7 tests/build、双入口结构检查、12项治理兼容、remediation新checkout 3 tests均PASS；backend全量2017 PASS/32 SKIP/3 FAIL | `REPOSITORY_CONSOLIDATION_WITH_LEGACY_FAILURES` | G01依赖preflight、代码/合同现场审计和首个纵向切片 | backend剩余2项旧candidate manifest代码绑定漂移；两个旧P5 v5 worktree未提交草稿均冻结且不并入；未修改oracle | 执行G01首个preflight与现有实现/合同审计 |
 | 2026-08-27 | G01-S0完成：旧入口处置、99路径兼容基线、v3公共边界和Provider边界已固化；尚未交付新页面 | `7986214c1b236217ceb5d2d55f8cecc882e03f2b` | 6组件/12页面/99旧路径/6源码新增路径/29模块/220测试组唯一归类PASS；legacy方法零缺失；冻结diff为0；S0 pytest 2 PASS/1环境SKIP；Ruff PASS；历史Candidate原样18 PASS/3 SKIP/2 FAIL；subject push、`ls-remote`、subject/tree/远端文件readback PASS | `S0_CHECKPOINT / HISTORICAL_FAILURE_DIAGNOSED` | migration 028、持久worker、v3 create/events/result和北京三日六卡UI | Candidate绑定失效保持FROZEN；Qwen NOT_READY；AMap等待书面许可；不阻塞fixture纵向切片 | 实现migration 028及持久化DEMO create→events→result链 |
+| 2026-08-27 | 固定北京体验已贯穿真实v3 create/events/result：匿名用户从无前置表单首页得到Day 1～3六张地点卡，刷新可恢复；地图与住宿诚实显示不可用 | Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`；compat `3106fe00b755e603bce5517f5ddea71e78e17214` | 原生Windows全量`2026 PASS / 33 SKIP / 2 FAIL`，仅两项登记的Candidate绑定失败；定向10 PASS；Ruff PASS；frontend build PASS；共享client typecheck/build PASS；真实Compose Playwright 1 PASS；应用内浏览器create/六卡/刷新/DOM脱敏/console回读PASS；028 applied=1、v3 tables=14、旧rooms=5171；remote hash/subject/tree/file readback PASS | `FIXTURE_DEMO_VERTICAL_SLICE / AUTOMATED_LOCAL_BROWSER` | FULL文本语义、真实登录所有权、地点解析、卡片commands、claim/source与整程删除、029初次地图任务、90条数据与Text Card Gate | 历史Candidate保持`HISTORICAL_BINDING_INVALID / FROZEN`；Qwen `NOT_READY`；AMap `BLOCKED_PENDING_WRITTEN_PERMISSION`；本轮完整后端镜像重建因锁定PaddlePaddle 194.8MB在慢镜像源下载而中止，但运行中backend/worker已是相同运行时代码的d6ab镜像，3106仅改离线兼容脚本，前端3106镜像已切换；H1/公网/生产/商业/main `NOT_RUN` | 从当前checkpoint实现FULL登录文本链、严格地点资格与持久结果，再交付commands/删除/claim和029地图任务 |
 
 ## Auto-advance
 
@@ -178,12 +181,12 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Completion record
 
 - Status：`PENDING`；
-- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`；Demo与后续Gate仍未完成；
+- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`；FULL与Text Card Gate仍未完成；
 - Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
-- Verification / Evidence / Gate result：`NOT_RUN / NOT_IMPLEMENTED / PENDING`；
+- Verification / Evidence / Gate result：`FIXTURE_DEMO_LOCAL_AUTOMATED_PASS / FULL_NOT_RUN / TEXT_CARD_GATE_PENDING`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
-- User-visible result：`NOT_IMPLEMENTED`；
-- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；v3产品实现、Text Card Gate和初次地图任务尚未完成；
+- User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验，真实持久v3链返回六张卡并支持刷新恢复；这不是FULL文本、真人、公网或生产证据；
+- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；FULL登录文本、commands/删除/claim、029初次地图任务、90条数据和Text Card Gate尚未完成；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
