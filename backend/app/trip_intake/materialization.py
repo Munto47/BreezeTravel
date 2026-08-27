@@ -288,6 +288,13 @@ def _primary_location(intake: TripIntakeRevision) -> LocationMention:
     return mention
 
 
+def _product_city(normalized_name: str) -> str:
+    """Map normalized extraction names onto the fixed Trip Check city keys."""
+
+    fixed = {"北京市": "北京", "上海市": "上海", "杭州市": "杭州"}
+    return fixed.get(normalized_name, normalized_name)
+
+
 def _build_brief(
     intake: TripIntakeRevision,
     workspace: TripWorkspace,
@@ -389,7 +396,7 @@ def _build_brief(
         workspace_id=workspace.workspace_id,
         revision=1,
         content_hash="0" * 64,
-        city=location.normalized_name,
+        city=workspace.city,
         date_range=workspace.trip_date_range,
         traveler_count=party.min,
         arrival=ArrivalDeparture(
@@ -465,7 +472,7 @@ class TripIntakeMaterializationService:
         workspace = TripWorkspace(
             workspace_id=str(uuid4()),
             room_id=intake.room_id,
-            city=primary.normalized_name or primary.raw_text,
+            city=_product_city(primary.normalized_name or primary.raw_text),
             trip_date_range=TripDateRange(
                 start=date(date_range.start.year, date_range.start.month, date_range.start.day),
                 end=date(date_range.end.year, date_range.end.month, date_range.end.day),
@@ -475,13 +482,21 @@ class TripIntakeMaterializationService:
             updated_at=now,
         )
         import_id = str(uuid4())
-        draft = self.parser.parse(intake.raw_text, import_id=import_id)
+        itinerary_text = "\n\n".join(
+            source.text
+            for source in intake.sources
+            if source.metadata.get("role") != "USER_CONFIRMATION"
+            and ":correction:" not in source.source_id
+        )
+        if not itinerary_text.strip():
+            raise ValueError("confirmed intake lacks itinerary source text")
+        draft = self.parser.parse(itinerary_text, import_id=import_id)
         source_type = ImportSourceType(intake.source_type.value)
         itinerary_import = ItineraryImport(
             import_id=import_id,
             workspace_id=workspace.workspace_id,
             source_type=source_type,
-            raw_text=intake.raw_text,
+            raw_text=itinerary_text,
             parse_version=self.parser.version,
             status=ImportStatus.PARSED if draft.raw_stops else ImportStatus.FAILED,
             raw_stops=draft.raw_stops,

@@ -299,6 +299,7 @@ _LOCATION_NORMALIZATIONS = {
     "杭城": "杭州市",
     "北亰": "北京市",
     "上诲": "上海市",
+    "杭洲": "杭州市",
 }
 
 _CHINESE_NUMBER = {
@@ -346,6 +347,7 @@ class DeterministicTripIntakeExtractor:
         primary_city_names: set[str] = set()
         party: QuantifiedValue | None = None
         party_tags: list[str] = []
+        party_composition: PartyComposition | None = None
         temporal = TemporalExtraction()
         preferences = PreferenceExtraction()
 
@@ -400,6 +402,8 @@ class DeterministicTripIntakeExtractor:
 
             if party is None:
                 party, party_tags = _explicit_party_quantity(source)
+            if party_composition is None:
+                party_composition = _explicit_party_composition(source)
 
             date_match = re.search(
                 r"(?:(20\d{2})[年/-])?(\d{1,2})[月/-](\d{1,2})日?\s*(?:到|至|[-—~～])\s*"
@@ -570,7 +574,10 @@ class DeterministicTripIntakeExtractor:
             party_size=(
                 PartySizeExtraction(
                     total=party,
-                    composition=PartyComposition(tags=party_tags),
+                    composition=(
+                        party_composition
+                        or PartyComposition(tags=party_tags)
+                    ),
                 )
                 if party
                 else PartySizeExtraction()
@@ -611,13 +618,29 @@ def _deterministic_location_role(text: str, start: int, end: int) -> LocationRol
     clause_end = min(following) if following else len(text)
     clause = text[clause_start:clause_end]
     prefix = text[clause_start:start]
-    if re.search(r"不去|排除|别去", prefix):
-        return LocationRole.EXCLUDED
-    if re.search(r"返程|最后.*回|回到", clause):
-        return LocationRole.RETURN_LOCATION
-    if re.search(r"出发|来自", clause):
-        return LocationRole.ORIGIN
-    if re.search(r"去年|以前|上次|过去|本来|原计划|旧计划|取消|去过", clause):
+    suffix = text[end:clause_end]
+    intent_patterns = (
+        (LocationRole.EXCLUDED, r"不去|排除|别去"),
+        (LocationRole.RETURN_LOCATION, r"最后返程回|返程回|最后.{0,8}回|回到"),
+        (LocationRole.ORIGIN, r"从|出发|来自|现在在"),
+        (
+            LocationRole.OTHER_MENTION,
+            r"去年去过|以前去过|上次去过|过去去过|本来想去|原计划去|旧计划去|去过",
+        ),
+        (
+            LocationRole.PRIMARY_DESTINATION,
+            r"这次确定改去|确定改去|这次目的地是|目的地是|这次去|改去",
+        ),
+    )
+    nearest: tuple[int, int, LocationRole] | None = None
+    for priority, (role, pattern) in enumerate(intent_patterns):
+        for match in re.finditer(pattern, prefix):
+            candidate = (match.start(), -priority, role)
+            if nearest is None or candidate[:2] > nearest[:2]:
+                nearest = candidate
+    if nearest is not None:
+        return nearest[2]
+    if re.match(r"\s*(?:后来)?取消", suffix):
         return LocationRole.OTHER_MENTION
     if re.search(r"或者|还是|都可以|二选一|候选", clause):
         return LocationRole.PRIMARY_DESTINATION
@@ -633,7 +656,17 @@ def _explicit_party_quantity(
         tuple[str, QuantityQuantifier, QuantityDerivation, Any, list[str]]
     ] = [
         (
-            r"人数还没定，可能有人临时加入",
+            r"([一二两三四五六七八九十])\s*大\s*([一二两三四五六七八九十])\s*小",
+            QuantityQuantifier.EXACT,
+            QuantityDerivation.SEMANTIC_INFERENCE,
+            lambda match: (
+                _CHINESE_NUMBER[match.group(1)] + _CHINESE_NUMBER[match.group(2)],
+                _CHINESE_NUMBER[match.group(1)] + _CHINESE_NUMBER[match.group(2)],
+            ),
+            ["家庭", "亲子"],
+        ),
+        (
+            r"人数还没定(?:[，,、\s]+可能有人临时加入)?",
             QuantityQuantifier.UNKNOWN,
             QuantityDerivation.MISSING,
             lambda _match: (None, None),
@@ -739,6 +772,31 @@ def _explicit_party_quantity(
             [],
         )
     return None, []
+
+
+def _explicit_party_composition(source: IntakeSource) -> PartyComposition | None:
+    match = re.search(
+        r"([一二两三四五六七八九十])\s*大\s*([一二两三四五六七八九十])\s*小",
+        source.text,
+    )
+    if match is None:
+        return None
+    evidence = [_span(source, match.start(), match.end())]
+
+    def exact(value: int) -> QuantifiedValue:
+        return QuantifiedValue(
+            min=value,
+            max=value,
+            quantifier=QuantityQuantifier.EXACT,
+            derivation=QuantityDerivation.SEMANTIC_INFERENCE,
+            evidence=evidence,
+        )
+
+    return PartyComposition(
+        adults=exact(_CHINESE_NUMBER[match.group(1)]),
+        children=exact(_CHINESE_NUMBER[match.group(2)]),
+        tags=["家庭", "亲子"],
+    )
 
 
 def _explicit_duration_quantity(source: IntakeSource) -> QuantifiedValue | None:
@@ -1103,6 +1161,25 @@ def _merge_quantity(
     return semantic
 
 
+def _merge_commitment(
+    semantic: TravelCommitment | None,
+    deterministic: TravelCommitment | None,
+) -> TravelCommitment | None:
+    if semantic is None:
+        return deterministic
+    if deterministic is None:
+        return semantic
+    same_value = (
+        semantic.location_text == deterministic.location_text
+        and semantic.at_text == deterministic.at_text
+    )
+    if same_value and sum(len(item.quote) for item in deterministic.evidence) > sum(
+        len(item.quote) for item in semantic.evidence
+    ):
+        return deterministic
+    return semantic
+
+
 def _merge_preferences(
     semantic: PreferenceExtraction,
     deterministic: PreferenceExtraction,
@@ -1216,6 +1293,27 @@ def _merge_extractions(
 ) -> TripIntakeExtraction:
     merge_issues: list[ExtractionIssue] = []
     locations = _enrich_semantic_locations(semantic.locations, deterministic.locations)
+    primary_mentions = [
+        item
+        for item in locations.mentions
+        if item.role == LocationRole.PRIMARY_DESTINATION
+    ]
+    destination_candidates = [
+        item
+        for item in locations.mentions
+        if item.role == LocationRole.DESTINATION_CANDIDATE
+    ]
+    if (
+        deterministic.locations.status == LocationStatus.EXACT
+        and len(primary_mentions) == 1
+        and not destination_candidates
+    ):
+        locations = locations.model_copy(
+            update={
+                "primary_mention_id": primary_mentions[0].mention_id,
+                "status": LocationStatus.EXACT,
+            }
+        )
     enriched_primary = next(
         (
             item
@@ -1320,8 +1418,14 @@ def _merge_extractions(
         days=days,
         nights=nights,
         date_range=semantic.temporal.date_range or deterministic.temporal.date_range,
-        arrival=semantic.temporal.arrival or deterministic.temporal.arrival,
-        departure=semantic.temporal.departure or deterministic.temporal.departure,
+        arrival=_merge_commitment(
+            semantic.temporal.arrival,
+            deterministic.temporal.arrival,
+        ),
+        departure=_merge_commitment(
+            semantic.temporal.departure,
+            deterministic.temporal.departure,
+        ),
     )
     preferences = _merge_preferences(semantic.preferences, deterministic.preferences)
 

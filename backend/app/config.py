@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     trip_intake_model: str = "deepseek-v4-flash"
     trip_intake_timeout_seconds: float = 4.5
     trip_intake_max_output_tokens: int = 4096
+    # Optional local evidence sink. Empty keeps ordinary runtime unchanged.
+    # The JSONL ledger stores source hashes and provider metrics, never source text.
+    trip_intake_runtime_ledger_path: str = ""
+    trip_intake_input_usd_per_million: float = 0.28
+    trip_intake_output_usd_per_million: float = 0.56
+    trip_intake_usd_cny: float = 8.0
 
     # ── Embedding API（独立配置，可与主 LLM 不同） ────────────────────
     # 留空时自动复用 openai_api_key / openai_api_url

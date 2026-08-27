@@ -34,7 +34,13 @@ def _location_atoms(value: TripIntakeExtraction) -> set[tuple[Any, ...]]:
         for item in value.locations.mentions
     )
     for item in value.locations.mentions:
-        atoms.update(_evidence_atoms(f"mention:{item.mention_id}", item.evidence))
+        identity = item.normalized_name or item.raw_text
+        atoms.update(
+            _evidence_atoms(
+                f"mention:{item.role.value}:{item.entity_type.value}:{identity}",
+                item.evidence,
+            )
+        )
     return atoms
 
 
@@ -44,6 +50,14 @@ def _location_roles(value: TripIntakeExtraction) -> dict[str, set[str]]:
         identity = item.normalized_name or item.raw_text
         roles.setdefault(identity, set()).add(item.role.value)
     return roles
+
+
+def _has_origin_destination_reversal(wanted: set[str], actual: set[str]) -> bool:
+    extra_roles = actual - wanted
+    return bool(
+        (wanted & {"ORIGIN", "RETURN_LOCATION"} and "PRIMARY_DESTINATION" in extra_roles)
+        or ("PRIMARY_DESTINATION" in wanted and extra_roles & {"ORIGIN", "RETURN_LOCATION"})
+    )
 
 
 def _bounds(value: Any) -> set[int]:
@@ -197,10 +211,7 @@ def score_predictions(predictions_path: Path, labels_path: Path) -> dict[str, An
         for identity in expected_roles.keys() & predicted_roles.keys():
             wanted = expected_roles[identity]
             actual = predicted_roles[identity]
-            if (
-                (wanted & {"ORIGIN", "RETURN_LOCATION"} and "PRIMARY_DESTINATION" in actual)
-                or ("PRIMARY_DESTINATION" in wanted and actual & {"ORIGIN", "RETURN_LOCATION"})
-            ):
+            if _has_origin_destination_reversal(wanted, actual):
                 critical["origin_destination_reversal"] += 1
             if "EXCLUDED" in wanted and any(role != "EXCLUDED" for role in actual):
                 critical["negation_reversal"] += 1

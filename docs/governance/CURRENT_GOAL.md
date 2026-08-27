@@ -1,65 +1,99 @@
-# REJECTED GOAL：O1～O4 Trip NLU v2 真实抽取与优化
+# IN_PROGRESS GOAL：O5/O6 DeepSeek 修复晋级与本地端到端稳定性
 
 ## Metadata
 
-- Goal ID：`TC-NLU-O1-O4`
+- Goal ID：`TC-NLU-O5-O6-DEEPSEEK-STABILITY`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`REJECTED`
-- Branch：`codex/trip-nlu-v2-optimization`
-- Baseline：`d967e774e8eab208234c2af9fb677a90877a1766`
-- Approved by / at：User / 2026-08-26
+- Status：`IN_PROGRESS`
+- Branch：`codex/trip-intake-deepseek-stability`
+- Baseline：`39bde2d1d62c622a1f27bd826f9470bf0fdc4395`
+- Approved by / at：User / 2026-08-27
 
 ## Outcome
 
-让 `deepseek-v4-flash` 的真实 hybrid prediction 跑通固定 Trip NLU v2 数据，建立可复现 deterministic/hybrid baseline，在 blind 隔离下优化并交付 Validation 与 Frozen blind 的准确率、安全、时延、成本和绑定回执。
+继续使用 `deepseek-v4-flash`，把已暴露的 Validation 失败转成非盲回归，修复地点角色、完整证据和安全别名边界；在新的隔离 Validation 通过后，对原 24 条 frozen blind 执行一次正式评测。随后以真实 DeepSeek、PostgreSQL 和冻结 Provider 快照完成北京、上海、杭州三条本地主链，形成可回读的稳定性证据。
 
 ## Scope
 
-- 内部 semantic draft、Unicode 证据编译、DeepSeek OpenAI-compatible JSON 客户端和 hybrid merge；
-- 默认 deterministic、显式 hybrid 的应用服务注入与 fail-closed fallback；
-- dev/validation 通用 scorer、真实 prediction runner、RunSpec、调用/成本/时延预算；
-- 72 dev baseline、最多两轮各 60 条 dev 回放、最多两次 validation、一次 frozen blind；
-- 单元、API/应用集成、全量回归和最终证据报告。
+- Trip Intake 确定性护栏、hybrid merge、DeepSeek 运行回执与失败语义；
+- `OBSERVE_ONLY` 调用 ledger：无调用数/费用硬上限，但持续记录调用、Token、时延、失败分类和估算费用；
+- 3 条已暴露失败 regression、24 条新 family-isolated Validation 及其生成/校验 receipt；
+- Dev、Validation、一次性 frozen blind 晋级链；
+- 真实 DeepSeek + 冻结地图/天气 Provider 快照的本地 API/浏览器 E2E；
+- 完整 backend、Ruff、frontend build、dual-entry 与 Trip NLU validator 回归。
 
 ## Non-goals
 
-- 修改 120 条数据、oracle、split、template/mutation family 或 blind labels；
-- 新公共 API/schema、migration、生产默认启用 DeepSeek、其他模型 bake-off；
-- real OCR、live Provider、全国覆盖、公网、H1、production、main merge 或 release；
-- 用文本 NLU 结果证明行程合理性、Provider 事实或真人可用性。
+- 不切换 Qwen，不改 Router、RAG、Planner、Synthesizer、Editor 或旧 Agent；
+- 不修改原 120 条输入、frozen blind、blind oracle、评分门槛或公共 API/schema；
+- 不新增 migration、生产依赖、Provider、基础设施或实时 Provider 调用范围；
+- 不部署公网、不合并 `main`，不进入 H1、真人、production 或 release；
+- 不把 fixture Provider、自动评测或本地 E2E 称为真人/生产证据。
+
+## Authority and baseline
+
+权威顺序沿用根 `AGENTS.md`。本 Goal 是用户对 `PROGRAM.md` 的显式 O5/O6 扩展授权，并覆盖旧 O1～O4 的 300 次/30 元上限，但只覆盖 Trip Intake 开发评测与本地 E2E。
+
+历史 baseline：72 条 Dev Gate=`PASS`；旧 Validation 两次 `REJECT`（contract controls `0.9952`、`0.9904`，第二次含 1 个 hallucination）；frozen blind=`NOT_RUN`；工程回归 `1988 passed / 32 skipped`。
 
 ## Invariants
 
-- 模型不调用工具、不验证地点真假；未知、冲突和无效证据不得变成确定事实；
-- 模型只提出语义草稿，服务端按原文 Unicode code point 编译并逐字验证 evidence span；
-- hybrid 冲突降级为不确定并产生 issue，失败使用 deterministic fallback 且不注入默认值；
-- 运行回执绑定 commit/dataset/model/prompt/schema/config/predictions，但不记录密钥；
-- blind labels 只由隔离 scorer 读取，正式输出不含逐例 truth；每个候选只正式评分一次。
+- 默认运行仍为 deterministic；hybrid 只由评测和本地 E2E 显式启用；
+- DeepSeek 单请求非思考 JSON、temperature=0、零重试；模型不调用工具、不验证地点事实；
+- 语义草稿必须通过 Unicode evidence compiler；冲突降级为待确认，失败 fallback 不注入默认事实；
+- `OBSERVE_ONLY` 只取消预算阻断，不取消调用审计、成本估算、时延和错误回执；
+- 已暴露 Validation 只能进入 regression；新 Validation 每个候选只正式评分一次；
+- frozen blind 输入与外部标签不修改、不提前读取；Validation PASS 前禁止 blind；
+- 正常真实调用 E2E 必须 `fallback=0` 并回读实际模型标识；fallback 只算降级验证；
+- Provider snapshot、真实 DeepSeek、本地 E2E、live Provider、human 和 public evidence 分级披露。
 
 ## Verification
 
-- Validation 与 blind：schema/evidence/coverage 100%，六类关键错误为 0；
+- regression、Dev、Validation、blind：schema/evidence/coverage 100%，六类关键错误为 0；
 - locations、party size、duration micro-F1 ≥0.95，preferences/requirements ≥0.90，contract controls=1.0，hard key fields ≥0.90；
-- 单并发端到端 P95 ≤5 秒；实际模型调用 ≤300，估算费用 ≤30 CNY；
-- backend pytest、Ruff、frontend build、dual-entry validator、Trip NLU v2 validator 全部重跑。
+- 单并发 DeepSeek 抽取 P95 ≤5 秒；
+- 新 Validation：24 条、8 个三例 family，与原 120 条 near-duplicate ratio <0.90；
+- 三城 E2E：文本 Intake → 确认 → materialize → 地点消歧 → Audit → Advice → 新 revision → postcheck，3/3 PASS；
+- E2E 同时覆盖刷新恢复、幂等 replay、SSE 重连、DeepSeek timeout/schema invalid fallback、Provider 局部失败与 UNKNOWN 保留；
+- backend pytest、Ruff、frontend build、dual-entry validator、原 120 条 validator 全部重跑。
 
-## Budget / HITL / Stop
+## Budget
 
-- 固定模型：`deepseek-v4-flash`；非思考 JSON 模式，temperature=0，max output=4096，单请求 deadline=4.5 秒；
-- 调用预算：dev baseline 72、两轮 dev 回放 120、两次 validation 48、blind 24、预热 3、dev 故障余量 33，总上限 300；
-- 成本按运行时冻结的官方单价和内部 `1 USD = 8 CNY` 计算，总上限 30 CNY；
-- 任一预算到达、需要修改 blind、扩大付费范围、降低 Gate 或发生隐私/证据矛盾时立即停止；
-- blind 失败不得用逐例结果优化；只能从 dev/validation 生成独立 regression，并在新 blind 版本获批后重新晋级。
+- 模型固定 `deepseek-v4-flash`；用户授权调用次数与费用无硬上限；
+- ledger 固定 `budget_enforcement=OBSERVE_ONLY`，`max_calls=null`、`max_cost_cny=null`；
+- 每次请求仍先持久化 reservation，完成后记录 Token、估算费用、时延、实际模型与错误分类；
+- 禁止隐藏 retry、并发扩张或把失败调用从 ledger 删除；
+- 连续两个候选无改善时停止常规迭代，执行独立故障诊断。
+
+## Execution plan
+
+1. 冻结 Goal、remediation 数据合同与 OBSERVE_ONLY receipt；
+2. 修复确定性角色、完整证据、错别字别名和 commitment merge；
+3. 定向 regression 与完整 Dev，通过后执行新 Validation；
+4. Validation PASS 后在外部 one-shot ledger 上运行原 frozen blind；
+5. 完整工程回归；
+6. 启动 fixture-safe 本地栈，以真实 DeepSeek 完成三城 API/浏览器 E2E；
+7. 归档同 commit/config/data/model/receipt 证据并更新 Goal 状态。
+
+## HITL and stop conditions
+
+- blind/oracle hash 漂移、标签泄漏、secret/隐私泄漏或 receipt 绑定矛盾；
+- 需要新 Provider、migration、生产依赖、公共 API 变更、实时外部数据扩张或公网部署；
+- 新 Validation 或 blind 失败不得降低 Gate；blind 失败后不得按逐例结果优化；
+- 连续两个候选无改善且独立诊断仍要求扩大范围；
+- 请求合并 `main`、H1、真人、production 或 release。
 
 ## Completion record
 
-- Implementation subject：`b051486dffd1f2ef81b7148b4b3672ab3a4f74d0`，已推送到 `origin/codex/trip-nlu-v2-optimization`；
-- O1/O2：semantic draft、Unicode evidence compiler、hybrid/fallback、真实 prediction runner、RunSpec、预算与通用 scorer 已完成；
-- O3：最终 72 条 Dev 全量 Gate=`PASS`，两次 Validation Gate 均为 `REJECT`；
-- O4：因 Validation 前置 Gate 未通过，正式 frozen blind=`NOT_RUN`，blind labels 未被评分进程读取；
-- 数据集 validator：`structurally_valid=true`、120/120、evidence span validity=1.0、`blind_labels_read=false`；
-- `INTAKE_V2_DEVELOPMENT_READY=false`：最终 backend 回归为 1988 passed / 32 skipped，Ruff、frontend build、dual-entry validator 和 120 条结构 validator 均通过；但两次 Validation NLU Gate 均为 `REJECT`，因此不能标记开发完成态；
-- `V1_CANDIDATE_READY=false`：本 Goal 不得改写或替代既有 Candidate Gate，不得因此宣称 `V1_CANDIDATE_READY`；
-- Budget：297/300 次，估算 5.10609568 CNY / 30 CNY；
-- Promotion decision：`REJECT`，不进入 frozen blind、G0～G6、H1、公网、release 或 main merge；
-- Evidence report：`docs/testing/trip-nlu-v2-optimization-2026-08-27.md`。
+- Implementation / Gate：`IN_PROGRESS`；
+- Goal contract：`structurally_valid=true`；
+- remediation regression：7/7，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.210 秒；
+- Dev：72/72，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.109 秒；
+- independent Validation v2：24/24，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.513 秒；
+- 调用审计：Validation 结束时累计 202 次、324333 input tokens、112720 output tokens、估算 1.87374432 CNY；调用层失败和 fallback 均保留在 ledger；
+- 工程回归：backend `2014 passed / 32 skipped`；Ruff、frontend build、dual-entry validator、原 120 条 validator、remediation validator 均通过；
+- frozen blind：`NOT_RUN`；
+- local real-DeepSeek E2E：隔离数据库上仅取得 `DIAGNOSTIC_PASS_AFTER_LOCAL_SCHEMA_HOTFIX`，三城 3/3、真实模型 readback、正常链 fallback=0、幂等/SSE/fault/UNKNOWN 均符合预期；这不是干净 schema 的正式 PASS；
+- E2E blocker：migration 026 的 `UNIQUE (room_id, intake_id)` 阻止同一 intake 创建第二个 immutable revision；正式修复需要 migration/schema 变更，超出本 Goal 的自动授权，未修改仓库 migration；
+- `INTAKE_V2_DEVELOPMENT_READY=false`，直到 Validation、blind、工程回归和本地 E2E 全部通过。
+- 本 Goal 的开发证据不得改写或替代发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。

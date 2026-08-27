@@ -20,6 +20,8 @@
 | O2 | 真实预测 runner、RunSpec、预算/时延回执与通用 scorer | 可复现 baseline Gate |
 | O3 | 仅基于 dev/validation 的两轮优化和候选冻结 | Validation NLU/性能 Gate |
 | O4 | 一次性 sealed blind 评分与候选证据汇总 | Frozen blind NLU Gate |
+| O5 | 已暴露失败回归、确定性护栏与新隔离 Validation | Remediation Validation Gate |
+| O6 | 一次性 frozen blind 与真实 DeepSeek 本地三城 E2E | Intake Stability Gate |
 
 任何时刻只允许 `CURRENT_GOAL.md` 中一个 Goal 为 `APPROVED/IN_PROGRESS`。本 Program 不自动进入公网、真人、生产 release 或跨城。
 
@@ -30,9 +32,10 @@
 - 复用现有 OpenAI-compatible LLM 依赖做无工具 schema extraction，并提供无密钥/失败时的 fail-closed 结果；
 - 生成 120 条 synthetic text NLU 数据，使用开发子代理独立复核并封存 blind；
 - 在独立开发分支运行离线、PostgreSQL 和本地浏览器验证并 commit/push。
-- 使用 `deepseek-v4-flash` 做最多 300 次、总估算费用不超过人民币 30 元的真实开发评测；模型请求使用非思考 JSON 模式且不调用工具；
+- O1～O4 历史授权为最多 300 次、30 元；O5/O6 经用户于 2026-08-27 显式批准为 `OBSERVE_ONLY`，调用次数与费用无硬上限，但必须记录调用、Token、时延、失败分类和估算费用；模型请求继续使用非思考 JSON、零重试且不调用工具；
 - 在不改变公共 Intake v2 API/schema/migration 的前提下增加可配置 hybrid extractor、真实 prediction runner 和聚合 blind scorer；
 - O1～O4 的阶段性能门槛为单并发端到端 P95 ≤5 秒；V1 Candidate Gate 原 P95 ≤3 秒保持不变。
+- O5/O6 允许新增非盲 regression、新 family-isolated Validation 和本地真实 DeepSeek + Provider snapshot E2E；不得修改原 frozen blind 或把本地 E2E 晋级为 public/human evidence。
 
 ## Non-goals 与停止条件
 
@@ -40,5 +43,5 @@
 - 不自动扩大 live Provider 调用，不把三城历史 receipts 当作全国证据；
 - 不开展公网、真人、生产部署、main 合并或 release；
 - 需要新增付费 Provider、修改 frozen blind、降低 Gate、扩大外部数据或发生隐私/证据矛盾时停止并请求人工批准。
-- 本次 DeepSeek 调用授权只覆盖上述 300 次/30 元开发预算，不自动授权 production 默认启用、扩大额度或其他模型；
+- O5/O6 的无上限 DeepSeek 开发授权不自动授权 production 默认启用、其他模型、实时 Provider 扩张或公网部署；
 - frozen blind 每个冻结候选只允许一次正式评分；失败后不得按 blind 结果调参，必须生成新版本 blind 后才能再次晋级。

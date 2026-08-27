@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.importing.parser import ItineraryTextParser
@@ -103,3 +105,46 @@ def test_itinerary_parser_accepts_arbitrary_positive_day_numbers() -> None:
         import_id="import-1",
     )
     assert parsed.raw_stops[0].day_index == 11
+
+
+@pytest.mark.asyncio
+async def test_materialization_does_not_parse_confirmation_evidence_as_stops() -> None:
+    intake_repository = InMemoryTripIntakeRepository()
+    application = TripIntakeApplicationService(intake_repository)
+    created = await application.create(
+        room_id="room-correction",
+        source_type=IntakeSourceType.MANUAL_TEXT,
+        source_texts=["日期和人数稍后确认。第1天：09:00 灵隐寺"],
+        actor_user_id="user-1",
+    )
+    corrected, _ = await application.patch_confirmed_values(
+        intake_id=created.intake_id,
+        revision=created.revision,
+        city="杭州",
+        start_date=date(2027, 10, 1),
+        end_date=date(2027, 10, 2),
+        party_size=2,
+        actor_user_id="user-1",
+        idempotency_key="correct-core-values",
+    )
+    confirmed, _ = await application.confirm(
+        intake_id=corrected.intake_id,
+        revision=corrected.revision,
+        actor_user_id="user-1",
+        idempotency_key="confirm-corrected",
+    )
+    result = await TripIntakeMaterializationService(
+        intake_repository=intake_repository,
+        materialization_repository=InMemoryTripIntakeMaterializationRepository(),
+    ).materialize(
+        intake_id=confirmed.intake_id,
+        revision=confirmed.revision,
+        actor_user_id="user-1",
+        idempotency_key="materialize-corrected",
+    )
+
+    itinerary_import = result.materialization.itinerary_import
+    assert result.materialization.workspace.city == "杭州"
+    assert result.materialization.brief.city == "杭州"
+    assert [stop.raw_name for stop in itinerary_import.raw_stops] == ["灵隐寺"]
+    assert "确认目的城市" not in itinerary_import.raw_text

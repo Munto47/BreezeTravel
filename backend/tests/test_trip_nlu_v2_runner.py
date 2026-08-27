@@ -93,6 +93,24 @@ def test_budget_ledger_reserves_before_call_and_stops(tmp_path: Path) -> None:
     assert json.loads((tmp_path / "budget.json").read_text())["model_calls"] == 1
 
 
+def test_observe_only_budget_ledger_never_blocks_and_keeps_audit(tmp_path: Path) -> None:
+    ledger = BudgetLedger(
+        tmp_path / "budget.json",
+        enforcement="OBSERVE_ONLY",
+        max_calls=None,
+        max_cost_cny=None,
+    )
+
+    for _ in range(305):
+        ledger.reserve_call()
+
+    snapshot = ledger.snapshot()
+    assert snapshot["budget_enforcement"] == "OBSERVE_ONLY"
+    assert snapshot["limits"]["max_calls"] is None
+    assert snapshot["limits"]["max_cost_cny"] is None
+    assert snapshot["model_calls"] == 305
+
+
 @pytest.mark.asyncio
 async def test_deterministic_runner_writes_bound_outputs(tmp_path: Path) -> None:
     receipt = await run_evaluation(
@@ -161,6 +179,61 @@ async def test_hybrid_runner_updates_shared_budget(monkeypatch, tmp_path: Path) 
     assert receipt["model_call_budget"]["model_calls"] == 1
     assert receipt["model_call_budget"]["input_tokens"] == 100
     assert receipt["actual_model_versions"] == {"DeepSeek-V4-Flash-0731": 1}
+
+
+@pytest.mark.asyncio
+async def test_hybrid_runner_supports_observe_only_custom_validation(
+    monkeypatch, tmp_path: Path
+) -> None:
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(),
+            model_name="deepseek-v4-flash",
+        )
+    )
+    monkeypatch.setattr(
+        "evals.trip_nlu_v2.runner.build_trip_intake_extractor",
+        lambda _settings: extractor,
+    )
+    settings = Settings(_env_file=None, deepseek_api_key="test-key")
+    custom_cases = tmp_path / "validation_v2.jsonl"
+    _write_jsonl(custom_cases, _read_jsonl(DATA_ROOT / "validation.jsonl")[:1])
+
+    receipt = await run_evaluation(
+        data_root=DATA_ROOT,
+        output_dir=tmp_path / "hybrid-custom-run",
+        split="validation",
+        mode="hybrid",
+        budget_ledger_path=tmp_path / "budget.json",
+        budget_enforcement="OBSERVE_ONLY",
+        cases_path=custom_cases,
+        settings=settings,
+        git_commit="d" * 40,
+        run_id="hybrid-custom-test",
+    )
+
+    assert receipt["budget_enforcement"] == "OBSERVE_ONLY"
+    assert receipt["budget_gate"] == "NOT_APPLICABLE"
+    assert receipt["model_call_budget"]["model_calls"] == 1
+    run_spec = json.loads(
+        (tmp_path / "hybrid-custom-run" / "run_spec.json").read_text()
+    )
+    assert run_spec["dataset_input_name"] == "validation_v2.jsonl"
+
+
+@pytest.mark.asyncio
+async def test_frozen_blind_refuses_custom_input_file(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="cannot be overridden"):
+        await run_evaluation(
+            data_root=DATA_ROOT,
+            output_dir=tmp_path / "blind-custom",
+            split="frozen_blind",
+            mode="deterministic",
+            blind_ledger_path=tmp_path / "blind-ledger.json",
+            cases_path=DATA_ROOT / "validation.jsonl",
+            git_commit="e" * 40,
+            run_id="blind-custom",
+        )
 
 
 @pytest.mark.asyncio

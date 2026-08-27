@@ -163,6 +163,7 @@ class TripIntakeApplicationService:
             source_type=IntakeSourceType.MANUAL_TEXT,
             text=correction_text,
             text_sha256=sha256(correction_text.encode("utf-8")).hexdigest(),
+            metadata={"role": "USER_CONFIRMATION"},
         )
         if len(base.sources) >= 6:
             raise ValueError("intake already contains six sources; create a new intake to correct it")

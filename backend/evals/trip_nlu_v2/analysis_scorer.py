@@ -17,6 +17,7 @@ from evals.trip_nlu_v2.scorer import (
     _duration_atoms,
     _location_atoms,
     _location_roles,
+    _has_origin_destination_reversal,
     _metric,
     _party_atoms,
     _preference_atoms,
@@ -52,10 +53,7 @@ def _critical_errors(
     for identity in expected_roles.keys() & predicted_roles.keys():
         wanted = expected_roles[identity]
         actual = predicted_roles[identity]
-        if (
-            (wanted & {"ORIGIN", "RETURN_LOCATION"} and "PRIMARY_DESTINATION" in actual)
-            or ("PRIMARY_DESTINATION" in wanted and actual & {"ORIGIN", "RETURN_LOCATION"})
-        ):
+        if _has_origin_destination_reversal(wanted, actual):
             critical["origin_destination_reversal"] += 1
         if "EXCLUDED" in wanted and any(role != "EXCLUDED" for role in actual):
             critical["negation_reversal"] += 1

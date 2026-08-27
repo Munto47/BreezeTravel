@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -21,6 +22,7 @@ from app.trip_intake.llm_client import (
 )
 from app.trip_intake.models import IntakeSource, IntakeSourceType, IntakeStatus
 from app.trip_intake.runtime import build_trip_intake_extractor
+from app.trip_intake.runtime_audit import AuditedTripIntakeExtractor
 from app.trip_intake.semantic import (
     TripIntakeSemanticDraft,
     compile_semantic_draft,
@@ -73,6 +75,61 @@ class FailingStructuredClient:
             system_fingerprint=None,
         )
         raise StructuredExtractionClientError("timeout", receipt)
+
+
+@pytest.mark.asyncio
+async def test_deterministic_extracts_two_adults_one_child_composition() -> None:
+    outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("这次去杭州；两大一小；玩3天")]
+    )
+
+    party = outcome.extraction.party_size
+    assert (party.total.min, party.total.max) == (3, 3)
+    assert party.total.derivation.value == "SEMANTIC_INFERENCE"
+    assert party.composition.adults is not None
+    assert (party.composition.adults.min, party.composition.adults.max) == (2, 2)
+    assert party.composition.children is not None
+    assert (party.composition.children.min, party.composition.children.max) == (1, 1)
+    assert party.composition.tags == ["家庭", "亲子"]
+
+
+@pytest.mark.asyncio
+async def test_hybrid_keeps_exact_primary_city_when_requested_place_is_also_present() -> None:
+    source = _source(
+        "还想去北辰机械艺术馆，名字别纠正；这次确定改去杭州；两大一小；玩3天"
+    )
+    payload = {
+        "locations": [
+            {
+                "raw_text": "北辰机械艺术馆",
+                "entity_type": "PLACE",
+                "role": "REQUESTED_PLACE",
+                "evidence": [{"source_id": "source-1", "quote": "北辰机械艺术馆"}],
+            },
+            {
+                "raw_text": "杭州",
+                "entity_type": "CITY",
+                "role": "PRIMARY_DESTINATION",
+                "evidence": [{"source_id": "source-1", "quote": "杭州"}],
+            },
+        ],
+        "location_status": "MULTIPLE",
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.locations.status.value == "EXACT"
+    primary_id = outcome.extraction.locations.primary_mention_id
+    primary = next(
+        item for item in outcome.extraction.locations.mentions if item.mention_id == primary_id
+    )
+    assert primary.normalized_name == "杭州市"
 
 
 def test_semantic_compiler_resolves_unicode_and_repeated_quote() -> None:
@@ -357,6 +414,26 @@ async def test_deterministic_location_roles_follow_clause_level_corrections() ->
 
 
 @pytest.mark.asyncio
+async def test_deterministic_location_roles_survive_unpunctuated_corrections() -> None:
+    source = _source(
+        "从广州出发 去年去过西安 本来想去天津后来取消 "
+        "这次确定改去杭城 不去重庆 最后返程回深圳"
+    )
+
+    outcome = await DeterministicTripIntakeExtractor().extract([source])
+
+    roles = {item.raw_text: item.role.value for item in outcome.extraction.locations.mentions}
+    assert roles == {
+        "广州": "ORIGIN",
+        "西安": "OTHER_MENTION",
+        "天津": "OTHER_MENTION",
+        "杭城": "PRIMARY_DESTINATION",
+        "重庆": "EXCLUDED",
+        "深圳": "RETURN_LOCATION",
+    }
+
+
+@pytest.mark.asyncio
 async def test_deterministic_rules_normalize_supported_city_alias() -> None:
     outcome = await DeterministicTripIntakeExtractor().extract(
         [_source("这次目的地是帝都；4人；玩5天")]
@@ -366,6 +443,20 @@ async def test_deterministic_rules_normalize_supported_city_alias() -> None:
     assert (primary.raw_text, primary.normalized_name, primary.role.value) == (
         "帝都",
         "北京市",
+        "PRIMARY_DESTINATION",
+    )
+
+
+@pytest.mark.asyncio
+async def test_deterministic_rules_normalize_audited_city_typo() -> None:
+    outcome = await DeterministicTripIntakeExtractor().extract(
+        [_source("这次目的地是杭洲；5人；玩7天")]
+    )
+
+    primary = outcome.extraction.locations.mentions[0]
+    assert (primary.raw_text, primary.normalized_name, primary.role.value) == (
+        "杭洲",
+        "杭州市",
         "PRIMARY_DESTINATION",
     )
 
@@ -454,6 +545,40 @@ async def test_hybrid_keeps_more_complete_evidence_for_equal_unknown_values() ->
     assert outcome.extraction.temporal.days.evidence[0].quote == (
         "时间还没定，有空就多待几天"
     )
+
+
+@pytest.mark.asyncio
+async def test_hybrid_keeps_full_unpunctuated_unknown_and_arrival_evidence() -> None:
+    source = _source("去北京 人数还没定 可能有人临时加入 玩1天 预计早上到达")
+    payload = {
+        "party_size": {
+            "total": {
+                "quantifier": "UNKNOWN",
+                "derivation": "MISSING",
+                "evidence": [{"source_id": "source-1", "quote": "人数还没定"}],
+            }
+        },
+        "temporal": {
+            "arrival": {
+                "at_text": "早上",
+                "evidence": [{"source_id": "source-1", "quote": "早上到达"}],
+            }
+        },
+    }
+    extractor = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+
+    outcome = await extractor.extract([source])
+
+    assert outcome.extraction.party_size.total.evidence[0].quote == (
+        "人数还没定 可能有人临时加入"
+    )
+    assert outcome.extraction.temporal.arrival is not None
+    assert outcome.extraction.temporal.arrival.evidence[0].quote == "预计早上到达"
 
 
 @pytest.mark.asyncio
@@ -868,6 +993,50 @@ def test_explicit_hybrid_without_key_is_fail_closed() -> None:
     extractor = build_trip_intake_extractor(settings)
 
     assert isinstance(extractor, UnavailableHybridTripIntakeExtractor)
+
+
+@pytest.mark.asyncio
+async def test_runtime_audit_ledger_records_actual_model_without_source_text(tmp_path: Path) -> None:
+    source = _source("2027年10月1日到10月3日去杭州，2人")
+    payload = {
+        "locations": [
+            {
+                "raw_text": "杭州",
+                "role": "PRIMARY_DESTINATION",
+                "evidence": [{"source_id": "source-1", "quote": "杭州"}],
+            }
+        ],
+        "location_status": "EXACT",
+        "primary_location_index": 0,
+    }
+    delegate = HybridTripIntakeExtractor(
+        SchemaConstrainedTripIntakeExtractor(
+            StubStructuredClient(_result(payload)),
+            model_name="deepseek-v4-flash",
+        )
+    )
+    ledger = tmp_path / "runtime.jsonl"
+    extractor = AuditedTripIntakeExtractor(
+        delegate,
+        ledger_path=ledger,
+        input_usd_per_million=0.28,
+        output_usd_per_million=0.56,
+        usd_cny=8.0,
+    )
+
+    await extractor.extract([source])
+
+    raw = ledger.read_text(encoding="utf-8")
+    row = json.loads(raw)
+    assert source.text not in raw
+    assert row["source_sha256"] == [source.text_sha256]
+    assert row["requested_model"] == "deepseek-v4-flash"
+    assert row["actual_model"] == "DeepSeek-V4-Flash-0731"
+    assert row["input_tokens"] == 100
+    assert row["output_tokens"] == 50
+    assert row["latency_ms"] == 123.0
+    assert row["fallback_used"] is False
+    assert row["estimated_cost_cny"] == pytest.approx(0.000448)
 
 
 class RecordingCompletions:

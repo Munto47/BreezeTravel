@@ -226,11 +226,17 @@ def validate_dataset(
     data_root: Path,
     *,
     external_blind_labels: Path | None = None,
+    manifest_path: Path | None = None,
 ) -> dict[str, Any]:
     data_root = data_root.resolve(strict=True)
     repo_root = data_root.parents[2]
     backend_root = data_root.parents[1]
-    manifest = _read_json(data_root / "manifest.json")
+    custody_manifest = _read_json(data_root / "manifest.json")
+    manifest = _read_json(
+        manifest_path.resolve(strict=True)
+        if manifest_path is not None
+        else data_root / "manifest.json"
+    )
     if manifest.get("code_bindings") != _current_code_bindings(backend_root):
         raise DatasetValidationError("manifest evaluator/schema code binding mismatch")
     for relative, expected_hash in manifest["files"].items():
@@ -343,9 +349,9 @@ def validate_dataset(
             "generator_registry_sha256": _sha256(data_root / "generator_registry.json"),
             "seal_sha256": _sha256(data_root / "sealed" / "frozen_blind.labels.jsonl"),
             "case_ids_sha256": _case_ids_hash(expected_ids[96:]),
-            "validator_sha256": manifest["code_bindings"]["validator_sha256"],
-            "scorer_sha256": manifest["code_bindings"]["scorer_sha256"],
-            "schema_sha256": manifest["code_bindings"]["schema_sha256"],
+            "validator_sha256": custody_manifest["code_bindings"]["validator_sha256"],
+            "scorer_sha256": custody_manifest["code_bindings"]["scorer_sha256"],
+            "schema_sha256": custody_manifest["code_bindings"]["schema_sha256"],
         }
         if any(receipt.get(key) != value for key, value in expected_receipt_contract.items()):
             raise DatasetValidationError("isolated blind validation receipt binding mismatch")
@@ -436,6 +442,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("data_root", type=Path)
     parser.add_argument("--external-blind-labels", type=Path)
+    parser.add_argument("--manifest", type=Path)
     parser.add_argument("--finalize-isolated-receipt", action="store_true")
     args = parser.parse_args()
     if args.finalize_isolated_receipt:
@@ -443,7 +450,11 @@ def main() -> None:
             raise DatasetValidationError("receipt finalization requires external blind labels")
         result = finalize_isolated_receipt(args.data_root, args.external_blind_labels)
     else:
-        result = validate_dataset(args.data_root, external_blind_labels=args.external_blind_labels)
+        result = validate_dataset(
+            args.data_root,
+            external_blind_labels=args.external_blind_labels,
+            manifest_path=args.manifest,
+        )
     print(
         json.dumps(
             result,

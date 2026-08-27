@@ -15,12 +15,14 @@ def main() -> None:
         default=Path(__file__).resolve().parents[1] / "eval_data" / "trip_nlu_v2",
     )
     parser.add_argument("--external-blind-labels", type=Path)
+    parser.add_argument("--manifest", type=Path)
     args = parser.parse_args()
     print(
         json.dumps(
             validate_dataset(
                 args.data_root,
                 external_blind_labels=args.external_blind_labels,
+                manifest_path=args.manifest,
             ),
             ensure_ascii=False,
             sort_keys=True,

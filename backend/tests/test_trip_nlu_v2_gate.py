@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from evals.trip_nlu_v2.scorer import score_predictions
+from evals.trip_nlu_v2.scorer import _has_origin_destination_reversal, score_predictions
 from evals.trip_nlu_v2.gate import run_gate
 from evals.trip_nlu_v2.validator import (
     DatasetValidationError,
@@ -23,19 +23,29 @@ from scripts.generate_trip_nlu_v2 import generate
 
 
 DATA_ROOT = Path("eval_data/trip_nlu_v2")
+CANDIDATE_MANIFEST = Path(
+    "eval_data/trip_nlu_v2_remediation/candidate_manifest.json"
+)
 EXTERNAL_BLIND = Path(os.environ.get("TRIP_NLU_V2_BLIND_LABELS", ""))
+
+
+def test_role_reversal_counter_allows_same_city_as_origin_and_destination() -> None:
+    wanted = {"ORIGIN", "PRIMARY_DESTINATION"}
+
+    assert _has_origin_destination_reversal(wanted, wanted) is False
+    assert _has_origin_destination_reversal({"ORIGIN"}, {"PRIMARY_DESTINATION"}) is True
 
 
 def _write_run_spec(tmp_path: Path, predictions: Path, labels: Path = EXTERNAL_BLIND) -> Path:
     run_spec = tmp_path / "run-spec.json"
-    manifest = json.loads((DATA_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(CANDIDATE_MANIFEST.read_text(encoding="utf-8"))
     run_spec.write_text(
         json.dumps(
             {
                 "schema_version": "trip-nlu-v2-run-spec-v1",
                 "run_id": "test-perfect-run",
                 "dataset_manifest_sha256": hashlib.sha256(
-                    (DATA_ROOT / "manifest.json").read_bytes()
+                    CANDIDATE_MANIFEST.read_bytes()
                 ).hexdigest(),
                 "blind_label_sha256": hashlib.sha256(labels.read_bytes()).hexdigest(),
                 "product_outputs_sha256": hashlib.sha256(predictions.read_bytes()).hexdigest(),
@@ -58,7 +68,7 @@ def _write_run_spec(tmp_path: Path, predictions: Path, labels: Path = EXTERNAL_B
 
 
 def test_public_validator_proves_exact_120_case_contract_without_reading_blind_truth() -> None:
-    receipt = validate_dataset(DATA_ROOT)
+    receipt = validate_dataset(DATA_ROOT, manifest_path=CANDIDATE_MANIFEST)
     assert receipt["valid"] is True
     assert receipt["case_count"] == 120
     assert receipt["blind_labels_read"] is False
@@ -164,7 +174,11 @@ def test_generator_refuses_blind_truth_output_inside_repository(tmp_path: Path) 
 
 @pytest.mark.skipif(not EXTERNAL_BLIND.is_file(), reason="external blind labels are intentionally not in Git")
 def test_isolated_validator_recomputes_blind_truth_against_commitment() -> None:
-    receipt = validate_dataset(DATA_ROOT, external_blind_labels=EXTERNAL_BLIND)
+    receipt = validate_dataset(
+        DATA_ROOT,
+        external_blind_labels=EXTERNAL_BLIND,
+        manifest_path=CANDIDATE_MANIFEST,
+    )
     assert receipt["blind_labels_read"] is True
     assert receipt["coverage"]["party"]["UNKNOWN"] == 18
 
@@ -181,7 +195,13 @@ def test_isolated_gate_binds_valid_predictions_evidence_and_external_truth(tmp_p
         ),
         encoding="utf-8",
     )
-    receipt = run_gate(DATA_ROOT, predictions, EXTERNAL_BLIND, _write_run_spec(tmp_path, predictions))
+    receipt = run_gate(
+        DATA_ROOT,
+        predictions,
+        EXTERNAL_BLIND,
+        _write_run_spec(tmp_path, predictions),
+        manifest_path=CANDIDATE_MANIFEST,
+    )
     assert receipt["gate"] == "PASS"
     assert receipt["evidence_span_validity"] == 1
     assert receipt["run_id"] == "test-perfect-run"
@@ -204,7 +224,13 @@ def test_gate_rejects_unbound_run_spec(tmp_path: Path) -> None:
     payload["product_outputs_sha256"] = "0" * 64
     run_spec.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(DatasetValidationError, match="RunSpec"):
-        run_gate(DATA_ROOT, predictions, EXTERNAL_BLIND, run_spec)
+        run_gate(
+            DATA_ROOT,
+            predictions,
+            EXTERNAL_BLIND,
+            run_spec,
+            manifest_path=CANDIDATE_MANIFEST,
+        )
 
 
 def test_blind_inputs_and_seal_do_not_leak_nested_truth() -> None:
@@ -220,6 +246,7 @@ def test_external_labels_inside_repository_are_rejected() -> None:
         validate_dataset(
             DATA_ROOT,
             external_blind_labels=DATA_ROOT / "frozen_blind.inputs.jsonl",
+            manifest_path=CANDIDATE_MANIFEST,
         )
 
 

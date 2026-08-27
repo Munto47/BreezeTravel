@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date, datetime, timezone
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -101,6 +101,8 @@ def _client(monkeypatch):
 
 def test_run_create_read_events_resume_and_idempotency(monkeypatch):
     client, _ = _client(monkeypatch)
+    scheduler = Mock()
+    monkeypatch.setattr(runs_api, "_schedule_execution", scheduler)
     body = {
         "itinerary_revision": 1,
         "brief_revision": 2,
@@ -116,6 +118,7 @@ def test_run_create_read_events_resume_and_idempotency(monkeypatch):
     assert created.status_code == replay.status_code == 201
     assert created.json() == replay.json()
     assert replay.headers["Idempotency-Replayed"] == "true"
+    scheduler.assert_called_once()
     run = created.json()
     assert run["stage"] == "COLLECT_EVIDENCE"
     assert run["completed_stages"] == ["PARSE", "WAIT_BRIEF_CONFIRMATION", "RESOLVE_PLACES"]

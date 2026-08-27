@@ -408,6 +408,9 @@ def normalize_semantic_payload(payload: dict[str, Any]) -> dict[str, Any]:
             "帝都": "北京市",
             "魔都": "上海市",
             "杭城": "杭州市",
+            "北亰": "北京市",
+            "上诲": "上海市",
+            "杭洲": "杭州市",
         }.get(location.get("raw_text"))
         if alias_city is not None:
             location["normalized_name"] = alias_city

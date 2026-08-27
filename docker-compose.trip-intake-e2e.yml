@@ -1,0 +1,117 @@
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:15432:5432"
+
+  redis:
+    ports: !override
+      - "127.0.0.1:16379:6379"
+
+  backend:
+    ports: !override
+      - "127.0.0.1:18000:8000"
+    environment:
+      TRIP_INTAKE_EXTRACTOR_MODE: hybrid
+      TRIP_INTAKE_MODEL: deepseek-v4-flash
+      TRIP_INTAKE_RUNTIME_LEDGER_PATH: /evidence/runtime.jsonl
+      RUNTIME_PROFILE: local_fixture
+      DEMO_MODE: "false"
+      AMAP_MOCK: "true"
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    volumes:
+      - ./.local-artifacts/trip-intake-e2e:/evidence
+
+  deepseek-fault-stub:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    volumes:
+      - ./backend:/app
+    command: python -m scripts.trip_intake_deepseek_fault_stub
+
+  backend-schema-fault:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    ports:
+      - "127.0.0.1:18002:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+      REDIS_URL: redis://redis:6379
+      RUNTIME_PROFILE: local_fixture
+      DEMO_MODE: "false"
+      AMAP_MOCK: "true"
+      DEV_LOGIN_BYPASS: "true"
+      REQUIRE_SCHEMA_CHECK: "true"
+      TRIP_INTAKE_EXTRACTOR_MODE: hybrid
+      TRIP_INTAKE_MODEL: deepseek-v4-flash
+      TRIP_INTAKE_TIMEOUT_SECONDS: 1
+      TRIP_INTAKE_RUNTIME_LEDGER_PATH: /evidence/schema-invalid.jsonl
+      DEEPSEEK_API_KEY: fault-test-key
+      DEEPSEEK_API_URL: http://deepseek-fault-stub:8090/schema-invalid/v1
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    volumes:
+      - ./backend:/app
+      - ./.local-artifacts/trip-intake-e2e:/evidence
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      deepseek-fault-stub:
+        condition: service_started
+
+  backend-timeout-fault:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    ports:
+      - "127.0.0.1:18003:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+      REDIS_URL: redis://redis:6379
+      RUNTIME_PROFILE: local_fixture
+      DEMO_MODE: "false"
+      AMAP_MOCK: "true"
+      DEV_LOGIN_BYPASS: "true"
+      REQUIRE_SCHEMA_CHECK: "true"
+      TRIP_INTAKE_EXTRACTOR_MODE: hybrid
+      TRIP_INTAKE_MODEL: deepseek-v4-flash
+      TRIP_INTAKE_TIMEOUT_SECONDS: 0.2
+      TRIP_INTAKE_RUNTIME_LEDGER_PATH: /evidence/timeout.jsonl
+      DEEPSEEK_API_KEY: fault-test-key
+      DEEPSEEK_API_URL: http://deepseek-fault-stub:8090/timeout/v1
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    volumes:
+      - ./backend:/app
+      - ./.local-artifacts/trip-intake-e2e:/evidence
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      deepseek-fault-stub:
+        condition: service_started
+
+  frontend:
+    ports: !override
+      - "127.0.0.1:13000:3000"

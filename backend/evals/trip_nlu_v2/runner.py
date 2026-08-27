@@ -26,8 +26,10 @@ from app.trip_intake.semantic import trip_intake_semantic_prompt_schema
 from evals.trip_nlu_v2.validator import _read_jsonl
 
 
-SplitName = Literal["dev", "validation", "frozen_blind"]
+SplitName = Literal["regression", "dev", "validation", "frozen_blind"]
+BudgetEnforcement = Literal["ENFORCED", "OBSERVE_ONLY"]
 SPLIT_FILES: dict[SplitName, str] = {
+    "regression": "../trip_nlu_v2_remediation/regression.jsonl",
     "dev": "dev.jsonl",
     "validation": "validation.jsonl",
     "frozen_blind": "frozen_blind.inputs.jsonl",
@@ -74,8 +76,9 @@ class BudgetLedger:
         self,
         path: Path,
         *,
-        max_calls: int = DEFAULT_MAX_CALLS,
-        max_cost_cny: float = DEFAULT_MAX_COST_CNY,
+        enforcement: BudgetEnforcement = "ENFORCED",
+        max_calls: int | None = DEFAULT_MAX_CALLS,
+        max_cost_cny: float | None = DEFAULT_MAX_COST_CNY,
         usd_cny: float = DEFAULT_USD_CNY,
         input_usd_per_million: float = DEFAULT_INPUT_USD_PER_MILLION,
         output_usd_per_million: float = DEFAULT_OUTPUT_USD_PER_MILLION,
@@ -83,9 +86,12 @@ class BudgetLedger:
         max_output_tokens_per_call: int = 4096,
     ) -> None:
         self.path = path.resolve()
+        if enforcement == "ENFORCED" and (max_calls is None or max_cost_cny is None):
+            raise ValueError("enforced budget ledger requires call and cost limits")
+        self.enforcement = enforcement
         self.limits = {
-            "max_calls": max_calls,
-            "max_cost_cny": max_cost_cny,
+            "max_calls": max_calls if enforcement == "ENFORCED" else None,
+            "max_cost_cny": max_cost_cny if enforcement == "ENFORCED" else None,
             "usd_cny": usd_cny,
             "input_usd_per_million": input_usd_per_million,
             "output_usd_per_million": output_usd_per_million,
@@ -96,9 +102,12 @@ class BudgetLedger:
             self.value = json.loads(self.path.read_text(encoding="utf-8"))
             if self.value.get("limits") != self.limits:
                 raise ValueError("budget ledger limits do not match this run")
+            if self.value.get("budget_enforcement", "ENFORCED") != enforcement:
+                raise ValueError("budget ledger enforcement does not match this run")
         else:
             self.value = {
-                "schema_version": "trip-nlu-v2-budget-ledger-v1",
+                "schema_version": "trip-nlu-v2-budget-ledger-v2",
+                "budget_enforcement": enforcement,
                 "limits": self.limits,
                 "model_calls": 0,
                 "input_tokens": 0,
@@ -128,10 +137,20 @@ class BudgetLedger:
         temporary.replace(self.path)
 
     def reserve_call(self) -> None:
-        if self.value["model_calls"] >= self.limits["max_calls"]:
+        max_calls = self.limits["max_calls"]
+        max_cost_cny = self.limits["max_cost_cny"]
+        if (
+            self.enforcement == "ENFORCED"
+            and max_calls is not None
+            and self.value["model_calls"] >= max_calls
+        ):
             raise EvaluationBudgetExceeded("model call budget exhausted")
         projected = self.value["estimated_cost_cny"] + self._projected_call_cost()
-        if projected > self.limits["max_cost_cny"]:
+        if (
+            self.enforcement == "ENFORCED"
+            and max_cost_cny is not None
+            and projected > max_cost_cny
+        ):
             raise EvaluationBudgetExceeded("estimated CNY budget exhausted")
         # Calls are persisted before the network side effect. A crash therefore
         # cannot make an attempted request disappear from the budget.
@@ -228,7 +247,10 @@ async def run_evaluation(
     split: SplitName,
     mode: Literal["deterministic", "hybrid"],
     budget_ledger_path: Path | None = None,
+    budget_enforcement: BudgetEnforcement = "ENFORCED",
     blind_ledger_path: Path | None = None,
+    cases_path: Path | None = None,
+    manifest_path: Path | None = None,
     case_ids: set[str] | None = None,
     warmup_calls: int = 0,
     settings: Settings | None = None,
@@ -251,11 +273,13 @@ async def run_evaluation(
     if mode == "hybrid" and budget_ledger_path is None:
         raise ValueError("hybrid evaluation requires a shared budget ledger")
 
-    manifest_path = data_root / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    selected_manifest_path = manifest_path or data_root / "manifest.json"
+    manifest = json.loads(selected_manifest_path.read_text(encoding="utf-8"))
     repo_root = data_root.parents[2]
     commit = git_commit or _git_commit(repo_root)
     current_run_id = run_id or f"trip-nlu-{split}-{uuid4()}"
+    if split == "frozen_blind" and cases_path is not None:
+        raise ValueError("frozen blind inputs cannot be overridden")
     if split == "frozen_blind":
         if blind_ledger_path is None:
             raise ValueError("frozen blind evaluation requires an external one-shot ledger")
@@ -264,12 +288,20 @@ async def run_evaluation(
     budget = (
         BudgetLedger(
             budget_ledger_path,
+            enforcement=budget_enforcement,
+            max_calls=(DEFAULT_MAX_CALLS if budget_enforcement == "ENFORCED" else None),
+            max_cost_cny=(DEFAULT_MAX_COST_CNY if budget_enforcement == "ENFORCED" else None),
             max_output_tokens_per_call=run_settings.trip_intake_max_output_tokens,
         )
         if budget_ledger_path is not None
         else None
     )
-    cases = _load_cases(data_root, split, case_ids)
+    selected_cases_path = cases_path or data_root / SPLIT_FILES[split]
+    cases = _read_jsonl(selected_cases_path)
+    if case_ids is not None:
+        cases = [item for item in cases if item["case_id"] in case_ids]
+        if {item["case_id"] for item in cases} != case_ids:
+            raise ValueError("one or more requested case IDs do not exist")
     if not cases:
         raise ValueError("evaluation selected no cases")
 
@@ -344,8 +376,9 @@ async def run_evaluation(
         "git_commit": commit,
         "split": split,
         "mode": mode,
-        "dataset_manifest_sha256": _file_sha256(manifest_path),
-        "dataset_inputs_sha256": _file_sha256(data_root / SPLIT_FILES[split]),
+        "dataset_manifest_sha256": _file_sha256(selected_manifest_path),
+        "dataset_inputs_sha256": _file_sha256(selected_cases_path),
+        "dataset_input_name": selected_cases_path.name,
         "blind_label_sha256": seal["external_label_sha256"],
         "product_outputs_sha256": predictions_sha256,
         "validator_sha256": manifest["code_bindings"]["validator_sha256"],
@@ -375,6 +408,9 @@ async def run_evaluation(
         "case_count": len(cases),
         "warmup_calls": warmup_calls,
         "model_call_budget": budget.snapshot() if budget is not None else None,
+        "budget_enforcement": (
+            budget_enforcement if budget is not None else "NOT_APPLICABLE"
+        ),
         "latency_ms": {
             "p50": round(_percentile(latencies, 0.50), 3),
             "p95": round(p95_ms, 3),
@@ -387,13 +423,9 @@ async def run_evaluation(
         "run_spec_sha256": _file_sha256(run_spec_path),
         "performance_gate": "PASS" if p95_ms <= 5000 else "REJECT",
         "budget_gate": (
-            "PASS"
-            if budget is None
-            or (
-                budget.value["model_calls"] <= budget.limits["max_calls"]
-                and budget.value["estimated_cost_cny"] <= budget.limits["max_cost_cny"]
-            )
-            else "REJECT"
+            "NOT_APPLICABLE"
+            if budget is None or budget_enforcement == "OBSERVE_ONLY"
+            else "PASS"
         ),
     }
     _write_json(output_dir / "run_receipt.json", receipt)
@@ -407,7 +439,14 @@ def main() -> None:
     parser.add_argument("--split", choices=tuple(SPLIT_FILES), required=True)
     parser.add_argument("--mode", choices=("deterministic", "hybrid"), required=True)
     parser.add_argument("--budget-ledger", type=Path)
+    parser.add_argument(
+        "--budget-enforcement",
+        choices=("ENFORCED", "OBSERVE_ONLY"),
+        default="ENFORCED",
+    )
     parser.add_argument("--blind-ledger", type=Path)
+    parser.add_argument("--cases-file", type=Path)
+    parser.add_argument("--manifest", type=Path)
     parser.add_argument("--case-id", action="append", dest="case_ids")
     parser.add_argument("--warmup-calls", type=int, default=0)
     parser.add_argument("--env-file", type=Path)
@@ -420,7 +459,10 @@ def main() -> None:
             split=args.split,
             mode=args.mode,
             budget_ledger_path=args.budget_ledger,
+            budget_enforcement=args.budget_enforcement,
             blind_ledger_path=args.blind_ledger,
+            cases_path=args.cases_file,
+            manifest_path=args.manifest,
             case_ids=set(args.case_ids) if args.case_ids else None,
             warmup_calls=args.warmup_calls,
             settings=settings,

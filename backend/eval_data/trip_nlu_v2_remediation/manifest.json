@@ -1,0 +1,26 @@
+{
+  "files": {
+    "regression.jsonl": "f842448f17e74e8de300c1a69e1068d7860bb4acd19298627b282d50854e375e",
+    "validation_v2.jsonl": "9bd408819a796ced799b0c0e27bb35dbaf00e062b072f59a0b42a0cb5459145c"
+  },
+  "generator_contract": "trip-nlu-v2-remediation-validation-v2",
+  "original_frozen_blind_modified": false,
+  "regression_count": 7,
+  "regression_source_case_ids": [
+    "TRIP_NLU_0078",
+    "TRIP_NLU_0085",
+    "TRIP_NLU_0095",
+    "TRIP_NLU_RV2_0007",
+    "TRIP_NLU_RV2_0010",
+    "TRIP_NLU_RV2_0018",
+    "TRIP_NLU_RV2_0019"
+  ],
+  "schema_version": "trip-nlu-v2-remediation-manifest-v1",
+  "validation_count": 24,
+  "validation_difficulty": {
+    "easy": 6,
+    "hard": 7,
+    "medium": 11
+  },
+  "validation_max_similarity_to_original_120": 0.801418
+}

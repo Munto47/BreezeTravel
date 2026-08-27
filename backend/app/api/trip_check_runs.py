@@ -178,7 +178,8 @@ async def create_trip_check_run(
     except ItineraryDomainError as exc:
         _raise_domain(exc)
     _set_headers(response, run, replayed=replayed)
-    _schedule_execution(run, executor)
+    if not replayed:
+        _schedule_execution(run, executor)
     return run
 
 
@@ -280,5 +281,6 @@ async def resume_trip_check_run(
     except ItineraryDomainError as exc:
         _raise_domain(exc)
     _set_headers(response, run, replayed=replayed)
-    _schedule_execution(run, executor)
+    if not replayed:
+        _schedule_execution(run, executor)
     return run
