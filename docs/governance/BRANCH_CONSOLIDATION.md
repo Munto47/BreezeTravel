@@ -2,7 +2,7 @@
 
 > 日期：2026-08-27
 >
-> 状态：`CONSOLIDATION_SUBJECT_PREPARED / DEVELOP_READBACK_PENDING`
+> 状态：`COMPLETED`
 >
 > 本文件只证明Git资产收口，不证明V0.1产品、Provider、浏览器、真人或生产能力。
 
@@ -42,7 +42,7 @@ Blueprint分支的三个提交是本次唯一需要快进到`develop`的已完�
 - `f3b5f3e`：归档G00并激活G01；
 - `9c877c8`：记录Blueprint transition回读。
 
-本收口subject将在上述历史之后追加仓库基线规则、根`tests/`删除和最终审计记录。
+收口subject已在上述历史之后追加仓库基线规则、根`tests/`删除和最终审计记录，并已fast-forward到`origin/develop`。
 
 ## 4. 重要文件清单
 
@@ -110,21 +110,21 @@ Blueprint分支的三个提交是本次唯一需要快进到`develop`的已完�
 
 backend全量结果为`2017 passed, 32 skipped, 3 failed`。三个失败都位于未被本次改动触及的旧Trip NLU冻结资产：
 
-1. remediation JSONL缺少独立LF属性，在Windows checkout发生字节漂移；本subject补充`.gitattributes`规则，不改数据内容或期望hash；
-2. 另外两项是旧candidate manifest绑定的validator/scorer/gate代码hash与当前历史代码不一致；LF隔离checkout仍为`21 passed, 3 skipped, 2 failed`；
+1. remediation JSONL曾缺少独立LF属性，在Windows checkout发生字节漂移；本subject补充`.gitattributes`规则，不改数据内容或期望hash；默认和LF新checkout均已重跑该文件的3项测试并通过；
+2. 另外两项是旧candidate manifest绑定的validator/scorer/gate代码hash与当前历史代码不一致；LF隔离checkout结果为`21 passed, 3 skipped, 2 failed`；
 3. `git diff origin/develop -- backend`为0，证明这些不是本次分支/文件收口引入的产品代码回归。
 
 本次不更新candidate manifest、不修改sealed blind/oracle，也不把失败标成PASS。该绑定漂移作为G01首个preflight的历史基线风险处理；若修复必须修改冻结manifest/oracle，仍按HITL请求批准。
 
 ## 9. 完成记录
 
-- Consolidation subject commit：`PENDING`；
-- Canonical `origin/develop`：`PENDING`；
-- Active implementation branch：`origin/codex/trip-check-product-reset`；
-- Remote tree equality：`PENDING`；
-- Root `tests/` tracked count：目标`0`；
-- Root `tests/` filesystem count：目标`0`；
-- `miniapp/` tracked source/config/test count：目标`33`；
-- Single active Goal：目标`TC-VNEXT-G01-TEXT-CARDS / APPROVED`；
+- Consolidation subject commit：`1e679dc7e006b84e9a984eba1ace028b291fa493`；
+- Canonical `origin/develop` subject：`1e679dc7e006b84e9a984eba1ace028b291fa493`，readback `PASS`；
+- Active implementation branch：`origin/codex/trip-check-product-reset`，subject readback `PASS`；
+- Remote subject tree equality：`PASS`；
+- Root `tests/` tracked count：`0`；
+- Root `tests/` filesystem count：`0`；
+- `miniapp/` tracked source/config/test count：`33`；
+- Single active Goal：`TC-VNEXT-G01-TEXT-CARDS / APPROVED`；
 - `main`：`NOT_TOUCHED`；
 - Product/runtime capability：`NOT_CHANGED`。
