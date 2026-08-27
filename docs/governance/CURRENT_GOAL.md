@@ -92,7 +92,7 @@
 - independent Validation v2：24/24，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.513 秒；
 - 调用审计：Validation 结束时累计 202 次、324333 input tokens、112720 output tokens、估算 1.87374432 CNY；调用层失败和 fallback 均保留在 ledger；
 - 工程回归：backend `2014 passed / 32 skipped`；Ruff、frontend build、dual-entry validator、原 120 条 validator、remediation validator 均通过；
-- frozen blind：`NOT_RUN`；
+- frozen blind：唯一一次产品预测已在 subject `d4fd9aafcb9dc12156e2ba4f0199c822f15f7c41` 完成，24/24、P95=3.691 秒、actual model 24/24、fallback=1、prediction SHA-256=`52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11`；外部标签未 provision，正式评分=`EVIDENCE_INCOMPLETE`，不得记为 PASS 或再次运行产品预测；
 - local real-DeepSeek E2E：隔离数据库上仅取得 `DIAGNOSTIC_PASS_AFTER_LOCAL_SCHEMA_HOTFIX`，三城 3/3、真实模型 readback、正常链 fallback=0、幂等/SSE/fault/UNKNOWN 均符合预期；这不是干净 schema 的正式 PASS；
 - E2E blocker：migration 026 的 `UNIQUE (room_id, intake_id)` 阻止同一 intake 创建第二个 immutable revision；正式修复需要 migration/schema 变更，超出本 Goal 的自动授权，未修改仓库 migration；
 - `INTAKE_V2_DEVELOPMENT_READY=false`，直到 Validation、blind、工程回归和本地 E2E 全部通过。

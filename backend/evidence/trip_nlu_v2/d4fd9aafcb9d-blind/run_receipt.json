@@ -1,0 +1,43 @@
+{
+  "actual_model_versions": {
+    "deepseek-v4-flash": 24
+  },
+  "budget_enforcement": "OBSERVE_ONLY",
+  "budget_gate": "NOT_APPLICABLE",
+  "case_count": 24,
+  "error_categories": {
+    "schema_invalid": 1
+  },
+  "fallback_count": 1,
+  "latency_ms": {
+    "max": 4181.121,
+    "p50": 2996.243,
+    "p95": 3690.747
+  },
+  "model_call_budget": {
+    "budget_enforcement": "OBSERVE_ONLY",
+    "estimated_cost_cny": 2.01735296,
+    "failed_call_reservations": 7,
+    "input_tokens": 362800,
+    "limits": {
+      "input_usd_per_million": 0.28,
+      "max_calls": null,
+      "max_cost_cny": null,
+      "max_input_tokens_per_call": 32768,
+      "max_output_tokens_per_call": 4096,
+      "output_usd_per_million": 0.56,
+      "usd_cny": 8.0
+    },
+    "model_calls": 226,
+    "output_tokens": 125542,
+    "schema_version": "trip-nlu-v2-budget-ledger-v2",
+    "updated_at": "2026-08-27T04:11:10.550700+00:00"
+  },
+  "performance_gate": "PASS",
+  "predictions_sha256": "52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11",
+  "run_id": "trip-nlu-frozen_blind-4439e978-f165-408d-86fb-0caa660e342a",
+  "run_spec_sha256": "00ffb84d751d27ee7b5f7a99eff0735048900ce2423603724e27dc3bb11afe76",
+  "schema_version": "trip-nlu-v2-run-receipt-v1",
+  "split": "frozen_blind",
+  "warmup_calls": 0
+}

@@ -1,0 +1,24 @@
+{
+  "blind_label_sha256": "60e2fd7812297789cbd66d480884761ac75eaf38ce54e8f7b66f0dcb46d7b2fb",
+  "created_at": "2026-08-27T04:11:10.552742+00:00",
+  "dataset_input_name": "frozen_blind.inputs.jsonl",
+  "dataset_inputs_sha256": "04e92713a292a7009b1c3771eca51b731e711f13575262c33e9d810d1b15c628",
+  "dataset_manifest_sha256": "638ee916bb16f6f0774262aa8e0a51e04da976e87cd7f9507a59b6209da76fd9",
+  "git_commit": "d4fd9aafcb9dc12156e2ba4f0199c822f15f7c41",
+  "mode": "hybrid",
+  "model_binding": {
+    "config_sha256": "10a7a9d9c935057e4d3ded1e4d23a89c6e4ab6ba2b7b3b859d4c7e7b73a81158",
+    "model_name": "deepseek-v4-flash",
+    "model_version": "deepseek-v4-flash",
+    "prompt_sha256": "fa0d63ab4ce625af2e52f52da4a2952d13de70867bf24f0d468db388f8de4a42",
+    "schema_sha256": "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f",
+    "semantic_schema_sha256": "06444eb3bc0430b77a1609a96895e397f9a886e23fb39d4e2aed797af5300e1c"
+  },
+  "product_outputs_sha256": "52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11",
+  "run_id": "trip-nlu-frozen_blind-4439e978-f165-408d-86fb-0caa660e342a",
+  "schema_sha256": "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f",
+  "schema_version": "trip-nlu-v2-run-spec-v1",
+  "scorer_sha256": "d270a9a449b47502ee14682cb386d087218a6dcf7c9e8f562f54162462bf02fe",
+  "split": "frozen_blind",
+  "validator_sha256": "4d555a240e91b4b3011ab001b6154ad43e06407509387809c6bef8bb2b8e64e5"
+}

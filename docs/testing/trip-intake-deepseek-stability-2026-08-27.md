@@ -5,7 +5,7 @@
 - Model remains `deepseek-v4-flash`; Qwen was not added.
 - Default runtime remains deterministic. Hybrid mode is explicit for evaluation and local E2E only.
 - Scope is Trip Intake plus the minimum downstream fixes required to execute the existing Trip Check chain.
-- Original 24 frozen blind inputs and oracle were not modified. Blind remains `NOT_RUN` until a clean commit is bound.
+- Original 24 frozen blind inputs and oracle were not modified. The one-shot product prediction is bound to clean commit `d4fd9aafcb9dc12156e2ba4f0199c822f15f7c41`; scoring remains `EVIDENCE_INCOMPLETE` because the external labels are not provisioned.
 - No public API, production dependency, repository migration, public deployment, H1, release, or `main` merge is included.
 
 ## Candidate quality evidence
@@ -37,8 +37,10 @@ This is not a formal clean-schema E2E PASS. Migration 026 currently declares `UN
 
 ## Remaining gate
 
-1. Create a clean immutable commit and bind the one-shot frozen blind run to it.
-2. If blind passes, request the narrow migration authorization needed to remove or supersede the conflicting uniqueness constraint.
+The one-shot frozen blind product run completed 24/24 with actual model readback 24/24, P95 3.691 seconds, one schema-invalid safe fallback, and prediction SHA-256 `52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11`. Its model quality gate is not scored and is not a PASS: the repository contains only the metadata seal, while the required external label artifact was not mounted.
+
+1. Mount the external frozen blind label file outside the repository and run only the isolated scorer against the already frozen predictions; do not rerun product inference.
+2. If blind passes, authorize the narrow migration change needed to remove or supersede the conflicting uniqueness constraint.
 3. Recreate a fresh Docker database from migrations and rerun the complete E2E without a local schema hotfix.
 
 `INTAKE_V2_DEVELOPMENT_READY=false` and `V1_CANDIDATE_READY=false` until the applicable remaining gates are actually run and pass.
