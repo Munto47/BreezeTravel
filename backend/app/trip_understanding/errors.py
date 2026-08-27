@@ -48,3 +48,31 @@ class ResourceNotReadyError(TripUnderstandingError):
 
 class CommandTargetChangedError(TripUnderstandingError):
     pass
+
+
+class ExpectedProviderUnavailableError(TripUnderstandingError):
+    """Typed, redacted failure that product fallbacks may safely handle."""
+
+    def __init__(
+        self,
+        category: str,
+        *,
+        provider_binding: dict[str, object],
+        external_call_count: int,
+    ) -> None:
+        super().__init__(category)
+        self.category = category
+        self.provider_binding = provider_binding
+        self.external_call_count = external_call_count
+
+
+class InferenceProviderUnavailableError(ExpectedProviderUnavailableError):
+    pass
+
+
+class PlaceProviderUnavailableError(ExpectedProviderUnavailableError):
+    pass
+
+
+class RouteProviderUnavailableError(ExpectedProviderUnavailableError):
+    pass

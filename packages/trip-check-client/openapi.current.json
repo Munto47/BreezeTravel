@@ -12273,7 +12273,8 @@
             "enum": [
               "READY",
               "PARTIAL_RESULT",
-              "BASIC_ONLY"
+              "BASIC_ONLY",
+              "LIMITED"
             ],
             "title": "Status",
             "type": "string"

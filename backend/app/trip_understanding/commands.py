@@ -50,6 +50,8 @@ def _ensure_day(days: list[TripDayView], day_index: int) -> None:
 
 def _result_status(days: list[TripDayView]) -> str:
     cards = [card for day in days for card in day.activities]
+    if len(cards) > 80:
+        return "LIMITED"
     ready = sum(card.status == "READY" for card in cards)
     if cards and ready == len(cards):
         return "READY"

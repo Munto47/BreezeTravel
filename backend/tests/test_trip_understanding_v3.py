@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -16,11 +17,21 @@ from app.trip_understanding.demo import (
 from app.trip_understanding.errors import (
     CommandTargetChangedError,
     IdempotencyConflictError,
+    InferenceProviderUnavailableError,
     JobLeaseLostError,
+    PlaceProviderUnavailableError,
     ResourceAccessDeniedError,
+    RouteProviderUnavailableError,
 )
 from app.trip_understanding.full_text import build_full_text_pipeline
-from app.trip_understanding.map_render import MapRenderer
+from app.trip_understanding.map_render import (
+    ROUTE_CONFIG_SHA256,
+    ControlledFixtureRouteProvider,
+    MapRenderPlan,
+    MapRenderer,
+    MapStop,
+    PlanRevisionRef,
+)
 from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.models import (
@@ -30,7 +41,9 @@ from app.trip_understanding.models import (
     ActivityRole,
     ActivityTextEditCommand,
     AssumptionSetCommand,
+    InferenceProposal,
     PlaceReplaceCommand,
+    ProposedMention,
 )
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
@@ -145,6 +158,173 @@ async def test_full_text_unknown_or_reference_only_input_does_not_invent_a_place
     assert output.public_result.status == "BASIC_ONLY"
     assert [day.activities for day in output.public_result.days] == [[]]
     assert all(not item.compiled.eligible_for_place_search for item in output.activities)
+
+
+@pytest.mark.asyncio
+async def test_typed_inference_outage_uses_explicit_local_fallback_and_returns_editable_partial() -> None:
+    class UnavailableInferenceProvider:
+        async def propose(self, source_text: str):
+            del source_text
+            raise InferenceProviderUnavailableError(
+                "DEADLINE_EXCEEDED",
+                provider_binding={
+                    "provider": "qwen-test-double",
+                    "region": "test-region",
+                    "exact_model_id": "test-only",
+                },
+                external_call_count=1,
+            )
+
+    output = await build_full_text_pipeline(UnavailableInferenceProvider()).run(FULL_BEIJING_TEXT)
+
+    assert output.public_result.status == "PARTIAL_RESULT"
+    assert sum(len(day.activities) for day in output.public_result.days) == 6
+    assert output.inference_binding["fallback_used"] is True
+    assert output.inference_binding["fallback_reason"] == "DEADLINE_EXCEEDED"
+    assert output.inference_binding["primary_external_call_count"] == 1
+    assert output.resolution_receipt["inference_fallback_used"] is True
+    public = output.public_result.model_dump(mode="json")
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+    assert "DEADLINE_EXCEEDED" not in json.dumps(public, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_typed_place_provider_outage_keeps_every_planned_card_editable() -> None:
+    class UnavailablePlaceResolver:
+        async def resolve(self, *, city: str, atomic_place_name: str):
+            del city, atomic_place_name
+            raise PlaceProviderUnavailableError(
+                "PROVIDER_UNAVAILABLE",
+                provider_binding={"provider": "amap-test-double"},
+                external_call_count=1,
+            )
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        UnavailablePlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT)
+
+    assert output.public_result.status == "PARTIAL_RESULT"
+    cards = [card for day in output.public_result.days for card in day.activities]
+    assert len(cards) == 6
+    assert all(card.status == "NEEDS_CONFIRMATION" for card in cards)
+    assert output.resolution_receipt["provider_unavailable_count"] == 6
+    assert all(
+        item.resolver_receipt.get("failure_category") == "PROVIDER_UNAVAILABLE"
+        for item in output.activities
+        if item.compiled.eligible_for_place_search
+    )
+    public = output.public_result.model_dump(mode="json")
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+    assert "PROVIDER_UNAVAILABLE" not in json.dumps(public, ensure_ascii=False)
+
+
+@pytest.mark.asyncio
+async def test_typed_route_mode_outage_isolated_to_that_mode_and_snapshot_stays_available() -> None:
+    class TransitUnavailableProvider:
+        def __init__(self) -> None:
+            self.fixture = ControlledFixtureRouteProvider()
+
+        async def route(self, origin, destination, mode, *, observed_at):
+            if mode == "transit":
+                raise RouteProviderUnavailableError(
+                    "ROUTE_PROVIDER_UNAVAILABLE",
+                    provider_binding={"provider": "amap-test-double"},
+                    external_call_count=1,
+                )
+            return await self.fixture.route(
+                origin,
+                destination,
+                mode,
+                observed_at=observed_at,
+            )
+
+    stops = [
+        MapStop(
+            day_index=1,
+            day_label="Day 1",
+            sequence_index=index,
+            name=name,
+            canonical_place_id=f"fixture-{index}",
+            resolution_status="AUTO_MATCHED",
+        )
+        for index, name in enumerate(("故宫博物院", "景山公园"))
+    ]
+    plan = MapRenderPlan(
+        understanding_id="route-provider-outage",
+        plan_ref=PlanRevisionRef(
+            kind="UNDERSTANDING",
+            aggregate_id="route-provider-outage",
+            revision=1,
+            stop_set_hash="a" * 64,
+        ),
+        route_config_hash=ROUTE_CONFIG_SHA256,
+        stops=stops,
+    )
+
+    output = await MapRenderer(TransitUnavailableProvider()).render(
+        plan,
+        observed_at=datetime(2026, 8, 28, tzinfo=timezone.utc),
+    )
+
+    assert output.status == "READY"
+    assert output.edges[0].selected_mode == "walking"
+    assert output.edges[0].walking.status == "AVAILABLE"
+    assert output.edges[0].transit.status == "UNAVAILABLE"
+    assert output.provider_binding["external_calls"] == 1
+
+
+@pytest.mark.asyncio
+async def test_executable_activity_budget_preserves_all_cards_and_returns_limited() -> None:
+    names = [f"测试地点{index:02d}" for index in range(81)]
+    source_text = "、".join(names)
+
+    class ManyActivitiesProvider:
+        async def propose(self, source: str):
+            cursor = 0
+            mentions = []
+            for index, name in enumerate(names):
+                start = source.index(name, cursor)
+                cursor = start + len(name)
+                mentions.append(
+                    ProposedMention(
+                        mention_id=f"budget-{index}",
+                        raw_text=name,
+                        span_start=start,
+                        span_end=cursor,
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=index,
+                        atomic_place_name=name,
+                        category_hint="地点",
+                    )
+                )
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                destination_name="北京",
+                mentions=mentions,
+                binding={"provider": "budget-test-double", "external_calls": 0},
+            )
+
+    class CountingUnresolvedResolver:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def resolve(self, *, city: str, atomic_place_name: str):
+            del city, atomic_place_name
+            self.calls += 1
+            return None
+
+    resolver = CountingUnresolvedResolver()
+    output = await TripUnderstandingPipeline(ManyActivitiesProvider(), resolver).run(source_text)
+
+    assert output.public_result.status == "LIMITED"
+    assert sum(len(day.activities) for day in output.public_result.days) == 81
+    assert resolver.calls == 80
+    assert output.resolution_receipt["attempted_count"] == 80
+    assert output.resolution_receipt["budget_limited_count"] == 1
+    assert output.resolution_receipt["max_executable_activities"] == 80
+    assert output.activities[-1].resolver_receipt["status"] == "BUDGET_LIMITED"
 
 
 def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:

@@ -30,7 +30,7 @@ export interface ActivityCardView {
 }
 
 export interface UserFacingTripResult {
-  status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY'
+  status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: Array<{ label: string; activities: ActivityCardView[] }>
   map: {

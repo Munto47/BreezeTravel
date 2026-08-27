@@ -12,7 +12,11 @@ from app.trip_understanding.models import (
     ProposedMention,
     ResolvedPlace,
 )
-from app.trip_understanding.pipeline import TripUnderstandingPipeline
+from app.trip_understanding.pipeline import (
+    ResilientStructuredInferenceProvider,
+    StructuredInferenceProvider,
+    TripUnderstandingPipeline,
+)
 
 
 _CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
@@ -249,8 +253,18 @@ class ControlledSnapshotPlaceResolver:
         )
 
 
-def build_full_text_pipeline() -> TripUnderstandingPipeline:
+def build_full_text_pipeline(
+    primary_inference_provider: StructuredInferenceProvider | None = None,
+) -> TripUnderstandingPipeline:
+    deterministic_fallback = DeterministicTextInferenceProvider()
     return TripUnderstandingPipeline(
-        inference_provider=DeterministicTextInferenceProvider(),
+        inference_provider=(
+            ResilientStructuredInferenceProvider(
+                primary_inference_provider,
+                deterministic_fallback,
+            )
+            if primary_inference_provider is not None
+            else deterministic_fallback
+        ),
         place_resolver=ControlledSnapshotPlaceResolver(),
     )

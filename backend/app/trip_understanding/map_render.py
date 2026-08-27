@@ -9,6 +9,7 @@ from typing import Literal, Protocol
 
 from pydantic import Field, model_validator
 
+from app.trip_understanding.errors import RouteProviderUnavailableError
 from app.trip_understanding.models import MapReadinessView, StrictModel
 from app.trip_understanding.pipeline import canonical_sha256
 
@@ -201,6 +202,8 @@ def _unavailable_fact(
     *,
     reason: str,
     observed_at: datetime,
+    provider_binding: dict[str, object] | None = None,
+    external_call_count: int = 0,
 ) -> InternalRouteModeFact:
     request = {
         "origin": origin.name,
@@ -218,8 +221,9 @@ def _unavailable_fact(
             "execution_mode": "controlled_fixture",
             "fixture_sha256": ROUTE_FIXTURE_SHA256,
             "reason": reason,
+            **(provider_binding or {}),
         },
-        external_call_count=0,
+        external_call_count=external_call_count,
         observed_at=observed_at,
         expires_at=observed_at + timedelta(hours=24),
     )
@@ -300,12 +304,34 @@ class MapRenderer:
                     and destination.canonical_place_id is not None
                 )
                 if can_route:
-                    walking = await self.provider.route(
-                        origin, destination, "walking", observed_at=started_at
-                    )
-                    transit = await self.provider.route(
-                        origin, destination, "transit", observed_at=started_at
-                    )
+                    try:
+                        walking = await self.provider.route(
+                            origin, destination, "walking", observed_at=started_at
+                        )
+                    except RouteProviderUnavailableError as exc:
+                        walking = _unavailable_fact(
+                            origin,
+                            destination,
+                            "walking",
+                            reason=exc.category,
+                            observed_at=started_at,
+                            provider_binding=exc.provider_binding,
+                            external_call_count=exc.external_call_count,
+                        )
+                    try:
+                        transit = await self.provider.route(
+                            origin, destination, "transit", observed_at=started_at
+                        )
+                    except RouteProviderUnavailableError as exc:
+                        transit = _unavailable_fact(
+                            origin,
+                            destination,
+                            "transit",
+                            reason=exc.category,
+                            observed_at=started_at,
+                            provider_binding=exc.provider_binding,
+                            external_call_count=exc.external_call_count,
+                        )
                 else:
                     walking = _unavailable_fact(
                         origin,
@@ -336,6 +362,10 @@ class MapRenderer:
                     )
                 )
         available_count = sum(edge.available for edge in edges)
+        external_call_count = sum(
+            edge.walking.external_call_count + edge.transit.external_call_count
+            for edge in edges
+        )
         if edges and available_count == len(edges):
             status: Literal["READY", "PARTIAL", "UNAVAILABLE"] = "READY"
         elif available_count:
@@ -358,9 +388,18 @@ class MapRenderer:
             edges=edges,
             snapshot_sha256=canonical_sha256(snapshot_payload),
             provider_binding={
-                "execution_mode": "controlled_fixture",
-                "fixture_sha256": ROUTE_FIXTURE_SHA256,
-                "external_calls": 0,
+                "execution_mode": "route-provider-bound",
+                "route_config_hash": plan.route_config_hash,
+                "mode_fact_bindings_sha256": canonical_sha256(
+                    [
+                        {
+                            "walking": edge.walking.provider_binding,
+                            "transit": edge.transit.provider_binding,
+                        }
+                        for edge in edges
+                    ]
+                ),
+                "external_calls": external_call_count,
                 "modes": ["walking", "transit"],
             },
             failure={} if status == "READY" else {"unavailable_edge_count": len(edges) - available_count},

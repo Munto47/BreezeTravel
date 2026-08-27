@@ -72,6 +72,7 @@ class ResolvedActivity(StrictModel):
     compiled: CompiledActivity
     resolution_status: ResolutionStatus
     place: ResolvedPlace | None = None
+    resolver_receipt: dict[str, object] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def resolution_is_consistent(self) -> "ResolvedActivity":
@@ -142,7 +143,7 @@ class StaySuggestionView(StrictModel):
 
 
 class UserFacingTripResult(StrictModel):
-    status: Literal["READY", "PARTIAL_RESULT", "BASIC_ONLY"]
+    status: Literal["READY", "PARTIAL_RESULT", "BASIC_ONLY", "LIMITED"]
     assumptions: list[AssumptionChipView]
     days: list[TripDayView]
     map: MapReadinessView
@@ -348,6 +349,7 @@ class PipelineOutput(StrictModel):
     proposal: InferenceProposal
     inference_binding: dict[str, object]
     compiler_receipt: dict[str, object]
+    resolution_receipt: dict[str, object]
     activities: list[ResolvedActivity]
     claims: list[SourceClaimRecord]
     public_result: UserFacingTripResult

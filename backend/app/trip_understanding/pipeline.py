@@ -7,6 +7,10 @@ import secrets
 from typing import Protocol
 from uuid import uuid4
 
+from app.trip_understanding.errors import (
+    InferenceProviderUnavailableError,
+    PlaceProviderUnavailableError,
+)
 from app.trip_understanding.models import (
     ActivityCardView,
     ActivityRole,
@@ -45,6 +49,39 @@ class StructuredInferenceProvider(Protocol):
 
 class PlaceResolver(Protocol):
     async def resolve(self, *, city: str, atomic_place_name: str) -> ResolvedPlace | None: ...
+
+
+class ResilientStructuredInferenceProvider:
+    """Use one explicit local fallback only for a typed provider outage.
+
+    Programming/schema errors still fail the job. The fallback binding records
+    the primary attempt and never changes to the frozen DeepSeek baseline.
+    """
+
+    def __init__(
+        self,
+        primary: StructuredInferenceProvider,
+        fallback: StructuredInferenceProvider,
+    ) -> None:
+        self.primary = primary
+        self.fallback = fallback
+
+    async def propose(self, source_text: str) -> InferenceProposal:
+        try:
+            return await self.primary.propose(source_text)
+        except InferenceProviderUnavailableError as exc:
+            proposal = await self.fallback.propose(source_text)
+            fallback_binding = dict(proposal.binding)
+            fallback_binding.update(
+                {
+                    "fallback_used": True,
+                    "fallback_reason": exc.category,
+                    "primary_provider_binding": exc.provider_binding,
+                    "primary_external_call_count": exc.external_call_count,
+                    "fallback_policy": "LOCAL_DETERMINISTIC_PARTIAL_RESULT",
+                }
+            )
+            return proposal.model_copy(update={"binding": fallback_binding})
 
 
 def is_atomic_planned_place(mention) -> bool:
@@ -199,29 +236,70 @@ class TripUnderstandingPipeline:
         place_resolver: PlaceResolver,
         compiler: EvidenceCompiler | None = None,
         projector: PublicResultProjector | None = None,
+        max_executable_activities: int = 80,
     ) -> None:
         self.inference_provider = inference_provider
         self.place_resolver = place_resolver
         self.compiler = compiler or EvidenceCompiler()
         self.projector = projector or PublicResultProjector()
+        self.max_executable_activities = max_executable_activities
 
     async def run(self, source_text: str) -> PipelineOutput:
         proposal = await self.inference_provider.propose(source_text)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         resolved: list[ResolvedActivity] = []
+        attempted_count = 0
+        unavailable_count = 0
+        budget_limited_count = 0
         for item in compiled:
             if not item.eligible_for_place_search:
                 resolved.append(
                     ResolvedActivity(
                         compiled=item,
                         resolution_status=ResolutionStatus.NOT_ELIGIBLE,
+                        resolver_receipt={
+                            "status": "NOT_ELIGIBLE",
+                            "external_calls": 0,
+                        },
                     )
                 )
                 continue
-            place = await self.place_resolver.resolve(
-                city=proposal.destination_name,
-                atomic_place_name=item.mention.atomic_place_name or "",
-            )
+            if attempted_count >= self.max_executable_activities:
+                budget_limited_count += 1
+                resolved.append(
+                    ResolvedActivity(
+                        compiled=item,
+                        resolution_status=ResolutionStatus.UNRESOLVED,
+                        resolver_receipt={
+                            "status": "BUDGET_LIMITED",
+                            "budget": "max_executable_activities",
+                            "limit": self.max_executable_activities,
+                            "external_calls": 0,
+                        },
+                    )
+                )
+                continue
+            attempted_count += 1
+            try:
+                place = await self.place_resolver.resolve(
+                    city=proposal.destination_name,
+                    atomic_place_name=item.mention.atomic_place_name or "",
+                )
+            except PlaceProviderUnavailableError as exc:
+                unavailable_count += 1
+                resolved.append(
+                    ResolvedActivity(
+                        compiled=item,
+                        resolution_status=ResolutionStatus.UNRESOLVED,
+                        resolver_receipt={
+                            "status": "UNAVAILABLE",
+                            "failure_category": exc.category,
+                            "provider_binding": exc.provider_binding,
+                            "external_calls": exc.external_call_count,
+                        },
+                    )
+                )
+                continue
             resolved.append(
                 ResolvedActivity(
                     compiled=item,
@@ -229,14 +307,45 @@ class TripUnderstandingPipeline:
                         ResolutionStatus.AUTO_MATCHED if place else ResolutionStatus.NEEDS_CONFIRMATION
                     ),
                     place=place,
+                    resolver_receipt=(
+                        {
+                            "status": "AUTO_MATCHED",
+                            **place.provider_binding,
+                        }
+                        if place
+                        else {
+                            "status": "NO_UNIQUE_MATCH",
+                            "external_calls": 0,
+                        }
+                    ),
                 )
             )
         public_result = self.projector.project(proposal.destination_name, resolved)
+        fallback_used = proposal.binding.get("fallback_used") is True
+        if budget_limited_count:
+            public_result = public_result.model_copy(update={"status": "LIMITED"})
+        elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
+            public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
+        resolution_receipt = {
+            "policy": "atomic-planned-place-resolution-v1",
+            "eligible_count": sum(item.eligible_for_place_search for item in compiled),
+            "attempted_count": attempted_count,
+            "auto_matched_count": sum(item.place is not None for item in resolved),
+            "needs_confirmation_count": sum(
+                item.resolution_status == ResolutionStatus.NEEDS_CONFIRMATION for item in resolved
+            ),
+            "provider_unavailable_count": unavailable_count,
+            "budget_limited_count": budget_limited_count,
+            "max_executable_activities": self.max_executable_activities,
+            "inference_fallback_used": fallback_used,
+            "provider_failures_exposed_publicly": 0,
+        }
         internal_content = {
             "source_hash": proposal.source_hash,
             "destination": proposal.destination_name,
             "proposal": proposal.model_dump(mode="json"),
             "compiler_receipt": compiler_receipt,
+            "resolution_receipt": resolution_receipt,
             "activities": [item.model_dump(mode="json") for item in resolved],
         }
         return PipelineOutput(
@@ -249,6 +358,7 @@ class TripUnderstandingPipeline:
             proposal=proposal,
             inference_binding=proposal.binding,
             compiler_receipt=compiler_receipt,
+            resolution_receipt=resolution_receipt,
             activities=resolved,
             claims=claims,
             public_result=public_result,

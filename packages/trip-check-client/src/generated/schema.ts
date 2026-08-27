@@ -6506,7 +6506,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY";
+            status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY" | "LIMITED";
             stay: components["schemas"]["StaySuggestionView"];
         };
         /** UserResponse */

@@ -1900,6 +1900,17 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
         public_payload = output.public_result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
         terminal_state = "READY" if output.public_result.status == "READY" else "PARTIAL"
+        inference_external_calls = sum(
+            int(value)
+            for key, value in output.inference_binding.items()
+            if key in {"external_calls", "primary_external_call_count"}
+            and isinstance(value, int)
+        )
+        place_external_calls = sum(
+            int(item.resolver_receipt.get("external_calls", 0))
+            for item in output.activities
+            if isinstance(item.resolver_receipt.get("external_calls", 0), int)
+        )
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
             current_job = await conn.fetchrow(
@@ -1971,13 +1982,19 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 json.dumps(output.assumptions, ensure_ascii=False),
                 json.dumps(_persisted_proposal(output), ensure_ascii=False),
                 json.dumps(output.inference_binding, ensure_ascii=False),
-                json.dumps(output.compiler_receipt, ensure_ascii=False),
+                json.dumps(
+                    {
+                        **output.compiler_receipt,
+                        "place_resolution": output.resolution_receipt,
+                    },
+                    ensure_ascii=False,
+                ),
                 now,
             )
             for activity in output.activities:
                 mention = activity.compiled.mention
                 place = activity.place
-                resolver_receipt = (
+                resolver_receipt = activity.resolver_receipt or (
                     place.provider_binding
                     if place
                     else {
@@ -2075,8 +2092,10 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 json.dumps(
                     {
                         "inference": output.inference_binding,
-                        "place_resolution": "controlled_fixture_snapshot",
-                        "external_calls": 0,
+                        "place_resolution": output.resolution_receipt,
+                        "inference_external_calls": inference_external_calls,
+                        "place_external_calls": place_external_calls,
+                        "external_calls": inference_external_calls + place_external_calls,
                     },
                     ensure_ascii=False,
                 ),

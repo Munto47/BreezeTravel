@@ -119,7 +119,7 @@ S0首先冻结DEMO边界；随后FULL文本纵向切片在同一持久链上开�
 - create请求是严格的`mode` discriminated union，未知字段拒绝：
   - `{"mode":"DEMO"}`使用服务端固定示例并绑定匿名capability；
   - `{"mode":"FULL","source":{"type":"TEXT","text":"..."}}`必须登录，`text`为1～50,000 Unicode code point且不得仅含空白；
-- FULL文本由加密Source、持久job/lease/event、模型中立proposal、证据编译、原子`PLANNED`资格判断、受控地点snapshot和公共projector贯穿；当前在live候选未准入前只采用保守确定性语义和fixture POI，无法确认时返回`BASIC_ONLY/PARTIAL_RESULT`，不伪装Qwen或高德已调用；
+- FULL文本由加密Source、持久job/lease/event、模型中立proposal、证据编译、原子`PLANNED`资格判断、受控地点snapshot和公共projector贯穿；当前在live候选未准入前只采用保守确定性语义和fixture POI，无法确认时返回`BASIC_ONLY/PARTIAL_RESULT`，超过已冻结活动预算且仍保留可编辑卡片时返回`LIMITED`，不伪装Qwen或高德已调用；
 - create响应为`202 TripUnderstandingAcceptedView`：`public_resource_id`、`status`、`message`、`result_url`、`events_url`；资源ID是路由值，不承担授权，也不得渲染到DOM或分析事件；
 - 匿名capability是独立随机秘密，经服务端签名后只写`HttpOnly`、`SameSite=Lax`、`Path=/api/v3/trip-understandings` cookie；数据库只保存不可逆摘要，公共响应和日志均不含秘密；public profile额外要求`Secure`；
 - result处理中返回`202 TripUnderstandingProgressView`，只含`status / message / retry_after_ms`；卡片可用后返回`200 UserFacingTripResult`和不可逆opaque ETag；

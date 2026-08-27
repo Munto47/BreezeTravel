@@ -37,7 +37,7 @@ export interface TripDayView {
 }
 
 export interface UserFacingTripResult {
-  status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY'
+  status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: TripDayView[]
   map: {
