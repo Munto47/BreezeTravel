@@ -34,6 +34,26 @@ def verify_token(token: str) -> str:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效 token")
 
 
+def verify_recent_token(token: str, *, max_age_seconds: int = 600) -> str:
+    """Require a normal login token minted recently enough for privacy deletion."""
+    user_id = verify_token(token)
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[_ALGORITHM])
+        issued_at = datetime.fromtimestamp(float(payload["iat"]), tz=timezone.utc)
+    except (KeyError, TypeError, ValueError, jwt.PyJWTError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请重新登录后再清空旅行数据",
+        ) from exc
+    age = datetime.now(timezone.utc) - issued_at
+    if age.total_seconds() < -60 or age.total_seconds() > max_age_seconds:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="请重新登录后再清空旅行数据",
+        )
+    return user_id
+
+
 def create_room_token(user_id: str, room_id: str, expires_minutes: int = 5) -> str:
     """Mint a short-lived token exclusively for a Yjs room handshake."""
     now = datetime.now(timezone.utc)
@@ -90,3 +110,9 @@ async def get_optional_user(authorization: str = Header(default="")) -> Optional
         return verify_token(token)
     except HTTPException:
         return None
+
+
+async def get_recent_user(authorization: str = Header(default="")) -> str:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="请重新登录后再清空旅行数据")
+    return verify_recent_token(authorization.removeprefix("Bearer ").strip())

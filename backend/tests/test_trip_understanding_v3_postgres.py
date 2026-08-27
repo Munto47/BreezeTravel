@@ -10,7 +10,12 @@ import asyncpg
 import pytest
 
 from app.trip_understanding.demo import DEMO_SOURCE_TEXT, build_demo_pipeline
-from app.trip_understanding.errors import ResourceAccessDeniedError, RevisionConflictError
+from app.trip_understanding.errors import (
+    ResourceAccessDeniedError,
+    ResourceGoneError,
+    RevisionConflictError,
+    SourceUnavailableError,
+)
 from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import ActivityMoveCommand
@@ -295,6 +300,249 @@ Day 3：颐和园、圆明园。
                 """,
                 full_resource.understanding_id,
             )
+
+        claim_owner_id = str(uuid4())
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "INSERT INTO users (user_id, nickname) VALUES ($1, 'Claim owner')",
+                claim_owner_id,
+            )
+        claim_request_hash = canonical_sha256(
+            {
+                "public_resource_id": created.accepted.public_resource_id,
+                "user_id": claim_owner_id,
+                "action": "CLAIM",
+            }
+        )
+        claim = await repository.claim_demo(
+            created.accepted.public_resource_id,
+            capability_hash="a" * 64,
+            user_id=claim_owner_id,
+            idempotency_key="postgres-claim",
+            request_hash=claim_request_hash,
+            now=now,
+            retention_days=30,
+        )
+        claimed_id = claim.claimed.public_resource_id
+        assert claimed_id != created.accepted.public_resource_id
+        assert claim.opaque_etag == stored.opaque_etag
+        with pytest.raises(ResourceGoneError):
+            await repository.authorize(
+                created.accepted.public_resource_id,
+                capability_hash="a" * 64,
+                user_id=claim_owner_id,
+                now=now,
+            )
+        claimed_resource = await repository.authorize(
+            claimed_id,
+            capability_hash=None,
+            user_id=claim_owner_id,
+            now=now,
+        )
+        claim_replay = await repository.claim_demo(
+            created.accepted.public_resource_id,
+            capability_hash="",
+            user_id=claim_owner_id,
+            idempotency_key="postgres-claim",
+            request_hash=claim_request_hash,
+            now=now,
+            retention_days=30,
+        )
+        assert claim_replay.replayed is True
+        assert claim_replay.claimed.public_resource_id == claimed_id
+
+        source_delete_hash = canonical_sha256(
+            {
+                "understanding_id": full_resource.understanding_id,
+                "action": "DELETE_SOURCE",
+            }
+        )
+        source_delete = await repository.delete_source(
+            full_resource,
+            user_id=owner_user_id,
+            idempotency_key="postgres-delete-source",
+            request_hash=source_delete_hash,
+            now=now,
+        )
+        assert source_delete.replayed is False
+        source_delete_replay = await repository.delete_source(
+            full_resource,
+            user_id=owner_user_id,
+            idempotency_key="postgres-delete-source",
+            request_hash=source_delete_hash,
+            now=now,
+        )
+        assert source_delete_replay.replayed is True
+        with pytest.raises(SourceUnavailableError):
+            await repository.load_source(full_job, now=now)
+        retained_result = await repository.get_result(updated_resource)
+        assert retained_result is not None
+        assert retained_result.result == updated_result.result
+        async with pool.acquire() as conn:
+            source_state = await conn.fetchrow(
+                """
+                SELECT encrypted_content, encryption_key_ref, deleted_at,
+                       deletion_receipt_hash
+                FROM trip_understanding_sources
+                WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
+            assert source_state["encrypted_content"] is None
+            assert source_state["encryption_key_ref"] is None
+            assert source_state["deleted_at"] is not None
+            assert re.fullmatch(r"[0-9a-f]{64}", source_state["deletion_receipt_hash"])
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_source_claims WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) == 0
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_activities
+                WHERE understanding_id = $1 AND role <> 'PLANNED'
+                """,
+                full_resource.understanding_id,
+            ) == 0
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_deletion_jobs
+                WHERE understanding_id = $1 AND scope = 'SOURCE' AND status = 'COMPLETED'
+                """,
+                full_resource.understanding_id,
+            ) == 1
+
+        trip_delete_hash = canonical_sha256(
+            {"public_resource_id": claimed_id, "action": "DELETE_TRIP"}
+        )
+        await repository.delete_trip(
+            claimed_resource,
+            capability_hash=None,
+            user_id=claim_owner_id,
+            idempotency_key="postgres-delete-trip",
+            request_hash=trip_delete_hash,
+            now=now,
+        )
+        with pytest.raises(ResourceGoneError):
+            await repository.authorize(
+                claimed_id,
+                capability_hash=None,
+                user_id=claim_owner_id,
+                now=now,
+            )
+        assert await repository.replay_trip_deletion(
+            claimed_id,
+            capability_hash=None,
+            user_id=claim_owner_id,
+            idempotency_key="postgres-delete-trip",
+            request_hash=trip_delete_hash,
+        )
+        assert not await repository.replay_trip_deletion(
+            claimed_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            idempotency_key="postgres-delete-trip",
+            request_hash=trip_delete_hash,
+        )
+        async with pool.acquire() as conn:
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understandings WHERE understanding_id = $1",
+                claimed_resource.understanding_id,
+            ) == 0
+            claimed_tombstones = await conn.fetch(
+                """
+                SELECT public_resource_id, reason, replacement_public_resource_id
+                FROM trip_understanding_resource_tombstones
+                WHERE public_resource_id = ANY($1::text[])
+                ORDER BY public_resource_id
+                """,
+                [created.accepted.public_resource_id, claimed_id],
+            )
+            assert len(claimed_tombstones) == 2
+            assert all(row["reason"] == "DELETED" for row in claimed_tombstones)
+            assert all(row["replacement_public_resource_id"] is None for row in claimed_tombstones)
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_anonymous_sessions
+                WHERE claimed_by = $1
+                """,
+                claim_owner_id,
+            ) == 0
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_idempotency_records
+                WHERE response_json ->> 'public_resource_id' = ANY($1::text[])
+                """,
+                [created.accepted.public_resource_id, claimed_id],
+            ) == 0
+
+        extra_full_text = "Day 1 去颐和园。"
+        extra_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=extra_full_text,
+            idempotency_key="postgres-account-delete-extra",
+            request_hash=canonical_sha256(
+                {"mode": "FULL", "source": {"type": "TEXT", "text": extra_full_text}}
+            ),
+            now=now,
+            retention_days=30,
+        )
+        account_delete_hash = canonical_sha256({"action": "DELETE_ALL_TRAVEL_DATA"})
+        account_deleted = await repository.delete_account_travel_data(
+            user_id=owner_user_id,
+            idempotency_key="postgres-account-delete",
+            request_hash=account_delete_hash,
+            now=now,
+        )
+        assert account_deleted.view.status == "COMPLETED"
+        assert account_deleted.view.next_action == "NONE"
+        account_replay = await repository.delete_account_travel_data(
+            user_id=owner_user_id,
+            idempotency_key="postgres-account-delete",
+            request_hash=account_delete_hash,
+            now=now,
+        )
+        assert account_replay.replayed is True
+        assert (await repository.get_account_travel_data_deletion(user_id=owner_user_id)).status == (
+            "COMPLETED"
+        )
+        for deleted_public_id in (
+            full_created.accepted.public_resource_id,
+            extra_created.accepted.public_resource_id,
+        ):
+            with pytest.raises(ResourceGoneError):
+                await repository.authorize(
+                    deleted_public_id,
+                    capability_hash=None,
+                    user_id=owner_user_id,
+                    now=now,
+                )
+        async with pool.acquire() as conn:
+            for table in (
+                "trip_understandings",
+                "trip_understanding_sources",
+                "trip_understanding_revisions",
+                "trip_understanding_activities",
+                "trip_understanding_source_claims",
+                "trip_understanding_jobs",
+                "trip_understanding_events",
+                "trip_understanding_results",
+                "trip_understanding_side_effect_receipts",
+                "trip_understanding_claim_commands",
+            ):
+                assert await conn.fetchval(f"SELECT COUNT(*) FROM {table}") == 0
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_deletion_jobs WHERE owner_user_id = $1",
+                owner_user_id,
+            ) == 0
+            retained_idempotency = await conn.fetchval(
+                "SELECT COALESCE(string_agg(scope || COALESCE(response_json::text, ''), E'\\n'), '') FROM trip_understanding_idempotency_records"
+            )
+            assert owner_user_id not in retained_idempotency
+            assert full_text not in retained_idempotency
+            assert extra_full_text not in retained_idempotency
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_anonymous_sessions WHERE claimed_by IS NOT NULL"
+            ) == 0
     finally:
         if pool is not None:
             await pool.close()

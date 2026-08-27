@@ -682,6 +682,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/rooms/{room_id}/trip-intakes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Trip Intake */
+        post: operations["create_trip_intake_api_rooms__room_id__trip_intakes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rooms/{room_id}/trip-intakes/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest Room Trip Intake */
+        get: operations["get_latest_room_trip_intake_api_rooms__room_id__trip_intakes_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/rooms/{room_id}/trip-intakes/screenshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Screenshot Trip Intake */
+        post: operations["create_screenshot_trip_intake_api_rooms__room_id__trip_intakes_screenshots_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/route-candidates:rank": {
         parameters: {
             query?: never;
@@ -849,6 +900,58 @@ export interface paths {
         put?: never;
         /** Resume Trip Check Run */
         post: operations["resume_trip_check_run_api_trip_check_runs__run_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trip-intakes/{intake_id}/revisions/{revision}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Trip Intake */
+        get: operations["get_trip_intake_api_trip_intakes__intake_id__revisions__revision__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Trip Intake */
+        patch: operations["patch_trip_intake_api_trip_intakes__intake_id__revisions__revision__patch"];
+        trace?: never;
+    };
+    "/api/trip-intakes/{intake_id}/revisions/{revision}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm Trip Intake */
+        post: operations["confirm_trip_intake_api_trip_intakes__intake_id__revisions__revision__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Materialize Trip Intake */
+        post: operations["materialize_trip_intake_api_trip_intakes__intake_id__revisions__revision__materialize_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1742,6 +1845,159 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/me/travel-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Account Travel Data */
+        delete: operations["delete_account_travel_data_api_v3_me_travel_data_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/me/travel-data-deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Account Travel Data Deletion */
+        get: operations["get_account_travel_data_deletion_api_v3_me_travel_data_deletion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Trip Understanding */
+        post: operations["create_trip_understanding_api_v3_trip_understandings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Trip Understanding */
+        delete: operations["delete_trip_understanding_api_v3_trip_understandings__public_resource_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Claim Trip Understanding */
+        post: operations["claim_trip_understanding_api_v3_trip_understandings__public_resource_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply Trip Understanding Command */
+        post: operations["apply_trip_understanding_command_api_v3_trip_understandings__public_resource_id__commands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stream Trip Understanding Events */
+        get: operations["stream_trip_understanding_events_api_v3_trip_understandings__public_resource_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Trip Understanding Result */
+        get: operations["get_trip_understanding_result_api_v3_trip_understandings__public_resource_id__result_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Trip Understanding Source */
+        delete: operations["delete_trip_understanding_source_api_v3_trip_understandings__public_resource_id__source_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/weather": {
         parameters: {
             query?: never;
@@ -1866,6 +2122,98 @@ export interface components {
             area?: string | null;
             /** Hotel Name */
             hotel_name?: string | null;
+        };
+        /** AccountTravelDataDeleteRequest */
+        AccountTravelDataDeleteRequest: {
+            /**
+             * Confirmation
+             * @constant
+             */
+            confirmation: "DELETE_ALL_TRAVEL_DATA";
+        };
+        /** ActivityCardView */
+        ActivityCardView: {
+            /** Activity Token */
+            activity_token: string;
+            /** Area Or Address */
+            area_or_address: string;
+            /** Available Actions */
+            available_actions: ("VIEW_DETAILS" | "REPLACE" | "DELETE" | "MOVE")[];
+            /** Category */
+            category: string;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "NEEDS_CONFIRMATION";
+            /** Time Hint */
+            time_hint?: string | null;
+        };
+        /** ActivityDeleteCommand */
+        ActivityDeleteCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_DELETE";
+        };
+        /** ActivityInsertCommand */
+        ActivityInsertCommand: {
+            /**
+             * Area Or Address
+             * @default 地点待确认
+             */
+            area_or_address: string;
+            /**
+             * Category
+             * @default 地点
+             */
+            category: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_INSERT";
+            /** Day Index */
+            day_index: number;
+            /** Name */
+            name: string;
+            /** Position */
+            position: number;
+            /** Time Hint */
+            time_hint?: string | null;
+        };
+        /** ActivityMoveCommand */
+        ActivityMoveCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_MOVE";
+            /** Target Day Index */
+            target_day_index: number;
+            /** Target Position */
+            target_position: number;
+        };
+        /** ActivityTextEditCommand */
+        ActivityTextEditCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_TEXT_EDIT";
+            /** Name */
+            name?: string | null;
+            /** Time Hint */
+            time_hint?: string | null;
         };
         /** AdviceAction */
         AdviceAction: {
@@ -2000,6 +2348,35 @@ export interface components {
             /** Terminal Reason */
             terminal_reason: string;
         };
+        /** AssumptionChipView */
+        AssumptionChipView: {
+            /** Editable */
+            editable: boolean;
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "destination" | "calendar" | "party_size";
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+        };
+        /** AssumptionSetCommand */
+        AssumptionSetCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ASSUMPTION_SET";
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "destination" | "calendar" | "party_size";
+            /** Value */
+            value: string;
+        };
         /** AuditFinding */
         AuditFinding: {
             /** Affected Days */
@@ -2102,7 +2479,7 @@ export interface components {
          * BriefFieldOrigin
          * @enum {string}
          */
-        BriefFieldOrigin: "USER_TEXT" | "PARSER" | "USER_CONFIRMED" | "INFERRED" | "DEFAULT_NO_PREFERENCE";
+        BriefFieldOrigin: "USER_TEXT" | "PARSER" | "USER_CONFIRMED" | "INFERRED" | "DEFAULT_NO_PREFERENCE" | "UNSPECIFIED";
         /** BriefFieldProvenance */
         BriefFieldProvenance: {
             /** Confidence */
@@ -2120,6 +2497,23 @@ export interface components {
          * @enum {string}
          */
         BriefHardness: "HARD" | "SOFT" | "NO_PREFERENCE";
+        /** BriefRequirement */
+        BriefRequirement: {
+            /** Applies To */
+            applies_to?: string | null;
+            /** Category */
+            category: string;
+            /** Currency */
+            currency?: string | null;
+            /** Operator */
+            operator: string;
+            /** Source Spans */
+            source_spans?: components["schemas"]["BriefSourceSpan"][];
+            /** Unit */
+            unit?: string | null;
+            /** Value */
+            value?: unknown;
+        };
         /** BriefSourceSpan */
         BriefSourceSpan: {
             /** End */
@@ -2322,6 +2716,17 @@ export interface components {
             /** Template Version */
             template_version: number;
         };
+        /** ClaimedTripView */
+        ClaimedTripView: {
+            /** Public Resource Id */
+            public_resource_id: string;
+            /**
+             * Status
+             * @default CLAIMED
+             * @constant
+             */
+            status: "CLAIMED";
+        };
         /** CleanupRequest */
         CleanupRequest: {
             /** Emails */
@@ -2330,6 +2735,23 @@ export interface components {
             room_id?: string | null;
             /** Room Ids */
             room_ids?: string[];
+        };
+        /** CommandAppliedView */
+        CommandAppliedView: {
+            /** Changed Days */
+            changed_days: string[];
+            /**
+             * Map Readiness
+             * @default NEEDS_UPDATE
+             * @constant
+             */
+            map_readiness: "NEEDS_UPDATE";
+            /**
+             * Status
+             * @default APPLIED
+             * @constant
+             */
+            status: "APPLIED";
         };
         /**
          * CommitmentKind
@@ -2350,6 +2772,28 @@ export interface components {
         ConfirmResolutionsRequest: {
             /** Confirmations */
             confirmations: components["schemas"]["ResolutionConfirmation"][];
+        };
+        /**
+         * ConfirmedField
+         * @enum {string}
+         */
+        ConfirmedField: "locations.primary_city" | "temporal.date_range" | "party_size.total" | "preferences";
+        /** ConfirmedIntakeValues */
+        ConfirmedIntakeValues: {
+            /** City */
+            city: string;
+            /**
+             * End Date
+             * Format: date
+             */
+            end_date: string;
+            /** Party Size */
+            party_size: number;
+            /**
+             * Start Date
+             * Format: date
+             */
+            start_date: string;
         };
         /** ConstraintCheck */
         ConstraintCheck: {
@@ -2448,6 +2892,23 @@ export interface components {
             /** Task Id */
             task_id?: string | null;
         };
+        /** CreateDemoRequest */
+        CreateDemoRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "DEMO";
+        };
+        /** CreateFullRequest */
+        CreateFullRequest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            mode: "FULL";
+            source: components["schemas"]["TextSourceRequest"];
+        };
         /** CreateImportRequest */
         CreateImportRequest: {
             /** Raw Text */
@@ -2501,6 +2962,13 @@ export interface components {
             itinerary_revision: number;
             run_spec: components["schemas"]["RunSpec"];
         };
+        /** CreateTripIntakeRequest */
+        CreateTripIntakeRequest: {
+            /** Raw Text */
+            raw_text: string;
+            /** @default MANUAL_TEXT */
+            source_type: components["schemas"]["IntakeSourceType"];
+        };
         /** CreateWorkspaceRequest */
         CreateWorkspaceRequest: {
             /** City */
@@ -2521,6 +2989,20 @@ export interface components {
             days: number;
             /** Start */
             start?: string | null;
+        };
+        /** DateRangeExpression */
+        DateRangeExpression: {
+            end: components["schemas"]["PartialDate"];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceSpan"][];
+            /**
+             * Inclusive
+             * @default true
+             */
+            inclusive: boolean;
+            /** Raw Text */
+            raw_text: string;
+            start: components["schemas"]["PartialDate"];
         };
         /** DayPlan */
         "DayPlan-Input": {
@@ -2717,12 +3199,39 @@ export interface components {
             /** Workspace Id */
             workspace_id: string;
         };
+        /** EvidenceSpan */
+        EvidenceSpan: {
+            /** End */
+            end: number;
+            /** Quote */
+            quote: string;
+            /** Source Id */
+            source_id: string;
+            /** Start */
+            start: number;
+        };
         /**
          * EvidenceStatus
          * @description Evidence boundary for a user-requested place attribute.
          * @enum {string}
          */
         EvidenceStatus: "VERIFIED" | "UNKNOWN" | "REQUIRES_CONFIRMATION";
+        /** ExtractionIssue */
+        ExtractionIssue: {
+            /**
+             * Blocking
+             * @default true
+             */
+            blocking: boolean;
+            /** Code */
+            code: string;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceSpan"][];
+            /** Field Path */
+            field_path: string;
+            /** Message */
+            message: string;
+        };
         /** FinalTipsArtifact */
         FinalTipsArtifact: {
             /** Artifact Hash */
@@ -2902,12 +3411,39 @@ export interface components {
          * ImportSourceType
          * @enum {string}
          */
-        ImportSourceType: "AI_TEXT" | "MANUAL_TEXT";
+        ImportSourceType: "AI_TEXT" | "MANUAL_TEXT" | "SCREENSHOT_OCR";
         /**
          * ImportStatus
          * @enum {string}
          */
         ImportStatus: "PARSED" | "NEEDS_RESOLUTION" | "READY" | "APPLIED" | "FAILED";
+        /**
+         * IntakeReadiness
+         * @enum {string}
+         */
+        IntakeReadiness: "NEEDS_CONFIRMATION" | "READY";
+        /** IntakeSource */
+        IntakeSource: {
+            /** Metadata */
+            metadata?: Record<string, never>;
+            /** Source Id */
+            source_id: string;
+            source_type: components["schemas"]["IntakeSourceType"];
+            /** Text */
+            text: string;
+            /** Text Sha256 */
+            text_sha256: string;
+        };
+        /**
+         * IntakeSourceType
+         * @enum {string}
+         */
+        IntakeSourceType: "AI_TEXT" | "MANUAL_TEXT" | "SCREENSHOT_OCR";
+        /**
+         * IntakeStatus
+         * @enum {string}
+         */
+        IntakeStatus: "NEEDS_CONFIRMATION" | "READY" | "EXTRACTION_FAILED";
         /**
          * IssuedShareLink
          * @description The raw token is deliberately returned only from create.
@@ -3157,6 +3693,57 @@ export interface components {
             /** User Id */
             user_id?: string | null;
         };
+        /**
+         * LocationEntityType
+         * @enum {string}
+         */
+        LocationEntityType: "CITY" | "DISTRICT" | "PLACE" | "TRANSPORT_HUB" | "ACCOMMODATION" | "UNKNOWN";
+        /** LocationExtraction */
+        "LocationExtraction-Input": {
+            /** Mentions */
+            mentions?: components["schemas"]["LocationMention"][];
+            /** Primary Mention Id */
+            primary_mention_id?: string | null;
+            /** @default MISSING */
+            status: components["schemas"]["LocationStatus"];
+        };
+        /** LocationExtraction */
+        "LocationExtraction-Output": {
+            /** Mentions */
+            mentions?: components["schemas"]["LocationMention"][];
+            /** Primary Mention Id */
+            primary_mention_id?: string | null;
+            /** @default MISSING */
+            status: components["schemas"]["LocationStatus"];
+        };
+        /** LocationMention */
+        LocationMention: {
+            /** Confidence */
+            confidence: number;
+            /** Country Code */
+            country_code?: string | null;
+            /** @default UNKNOWN */
+            entity_type: components["schemas"]["LocationEntityType"];
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceSpan"][];
+            /** Mention Id */
+            mention_id: string;
+            /** Normalized Name */
+            normalized_name?: string | null;
+            /** Raw Text */
+            raw_text: string;
+            role: components["schemas"]["LocationRole"];
+        };
+        /**
+         * LocationRole
+         * @enum {string}
+         */
+        LocationRole: "PRIMARY_DESTINATION" | "DESTINATION_CANDIDATE" | "REQUESTED_PLACE" | "ORIGIN" | "RETURN_LOCATION" | "EXCLUDED" | "OTHER_MENTION";
+        /**
+         * LocationStatus
+         * @enum {string}
+         */
+        LocationStatus: "EXACT" | "MULTIPLE" | "UNCERTAIN" | "MISSING";
         /** MapCoordinateLink */
         MapCoordinateLink: {
             /** Day Index */
@@ -3190,6 +3777,18 @@ export interface components {
             /** Workspace Id */
             workspace_id: string;
         };
+        /** MapReadinessView */
+        MapReadinessView: {
+            /** Available Actions */
+            available_actions?: ("VIEW_MAP" | "RENDER_MAP")[];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
+        };
         /** MapStopProjection */
         MapStopProjection: {
             /** Coordinate Role */
@@ -3211,6 +3810,17 @@ export interface components {
             receipt_hash?: string | null;
             /** Stop Id */
             stop_id: string;
+        };
+        /** MaterializationResult */
+        MaterializationResult: {
+            /**
+             * Idempotent Replay
+             * @default false
+             */
+            idempotent_replay: boolean;
+            materialization: components["schemas"]["TripIntakeMaterialization"];
+            /** Resolution Dispatch */
+            resolution_dispatch: string;
         };
         /** MemberConstraint */
         MemberConstraint: {
@@ -3456,6 +4066,23 @@ export interface components {
             /** Workspace Id */
             workspace_id?: string | null;
         };
+        /** PacePreference */
+        PacePreference: {
+            /**
+             * Confidence
+             * @default 1
+             */
+            confidence: number;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceSpan"][];
+            /** @default UNSPECIFIED */
+            value: components["schemas"]["PaceValue"];
+        };
+        /**
+         * PaceValue
+         * @enum {string}
+         */
+        PaceValue: "RELAXED" | "BALANCED" | "INTENSIVE" | "UNSPECIFIED" | "NO_PREFERENCE";
         /** ParseTaskRequest */
         ParseTaskRequest: {
             /**
@@ -3473,10 +4100,63 @@ export interface components {
             /** Text */
             text: string;
         };
+        /** ParserBinding */
+        ParserBinding: {
+            /** Config Hash */
+            config_hash: string;
+            /** Model Name */
+            model_name: string;
+            /** Parser Name */
+            parser_name: string;
+            /** Parser Version */
+            parser_version: string;
+            /** Prompt Version */
+            prompt_version: string;
+        };
+        /** PartialDate */
+        PartialDate: {
+            /** Day */
+            day: number;
+            /** Month */
+            month: number;
+            /** Year */
+            year?: number | null;
+        };
+        /** PartyComposition */
+        "PartyComposition-Input": {
+            adults?: components["schemas"]["QuantifiedValue"] | null;
+            children?: components["schemas"]["QuantifiedValue"] | null;
+            elderly?: components["schemas"]["QuantifiedValue"] | null;
+            /** Tags */
+            tags?: string[];
+        };
+        /** PartyComposition */
+        "PartyComposition-Output": {
+            adults?: components["schemas"]["QuantifiedValue"] | null;
+            children?: components["schemas"]["QuantifiedValue"] | null;
+            elderly?: components["schemas"]["QuantifiedValue"] | null;
+            /** Tags */
+            tags?: string[];
+        };
+        /** PartySizeExtraction */
+        "PartySizeExtraction-Input": {
+            composition?: components["schemas"]["PartyComposition-Input"];
+            total?: components["schemas"]["QuantifiedValue"];
+        };
+        /** PartySizeExtraction */
+        "PartySizeExtraction-Output": {
+            composition?: components["schemas"]["PartyComposition-Output"];
+            total?: components["schemas"]["QuantifiedValue"];
+        };
         /** PatchTripBriefRequest */
         PatchTripBriefRequest: {
             /** Updates */
             updates: Record<string, never>;
+        };
+        /** PatchTripIntakeRequest */
+        PatchTripIntakeRequest: {
+            confirmed_values?: components["schemas"]["ConfirmedIntakeValues"] | null;
+            extraction?: components["schemas"]["TripIntakeExtraction-Input"] | null;
         };
         /**
          * Place
@@ -3797,6 +4477,26 @@ export interface components {
              */
             tip_snippets?: string[];
         };
+        /** PlaceReplaceCommand */
+        PlaceReplaceCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "PLACE_REPLACE";
+            replacement: components["schemas"]["PlaceReplacementInput"];
+        };
+        /** PlaceReplacementInput */
+        PlaceReplacementInput: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Category */
+            category: string;
+            /** Name */
+            name: string;
+        };
         /**
          * PlaceSource
          * @enum {string}
@@ -3848,6 +4548,59 @@ export interface components {
              */
             trip_start_reference_at: string;
         };
+        /** PreferenceExtraction */
+        "PreferenceExtraction-Input": {
+            /** Items */
+            items?: components["schemas"]["PreferenceItem"][];
+            /** No Preference Evidence */
+            no_preference_evidence?: components["schemas"]["EvidenceSpan"][];
+            pace?: components["schemas"]["PacePreference"];
+            /** @default UNSPECIFIED */
+            status: components["schemas"]["PreferenceStatus"];
+        };
+        /** PreferenceExtraction */
+        "PreferenceExtraction-Output": {
+            /** Items */
+            items?: components["schemas"]["PreferenceItem"][];
+            /** No Preference Evidence */
+            no_preference_evidence?: components["schemas"]["EvidenceSpan"][];
+            pace?: components["schemas"]["PacePreference"];
+            /** @default UNSPECIFIED */
+            status: components["schemas"]["PreferenceStatus"];
+        };
+        /** PreferenceItem */
+        PreferenceItem: {
+            /** Applies To */
+            applies_to?: string | null;
+            /** Category */
+            category: string;
+            /** Confidence */
+            confidence: number;
+            /** Currency */
+            currency?: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceSpan"][];
+            /** Item Id */
+            item_id: string;
+            /** Label */
+            label: string;
+            operator?: components["schemas"]["RequirementOperator"] | null;
+            polarity: components["schemas"]["PreferencePolarity"];
+            /** Unit */
+            unit?: string | null;
+            /** Value */
+            value?: unknown;
+        };
+        /**
+         * PreferencePolarity
+         * @enum {string}
+         */
+        PreferencePolarity: "LIKE" | "DISLIKE" | "REQUIREMENT";
+        /**
+         * PreferenceStatus
+         * @enum {string}
+         */
+        PreferenceStatus: "UNSPECIFIED" | "SPECIFIED" | "NO_PREFERENCE";
         /** ProfileUpdateRequest */
         ProfileUpdateRequest: {
             /** Avatar Url */
@@ -3916,6 +4669,27 @@ export interface components {
             /** Subject Id */
             subject_id?: string | null;
         };
+        /** QuantifiedValue */
+        QuantifiedValue: {
+            derivation: components["schemas"]["QuantityDerivation"];
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceSpan"][];
+            /** Max */
+            max?: number | null;
+            /** Min */
+            min?: number | null;
+            quantifier: components["schemas"]["QuantityQuantifier"];
+        };
+        /**
+         * QuantityDerivation
+         * @enum {string}
+         */
+        QuantityDerivation: "EXPLICIT_COUNT" | "SEMANTIC_INFERENCE" | "DATE_RANGE" | "MISSING";
+        /**
+         * QuantityQuantifier
+         * @enum {string}
+         */
+        QuantityQuantifier: "EXACT" | "RANGE" | "APPROXIMATE" | "AT_LEAST" | "AT_MOST" | "UNKNOWN";
         /** RawStop */
         RawStop: {
             commitment_kind?: components["schemas"]["CommitmentKind"] | null;
@@ -4120,6 +4894,11 @@ export interface components {
          * @enum {string}
          */
         RepairStatus: "PROPOSED" | "APPLIED" | "REJECTED" | "STALE";
+        /**
+         * RequirementOperator
+         * @enum {string}
+         */
+        RequirementOperator: "PREFER" | "AVOID" | "REQUIRED" | "MAX" | "MIN" | "EQUALS";
         /** ResolutionConfirmation */
         ResolutionConfirmation: {
             /** Place Id */
@@ -4800,6 +5579,37 @@ export interface components {
             /** Start */
             start: number;
         };
+        /** StayCandidateView */
+        StayCandidateView: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Available Actions */
+            available_actions: "CHOOSE_STAY"[];
+            /** Category */
+            category: string;
+            /** Commute Summary */
+            commute_summary: string;
+            /** Evidence Gap */
+            evidence_gap?: string | null;
+            /** Name */
+            name: string;
+            /** Reason */
+            reason: string;
+        };
+        /** StaySuggestionView */
+        StaySuggestionView: {
+            /** Available Actions */
+            available_actions?: "CHOOSE_STAY"[];
+            /** Candidates */
+            candidates?: components["schemas"]["StayCandidateView"][];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "LIMITED" | "UNAVAILABLE";
+        };
         /**
          * SuggestionAuditGateReceipt
          * @description Frozen proof that one candidate was evaluated by the Audit authority.
@@ -5000,6 +5810,32 @@ export interface components {
          * @enum {string}
          */
         TemplateStatus: "DRAFT" | "REVIEWED" | "RETIRED";
+        /** TemporalExtraction */
+        "TemporalExtraction-Input": {
+            arrival?: components["schemas"]["TravelCommitment"] | null;
+            date_range?: components["schemas"]["DateRangeExpression"] | null;
+            days?: components["schemas"]["QuantifiedValue"];
+            departure?: components["schemas"]["TravelCommitment"] | null;
+            nights?: components["schemas"]["QuantifiedValue"];
+        };
+        /** TemporalExtraction */
+        "TemporalExtraction-Output": {
+            arrival?: components["schemas"]["TravelCommitment"] | null;
+            date_range?: components["schemas"]["DateRangeExpression"] | null;
+            days?: components["schemas"]["QuantifiedValue"];
+            departure?: components["schemas"]["TravelCommitment"] | null;
+            nights?: components["schemas"]["QuantifiedValue"];
+        };
+        /** TextSourceRequest */
+        TextSourceRequest: {
+            /** Text */
+            text: string;
+            /**
+             * Type
+             * @constant
+             */
+            type: "TEXT";
+        };
         /** ThemeItem */
         ThemeItem: {
             /**
@@ -5055,6 +5891,30 @@ export interface components {
          * @enum {string}
          */
         TransportMode: "WALKING" | "TRANSIT" | "BICYCLING" | "DRIVING";
+        /** TravelCommitment */
+        TravelCommitment: {
+            /** At Text */
+            at_text?: string | null;
+            /** Evidence */
+            evidence?: components["schemas"]["EvidenceSpan"][];
+            /** Location Text */
+            location_text?: string | null;
+        };
+        /** TravelDataDeletionStatusView */
+        TravelDataDeletionStatusView: {
+            /** Message */
+            message: string;
+            /**
+             * Next Action
+             * @enum {string}
+             */
+            next_action: "NONE" | "RETRY";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "IN_PROGRESS" | "COMPLETED" | "RETRY_REQUIRED";
+        };
         /** TravelerProfile */
         TravelerProfile: {
             /** Age Group */
@@ -5113,7 +5973,7 @@ export interface components {
             accommodation: components["schemas"]["AccommodationBrief"];
             /**
              * Activity Intensity
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             activity_intensity: string;
             arrival: components["schemas"]["ArrivalDeparture"];
@@ -5121,7 +5981,7 @@ export interface components {
             brief_id: string;
             /**
              * Budget
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             budget: Record<string, never> | string;
             /** City */
@@ -5141,19 +6001,19 @@ export interface components {
             created_by: string;
             /**
              * Daily Pace
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             daily_pace: string;
             date_range: components["schemas"]["TripDateRange"];
             departure: components["schemas"]["ArrivalDeparture"];
             /**
              * Dietary Restrictions
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             dietary_restrictions: string[] | string;
             /**
              * Dining Style
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             dining_style: string[] | string;
             /** Field Provenance */
@@ -5162,19 +6022,25 @@ export interface components {
             };
             /**
              * Lodging Style
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             lodging_style: string[] | string;
             /** Parent Revision */
             parent_revision?: number | null;
+            /** Requirements */
+            requirements?: components["schemas"]["BriefRequirement"][];
             /** Revision */
             revision: number;
+            /** Source Intake Id */
+            source_intake_id?: string | null;
+            /** Source Intake Revision */
+            source_intake_revision?: number | null;
             status: components["schemas"]["TripBriefStatus"];
             /** Transport Modes */
-            transport_modes: components["schemas"]["TransportMode"][];
+            transport_modes?: components["schemas"]["TransportMode"][];
             /**
              * Transport Restrictions
-             * @default NO_PREFERENCE
+             * @default UNSPECIFIED
              */
             transport_restrictions: string[] | string;
             /** Traveler Count */
@@ -5264,6 +6130,103 @@ export interface components {
              */
             start: string;
         };
+        /** TripDayView */
+        TripDayView: {
+            /** Activities */
+            activities: components["schemas"]["ActivityCardView"][];
+            /** Label */
+            label: string;
+        };
+        /** TripIntakeExtraction */
+        "TripIntakeExtraction-Input": {
+            /** Issues */
+            issues?: components["schemas"]["ExtractionIssue"][];
+            locations?: components["schemas"]["LocationExtraction-Input"];
+            party_size?: components["schemas"]["PartySizeExtraction-Input"];
+            preferences?: components["schemas"]["PreferenceExtraction-Input"];
+            /** @default NEEDS_CONFIRMATION */
+            readiness: components["schemas"]["IntakeReadiness"];
+            /**
+             * Schema Version
+             * @default trip-intake-extraction-v2
+             */
+            schema_version: string;
+            temporal?: components["schemas"]["TemporalExtraction-Input"];
+        };
+        /** TripIntakeExtraction */
+        "TripIntakeExtraction-Output": {
+            /** Issues */
+            issues?: components["schemas"]["ExtractionIssue"][];
+            locations?: components["schemas"]["LocationExtraction-Output"];
+            party_size?: components["schemas"]["PartySizeExtraction-Output"];
+            preferences?: components["schemas"]["PreferenceExtraction-Output"];
+            /** @default NEEDS_CONFIRMATION */
+            readiness: components["schemas"]["IntakeReadiness"];
+            /**
+             * Schema Version
+             * @default trip-intake-extraction-v2
+             */
+            schema_version: string;
+            temporal?: components["schemas"]["TemporalExtraction-Output"];
+        };
+        /** TripIntakeMaterialization */
+        TripIntakeMaterialization: {
+            brief: components["schemas"]["TripBriefRevision"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Intake Id */
+            intake_id: string;
+            /** Intake Revision */
+            intake_revision: number;
+            itinerary_import: components["schemas"]["ItineraryImport"];
+            /** Materialization Id */
+            materialization_id: string;
+            workspace: components["schemas"]["TripWorkspace"];
+        };
+        /** TripIntakeRevision */
+        TripIntakeRevision: {
+            /** Confirmed At */
+            confirmed_at?: string | null;
+            /** Confirmed By */
+            confirmed_by?: string | null;
+            /** Confirmed Fields */
+            confirmed_fields?: components["schemas"]["ConfirmedField"][];
+            /** Content Hash */
+            content_hash: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at?: string;
+            /** Created By */
+            created_by: string;
+            extraction: components["schemas"]["TripIntakeExtraction-Output"];
+            /** Intake Id */
+            intake_id: string;
+            /** Parent Revision */
+            parent_revision?: number | null;
+            parser_binding: components["schemas"]["ParserBinding"];
+            /** Raw Text */
+            raw_text: string;
+            /** Raw Text Sha256 */
+            raw_text_sha256: string;
+            /** Revision */
+            revision: number;
+            /** Room Id */
+            room_id: string;
+            /**
+             * Schema Version
+             * @default trip-intake-revision-v2
+             */
+            schema_version: string;
+            source_type: components["schemas"]["IntakeSourceType"];
+            /** Sources */
+            sources: components["schemas"]["IntakeSource"][];
+            status: components["schemas"]["IntakeStatus"];
+        };
         /** TripTaskSpec */
         "TripTaskSpec-Input": {
             /** Assumptions */
@@ -5344,6 +6307,42 @@ export interface components {
             task_revision: number;
             travelers?: components["schemas"]["Travelers"];
         };
+        /** TripUnderstandingAcceptedView */
+        TripUnderstandingAcceptedView: {
+            /** Events Url */
+            events_url: string;
+            /**
+             * Message
+             * @default 正在整理每天行程
+             */
+            message: string;
+            /** Public Resource Id */
+            public_resource_id: string;
+            /** Result Url */
+            result_url: string;
+            /**
+             * Status
+             * @default PROCESSING
+             * @constant
+             */
+            status: "PROCESSING";
+        };
+        /** TripUnderstandingProgressView */
+        TripUnderstandingProgressView: {
+            /** Message */
+            message: string;
+            /**
+             * Retry After Ms
+             * @default 500
+             */
+            retry_after_ms: number;
+            /**
+             * Status
+             * @default PROCESSING
+             * @constant
+             */
+            status: "PROCESSING";
+        };
         /** TripWorkspace */
         TripWorkspace: {
             /** City */
@@ -5401,6 +6400,22 @@ export interface components {
             nickname: string;
             /** User Id */
             user_id: string;
+        };
+        /** UserFacingTripResult */
+        UserFacingTripResult: {
+            /** Assumptions */
+            assumptions: components["schemas"]["AssumptionChipView"][];
+            /** Available Actions */
+            available_actions: ("EDIT_ASSUMPTIONS" | "EDIT_CARDS")[];
+            /** Days */
+            days: components["schemas"]["TripDayView"][];
+            map: components["schemas"]["MapReadinessView"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY";
+            stay: components["schemas"]["StaySuggestionView"];
         };
         /** UserResponse */
         UserResponse: {
@@ -6872,6 +7887,109 @@ export interface operations {
             };
         };
     };
+    create_trip_intake_api_rooms__room_id__trip_intakes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTripIntakeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_room_trip_intake_api_rooms__room_id__trip_intakes_latest_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_screenshot_trip_intake_api_rooms__room_id__trip_intakes_screenshots_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                room_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     rank_route_candidate_api_route_candidates_rank_post: {
         parameters: {
             query?: never;
@@ -7194,6 +8312,152 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TripCheckRun"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trip_intake_api_trip_intakes__intake_id__revisions__revision__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                intake_id: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_trip_intake_api_trip_intakes__intake_id__revisions__revision__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                intake_id: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchTripIntakeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_trip_intake_api_trip_intakes__intake_id__revisions__revision__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                intake_id: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripIntakeRevision"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    materialize_trip_intake_api_trip_intakes__intake_id__revisions__revision__materialize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                intake_id: string;
+                revision: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterializationResult"];
                 };
             };
             /** @description Validation Error */
@@ -9103,6 +10367,322 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_account_travel_data_api_v3_me_travel_data_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountTravelDataDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TravelDataDeletionStatusView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_account_travel_data_deletion_api_v3_me_travel_data_deletion_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TravelDataDeletionStatusView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_trip_understanding_api_v3_trip_understandings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDemoRequest"] | components["schemas"]["CreateFullRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripUnderstandingAcceptedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_trip_understanding_api_v3_trip_understandings__public_resource_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    claim_trip_understanding_api_v3_trip_understandings__public_resource_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimedTripView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_trip_understanding_command_api_v3_trip_understandings__public_resource_id__commands_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["AssumptionSetCommand"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommandAppliedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_trip_understanding_events_api_v3_trip_understandings__public_resource_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trip_understanding_result_api_v3_trip_understandings__public_resource_id__result_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserFacingTripResult"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripUnderstandingProgressView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_trip_understanding_source_api_v3_trip_understandings__public_resource_id__source_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

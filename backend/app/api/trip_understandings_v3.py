@@ -22,12 +22,15 @@ from app.trip_understanding.errors import (
     RevisionConflictError,
 )
 from app.trip_understanding.models import (
+    AccountTravelDataDeleteRequest,
+    ClaimedTripView,
     CommandAppliedView,
     CreateFullRequest,
     CreateTripUnderstandingRequest,
     TripUnderstandingAcceptedView,
     TripUnderstandingCommand,
     TripUnderstandingProgressView,
+    TravelDataDeletionStatusView,
     UserFacingTripResult,
 )
 from app.trip_understanding.repository import (
@@ -35,10 +38,11 @@ from app.trip_understanding.repository import (
     TripUnderstandingRepository,
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
-from app.utils.auth import get_optional_user
+from app.utils.auth import get_current_user, get_optional_user, get_recent_user
 
 
 router = APIRouter(prefix="/v3/trip-understandings")
+account_router = APIRouter(prefix="/v3/me")
 
 
 def get_trip_understanding_repository() -> TripUnderstandingRepository:
@@ -50,6 +54,8 @@ RepositoryDep = Annotated[
     Depends(get_trip_understanding_repository),
 ]
 OptionalUserDep = Annotated[str | None, Depends(get_optional_user)]
+CurrentUserDep = Annotated[str, Depends(get_current_user)]
+RecentUserDep = Annotated[str, Depends(get_recent_user)]
 
 
 def _settings_signing_key() -> str:
@@ -104,6 +110,15 @@ def _set_capability_cookie(response: Response, cookie_value: str) -> None:
         secure=settings.runtime_profile == "public",
         samesite="lax",
         path="/api/v3/trip-understandings",
+    )
+
+
+def _clear_capability_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=get_settings().trip_understanding_cookie_name,
+        path="/api/v3/trip-understandings",
+        httponly=True,
+        samesite="lax",
     )
 
 
@@ -297,6 +312,231 @@ async def apply_trip_understanding_command(
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"
     return outcome.applied
+
+
+@router.post(
+    "/{public_resource_id}/claim",
+    response_model=ClaimedTripView,
+)
+async def claim_trip_understanding(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    capability = _capability_from_cookie(
+        request.cookies.get(get_settings().trip_understanding_cookie_name)
+    )
+    settings = get_settings()
+    service = TripUnderstandingApplicationService(
+        repository,
+        full_retention_days=settings.trip_understanding_full_retention_days,
+    )
+    try:
+        outcome = await service.claim_demo(
+            public_resource_id,
+            # A replay after a successful claim no longer has the anonymous
+            # cookie.  The repository authenticates that narrow replay with
+            # user + old public id + idempotency key; a first claim still
+            # requires the real capability and fails closed on this sentinel.
+            capability_hash=capability or "",
+            user_id=current_user,
+            idempotency_key=key,
+        )
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CARDS_NOT_READY", "message": "卡片还在整理，请稍后再领取"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新领取这份行程"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在领取这份行程，请稍后查看"},
+        ) from exc
+    response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    response.headers["Location"] = (
+        f"/api/v3/trip-understandings/{outcome.claimed.public_resource_id}/result"
+    )
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    _clear_capability_cookie(response)
+    return outcome.claimed
+
+
+@router.delete("/{public_resource_id}/source", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_trip_understanding_source(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(repository).delete_source(
+            resource,
+            user_id=current_user,
+            idempotency_key=key,
+        )
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新执行删除原文"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在删除原文，请稍后查看"},
+        ) from exc
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    response.headers["Cache-Control"] = "no-store"
+    return None
+
+
+@router.delete("/{public_resource_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_trip_understanding(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    capability = _capability_from_cookie(
+        request.cookies.get(get_settings().trip_understanding_cookie_name)
+    )
+    service = TripUnderstandingApplicationService(repository)
+    tombstone_reason = await repository.tombstone_reason(public_resource_id)
+    if tombstone_reason == "DELETED":
+        try:
+            replayed = await service.replay_trip_deletion(
+                public_resource_id,
+                capability_hash=capability,
+                user_id=current_user,
+                idempotency_key=key,
+            )
+        except IdempotencyConflictError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新执行删除行程"},
+            ) from exc
+        if replayed:
+            response.headers["Idempotency-Replayed"] = "true"
+            response.headers["Cache-Control"] = "no-store"
+            return None
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={"code": "RESOURCE_GONE", "message": "这份行程已不可用"},
+        )
+    if tombstone_reason is not None:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={"code": "RESOURCE_GONE", "message": "这份行程已不可用"},
+        )
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await service.delete_trip(
+            resource,
+            capability_hash=capability,
+            user_id=current_user,
+            idempotency_key=key,
+        )
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新执行删除行程"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在删除行程，请稍后查看"},
+        ) from exc
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    response.headers["Cache-Control"] = "no-store"
+    return None
+
+
+@account_router.delete(
+    "/travel-data",
+    response_model=TravelDataDeletionStatusView,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def delete_account_travel_data(
+    body: AccountTravelDataDeleteRequest,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: RecentUserDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    del body
+    key = _require_idempotency_key(idempotency_key)
+    try:
+        outcome = await TripUnderstandingApplicationService(
+            repository
+        ).delete_account_travel_data(
+            user_id=current_user,
+            idempotency_key=key,
+        )
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新执行旅行数据清理"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在清理旅行数据，请稍后查看"},
+        ) from exc
+    response.headers["Location"] = "/api/v3/me/travel-data-deletion"
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.view
+
+
+@account_router.get(
+    "/travel-data-deletion",
+    response_model=TravelDataDeletionStatusView,
+)
+async def get_account_travel_data_deletion(
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+):
+    response.headers["Cache-Control"] = "no-store"
+    return await TripUnderstandingApplicationService(
+        repository
+    ).get_account_travel_data_deletion(user_id=current_user)
 
 
 def _parse_last_event_id(raw: str | None) -> int:

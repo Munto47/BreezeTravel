@@ -87,6 +87,17 @@ export interface CommandAppliedView {
   map_readiness: 'NEEDS_UPDATE'
 }
 
+export interface ClaimedTripView {
+  status: 'CLAIMED'
+  public_resource_id: string
+}
+
+export interface TravelDataDeletionStatusView {
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'RETRY_REQUIRED'
+  message: string
+  next_action: 'NONE' | 'RETRY'
+}
+
 function requestKey(): string {
   const values = new Uint32Array(4)
   crypto.getRandomValues(values)
@@ -97,6 +108,31 @@ function authorizationHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {}
   const token = localStorage.getItem('authToken')
   return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
+function operationRequestKey(scope: string): string {
+  if (typeof window === 'undefined') return requestKey()
+  const storageKey = `bt_v3_operation_${scope}`
+  const existing = sessionStorage.getItem(storageKey)
+  if (existing) return existing
+  const created = requestKey()
+  sessionStorage.setItem(storageKey, created)
+  return created
+}
+
+export function clearTripUnderstandingSession(): void {
+  if (typeof window === 'undefined') return
+  for (const key of [
+    'bt_active_trip_ref',
+    'bt_active_trip_mode',
+    'bt_active_trip_event_cursor',
+    'bt_active_trip_etag',
+    'bt_active_trip_source_deleted',
+  ]) sessionStorage.removeItem(key)
+  for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
+    const key = sessionStorage.key(index)
+    if (key?.startsWith('bt_v3_operation_')) sessionStorage.removeItem(key)
+  }
 }
 
 export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAcceptedView> {
@@ -183,6 +219,100 @@ export async function applyTripUnderstandingCommand(
     body: (await response.json()) as CommandAppliedView,
     etag: nextEtag,
   }
+}
+
+export async function claimTripUnderstanding(
+  publicResourceId: string,
+): Promise<{ body: ClaimedTripView; etag: string }> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/claim`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Idempotency-Key': operationRequestKey(`claim:${publicResourceId}`),
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 410) throw new Error('TRIP_ALREADY_GONE')
+    throw new Error('CLAIM_FAILED')
+  }
+  const etag = response.headers.get('etag')
+  if (!etag) throw new Error('CLAIM_ETAG_MISSING')
+  return { body: (await response.json()) as ClaimedTripView, etag }
+}
+
+export async function deleteTripUnderstandingSource(publicResourceId: string): Promise<void> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/source`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Idempotency-Key': operationRequestKey(`delete-source:${publicResourceId}`),
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    throw new Error('SOURCE_DELETE_FAILED')
+  }
+}
+
+export async function deleteTripUnderstanding(publicResourceId: string): Promise<void> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        'Idempotency-Key': operationRequestKey(`delete-trip:${publicResourceId}`),
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) throw new Error('TRIP_DELETE_FAILED')
+  const readback = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    },
+  )
+  if (readback.status !== 410) throw new Error('TRIP_DELETE_READBACK_FAILED')
+}
+
+export async function deleteAllTravelData(): Promise<TravelDataDeletionStatusView> {
+  const response = await fetch('/api/v3/me/travel-data', {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': operationRequestKey('delete-account-travel-data'),
+      ...authorizationHeaders(),
+    },
+    body: JSON.stringify({ confirmation: 'DELETE_ALL_TRAVEL_DATA' }),
+  })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('RECENT_LOGIN_REQUIRED')
+    throw new Error('ACCOUNT_TRAVEL_DELETE_FAILED')
+  }
+  return response.json() as Promise<TravelDataDeletionStatusView>
+}
+
+export async function readTravelDataDeletionStatus(): Promise<TravelDataDeletionStatusView> {
+  const response = await fetch('/api/v3/me/travel-data-deletion', {
+    credentials: 'include',
+    cache: 'no-store',
+    headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('ACCOUNT_TRAVEL_DELETE_STATUS_FAILED')
+  return response.json() as Promise<TravelDataDeletionStatusView>
 }
 
 export function tripUnderstandingEventsUrl(publicResourceId: string): string {

@@ -96,6 +96,44 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   const denied = await isolatedContext.request.get(new URL(accepted.result_url, page.url()).toString())
   expect(denied.status()).toBe(404)
   await isolatedContext.close()
+
+  const login = await page.request.post('/api/auth/test-login')
+  expect(login.ok()).toBe(true)
+  const auth = await login.json()
+  await page.evaluate(({ token, userId, nickname }) => {
+    localStorage.setItem('authToken', token)
+    localStorage.setItem('authUser', JSON.stringify({ userId, nickname }))
+  }, { token: auth.token, userId: auth.user_id, nickname: auth.nickname })
+  await page.reload()
+  await expect(page.getByTestId('claim-demo-trip')).toBeVisible()
+  const claimResponsePromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'POST'
+      && /\/api\/v3\/trip-understandings\/[^/]+\/claim$/.test(new URL(response.url()).pathname)
+  })
+  await page.getByTestId('claim-demo-trip').click()
+  const claimResponse = await claimResponsePromise
+  expect(claimResponse.status()).toBe(200)
+  const claimed = await claimResponse.json()
+  expect(claimed.public_resource_id).not.toBe(accepted.public_resource_id)
+  await expect(page.getByText('已保存到你的账号，匿名访问凭证已经失效。')).toBeVisible()
+  expect(await page.locator('body').innerText()).not.toContain(claimed.public_resource_id)
+
+  const oldReadback = await page.request.get(new URL(accepted.result_url, page.url()).toString(), {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  expect(oldReadback.status()).toBe(410)
+
+  page.once('dialog', (dialog) => dialog.accept())
+  const deleteResponsePromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'DELETE'
+      && /\/api\/v3\/trip-understandings\/[^/]+$/.test(new URL(response.url()).pathname)
+  })
+  await page.getByTestId('delete-entire-trip').click()
+  expect((await deleteResponsePromise).status()).toBe(204)
+  await expect(page.getByTestId('trip-deleted')).toBeVisible()
+  expect(await page.locator('body').innerText()).not.toContain(claimed.public_resource_id)
 })
 
 
@@ -193,4 +231,78 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
     '故宫博物院',
   ])
   expect(await page.locator('body').innerText()).not.toContain(accepted.public_resource_id)
+
+  page.once('dialog', (dialog) => dialog.accept())
+  const sourceDeletePromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'DELETE'
+      && /\/api\/v3\/trip-understandings\/[^/]+\/source$/.test(new URL(response.url()).pathname)
+  })
+  await page.getByTestId('delete-trip-source').click()
+  expect((await sourceDeletePromise).status()).toBe(204)
+  await expect(page.getByText('原文已永久删除，逐日卡片仍可继续查看和调整。')).toBeVisible()
+  await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
+
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByTestId('delete-entire-trip').click()
+  await expect(page.getByTestId('trip-deleted')).toBeVisible()
+})
+
+
+test('freshly authenticated account can clear all v3 travel data with confirmed readback', async ({ page, request }) => {
+  const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const register = await request.post('/api/auth/email-register', {
+    data: {
+      email: `g01-privacy-${suffix}@example.com`,
+      password: 'BreezeTravel-test-2026!',
+      nickname: '隐私链测试',
+    },
+  })
+  expect(register.ok()).toBe(true)
+  const auth = await register.json()
+  await page.addInitScript(({ token, userId, nickname }) => {
+    localStorage.setItem('authToken', token)
+    localStorage.setItem('authUser', JSON.stringify({ userId, nickname }))
+  }, { token: auth.token, userId: auth.user_id, nickname: auth.nickname })
+
+  await page.goto('/')
+  await page.getByTestId('trip-source-text').fill('Day 1 去故宫博物院。Day 2 去天坛公园。')
+  const createdPromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'POST'
+      && new URL(response.url()).pathname === '/api/v3/trip-understandings'
+      && requestData.postDataJSON()?.mode === 'FULL'
+  })
+  await page.getByTestId('create-full-trip').click()
+  const created = await createdPromise
+  expect(created.status()).toBe(202)
+  const accepted = await created.json()
+  await expect(page.getByTestId('trip-days')).toBeVisible()
+
+  await page.goto('/profile')
+  await expect(page.getByTestId('open-account-travel-delete')).toBeVisible()
+  await page.getByTestId('open-account-travel-delete').click()
+  await page.getByTestId('account-travel-delete-confirmation').fill('清空全部旅行数据')
+  const deletePromise = page.waitForResponse((response) => {
+    const requestData = response.request()
+    return requestData.method() === 'DELETE'
+      && new URL(response.url()).pathname === '/api/v3/me/travel-data'
+  })
+  const statusPromise = page.waitForResponse((response) => (
+    response.request().method() === 'GET'
+    && new URL(response.url()).pathname === '/api/v3/me/travel-data-deletion'
+  ))
+  await page.getByTestId('confirm-account-travel-delete').click()
+  expect((await deletePromise).status()).toBe(202)
+  expect((await statusPromise).status()).toBe(200)
+  await expect(page.getByTestId('account-travel-delete-status')).toHaveText('旅行数据已清空')
+
+  const deletedReadback = await request.get(new URL(accepted.result_url, page.url()).toString(), {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  })
+  expect(deletedReadback.status()).toBe(410)
+  expect(await page.evaluate(() => sessionStorage.getItem('bt_active_trip_ref'))).toBeNull()
+  const visibleText = await page.locator('body').innerText()
+  expect(visibleText).not.toContain(accepted.public_resource_id)
+  expect(visibleText).not.toMatch(/receipt|revision|Provider|deletion_job|understanding_id/i)
 })

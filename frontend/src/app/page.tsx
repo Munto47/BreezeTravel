@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Compass, FileText, Map, ShieldCheck, Sparkles } from 'lucide-react'
 
-import { createDemoTripUnderstanding, createFullTripUnderstanding } from '@/lib/trip-understanding-v3'
+import {
+  clearTripUnderstandingSession,
+  createDemoTripUnderstanding,
+  createFullTripUnderstanding,
+} from '@/lib/trip-understanding-v3'
 import { useAuthStore } from '@/stores/authStore'
 
 
@@ -20,10 +24,10 @@ export default function HomePage() {
     hydrate()
   }, [hydrate])
 
-  const rememberAcceptedResource = (publicResourceId: string) => {
+  const rememberAcceptedResource = (publicResourceId: string, mode: 'DEMO' | 'FULL') => {
+    clearTripUnderstandingSession()
     sessionStorage.setItem('bt_active_trip_ref', publicResourceId)
-    sessionStorage.removeItem('bt_active_trip_event_cursor')
-    sessionStorage.removeItem('bt_active_trip_etag')
+    sessionStorage.setItem('bt_active_trip_mode', mode)
   }
 
   const startDemo = async () => {
@@ -32,7 +36,7 @@ export default function HomePage() {
     setError('')
     try {
       const accepted = await createDemoTripUnderstanding()
-      rememberAcceptedResource(accepted.public_resource_id)
+      rememberAcceptedResource(accepted.public_resource_id, 'DEMO')
       router.push('/trip/result')
     } catch {
       setError('暂时没有启动成功，请稍后再试。')
@@ -55,7 +59,7 @@ export default function HomePage() {
     setError('')
     try {
       const accepted = await createFullTripUnderstanding(text)
-      rememberAcceptedResource(accepted.public_resource_id)
+      rememberAcceptedResource(accepted.public_resource_id, 'FULL')
       setSourceText('')
       router.push('/trip/result')
     } catch (createError) {
@@ -109,7 +113,7 @@ export default function HomePage() {
               <span className="block text-emerald-700">每天都能照着走的卡片</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              登录后直接粘贴自己的长文本；没有把握的地点会留给你确认。未登录也可以先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
+              登录后无需先创建并导入行程，直接粘贴自己的长文本即可导入行程并核验；没有把握的地点会留给你确认。未登录也可以先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
             </p>
 
             {isHydrated && user && (

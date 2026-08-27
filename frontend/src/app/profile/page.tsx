@@ -3,11 +3,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check } from 'lucide-react'
+import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check, ShieldCheck } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 import MemorySettingsPanel from '@/components/profile/MemorySettingsPanel'
+import {
+  clearTripUnderstandingSession,
+  deleteAllTravelData,
+  readTravelDataDeletionStatus,
+  type TravelDataDeletionStatusView,
+} from '@/lib/trip-understanding-v3'
 
 interface UserProfile {
   user_id: string
@@ -20,7 +26,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, updateUser, isHydrated } = useAuthStore()
+  const { user, updateUser, isHydrated, hydrate, logout } = useAuthStore()
   const toast = useToastStore(s => s.toast)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [nickname, setNickname] = useState('')
@@ -28,7 +34,15 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [showTravelDelete, setShowTravelDelete] = useState(false)
+  const [travelDeleteConfirmation, setTravelDeleteConfirmation] = useState('')
+  const [travelDeleteBusy, setTravelDeleteBusy] = useState(false)
+  const [travelDeleteStatus, setTravelDeleteStatus] = useState<TravelDataDeletionStatusView | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
 
   useEffect(() => {
     if (isHydrated && !user) router.replace('/login')
@@ -70,6 +84,35 @@ export default function ProfilePage() {
       toast(e instanceof Error ? e.message : '保存失败，请重试', 'error')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteAllTravelData = async () => {
+    if (travelDeleteConfirmation !== '清空全部旅行数据' || travelDeleteBusy) return
+    setTravelDeleteBusy(true)
+    setTravelDeleteStatus(null)
+    try {
+      await deleteAllTravelData()
+      const freshStatus = await readTravelDataDeletionStatus()
+      setTravelDeleteStatus(freshStatus)
+      if (freshStatus.status === 'COMPLETED') {
+        clearTripUnderstandingSession()
+        setTravelDeleteConfirmation('')
+      }
+    } catch (deleteError) {
+      if (deleteError instanceof Error && deleteError.message === 'RECENT_LOGIN_REQUIRED') {
+        sessionStorage.setItem('bt_login_return', '/profile')
+        toast('为保护你的数据，请重新登录后再确认清空。', 'info')
+        logout()
+        return
+      }
+      setTravelDeleteStatus({
+        status: 'RETRY_REQUIRED',
+        message: '尚未确认清理完成，可以重试。',
+        next_action: 'RETRY',
+      })
+    } finally {
+      setTravelDeleteBusy(false)
     }
   }
 
@@ -194,6 +237,77 @@ export default function ProfilePage() {
         </motion.div>
 
         <MemorySettingsPanel />
+
+        <motion.section
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.16 }}
+          className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-glass"
+          aria-labelledby="travel-data-privacy-title"
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 id="travel-data-privacy-title" className="text-sm font-semibold text-gray-800">账号旅行数据</h2>
+              <p className="mt-1 text-xs leading-5 text-gray-500">清空所有新版行程原文、卡片和派生结果；不会删除登录账号或个人资料。此操作不可恢复。</p>
+            </div>
+          </div>
+
+          {!showTravelDelete ? (
+            <button
+              data-testid="open-account-travel-delete"
+              type="button"
+              onClick={() => setShowTravelDelete(true)}
+              className="mt-4 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-600 hover:border-amber-300 hover:text-amber-800"
+            >
+              清空全部旅行数据
+            </button>
+          ) : (
+            <div className="mt-4 rounded-xl bg-amber-50 p-3">
+              <label className="block text-xs font-medium leading-5 text-amber-900">
+                再次确认：输入“清空全部旅行数据”
+                <input
+                  data-testid="account-travel-delete-confirmation"
+                  value={travelDeleteConfirmation}
+                  onChange={(event) => setTravelDeleteConfirmation(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-amber-500"
+                  autoComplete="off"
+                />
+              </label>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowTravelDelete(false)
+                    setTravelDeleteConfirmation('')
+                  }}
+                  disabled={travelDeleteBusy}
+                  className="flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-gray-600"
+                >
+                  取消
+                </button>
+                <button
+                  data-testid="confirm-account-travel-delete"
+                  type="button"
+                  onClick={() => void handleDeleteAllTravelData()}
+                  disabled={travelDeleteBusy || travelDeleteConfirmation !== '清空全部旅行数据'}
+                  className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-40"
+                >
+                  {travelDeleteBusy ? '正在清理…' : '确认永久清空'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {travelDeleteStatus && (
+            <p data-testid="account-travel-delete-status" role="status" className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
+              {travelDeleteStatus.message}
+              {travelDeleteStatus.status === 'IN_PROGRESS' ? '，可以稍后回到这里查看。' : ''}
+            </p>
+          )}
+        </motion.section>
 
         {/* 保存按钮 */}
         <motion.button

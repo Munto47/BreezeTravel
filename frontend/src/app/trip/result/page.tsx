@@ -16,6 +16,7 @@ import {
   Pencil,
   Plus,
   Replace,
+  ShieldCheck,
   Sparkles,
   Trash2,
   Users,
@@ -28,9 +29,14 @@ import {
   type TripUnderstandingCommand,
   type UserFacingTripResult,
   applyTripUnderstandingCommand,
+  claimTripUnderstanding,
+  clearTripUnderstandingSession,
+  deleteTripUnderstanding,
+  deleteTripUnderstandingSource,
   readTripUnderstandingResult,
   streamTripUnderstandingEvents,
 } from '@/lib/trip-understanding-v3'
+import { useAuthStore } from '@/stores/authStore'
 
 
 const ASSUMPTION_ICONS = {
@@ -56,7 +62,9 @@ type EditorState = {
 
 export default function TripResultPage() {
   const router = useRouter()
+  const { user, isHydrated, hydrate } = useAuthStore()
   const [resourceRef, setResourceRef] = useState<string | null>(null)
+  const [activeMode, setActiveMode] = useState<'DEMO' | 'FULL' | 'CLAIMED' | null>(null)
   const [result, setResult] = useState<UserFacingTripResult | null>(null)
   const [etag, setEtag] = useState<string | null>(null)
   const [message, setMessage] = useState('正在整理每天行程')
@@ -69,6 +77,14 @@ export default function TripResultPage() {
   const [editorCategory, setEditorCategory] = useState('地点')
   const [editorAddress, setEditorAddress] = useState('地点待确认')
   const [editorTime, setEditorTime] = useState('')
+  const [privacyBusy, setPrivacyBusy] = useState<'CLAIM' | 'SOURCE' | 'TRIP' | null>(null)
+  const [privacyMessage, setPrivacyMessage] = useState('')
+  const [sourceDeleted, setSourceDeleted] = useState(false)
+  const [tripDeleted, setTripDeleted] = useState(false)
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
 
   const refresh = useCallback(async (reference: string) => {
     try {
@@ -158,12 +174,86 @@ export default function TripResultPage() {
     }
   }
 
+  const handleClaim = async () => {
+    if (!resourceRef || privacyBusy) return
+    if (!user) {
+      sessionStorage.setItem('bt_login_return', '/trip/result')
+      router.push('/login')
+      return
+    }
+    setPrivacyBusy('CLAIM')
+    setPrivacyMessage('')
+    try {
+      const claimed = await claimTripUnderstanding(resourceRef)
+      const nextReference = claimed.body.public_resource_id
+      clearTripUnderstandingSession()
+      sessionStorage.setItem('bt_active_trip_ref', nextReference)
+      sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
+      sessionStorage.removeItem('bt_active_trip_event_cursor')
+      sessionStorage.setItem('bt_active_trip_etag', claimed.etag)
+      setResourceRef(nextReference)
+      setActiveMode('CLAIMED')
+      setEtag(claimed.etag)
+      if (!(await refresh(nextReference))) throw new Error('CLAIM_READBACK_FAILED')
+      setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
+    } catch {
+      setPrivacyMessage('暂时没有保存成功，这份卡片仍保持原样。')
+    } finally {
+      setPrivacyBusy(null)
+    }
+  }
+
+  const handleDeleteSource = async () => {
+    if (!resourceRef || privacyBusy || sourceDeleted) return
+    const confirmed = window.confirm(
+      '删除原文后，攻略文字将永久不可恢复；当前逐日卡片会保留。确定继续吗？',
+    )
+    if (!confirmed) return
+    setPrivacyBusy('SOURCE')
+    setPrivacyMessage('')
+    try {
+      await deleteTripUnderstandingSource(resourceRef)
+      if (!(await refresh(resourceRef))) throw new Error('SOURCE_DELETE_READBACK_FAILED')
+      sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
+      setSourceDeleted(true)
+      setPrivacyMessage('原文已永久删除，逐日卡片仍可继续查看和调整。')
+    } catch {
+      setPrivacyMessage('原文尚未确认删除，卡片没有变化，可以稍后重试。')
+    } finally {
+      setPrivacyBusy(null)
+    }
+  }
+
+  const handleDeleteTrip = async () => {
+    if (!resourceRef || privacyBusy) return
+    const confirmed = window.confirm(
+      '删除整份行程会永久移除原文、卡片和相关结果，之后无法恢复。确定删除吗？',
+    )
+    if (!confirmed) return
+    setPrivacyBusy('TRIP')
+    setPrivacyMessage('')
+    try {
+      await deleteTripUnderstanding(resourceRef)
+      clearTripUnderstandingSession()
+      setTripDeleted(true)
+    } catch {
+      setPrivacyMessage('尚未确认删除完成，这份行程仍保留，可以稍后重试。')
+    } finally {
+      setPrivacyBusy(null)
+    }
+  }
+
   useEffect(() => {
     const reference = sessionStorage.getItem('bt_active_trip_ref')
     if (!reference) {
       setError('当前标签页里没有可恢复的体验，请返回首页重新开始。')
       return
     }
+    const storedMode = sessionStorage.getItem('bt_active_trip_mode')
+    if (storedMode === 'DEMO' || storedMode === 'FULL' || storedMode === 'CLAIMED') {
+      setActiveMode(storedMode)
+    }
+    setSourceDeleted(sessionStorage.getItem('bt_active_trip_source_deleted') === 'true')
     setResourceRef(reference)
     let disposed = false
     let interval: ReturnType<typeof setInterval> | undefined
@@ -199,6 +289,21 @@ export default function TripResultPage() {
       if (interval) clearInterval(interval)
     }
   }, [refresh])
+
+  if (tripDeleted) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f8f7f2] p-6">
+        <div data-testid="trip-deleted" className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
+          <ShieldCheck className="mx-auto h-10 w-10 text-emerald-700" aria-hidden="true" />
+          <h1 className="mt-4 text-xl font-semibold">这份行程已永久删除</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">我们已重新读取确认它不再可访问。</p>
+          <button type="button" onClick={() => router.push('/')} className="mt-6 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
+            返回首页
+          </button>
+        </div>
+      </main>
+    )
+  }
 
   if (error) {
     return (
@@ -382,6 +487,54 @@ export default function TripResultPage() {
             <StatusCard icon={Map} title="路线地图" message={result.map.message} />
             <StatusCard icon={BedDouble} title="住宿" message={result.stay.message} />
           </div>
+
+          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 id="trip-privacy-title" className="font-semibold">隐私与保留</h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">你可以只删除攻略原文并保留卡片，也可以永久删除整份行程。完成提示只会在服务端回读确认后出现。</p>
+              </div>
+            </div>
+            {privacyMessage && (
+              <p role="status" className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{privacyMessage}</p>
+            )}
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {activeMode === 'DEMO' && (
+                <button
+                  data-testid={user ? 'claim-demo-trip' : 'login-to-claim-demo'}
+                  type="button"
+                  disabled={privacyBusy !== null || !isHydrated}
+                  onClick={() => void handleClaim()}
+                  className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  {privacyBusy === 'CLAIM' ? '正在保存…' : user ? '保存到我的账号' : '登录后保存这份体验'}
+                </button>
+              )}
+              {user && activeMode !== 'DEMO' && (
+                <button
+                  data-testid="delete-trip-source"
+                  type="button"
+                  disabled={privacyBusy !== null || sourceDeleted}
+                  onClick={() => void handleDeleteSource()}
+                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-50"
+                >
+                  {sourceDeleted ? '原文已删除' : privacyBusy === 'SOURCE' ? '正在删除原文…' : '删除原文，保留卡片'}
+                </button>
+              )}
+              <button
+                data-testid="delete-entire-trip"
+                type="button"
+                disabled={privacyBusy !== null}
+                onClick={() => void handleDeleteTrip()}
+                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-500 hover:border-rose-200 hover:text-rose-700 disabled:opacity-50"
+              >
+                {privacyBusy === 'TRIP' ? '正在删除行程…' : '永久删除整份行程'}
+              </button>
+            </div>
+          </section>
         </section>
       </div>
 

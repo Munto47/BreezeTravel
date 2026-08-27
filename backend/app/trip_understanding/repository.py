@@ -28,9 +28,12 @@ from app.trip_understanding.errors import (
 )
 from app.trip_understanding.models import (
     ActivityTextEditCommand,
+    ClaimOutcome,
+    ClaimedTripView,
     CommandAppliedView,
     CommandOutcome,
     CreateOutcome,
+    DeletionOutcome,
     PipelineOutput,
     PublicEventPayload,
     PublicEventRecord,
@@ -40,6 +43,8 @@ from app.trip_understanding.models import (
     TripUnderstandingJobRecord,
     TripUnderstandingCommand,
     TripUnderstandingSourcePayload,
+    TravelDataDeletionOutcome,
+    TravelDataDeletionStatusView,
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
@@ -52,6 +57,69 @@ def _json_value(value: Any) -> Any:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _account_subject_hash(user_id: str) -> str:
+    """Return a stable, non-reversible lookup key for account deletion state."""
+    settings = get_settings()
+    secret = (
+        settings.trip_understanding_cookie_signing_key
+        or settings.trip_understanding_source_encryption_key
+        or settings.jwt_secret_key
+    )
+    return hmac.new(
+        secret.encode("utf-8"),
+        f"trip-understanding-account:{user_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+async def _delete_understanding_business_rows(conn: Any, understanding_id: str) -> None:
+    """Delete one v3 aggregate in FK-safe order inside the caller transaction."""
+    await conn.execute(
+        "UPDATE trip_understandings SET current_result_id = NULL WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_source_claims WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_activities WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_results WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_events WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_deletion_jobs WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_jobs WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_claim_commands WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_revisions WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understanding_sources WHERE understanding_id = $1",
+        understanding_id,
+    )
+    await conn.execute(
+        "DELETE FROM trip_understandings WHERE understanding_id = $1",
+        understanding_id,
+    )
 
 
 def _accepted(public_resource_id: str) -> TripUnderstandingAcceptedView:
@@ -118,6 +186,66 @@ class TripUnderstandingRepository(Protocol):
         request_hash: str,
         now: datetime,
     ) -> CommandOutcome: ...
+
+    async def claim_demo(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> ClaimOutcome: ...
+
+    async def delete_source(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome: ...
+
+    async def delete_trip(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome: ...
+
+    async def replay_trip_deletion(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+    ) -> bool: ...
+
+    async def tombstone_reason(self, public_resource_id: str) -> str | None: ...
+
+    async def delete_account_travel_data(
+        self,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TravelDataDeletionOutcome: ...
+
+    async def get_account_travel_data_deletion(
+        self,
+        *,
+        user_id: str,
+    ) -> TravelDataDeletionStatusView: ...
 
     async def list_events(
         self,
@@ -388,6 +516,10 @@ class PostgresTripUnderstandingRepository:
         content_hash = _sha256_text(source_text)
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{owner_user_id}",
+            )
             scope = f"user:{owner_user_id}:create"
             key_hash = _sha256_text(idempotency_key)
             claimed = await conn.fetchval(
@@ -896,6 +1028,711 @@ class PostgresTripUnderstandingRepository:
             )
         return CommandOutcome(applied=applied, opaque_etag=opaque_etag)
 
+    async def claim_demo(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> ClaimOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        key_hash = _sha256_text(idempotency_key)
+        expires_at = now + timedelta(days=retention_days)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{user_id}",
+            )
+            tombstone = await conn.fetchrow(
+                """
+                SELECT reason, replacement_public_resource_id
+                FROM trip_understanding_resource_tombstones
+                WHERE public_resource_id = $1
+                """,
+                public_resource_id,
+            )
+            if tombstone is not None:
+                if tombstone["reason"] != "CLAIMED":
+                    raise ResourceGoneError("trip resource is no longer available")
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, response_json
+                    FROM trip_understanding_claim_commands
+                    WHERE old_public_resource_id = $1 AND actor_user_id = $2
+                      AND idempotency_key_hash = $3
+                    """,
+                    public_resource_id,
+                    user_id,
+                    key_hash,
+                )
+                if existing is None:
+                    raise ResourceGoneError("anonymous trip was already claimed")
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different claim"
+                    )
+                current_etag = await conn.fetchval(
+                    """
+                    SELECT r.opaque_etag FROM trip_understandings u
+                    JOIN trip_understanding_results r ON r.result_id = u.current_result_id
+                    WHERE u.public_resource_id = $1
+                    """,
+                    tombstone["replacement_public_resource_id"],
+                )
+                if current_etag is None:
+                    raise ResourceNotReadyError("claimed trip result is unavailable")
+                return ClaimOutcome(
+                    claimed=ClaimedTripView.model_validate(_json_value(existing["response_json"])),
+                    opaque_etag=current_etag,
+                    replayed=True,
+                )
+
+            row = await conn.fetchrow(
+                """
+                SELECT u.*, s.capability_hash, s.expires_at, s.revoked_at
+                FROM trip_understandings u
+                JOIN trip_understanding_anonymous_sessions s
+                  ON s.session_id = u.anonymous_session_id
+                WHERE u.public_resource_id = $1
+                FOR UPDATE OF u, s
+                """,
+                public_resource_id,
+            )
+            if row is None:
+                raise ResourceNotFoundError("anonymous trip does not exist")
+            if (
+                not hmac.compare_digest(row["capability_hash"].strip(), capability_hash)
+                or row["revoked_at"] is not None
+                or row["expires_at"] <= now
+            ):
+                raise ResourceAccessDeniedError("anonymous trip is not available to this session")
+            if row["current_result_id"] is None:
+                raise ResourceNotReadyError("trip cards are not ready to claim")
+            existing = await conn.fetchrow(
+                """
+                SELECT request_hash, response_json, new_public_resource_id
+                FROM trip_understanding_claim_commands
+                WHERE understanding_id = $1 AND idempotency_key_hash = $2
+                """,
+                row["understanding_id"],
+                key_hash,
+            )
+            if existing is not None:
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different claim"
+                    )
+                current_etag = await conn.fetchval(
+                    "SELECT opaque_etag FROM trip_understanding_results WHERE result_id = $1",
+                    row["current_result_id"],
+                )
+                return ClaimOutcome(
+                    claimed=ClaimedTripView.model_validate(_json_value(existing["response_json"])),
+                    opaque_etag=current_etag,
+                    replayed=True,
+                )
+
+            new_public_resource_id = secrets.token_urlsafe(24)
+            current_etag = await conn.fetchval(
+                "SELECT opaque_etag FROM trip_understanding_results WHERE result_id = $1",
+                row["current_result_id"],
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_anonymous_sessions
+                SET claimed_by = $2, revoked_at = $3, last_seen_at = $3
+                WHERE session_id = $1
+                """,
+                row["anonymous_session_id"],
+                user_id,
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understandings
+                SET public_resource_id = $2, owner_user_id = $3,
+                    anonymous_session_id = NULL, etag_nonce = $4,
+                    source_expires_at = $5, updated_at = $6
+                WHERE understanding_id = $1
+                """,
+                row["understanding_id"],
+                new_public_resource_id,
+                user_id,
+                secrets.token_hex(32),
+                expires_at,
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_sources
+                SET retention_until = GREATEST(retention_until, $2)
+                WHERE understanding_id = $1 AND deleted_at IS NULL
+                """,
+                row["understanding_id"],
+                expires_at,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_resource_tombstones (
+                    public_resource_id, reason, replacement_public_resource_id, created_at
+                ) VALUES ($1, 'CLAIMED', $2, $3)
+                """,
+                public_resource_id,
+                new_public_resource_id,
+                now,
+            )
+            claimed = ClaimedTripView(public_resource_id=new_public_resource_id)
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_claim_commands (
+                    command_id, understanding_id, actor_user_id, idempotency_key_hash,
+                    request_hash, old_public_resource_id, new_public_resource_id,
+                    response_json, created_at
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+                """,
+                str(uuid4()),
+                row["understanding_id"],
+                user_id,
+                key_hash,
+                request_hash,
+                public_resource_id,
+                new_public_resource_id,
+                json.dumps(claimed.model_dump(mode="json"), ensure_ascii=False),
+                now,
+            )
+        return ClaimOutcome(claimed=claimed, opaque_etag=current_etag)
+
+    async def delete_source(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome:
+        scope = f"understanding:{resource.understanding_id}:delete-source"
+        key_hash = _sha256_text(idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{user_id}",
+            )
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError("source deletion idempotency key was reused")
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError("source deletion is still in progress")
+                return DeletionOutcome(replayed=True)
+            aggregate = await conn.fetchrow(
+                "SELECT owner_user_id FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
+                resource.understanding_id,
+            )
+            if aggregate is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if aggregate["owner_user_id"] != user_id:
+                raise ResourceAccessDeniedError("only the signed-in owner can delete source text")
+            sources = await conn.fetch(
+                """
+                SELECT source_id, content_hash, deleted_at
+                FROM trip_understanding_sources
+                WHERE understanding_id = $1 FOR UPDATE
+                """,
+                resource.understanding_id,
+            )
+            active_sources = [source for source in sources if source["deleted_at"] is None]
+            if active_sources:
+                receipt_hash = canonical_sha256(
+                    {
+                        "scope": "SOURCE",
+                        "understanding_id": resource.understanding_id,
+                        "content_hashes": sorted(source["content_hash"].strip() for source in sources),
+                    }
+                )
+                await conn.execute(
+                    "DELETE FROM trip_understanding_source_claims WHERE understanding_id = $1",
+                    resource.understanding_id,
+                )
+                await conn.execute(
+                    """
+                    DELETE FROM trip_understanding_activities
+                    WHERE understanding_id = $1 AND role <> 'PLANNED'
+                    """,
+                    resource.understanding_id,
+                )
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_sources
+                    SET encrypted_content = NULL, encryption_key_ref = NULL,
+                        deleted_at = $2, deletion_receipt_hash = $3
+                    WHERE understanding_id = $1 AND deleted_at IS NULL
+                    """,
+                    resource.understanding_id,
+                    now,
+                    receipt_hash,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_deletion_jobs (
+                        deletion_job_id, scope, understanding_id, owner_user_id,
+                        status, request_hash, receipt_hash, created_at, updated_at
+                    ) VALUES ($1, 'SOURCE', $2, $3, 'COMPLETED', $4, $5, $6, $6)
+                    """,
+                    str(uuid4()),
+                    resource.understanding_id,
+                    user_id,
+                    request_hash,
+                    receipt_hash,
+                    now,
+                )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 204,
+                    response_json = '{}'::jsonb, response_headers_json = '{}'::jsonb,
+                    lease_until = NULL, completed_at = $3
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                now,
+            )
+        return DeletionOutcome()
+
+    async def delete_trip(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome:
+        public_id_hash = _sha256_text(resource.public_resource_id)
+        scope = f"deleted-resource:{public_id_hash}:delete-trip"
+        key_hash = _sha256_text(idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            if user_id is not None:
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    f"trip-understanding-user:{user_id}",
+                )
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError("trip deletion idempotency key was reused")
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError("trip deletion is still in progress")
+                replay = _json_value(existing["response_json"])
+                if replay.get("authorization_kind") == "USER":
+                    valid_actor = bool(user_id) and hmac.compare_digest(
+                        replay.get("authorization_hash", ""),
+                        _account_subject_hash(user_id or ""),
+                    )
+                else:
+                    valid_actor = bool(capability_hash) and hmac.compare_digest(
+                        replay.get("authorization_hash", ""),
+                        capability_hash or "",
+                    )
+                if not valid_actor:
+                    raise ResourceAccessDeniedError("trip deletion replay is not authorized")
+                return DeletionOutcome(replayed=True)
+            row = await conn.fetchrow(
+                """
+                SELECT u.public_resource_id, u.owner_user_id, u.anonymous_session_id,
+                       s.capability_hash
+                FROM trip_understandings u
+                LEFT JOIN trip_understanding_anonymous_sessions s
+                  ON s.session_id = u.anonymous_session_id
+                WHERE u.understanding_id = $1
+                FOR UPDATE OF u
+                """,
+                resource.understanding_id,
+            )
+            if row is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if row["public_resource_id"] != resource.public_resource_id:
+                raise ResourceAccessDeniedError("trip resource binding changed")
+            if row["owner_user_id"] is not None:
+                if user_id != row["owner_user_id"]:
+                    raise ResourceAccessDeniedError("trip deletion is not authorized")
+                authorization_kind = "USER"
+                authorization_hash = _account_subject_hash(user_id or "")
+            else:
+                stored_capability = (row["capability_hash"] or "").strip()
+                if not capability_hash or not hmac.compare_digest(
+                    stored_capability, capability_hash
+                ):
+                    raise ResourceAccessDeniedError("trip deletion is not authorized")
+                authorization_kind = "ANONYMOUS"
+                authorization_hash = capability_hash
+            receipt_hash = canonical_sha256(
+                {
+                    "scope": "TRIP",
+                    "public_resource_id_hash": public_id_hash,
+                    "request_hash": request_hash,
+                }
+            )
+            await conn.execute(
+                """
+                DELETE FROM trip_understanding_idempotency_records
+                WHERE scope <> $1
+                  AND (
+                    scope IN ($2, $3)
+                    OR response_json ->> 'public_resource_id' = $4
+                    OR response_json ->> 'public_resource_id' IN (
+                      SELECT public_resource_id
+                      FROM trip_understanding_resource_tombstones
+                      WHERE reason = 'CLAIMED'
+                        AND replacement_public_resource_id = $4
+                    )
+                  )
+                """,
+                scope,
+                f"understanding:{resource.understanding_id}:command",
+                f"understanding:{resource.understanding_id}:delete-source",
+                resource.public_resource_id,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_resource_tombstones
+                SET reason = 'DELETED', replacement_public_resource_id = NULL
+                WHERE reason = 'CLAIMED' AND replacement_public_resource_id = $1
+                """,
+                row["public_resource_id"],
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_resource_tombstones (
+                    public_resource_id, reason, created_at
+                ) VALUES ($1, 'DELETED', $2)
+                """,
+                row["public_resource_id"],
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 204,
+                    response_json = $3::jsonb, response_headers_json = $4::jsonb,
+                    lease_until = NULL, completed_at = $5
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps(
+                    {
+                        "authorization_kind": authorization_kind,
+                        "authorization_hash": authorization_hash,
+                    },
+                    ensure_ascii=False,
+                ),
+                json.dumps({"receipt_hash": receipt_hash}, ensure_ascii=False),
+                now,
+            )
+            await _delete_understanding_business_rows(conn, resource.understanding_id)
+            if row["owner_user_id"] is not None:
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_anonymous_sessions
+                    SET claimed_by = NULL
+                    WHERE claimed_by = $1
+                    """,
+                    row["owner_user_id"],
+                )
+            if row["anonymous_session_id"] is not None:
+                await conn.execute(
+                    """
+                    DELETE FROM trip_understanding_anonymous_sessions s
+                    WHERE s.session_id = $1
+                      AND NOT EXISTS (
+                        SELECT 1 FROM trip_understandings u
+                        WHERE u.anonymous_session_id = s.session_id
+                      )
+                    """,
+                    row["anonymous_session_id"],
+                )
+        return DeletionOutcome()
+
+    async def replay_trip_deletion(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+    ) -> bool:
+        scope = f"deleted-resource:{_sha256_text(public_resource_id)}:delete-trip"
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT request_hash, state, response_json
+                FROM trip_understanding_idempotency_records
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                _sha256_text(idempotency_key),
+            )
+        if row is None or row["state"] != "COMPLETED":
+            return False
+        if row["request_hash"].strip() != request_hash:
+            raise IdempotencyConflictError("trip deletion idempotency key was reused")
+        replay = _json_value(row["response_json"])
+        if replay.get("authorization_kind") == "USER":
+            return bool(user_id) and hmac.compare_digest(
+                replay.get("authorization_hash", ""),
+                _account_subject_hash(user_id or ""),
+            )
+        return bool(capability_hash) and hmac.compare_digest(
+            replay.get("authorization_hash", ""),
+            capability_hash or "",
+        )
+
+    async def tombstone_reason(self, public_resource_id: str) -> str | None:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetchval(
+                "SELECT reason FROM trip_understanding_resource_tombstones WHERE public_resource_id = $1",
+                public_resource_id,
+            )
+
+    async def delete_account_travel_data(
+        self,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TravelDataDeletionOutcome:
+        subject_hash = _account_subject_hash(user_id)
+        scope = f"account-travel-delete:{subject_hash}"
+        key_hash = _sha256_text(idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{user_id}",
+            )
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError("account deletion idempotency key was reused")
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError("account travel deletion is still in progress")
+                return TravelDataDeletionOutcome(
+                    view=TravelDataDeletionStatusView.model_validate(
+                        _json_value(existing["response_json"])
+                    ),
+                    replayed=True,
+                )
+            rows = await conn.fetch(
+                """
+                SELECT understanding_id, public_resource_id
+                FROM trip_understandings WHERE owner_user_id = $1
+                FOR UPDATE
+                """,
+                user_id,
+            )
+            claimed_session_ids = await conn.fetch(
+                """
+                SELECT session_id FROM trip_understanding_anonymous_sessions
+                WHERE claimed_by = $1
+                """,
+                user_id,
+            )
+            for row in rows:
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_resource_tombstones
+                    SET reason = 'DELETED', replacement_public_resource_id = NULL
+                    WHERE reason = 'CLAIMED' AND replacement_public_resource_id = $1
+                    """,
+                    row["public_resource_id"],
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_resource_tombstones (
+                        public_resource_id, reason, created_at
+                    ) VALUES ($1, 'DELETED', $2)
+                    ON CONFLICT (public_resource_id) DO NOTHING
+                    """,
+                    row["public_resource_id"],
+                    now,
+                )
+                await conn.execute(
+                    """
+                    DELETE FROM trip_understanding_idempotency_records
+                    WHERE scope IN ($1, $2)
+                       OR response_json ->> 'public_resource_id' = $3
+                    """,
+                    f"understanding:{row['understanding_id']}:command",
+                    f"understanding:{row['understanding_id']}:delete-source",
+                    row["public_resource_id"],
+                )
+            for session in claimed_session_ids:
+                await conn.execute(
+                    "DELETE FROM trip_understanding_idempotency_records WHERE scope = $1",
+                    f"anonymous:{session['session_id']}:create",
+                )
+            await conn.execute(
+                """
+                DELETE FROM trip_understanding_idempotency_records
+                WHERE scope IN ($1, $2)
+                   OR (
+                     response_json ->> 'authorization_kind' = 'USER'
+                     AND response_json ->> 'authorization_hash' = $3
+                   )
+                """,
+                f"user:{user_id}:account-travel-delete",
+                f"user:{user_id}:create",
+                subject_hash,
+            )
+            await conn.execute(
+                "DELETE FROM trip_understanding_deletion_jobs WHERE owner_user_id = $1",
+                user_id,
+            )
+            for row in rows:
+                await _delete_understanding_business_rows(conn, row["understanding_id"])
+            await conn.execute(
+                """
+                UPDATE trip_understanding_anonymous_sessions
+                SET claimed_by = NULL
+                WHERE claimed_by = $1
+                """,
+                user_id,
+            )
+            receipt_hash = canonical_sha256(
+                {
+                    "scope": "ACCOUNT_TRAVEL_DATA",
+                    "deleted_resource_count": len(rows),
+                    "deleted_resource_ids": sorted(row["understanding_id"] for row in rows),
+                }
+            )
+            view = TravelDataDeletionStatusView(
+                status="COMPLETED",
+                message="旅行数据已清空",
+                next_action="NONE",
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 202,
+                    response_json = $3::jsonb, response_headers_json = $4::jsonb,
+                    lease_until = NULL, completed_at = $5
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps(view.model_dump(mode="json"), ensure_ascii=False),
+                json.dumps({"receipt_hash": receipt_hash}, ensure_ascii=False),
+                now,
+            )
+        return TravelDataDeletionOutcome(view=view)
+
+    async def get_account_travel_data_deletion(
+        self,
+        *,
+        user_id: str,
+    ) -> TravelDataDeletionStatusView:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT state, response_json
+                FROM trip_understanding_idempotency_records
+                WHERE scope = $1
+                ORDER BY created_at DESC LIMIT 1
+                """,
+                f"account-travel-delete:{_account_subject_hash(user_id)}",
+            )
+        if row is None:
+            return TravelDataDeletionStatusView(
+                status="COMPLETED",
+                message="当前没有进行中的删除请求",
+                next_action="NONE",
+            )
+        if row["state"] == "IN_PROGRESS":
+            return TravelDataDeletionStatusView(
+                status="IN_PROGRESS",
+                message="正在清理旅行数据",
+                next_action="NONE",
+            )
+        return TravelDataDeletionStatusView.model_validate(_json_value(row["response_json"]))
+
     async def list_events(
         self,
         resource: PublicResourceRecord,
@@ -1322,9 +2159,17 @@ class InMemoryTripUnderstandingRepository:
         self.jobs: dict[str, dict[str, Any]] = {}
         self.events: dict[str, list[PublicEventRecord]] = {}
         self.results: dict[str, StoredResult] = {}
+        self.result_owners: dict[str, str] = {}
         self.side_effects: dict[str, tuple[str, str]] = {}
         self.sources: dict[str, TripUnderstandingSourcePayload] = {}
         self.command_idempotency: dict[tuple[str, str], tuple[str, CommandOutcome]] = {}
+        self.claim_idempotency: dict[tuple[str, str, str], tuple[str, ClaimOutcome]] = {}
+        self.privacy_idempotency: dict[tuple[str, str], str] = {}
+        self.trip_deletion_idempotency: dict[
+            tuple[str, str], tuple[str, str, str]
+        ] = {}
+        self.tombstones: dict[str, dict[str, str | None]] = {}
+        self.account_deletion_status: dict[str, TravelDataDeletionStatusView] = {}
 
     async def create_demo(
         self,
@@ -1471,6 +2316,8 @@ class InMemoryTripUnderstandingRepository:
         user_id: str | None = None,
         now: datetime,
     ) -> PublicResourceRecord:
+        if public_resource_id in self.tombstones:
+            raise ResourceGoneError("trip resource is no longer available")
         row = self.resources.get(public_resource_id)
         if row is None:
             raise ResourceNotFoundError("trip resource does not exist")
@@ -1526,6 +2373,7 @@ class InMemoryTripUnderstandingRepository:
             result=mutation.result,
             opaque_etag=opaque_etag,
         )
+        self.result_owners[result_id] = resource.understanding_id
         aggregate.update(
             {
                 "state": "READY" if mutation.result.status == "READY" else "PARTIAL",
@@ -1539,6 +2387,271 @@ class InMemoryTripUnderstandingRepository:
         )
         self.command_idempotency[key] = (request_hash, outcome)
         return outcome
+
+    async def claim_demo(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> ClaimOutcome:
+        key = (public_resource_id, user_id, _sha256_text(idempotency_key))
+        existing = self.claim_idempotency.get(key)
+        if existing:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError("claim idempotency key was reused")
+            return existing[1].model_copy(update={"replayed": True})
+        tombstone = self.tombstones.get(public_resource_id)
+        if tombstone is not None:
+            raise ResourceGoneError("anonymous trip was already claimed or deleted")
+        row = self.resources.get(public_resource_id)
+        if row is None:
+            raise ResourceNotFoundError("anonymous trip does not exist")
+        if row["owner_user_id"] is not None:
+            raise ResourceAccessDeniedError("trip is already owned")
+        if (
+            not hmac.compare_digest(row["capability_hash"], capability_hash)
+            or row["expires_at"] <= now
+        ):
+            raise ResourceAccessDeniedError("anonymous trip is not available to this session")
+        stored = self.results.get(row["current_result_id"] or "")
+        if stored is None:
+            raise ResourceNotReadyError("trip cards are not ready to claim")
+        new_public_id = secrets.token_urlsafe(24)
+        self.resources.pop(public_resource_id)
+        row.update(
+            {
+                "public_resource_id": new_public_id,
+                "owner_user_id": user_id,
+                "capability_hash": None,
+                "expires_at": now + timedelta(days=retention_days),
+            }
+        )
+        self.resources[new_public_id] = row
+        self.resources_by_understanding[row["understanding_id"]] = new_public_id
+        self.tombstones[public_resource_id] = {
+            "reason": "CLAIMED",
+            "replacement_public_resource_id": new_public_id,
+        }
+        outcome = ClaimOutcome(
+            claimed=ClaimedTripView(public_resource_id=new_public_id),
+            opaque_etag=stored.opaque_etag,
+        )
+        self.claim_idempotency[key] = (request_hash, outcome)
+        return outcome
+
+    async def delete_source(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome:
+        del now
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        row = self.resources[public_id]
+        if row["owner_user_id"] != user_id:
+            raise ResourceAccessDeniedError("only the signed-in owner can delete source text")
+        scope = f"understanding:{resource.understanding_id}:delete-source"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.privacy_idempotency.get(key)
+        if existing:
+            if existing != request_hash:
+                raise IdempotencyConflictError("source deletion idempotency key was reused")
+            return DeletionOutcome(replayed=True)
+        for job_id, job in list(self.jobs.items()):
+            if job["understanding_id"] == resource.understanding_id:
+                self.sources.pop(job_id, None)
+        self.privacy_idempotency[key] = request_hash
+        return DeletionOutcome()
+
+    async def delete_trip(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> DeletionOutcome:
+        del now
+        public_id_hash = _sha256_text(resource.public_resource_id)
+        key = (public_id_hash, _sha256_text(idempotency_key))
+        existing = self.trip_deletion_idempotency.get(key)
+        if existing:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError("trip deletion idempotency key was reused")
+            if existing[1] == "USER":
+                valid_actor = bool(user_id) and hmac.compare_digest(
+                    existing[2], _account_subject_hash(user_id or "")
+                )
+            else:
+                valid_actor = bool(capability_hash) and hmac.compare_digest(
+                    existing[2], capability_hash or ""
+                )
+            if not valid_actor:
+                raise ResourceAccessDeniedError("trip deletion replay is not authorized")
+            return DeletionOutcome(replayed=True)
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        row = self.resources[public_id]
+        if row["owner_user_id"] is not None:
+            if user_id != row["owner_user_id"]:
+                raise ResourceAccessDeniedError("trip deletion is not authorized")
+            authorization_kind = "USER"
+            authorization_hash = _account_subject_hash(user_id or "")
+        else:
+            if not capability_hash or not hmac.compare_digest(
+                row["capability_hash"], capability_hash
+            ):
+                raise ResourceAccessDeniedError("trip deletion is not authorized")
+            authorization_kind = "ANONYMOUS"
+            authorization_hash = capability_hash
+        for result_id, understanding_id in list(self.result_owners.items()):
+            if understanding_id == resource.understanding_id:
+                self.results.pop(result_id, None)
+                self.result_owners.pop(result_id, None)
+        for job_id, job in list(self.jobs.items()):
+            if job["understanding_id"] == resource.understanding_id:
+                self.jobs.pop(job_id, None)
+                self.sources.pop(job_id, None)
+        self.events.pop(resource.understanding_id, None)
+        for effect_key in list(self.side_effects):
+            if effect_key.startswith(f"trip-understanding:{resource.understanding_id}:"):
+                self.side_effects.pop(effect_key, None)
+        previous_public_ids = {
+            old_public_id
+            for old_public_id, tombstone in self.tombstones.items()
+            if tombstone.get("replacement_public_resource_id") == public_id
+        }
+        for create_key, (_, accepted) in list(self.idempotency.items()):
+            if accepted.public_resource_id in {public_id, *previous_public_ids}:
+                self.idempotency.pop(create_key, None)
+        command_scope = f"understanding:{resource.understanding_id}:command"
+        for command_key in list(self.command_idempotency):
+            if command_key[0] == command_scope:
+                self.command_idempotency.pop(command_key, None)
+        source_scope = f"understanding:{resource.understanding_id}:delete-source"
+        for privacy_key in list(self.privacy_idempotency):
+            if privacy_key[0] == source_scope:
+                self.privacy_idempotency.pop(privacy_key, None)
+        for claim_key, (_, outcome) in list(self.claim_idempotency.items()):
+            if outcome.claimed.public_resource_id == public_id:
+                self.claim_idempotency.pop(claim_key, None)
+        for tombstone in self.tombstones.values():
+            if tombstone.get("replacement_public_resource_id") == public_id:
+                tombstone.update(
+                    {"reason": "DELETED", "replacement_public_resource_id": None}
+                )
+        self.resources.pop(public_id, None)
+        self.resources_by_understanding.pop(resource.understanding_id, None)
+        self.tombstones[public_id] = {
+            "reason": "DELETED",
+            "replacement_public_resource_id": None,
+        }
+        self.trip_deletion_idempotency[key] = (
+            request_hash,
+            authorization_kind,
+            authorization_hash,
+        )
+        return DeletionOutcome()
+
+    async def replay_trip_deletion(
+        self,
+        public_resource_id: str,
+        *,
+        capability_hash: str | None,
+        user_id: str | None,
+        idempotency_key: str,
+        request_hash: str,
+    ) -> bool:
+        existing = self.trip_deletion_idempotency.get(
+            (_sha256_text(public_resource_id), _sha256_text(idempotency_key))
+        )
+        if existing is None:
+            return False
+        if existing[0] != request_hash:
+            raise IdempotencyConflictError("trip deletion idempotency key was reused")
+        if existing[1] == "USER":
+            return bool(user_id) and hmac.compare_digest(
+                existing[2], _account_subject_hash(user_id or "")
+            )
+        return bool(capability_hash) and hmac.compare_digest(
+            existing[2], capability_hash or ""
+        )
+
+    async def tombstone_reason(self, public_resource_id: str) -> str | None:
+        tombstone = self.tombstones.get(public_resource_id)
+        return str(tombstone["reason"]) if tombstone else None
+
+    async def delete_account_travel_data(
+        self,
+        *,
+        user_id: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TravelDataDeletionOutcome:
+        subject_hash = _account_subject_hash(user_id)
+        scope = f"account-travel-delete:{subject_hash}"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.privacy_idempotency.get(key)
+        if existing:
+            if existing != request_hash:
+                raise IdempotencyConflictError("account deletion idempotency key was reused")
+            return TravelDataDeletionOutcome(
+                view=self.account_deletion_status[subject_hash],
+                replayed=True,
+            )
+        owned_resources = [
+            PublicResourceRecord.model_validate(
+                {field: row[field] for field in PublicResourceRecord.model_fields}
+            )
+            for row in self.resources.values()
+            if row["owner_user_id"] == user_id and row["state"] != "DELETED"
+        ]
+        for index, owned in enumerate(owned_resources):
+            await self.delete_trip(
+                owned,
+                capability_hash=None,
+                user_id=user_id,
+                idempotency_key=f"account-cascade-{index}-{idempotency_key}",
+                request_hash=request_hash,
+                now=now,
+            )
+        for deletion_key, deletion_record in list(
+            self.trip_deletion_idempotency.items()
+        ):
+            if deletion_record[1:] == ("USER", subject_hash):
+                self.trip_deletion_idempotency.pop(deletion_key, None)
+        view = TravelDataDeletionStatusView(
+            status="COMPLETED",
+            message="旅行数据已清空",
+            next_action="NONE",
+        )
+        self.account_deletion_status[subject_hash] = view
+        self.privacy_idempotency[key] = request_hash
+        return TravelDataDeletionOutcome(view=view)
+
+    async def get_account_travel_data_deletion(
+        self,
+        *,
+        user_id: str,
+    ) -> TravelDataDeletionStatusView:
+        return self.account_deletion_status.get(
+            _account_subject_hash(user_id),
+            TravelDataDeletionStatusView(
+                status="COMPLETED",
+                message="当前没有进行中的删除请求",
+                next_action="NONE",
+            ),
+        )
 
     async def list_events(
         self,
@@ -1635,6 +2748,7 @@ class InMemoryTripUnderstandingRepository:
             result=output.public_result,
             opaque_etag=f"tu3_{secrets.token_urlsafe(32)}",
         )
+        self.result_owners[result_id] = job.understanding_id
         public_id = self.resources_by_understanding[job.understanding_id]
         self.resources[public_id].update(
             {

@@ -144,6 +144,11 @@ app.include_router(
     prefix="/api",
     tags=["trip-understandings-v3"],
 )
+app.include_router(
+    trip_understandings_v3.account_router,
+    prefix="/api",
+    tags=["trip-understandings-v3-account"],
+)
 
 
 # ── 运维端点 ──────────────────────────────────────────────────────────────

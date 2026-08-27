@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useCallback, useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Compass, Phone, Shield, ArrowRight, Check, Mail, Lock } from 'lucide-react'
@@ -31,11 +31,21 @@ export default function LoginPage() {
   const [emailNickname, setEmailNickname] = useState('')
   const codeRefs = useRef<(HTMLInputElement | null)[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loginHandledRef = useRef(false)
+
+  const finishLoginNavigation = useCallback(() => {
+    const requested = sessionStorage.getItem('bt_login_return')
+    sessionStorage.removeItem('bt_login_return')
+    const destination = requested?.startsWith('/') && !requested.startsWith('//')
+      ? requested
+      : '/'
+    router.replace(destination)
+  }, [router])
 
   // 已登录则直接跳主页
   useEffect(() => {
-    if (user) router.replace('/')
-  }, [user, router])
+    if (user && !loginHandledRef.current) finishLoginNavigation()
+  }, [finishLoginNavigation, user])
 
   useEffect(() => {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
@@ -136,11 +146,13 @@ export default function LoginPage() {
 
       if (data.is_new_user) {
         // 新用户：先写入 token，再引导设置昵称
+        loginHandledRef.current = true
         login(data.token, { userId: data.user_id, nickname: data.nickname })
         setStep('nickname')
       } else {
+        loginHandledRef.current = true
         login(data.token, { userId: data.user_id, nickname: data.nickname })
-        router.replace('/')
+        finishLoginNavigation()
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '验证失败'
@@ -160,9 +172,10 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE}/api/auth/test-login`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || '测试账号登录失败')
+      loginHandledRef.current = true
       login(data.token, { userId: data.user_id, nickname: data.nickname })
       toast(`已用测试账号登录（${data.nickname}）`, 'success')
-      router.replace('/')
+      finishLoginNavigation()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : '测试账号登录失败'
       setError(msg)
@@ -199,9 +212,10 @@ export default function LoginPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || (emailMode === 'register' ? '注册失败' : '登录失败'))
+      loginHandledRef.current = true
       login(data.token, { userId: data.user_id, nickname: data.nickname })
       toast(emailMode === 'register' ? `已注册，欢迎 ${data.nickname}` : `欢迎回来，${data.nickname}`, 'success')
-      router.replace('/')
+      finishLoginNavigation()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : '请求失败'
       setError(msg); toast(msg, 'error')
@@ -223,7 +237,7 @@ export default function LoginPage() {
       })
     } catch {}
     updateUser({ nickname: name })
-    router.replace('/')
+    finishLoginNavigation()
   }
 
   return (

@@ -32,6 +32,12 @@ def _surface_assets(name: str, config: dict[str, Any]) -> list[str]:
     if name == "legacy_openapi_paths":
         payload = json.loads((REPO_ROOT / config["source"]).read_text(encoding="utf-8"))
         return sorted(payload["paths"])
+    if name == "source_api_additions":
+        current = json.loads((REPO_ROOT / config["source"]).read_text(encoding="utf-8"))
+        legacy = json.loads(
+            (REPO_ROOT / config["legacy_source"]).read_text(encoding="utf-8")
+        )
+        return sorted(set(current["paths"]) - set(legacy["paths"]))
     if name == "backend_modules":
         root = REPO_ROOT / config["root"]
         paths = [path for path in root.iterdir() if path.name != "__pycache__"]

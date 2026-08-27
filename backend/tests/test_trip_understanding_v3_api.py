@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timedelta, timezone
 
+import jwt
 import pytest
 
 
@@ -14,13 +16,15 @@ from app.api import trip_understandings_v3  # noqa: E402
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository  # noqa: E402
 from app.trip_understanding.service import TripUnderstandingApplicationService  # noqa: E402
 from app.trip_understanding.worker import TripUnderstandingWorker  # noqa: E402
-from app.utils.auth import get_optional_user  # noqa: E402
+from app.utils import auth as auth_utils  # noqa: E402
+from app.utils.auth import get_current_user, get_optional_user, get_recent_user  # noqa: E402
 
 
 def _client():
     repository = InMemoryTripUnderstandingRepository()
     app = FastAPI()
     app.include_router(trip_understandings_v3.router, prefix="/api")
+    app.include_router(trip_understandings_v3.account_router, prefix="/api")
     app.dependency_overrides[
         trip_understandings_v3.get_trip_understanding_repository
     ] = lambda: repository
@@ -246,3 +250,254 @@ async def test_full_service_replay_conflict_and_two_active_job_limit() -> None:
             owner_user_id="user-a",
             idempotency_key="full-3",
         )
+
+
+def test_demo_claim_rotates_id_revokes_cookie_and_replays_without_cookie() -> None:
+    client, repository, app = _client()
+    created = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "claim-demo-create"},
+        json={"mode": "DEMO"},
+    )
+    old_id = created.json()["public_resource_id"]
+    asyncio.run(TripUnderstandingWorker(repository).run_once("claim-worker"))
+    old_result = client.get(created.json()["result_url"])
+    assert old_result.status_code == 200
+
+    app.dependency_overrides[get_current_user] = lambda: "user-a"
+    app.dependency_overrides[get_optional_user] = lambda: "user-a"
+    claimed = client.post(
+        f"/api/v3/trip-understandings/{old_id}/claim",
+        headers={"Idempotency-Key": "claim-demo"},
+    )
+    assert claimed.status_code == 200
+    new_id = claimed.json()["public_resource_id"]
+    assert claimed.json()["status"] == "CLAIMED"
+    assert new_id != old_id
+    assert claimed.headers["location"].endswith(f"/{new_id}/result")
+    assert claimed.headers["etag"] == old_result.headers["etag"]
+    assert "Max-Age=0" in claimed.headers["set-cookie"]
+    assert client.get(f"/api/v3/trip-understandings/{old_id}/result").status_code == 410
+    assert client.get(f"/api/v3/trip-understandings/{new_id}/result").status_code == 200
+
+    replay = client.post(
+        f"/api/v3/trip-understandings/{old_id}/claim",
+        headers={"Idempotency-Key": "claim-demo"},
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert replay.json()["public_resource_id"] == new_id
+
+    app.dependency_overrides[get_current_user] = lambda: "user-b"
+    app.dependency_overrides[get_optional_user] = lambda: "user-b"
+    assert client.post(
+        f"/api/v3/trip-understandings/{old_id}/claim",
+        headers={"Idempotency-Key": "claim-demo"},
+    ).status_code == 410
+    assert client.get(f"/api/v3/trip-understandings/{new_id}/result").status_code == 404
+
+
+def test_source_delete_keeps_cards_and_is_owner_only() -> None:
+    client, repository, app = _client()
+    app.dependency_overrides[get_optional_user] = lambda: "user-a"
+    app.dependency_overrides[get_current_user] = lambda: "user-a"
+    source_text = "Day 1 去故宫博物院和景山公园，Day 2 去天坛公园。"
+    created = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "source-delete-create"},
+        json={"mode": "FULL", "source": {"type": "TEXT", "text": source_text}},
+    )
+    resource_id = created.json()["public_resource_id"]
+    asyncio.run(TripUnderstandingWorker(repository).run_once("source-delete-worker"))
+    before = client.get(created.json()["result_url"])
+    assert before.status_code == 200
+    assert repository.sources
+
+    deleted = client.delete(
+        f"/api/v3/trip-understandings/{resource_id}/source",
+        headers={"Idempotency-Key": "source-delete"},
+    )
+    assert deleted.status_code == 204
+    assert not repository.sources
+    after = client.get(created.json()["result_url"])
+    assert after.status_code == 200
+    assert after.json() == before.json()
+
+    replay = client.delete(
+        f"/api/v3/trip-understandings/{resource_id}/source",
+        headers={"Idempotency-Key": "source-delete"},
+    )
+    assert replay.status_code == 204
+    assert replay.headers["Idempotency-Replayed"] == "true"
+
+    app.dependency_overrides[get_current_user] = lambda: "user-b"
+    assert client.delete(
+        f"/api/v3/trip-understandings/{resource_id}/source",
+        headers={"Idempotency-Key": "source-delete-other"},
+    ).status_code == 404
+
+
+def test_trip_delete_scrubs_aggregate_and_requires_authorized_replay() -> None:
+    client, repository, app = _client()
+    created = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "trip-delete-create"},
+        json={"mode": "DEMO"},
+    )
+    resource_id = created.json()["public_resource_id"]
+    asyncio.run(TripUnderstandingWorker(repository).run_once("trip-delete-worker"))
+    before = client.get(created.json()["result_url"])
+    token = before.json()["days"][0]["activities"][0]["activity_token"]
+
+    deleted = client.delete(
+        f"/api/v3/trip-understandings/{resource_id}",
+        headers={"Idempotency-Key": "trip-delete"},
+    )
+    assert deleted.status_code == 204
+    assert resource_id not in repository.resources
+    assert not repository.results
+    assert not repository.jobs
+    assert not repository.events
+    assert not repository.sources
+    assert repository.side_effect_count == 0
+    assert client.get(created.json()["result_url"]).status_code == 410
+    assert client.get(created.json()["events_url"]).status_code == 410
+    assert client.post(
+        f"/api/v3/trip-understandings/{resource_id}/commands",
+        headers={
+            "Idempotency-Key": "after-delete-command",
+            "If-Match": before.headers["etag"],
+        },
+        json={"command_type": "ACTIVITY_DELETE", "activity_token": token},
+    ).status_code == 410
+
+    replay = client.delete(
+        f"/api/v3/trip-understandings/{resource_id}",
+        headers={"Idempotency-Key": "trip-delete"},
+    )
+    assert replay.status_code == 204
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    assert client.delete(
+        f"/api/v3/trip-understandings/{resource_id}",
+        headers={"Idempotency-Key": "unknown-delete"},
+    ).status_code == 410
+
+    other_browser = TestClient(app)
+    assert other_browser.delete(
+        f"/api/v3/trip-understandings/{resource_id}",
+        headers={"Idempotency-Key": "trip-delete"},
+    ).status_code == 410
+
+
+def test_account_travel_delete_cascades_owned_resources_and_has_safe_status() -> None:
+    client, repository, app = _client()
+    app.dependency_overrides[get_optional_user] = lambda: "user-account-delete"
+    app.dependency_overrides[get_current_user] = lambda: "user-account-delete"
+    app.dependency_overrides[get_recent_user] = lambda: "user-account-delete"
+    resource_ids: list[str] = []
+    for index, place in enumerate(("故宫博物院", "天坛公园"), start=1):
+        created = client.post(
+            "/api/v3/trip-understandings",
+            headers={"Idempotency-Key": f"account-delete-create-{index}"},
+            json={
+                "mode": "FULL",
+                "source": {"type": "TEXT", "text": f"Day 1 去{place}"},
+            },
+        )
+        resource_ids.append(created.json()["public_resource_id"])
+        asyncio.run(
+            TripUnderstandingWorker(repository).run_once(f"account-delete-worker-{index}")
+        )
+
+    assert client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={"Idempotency-Key": "account-delete-invalid"},
+        json={"confirmation": "DELETE"},
+    ).status_code == 422
+    deleted = client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={"Idempotency-Key": "account-delete"},
+        json={"confirmation": "DELETE_ALL_TRAVEL_DATA"},
+    )
+    assert deleted.status_code == 202
+    assert deleted.json() == {
+        "status": "COMPLETED",
+        "message": "旅行数据已清空",
+        "next_action": "NONE",
+    }
+    assert deleted.headers["location"] == "/api/v3/me/travel-data-deletion"
+    assert not repository.resources
+    assert not repository.results
+    assert not repository.jobs
+    assert not repository.sources
+    for resource_id in resource_ids:
+        assert client.get(
+            f"/api/v3/trip-understandings/{resource_id}/result"
+        ).status_code == 410
+
+    status_view = client.get("/api/v3/me/travel-data-deletion")
+    assert status_view.status_code == 200
+    assert status_view.json() == deleted.json()
+    replay = client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={"Idempotency-Key": "account-delete"},
+        json={"confirmation": "DELETE_ALL_TRAVEL_DATA"},
+    )
+    assert replay.status_code == 202
+    assert replay.headers["Idempotency-Replayed"] == "true"
+    retained_internal_state = repr(
+        (
+            repository.privacy_idempotency,
+            repository.account_deletion_status,
+            repository.tombstones,
+        )
+    )
+    assert "user-account-delete" not in retained_internal_state
+
+
+def test_account_travel_delete_requires_login_minted_within_ten_minutes() -> None:
+    client, _, _ = _client()
+    body = {"confirmation": "DELETE_ALL_TRAVEL_DATA"}
+    assert client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={"Idempotency-Key": "fresh-login-missing"},
+        json=body,
+    ).status_code == 401
+
+    now = datetime.now(timezone.utc)
+    stale_token = jwt.encode(
+        {
+            "sub": "fresh-login-user",
+            "iat": now - timedelta(minutes=11),
+            "exp": now + timedelta(days=1),
+        },
+        auth_utils.settings.jwt_secret_key,
+        algorithm="HS256",
+    )
+    stale = client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={
+            "Authorization": f"Bearer {stale_token}",
+            "Idempotency-Key": "fresh-login-stale",
+        },
+        json=body,
+    )
+    assert stale.status_code == 401
+    assert stale.json()["detail"] == "请重新登录后再清空旅行数据"
+
+    fresh = client.request(
+        "DELETE",
+        "/api/v3/me/travel-data",
+        headers={
+            "Authorization": f"Bearer {auth_utils.create_token('fresh-login-user')}",
+            "Idempotency-Key": "fresh-login-valid",
+        },
+        json=body,
+    )
+    assert fresh.status_code == 202
+    assert fresh.json()["status"] == "COMPLETED"

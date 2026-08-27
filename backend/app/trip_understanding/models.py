@@ -294,6 +294,36 @@ class CommandOutcome(StrictModel):
     replayed: bool = False
 
 
+class ClaimedTripView(StrictModel):
+    status: Literal["CLAIMED"] = "CLAIMED"
+    public_resource_id: str
+
+
+class ClaimOutcome(StrictModel):
+    claimed: ClaimedTripView
+    opaque_etag: str
+    replayed: bool = False
+
+
+class DeletionOutcome(StrictModel):
+    replayed: bool = False
+
+
+class AccountTravelDataDeleteRequest(StrictModel):
+    confirmation: Literal["DELETE_ALL_TRAVEL_DATA"]
+
+
+class TravelDataDeletionStatusView(StrictModel):
+    status: Literal["IN_PROGRESS", "COMPLETED", "RETRY_REQUIRED"]
+    message: str
+    next_action: Literal["NONE", "RETRY"]
+
+
+class TravelDataDeletionOutcome(StrictModel):
+    view: TravelDataDeletionStatusView
+    replayed: bool = False
+
+
 class TripUnderstandingJobRecord(StrictModel):
     job_id: str
     understanding_id: str

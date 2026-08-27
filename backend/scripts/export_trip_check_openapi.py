@@ -14,7 +14,9 @@ app = import_module("app.main").app
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-TARGET = REPO_ROOT / "packages" / "trip-check-client" / "openapi.json"
+# ``openapi.json`` is the immutable 99-path G01 compatibility snapshot.
+# The generated client follows the additive, current contract instead.
+TARGET = REPO_ROOT / "packages" / "trip-check-client" / "openapi.current.json"
 
 
 def rendered_schema() -> str:

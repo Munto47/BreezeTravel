@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "generate": "openapi-typescript openapi.json -o src/generated/schema.ts",
+    "generate": "openapi-typescript openapi.current.json -o src/generated/schema.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
