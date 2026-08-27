@@ -13,6 +13,7 @@ from app.trip_understanding.models import (
     TravelDataDeletionOutcome,
     TravelDataDeletionStatusView,
 )
+from app.trip_understanding.map_render import MapRenderRequestOutcome
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.repository import TripUnderstandingRepository
 
@@ -98,6 +99,25 @@ class TripUnderstandingApplicationService:
         return await self.repository.apply_command(
             resource,
             command,
+            expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def request_map_render(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> MapRenderRequestOutcome:
+        request_hash = canonical_sha256(
+            {"action": "RENDER_MAP", "if_match": expected_etag}
+        )
+        return await self.repository.request_map_render(
+            resource,
             expected_etag=expected_etag,
             idempotency_key=idempotency_key,
             request_hash=request_hash,

@@ -21,6 +21,7 @@ from app.trip_understanding.errors import (
     ResourceNotFoundError,
     RevisionConflictError,
 )
+from app.trip_understanding.map_render import MapRenderAcceptedView, MapRenderView
 from app.trip_understanding.models import (
     AccountTravelDataDeleteRequest,
     ClaimedTripView,
@@ -251,6 +252,81 @@ async def get_trip_understanding_result(
         return TripUnderstandingProgressView(message="正在整理每天行程")
     response.headers["ETag"] = f'"{stored.opaque_etag}"'
     return stored.result
+
+
+@router.get(
+    "/{public_resource_id}/map-renders/latest",
+    response_model=MapRenderView,
+)
+async def get_latest_map_render(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+):
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return await repository.get_map_view(resource)
+
+
+@router.post(
+    "/{public_resource_id}/map-renders",
+    response_model=MapRenderAcceptedView,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def request_map_render(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    expected_etag = _require_if_match(if_match)
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(repository).request_map_render(
+            resource,
+            expected_etag=expected_etag,
+            idempotency_key=key,
+        )
+    except RevisionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REVISION_CONFLICT", "message": "行程已经更新，请刷新后再试"},
+        ) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CARDS_NOT_READY", "message": "卡片还在整理，请稍后再试"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新准备路线"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "路线正在准备，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.accepted
 
 
 @router.post(

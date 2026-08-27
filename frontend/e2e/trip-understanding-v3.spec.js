@@ -73,7 +73,7 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   )
   expect(collectKeys(result).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
   expect(result.days.map((day) => day.activities.map((activity) => activity.name))).toEqual(EXPECTED_DAYS)
-  expect(result.map.status).toBe('UNAVAILABLE')
+  expect(['PREPARING', 'AVAILABLE']).toContain(result.map.status)
   expect(result.stay.status).toBe('UNAVAILABLE')
 
   await expect(page).toHaveURL(/\/trip\/result$/)
@@ -81,6 +81,24 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   for (const names of EXPECTED_DAYS) {
     for (const name of names) await expect(page.getByRole('heading', { name })).toBeVisible()
   }
+  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
+  const finalResultResponse = await page.request.get(new URL(accepted.result_url, page.url()).toString())
+  expect(finalResultResponse.status()).toBe(200)
+  const finalResult = await finalResultResponse.json()
+  expect(finalResult.map.status).toBe('AVAILABLE')
+  expect(collectKeys(finalResult).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
+  const mapResponse = await page.request.get(
+    new URL(`/api/v3/trip-understandings/${accepted.public_resource_id}/map-renders/latest`, page.url()).toString(),
+  )
+  expect(mapResponse.status()).toBe(200)
+  const mapResult = await mapResponse.json()
+  expect(mapResult.status).toBe('AVAILABLE')
+  expect(mapResult.days.flatMap((day) => day.routes.map((route) => route.selected_mode))).toEqual([
+    'walking',
+    'transit',
+    'transit',
+  ])
+  expect(collectKeys(mapResult).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toContain(accepted.public_resource_id)
   expect(visibleText).not.toMatch(/原文映射|source span|confidence|Provider|revision|receipt|RunSpec|Audit|Repair|postcheck|UNKNOWN|自动验证/i)
@@ -180,6 +198,7 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
 
   await expect(page).toHaveURL(/\/trip\/result$/)
   await expect(page.getByTestId('trip-days').locator('section')).toHaveCount(3)
+  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toContain(accepted.public_resource_id)
   expect(visibleText).not.toContain(sourceText)
@@ -202,7 +221,7 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   }
 
   await applyVisibleCommand(() => page.getByRole('button', { name: '下移 故宫博物院' }).click())
-  expect(await page.getByTestId('trip-days').locator('section').nth(0).locator('h3').allTextContents()).toEqual([
+  await expect(page.getByTestId('trip-days').locator('section').nth(0).locator('h3')).toHaveText([
     '景山公园',
     '故宫博物院',
   ])
@@ -222,11 +241,11 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   page.once('dialog', (dialog) => dialog.accept())
   await applyVisibleCommand(() => page.getByRole('button', { name: '删除这张卡片' }).click())
   await expect(page.getByRole('heading', { name: '北海公园' })).toHaveCount(0)
-  await expect(page.getByText('卡片已调整，路线地图需要手动更新')).toBeVisible()
+  await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
-  expect(await page.getByTestId('trip-days').locator('section').nth(0).locator('h3').allTextContents()).toEqual([
+  await expect(page.getByTestId('trip-days').locator('section').nth(0).locator('h3')).toHaveText([
     '景山公园东门',
     '故宫博物院',
   ])

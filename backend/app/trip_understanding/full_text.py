@@ -39,6 +39,11 @@ _OPTIONAL_CUES = ("可选", "备选", "有空", "时间允许", "如果有时间
 _PASS_THROUGH_CUES = ("路过", "经过", "途经")
 _REFERENCE_CUES = ("听说", "据说", "参考", "攻略提到", "有人推荐")
 _PLANNED_CUES = ("去", "游览", "逛", "参观", "打卡", "安排", "前往")
+_PUBLIC_CATEGORY_LABELS = {
+    "attraction": "景点",
+    "food": "餐饮",
+    "hotel": "住宿",
+}
 
 
 @dataclass(frozen=True)
@@ -59,7 +64,10 @@ def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
             fact = _PlaceFact(
                 place_id=str(entry["place_id"]),
                 name=str(entry["name"]),
-                category=str(entry["category"]),
+                category=_PUBLIC_CATEGORY_LABELS.get(
+                    str(entry["category"]),
+                    str(entry["category"]),
+                ),
                 address=str(entry["address"]),
                 city=str(city),
             )

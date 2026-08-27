@@ -61,3 +61,32 @@ export interface UserFacingTripResult {
   }
   available_actions: Array<'EDIT_ASSUMPTIONS' | 'EDIT_CARDS'>
 }
+
+export interface PublicRouteModeView {
+  status: 'AVAILABLE' | 'UNAVAILABLE'
+  duration_minutes: number | null
+  distance_meters: number | null
+  transfer_count: number | null
+}
+
+export interface MapRenderView {
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+  message: string
+  days: Array<{
+    label: string
+    routes: Array<{
+      from_name: string
+      to_name: string
+      selected_mode: 'walking' | 'transit' | null
+      message: string
+      walking: PublicRouteModeView
+      transit: PublicRouteModeView
+    }>
+  }>
+  available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
+}
+
+export interface MapRenderAcceptedView {
+  status: 'PREPARING' | 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+  message: string
+}

@@ -34,8 +34,8 @@
     ]
   },
   "source_openapi_observation": {
-    "path_count": 114,
-    "v3_path_count": 9,
+    "path_count": 116,
+    "v3_path_count": 11,
     "legacy_99_missing_methods": [],
     "paths_not_in_legacy_snapshot": [
       "/api/rooms/{room_id}/trip-intakes",
@@ -49,6 +49,8 @@
       "/api/v3/trip-understandings/{public_resource_id}/claim",
       "/api/v3/trip-understandings/{public_resource_id}/commands",
       "/api/v3/trip-understandings/{public_resource_id}/events",
+      "/api/v3/trip-understandings/{public_resource_id}/map-renders",
+      "/api/v3/trip-understandings/{public_resource_id}/map-renders/latest",
       "/api/v3/trip-understandings/{public_resource_id}/result",
       "/api/v3/trip-understandings/{public_resource_id}/source",
       "/api/v3/me/travel-data",
@@ -187,7 +189,7 @@
     "source_api_additions": {
       "source": "packages/trip-check-client/openapi.current.json",
       "legacy_source": "packages/trip-check-client/openapi.json",
-      "observed_count": 15,
+      "observed_count": 17,
       "rules": [
         {
           "disposition": "ADAPT",

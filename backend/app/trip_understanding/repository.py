@@ -26,6 +26,11 @@ from app.trip_understanding.errors import (
     RevisionConflictError,
     SourceUnavailableError,
 )
+from app.trip_understanding.map_repository import (
+    InMemoryMapRenderRepositoryMixin,
+    MapRenderRepository,
+    PostgresMapRenderRepositoryMixin,
+)
 from app.trip_understanding.models import (
     ActivityTextEditCommand,
     ClaimOutcome,
@@ -109,6 +114,10 @@ async def _delete_understanding_business_rows(conn: Any, understanding_id: str) 
         understanding_id,
     )
     await conn.execute(
+        "DELETE FROM trip_understanding_idempotency_records WHERE scope = $1",
+        f"understanding:{understanding_id}:map-renders",
+    )
+    await conn.execute(
         "DELETE FROM trip_understanding_revisions WHERE understanding_id = $1",
         understanding_id,
     )
@@ -143,7 +152,7 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
     }
 
 
-class TripUnderstandingRepository(Protocol):
+class TripUnderstandingRepository(MapRenderRepository, Protocol):
     async def create_demo(
         self,
         *,
@@ -286,7 +295,7 @@ class TripUnderstandingRepository(Protocol):
     ) -> None: ...
 
 
-class PostgresTripUnderstandingRepository:
+class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
     def __init__(self, pool: Any | None = None, source_cipher: SourceCipher | None = None):
         self._pool = pool
         self._source_cipher = source_cipher
@@ -740,13 +749,19 @@ class PostgresTripUnderstandingRepository:
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT public_json, opaque_etag FROM trip_understanding_results WHERE result_id = $1",
+                "SELECT revision, public_json, opaque_etag FROM trip_understanding_results WHERE result_id = $1",
                 resource.current_result_id,
             )
-        if row is None:
-            return None
+            if row is None:
+                return None
+            result = UserFacingTripResult.model_validate(_json_value(row["public_json"]))
+            readiness = await self._project_map_readiness(
+                conn,
+                resource.understanding_id,
+                int(row["revision"]),
+            )
         return StoredResult(
-            result=UserFacingTripResult.model_validate(_json_value(row["public_json"])),
+            result=result.model_copy(update={"map": readiness}),
             opaque_etag=row["opaque_etag"],
         )
 
@@ -2090,6 +2105,12 @@ class PostgresTripUnderstandingRepository:
                 job.job_id,
                 now,
             )
+            await self._enqueue_initial_map_job(
+                conn,
+                job.understanding_id,
+                result_revision,
+                now=now,
+            )
             event_payload = PublicEventPayload(
                 status="READY",
                 message="卡片已可用",
@@ -2150,7 +2171,7 @@ class PostgresTripUnderstandingRepository:
                 )
 
 
-class InMemoryTripUnderstandingRepository:
+class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
     def __init__(self) -> None:
         self.sessions: dict[str, dict[str, Any]] = {}
         self.resources: dict[str, dict[str, Any]] = {}
@@ -2160,6 +2181,7 @@ class InMemoryTripUnderstandingRepository:
         self.events: dict[str, list[PublicEventRecord]] = {}
         self.results: dict[str, StoredResult] = {}
         self.result_owners: dict[str, str] = {}
+        self.result_revisions: dict[str, int] = {}
         self.side_effects: dict[str, tuple[str, str]] = {}
         self.sources: dict[str, TripUnderstandingSourcePayload] = {}
         self.command_idempotency: dict[tuple[str, str], tuple[str, CommandOutcome]] = {}
@@ -2170,6 +2192,7 @@ class InMemoryTripUnderstandingRepository:
         ] = {}
         self.tombstones: dict[str, dict[str, str | None]] = {}
         self.account_deletion_status: dict[str, TravelDataDeletionStatusView] = {}
+        self._init_map_store()
 
     async def create_demo(
         self,
@@ -2337,7 +2360,18 @@ class InMemoryTripUnderstandingRepository:
         )
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None:
-        return self.results.get(resource.current_result_id or "")
+        stored = self.results.get(resource.current_result_id or "")
+        if stored is None:
+            return None
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        aggregate = self.resources[public_id]
+        readiness = self._project_map_readiness_memory(
+            resource.understanding_id,
+            int(aggregate["current_revision"]),
+        )
+        return stored.model_copy(
+            update={"result": stored.result.model_copy(update={"map": readiness})}
+        )
 
     async def apply_command(
         self,
@@ -2374,6 +2408,7 @@ class InMemoryTripUnderstandingRepository:
             opaque_etag=opaque_etag,
         )
         self.result_owners[result_id] = resource.understanding_id
+        self.result_revisions[result_id] = int(aggregate["current_revision"]) + 1
         aggregate.update(
             {
                 "state": "READY" if mutation.result.status == "READY" else "PARTIAL",
@@ -2513,10 +2548,12 @@ class InMemoryTripUnderstandingRepository:
                 raise ResourceAccessDeniedError("trip deletion is not authorized")
             authorization_kind = "ANONYMOUS"
             authorization_hash = capability_hash
+        self._delete_map_memory(resource.understanding_id)
         for result_id, understanding_id in list(self.result_owners.items()):
             if understanding_id == resource.understanding_id:
                 self.results.pop(result_id, None)
                 self.result_owners.pop(result_id, None)
+                self.result_revisions.pop(result_id, None)
         for job_id, job in list(self.jobs.items()):
             if job["understanding_id"] == resource.understanding_id:
                 self.jobs.pop(job_id, None)
@@ -2749,6 +2786,7 @@ class InMemoryTripUnderstandingRepository:
             opaque_etag=f"tu3_{secrets.token_urlsafe(32)}",
         )
         self.result_owners[result_id] = job.understanding_id
+        self.result_revisions[result_id] = 2
         public_id = self.resources_by_understanding[job.understanding_id]
         self.resources[public_id].update(
             {
@@ -2756,6 +2794,11 @@ class InMemoryTripUnderstandingRepository:
                 "current_result_id": result_id,
                 "current_revision": 2,
             }
+        )
+        self._enqueue_initial_map_job_memory(
+            job.understanding_id,
+            2,
+            now=now,
         )
         item.update({"status": "SUCCEEDED", "lease_owner": None, "lease_until": None})
         self.side_effects[effect_key] = (job.input_hash, public_hash)

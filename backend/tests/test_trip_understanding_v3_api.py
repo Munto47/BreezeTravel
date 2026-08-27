@@ -13,6 +13,7 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.api import trip_understandings_v3  # noqa: E402
+from app.trip_understanding.map_worker import MapRenderWorker  # noqa: E402
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository  # noqa: E402
 from app.trip_understanding.service import TripUnderstandingApplicationService  # noqa: E402
 from app.trip_understanding.worker import TripUnderstandingWorker  # noqa: E402
@@ -74,6 +75,7 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
     assert result.status_code == 200
     assert result.headers["etag"].startswith('"tu3_')
     assert [len(day["activities"]) for day in result.json()["days"]] == [2, 2, 2]
+    assert result.json()["map"]["status"] == "PREPARING"
     refreshed = client.get(payload["result_url"])
     assert refreshed.json() == result.json()
     assert refreshed.headers["etag"] == result.headers["etag"]
@@ -86,6 +88,24 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
     assert "event: progress" not in resumed.text
     assert "event: result_available" in resumed.text
     assert "id: 3" in resumed.text
+
+    map_preparing = client.get(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders/latest"
+    )
+    assert map_preparing.status_code == 200
+    assert map_preparing.json()["status"] == "PREPARING"
+    asyncio.run(MapRenderWorker(repository).run_once("api-map-worker"))
+    map_available = client.get(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders/latest"
+    )
+    assert map_available.status_code == 200
+    assert map_available.json()["status"] == "AVAILABLE"
+    assert [
+        route["selected_mode"]
+        for day in map_available.json()["days"]
+        for route in day["routes"]
+    ] == ["walking", "transit", "transit"]
+    assert client.get(payload["result_url"]).json()["map"]["status"] == "AVAILABLE"
 
     first_token = result.json()["days"][0]["activities"][0]["activity_token"]
     command_body = {
@@ -145,6 +165,35 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
         "圆明园",
     ]
     assert repository.side_effect_count == 1
+    assert repository.map_job_count == 1
+
+    missing_map_precondition = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders",
+        headers={"Idempotency-Key": "manual-map-1"},
+    )
+    assert missing_map_precondition.status_code == 428
+    manual_map = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders",
+        headers={
+            "Idempotency-Key": "manual-map-1",
+            "If-Match": applied.headers["etag"],
+        },
+    )
+    assert manual_map.status_code == 202
+    assert manual_map.json()["status"] == "PREPARING"
+    manual_replay = client.post(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders",
+        headers={
+            "Idempotency-Key": "manual-map-1",
+            "If-Match": applied.headers["etag"],
+        },
+    )
+    assert manual_replay.headers["Idempotency-Replayed"] == "true"
+    assert repository.map_job_count == 2
+    asyncio.run(MapRenderWorker(repository).run_once("api-map-worker"))
+    assert client.get(
+        f"/api/v3/trip-understandings/{public_resource_id}/map-renders/latest"
+    ).json()["status"] == "LIMITED"
 
     other_browser = TestClient(app)
     denied = other_browser.get(payload["result_url"])

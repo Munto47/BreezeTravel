@@ -114,6 +114,27 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
 
+  map-render-worker:
+    image: agenttravel-backend:latest
+    env_file:
+      - ${BREEZETRAVEL_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/travel_agent
+      REDIS_URL: redis://redis:6379
+      RUNTIME_PROFILE: local_fixture
+      AMAP_MOCK: "true"
+      AUTO_MIGRATE: "false"
+      REQUIRE_SCHEMA_CHECK: "true"
+    volumes:
+      - ./backend:/app
+    command: python -m app.trip_understanding.map_worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   migrate:
     build:
       context: ./backend

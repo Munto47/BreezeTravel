@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,12 +11,15 @@ import pytest
 
 from app.trip_understanding.demo import DEMO_SOURCE_TEXT, build_demo_pipeline
 from app.trip_understanding.errors import (
+    JobLeaseLostError,
     ResourceAccessDeniedError,
     ResourceGoneError,
     RevisionConflictError,
     SourceUnavailableError,
 )
 from app.trip_understanding.full_text import build_full_text_pipeline
+from app.trip_understanding.map_render import MapRenderer
+from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import ActivityMoveCommand
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
@@ -69,6 +72,8 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
                 )
             migration_028 = Path("app/db/migrations/028_trip_understanding_v3.sql")
             await migration_connection.execute(migration_028.read_text(encoding="utf-8"))
+            migration_029 = Path("app/db/migrations/029_map_render_snapshots.sql")
+            await migration_connection.execute(migration_029.read_text(encoding="utf-8"))
         finally:
             await migration_connection.close()
 
@@ -77,7 +82,7 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
             pool,
             SourceCipher("postgres-integration-root-secret"),
         )
-        now = datetime(2026, 8, 27, tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
         created = await repository.create_demo(
             capability_hash="a" * 64,
             idempotency_key="postgres-demo",
@@ -114,6 +119,18 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
         stored = await repository.get_result(resource)
         assert stored is not None
         assert [len(day.activities) for day in stored.result.days] == [2, 2, 2]
+        assert stored.result.map.status == "PREPARING"
+        assert await MapRenderWorker(repository).run_once(
+            "postgres-map-worker",
+            now=now,
+        )
+        map_view = await repository.get_map_view(resource, now=now)
+        assert map_view.status == "AVAILABLE"
+        assert [route.selected_mode for day in map_view.days for route in day.routes] == [
+            "walking",
+            "transit",
+            "transit",
+        ]
         events = await repository.list_events(resource, after_event_id=2)
         assert [item.event_type for item in events] == ["result_available"]
         async with pool.acquire() as conn:
@@ -138,6 +155,28 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
             assert await conn.fetchval(
                 "SELECT EXISTS(SELECT 1 FROM applied_migrations WHERE filename = '028_trip_understanding_v3.sql')"
             )
+            assert await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM applied_migrations WHERE filename = '029_map_render_snapshots.sql')"
+            )
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_map_render_snapshots WHERE status = 'READY'"
+            ) == 1
+            assert await conn.fetchval("SELECT COUNT(*) FROM trip_map_route_edges") == 3
+            assert await conn.fetchval("SELECT COUNT(*) FROM trip_map_route_mode_facts") == 6
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_map_provider_effect_receipts"
+            ) == 6
+            assert await conn.fetchval(
+                "SELECT COALESCE(SUM(external_call_count), 0) FROM trip_map_provider_effect_receipts"
+            ) == 0
+            snapshot_id = await conn.fetchval(
+                "SELECT snapshot_id FROM trip_map_render_snapshots LIMIT 1"
+            )
+            with pytest.raises(asyncpg.RaiseError, match="immutable"):
+                await conn.execute(
+                    "UPDATE trip_map_render_snapshots SET stop_count = stop_count WHERE snapshot_id = $1",
+                    snapshot_id,
+                )
             assert await conn.fetchval("SELECT to_regclass('public.rooms') IS NOT NULL")
 
         full_text = """北京三日行程
@@ -189,6 +228,12 @@ Day 3：颐和园、圆明园。
         assert full_result is not None
         assert full_result.result.status == "READY"
         assert [len(day.activities) for day in full_result.result.days] == [2, 2, 2]
+        assert full_result.result.map.status == "PREPARING"
+        assert await MapRenderWorker(repository).run_once(
+            "postgres-full-map-worker",
+            now=now,
+        )
+        assert (await repository.get_map_view(full_resource, now=now)).status == "AVAILABLE"
         with pytest.raises(ResourceAccessDeniedError):
             await repository.authorize(
                 full_created.accepted.public_resource_id,
@@ -261,6 +306,69 @@ Day 3：颐和园、圆明园。
             "故宫博物院",
             "圆明园",
         ]
+        map_request_hash = canonical_sha256(
+            {"action": "RENDER_MAP", "if_match": command_outcome.opaque_etag}
+        )
+        requested_map = await repository.request_map_render(
+            updated_resource,
+            expected_etag=command_outcome.opaque_etag,
+            idempotency_key="postgres-manual-map",
+            request_hash=map_request_hash,
+            now=now,
+        )
+        replayed_map = await repository.request_map_render(
+            updated_resource,
+            expected_etag=command_outcome.opaque_etag,
+            idempotency_key="postgres-manual-map",
+            request_hash=map_request_hash,
+            now=now,
+        )
+        await repository.request_map_render(
+            updated_resource,
+            expected_etag=command_outcome.opaque_etag,
+            idempotency_key="postgres-manual-map-second-key",
+            request_hash=map_request_hash,
+            now=now,
+        )
+        assert requested_map.accepted.status == "PREPARING"
+        assert replayed_map.replayed is True
+        old_map_claim = await repository.claim_next_map(
+            worker_id="postgres-old-map-worker",
+            now=now + timedelta(seconds=1),
+            lease_seconds=5,
+        )
+        assert old_map_claim is not None
+        old_map_output = await MapRenderer().render(
+            await repository.load_map_plan(old_map_claim),
+            observed_at=now + timedelta(seconds=1),
+        )
+        replacement_map_claim = await repository.claim_next_map(
+            worker_id="postgres-new-map-worker",
+            now=now + timedelta(seconds=7),
+            lease_seconds=30,
+        )
+        assert replacement_map_claim is not None
+        with pytest.raises(JobLeaseLostError):
+            await repository.complete_map_job(
+                old_map_claim,
+                old_map_output,
+                now=now + timedelta(seconds=8),
+            )
+        replacement_map_output = await MapRenderer().render(
+            await repository.load_map_plan(replacement_map_claim),
+            observed_at=now + timedelta(seconds=8),
+        )
+        await repository.complete_map_job(
+            replacement_map_claim,
+            replacement_map_output,
+            now=now + timedelta(seconds=8),
+        )
+        assert (
+            await repository.get_map_view(
+                updated_resource,
+                now=now + timedelta(seconds=9),
+            )
+        ).status == "LIMITED"
         async with pool.acquire() as conn:
             assert await conn.fetchval(
                 "SELECT COUNT(*) FROM trip_understanding_revisions WHERE understanding_id = $1",
@@ -274,6 +382,10 @@ Day 3：颐和园、圆明园。
                 "SELECT COUNT(*) FROM trip_understanding_side_effect_receipts WHERE job_id = $1",
                 full_job.job_id,
             ) == 1
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_map_render_jobs WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) == 2
             assert encrypted is not None
             assert full_text.encode("utf-8") not in bytes(encrypted)
             assert await conn.fetchval(
@@ -377,7 +489,9 @@ Day 3：颐和园、圆明园。
             await repository.load_source(full_job, now=now)
         retained_result = await repository.get_result(updated_resource)
         assert retained_result is not None
-        assert retained_result.result == updated_result.result
+        assert retained_result.result.days == updated_result.result.days
+        assert retained_result.result.assumptions == updated_result.result.assumptions
+        assert retained_result.result.map.status == "LIMITED"
         async with pool.acquire() as conn:
             source_state = await conn.fetchrow(
                 """
@@ -528,6 +642,13 @@ Day 3：颐和园、圆明园。
                 "trip_understanding_results",
                 "trip_understanding_side_effect_receipts",
                 "trip_understanding_claim_commands",
+                "trip_plan_revision_refs",
+                "trip_map_render_jobs",
+                "trip_map_render_events",
+                "trip_map_render_snapshots",
+                "trip_map_route_edges",
+                "trip_map_route_mode_facts",
+                "trip_map_provider_effect_receipts",
             ):
                 assert await conn.fetchval(f"SELECT COUNT(*) FROM {table}") == 0
             assert await conn.fetchval(

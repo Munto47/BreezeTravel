@@ -20,6 +20,8 @@ from app.trip_understanding.errors import (
     ResourceAccessDeniedError,
 )
 from app.trip_understanding.full_text import build_full_text_pipeline
+from app.trip_understanding.map_render import MapRenderer
+from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.models import (
     ActivityDeleteCommand,
@@ -362,3 +364,184 @@ async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> No
         await repository.complete_job(first, output, now=now + timedelta(seconds=7))
     await repository.complete_job(replacement, output, now=now + timedelta(seconds=7))
     assert repository.side_effect_count == 1
+
+
+@pytest.mark.asyncio
+async def test_revision_bound_map_lifecycle_dedupes_and_never_auto_renders_edits() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="d" * 64,
+        idempotency_key="map-demo",
+        now=now,
+    )
+    understanding_job = await repository.claim_next(
+        worker_id="understanding-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert understanding_job is not None
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT)
+    await repository.complete_job(
+        understanding_job,
+        output,
+        now=now + timedelta(seconds=1),
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="d" * 64,
+        now=now + timedelta(seconds=1),
+    )
+
+    assert (await repository.get_map_view(resource, now=now)).status == "PREPARING"
+    assert repository.map_job_count == 1
+    assert await MapRenderWorker(repository).run_once(
+        "map-worker", now=now + timedelta(seconds=2)
+    )
+    map_view = await repository.get_map_view(resource, now=now + timedelta(seconds=3))
+    assert map_view.status == "AVAILABLE"
+    assert [route.selected_mode for day in map_view.days for route in day.routes] == [
+        "walking",
+        "transit",
+        "transit",
+    ]
+    assert repository.map_provider_effect_count == 6
+    assert (
+        await repository.get_map_view(resource, now=now + timedelta(days=2))
+    ).status == "AVAILABLE"
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(
+        _walk_keys(map_view.model_dump(mode="json"))
+    )
+
+    stored = await repository.get_result(resource)
+    assert stored is not None
+    assert stored.result.map.status == "AVAILABLE"
+    first_token = stored.result.days[0].activities[0].activity_token
+    command = ActivityMoveCommand(
+        command_type="ACTIVITY_MOVE",
+        activity_token=first_token,
+        target_day_index=3,
+        target_position=1,
+    )
+    applied = await service.apply_command(
+        resource,
+        command,
+        expected_etag=stored.opaque_etag,
+        idempotency_key="map-edit",
+        now=now + timedelta(seconds=4),
+    )
+    assert repository.map_job_count == 1
+    updated = await repository.get_result(resource)
+    assert updated is not None
+    assert updated.result.map.status == "NEEDS_UPDATE"
+
+    accepted = await service.request_map_render(
+        resource,
+        expected_etag=applied.opaque_etag,
+        idempotency_key="map-manual",
+        now=now + timedelta(seconds=5),
+    )
+    replayed = await service.request_map_render(
+        resource,
+        expected_etag=applied.opaque_etag,
+        idempotency_key="map-manual",
+        now=now + timedelta(seconds=5),
+    )
+    logically_deduped = await service.request_map_render(
+        resource,
+        expected_etag=applied.opaque_etag,
+        idempotency_key="map-manual-second-key",
+        now=now + timedelta(seconds=5),
+    )
+    assert accepted.accepted.status == "PREPARING"
+    assert replayed.replayed is True
+    assert logically_deduped.replayed is False
+    assert repository.map_job_count == 2
+    assert await MapRenderWorker(repository).run_once(
+        "map-worker", now=now + timedelta(seconds=6)
+    )
+    assert (
+        await repository.get_map_view(resource, now=now + timedelta(seconds=7))
+    ).status == "LIMITED"
+
+
+@pytest.mark.asyncio
+async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="e" * 64,
+        idempotency_key="map-lease-demo",
+        now=now,
+    )
+    understanding_job = await repository.claim_next(
+        worker_id="understanding-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert understanding_job is not None
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT)
+    await repository.complete_job(
+        understanding_job,
+        output,
+        now=now + timedelta(seconds=1),
+    )
+    old_claim = await repository.claim_next_map(
+        worker_id="old-map-worker",
+        now=now + timedelta(seconds=2),
+        lease_seconds=5,
+    )
+    assert old_claim is not None
+    old_plan = await repository.load_map_plan(old_claim)
+    old_output = await MapRenderer().render(old_plan, observed_at=now + timedelta(seconds=2))
+    replacement = await repository.claim_next_map(
+        worker_id="new-map-worker",
+        now=now + timedelta(seconds=8),
+        lease_seconds=30,
+    )
+    assert replacement is not None
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_map_job(
+            old_claim,
+            old_output,
+            now=now + timedelta(seconds=9),
+        )
+
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="e" * 64,
+        now=now + timedelta(seconds=9),
+    )
+    stored = await repository.get_result(resource)
+    assert stored is not None
+    await service.apply_command(
+        resource,
+        ActivityTextEditCommand(
+            command_type="ACTIVITY_TEXT_EDIT",
+            activity_token=stored.result.days[0].activities[0].activity_token,
+            name="故宫入口待确认",
+        ),
+        expected_etag=stored.opaque_etag,
+        idempotency_key="late-map-edit",
+        now=now + timedelta(seconds=9),
+    )
+    replacement_output = await MapRenderer().render(
+        await repository.load_map_plan(replacement),
+        observed_at=now + timedelta(seconds=9),
+    )
+    await repository.complete_map_job(
+        replacement,
+        replacement_output,
+        now=now + timedelta(seconds=9),
+    )
+    assert (
+        await repository.get_map_view(resource, now=now + timedelta(seconds=10))
+    ).status == "NEEDS_UPDATE"

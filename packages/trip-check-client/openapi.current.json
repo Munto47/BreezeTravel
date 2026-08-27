@@ -4689,6 +4689,75 @@
         "title": "MapReadinessView",
         "type": "object"
       },
+      "MapRenderAcceptedView": {
+        "additionalProperties": false,
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PREPARING",
+              "AVAILABLE",
+              "LIMITED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "MapRenderAcceptedView",
+        "type": "object"
+      },
+      "MapRenderView": {
+        "additionalProperties": false,
+        "properties": {
+          "available_actions": {
+            "items": {
+              "enum": [
+                "VIEW_MAP",
+                "RENDER_MAP"
+              ],
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/PublicMapDayView"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "PREPARING",
+              "AVAILABLE",
+              "NEEDS_UPDATE",
+              "LIMITED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "MapRenderView",
+        "type": "object"
+      },
       "MapStopProjection": {
         "properties": {
           "coordinate_role": {
@@ -7249,6 +7318,126 @@
           "status"
         ],
         "title": "ProviderRecheckReceipt",
+        "type": "object"
+      },
+      "PublicMapDayView": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "routes": {
+            "items": {
+              "$ref": "#/components/schemas/PublicMapEdgeView"
+            },
+            "title": "Routes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label",
+          "routes"
+        ],
+        "title": "PublicMapDayView",
+        "type": "object"
+      },
+      "PublicMapEdgeView": {
+        "additionalProperties": false,
+        "properties": {
+          "from_name": {
+            "title": "From Name",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "selected_mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "walking",
+                  "transit"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Selected Mode"
+          },
+          "to_name": {
+            "title": "To Name",
+            "type": "string"
+          },
+          "transit": {
+            "$ref": "#/components/schemas/PublicRouteModeView"
+          },
+          "walking": {
+            "$ref": "#/components/schemas/PublicRouteModeView"
+          }
+        },
+        "required": [
+          "from_name",
+          "to_name",
+          "message",
+          "walking",
+          "transit"
+        ],
+        "title": "PublicMapEdgeView",
+        "type": "object"
+      },
+      "PublicRouteModeView": {
+        "additionalProperties": false,
+        "properties": {
+          "distance_meters": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance Meters"
+          },
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "transfer_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transfer Count"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PublicRouteModeView",
         "type": "object"
       },
       "QuantifiedValue": {
@@ -20171,6 +20360,142 @@
           }
         },
         "summary": "Stream Trip Understanding Events",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/map-renders": {
+      "post": {
+        "operationId": "request_map_render_api_v3_trip_understandings__public_resource_id__map_renders_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapRenderAcceptedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Map Render",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/map-renders/latest": {
+      "get": {
+        "operationId": "get_latest_map_render_api_v3_trip_understandings__public_resource_id__map_renders_latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapRenderView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Latest Map Render",
         "tags": [
           "trip-understandings-v3"
         ]

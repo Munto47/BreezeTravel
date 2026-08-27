@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -81,6 +81,7 @@ export default function TripResultPage() {
   const [privacyMessage, setPrivacyMessage] = useState('')
   const [sourceDeleted, setSourceDeleted] = useState(false)
   const [tripDeleted, setTripDeleted] = useState(false)
+  const activeResourceRef = useRef<string | null>(null)
 
   useEffect(() => {
     hydrate()
@@ -89,6 +90,7 @@ export default function TripResultPage() {
   const refresh = useCallback(async (reference: string) => {
     try {
       const response = await readTripUnderstandingResult(reference)
+      if (activeResourceRef.current !== reference) return false
       if (response.body.status !== 'PROCESSING') {
         setResult(response.body)
         if (response.etag) {
@@ -101,7 +103,9 @@ export default function TripResultPage() {
       setMessage(response.body.message)
       return false
     } catch {
-      setError('这份体验暂时无法打开，请返回首页重新开始。')
+      if (activeResourceRef.current === reference) {
+        setError('这份体验暂时无法打开，请返回首页重新开始。')
+      }
       return false
     }
   }, [])
@@ -191,6 +195,7 @@ export default function TripResultPage() {
       sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
       sessionStorage.removeItem('bt_active_trip_event_cursor')
       sessionStorage.setItem('bt_active_trip_etag', claimed.etag)
+      activeResourceRef.current = nextReference
       setResourceRef(nextReference)
       setActiveMode('CLAIMED')
       setEtag(claimed.etag)
@@ -235,6 +240,7 @@ export default function TripResultPage() {
     try {
       await deleteTripUnderstanding(resourceRef)
       clearTripUnderstandingSession()
+      activeResourceRef.current = null
       setTripDeleted(true)
     } catch {
       setPrivacyMessage('尚未确认删除完成，这份行程仍保留，可以稍后重试。')
@@ -254,17 +260,23 @@ export default function TripResultPage() {
       setActiveMode(storedMode)
     }
     setSourceDeleted(sessionStorage.getItem('bt_active_trip_source_deleted') === 'true')
+    activeResourceRef.current = reference
     setResourceRef(reference)
+  }, [])
+
+  useEffect(() => {
+    if (!resourceRef) return
+    activeResourceRef.current = resourceRef
     let disposed = false
     let interval: ReturnType<typeof setInterval> | undefined
     const eventController = new AbortController()
     void streamTripUnderstandingEvents(
-      reference,
+      resourceRef,
       (event) => {
         if (disposed) return
         setMessage(event.message)
         if (event.type === 'result_available') {
-          void refresh(reference).then((ready) => {
+          void refresh(resourceRef).then((ready) => {
             if (ready) eventController.abort()
           })
         }
@@ -272,13 +284,13 @@ export default function TripResultPage() {
       eventController.signal,
     ).catch((streamError: unknown) => {
       if (!disposed && !(streamError instanceof DOMException && streamError.name === 'AbortError')) {
-        void refresh(reference)
+        void refresh(resourceRef)
       }
     })
-    void refresh(reference)
+    void refresh(resourceRef)
     interval = setInterval(() => {
       if (!disposed) {
-        void refresh(reference).then((ready) => {
+        void refresh(resourceRef).then((ready) => {
           if (ready && interval) clearInterval(interval)
         })
       }
@@ -288,7 +300,19 @@ export default function TripResultPage() {
       eventController.abort()
       if (interval) clearInterval(interval)
     }
-  }, [refresh])
+  }, [refresh, resourceRef])
+
+  useEffect(() => {
+    if (!resourceRef || !result || result.map.status !== 'PREPARING') return
+    let disposed = false
+    const timer = setInterval(() => {
+      if (!disposed) void refresh(resourceRef)
+    }, 500)
+    return () => {
+      disposed = true
+      clearInterval(timer)
+    }
+  }, [refresh, resourceRef, result])
 
   if (tripDeleted) {
     return (

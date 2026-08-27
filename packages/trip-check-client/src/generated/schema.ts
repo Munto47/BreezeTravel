@@ -1964,6 +1964,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/map-renders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Map Render */
+        post: operations["request_map_render_api_v3_trip_understandings__public_resource_id__map_renders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/map-renders/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Latest Map Render */
+        get: operations["get_latest_map_render_api_v3_trip_understandings__public_resource_id__map_renders_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/result": {
         parameters: {
             query?: never;
@@ -3789,6 +3823,30 @@ export interface components {
              */
             status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
         };
+        /** MapRenderAcceptedView */
+        MapRenderAcceptedView: {
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "LIMITED" | "UNAVAILABLE";
+        };
+        /** MapRenderView */
+        MapRenderView: {
+            /** Available Actions */
+            available_actions?: ("VIEW_MAP" | "RENDER_MAP")[];
+            /** Days */
+            days?: components["schemas"]["PublicMapDayView"][];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
+        };
         /** MapStopProjection */
         MapStopProjection: {
             /** Coordinate Role */
@@ -4668,6 +4726,40 @@ export interface components {
             status: string;
             /** Subject Id */
             subject_id?: string | null;
+        };
+        /** PublicMapDayView */
+        PublicMapDayView: {
+            /** Label */
+            label: string;
+            /** Routes */
+            routes: components["schemas"]["PublicMapEdgeView"][];
+        };
+        /** PublicMapEdgeView */
+        PublicMapEdgeView: {
+            /** From Name */
+            from_name: string;
+            /** Message */
+            message: string;
+            /** Selected Mode */
+            selected_mode?: ("walking" | "transit") | null;
+            /** To Name */
+            to_name: string;
+            transit: components["schemas"]["PublicRouteModeView"];
+            walking: components["schemas"]["PublicRouteModeView"];
+        };
+        /** PublicRouteModeView */
+        PublicRouteModeView: {
+            /** Distance Meters */
+            distance_meters?: number | null;
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "UNAVAILABLE";
+            /** Transfer Count */
+            transfer_count?: number | null;
         };
         /** QuantifiedValue */
         QuantifiedValue: {
@@ -10608,6 +10700,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    request_map_render_api_v3_trip_understandings__public_resource_id__map_renders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapRenderAcceptedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_latest_map_render_api_v3_trip_understandings__public_resource_id__map_renders_latest_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MapRenderView"];
                 };
             };
             /** @description Validation Error */
