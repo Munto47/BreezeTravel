@@ -2,7 +2,7 @@
 
 > Goal：`TC-BP-G00-BLUEPRINT`
 >
-> 状态：`ACTIVE`
+> 状态：`SUBJECT_VERIFIED / TRANSITION_PENDING_REMOTE_READBACK`
 >
 > 说明：这些检查只证明文档结构和治理一致，不证明V0.1产品代码、Provider、浏览器、真人或生产能力。
 
@@ -93,7 +93,7 @@ python -m pytest tests/test_dual_entry_release_manifest.py `
 | 旧目标/状态/migration漂移 | PASS（漂移失败0） | pre-subject worktree |
 | 历史兼容pytest | `LEGACY_COMPATIBILITY_PASS`（12 passed） | pre-subject worktree |
 | 独立二次复审 | PASS（产品、架构、反方/治理、商业P0=0、P1=0） | `BLUEPRINT_REVIEW_RESOLUTION.md` |
-| subject push/readback | PENDING | remote branch |
-| transition push/readback | `EXTERNAL_POST_COMMIT_CHECK` | remote branch |
+| subject push/readback | PASS | `3fb3d0566c5742ecf4fac4179021ee538ef5b516` / `origin/codex/trip-check-product-reset` |
+| transition push/readback | `EXTERNAL_POST_COMMIT_CHECK` | 当前治理transition提交并push后回读 |
 
 Backend全量、Frontend build、PostgreSQL、Qwen、高德、天气、浏览器、H1、公网、生产、商业全部保持`NOT_RUN`，因为G00禁止产品实现与外部调用。

@@ -1,167 +1,188 @@
-# IN_PROGRESS GOAL：Blueprint 1.0 长期产品与治理重构
+# APPROVED GOAL：V0.1 可信文本卡片
 
-Goal ID: TC-BP-G00-BLUEPRINT
-Status: IN_PROGRESS
-Goal type: GOVERNANCE_AND_ARCHITECTURE_ONLY
+Goal ID: TC-VNEXT-G01-TEXT-CARDS
+Status: APPROVED
+Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Metadata
 
-- Goal ID：`TC-BP-G00-BLUEPRINT`
+- Goal ID：`TC-VNEXT-G01-TEXT-CARDS`
 - Program ID：`TC-VNEXT-2026`
-- Product version：`Blueprint 1.0`
-- Status：`IN_PROGRESS`
-- Goal type：`GOVERNANCE_AND_ARCHITECTURE_ONLY`
+- Product version：`V0.1`
+- Status：`APPROVED`
+- Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
-- Baseline commit：`1c3adf3e61964501b670f68ca2fd1071918699d4`
+- Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
+- Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
-- Required gate：`Blueprint Gate`
-- Next Goal：`TC-VNEXT-G01-TEXT-CARDS`
+- Required gate：`Text Card Gate`
+- Next Goal：`TC-VNEXT-G02-MAP-STAY`
+
+## Dependencies
+
+- 唯一激活依赖`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`；本Goal已按Program置为`APPROVED`。
+- 首个preflight填写activation commit与现场baseline，并readback Qwen账号、region、endpoint、exact model ID、pricing/privacy条款和高德POI/route最小持久化许可；缺失lane标记`NOT_READY`，不阻止schema、UI、fixture和其他安全独立切片。
+- 到真实模型/Provider Gate前仍缺失时按HITL请求最小动作；不得用fixture冒充live准入，也不得留下0个active Goal。
 
 ## User Outcome
 
-项目拥有一套彼此一致、可以直接驱动后续Codex长期开发的产品、架构、API、版本、风险、Provider、门禁和Goal合同；在此之前不修改产品代码。
+登录用户无需预填城市、日期和人数，粘贴自己的长文本后得到按天组织、可查看、替换、删除、插入和排序的高准确率地点卡片；未登录体验用户编辑固定北京示例，登录后才创建自己的行程。普通用户看不到原文映射、置信度、长ID、模型或后端流程。
+
+卡片完成后，后台自动开始为同一revision准备首次地图；地图UI和住宿不在本Goal交付。
 
 ## Scope
 
-- 审计现有资产并标记`KEEP / ADAPT / FREEZE / REMOVE_FROM_ENTRY / ARCHIVE`；
-- 重写AGENTS、产品章程、产品规格、目标API和Architecture；
-- 重写Program、Roadmap、Release Gates和Goal模板；
-- 新增语义/用户投影、地图快照、模型中立、住宿、知识/隐私和Goal治理ADR；
-- 建立风险登记与Provider准入表；
-- 创建G01～G07预定义Goal；
-- 归档旧Current Goal；
-- 完成产品、架构、反方和商业独立审查。
-
-## Non-goals
-
-- 不修改backend、frontend、miniapp或测试代码；
-- 不添加或执行migration；
-- 不添加依赖或API实现；
-- 不调用Qwen、高德、天气或其他真实Provider；
-- 不读取/修改sealed blind；
-- 不部署、不进入H1、不合并`main`；
-- 不删除旧API、旧房间数据或历史证据。
-
-## Authority
-
-- `AGENTS.md`；
-- `docs/product/PROJECT_CHARTER.md`；
-- `docs/product/TRIP_CHECK_SPEC.md`；
-- `docs/product/TRIP_CHECK_API_CONTRACT.md`；
-- `docs/ARCHITECTURE.md`；
-- `docs/governance/PROGRAM.md`；
-- `docs/governance/RELEASE_GATES.md`；
-- `docs/governance/BLUEPRINT_VALIDATION.md`与`BLUEPRINT_REVIEW_RESOLUTION.md`；
-- ADR-007～ADR-012。
-
-## Baseline
-
-- 根工作区`develop`落后远端且包含用户未跟踪`miniapp/`与`tests/`；本Goal在隔离worktree执行，不接触这些文件。
-- 远端基线：`origin/develop@1c3adf3`。
-- 当前首页仍以登录、城市/天数和房间创建为入口。
-- 当前文本materialization仍可能把整句、URL或描述作为地点。
-- 当前workspace暴露内部术语、长ID和原文证据。
-- 当前地图一套是坐标虚线，旧房间地图默认驾车。
-- 当前Program/Current Goal只描述已结束的Intake优化，没有长期产品路线。
-- 历史Intake与Candidate证据保持原状态；不得因此宣称 `V1_CANDIDATE_READY` 或新版ready。
-
-## Decisions locked
-
-- 普通用户不看到原文映射、置信度、内部ID、模型、Provider和后端流程。
-- 卡片首次READY后后台准备地图；卡片编辑不自动重算，用户手动rerender。
-- 地图只比较walking/transit，差值≤10分钟优先步行。
-- 无酒店时综合各过夜日第一/最后站，按2/4/8km扩大区域，最多展示3家连锁酒店；用户选择后整程同店。
-- Qwen为主模型族，DeepSeek为冻结Baseline，业务使用模型中立接口。
-- G00只改文档；G01之后才实现v3 API和migration。
-- 北京/上海/杭州深核验，其他城市基础整理。
-- Program按G00→G07固定推进，H1及以后人工批准。
-
-## Invariants
-
-- 用户计划不得被旧实现限制反向改写。
-- 目标合同必须明确`NOT_IMPLEMENTED`，不得把蓝图写成现有能力。
-- 历史证据、旧Goal和旧ADR保留并标注取代关系。
-- 产品代码、migration、依赖锁文件diff必须为0。
-- 只允许一个active Goal。
-- 文档不得授权生产、真人、公网、付费账号、抓取或`main`合并。
-- 兼容治理测试需要出现`structurally_valid=true`；只有实际验证通过后才能在Completion record标为PASS。
-
-## Acceptance
-
-- 权威文档不存在强制前置确认、房间优先、默认驾车、卡片展示原文等目标要求；
-- G01～G07均有预定义Outcome、Scope、Non-goals、Gate、授权和Stop conditions；
-- 风险登记覆盖错误映射、内部泄漏、地图stale、酒店误导、模型漂移、Provider许可、隐私和证据漂移；
-- Provider表区分开发、生产、留存和待批准状态；
-- API和migration均按Goal预批准且未实现；
-- 历史Goal已归档；
-- 独立复核高优先级意见已处理；
-- 文档/链接/现有治理测试通过；
-- `git diff`只包含文档；
-- checkpoint已push并远端readback。
-
-## Verification
-
-- 权威文件与链接检查；
-- 禁止旧目标文案扫描；
-- v3目标状态和版本引用检查；
-- 现有release manifest治理测试；
-- 相关文档合同测试；
-- `git diff --name-only`产品代码命中0；
-- branch/upstream/remote readback；
-- Backend全套、Frontend build、PostgreSQL、Provider、Browser、H1：`NOT_RUN`，因G00不修改产品代码。
-
-## Budget
-
-- 模型/Provider调用：0；
-- 增量费用：0；
-- 新账号/绑卡：禁止；
-- 每个文档切片完成diff审查和checkpoint；
-- 同一审查问题最多重复两次，之后改变文档结构或验证方式。
+- `TripUnderstandingRevision / DayDraft / ActivityMention / SourceClaim`；
+- `StructuredInferenceProvider`与Qwen Max/Plus/Flash面板；
+- 证据编译、语义角色和确定性fallback；
+- `ExecutablePlaceMention`与高精度AMap地点解析；
+- `UserFacingTripResult`严格投影；
+- v3 create/result/events/commands；
+- 手机验证码优先、邮箱备用、匿名“先体验”；
+- 单输入首页和逐日卡片结果；
+- 结果页隐私操作：“删除原文但保留卡片”“删除整个行程”；账号隐私页“清空全部旅行数据”；
+- 删除前二次确认、账号重新验证身份、处理中/完成/重试的用户友好状态；
+- `TripUnderstandingJob`、lease/event/recovery与匿名资源所有权；
+- `MapRenderJob / MapRenderSnapshot / PlanRevisionRef`，首批卡片后实际执行首次walking/transit预计算；地图剧场UI不在本Goal。
 
 ## Pre-approved actions
 
-- 在隔离worktree修改文档；
-- 新增ADR、风险/Provider表和planned Goal合同；
-- 运行只读检查与现有文档/治理测试；
-- 明确暂存文档、commit和push `codex/trip-check-product-reset`；
-- G00通过后归档本文件并激活G01。
+- `028_trip_understanding_v3.sql`；
+- `029_map_render_snapshots.sql`；
+- `/api/v3/trip-understandings`的create/result/events/commands、source删除、整程删除、demo claim和账号旅行数据级联删除；
+- G00所列Qwen模型面板在账号/区域/exact binding readback后做dev/validation实验；
+- 高德POI与walking/transit只在许可readback及现有无增量费用开发范围使用；
+- 新首页和结果页；
+- 结果页隐私操作与账号旅行数据隐私页；
+- 旧room/v2 API保持可读。
+
+## Decisions locked
+
+- 只有带原子地点的`PLANNED`提及自动搜索。
+- 低置信宁可`UNRESOLVED`，不自动错配。
+- 城市最高概率、无日期`Day N`、人数默认2都是可编辑软假设。
+- 卡片点击只显示用户详情，不显示原文。
+- 体验使用固定北京长文本和同一产品链；精确hash可使用冻结回执。
+- DeepSeek只作Baseline，不能静默fallback。
+- 卡片编辑创建新revision，不触发路线Provider。
+- 公共地图状态只返回`PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`。
+- FULL必须登录；DEMO绑定HttpOnly匿名session，固定示例编辑24小时清理，source/行程/账号删除可回读。
+- 模型只在dev/validation选择唯一候选，冻结后sealed blind一次。
+
+## Non-goals
+
+- 地图剧场、路线可视化/切换、手动重绘UI、住宿推荐；
+- 完整Audit、Top-3、Repair；
+- 截图、知识、记忆、分享；
+- 删除旧room/API；
+- H1、公网、生产、`main`。
+
+## Dataset
+
+- 90条：54 dev / 18 validation / 18 sealed blind；
+- 三城60、其他城市15、对抗15；
+- 当前19条用户文本只作regression；
+- 双人独立标注、冲突裁决、family隔离；
+- validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
+- blind标签由独立custodian保管；只在dev/validation选模，唯一候选冻结后blind一次。
+
+## Acceptance
+
+完全继承Text Card Gate，尤其：
+
+- 整句/URL/描述/预约作为地点0；
+- 错城/错类别严重自动匹配0；
+- auto match precision≥99%，validation和blind的auto-selected分母分别≥50；
+- executable mention precision≥98%、recall≥95%；
+- day F1≥97%、role macro-F1≥94%；
+- 证据有效率100%，普通用户可见率0%；
+- 首批卡片P95≤8秒；
+- Qwen/AMap失败仍有部分可编辑结果；
+- login/demo/edit/refresh/concurrency/idempotency浏览器通过；
+- 理解job重启/lease/SSE可恢复，重复副作用0；
+- 初次地图job实际执行；只有故障oracle case允许PARTIAL/UNAVAILABLE，正例必须满足下述可用覆盖；逻辑重复Provider调用0，地图失败不影响卡片；
+- 标准3～12地点负载从卡片READY到可用snapshot：snapshot P95≤15秒、受控live dev P95≤20秒；
+- 30份行程、120条已知成功路线正例中snapshot可用覆盖100%、受控live dev≥95%；永远UNAVAILABLE不能过Gate；
+- source TTL/delete、匿名越权、日志/trace/分析泄漏全部通过。
+
+## Verification
+
+- schema、compiler、role、query qualification和fallback单测；
+- model panel frozen eval；
+- AMap fixture/snapshot与受控dev调用；
+- PostgreSQL migration 028/029、CAS、job lease/event、逻辑幂等、重启；
+- public JSON禁止字段扫描；
+- DOM与无障碍检查；
+- backend pytest/Ruff、frontend build；
+- 浏览器登录、固定体验、文本、编辑、刷新，以及结果页source/整程删除、二次确认、完成/重试和fresh readback；
+- 账号隐私页重新验证身份、清空旅行数据、异步状态与完成后空readback；
+- H1/公网/生产：`NOT_RUN`。
+
+## Authority
+
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；
+- Program、Roadmap、Release Gates、Provider Admission、Risk Register；
+- ADR-007、ADR-008、ADR-009、ADR-012。
+
+## Baseline
+
+- branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
+- activation transition：本文件首次成为`APPROVED`的治理commit；exact hash在push/readback后的首个checkpoint receipt填写；
+- Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
+- 当前用户可见行为、旧OpenAPI snapshot、Qwen/AMap准入结果：首个preflight现场记录，不从历史推断；
+- G00治理结构验证`structurally_valid=true`；这只证明蓝图结构，不证明V0.1产品能力；
+- 历史Intake/Candidate只作资产基线，不是G01 PASS，不得因此宣称 `V1_CANDIDATE_READY`；
+- H1、公网、生产、商业：`NOT_RUN`。
+
+## Invariants
+
+- 公共JSON/DOM禁止原文、置信度、内部ID/状态/模型/Provider；随机`public_resource_id`不授权且不得渲染或进入日志/分析，匿名capability只在HttpOnly cookie；
+- 只有原子`PLANNED`提及可搜索，严重错配为0；
+- `PlanRevisionRef`、ETag、CAS、请求幂等和地图逻辑唯一键必须一致；
+- LLM不产生POI/路线事实；`UNKNOWN/UNAVAILABLE`不算PASS；
+- card edit路线Provider调用为0；source隐私与旧API兼容不可弱化。
+
+## Budget
+
+- 单文本≤50,000 Unicode code point、≤14天、≤80个可执行活动、每账号并发理解job≤2；超限为可编辑`LIMITED`；
+- 每任务模型最多1次初始+1次schema修复；POI最多每个ExecutableMention一次主搜索和一次确定性改写；初次路线最多walking/transit各一次/相邻边；
+- 不设总费用硬上限，但每次调用记exact binding、token、latency、retry和估算费用；不新增账号/绑卡/付费；
+- 每个可回滚切片commit/push并更新checkpoint。
 
 ## HITL
 
-只有需要偏离已批准蓝图、改变Program顺序、扩大G00到产品代码、触发新费用/账号、修改sealed blind、H1/公网/部署/`main`或删除数据时请求用户。
+新账号/费用、许可无法满足、未预批准schema/migration/依赖、sealed blind/oracle变化、H1/公网/生产/`main`或删除旧数据时请求人工批准；普通实现/测试失败不请求用户诊断。
 
 ## Checkpoint ledger
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|
-| 2026-08-27 | 已保护根工作区，并从最新`origin/develop`建立隔离分支 | pending | Git/worktree/branch审计 | G00 in progress | 权威文档、ADR、Goal、验证 | 无用户阻塞 | 重写Blueprint 1.0合同 |
-| 2026-08-27 | Blueprint权威、G01～G07完整合同、风险/Provider表和旧资产边界已形成；三路复审P0/P1为0 | subject checkpoint（本commit，hash由归档记录） | planned字段/单active/历史归档/链接/职责漂移PASS；历史兼容pytest 12 PASS；docs-only | BLUEPRINT_CANDIDATE | subject push/readback、最终归档、原子激活G01 | 产品代码与外部能力仍NOT_IMPLEMENTED/NOT_RUN | 提交并push subject，远端回读后执行治理transition |
+| 2026-08-27 | Blueprint完成并激活V0.1可信文本卡片Goal；尚未修改产品代码 | activation transition（本commit；exact hash由下一receipt填写） | G00 Blueprint Gate `PASS`；单active Goal结构检查 | `BLUEPRINT_ONLY` | 依赖readback、代码/合同现场审计与G01纵向切片 | Qwen/高德准入尚未现场确认 | 记录transition远端hash，随后执行G01首个preflight |
 
 ## Auto-advance
 
-- Required gate：`Blueprint Gate`；
-- Next Goal template：`docs/governance/goals/planned/TC-VNEXT-G01-TEXT-CARDS.md`；
-- 只有Outcome、Gate、clean tree、push、readback和归档全部通过才激活；
-- 不自动实现G01代码，不自动进入H1、公网、生产或`main`。
-
-## Stop conditions
-
-- 需要改变用户批准的产品方向；
-- 需要修改产品代码、migration或依赖才能让蓝图成立；
-- 权威文件出现不可消解冲突；
-- 需要新账号、费用、外部数据或Provider调用；
-- 需要修改sealed blind/oracle；
-- 独立审查发现高优先级安全/隐私问题且无法在文档范围修正。
+- Required gate：`Text Card Gate`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
+- subject push/readback、Gate PASS、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；
+- FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
 
 - Status：`PENDING`；
 - Subject commits：`PENDING`；
-- Remote branch：`PENDING`；
-- Verification：`PENDING`；
-- Evidence level：`BLUEPRINT_ONLY`；
-- Gate result：`PENDING`；
-- `structurally_valid=true`：`PENDING_VALIDATION`；
-- Product code changes：0（待最终diff验证）；
-- Next Goal activated：`NO`；
+- Remote branch：`origin/codex/trip-check-product-reset`；
+- Verification / Evidence / Gate result：`NOT_RUN / NOT_IMPLEMENTED / PENDING`；
+- `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
+- User-visible result：`NOT_IMPLEMENTED`；
+- Remaining risks：Qwen/高德准入、现有合同冲突和产品实现均待首个preflight；
+- Goal archived：`NO`；
+- Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
+
+## Stop conditions
+
+- 需要降低严重错配为0的门禁；
+- Qwen账号/区域/隐私无法满足；
+- 需要新增付费账号或未批准Provider；
+- 必须修改sealed blind/oracle；
+- 无法保持旧API可读；
+- 两个不同切片仍不能阻止整句成为地点。
