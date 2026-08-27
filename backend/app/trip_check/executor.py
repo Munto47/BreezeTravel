@@ -691,13 +691,20 @@ class TripCheckAdoptionReconciler:
         self.advice_repository = advice_repository
 
     async def reconcile(self, result: RepairApplyResult) -> TripCheckRun | None:
+        source = await self.audit_repository.get_report(result.repair.source_report_id)
+        postcheck = await self.audit_repository.get_report(result.postcheck_report_id)
+        if source is None or postcheck is None:
+            raise RuntimeError("TripCheck adoption lineage inputs are missing")
         bundle = await self.advice_repository.get_bundle_for_repair(result.repair.repair_id)
+        if bundle is None:
+            bundle = await self.advice_repository.get_bundle_for_report(
+                source.workspace_id,
+                source.report_id,
+            )
         if bundle is None:
             return None
         run = await self.run_repository.get_run(bundle.run_id)
-        source = await self.audit_repository.get_report(bundle.report_id)
-        postcheck = await self.audit_repository.get_report(result.postcheck_report_id)
-        if run is None or source is None or postcheck is None:
+        if run is None or bundle.report_id != source.report_id:
             raise RuntimeError("TripCheck adoption lineage inputs are missing")
         if result.new_revision != postcheck.itinerary_revision:
             raise RuntimeError("TripCheck adoption result does not bind the postcheck revision")

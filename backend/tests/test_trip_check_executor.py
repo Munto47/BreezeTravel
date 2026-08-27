@@ -366,3 +366,34 @@ def test_adopted_repair_completes_postcheck_once_without_duplicate_revision():
         assert len(runs.receipts) == 4
 
     asyncio.run(scenario())
+
+
+def test_alternative_report_repair_still_completes_the_waiting_trip_check_run():
+    async def scenario():
+        executor, runs, audits, advice, _, _, repairs, created = await _setup()
+        waiting = await executor.execute(created.run_id)
+        bundle = await advice.get_bundle(waiting.advice_bundle_id)
+        assert bundle is not None
+        linked_ids = {item.repair_id for item in bundle.actions if item.repair_id}
+        options = await repairs.list_options(waiting.report_id)
+        alternative = next(item for item in options if item.repair_id not in linked_ids)
+        applied = await repairs.apply_option(
+            alternative.repair_id,
+            actor_user_id="trip-check-user",
+            if_match_revision=1,
+            idempotency_key="apply-alternative-trip-check-repair",
+        )
+
+        completed = await TripCheckAdoptionReconciler(
+            run_repository=runs,
+            audit_repository=audits,
+            advice_repository=advice,
+        ).reconcile(applied)
+
+        assert completed is not None
+        assert completed.stage == TripCheckStage.POSTCHECK
+        assert completed.status == TripCheckRunStatus.SUCCEEDED
+        assert completed.report_id == applied.postcheck_report_id
+        assert len(advice.lineage) == 1
+
+    asyncio.run(scenario())
