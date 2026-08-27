@@ -1,10 +1,10 @@
-# IN_PROGRESS GOAL：O5/O6 DeepSeek 修复晋级与本地端到端稳定性
+# REJECTED GOAL：O5/O6 DeepSeek 修复晋级与本地端到端稳定性
 
 ## Metadata
 
 - Goal ID：`TC-NLU-O5-O6-DEEPSEEK-STABILITY`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`IN_PROGRESS`
+- Status：`REJECTED`
 - Branch：`codex/trip-intake-deepseek-stability`
 - Baseline：`39bde2d1d62c622a1f27bd826f9470bf0fdc4395`
 - Approved by / at：User / 2026-08-27
@@ -85,15 +85,16 @@
 
 ## Completion record
 
-- Implementation / Gate：`IN_PROGRESS`；
+- Implementation：`COMPLETED`；overall Gate：`REJECTED`；
 - Goal contract：`structurally_valid=true`；
 - remediation regression：7/7，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.210 秒；
 - Dev：72/72，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.109 秒；
 - independent Validation v2：24/24，Gate=`PASS`，全部质量指标 1.0，关键错误 0，P95=4.513 秒；
 - 调用审计：Validation 结束时累计 202 次、324333 input tokens、112720 output tokens、估算 1.87374432 CNY；调用层失败和 fallback 均保留在 ledger；
-- 工程回归：backend `2014 passed / 32 skipped`；Ruff、frontend build、dual-entry validator、原 120 条 validator、remediation validator 均通过；
-- frozen blind：唯一一次产品预测已在 subject `d4fd9aafcb9dc12156e2ba4f0199c822f15f7c41` 完成，24/24、P95=3.691 秒、actual model 24/24、fallback=1、prediction SHA-256=`52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11`；外部标签未 provision，正式评分=`EVIDENCE_INCOMPLETE`，不得记为 PASS 或再次运行产品预测；
-- local real-DeepSeek E2E：隔离数据库上仅取得 `DIAGNOSTIC_PASS_AFTER_LOCAL_SCHEMA_HOTFIX`，三城 3/3、真实模型 readback、正常链 fallback=0、幂等/SSE/fault/UNKNOWN 均符合预期；这不是干净 schema 的正式 PASS；
-- E2E blocker：migration 026 的 `UNIQUE (room_id, intake_id)` 阻止同一 intake 创建第二个 immutable revision；正式修复需要 migration/schema 变更，超出本 Goal 的自动授权，未修改仓库 migration；
-- `INTAKE_V2_DEVELOPMENT_READY=false`，直到 Validation、blind、工程回归和本地 E2E 全部通过。
+- 工程回归：backend `2015 passed / 32 skipped`；PostgreSQL fresh/existing migration `2 passed`；Ruff、frontend build、dual-entry validator、原 120 条 validator、remediation validator 均通过；
+- frozen blind：唯一一次产品预测已在 subject `d4fd9aafcb9dc12156e2ba4f0199c822f15f7c41` 完成，24/24、P95=3.691 秒、actual model 24/24、fallback=1、prediction SHA-256=`52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11`；仓库外标签 SHA-256 与 seal 完全匹配；隔离评分 Gate=`REJECT`，hallucination=19、negation reversal=4、locations=0.4667、party=0.8583、duration=0.8711、preferences=0.5808、contract controls=0.7583；未输出逐例 truth，不得再次运行产品预测或基于 blind 调参；
+- migration 027：经用户明确批准，删除 `trip_intake_revisions_room_id_intake_id_key`；全新 PostgreSQL volume 从 001 迁移到 027，027 已登记且冲突约束计数为 0；
+- local real-DeepSeek E2E：subject `ee686a517e37019c06a3fa4c9ddb87b2355567ea`，北京/上海/杭州 3/3=`PASS`，真实模型 readback、正常链 fallback=0、revision 1→2、完整 postcheck、幂等/SSE/fault/UNKNOWN、unexpected 5xx=0 均通过；
+- `INTAKE_V2_DEVELOPMENT_READY=false`：工程与本地 E2E 已通过，但 frozen blind Gate=`REJECT`，不得晋级；
+- 后续若继续优化，必须创建新 Goal 和新治理 blind 版本，不得修改本次 oracle、降低门槛、读取逐例 truth 或重试本次 blind。
 - 本 Goal 的开发证据不得改写或替代发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。

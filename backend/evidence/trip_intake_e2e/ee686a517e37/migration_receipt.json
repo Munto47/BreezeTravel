@@ -1,0 +1,9 @@
+{
+  "conflicting_constraint_count": 0,
+  "database_initial_state": "FRESH_VOLUME",
+  "e2e_receipt_sha256": "8b2e886f91f08e4537724eca1d38dccc9d13a6f692220c380f12d1990a5632a6",
+  "migration": "027_trip_intake_revision_lineage.sql",
+  "migration_applied": true,
+  "schema_version": "trip-intake-migration-e2e-receipt-v1",
+  "subject_commit": "ee686a517e37019c06a3fa4c9ddb87b2355567ea"
+}

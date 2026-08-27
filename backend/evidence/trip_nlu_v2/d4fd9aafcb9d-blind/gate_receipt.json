@@ -1,0 +1,64 @@
+{
+  "blind_label_commitment": "60e2fd7812297789cbd66d480884761ac75eaf38ce54e8f7b66f0dcb46d7b2fb",
+  "case_count": 24,
+  "case_details_present": false,
+  "case_ids_sha256": "9dc145819a510f6e87802f3a02c51e78e0cd9f0259ef98ded0e1b09e1c101479",
+  "critical_errors": {
+    "hallucination": 19,
+    "negation_reversal": 4,
+    "numeric_cross_class": 0,
+    "old_plan_reversal": 0,
+    "origin_destination_reversal": 0,
+    "unknown_promoted_to_exact": 0
+  },
+  "dataset_manifest_sha256": "638ee916bb16f6f0774262aa8e0a51e04da976e87cd7f9507a59b6209da76fd9",
+  "dataset_valid": true,
+  "evidence_span_validity": 1.0,
+  "gate": "REJECT",
+  "hard_key_fields": {
+    "fn": 28,
+    "fp": 22,
+    "micro_f1": 0.8046875,
+    "tp": 103
+  },
+  "labels_sha256": "60e2fd7812297789cbd66d480884761ac75eaf38ce54e8f7b66f0dcb46d7b2fb",
+  "metrics": {
+    "contract_controls": {
+      "fn": 55,
+      "fp": 40,
+      "micro_f1": 0.7582697201017812,
+      "tp": 149
+    },
+    "duration": {
+      "fn": 33,
+      "fp": 25,
+      "micro_f1": 0.8711111111111111,
+      "tp": 196
+    },
+    "locations": {
+      "fn": 64,
+      "fp": 64,
+      "micro_f1": 0.4666666666666667,
+      "tp": 56
+    },
+    "party_size": {
+      "fn": 22,
+      "fp": 13,
+      "micro_f1": 0.8582995951417004,
+      "tp": 106
+    },
+    "preferences_requirements": {
+      "fn": 110,
+      "fp": 108,
+      "micro_f1": 0.5807692307692308,
+      "tp": 151
+    }
+  },
+  "output_coverage": 1.0,
+  "predictions_sha256": "52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11",
+  "product_outputs_sha256": "52294de76511ec144caf94b22e2325388e942518c567256a3f2b3559c64b9d11",
+  "run_id": "trip-nlu-frozen_blind-4439e978-f165-408d-86fb-0caa660e342a",
+  "run_spec_sha256": "00ffb84d751d27ee7b5f7a99eff0735048900ce2423603724e27dc3bb11afe76",
+  "schema_validity": 1.0,
+  "schema_version": "trip-nlu-v2-gate-receipt-v1"
+}
