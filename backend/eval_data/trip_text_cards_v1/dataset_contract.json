@@ -1,0 +1,35 @@
+{
+  "case_count": 90,
+  "dataset_version": "g01-text-card-dataset-v1",
+  "family_count": 30,
+  "files": {
+    "adjudication.schema.json": "7d97924134f35a65b5691c4bf525c54a94c1576ce0bc8733f43add3c819507fb",
+    "annotation.schema.json": "4f82afbea940fe6a71b5907ad034d116932dd2547f503a7271594b7620c6fee7",
+    "dev.inputs.jsonl": "fb0a55eaae20f4a6ea6bbaee39a7ce6e81c673a43f294bb2953fdc0baf7c6118",
+    "frozen_blind.inputs.jsonl": "a1d98c44ba5626513546c0c525e335623acbac1ef7f9e1d4431995131c602008",
+    "generation_receipt.json": "b5c6fc6e1c3d790e03e342ea1b921eed41ff3dae9d539efeb83a38ff3aae7fc5",
+    "input.schema.json": "7475b09481f64a42e04969addc7fd2193a1d5850861d19ce73cc6dca23262bdc",
+    "prediction.schema.json": "7ec739cb327b2fc71b6a314deabc32a5d54fe56bf75b4debf65366855e841084",
+    "runtime_evidence.schema.json": "42964e2bdc649d66316c6a283d0ca5b4a7f1fe2f938a8302be147553c2598e0d",
+    "validation.inputs.jsonl": "1e550a45efe2cfa4efb178c624b677701b3f1edb834a696e39aca9a7226c8780"
+  },
+  "gate_claim": "NOT_RUN",
+  "generator_sha256": "af01cfafd8b7cadad6f20119aaecafa9c79cbdd7042d8b27707f1e63a70539a0",
+  "required_cohort_counts": {
+    "ADVERSARIAL": 15,
+    "DEEP_CITY": 60,
+    "OTHER_CITY": 15
+  },
+  "required_split_counts": {
+    "dev": 54,
+    "frozen_blind": 18,
+    "validation": 18
+  },
+  "schema_version": "g01-text-card-dataset-contract-v1",
+  "truth_custody": {
+    "dev_validation": "DUAL_HUMAN_ANNOTATION_REQUIRED",
+    "frozen_blind": "EXTERNAL_CUSTODIAN_ONLY",
+    "repository_truth_payloads": 0,
+    "sealed_blind_runs_consumed": 0
+  }
+}

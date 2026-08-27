@@ -1,0 +1,201 @@
+{
+  "$defs": {
+    "EvidenceArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "subject_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Subject Commit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_path",
+        "sha256",
+        "subject_commit"
+      ],
+      "title": "EvidenceArtifactRef",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "amap_persistence_status": {
+      "enum": [
+        "WRITTEN_PERMISSION_CONFIRMED",
+        "BLOCKED_PENDING_WRITTEN_PERMISSION"
+      ],
+      "title": "Amap Persistence Status",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/EvidenceArtifactRef"
+      },
+      "minItems": 1,
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "browser_scenarios_pass": {
+      "title": "Browser Scenarios Pass",
+      "type": "boolean"
+    },
+    "budget_boundaries_pass": {
+      "title": "Budget Boundaries Pass",
+      "type": "boolean"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "cards_ready_p95_ms": {
+      "minimum": 0.0,
+      "title": "Cards Ready P95 Ms",
+      "type": "number"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "demo_unauthorized_accesses": {
+      "minimum": 0,
+      "title": "Demo Unauthorized Accesses",
+      "type": "integer"
+    },
+    "duplicate_event_side_effects": {
+      "minimum": 0,
+      "title": "Duplicate Event Side Effects",
+      "type": "integer"
+    },
+    "first_progress_max_ms": {
+      "minimum": 0.0,
+      "title": "First Progress Max Ms",
+      "type": "number"
+    },
+    "full_unauthorized_accesses": {
+      "minimum": 0,
+      "title": "Full Unauthorized Accesses",
+      "type": "integer"
+    },
+    "job_restart_lease_sse_pass": {
+      "title": "Job Restart Lease Sse Pass",
+      "type": "boolean"
+    },
+    "map_edit_provider_calls": {
+      "minimum": 0,
+      "title": "Map Edit Provider Calls",
+      "type": "integer"
+    },
+    "map_fixture_edge_count": {
+      "minimum": 0,
+      "title": "Map Fixture Edge Count",
+      "type": "integer"
+    },
+    "map_fixture_snapshot_p95_ms": {
+      "minimum": 0.0,
+      "title": "Map Fixture Snapshot P95 Ms",
+      "type": "number"
+    },
+    "map_fixture_trip_count": {
+      "minimum": 0,
+      "title": "Map Fixture Trip Count",
+      "type": "integer"
+    },
+    "map_fixture_usable_coverage": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Map Fixture Usable Coverage",
+      "type": "number"
+    },
+    "map_late_pointer_overwrites": {
+      "minimum": 0,
+      "title": "Map Late Pointer Overwrites",
+      "type": "integer"
+    },
+    "map_live_snapshot_p95_ms": {
+      "minimum": 0.0,
+      "title": "Map Live Snapshot P95 Ms",
+      "type": "number"
+    },
+    "map_live_usable_coverage": {
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Map Live Usable Coverage",
+      "type": "number"
+    },
+    "map_logical_duplicate_calls": {
+      "minimum": 0,
+      "title": "Map Logical Duplicate Calls",
+      "type": "integer"
+    },
+    "partial_result_on_provider_failure": {
+      "title": "Partial Result On Provider Failure",
+      "type": "boolean"
+    },
+    "privacy_leak_hits": {
+      "minimum": 0,
+      "title": "Privacy Leak Hits",
+      "type": "integer"
+    },
+    "qwen_binding_status": {
+      "enum": [
+        "EXACT_ACCOUNT_BINDING_CONFIRMED",
+        "NOT_READY"
+      ],
+      "title": "Qwen Binding Status",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-text-card-runtime-evidence-v1",
+      "default": "g01-text-card-runtime-evidence-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "ttl_claim_delete_readback_pass": {
+      "title": "Ttl Claim Delete Readback Pass",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "qwen_binding_status",
+    "amap_persistence_status",
+    "first_progress_max_ms",
+    "cards_ready_p95_ms",
+    "partial_result_on_provider_failure",
+    "browser_scenarios_pass",
+    "job_restart_lease_sse_pass",
+    "duplicate_event_side_effects",
+    "full_unauthorized_accesses",
+    "demo_unauthorized_accesses",
+    "ttl_claim_delete_readback_pass",
+    "privacy_leak_hits",
+    "budget_boundaries_pass",
+    "map_edit_provider_calls",
+    "map_logical_duplicate_calls",
+    "map_late_pointer_overwrites",
+    "map_fixture_trip_count",
+    "map_fixture_edge_count",
+    "map_fixture_usable_coverage",
+    "map_fixture_snapshot_p95_ms",
+    "map_live_usable_coverage",
+    "map_live_snapshot_p95_ms",
+    "artifacts"
+  ],
+  "title": "RuntimeGateEvidence",
+  "type": "object"
+}
