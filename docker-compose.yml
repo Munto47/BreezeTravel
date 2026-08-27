@@ -90,11 +90,7 @@ services:
         condition: service_healthy
 
   trip-understanding-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      args:
-        PYTHON_BASE_IMAGE: ${BACKEND_PYTHON_IMAGE:-python:3.11.11-slim-bookworm}
+    image: agenttravel-backend:latest
     env_file:
       - ${BREEZETRAVEL_ENV_FILE:-.env}
     environment:
