@@ -25,7 +25,7 @@ SCENARIOS = {
     "上海": ("外滩", "豫园", "东方明珠广播电视塔"),
     "杭州": ("西湖风景名胜区", "灵隐寺", "雷峰塔"),
 }
-TERMINAL = {"WAITING", "SUCCEEDED", "PARTIAL", "FAILED", "PRIVACY_BLOCKED", "CANCELLED"}
+FAILED_TERMINAL = {"FAILED", "PRIVACY_BLOCKED", "CANCELLED"}
 
 
 class LocalE2EError(RuntimeError):
@@ -174,8 +174,15 @@ def _run_spec(commit_sha: str, *, fault_profile: str = "none") -> dict[str, Any]
 def _poll_run(client: HttpClient, run_id: str) -> dict[str, Any]:
     for _ in range(240):
         current = client.request("GET", f"/api/trip-check-runs/{run_id}", record=False).body
-        if isinstance(current, dict) and current.get("status") in TERMINAL:
-            return current
+        if isinstance(current, dict):
+            status = current.get("status")
+            stage = current.get("stage")
+            if status in FAILED_TERMINAL or (
+                stage == "WAIT_ADOPTION"
+                and status in {"WAITING", "PARTIAL"}
+                and isinstance(current.get("report_id"), str)
+            ) or (stage == "POSTCHECK" and status == "SUCCEEDED"):
+                return current
         time.sleep(0.25)
     raise LocalE2EError(f"Trip Check run {run_id} did not reach a terminal/adoption state")
 
