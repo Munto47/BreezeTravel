@@ -1,7 +1,9 @@
 # G01-S0 现场 Preflight、旧入口隔离与 v3 公共边界
 
-日期：2026-08-27  
-Goal：`TC-VNEXT-G01-TEXT-CARDS`  
+日期：2026-08-27
+
+Goal：`TC-VNEXT-G01-TEXT-CARDS`
+
 结论：`S0_READY_FOR_CHECKPOINT`
 
 ## 1. 现场基线
