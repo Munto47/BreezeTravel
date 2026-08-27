@@ -51,8 +51,9 @@ export default function ImportResolutionPanel({
         {itineraryImport.raw_stops.map((rawStop) => {
           const resolution = resolutionByStop.get(rawStop.raw_stop_id)
           const resolved = resolution?.resolution_status === 'AUTO_MATCHED' || resolution?.resolution_status === 'USER_CONFIRMED'
-          const canonicalCandidate = resolution?.candidates.find(
-            candidate => candidate.place_id === resolution.canonical_place_id,
+          const candidates = resolution?.candidates ?? []
+          const canonicalCandidate = candidates.find(
+            candidate => candidate.place_id === resolution?.canonical_place_id,
           )
           return (
             <article key={rawStop.raw_stop_id} className="rounded-xl border border-slate-200 p-4">
@@ -74,7 +75,7 @@ export default function ImportResolutionPanel({
                     原文 {rawStop.source_span.start}–{rawStop.source_span.end}：{rawStop.source_sentence}
                   </p>
 
-                  {resolution && !resolved && resolution.candidates.length > 0 && (
+                  {!resolved && candidates.length > 0 && (
                     <div className="mt-3">
                       <label className="mb-1 block text-xs font-medium text-slate-600">
                         {usesFixtureCandidates ? '请选择候选地点（本地 fixture）' : '请选择候选地点'}
@@ -85,7 +86,7 @@ export default function ImportResolutionPanel({
                         className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-coral-400"
                       >
                         <option value="">尚未确认</option>
-                        {resolution.candidates.map(candidate => (
+                        {candidates.map(candidate => (
                           <option key={candidate.place_id} value={candidate.place_id}>
                             {candidate.name} · {candidate.district ?? candidate.city} · {(candidate.score * 100).toFixed(0)}%
                           </option>
@@ -94,9 +95,9 @@ export default function ImportResolutionPanel({
                     </div>
                   )}
 
-                  {resolution && !resolved && (
+                  {!resolved && (
                     <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                      {resolution.candidates.length === 0 && (
+                      {candidates.length === 0 && (
                         <p className="mb-2 text-xs text-rose-600">未找到可靠候选。请修改关键词重新检索，不能手填或静默生成 POI。</p>
                       )}
                       <div className="flex flex-col gap-2 sm:flex-row">
