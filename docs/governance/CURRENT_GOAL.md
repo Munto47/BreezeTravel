@@ -16,7 +16,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Implementation baseline/upstream：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`，现场`ls-remote`与clean-tree readback `PASS`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
-- Latest delivered checkpoint：FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，tree `c3cfcf955aeb1a72ce44b78e1e779bac3e32a7f0`；远端hash/subject/tree/file readback `PASS`
+- Latest delivered checkpoint：卡片commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`，tree `c413810a7893f68fe17778e1331d772f75ae6070`；远端hash/subject/tree/file readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
 - Required gate：`Text Card Gate`
@@ -133,7 +133,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
 - canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
 - implementation baseline：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`；写入前`ls-remote`、HEAD与clean-tree一致；
-- current delivered subject：`origin/codex/trip-check-product-reset@2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，tree `c3cfcf955aeb1a72ce44b78e1e779bac3e32a7f0`，远端文件readback与clean-tree `PASS`；
+- current delivered subject：`origin/codex/trip-check-product-reset@dacee589d9dbfb04a94ae7acc04a00946abc4710`，tree `c413810a7893f68fe17778e1331d772f75ae6070`，远端文件readback与clean-tree `PASS`；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
@@ -172,6 +172,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 | 2026-08-27 | G01-S0完成：旧入口处置、99路径兼容基线、v3公共边界和Provider边界已固化；尚未交付新页面 | `7986214c1b236217ceb5d2d55f8cecc882e03f2b` | 6组件/12页面/99旧路径/6源码新增路径/29模块/220测试组唯一归类PASS；legacy方法零缺失；冻结diff为0；S0 pytest 2 PASS/1环境SKIP；Ruff PASS；历史Candidate原样18 PASS/3 SKIP/2 FAIL；subject push、`ls-remote`、subject/tree/远端文件readback PASS | `S0_CHECKPOINT / HISTORICAL_FAILURE_DIAGNOSED` | migration 028、持久worker、v3 create/events/result和北京三日六卡UI | Candidate绑定失效保持FROZEN；Qwen NOT_READY；AMap等待书面许可；不阻塞fixture纵向切片 | 实现migration 028及持久化DEMO create→events→result链 |
 | 2026-08-27 | 固定北京体验已贯穿真实v3 create/events/result：匿名用户从无前置表单首页得到Day 1～3六张地点卡，刷新可恢复；地图与住宿诚实显示不可用 | Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`；compat `3106fe00b755e603bce5517f5ddea71e78e17214` | 原生Windows全量`2026 PASS / 33 SKIP / 2 FAIL`，仅两项登记的Candidate绑定失败；定向10 PASS；Ruff PASS；frontend build PASS；共享client typecheck/build PASS；真实Compose Playwright 1 PASS；应用内浏览器create/六卡/刷新/DOM脱敏/console回读PASS；028 applied=1、v3 tables=14、旧rooms=5171；remote hash/subject/tree/file readback PASS | `FIXTURE_DEMO_VERTICAL_SLICE / AUTOMATED_LOCAL_BROWSER` | FULL文本语义、真实登录所有权、地点解析、卡片commands、claim/source与整程删除、029初次地图任务、90条数据与Text Card Gate | 历史Candidate保持`HISTORICAL_BINDING_INVALID / FROZEN`；Qwen `NOT_READY`；AMap `BLOCKED_PENDING_WRITTEN_PERMISSION`；本轮完整后端镜像重建因锁定PaddlePaddle 194.8MB在慢镜像源下载而中止，但运行中backend/worker已是相同运行时代码的d6ab镜像，3106仅改离线兼容脚本，前端3106镜像已切换；H1/公网/生产/商业/main `NOT_RUN` | 从当前checkpoint实现FULL登录文本链、严格地点资格与持久结果，再交付commands/删除/claim和029地图任务 |
 | 2026-08-27 | 登录用户可在首页直接粘贴1～50,000字符文本，经真实持久worker得到逐日卡片并刷新恢复；未知或仅参考内容不虚构地点；用户Source与逐字claim加密，公共结果和DOM不含原文/内部字段 | `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50` | FULL/DEMO单元与API 10 PASS；S0/兼容定向13 PASS/1环境SKIP；PostgreSQL fresh-db integration 1 PASS，证明登录所有权、跨用户拒绝、密文Source/quote、重放和旧表兼容；Ruff PASS；frontend生产build PASS；真实Compose Playwright 2 PASS；runtime日志原文命中0、实际resource path命中0、脱敏模板22；remote hash/subject/tree/file和clean-tree PASS | `CONSERVATIVE_FULL_TEXT_VERTICAL_SLICE / LOCAL_FIXTURE / AUTOMATED_BROWSER` | 卡片commands、claim、source/整程/账号删除、029初次地图任务、90条受治理数据、模型/Provider准入与Text Card Gate | 当前FULL语义为保守确定性+受控POI snapshot，不代表Qwen/AMap live；Qwen `NOT_READY`、AMap `BLOCKED_PENDING_WRITTEN_PERMISSION`；历史Candidate冻结失败未变；H1/公网/生产/商业/main `NOT_RUN` | 实现If-Match+幂等的卡片commands及claim/删除隐私链，再交付029地图job |
+| 2026-08-27 | 用户可在结果页排序、跨天移动、插入、编辑、替换和删除卡片，也可修改软假设；每次调整产生新ETag/不可变revision并明确提示地图需要手动更新 | `dacee589d9dbfb04a94ae7acc04a00946abc4710` | commands六分支纯函数与API/CAS定向14 PASS；PostgreSQL fresh-db integration 1 PASS；Ruff PASS；frontend生产build PASS；真实Compose Playwright 2 PASS并在同一FULL资源执行排序/插入/编辑/删除/刷新；runtime readback revision 2→6、understanding job=1、Provider side-effect=1、map=NEEDS_UPDATE；actual resource path日志命中0；remote hash/subject/tree/file和clean-tree PASS | `REVISION_SAFE_COMMANDS / LOCAL_FIXTURE / AUTOMATED_BROWSER` | DEMO claim、source/整程/账号删除、029初次地图任务、90条数据、Provider准入与Text Card Gate | 卡片token按revision轮换；编辑不会触发路线；live门禁和历史Candidate边界未变化 | 实现claim与三层删除的授权、幂等、回执和fresh readback |
 
 ## Auto-advance
 
@@ -182,12 +183,12 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Completion record
 
 - Status：`PENDING`；
-- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`；commands/隐私操作/029与Text Card Gate仍未完成；
+- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`；隐私操作/029与Text Card Gate仍未完成；
 - Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
 - Verification / Evidence / Gate result：`FIXTURE_DEMO_AND_CONSERVATIVE_FULL_LOCAL_AUTOMATED_PASS / LIVE_PROVIDER_NOT_RUN / TEXT_CARD_GATE_PENDING`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
-- User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验；登录后可直接粘贴文本并由持久v3链生成卡片、SSE通知和刷新恢复。当前地点解析是fixture证据，不是真人、公网或生产证据；
-- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；commands/删除/claim、029初次地图任务、90条数据和Text Card Gate尚未完成；
+- User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验；登录后可粘贴文本生成卡片并执行排序、移动、插入、编辑、替换、删除和假设调整，刷新后从PostgreSQL恢复。当前地点解析是fixture证据，不是真人、公网或生产证据；
+- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；删除/claim、029初次地图任务、90条数据和Text Card Gate尚未完成；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
