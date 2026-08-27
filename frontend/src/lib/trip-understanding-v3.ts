@@ -1,0 +1,89 @@
+export interface TripUnderstandingAcceptedView {
+  public_resource_id: string
+  status: 'PROCESSING'
+  message: string
+  result_url: string
+  events_url: string
+}
+
+export interface TripUnderstandingProgressView {
+  status: 'PROCESSING'
+  message: string
+  retry_after_ms: number
+}
+
+export interface AssumptionChipView {
+  key: 'destination' | 'calendar' | 'party_size'
+  label: string
+  value: string
+  editable: boolean
+}
+
+export interface ActivityCardView {
+  activity_token: string
+  name: string
+  category: string
+  area_or_address: string
+  time_hint: string | null
+  status: 'READY' | 'NEEDS_CONFIRMATION'
+  available_actions: Array<'VIEW_DETAILS' | 'REPLACE' | 'DELETE' | 'MOVE'>
+}
+
+export interface UserFacingTripResult {
+  status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY'
+  assumptions: AssumptionChipView[]
+  days: Array<{ label: string; activities: ActivityCardView[] }>
+  map: {
+    status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+    message: string
+    available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
+  }
+  stay: {
+    status: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+    message: string
+    candidates: unknown[]
+    available_actions: Array<'CHOOSE_STAY'>
+  }
+  available_actions: Array<'EDIT_ASSUMPTIONS' | 'EDIT_CARDS'>
+}
+
+function requestKey(): string {
+  const values = new Uint32Array(4)
+  crypto.getRandomValues(values)
+  return Array.from(values, (value) => value.toString(16).padStart(8, '0')).join('')
+}
+
+export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAcceptedView> {
+  const response = await fetch('/api/v3/trip-understandings', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': requestKey(),
+    },
+    body: JSON.stringify({ mode: 'DEMO' }),
+  })
+  if (!response.ok) throw new Error('DEMO_CREATE_FAILED')
+  return response.json() as Promise<TripUnderstandingAcceptedView>
+}
+
+export async function readTripUnderstandingResult(publicResourceId: string): Promise<{
+  status: number
+  body: TripUnderstandingProgressView | UserFacingTripResult
+  etag: string | null
+}> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
+    { credentials: 'include', cache: 'no-store' },
+  )
+  if (!response.ok) throw new Error('TRIP_RESULT_UNAVAILABLE')
+  return {
+    status: response.status,
+    body: (await response.json()) as TripUnderstandingProgressView | UserFacingTripResult,
+    etag: response.headers.get('etag'),
+  }
+}
+
+export function tripUnderstandingEventsUrl(publicResourceId: string): string {
+  return `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/events`
+}

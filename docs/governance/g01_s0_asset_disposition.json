@@ -34,8 +34,8 @@
     ]
   },
   "source_openapi_observation": {
-    "path_count": 105,
-    "v3_path_count": 0,
+    "path_count": 108,
+    "v3_path_count": 3,
     "legacy_99_missing_methods": [],
     "paths_not_in_legacy_snapshot": [
       "/api/rooms/{room_id}/trip-intakes",
@@ -43,7 +43,10 @@
       "/api/rooms/{room_id}/trip-intakes/screenshots",
       "/api/trip-intakes/{intake_id}/revisions/{revision}",
       "/api/trip-intakes/{intake_id}/revisions/{revision}/confirm",
-      "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize"
+      "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize",
+      "/api/v3/trip-understandings",
+      "/api/v3/trip-understandings/{public_resource_id}/events",
+      "/api/v3/trip-understandings/{public_resource_id}/result"
     ]
   },
   "surfaces": {
@@ -84,7 +87,7 @@
     "pages": {
       "root": "frontend/src/app",
       "selector": "**/page.tsx",
-      "observed_count": 12,
+      "observed_count": 13,
       "rules": [
         {
           "disposition": "ADAPT",
@@ -93,7 +96,8 @@
             "frontend/src/app/about/page.tsx",
             "frontend/src/app/history/page.tsx",
             "frontend/src/app/login/page.tsx",
-            "frontend/src/app/profile/page.tsx"
+            "frontend/src/app/profile/page.tsx",
+            "frontend/src/app/trip/result/page.tsx"
           ]
         },
         {
@@ -175,20 +179,24 @@
       ]
     },
     "source_api_additions": {
-      "observed_count": 6,
+      "observed_count": 9,
       "assets": [
         "/api/rooms/{room_id}/trip-intakes",
         "/api/rooms/{room_id}/trip-intakes/latest",
         "/api/rooms/{room_id}/trip-intakes/screenshots",
         "/api/trip-intakes/{intake_id}/revisions/{revision}",
         "/api/trip-intakes/{intake_id}/revisions/{revision}/confirm",
-        "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize"
+        "/api/trip-intakes/{intake_id}/revisions/{revision}/materialize",
+        "/api/v3/trip-understandings",
+        "/api/v3/trip-understandings/{public_resource_id}/events",
+        "/api/v3/trip-understandings/{public_resource_id}/result"
       ],
       "rules": [
         {
           "disposition": "ADAPT",
           "patterns": [
-            "/api/trip-intakes/*"
+            "/api/trip-intakes/*",
+            "/api/v3/trip-understandings*"
           ]
         },
         {
@@ -201,7 +209,7 @@
     },
     "backend_modules": {
       "root": "backend/app",
-      "observed_count": 29,
+      "observed_count": 30,
       "rules": [
         {
           "disposition": "KEEP",
@@ -231,7 +239,8 @@
             "backend/app/data",
             "backend/app/main.py",
             "backend/app/tools",
-            "backend/app/trip_intake"
+            "backend/app/trip_intake",
+            "backend/app/trip_understanding"
           ]
         },
         {

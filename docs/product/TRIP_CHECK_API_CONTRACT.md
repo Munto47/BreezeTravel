@@ -4,7 +4,7 @@
 >
 > 版本：`trip-check-api-v3`
 >
-> 实现状态：`G01_S0_BOUNDARY_FROZEN / DEMO_NOT_YET_IMPLEMENTED`
+> 实现状态：`G01_DEMO_VERTICAL_SLICE_IMPLEMENTED / FULL_NOT_YET_EXPOSED`
 >
 > 日期：2026-08-27
 
@@ -129,7 +129,7 @@ S0固定以下可公开实现范围，未列出的目标合同仍保持`NOT_IMPL
 ### 3.1 创建与结果
 
 - `POST /api/v3/trip-understandings`
-  - 输入：文本来源、`FULL/DEMO` 模式；`FULL`必须登录，`DEMO`只使用固定北京示例；
+  - 当前首切片只接受严格对象`{"mode":"DEMO"}`并使用固定北京示例；未来文本来源使用独立`FULL`分支，真实文本链完成前不进入OpenAPI；
   - 要求 `Idempotency-Key`；
   - 返回 `202`、随机非秘密`public_resource_id`、用户状态与events URL；它不含内部UID且不承担授权，不能进入用户文案或分析事件。访问日志必须记录路由模板或脱敏值，不能记录实际路径ID。
 - `GET /api/v3/trip-understandings/{id}/result`

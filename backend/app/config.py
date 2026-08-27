@@ -147,7 +147,18 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "027_trip_intake_revision_lineage.sql"
+    required_migration: str = "028_trip_understanding_v3.sql"
+
+    # Trip Understanding v3 anonymous-demo boundary.  The signing key falls
+    # back to the existing JWT secret so local fixture stacks need no new
+    # secret; public deployments must already provide a non-default secret.
+    trip_understanding_cookie_name: str = "bt_demo_capability"
+    trip_understanding_cookie_signing_key: str = ""
+    trip_understanding_demo_ttl_hours: int = 24
+    trip_understanding_job_lease_seconds: int = 30
+    trip_understanding_worker_poll_seconds: float = 0.5
+    trip_understanding_sse_poll_seconds: float = 0.25
+    trip_understanding_sse_max_seconds: float = 15.0
     memory_enabled_default: bool = True
     memory_min_confidence: float = 0.65
     memory_ttl_days: int = 180

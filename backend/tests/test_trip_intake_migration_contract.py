@@ -8,7 +8,7 @@ LINEAGE_MIGRATION = Path("app/db/migrations/027_trip_intake_revision_lineage.sql
 
 
 def test_runtime_requires_trip_intake_v2_migration() -> None:
-    assert Settings().required_migration == "027_trip_intake_revision_lineage.sql"
+    assert Settings().required_migration == "028_trip_understanding_v3.sql"
 
 
 def test_lineage_migration_removes_only_the_conflicting_room_intake_constraint() -> None:

@@ -1,200 +1,87 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
+import type { LucideIcon } from 'lucide-react'
 import {
-  Compass, ArrowLeft, Building2, Globe, Mail,
-  Sparkles, Route, MessageSquare, ShieldCheck, Cpu, Database,
-  MapPin, FileCheck2, RefreshCw,
+  ArrowLeft,
+  Building2,
+  Compass,
+  FileText,
+  MapPinned,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react'
+
 
 export default function AboutPage() {
   const router = useRouter()
 
-  const techStack = [
-    { icon: <Cpu className="w-3.5 h-3.5" />, label: 'FastAPI 模块化单体' },
-    { icon: <Database className="w-3.5 h-3.5" />, label: 'PostgreSQL 权威状态' },
-    { icon: <ShieldCheck className="w-3.5 h-3.5" />, label: 'AuditEngine 确定性核验' },
-    { icon: <FileCheck2 className="w-3.5 h-3.5" />, label: 'Provider Evidence Receipt' },
-    { icon: <RefreshCw className="w-3.5 h-3.5" />, label: 'Revision 与完整 postcheck' },
-    { icon: <Route className="w-3.5 h-3.5" />, label: '地点与路线证据绑定' },
-  ]
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 p-4 overflow-auto">
-      {/* 背景装饰 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-coral-100/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-blue-100/30 rounded-full blur-3xl" />
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl mx-auto relative z-10 py-6"
-      >
-        {/* 顶栏 */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => router.push('/')}
-            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-coral-500 transition-colors px-3 py-1.5 rounded-xl hover:bg-coral-50 border border-gray-200"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
+    <main className="min-h-screen bg-[#f8f7f2] px-5 py-6 text-slate-900 sm:px-8">
+      <div className="mx-auto w-full max-w-3xl">
+        <header className="flex items-center justify-between border-b border-slate-200 pb-5">
+          <button type="button" onClick={() => router.push('/')} className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-slate-600 transition hover:bg-white">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             返回首页
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-coral-500 flex items-center justify-center shadow-md shadow-coral-200">
-              <Compass className="w-4.5 h-4.5 text-white" strokeWidth={2} />
-            </div>
-            <span className="text-sm font-bold text-gray-900">BreezeTravel</span>
+          <div className="flex items-center gap-2 text-sm font-semibold">
+            <Compass className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+            BreezeTravel · 行程查
           </div>
-        </div>
+        </header>
 
-        {/* Hero */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-8 mb-4 text-center">
-          <div className="inline-flex items-center gap-1.5 text-[10px] text-coral-500 bg-coral-50 px-3 py-1 rounded-full mb-3 border border-coral-100">
-            <Sparkles className="w-3 h-3" /> 关于本项目
+        <section className="py-10 sm:py-14">
+          <div className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            少填表，先把行程看明白
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">BreezeTravel · 微风出行</h1>
-          <p className="text-sm text-gray-500 leading-relaxed max-w-md mx-auto">
-            帮助 2～5 人核验北京、上海或杭州的 2～5 天单城市行程，发现地点、时间、交通、住宿、天气与风险问题。
+          <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-5xl">把一段攻略整理成每天都能照着走的卡片</h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
+            用户粘贴攻略或上传截图后，系统按天整理地点，给出路线、住宿和少量可直接采纳的建议。北京、上海和杭州会提供更深入的地点与路线核对；其他国内城市先提供基础整理，并如实提示能力边界。
           </p>
-        </div>
 
-        {/* 产品特性 */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-6 mb-4">
-          <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">产品特性</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {[
-              { icon: <FileCheck2 className="w-4 h-4 text-coral-500" />, title: '有依据地核验', desc: '事实、Finding 与回执分开保存' },
-              { icon: <ShieldCheck className="w-4 h-4 text-blue-500" />, title: '不确定性确认', desc: 'UNKNOWN 不伪装成通过' },
-              { icon: <RefreshCw className="w-4 h-4 text-emerald-500" />, title: '修改可追溯', desc: '新 Revision 后完整 postcheck' },
-            ].map(f => (
-              <div key={f.title} className="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
-                <div className="flex items-center gap-1.5 mb-1">{f.icon}<span className="text-sm font-semibold text-gray-800">{f.title}</span></div>
-                <p className="text-xs text-gray-400">{f.desc}</p>
-              </div>
-            ))}
+          <div className="mt-9 grid gap-4 sm:grid-cols-3">
+            <Feature icon={FileText} title="直接给攻略" text="不要求先选城市、日期、人数，也不用理解项目术语。" />
+            <Feature icon={MapPinned} title="先看每日卡片" text="描述句、网址和明确排除的地点不会混入行程。" />
+            <Feature icon={ShieldCheck} title="不确定就说明" text="缺少数据时保留待确认，不把猜测说成确定事实。" />
           </div>
-        </div>
+        </section>
 
-        {/* 开发主体 / 备案信息 */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-6 mb-4">
-          <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">开发主体 & 网站信息</p>
-          <div className="space-y-3">
-            <InfoRow icon={<Building2 className="w-4 h-4 text-coral-500" />} label="开发主体">
-              <span className="font-semibold text-gray-900">新余高新区微风软件工作室</span>
-              <span className="ml-2 text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">个体工商户</span>
-            </InfoRow>
-            <InfoRow icon={<ShieldCheck className="w-4 h-4 text-coral-500" />} label="统一社会信用代码">
-              <code className="text-gray-700 font-mono text-sm bg-gray-50 px-2 py-0.5 rounded border border-gray-100">92360504MAEM4YY03C</code>
-            </InfoRow>
-            <InfoRow icon={<MapPin className="w-4 h-4 text-blue-500" />} label="注册地">
-              <span className="text-gray-700">江西省新余市 高新技术产业开发区</span>
-            </InfoRow>
-            <InfoRow icon={<Globe className="w-4 h-4 text-emerald-500" />} label="官方网址">
-              <a
-                href="https://www.breezetravel.cn"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-coral-500 hover:underline font-mono"
-              >
-                www.breezetravel.cn
-              </a>
-            </InfoRow>
-            <InfoRow icon={<ShieldCheck className="w-4 h-4 text-amber-500" />} label="ICP 备案号">
-              <a
-                href="https://beian.miit.gov.cn/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-700 font-mono text-sm hover:text-coral-500 hover:underline"
-              >
-                赣ICP备2026008973号-2
-              </a>
-            </InfoRow>
+        <section id="privacy" className="scroll-mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-lg shadow-slate-200/40 sm:p-8">
+          <h2 className="text-xl font-semibold">隐私与体验数据</h2>
+          <div className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
+            <p>当前北京示例由服务端固定提供，不会上传你的攻略，也不会调用真实地图或外部智能服务。</p>
+            <p>匿名体验由浏览器里的安全会话保护，结果最多保留 24 小时；随机访问地址本身不能替代访问权限。</p>
+            <p>未来的攻略、截图和聊天默认不会进入长期记忆。截图处理结束后会清理原图，只保留必要的清理记录。</p>
           </div>
-        </div>
+        </section>
 
-        {/* 技术栈 */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-6 mb-4">
-          <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">核心技术栈</p>
-          <div className="flex flex-wrap gap-2">
-            {techStack.map(t => (
-              <span
-                key={t.label}
-                className="inline-flex items-center gap-1.5 text-xs text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100"
-              >
-                {t.icon}{t.label}
-              </span>
-            ))}
+        <section className="mt-5 rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100">
+              <Building2 className="h-5 w-5 text-slate-600" aria-hidden="true" />
+            </div>
+            <div>
+              <h2 className="font-semibold">开发主体</h2>
+              <p className="mt-1 text-sm text-slate-600">新余高新区微风软件工作室</p>
+              <p className="mt-1 text-xs text-slate-400">赣ICP备2026008973号-2</p>
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/* 知识产权声明 */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-6 mb-4">
-          <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">知识产权声明</p>
-          <div className="space-y-2 text-xs text-gray-600 leading-relaxed">
-            <p>
-              本产品（BreezeTravel · 微风出行）由
-              <span className="font-semibold text-gray-900"> 新余高新区微风软件工作室 </span>
-              独立设计、开发并享有完整著作权。
-            </p>
-            <p>
-              产品名称 <span className="font-mono text-coral-500">BreezeTravel</span>、域名
-              <span className="font-mono text-coral-500"> www.breezetravel.cn</span>、相关源代码与 UI 设计
-              均为本工作室依法持有或在相应许可范围内使用的资产。
-            </p>
-            <p>
-              未经书面授权，任何单位或个人不得复制、分发、二次开发或用于商业用途。
-            </p>
-          </div>
-        </div>
-
-        {/* 联系方式 */}
-        <div className="glass-panel-solid rounded-2xl shadow-glass p-6 mb-6">
-          <p className="text-[11px] font-medium text-gray-500 mb-3 uppercase tracking-wider">联系我们</p>
-          <div className="space-y-2">
-            <InfoRow icon={<Mail className="w-4 h-4 text-coral-500" />} label="商务合作">
-              <span className="text-gray-700">通过官网联系表单提交</span>
-            </InfoRow>
-            <InfoRow icon={<MessageSquare className="w-4 h-4 text-gray-700" />} label="技术反馈">
-              <span className="text-gray-700">访问 www.breezetravel.cn 留言</span>
-            </InfoRow>
-          </div>
-        </div>
-
-        <p className="text-center text-[11px] text-gray-300 mb-2">
-          © 2026 新余高新区微风软件工作室 · BreezeTravel All Rights Reserved.
-        </p>
-        <p className="text-center text-[11px] text-gray-400 mb-1">
-          <a
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-coral-500 hover:underline"
-          >
-            赣ICP备2026008973号-2
-          </a>
-        </p>
-        <p className="text-center text-[10px] text-gray-300">
-          当前能力与证据等级以只读候选 evidence 中的披露为准；自动验证不等于真人证据。
-        </p>
-      </motion.div>
-    </div>
+        <footer className="py-8 text-center text-xs text-slate-400">© 2026 BreezeTravel</footer>
+      </div>
+    </main>
   )
 }
 
-function InfoRow({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+
+function Feature({ icon: Icon, title, text }: { icon: LucideIcon; title: string; text: string }) {
   return (
-    <div className="flex items-start gap-3 py-1.5">
-      <div className="w-7 h-7 rounded-lg bg-white border border-gray-100 flex items-center justify-center flex-shrink-0 shadow-sm">
-        {icon}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
-        <div className="text-sm">{children}</div>
-      </div>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <Icon className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+      <h2 className="mt-4 font-semibold">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{text}</p>
     </div>
   )
 }
