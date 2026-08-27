@@ -141,6 +141,26 @@ def test_user_correction_becomes_a_new_evidence_source_before_confirmation(monke
     assert confirmed.status_code == 200, confirmed.text
 
 
+def test_incomplete_intake_confirmation_returns_domain_message(monkeypatch) -> None:
+    client = _client(monkeypatch)
+    created = client.post(
+        "/api/rooms/intake-room/trip-intakes",
+        json={"source_type": "MANUAL_TEXT", "raw_text": "想去北京看看，日期和人数还没定"},
+    ).json()
+
+    response = client.post(
+        f"/api/trip-intakes/{created['intake_id']}/revisions/1/confirm",
+        headers={"If-Match": '"1"', "Idempotency-Key": "confirm-incomplete"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == {
+        "code": "TRIP_INTAKE_NOT_READY",
+        "message": "行程草稿尚未满足确认条件，请先补全并保存目的城市、完整日期和正整数人数",
+    }
+    assert "pydantic.dev" not in response.text
+
+
 def test_raw_screenshot_is_ocr_processed_then_only_receipt_metadata_is_persisted(monkeypatch) -> None:
     client = _client(monkeypatch)
     response = client.post(

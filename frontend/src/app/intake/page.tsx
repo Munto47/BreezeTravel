@@ -17,6 +17,36 @@ function partialDate(value: { year: number | null; month: number; day: number } 
 }
 
 
+function normalizedCity(value: string): string {
+  return value.trim().replace(/市$/, '')
+}
+
+
+function extractionMatchesCoreFields(
+  intake: TripIntakeRevision,
+  city: string,
+  startDate: string,
+  endDate: string,
+  partySize: number,
+): boolean {
+  const primary = intake.extraction.locations.mentions.find(
+    item => item.mention_id === intake.extraction.locations.primary_mention_id,
+  )
+  const total = intake.extraction.party_size.total
+  const range = intake.extraction.temporal.date_range
+  return (
+    intake.extraction.locations.status === 'EXACT'
+    && Boolean(primary?.normalized_name)
+    && normalizedCity(primary?.normalized_name || '') === normalizedCity(city)
+    && total.quantifier === 'EXACT'
+    && total.min === partySize
+    && total.max === partySize
+    && partialDate(range?.start) === startDate
+    && partialDate(range?.end) === endDate
+  )
+}
+
+
 export default function TripIntakePage() {
   const router = useRouter()
   const { user, isHydrated, hydrate } = useAuthStore()
@@ -143,11 +173,25 @@ export default function TripIntakePage() {
 
   const confirm = () => run('confirm', async () => {
     if (!intake) return
-    const scope = `confirm-intake:${intake.intake_id}:${intake.revision}`
+    if (!city.trim() || !startDate || !endDate || partySize < 1) {
+      throw new Error('请填写单一国内城市、完整日期和正整数人数')
+    }
+    let target = intake
+    if (!extractionMatchesCoreFields(intake, city, startDate, endDate, partySize)) {
+      const patchScope = `patch-intake:${intake.intake_id}:${intake.revision}`
+      target = await api.patchWithHeaders<TripIntakeRevision>(
+        `/api/trip-intakes/${intake.intake_id}/revisions/${intake.revision}`,
+        { confirmed_values: { city, start_date: startDate, end_date: endDate, party_size: partySize } },
+        { 'If-Match': `"${intake.revision}"`, 'Idempotency-Key': keyFor(patchScope) },
+      )
+      commandKeys.current.delete(patchScope)
+      adoptIntake(target)
+    }
+    const scope = `confirm-intake:${target.intake_id}:${target.revision}`
     const confirmed = await api.postWithHeaders<TripIntakeRevision>(
-      `/api/trip-intakes/${intake.intake_id}/revisions/${intake.revision}/confirm`,
+      `/api/trip-intakes/${target.intake_id}/revisions/${target.revision}/confirm`,
       {},
-      { 'If-Match': `"${intake.revision}"`, 'Idempotency-Key': keyFor(scope) },
+      { 'If-Match': `"${target.revision}"`, 'Idempotency-Key': keyFor(scope) },
     )
     commandKeys.current.delete(scope)
     adoptIntake(confirmed)

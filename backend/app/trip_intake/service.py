@@ -4,6 +4,8 @@ from datetime import date, datetime, timezone
 from hashlib import sha256
 from uuid import uuid4
 
+from pydantic import ValidationError
+
 from app.itineraries.errors import ResourceNotFound
 from app.itineraries.hash_service import sha256_canonical
 from app.trip_intake.extraction import DeterministicTripIntakeExtractor, TripIntakeExtractor
@@ -296,9 +298,14 @@ class TripIntakeApplicationService:
             raise ResourceNotFound("trip intake revision does not exist")
         if base.status == IntakeStatus.READY:
             raise ValueError("confirmed intake revisions are immutable")
-        ready_extraction = TripIntakeExtraction.model_validate(
-            base.extraction.model_copy(update={"readiness": IntakeReadiness.READY}).model_dump()
-        )
+        try:
+            ready_extraction = TripIntakeExtraction.model_validate(
+                base.extraction.model_copy(update={"readiness": IntakeReadiness.READY}).model_dump()
+            )
+        except ValidationError as exc:
+            raise ValueError(
+                "行程草稿尚未满足确认条件，请先补全并保存目的城市、完整日期和正整数人数"
+            ) from exc
         now = datetime.now(timezone.utc)
         confirmed_fields = {
             ConfirmedField.PRIMARY_CITY,

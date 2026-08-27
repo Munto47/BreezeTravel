@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
 
 from app.itineraries.errors import IdempotencyKeyReusedError
 from app.trip_intake.models import IntakeSourceType, IntakeStatus, QuantityQuantifier
@@ -58,7 +57,7 @@ async def test_missing_party_stays_unknown_and_blocks_confirmation() -> None:
 
     assert created.extraction.party_size.total.quantifier == QuantityQuantifier.UNKNOWN
     assert created.extraction.party_size.total.min is None
-    with pytest.raises(ValidationError, match="READY intake requires"):
+    with pytest.raises(ValueError, match="请先补全并保存目的城市、完整日期和正整数人数"):
         await service.confirm(
             intake_id=created.intake_id,
             revision=1,

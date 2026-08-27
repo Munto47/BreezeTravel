@@ -1,48 +1,50 @@
-# COMPLETED GOAL：局域网 HTTP / 旧 WebView UUID 兼容修复
+# IN_PROGRESS GOAL：Trip Intake 确认恢复与完整本地 E2E
 
 ## Metadata
 
-- Goal ID：`TC-DEVICE-UUID-HTTP-HOTFIX`
+- Goal ID：`TC-INTAKE-CONFIRM-E2E-HOTFIX`
 - Program ID：`TC-INTAKE-V2-2026`
-- Status：`COMPLETED`
+- Status：`IN_PROGRESS`
 - Branch：`codex/trip-intake-deepseek-stability`
-- Baseline：`1cd7bb909b22add6315081945a1951d53eae5184`
+- Baseline：`d1292d71e635b0ab36323d168e0ddc054aa00ea5`
 - Approved by / at：User / 2026-08-27
 
 ## Outcome
 
-修复行程查在内置浏览器、局域网 HTTP 和旧 WebView 中因 `crypto.randomUUID` 不可用而无法生成幂等键或命令 ID 的问题，并在用户当前打开的 Intake 页面完成真实交互回读。
+修复不完整 Trip Intake 点击确认时泄漏 Pydantic 校验错误的问题；允许用户在同一确认动作中保存已填写的城市、日期、人数并完成确认。随后使用测试数据完成真实 DeepSeek、冻结 Provider、PostgreSQL 的完整本地 E2E，并在内置浏览器回读用户可见主链。
 
 ## Scope
 
-- 新增统一的浏览器 UUID 兼容函数；
-- 替换 Trip Intake、Import、Workspace、Suggestion、Template、Share 与成员确认中的直接 `crypto.randomUUID()` 调用；
-- 重建局域网设备测试前端并在内置浏览器验证请求已越过 UUID 生成阶段。
+- Trip Intake 确认交互与服务端领域错误转换；
+- 定向 regression、前端 production build；
+- 北京、上海、杭州三城真实 DeepSeek 本地 API E2E；
+- schema-invalid、timeout fallback、Provider 局部失败、幂等、SSE 恢复与完整 postcheck；
+- 内置浏览器测试数据主链与刷新回读。
 
 ## Non-goals
 
-- 不改变公共 API、数据库 migration、Trip Intake 抽取逻辑、模型、Provider 或发布门槛；
-- 不把内置浏览器测试升级为 H1、真人真机、生产或公网证据；
-- 不改写 O5/O6 frozen blind 的 `REJECT` 结论。
+- 不改变公共 API、数据库 migration、模型、Provider 数据范围或默认生产行为；
+- 不修改 frozen blind/oracle，不重试或改写 O5/O6 blind `REJECT`；
+- 不部署公网，不进入 H1、生产或 release。
 
 ## Invariants
 
-- 优先使用原生 `crypto.randomUUID`；
-- 缺少 `randomUUID` 时使用 `crypto.getRandomValues` 生成 RFC 4122 v4 格式；
-- 极旧 WebView 连 `crypto` 都不可用时，仅为非安全用途的命令/幂等标识提供带时间与计数器熵的 UUID 格式兜底；
-- 不使用该 UUID 作为认证、授权、分享 token 或其他安全凭证。
+- READY 只能在城市、正整数人数和完整日期均已形成证据后产生；
+- 用户在表单填写的值必须先写入新 Intake revision，再确认该 revision；
+- 对外错误不得泄漏 Pydantic 内部结构；
+- 正常 E2E 必须回读 `deepseek-v4-flash`、`fallback=0`、新 itinerary revision 与完整 postcheck；
+- `UNKNOWN`、Provider 局部失败和 fallback 不得伪装为正常主链成功。
 
 ## Verification
 
-- 前端 production build：`PASS`；
-- 直接 `crypto.randomUUID()` 产品调用：0；
-- 内置浏览器原始复现：`crypto.randomUUID is not a function`；
-- 修复后同页面确认请求成功生成幂等键并到达后端，页面不再出现 crypto 错误；后端因该旧草稿缺少完整日期返回领域校验错误，属于独立且预期的输入状态；
-- 局域网服务保持运行，前端 `http://10.23.154.6:13000`、后端健康检查与 WebSocket 均可访问。
+- 定向 Trip Intake tests 与前端 build；
+- 三城正常链 `3/3 PASS`，无意外 5xx；
+- refresh、idempotency、SSE reconnect、schema-invalid/timeout fallback、Provider partial failure 全部 PASS；
+- 内置浏览器从测试 Intake 至权威 workspace/postcheck 完成可见回读。
 
 ## Completion record
 
-- Implementation / Gate：`COMPLETED`；
+- Status：`IN_PROGRESS`；
 - Goal contract：`structurally_valid=true`；
-- `INTAKE_V2_DEVELOPMENT_READY=false`：本兼容修复不得覆盖 O5/O6 frozen blind `REJECT`；
-- 本 Goal 不得改写或替代发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。
+- `INTAKE_V2_DEVELOPMENT_READY=false`：本次热修复不得覆盖 frozen blind `REJECT`；
+- 本 Goal 不得改写发布门禁，不得因此宣称 `V1_CANDIDATE_READY`。
