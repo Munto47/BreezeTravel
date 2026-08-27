@@ -1,0 +1,33 @@
+{
+  "blind_truth_in_repository": false,
+  "case_count": 120,
+  "case_id_end": "TRIP_NLU_0120",
+  "case_id_start": "TRIP_NLU_0001",
+  "code_bindings": {
+    "gate_sha256": "93b7942fca2779c9cc1aa27e1c1ad2f9e6397256dacfa31e95480551d874776f",
+    "generator_sha256": "b8853f04db846fe72b77d8428b289eb2472aea4adae443bbaa69ee49e320756f",
+    "schema_sha256": "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f",
+    "scorer_sha256": "88f263dd2b43839859d9cd10ba1da04d465075a4f427c6bd603d8604f0ccf8c4",
+    "validator_sha256": "92ef656c69d153c2c6f56ee1ee488f9112c5420470c4d738a71a4ade6858c6e2"
+  },
+  "files": {
+    "README.md": "c4c4d87e9861256e73859cb6b9e2ce2a748979c8ac75bc31d3cd0d9cfa5a02c1",
+    "coverage_report.json": "f1250371f947d17afabb35ef7208519eaabb079a7bd4fba09d8ce12fd6c9c2f6",
+    "dev.jsonl": "72f005360409bd82a9c1fbbd71f7aa2d330157dfd4fc9af80d19984babb120d5",
+    "family_registry.jsonl": "3ddcb5994ece4f18598ae1fec09bdc853a36db24fa91202637d9705f5b5863f3",
+    "frozen_blind.inputs.jsonl": "04e92713a292a7009b1c3771eca51b731e711f13575262c33e9d810d1b15c628",
+    "generator_registry.json": "c0ad87cfb33684148be5511486d12d5a60c5f67da29537bb52ba717471172971",
+    "sealed/frozen_blind.labels.jsonl": "eea00fc4dbc412e6dbb0f7e5069e7fedc74341e040dc34bf139d269f755d4cf2",
+    "sealed/frozen_blind.validation_receipt.json": "7a810fad51f5b456194e8d76315d59a6c51c9631cf57bcf07c5a896a58af821a",
+    "source_registry.jsonl": "b5131f3a3dc5b887596b7958c9dc3c91f5037109ac8abb42166bf4dfcdf8dc13",
+    "validation.jsonl": "7f17db5adb8b898fda38228f888484007947e98c4ac48176afa6b7208dae8b49"
+  },
+  "non_proof_scopes": [
+    "OCR_ACCURACY",
+    "PROVIDER_FACTS",
+    "TRIP_REASONABLENESS",
+    "HUMAN_EVIDENCE"
+  ],
+  "proof_scope": "TEXT_REQUIREMENT_EXTRACTION_ONLY",
+  "schema_version": "trip-nlu-v2-manifest-v1"
+}

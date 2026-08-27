@@ -6,9 +6,13 @@ The module name is retained to avoid breaking existing targeted test commands.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from scripts.build_release_manifest import build
 from scripts.verify_dual_entry_delivery import verify
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
@@ -19,8 +23,8 @@ def test_manifest_binds_trip_check_authority_without_release_claims(tmp_path):
     assert payload["schema_version"] == "4.0"
     assert payload["release_status"] == "trip_check_v1_p3_input_provider_draft"
     assert payload["release_approval_granted"] is False
-    assert payload["latest_migration"] == "025_miniapp_identity_and_upload_batches.sql"
-    assert payload["configuration"]["required_migration"] == "025_miniapp_identity_and_upload_batches.sql"
+    assert payload["latest_migration"] == "026_trip_intake_v2.sql"
+    assert payload["configuration"]["required_migration"] == "026_trip_intake_v2.sql"
 
     authority = payload["product_authority"]
     for name in (
@@ -77,8 +81,19 @@ def test_verifier_accepts_externally_generated_trip_check_baseline(tmp_path):
     result = verify(tmp_path / "latest.json")
 
     assert result["status"] == "TRIP_CHECK_V1_IN_PROGRESS_EVIDENCE_VALID"
-    assert result["latest_migration"] == "025_miniapp_identity_and_upload_batches.sql"
+    assert result["latest_migration"] == "026_trip_intake_v2.sql"
     assert result["human_validated"] is False
     assert result["publicly_verified"] is False
     assert result["overall_release_decision"] == "REJECT"
     assert result["release_blockers"]
+
+
+def test_intake_development_ready_scope_cannot_promote_v1_candidate_release():
+    gates = (ROOT / "docs/governance/RELEASE_GATES.md").read_text(encoding="utf-8")
+    goal = (ROOT / "docs/governance/CURRENT_GOAL.md").read_text(encoding="utf-8")
+
+    assert "INTAKE_V2_DEVELOPMENT_READY" in gates
+    assert "V1_CANDIDATE_READY" in gates
+    assert "不得改写或替代" in gates
+    assert "structurally_valid=true" in goal
+    assert "不得因此宣称 `V1_CANDIDATE_READY`" in goal

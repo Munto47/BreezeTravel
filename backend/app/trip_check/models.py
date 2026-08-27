@@ -7,10 +7,11 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.itineraries.hash_service import sha256_canonical
-from app.itineraries.models import SUPPORTED_CITIES, TripDateRange
+from app.itineraries.models import TripDateRange
 
 
 NO_PREFERENCE = "NO_PREFERENCE"
+UNSPECIFIED = "UNSPECIFIED"
 
 
 class TripBriefStatus(str, Enum):
@@ -25,6 +26,7 @@ class BriefFieldOrigin(str, Enum):
     USER_CONFIRMED = "USER_CONFIRMED"
     INFERRED = "INFERRED"
     DEFAULT_NO_PREFERENCE = "DEFAULT_NO_PREFERENCE"
+    UNSPECIFIED = "UNSPECIFIED"
 
 
 class BriefFieldConfirmation(str, Enum):
@@ -92,6 +94,18 @@ class AccommodationBrief(BaseModel):
     area: str | None = Field(default=None, max_length=200)
 
 
+class BriefRequirement(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    category: str = Field(min_length=1, max_length=80)
+    operator: str = Field(min_length=1, max_length=40)
+    value: Any = None
+    unit: str | None = Field(default=None, max_length=40)
+    currency: str | None = Field(default=None, max_length=8)
+    applies_to: str | None = Field(default=None, max_length=120)
+    source_spans: list[BriefSourceSpan] = Field(default_factory=list)
+
+
 _REQUIRED_PROVENANCE_FIELDS = frozenset(
     {
         "city",
@@ -122,18 +136,21 @@ class TripBriefRevision(BaseModel):
     content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     city: str = Field(min_length=1)
     date_range: TripDateRange
-    traveler_count: int = Field(ge=2, le=5)
+    traveler_count: int = Field(gt=0)
     arrival: ArrivalDeparture
     departure: ArrivalDeparture
     accommodation: AccommodationBrief
-    transport_modes: list[TransportMode] = Field(min_length=1)
-    transport_restrictions: list[str] | str = NO_PREFERENCE
-    budget: dict[str, Any] | str = NO_PREFERENCE
-    dining_style: list[str] | str = NO_PREFERENCE
-    lodging_style: list[str] | str = NO_PREFERENCE
-    dietary_restrictions: list[str] | str = NO_PREFERENCE
-    daily_pace: str = NO_PREFERENCE
-    activity_intensity: str = NO_PREFERENCE
+    transport_modes: list[TransportMode] = Field(default_factory=list)
+    transport_restrictions: list[str] | str = UNSPECIFIED
+    budget: dict[str, Any] | str = UNSPECIFIED
+    dining_style: list[str] | str = UNSPECIFIED
+    lodging_style: list[str] | str = UNSPECIFIED
+    dietary_restrictions: list[str] | str = UNSPECIFIED
+    daily_pace: str = UNSPECIFIED
+    activity_intensity: str = UNSPECIFIED
+    requirements: list[BriefRequirement] = Field(default_factory=list)
+    source_intake_id: str | None = Field(default=None, min_length=1)
+    source_intake_revision: int | None = Field(default=None, gt=0)
     field_provenance: dict[str, BriefFieldProvenance]
     status: TripBriefStatus
     created_by: str = Field(min_length=1)
@@ -143,8 +160,10 @@ class TripBriefRevision(BaseModel):
 
     @model_validator(mode="after")
     def validate_revision_contract(self) -> "TripBriefRevision":
-        if self.city not in SUPPORTED_CITIES:
-            raise ValueError("CITY_NOT_SUPPORTED")
+        if not self.city.strip():
+            raise ValueError("city must not be blank")
+        if (self.source_intake_id is None) != (self.source_intake_revision is None):
+            raise ValueError("intake lineage id and revision must be present together")
         if self.parent_revision is not None and self.parent_revision >= self.revision:
             raise ValueError("parent brief revision must be older than revision")
         if set(self.field_provenance) != _REQUIRED_PROVENANCE_FIELDS:
@@ -156,11 +175,13 @@ class TripBriefRevision(BaseModel):
         if self.status == TripBriefStatus.CONFIRMED:
             if not self.confirmed_by or self.confirmed_at is None:
                 raise ValueError("confirmed brief requires confirmer and timestamp")
+            required_confirmations = {"city", "date_range", "traveler_count"}
             if any(
-                item.confirmation != BriefFieldConfirmation.CONFIRMED
-                for item in self.field_provenance.values()
+                self.field_provenance[field_name].confirmation
+                != BriefFieldConfirmation.CONFIRMED
+                for field_name in required_confirmations
             ):
-                raise ValueError("confirmed brief requires every field to be confirmed")
+                raise ValueError("confirmed brief requires city, date range, and traveler count confirmation")
         elif self.confirmed_by is not None or self.confirmed_at is not None:
             raise ValueError("only confirmed briefs may contain confirmation receipt")
         return self

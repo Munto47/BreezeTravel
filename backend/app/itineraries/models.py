@@ -8,6 +8,8 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
+# Frozen legacy route/template coverage.  The authoritative Intake v2 path is
+# no longer restricted to this set; callers must not use it as a product gate.
 SUPPORTED_CITIES = frozenset({"北京", "上海", "杭州"})
 
 
@@ -64,9 +66,8 @@ class TripDateRange(BaseModel):
 
     @model_validator(mode="after")
     def validate_scope(self) -> "TripDateRange":
-        days = (self.end - self.start).days + 1
-        if days < 2 or days > 5:
-            raise ValueError("trip date range must contain 2 to 5 days")
+        if self.end < self.start:
+            raise ValueError("trip date range end cannot be before start")
         return self
 
 
@@ -83,7 +84,7 @@ class ItineraryStop(BaseModel):
 
     stop_id: str = Field(min_length=1)
     place_id: str = Field(min_length=1)
-    day_index: int = Field(ge=0, le=4)
+    day_index: int = Field(ge=0)
     order_index: int = Field(ge=0)
     start_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     end_time: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -102,7 +103,7 @@ class ItineraryStop(BaseModel):
 class ItineraryDay(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    day_index: int = Field(ge=0, le=4)
+    day_index: int = Field(ge=0)
     date: Date | None = None
     stops: list[ItineraryStop] = Field(default_factory=list)
 
@@ -137,12 +138,12 @@ class ItineraryRevisionContent(BaseModel):
 
     @model_validator(mode="after")
     def validate_revision(self) -> "ItineraryRevisionContent":
-        if self.city not in SUPPORTED_CITIES:
-            raise ValueError("CITY_NOT_SUPPORTED")
+        if not self.city.strip():
+            raise ValueError("city must not be blank")
         if self.parent_revision is not None and self.parent_revision >= self.revision:
             raise ValueError("parent revision must be older than revision")
-        if len(self.days) < 2 or len(self.days) > 5:
-            raise ValueError("itinerary must contain 2 to 5 days")
+        if not self.days:
+            raise ValueError("itinerary must contain at least one day")
         if [day.day_index for day in self.days] != list(range(len(self.days))):
             raise ValueError("day_index must be contiguous and ordered")
         all_stop_ids = [stop.stop_id for day in self.days for stop in day.stops]
@@ -175,8 +176,8 @@ class TripWorkspace(BaseModel):
 
     @model_validator(mode="after")
     def validate_city(self) -> "TripWorkspace":
-        if self.city not in SUPPORTED_CITIES:
-            raise ValueError("CITY_NOT_SUPPORTED")
+        if not self.city.strip():
+            raise ValueError("city must not be blank")
         return self
 
 

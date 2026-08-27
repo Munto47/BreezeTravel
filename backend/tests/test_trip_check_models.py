@@ -86,16 +86,21 @@ def test_trip_brief_requires_exact_field_provenance_and_confirmation_receipt():
     with pytest.raises(ValidationError, match="brief field provenance mismatch"):
         _brief(field_provenance={"city": _provenance()["city"]})
 
-    with pytest.raises(ValidationError, match="every field to be confirmed"):
+    with pytest.raises(ValidationError, match="city, date range, and traveler count"):
         _brief(
             status=TripBriefStatus.CONFIRMED,
             confirmed_by="user-1",
             confirmed_at=datetime.now(timezone.utc),
         )
 
+    required_confirmed = _provenance()
+    for field_name in {"city", "date_range", "traveler_count"}:
+        required_confirmed[field_name] = required_confirmed[field_name].model_copy(
+            update={"confirmation": BriefFieldConfirmation.CONFIRMED}
+        )
     confirmed = _brief(
         status=TripBriefStatus.CONFIRMED,
-        field_provenance=_provenance(confirmed=True),
+        field_provenance=required_confirmed,
         confirmed_by="user-1",
         confirmed_at=datetime.now(timezone.utc),
     )
@@ -111,9 +116,8 @@ def test_inferred_brief_field_cannot_be_hard():
         )
 
 
-def test_trip_brief_rejects_city_outside_fixed_scope():
-    with pytest.raises(ValidationError, match="CITY_NOT_SUPPORTED"):
-        _brief(city="成都")
+def test_trip_brief_accepts_confirmed_domestic_city_outside_legacy_three_city_scope():
+    assert _brief(city="成都", traveler_count=12).traveler_count == 12
 
 
 def _run_spec():

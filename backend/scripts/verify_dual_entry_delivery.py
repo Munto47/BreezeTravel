@@ -17,7 +17,7 @@ from typing import Any
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
 DEFAULT_LATEST = BACKEND / "evidence" / "releases" / "latest.json"
-EXPECTED_MIGRATION = "025_miniapp_identity_and_upload_batches.sql"
+EXPECTED_MIGRATION = "026_trip_intake_v2.sql"
 
 
 def sha256_file(path: Path) -> str:

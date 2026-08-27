@@ -14,6 +14,7 @@ from app.itineraries.models import TripWorkspace
 from app.trip_check.errors import TripBriefAlreadyConfirmedError, TripBriefRevisionConflictError
 from app.trip_check.models import (
     NO_PREFERENCE,
+    UNSPECIFIED,
     AccommodationBrief,
     ArrivalDeparture,
     BriefFieldConfirmation,
@@ -83,10 +84,11 @@ async def _insert_brief(conn: Any, brief: TripBriefRevision) -> None:
         INSERT INTO trip_brief_revisions (
             brief_id, workspace_id, revision, parent_revision, status, city,
             trip_start_date, trip_end_date, traveler_count, content_json,
-            content_hash, created_by, created_at, confirmed_by, confirmed_at
+            content_hash, created_by, created_at, confirmed_by, confirmed_at,
+            source_intake_id, source_intake_revision
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
-            $11, $12, $13, $14, $15
+            $11, $12, $13, $14, $15, $16, $17
         )
         """,
         brief.brief_id,
@@ -104,6 +106,8 @@ async def _insert_brief(conn: Any, brief: TripBriefRevision) -> None:
         brief.created_at,
         brief.confirmed_by,
         brief.confirmed_at,
+        brief.source_intake_id,
+        brief.source_intake_revision,
     )
     for field_path, provenance in brief.field_provenance.items():
         spans = provenance.source_spans or [None]
@@ -345,10 +349,12 @@ class TripBriefParser:
         itinerary_import: ItineraryImport,
         actor_user_id: str,
         source_confidence: float | None = None,
-    ) -> TripBriefRevision:
+    ) -> TripBriefRevision | None:
         raw_text = itinerary_import.raw_text
-        traveler_match = re.search(r"([2-5])\s*人", raw_text)
-        traveler_count = int(traveler_match.group(1)) if traveler_match else 2
+        traveler_match = re.search(r"(?<!\d)([1-9]\d*)\s*(?:人|位)", raw_text)
+        if traveler_match is None:
+            return None
+        traveler_count = int(traveler_match.group(1))
         transport_patterns = {
             TransportMode.WALKING: r"步行|走路",
             TransportMode.TRANSIT: r"公交|地铁|公共交通",
@@ -356,15 +362,13 @@ class TripBriefParser:
             TransportMode.DRIVING: r"驾车|开车|打车|出租车",
         }
         transport_modes = [mode for mode, pattern in transport_patterns.items() if re.search(pattern, raw_text)]
-        if not transport_modes:
-            transport_modes = [TransportMode.WALKING, TransportMode.TRANSIT]
 
         source_id = itinerary_import.import_id
         metadata: dict[str, BriefFieldProvenance] = {}
         text_patterns = {
             "city": re.escape(workspace.city),
             "date_range": r"(?:20\d{2}[年/-])?\d{1,2}[月/-]\d{1,2}日?",
-            "traveler_count": r"[2-5]\s*人",
+            "traveler_count": r"(?<!\d)[1-9]\d*\s*(?:人|位)",
             "arrival": r"到达|抵达",
             "departure": r"返程|离开|航班|高铁|火车",
             "accommodation": r"酒店|住宿|民宿",
@@ -396,8 +400,8 @@ class TripBriefParser:
         ):
             metadata[field_name] = BriefFieldProvenance(
                 confidence=1,
-                origin=BriefFieldOrigin.DEFAULT_NO_PREFERENCE,
-                hardness=BriefHardness.NO_PREFERENCE,
+                origin=BriefFieldOrigin.UNSPECIFIED,
+                hardness=BriefHardness.SOFT,
             )
         parent_revision = workspace.current_trip_brief_revision
         brief = TripBriefRevision(
@@ -413,6 +417,13 @@ class TripBriefParser:
             departure=ArrivalDeparture(),
             accommodation=AccommodationBrief(),
             transport_modes=transport_modes,
+            transport_restrictions=UNSPECIFIED,
+            budget=UNSPECIFIED,
+            dining_style=UNSPECIFIED,
+            lodging_style=UNSPECIFIED,
+            dietary_restrictions=UNSPECIFIED,
+            daily_pace=UNSPECIFIED,
+            activity_intensity=UNSPECIFIED,
             field_provenance=metadata,
             status=TripBriefStatus.NEEDS_CONFIRMATION,
             created_by=actor_user_id,
@@ -452,7 +463,7 @@ class TripBriefApplicationService:
         actor_user_id: str,
         conn: Any | None = None,
         source_confidence: float | None = None,
-    ) -> TripBriefRevision:
+    ) -> TripBriefRevision | None:
         if workspace.current_trip_brief_revision is None:
             latest = await self.repository.get_latest_brief(workspace.workspace_id)
             if latest is not None:
@@ -468,6 +479,8 @@ class TripBriefApplicationService:
             actor_user_id=actor_user_id,
             source_confidence=source_confidence,
         )
+        if brief is None:
+            return None
         return await self.repository.save_import_brief(brief, conn=conn)
 
     async def patch(

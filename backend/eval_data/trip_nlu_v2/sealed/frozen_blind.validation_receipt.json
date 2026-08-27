@@ -1,0 +1,79 @@
+{
+  "blind_input_sha256": "04e92713a292a7009b1c3771eca51b731e711f13575262c33e9d810d1b15c628",
+  "blind_labels_read": true,
+  "case_count": 24,
+  "case_details_present": false,
+  "case_ids_sha256": "9dc145819a510f6e87802f3a02c51e78e0cd9f0259ef98ded0e1b09e1c101479",
+  "coverage": {
+    "count": 24,
+    "destination": {
+      "missing": 2,
+      "multiple": 1,
+      "other": 2,
+      "uncertain": 1,
+      "上海": 6,
+      "北京": 6,
+      "杭州": 6
+    },
+    "difficulty": {
+      "easy": 6,
+      "hard": 7,
+      "medium": 11
+    },
+    "duration": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 11,
+      "RANGE": 4,
+      "UNKNOWN": 3
+    },
+    "generator_source": {
+      "DETERMINISTIC": 12,
+      "USER_PROMPT": 12
+    },
+    "hard_fields": {
+      "destination_non_exact": 3,
+      "duration_unknown_or_range": 3,
+      "party_unknown_or_range": 4
+    },
+    "minimums": {
+      "fictional": 2,
+      "interference": 6,
+      "preference": 21,
+      "roles": 5,
+      "semantic_party": 5
+    },
+    "party": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 12,
+      "RANGE": 3,
+      "UNKNOWN": 3
+    },
+    "requirement_categories": {
+      "accessibility": 3,
+      "accommodation": 3,
+      "budget": 19,
+      "children": 1,
+      "dietary": 2,
+      "elderly": 3,
+      "pet": 3,
+      "physical": 1,
+      "time": 3,
+      "transport": 19
+    }
+  },
+  "external_label_sha256": "60e2fd7812297789cbd66d480884761ac75eaf38ce54e8f7b66f0dcb46d7b2fb",
+  "family_registry_sha256": "3ddcb5994ece4f18598ae1fec09bdc853a36db24fa91202637d9705f5b5863f3",
+  "generator_registry_sha256": "c0ad87cfb33684148be5511486d12d5a60c5f67da29537bb52ba717471172971",
+  "producer": "ISOLATED_VALIDATOR",
+  "schema_sha256": "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f",
+  "schema_version": "trip-nlu-v2-blind-validation-receipt-v2",
+  "scorer_sha256": "88f263dd2b43839859d9cd10ba1da04d465075a4f427c6bd603d8604f0ccf8c4",
+  "seal_sha256": "eea00fc4dbc412e6dbb0f7e5069e7fedc74341e040dc34bf139d269f755d4cf2",
+  "source_registry_sha256": "b5131f3a3dc5b887596b7958c9dc3c91f5037109ac8abb42166bf4dfcdf8dc13",
+  "validator_sha256": "92ef656c69d153c2c6f56ee1ee488f9112c5420470c4d738a71a4ade6858c6e2",
+  "validator_version": "trip-nlu-v2-validator-v1"
+}

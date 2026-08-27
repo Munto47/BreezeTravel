@@ -1,0 +1,246 @@
+{
+  "dev": {
+    "count": 72,
+    "destination": {
+      "missing": 3,
+      "multiple": 4,
+      "other": 8,
+      "uncertain": 3,
+      "上海": 18,
+      "北京": 18,
+      "杭州": 18
+    },
+    "difficulty": {
+      "easy": 18,
+      "hard": 22,
+      "medium": 32
+    },
+    "duration": {
+      "APPROXIMATE": 5,
+      "AT_LEAST": 5,
+      "AT_MOST": 5,
+      "EXACT": 32,
+      "RANGE": 15,
+      "UNKNOWN": 10
+    },
+    "generator_source": {
+      "DETERMINISTIC": 36,
+      "USER_PROMPT": 36
+    },
+    "hard_fields": {
+      "destination_non_exact": 10,
+      "duration_unknown_or_range": 13,
+      "party_unknown_or_range": 10
+    },
+    "minimums": {
+      "fictional": 8,
+      "interference": 18,
+      "preference": 62,
+      "roles": 14,
+      "semantic_party": 14
+    },
+    "party": {
+      "APPROXIMATE": 5,
+      "AT_LEAST": 5,
+      "AT_MOST": 5,
+      "EXACT": 36,
+      "RANGE": 11,
+      "UNKNOWN": 10
+    },
+    "requirement_categories": {
+      "accessibility": 7,
+      "accommodation": 7,
+      "budget": 58,
+      "children": 5,
+      "dietary": 8,
+      "elderly": 7,
+      "pet": 8,
+      "physical": 7,
+      "time": 9,
+      "transport": 58
+    }
+  },
+  "frozen_blind": {
+    "count": 24,
+    "destination": {
+      "missing": 2,
+      "multiple": 1,
+      "other": 2,
+      "uncertain": 1,
+      "上海": 6,
+      "北京": 6,
+      "杭州": 6
+    },
+    "difficulty": {
+      "easy": 6,
+      "hard": 7,
+      "medium": 11
+    },
+    "duration": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 11,
+      "RANGE": 4,
+      "UNKNOWN": 3
+    },
+    "generator_source": {
+      "DETERMINISTIC": 12,
+      "USER_PROMPT": 12
+    },
+    "hard_fields": {
+      "destination_non_exact": 3,
+      "duration_unknown_or_range": 3,
+      "party_unknown_or_range": 4
+    },
+    "minimums": {
+      "fictional": 2,
+      "interference": 6,
+      "preference": 21,
+      "roles": 5,
+      "semantic_party": 5
+    },
+    "party": {
+      "APPROXIMATE": 2,
+      "AT_LEAST": 2,
+      "AT_MOST": 2,
+      "EXACT": 12,
+      "RANGE": 3,
+      "UNKNOWN": 3
+    },
+    "requirement_categories": {
+      "accessibility": 3,
+      "accommodation": 3,
+      "budget": 19,
+      "children": 1,
+      "dietary": 2,
+      "elderly": 3,
+      "pet": 3,
+      "physical": 1,
+      "time": 3,
+      "transport": 19
+    }
+  },
+  "total": {
+    "count": 120,
+    "destination": {
+      "missing": 6,
+      "multiple": 6,
+      "other": 12,
+      "uncertain": 6,
+      "上海": 30,
+      "北京": 30,
+      "杭州": 30
+    },
+    "difficulty": {
+      "easy": 30,
+      "hard": 36,
+      "medium": 54
+    },
+    "duration": {
+      "APPROXIMATE": 8,
+      "AT_LEAST": 8,
+      "AT_MOST": 8,
+      "EXACT": 54,
+      "RANGE": 24,
+      "UNKNOWN": 18
+    },
+    "generator_source": {
+      "DETERMINISTIC": 60,
+      "USER_PROMPT": 60
+    },
+    "hard_fields": {
+      "destination_non_exact": 16,
+      "duration_unknown_or_range": 19,
+      "party_unknown_or_range": 17
+    },
+    "minimums": {
+      "fictional": 12,
+      "interference": 30,
+      "preference": 102,
+      "roles": 24,
+      "semantic_party": 24
+    },
+    "party": {
+      "APPROXIMATE": 8,
+      "AT_LEAST": 8,
+      "AT_MOST": 8,
+      "EXACT": 60,
+      "RANGE": 18,
+      "UNKNOWN": 18
+    },
+    "requirement_categories": {
+      "accessibility": 12,
+      "accommodation": 12,
+      "budget": 96,
+      "children": 8,
+      "dietary": 13,
+      "elderly": 12,
+      "pet": 14,
+      "physical": 11,
+      "time": 14,
+      "transport": 96
+    }
+  },
+  "validation": {
+    "count": 24,
+    "destination": {
+      "missing": 1,
+      "multiple": 1,
+      "other": 2,
+      "uncertain": 2,
+      "上海": 6,
+      "北京": 6,
+      "杭州": 6
+    },
+    "difficulty": {
+      "easy": 6,
+      "hard": 7,
+      "medium": 11
+    },
+    "duration": {
+      "APPROXIMATE": 1,
+      "AT_LEAST": 1,
+      "AT_MOST": 1,
+      "EXACT": 11,
+      "RANGE": 5,
+      "UNKNOWN": 5
+    },
+    "generator_source": {
+      "DETERMINISTIC": 12,
+      "USER_PROMPT": 12
+    },
+    "hard_fields": {
+      "destination_non_exact": 3,
+      "duration_unknown_or_range": 3,
+      "party_unknown_or_range": 3
+    },
+    "minimums": {
+      "fictional": 2,
+      "interference": 6,
+      "preference": 19,
+      "roles": 5,
+      "semantic_party": 5
+    },
+    "party": {
+      "APPROXIMATE": 1,
+      "AT_LEAST": 1,
+      "AT_MOST": 1,
+      "EXACT": 12,
+      "RANGE": 4,
+      "UNKNOWN": 5
+    },
+    "requirement_categories": {
+      "accessibility": 2,
+      "accommodation": 2,
+      "budget": 19,
+      "children": 2,
+      "dietary": 3,
+      "elderly": 2,
+      "pet": 3,
+      "physical": 3,
+      "time": 2,
+      "transport": 19
+    }
+  }
+}

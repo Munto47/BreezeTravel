@@ -1,17 +1,22 @@
-# 「行程查」V1 API 与持久化合同
+# 「行程查」V2 API 与持久化合同
 
 > 状态：`ACCEPTED`
 >
-> 版本：`trip-check-api-v1`
+> 版本：`trip-check-api-v2`
 
 ## 1. 兼容原则
 
 - 保留现有 `POST /trip-workspaces/{workspace_id}/imports` 文本导入语义；旧 import、revision、repair、suggestion 和 evidence 保持可读。
+- v1 workspace-first 路由继续兼容读取；v2 的新建主路径从 room 下的 `TripIntakeRevision` 开始，不把 v1 默认值迁入 v2 权威事实。
 - 新资源只追加，不创建第二套 itinerary 编辑或“已解决”协议。
 - 所有创建、确认、恢复和采纳命令要求 `Idempotency-Key`；基于 revision/state 的更新要求 `If-Match`。
 - 服务端生成 canonical POI、Provider 事实、Finding 和 resolved 状态；客户端不能提交这些字段作为权威值。
 
 ## 2. 资源模型
+
+### 2.0 TripIntakeRevision v2
+
+必须包含版本、revision/content hash、原始文本 hash、解析器绑定，以及地点、人数、时间、偏好、问题和 readiness。每个原子值携带 `source_id/start/end/quote`，偏移按原始文本 Unicode code point 的半开区间解释。解析中间态允许范围、约数、至少、最多、未知、多候选和冲突，不得写入权威 Brief。
 
 ### 2.1 TripBriefRevision
 
@@ -22,7 +27,7 @@
 - 四种交通方式与限制、预算、餐饮/住宿风格、饮食限制、每日节奏和活动强度；
 - 字段级 `source_span`、`confidence`、`origin` 和确认状态；
 - `DRAFT / NEEDS_CONFIRMATION / CONFIRMED`；
-- `NO_PREFERENCE` 作为显式值；`INFERRED` 不得成为 `HARD`。
+- `UNSPECIFIED` 表示未提及；只有用户明确确认时才使用 `NO_PREFERENCE`；`INFERRED` 不得成为 `HARD`。
 
 ### 2.2 TripCheckRun
 
@@ -60,6 +65,11 @@ PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
 - `GET /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：返回 ETag。
 - `PATCH /trip-workspaces/{workspace_id}/trip-briefs/{revision}`：要求 `If-Match` 和 `Idempotency-Key`，产生新 brief revision。
 - `POST /trip-workspaces/{workspace_id}/trip-briefs/{revision}/confirm`：要求完整必填确认；成功后只读。
+- `POST /rooms/{room_id}/trip-intakes`：创建文本 Intake 草稿，要求 `Idempotency-Key`。
+- `POST /rooms/{room_id}/trip-intakes/screenshots`：OCR 后创建同合同 Intake；原图清理规则不变。
+- `GET/PATCH /trip-intakes/{intake_id}/revisions/{revision}`：读取或创建修正 revision；PATCH 要求 `If-Match` 与 `Idempotency-Key`。
+- `POST /trip-intakes/{intake_id}/revisions/{revision}/confirm`：确认精确物化前提并创建只读 READY revision。
+- `POST /trip-intakes/{intake_id}/revisions/{revision}/materialize`：幂等创建 workspace、confirmed Brief、Import 与 lineage receipt；Provider 解析不在数据库事务内执行。
 
 ### 3.2 Run 与进度
 
@@ -88,5 +98,6 @@ PARSE → WAIT_BRIEF_CONFIRMATION → RESOLVE_PLACES → COLLECT_EVIDENCE
 - `022_trip_brief_revisions.sql`：brief、字段来源/确认和临时资产清理 receipt；
 - `023_trip_check_runs.sql`：Run、stage、lease、attempt 和阶段幂等；
 - `024_advice_bundles.sql`：Advice、CandidateSet 引用和 postcheck lineage。
+- `026_trip_intake_v2.sql`：不可变 Intake revision/field source/materialization，并把城市、人数和天数的历史固定范围放宽为确认后的正值合同。
 
 Migration 只追加；应用启动只检查兼容性，不自动执行 DDL。

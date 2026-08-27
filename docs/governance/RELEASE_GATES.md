@@ -3,6 +3,17 @@
 > 状态：`ACCEPTED`
 > 适用目标：进入真人内测前的 V1 内测候选版
 
+## 0. Ready 状态分层
+
+经用户于 2026-08-26 批准，`TC-I1-I4-trip-intake-v2` 使用独立的开发完成态，避免历史双入口候选门禁反向阻断当前已批准的 Intake 纵向切片：
+
+- `INTAKE_V2_DEVELOPMENT_READY`：候选 commit 上 backend 全套 pytest、Ruff、frontend build、dual-entry 结构 validator 和 120 条 NLU Gate 全部通过；025 migration、revision/CAS/idempotency/materialization 的离线合同与回归通过；
+- dual-entry 的旧统计规模、Builder G2/G5 seeds、P5 历史 blind/Judge、real OCR、live Provider、公网和真人证据不属于 Intake v2 文本抽取开发完成态，保持各自原状态；
+- `V1_CANDIDATE_READY`：仍必须满足下文 G0～G6、零容忍项及候选证据要求。`INTAKE_V2_DEVELOPMENT_READY` 不得改写或替代该结论；
+- validator 存在结构错误、哈希错误、blind 泄漏、默认事实注入、关键字段反转或新增测试失败时，两个状态都必须 fail closed。
+
+这是一项范围调整，不是质量阈值下调：历史能力不再作为当前 Goal 的完成前置，但其缺失证据不得被标记为 PASS。
+
 ## 1. 评分门槛
 
 | 分桶 | 权重 | 最低要求 |
@@ -37,6 +48,22 @@
 - 返回具体地点的最终建议 100% 来自冻结真实 CandidateSet；
 - 固定 snapshot 重放 hash 一致率 100%；
 - 浏览器关键链、刷新、断线、进程重启、并发与幂等场景全部通过。
+
+### Trip Intake v2 NLU Gate
+
+- 固定 120 条：72 dev / 24 validation / 24 frozen blind；easy/medium/hard 为 30/54/36；
+- JSON/schema、证据子串和评分覆盖率 100%；generator/template/mutation family 不跨 split；
+- 编造、出发地/目的地反转、否定反转、旧计划反转、数字串类和 `UNKNOWN → EXACT` 均为 0；
+- locations、party size、duration 结构化 micro-F1 各 ≥95%，preferences/requirements ≥90%，hard 子集关键字段 ≥90%；
+- 本 Gate 只证明文本需求抽取，不能替代 OCR、live Provider、公网或真人证据。
+
+### Trip NLU O1～O4 优化 Gate
+
+- 正式 prediction 必须来自绑定 `deepseek-v4-flash` 的 hybrid 产品抽取路径，禁止以 gold label 或兼容导出充当 prediction；
+- dev 用于定位和优化，validation 最多两次，frozen blind 对每个冻结候选只允许一次正式聚合评分；
+- blind scorer 不得返回逐例 truth；blind 失败不得修改 oracle 或按 blind 文本打补丁；
+- 实际模型调用 ≤300、估算费用 ≤30 CNY，RunSpec 必须记录实际调用、token、成本和预算停止状态；
+- 本 Goal 单并发端到端 P95 ≤5 秒。该阶段门槛不覆盖或降低 V1 Candidate Gate 的解析与确认页 P95 ≤3 秒。
 
 ## 4. 性能硬门槛
 

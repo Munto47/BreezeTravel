@@ -51,7 +51,13 @@ def migration_fingerprint(repo_root: Path) -> tuple[str, dict[str, Any]]:
     init_path = backend_root / "app" / "db" / "init.sql"
     migration_root = backend_root / "app" / "db" / "migrations"
     try:
-        migrations = sorted(migration_root.glob("*.sql"))
+        # P6 is historical evidence for the schema through miniapp migration 025. Later product
+        # migrations must not retroactively change that completed fingerprint.
+        migrations = [
+            path
+            for path in sorted(migration_root.glob("*.sql"))
+            if path.name <= LATEST_MIGRATION
+        ]
         if not init_path.is_file() or not migrations or migrations[-1].name != LATEST_MIGRATION:
             raise OSError("migration set is incomplete")
         manifest = {

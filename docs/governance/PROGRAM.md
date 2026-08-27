@@ -1,79 +1,44 @@
-# TC-V1-INTERVIEW-2026 Program
+# TC-INTAKE-V2-2026 Program
 
 > 状态：`APPROVED`
 >
-> 授权日期：2026-08-22
->
-> 交付周期：24 周内测候选版 + 3 周真人实测闭环
+> 授权日期：2026-08-26
 
-## 1. Program Outcome
+## Outcome
 
-交付一条可公开演示、可重放、可故障恢复的「行程查」主链，并形成 Legacy Agent、确定性 Core 和通过准入的 Solver 对比证据；候选版通过 G0～G6 后，经现场批准完成 8～12 人真人实测。
+交付 `文本/截图 → TripIntakeRevision v2 → 用户确认 → 幂等物化 → 既有 TripCheck` 的纵向闭环。解析覆盖任意国内地点、任意人数和天数表达；一个权威 workspace 仍为单城市，且只有精确城市、日期和正整数人数经确认后才能进入事实采集。
 
-## 2. 固定架构
+## 固定阶段
 
-```text
-文本/截图 → OCR/Parser → TripBriefRevision 确认 → ItineraryRevision
-→ Provider Adapters → EvidenceSnapshot → AuditEngine
-→ Advice/Constraint Repair → 预览采纳 → 新 Revision → 完整 postcheck
-```
-
-旁路证据链：
-
-```text
-Versioned RunSpec + Fault Profile → Trace/Receipt/Snapshot
-→ Replay → Legacy/Core/Solver 消融 → Release Manifest
-```
-
-采用模块化单体。PostgreSQL 保存权威状态；Redis 只保存可丢失状态；LangGraph 只编排固定工作流、HITL、SSE 和恢复。
-
-## 3. Program 阶段
-
-| 阶段 | 目标 | 必须退出证据 |
+| 阶段 | 交付 | 退出条件 |
 |---|---|---|
-| P0-G02 | 权威、架构、API、Roadmap 与 Gate 收口 | 文档/链接/冲突审计与基线检查 |
-| P1 | 第 6 周前文本纵向闭环、18 pilot、杀进程恢复 | D1 |
-| P2 | TripCheckRun、lease/CAS/幂等、SSE、领域 Trace | Reliability Gate |
-| P3 | OCR 隐私闭环、四种交通、天气与风险来源 | Synthetic OCR Phase Gate + G2 + G3；G1/G4 保留为候选证据债 |
-| P4 | Advice、CandidateSet、Repair 与 OR-Tools bake-off | Solver Admission Gate |
-| P5 | 360 数据、Legacy/Core/Solver 消融、独立 Judge | Evaluation Gate |
-| P6 | 同 commit G0～G6、公网候选与 release manifest | Candidate Gate |
-| H1 | 8～12 人实测、修复与重新复验 | Human Usability Gate |
+| I1 | 权威文档、v2 schema、迁移与不可变仓储 | 合同/迁移 Gate |
+| I2 | LLM 结构化抽取、确定性 validator、revision/confirm/materialize API | 后端与 PostgreSQL Gate |
+| I3 | 文本/截图 Intake UI、恢复与既有主链兼容 | 浏览器 Gate |
+| I4 | 120 条 NLU 数据、scorer、sealed blind 与 NLU Gate | NLU Gate |
+| O1 | DeepSeek V4 Flash 客户端、语义草稿、证据编译与混合抽取 | 抽取器合同与失败语义 Gate |
+| O2 | 真实预测 runner、RunSpec、预算/时延回执与通用 scorer | 可复现 baseline Gate |
+| O3 | 仅基于 dev/validation 的两轮优化和候选冻结 | Validation NLU/性能 Gate |
+| O4 | 一次性 sealed blind 评分与候选证据汇总 | Frozen blind NLU Gate |
 
-## 4. 预批准事项
+任何时刻只允许 `CURRENT_GOAL.md` 中一个 Goal 为 `APPROVED/IN_PROGRESS`。本 Program 不自动进入公网、真人、生产 release 或跨城。
 
-在不改变本 Program 合同的前提下，以下动作已获开发授权：
+## 预批准事项
 
-- 追加 migration `022`～`024` 的设计、实现和本地/PostgreSQL Gate 执行；
-- 增加 PaddleOCR、OpenTelemetry 开发/运行依赖；
-- 以实验依赖引入 OR-Tools；只有通过 Solver Admission Gate 后才可进入默认运行时；
-- 新增 TripBriefRevision、TripCheckRun、RunSpec、AdviceBundle 和约定的 API；
-- 在开发分支提交、推送，并在 Gate 通过后 fast-forward 到 `codex/trip-check-v1-program`；
-- 当前 Goal 完成后，按本文件固定顺序归档并生成下一 Goal。
-- 在 P1～P6 开发期使用子代理生成 synthetic/dev/regression 数据和截图、执行独立复核与故障诊断；这些产物不得标记为真实用户、人工或公开证据。
-- 自动启停隔离的本地 PostgreSQL 等既有依赖服务，并执行既有凭据、固定 18 次上限、零增量费用的高德/和风开发矩阵。
+- 新增 `026_trip_intake_v2.sql`、Intake schema/repository/API、字段证据与 materialization receipt；
+- 放宽当前主链的城市白名单、2～5 人、2～5 天和 `day_index <= 4` 数据约束；
+- 复用现有 OpenAI-compatible LLM 依赖做无工具 schema extraction，并提供无密钥/失败时的 fail-closed 结果；
+- 生成 120 条 synthetic text NLU 数据，使用开发子代理独立复核并封存 blind；
+- 在独立开发分支运行离线、PostgreSQL 和本地浏览器验证并 commit/push。
+- 使用 `deepseek-v4-flash` 做最多 300 次、总估算费用不超过人民币 30 元的真实开发评测；模型请求使用非思考 JSON 模式且不调用工具；
+- 在不改变公共 Intake v2 API/schema/migration 的前提下增加可配置 hybrid extractor、真实 prediction runner 和聚合 blind scorer；
+- O1～O4 的阶段性能门槛为单并发端到端 P95 ≤5 秒；V1 Candidate Gate 原 P95 ≤3 秒保持不变。
 
-## 5. 自动推进
+## Non-goals 与停止条件
 
-任何时刻仍只允许一个 `CURRENT_GOAL.md` 为 `APPROVED/IN_PROGRESS`。满足以下全部条件时才自动推进：
-
-- Acceptance cases 和对应 Gate 全部 PASS；
-- 工作树干净，commit 已推送且 upstream 可确认；
-- evidence 可回读，未使用旧 evidence 拼接；
-- 没有 Stop condition；
-- 下一 Goal 与本 Program 的阶段模板完全一致。
-
-自动推进只允许开发分支和 Program 集成分支。不得自动合并 `main`。
-P3 阶段通过与候选就绪分开计算：P3 不因 G1/G4/G5/G6 尚未运行而失败；这些项必须在 P6 候选 commit 上实际重跑并通过，不能被阶段证据替代。
-
-## 6. 仍需现场批准
-
-- 改变产品范围、降低 Gate、修改 frozen blind/oracle；
-- 新增未列入本 Program 的生产依赖或基础设施；
-- 使用真实付费 Provider、扩大外部数据范围；
-- 公网部署、真人招募/consent、对外能力声明；
-- 合并主分支、release、生产部署或改变仓库可见性。
-
-## 7. 停止条件
-
-连续两个切片无法改善同一 Gate、需要扩大范围、新基础设施、修改 blind/oracle、证据矛盾、成本超限、隐私事故，或只能通过降低 Gate 让 LLM/OR-Tools 晋级时立即停止。
+- 不支持一个 workspace 内跨城，不扩建 Builder/Planner/RAG/LoRA/Yjs，不新增消息队列或基础设施；
+- 不自动扩大 live Provider 调用，不把三城历史 receipts 当作全国证据；
+- 不开展公网、真人、生产部署、main 合并或 release；
+- 需要新增付费 Provider、修改 frozen blind、降低 Gate、扩大外部数据或发生隐私/证据矛盾时停止并请求人工批准。
+- 本次 DeepSeek 调用授权只覆盖上述 300 次/30 元开发预算，不自动授权 production 默认启用、扩大额度或其他模型；
+- frozen blind 每个冻结候选只允许一次正式评分；失败后不得按 blind 结果调参，必须生成新版本 blind 后才能再次晋级。

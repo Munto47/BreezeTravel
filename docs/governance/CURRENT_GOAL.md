@@ -1,102 +1,65 @@
-# COMPLETED GOAL：MP1-G01 微信小程序纵向闭环
+# REJECTED GOAL：O1～O4 Trip NLU v2 真实抽取与优化
 
 ## Metadata
 
-- Goal ID：`TC-MP1-G01-miniapp-vertical-slice`
-- Program ID：`TC-MULTI-FRONTEND-2026`
-- Phase：`MP1`
-- Status：`COMPLETED`
-- Branch：`codex/mobile-app`
-- Baseline commit：`d51d78fd004d46b105f05134c61d5fbee385c974`
-- Gate subject commit：`b616eaff1e06150d933fca70f8f18ebba1225cd3`
-- Completed at：2026-08-26
+- Goal ID：`TC-NLU-O1-O4`
+- Program ID：`TC-INTAKE-V2-2026`
+- Status：`REJECTED`
+- Branch：`codex/trip-nlu-v2-optimization`
+- Baseline：`d967e774e8eab208234c2af9fb677a90877a1766`
 - Approved by / at：User / 2026-08-26
-- Required gate：`Miniapp Automated Gate`
 
 ## Outcome
 
-在不改变「行程查」权威主链的前提下，新增可编译的微信小程序前端。小程序与 Next.js Web 共用 FastAPI/PostgreSQL 状态、revision、Evidence、Audit、Advice 和 postcheck，并通过共享 OpenAPI 合同防止双端漂移。
-
-```text
-微信登录 → 文本/截图输入 → TripBrief 确认 → 地点消歧
-→ 事实核验 → Advice/Repair → 新 Revision → 完整 postcheck
-```
+让 `deepseek-v4-flash` 的真实 hybrid prediction 跑通固定 Trip NLU v2 数据，建立可复现 deterministic/hybrid baseline，在 blind 隔离下优化并交付 Validation 与 Frozen blind 的准确率、安全、时延、成本和绑定回执。
 
 ## Scope
 
-- 新增 Taro 4.2.1、React 18.3.1、TypeScript、Webpack 5 小程序工程；
-- 新增平台无关 Trip Check 类型、错误和幂等命令客户端；
-- 新增微信 code2Session 登录，微信身份创建独立 `user_id`；
-- 新增截图上传批次、单图上传、提交和取消 API；
-- 新增追加式 migration `025_miniapp_identity_and_upload_batches.sql`；
-- 保留旧 Web multipart、SSE、手机号和邮箱登录兼容；
-- 交付类型检查、单测、OpenAPI 门禁和 `build:weapp` 产物。
+- 内部 semantic draft、Unicode 证据编译、DeepSeek OpenAI-compatible JSON 客户端和 hybrid merge；
+- 默认 deterministic、显式 hybrid 的应用服务注入与 fail-closed fallback；
+- dev/validation 通用 scorer、真实 prediction runner、RunSpec、调用/成本/时延预算；
+- 72 dev baseline、最多两轮各 60 条 dev 回放、最多两次 validation、一次 frozen blind；
+- 单元、API/应用集成、全量回归和最终证据报告。
 
 ## Non-goals
 
-- 不扩城、不跨城，不改变 2～5 人、2～5 天范围；
-- 不移植 Builder、Chat、Yjs、拖拽地图、模板、Planner、RAG 或 LoRA；
-- 不增加微信与手机号/邮箱账号合并或绑定；
-- 不新增消息队列、对象存储、Kubernetes、Provider 或付费调用；
-- 不安装或操作微信开发者工具，不做真机、上传、发布或公网部署；
-- 不更新 P6 candidate evidence，不复用旧 manifest 声明新 commit 已发布；
-- 不合并 `main`，不创建 release，不进入 H1。
-
-## Authority and approved contract changes
-
-权威顺序继承 `AGENTS.md`。用户已明确批准本 Goal 的完整小程序主链、仅微信登录、独立微信账号，以及微信登录和截图批次两项公共 API/migration 扩展。
-
-- `POST /api/auth/wechat/login`；
-- `POST /api/trip-workspaces/{workspace_id}/screenshot-upload-batches`；
-- `POST /api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/files/{position}`；
-- `POST /api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}/commit`；
-- `DELETE /api/trip-workspaces/{workspace_id}/screenshot-upload-batches/{batch_id}`；
-- migration `025_miniapp_identity_and_upload_batches.sql`。
-
-除上述合同外，任何新增公共 API、migration、生产依赖、基础设施、账号绑定、部署或真实微信凭据使用均停止并请求批准。
+- 修改 120 条数据、oracle、split、template/mutation family 或 blind labels；
+- 新公共 API/schema、migration、生产默认启用 DeepSeek、其他模型 bake-off；
+- real OCR、live Provider、全国覆盖、公网、H1、production、main merge 或 release；
+- 用文本 NLU 结果证明行程合理性、Provider 事实或真人可用性。
 
 ## Invariants
 
-- `TripWorkspace → ItineraryRevision → EvidenceSnapshot → AuditEngine → RepairOption/EditCommand` 仍是唯一权威主干；
-- 客户端只持久化 token、未完成命令和资源标识，业务状态从 `/resume` 回读；
-- 所有语义 mutation 保留 `If-Match`、`Idempotency-Key`、新 revision 与完整 postcheck；
-- 微信 code、openid、session_key 和 AppSecret 不进入数据库、日志、Git 或响应；数据库只保存 `HMAC(openid)`；
-- 截图 1～6 张、每张不超过 10MB；原图成功、失败、取消或过期后删除；清理失败保持 `PRIVACY_BLOCKED`；
-- `UNKNOWN/UNAVAILABLE` 不计 PASS，局部失败不抹掉成功事实；
-- Web 与小程序只共享合同和应用语义，不共享 DOM/UI 组件。
+- 模型不调用工具、不验证地点真假；未知、冲突和无效证据不得变成确定事实；
+- 模型只提出语义草稿，服务端按原文 Unicode code point 编译并逐字验证 evidence span；
+- hybrid 冲突降级为不确定并产生 issue，失败使用 deterministic fallback 且不注入默认值；
+- 运行回执绑定 commit/dataset/model/prompt/schema/config/predictions，但不记录密钥；
+- blind labels 只由隔离 scorer 读取，正式输出不含逐例 truth；每个候选只正式评分一次。
 
-## Acceptance and verification
+## Verification
 
-- 微信认证：配置缺失、无效 code、Provider 超时、重复/并发登录和敏感信息留存测试全部通过；
-- 截图批次：缺图、重复位置、冲突、大小/格式、提交、取消、过期、OCR/清理失败和旧 multipart 兼容测试全部通过；
-- migration 025 在全新和已有 PostgreSQL 上执行并回读；
-- OpenAPI 生成检查无漂移；共享客户端类型、错误与幂等测试通过；
-- 小程序登录、恢复、文本/截图、Brief、消歧、轮询、PARTIAL、Advice/Repair/postcheck 单测通过；
-- backend pytest、Ruff、Web build、dual-entry、小程序 typecheck/test/build 全部实际运行；
-- 微信开发者工具、真实 AppID/AppSecret、真机和发布固定为 `NOT_RUN`。
+- Validation 与 blind：schema/evidence/coverage 100%，六类关键错误为 0；
+- locations、party size、duration micro-F1 ≥0.95，preferences/requirements ≥0.90，contract controls=1.0，hard key fields ≥0.90；
+- 单并发端到端 P95 ≤5 秒；实际模型调用 ≤300，估算费用 ≤30 CNY；
+- backend pytest、Ruff、frontend build、dual-entry validator、Trip NLU v2 validator 全部重跑。
 
-## Budget, checkpoints and stop conditions
+## Budget / HITL / Stop
 
-- 增量费用：0；不调用真实微信、Provider 或公网部署；
-- 最长 60 分钟形成一次可恢复的本地与远端 checkpoint；
-- 每个切片执行：定向验证 → diff → 显式暂存 → staged diff/check → commit → push；
-- 当前未跟踪 `tests/` 属于用户，不读取、不修改、不暂存、不提交；
-- 需要扩大公共合同、无法保持旧 Web 兼容、发现隐私/secret 泄漏、连续两个切片无法改善同一门禁或需要真实凭据时停止。
-
-## Completion rule
-
-只有 `Miniapp Automated Gate=PASS`、工作树除用户 `tests/` 外干净、所有 commit 已推送且 upstream 可确认时，才可归档本 Goal。完成不代表开发者工具预览、真机验证、公网部署、生产发布或 P6 evidence 晋级。
+- 固定模型：`deepseek-v4-flash`；非思考 JSON 模式，temperature=0，max output=4096，单请求 deadline=4.5 秒；
+- 调用预算：dev baseline 72、两轮 dev 回放 120、两次 validation 48、blind 24、预热 3、dev 故障余量 33，总上限 300；
+- 成本按运行时冻结的官方单价和内部 `1 USD = 8 CNY` 计算，总上限 30 CNY；
+- 任一预算到达、需要修改 blind、扩大付费范围、降低 Gate 或发生隐私/证据矛盾时立即停止；
+- blind 失败不得用逐例结果优化；只能从 dev/validation 生成独立 regression，并在新 blind 版本获批后重新晋级。
 
 ## Completion record
 
-- Gate subject：`b616eaff1e06150d933fca70f8f18ebba1225cd3`；运行时代码、migration 025、共享客户端、Web 兼容与小程序纵向闭环均已提交；
-- Remote branch / upstream：`origin/codex/mobile-app`，全部实现 checkpoint 已推送并确认 upstream；
-- Backend：微信认证定向测试、截图批次与旧 multipart 回归、P6 定向回归、Ruff、OpenAPI 漂移检查和 backend 全量 pytest 均为 `PASS`；
-- PostgreSQL：migration 025 全新/已有数据库、run 恢复、修复并发、移动端导入与截图批次共 7 个集成节点实际通过；
-- Shared/Web：共享客户端 typecheck、OpenAPI 契约检查、Web production build 均为 `PASS`；
-- Miniapp：clean `npm ci`、typecheck、4 个 Jest suites / 7 tests、`build:weapp` 均为 `PASS`，`miniapp/dist` 已生成；
-- Privacy：secret scan 与浏览器专属 API scan 均为 `NO_MATCH`，原始微信身份材料和截图不进入持久化业务状态；
-- Dual-entry：结构门禁通过；旧 release candidate 仍为 `release_ready=false`，未更新 P6 evidence，也未把旧 manifest 的 PASS 迁移到本 commit；
-- `NOT_RUN`：真实 AppID/AppSecret、微信 code2Session、微信开发者工具预览、真机、体验版上传、发布与公网部署；
-- Remaining risks：Taro 官方 test-utils 的 peer 范围仍停留在 Taro 3；本 Goal 采用其纯 renderer 配合 mocked host components，运行时构建不依赖该测试包；
-- Promotion decision：`NOT_REQUESTED`；不合并 `main`，不创建 release，不进入 H1。
+- Implementation subject：`b051486dffd1f2ef81b7148b4b3672ab3a4f74d0`，已推送到 `origin/codex/trip-nlu-v2-optimization`；
+- O1/O2：semantic draft、Unicode evidence compiler、hybrid/fallback、真实 prediction runner、RunSpec、预算与通用 scorer 已完成；
+- O3：最终 72 条 Dev 全量 Gate=`PASS`，两次 Validation Gate 均为 `REJECT`；
+- O4：因 Validation 前置 Gate 未通过，正式 frozen blind=`NOT_RUN`，blind labels 未被评分进程读取；
+- 数据集 validator：`structurally_valid=true`、120/120、evidence span validity=1.0、`blind_labels_read=false`；
+- `INTAKE_V2_DEVELOPMENT_READY=false`：最终 backend 回归为 1988 passed / 32 skipped，Ruff、frontend build、dual-entry validator 和 120 条结构 validator 均通过；但两次 Validation NLU Gate 均为 `REJECT`，因此不能标记开发完成态；
+- `V1_CANDIDATE_READY=false`：本 Goal 不得改写或替代既有 Candidate Gate，不得因此宣称 `V1_CANDIDATE_READY`；
+- Budget：297/300 次，估算 5.10609568 CNY / 30 CNY；
+- Promotion decision：`REJECT`，不进入 frozen blind、G0～G6、H1、公网、release 或 main merge；
+- Evidence report：`docs/testing/trip-nlu-v2-optimization-2026-08-27.md`。
