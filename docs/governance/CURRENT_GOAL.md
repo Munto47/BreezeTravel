@@ -16,7 +16,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Implementation baseline/upstream：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`，现场`ls-remote`与clean-tree readback `PASS`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
-- Latest delivered checkpoint：fresh PostgreSQL 30份地图job/120条可用边持久化矩阵 `869bdaf282cbf7ab0e2b4f249426d49061bd5593`，tree `b5c33adeba6541911a31ef89a11090b2721a8355`；远端hash/subject/tree/file readback `PASS`
+- Latest delivered checkpoint：最终本地自动验证 subject `e99ed68412d54978ac4f187ccb3e5e9b3659d57f`，tree `3d1cc92ca6932db33c567374fc4e6d3ad8806e34`；除两项冻结Candidate绑定失败外新增失败为0，远端subject/tree/地图证据readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
 - Required gate：`Text Card Gate`
@@ -133,12 +133,12 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
 - canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
 - implementation baseline：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`；写入前`ls-remote`、HEAD与clean-tree一致；
-- current delivered subject：`origin/codex/trip-check-product-reset@869bdaf282cbf7ab0e2b4f249426d49061bd5593`，tree `b5c33adeba6541911a31ef89a11090b2721a8355`，远端文件readback `PASS`；
+- current delivered subject：`origin/codex/trip-check-product-reset@e99ed68412d54978ac4f187ccb3e5e9b3659d57f`，tree `3d1cc92ca6932db33c567374fc4e6d3ad8806e34`，远端文件readback `PASS`；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
 - 当前生成OpenAPI：116 paths，其中v3为11；与99路径冻结快照物理隔离，新增17路径全部机器归类且旧路径/方法零缺失；`UserFacingTripResult.status`已按冻结预算合同包含可编辑`LIMITED`；
-- Qwen live lane：`NOT_READY`（key与通用兼容URL存在；账号region/workspace/exact model ID/价格绑定未确认；当前runtime仍为DeepSeek）；
+- Qwen live lane：`NOT_READY`（key与通用兼容URL存在；账号region/workspace/exact model ID/价格绑定未确认；旧Intake runtime仍为DeepSeek绑定，v3只用受控fixture且不会静默回退DeepSeek）；
 - AMap live persistence：`BLOCKED_PENDING_WRITTEN_PERMISSION`（凭据存在但没有持久化书面许可；仅允许fixture且本切片不发起live调用）；
 - 历史Candidate：`HISTORICAL_BINDING_INVALID / FROZEN`；10/10数据、schema和generator绑定有效，validator/scorer/gate绑定失效；不得修改manifest、blind、oracle或冻结证据；
 - G01 Text Card数据：独立90条输入已生成并字节绑定，`54 dev / 18 validation / 18 frozen_blind`、`60 DEEP_CITY / 15 OTHER_CITY / 15 ADVERSARIAL`、30个family各A/B/C且不跨split；仓库内human label/gold/oracle为0；
@@ -147,6 +147,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 地图正例fixture：北京/上海/杭州各10份、每份5个已映射地点与4条相邻边，共30份行程/120条唯一有向边；真实`MapRenderWorker → MapRenderer`受控矩阵生成30个READY snapshot、walking/transit各120个可用mode fact、可用覆盖100%、逻辑重复请求0、external call 0、worker→snapshot P95 `0.45ms`；只计`CONTROLLED_FIXTURE`子门禁，live高德和完整Gate仍为`NOT_RUN`；
 - Provider故障与预算：只有显式脱敏的typed unavailable会被降级，普通代码/schema异常不吞掉；Qwen候选故障用本地确定性语义返回`PARTIAL_RESULT`且不使用DeepSeek，地点故障保留六张可确认卡，单一路线模式故障隔离到该模式；81个可执行活动保留81张卡、只发起前80次地点解析并返回`LIMITED`，没有静默截断；以上均为test double/fixture，不是live调用；
 - PostgreSQL地图正例矩阵：fresh database应用现有migration后，30份FULL理解结果各原子创建初次地图job；独立worker持久化30个READY job/snapshot、120条selected edge、240个AVAILABLE mode fact与240个Provider effect receipt，external calls与重复逻辑请求均为0，P95门槛断言≤15秒，旧`rooms`表仍存在；数据库结束后安全删除，仅证明受控fixture持久链；
+- 最终本地自动验证：后端全量`2054 PASS / 34 SKIP / 2 FAIL`，两项均为已登记的冻结Candidate manifest代码绑定失败，新增失败0；S0、fresh PostgreSQL、90条数据合同、地图矩阵、Ruff、OpenAPI、共享client、前端生产build和真实本地浏览器链均通过；Text Card Gate仍为`HITL_PENDING`，不因此宣称Goal完成；
 - G00治理结构验证`structurally_valid=true`；这只证明蓝图结构，不证明V0.1产品能力；
 - 历史Intake/Candidate只作资产基线，不是G01 PASS，不得因此宣称 `V1_CANDIDATE_READY`；
 - H1、公网、生产、商业：`NOT_RUN`。
@@ -186,6 +187,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 | 2026-08-28 | 三城地图正例从输入合同贯穿真实内存worker与renderer：30份行程的120条相邻边均同时得到walking/transit事实与可用snapshot | `1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2` | fixture与生成器逐字节绑定；北京/上海/杭州各10份、120唯一有向边；真实worker矩阵30 READY、120/120 usable、walking/transit各120、walking选择93/transit 27、重复请求0、external calls 0、P95 0.45ms；目标测试29 PASS；Ruff PASS；remote subject/tree/contract readback PASS | `MAP_POSITIVE_FIXTURE_SUBGATE_PASS / IN_MEMORY_WORKER / NON_LIVE` | Provider失败部分结果、预算与完整runtime矩阵；PostgreSQL 30份持久化矩阵；双人真人标注、Qwen/AMap准入、sealed blind与完整Gate | 合成路线数字不是高德事实；本证据不能替代live或PostgreSQL矩阵，完整Text Card Gate保持`NOT_RUN` | 继续实现Qwen/AMap失败时可编辑部分结果与剩余离线runtime Gate，再运行最终全量验证 |
 | 2026-08-28 | 模型、地点或单一路线模式暂不可用时仍保留可编辑卡片/可用路线；超过80个可执行活动不静默截断，返回`LIMITED` | Runtime `80a9dc3835f1685f80a6d06513a0f82c22368091`；Compose `cf9003c97e0c5b3350021c102183a0d39bbf269c` | typed failure与81活动测试33 PASS；fresh PostgreSQL 1 PASS；Ruff、当前OpenAPI、共享client typecheck/build、frontend生产build PASS；本地Compose Playwright首轮因缺baseURL在导航前失败，显式`E2E_BASE_URL`后3 PASS；backend/两worker同镜像且health 200、近期ERROR 0；远端readback PASS | `OFFLINE_FAILURE_DEGRADATION_PASS / CONTROLLED_TEST_DOUBLE / LOCAL_BROWSER` | PostgreSQL 30份地图持久化矩阵、全量pytest最终重跑；双人真人标注/裁决、Qwen账号exact binding、高德书面许可、dev/validation选模与sealed blind | 测试故障不是live Qwen/AMap证据；migration 028的历史effect_type枚举仍名为fixture，若在当前Goal改成provider-neutral值需要新增未预批准migration，当前只在JSON receipt记录真实binding | 运行最终全量pytest和冻结Candidate诊断；继续可自主的PostgreSQL地图矩阵，随后请求最小HITL输入 |
 | 2026-08-28 | 30份三城正例已穿过fresh PostgreSQL理解结果、初次地图job、worker、不可变snapshot、edge/mode fact和effect receipt全链 | `869bdaf282cbf7ab0e2b4f249426d49061bd5593` | 独立integration 1 PASS/3.91s；30 READY jobs/snapshots、120/120 selected edges、240/240 AVAILABLE mode facts、240 effect receipts、external calls 0、请求三元组唯一、P95≤15s断言PASS、旧rooms表存在；同轮G01目标33 PASS+现有PostgreSQL 1 PASS、Ruff PASS；remote subject/tree/test readback PASS | `POSTGRES_MAP_POSITIVE_FIXTURE_SUBGATE_PASS / FRESH_DATABASE / NON_LIVE` | 最终全量pytest与Candidate冻结诊断；双人真人标注/裁决、Qwen exact账号、AMap书面许可、dev/validation模型比较与一次sealed blind | live覆盖仍`NOT_RUN`；合成路线事实不得进入用户路线权威；完整Text Card Gate仍为`HITL_PENDING` | 运行最终全量pytest、OpenAPI/client/frontend/浏览器回归及远端clean readback，确认只剩外部HITL项 |
+| 2026-08-28 | 可自主的G01本地实现与回归已收口；`localhost:3000`继续提供匿名北京示例、登录FULL文本、编辑/删除与地图后台链 | `e99ed68412d54978ac4f187ccb3e5e9b3659d57f` | 后端全量2054 PASS/34 SKIP/2冻结FAIL，新增失败0；Candidate单跑18 PASS/3 SKIP/2冻结FAIL；fresh PostgreSQL 2 PASS；S0 3 PASS且冻结diff 0；90条合同PASS/Gate `HITL_PENDING`；30/120矩阵PASS；Ruff/OpenAPI/client/frontend PASS；Playwright 3 PASS；首页/health 200，三进程近期ERROR 0 | `LOCAL_AUTOMATED_REGRESSION_COMPLETE / HISTORICAL_BINDING_INVALID_FROZEN / TEXT_CARD_GATE_HITL_PENDING` | 两名独立标注员与第三名裁决员；Qwen账号region/workspace/exact model/价格绑定；AMap持久化书面许可；候选冻结后的外部custodian一次sealed blind | H1、live Provider、公网、生产、商业、main均`NOT_RUN`；无授权不得读取blind truth或发起高德持久化调用 | 等待最小HITL输入；到齐后完成双标/裁决、同数据候选比较、冻结候选、外部sealed blind与完整Text Card Gate |
 
 ## Auto-advance
 
@@ -196,12 +198,12 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Completion record
 
 - Status：`PENDING`；
-- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`，领取/隐私 `1ed7927813fcf197db519ccdad3b7472239eeb46`，029地图 `ccfe16e0d110ed0243576f327c1df93dcb8e61a0`，90条数据/评测合同 `9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4`，地图正例矩阵 `1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2`，Provider/预算降级 `80a9dc3835f1685f80a6d06513a0f82c22368091`，同镜像worker `cf9003c97e0c5b3350021c102183a0d39bbf269c`，PostgreSQL 30/120矩阵 `869bdaf282cbf7ab0e2b4f249426d49061bd5593`；Text Card Gate仍未完成；
+- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`，领取/隐私 `1ed7927813fcf197db519ccdad3b7472239eeb46`，029地图 `ccfe16e0d110ed0243576f327c1df93dcb8e61a0`，90条数据/评测合同 `9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4`，地图正例矩阵 `1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2`，Provider/预算降级 `80a9dc3835f1685f80a6d06513a0f82c22368091`，同镜像worker `cf9003c97e0c5b3350021c102183a0d39bbf269c`，PostgreSQL 30/120矩阵 `869bdaf282cbf7ab0e2b4f249426d49061bd5593`，最终自动验证 `e99ed68412d54978ac4f187ccb3e5e9b3659d57f`；Text Card Gate仍未完成；
 - Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
-- Verification / Evidence / Gate result：`FIXTURE_DEMO_AND_CONSERVATIVE_FULL_LOCAL_AUTOMATED_PASS / LIVE_PROVIDER_NOT_RUN / TEXT_CARD_GATE_PENDING`；
+- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / FIXTURE_DEMO_AND_CONSERVATIVE_FULL_PASS / LIVE_PROVIDER_NOT_RUN / TEXT_CARD_GATE_HITL_PENDING`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验并登录领取；登录后可粘贴文本生成卡片、执行六类编辑、删除原文/单份行程/全部v3旅行数据；首批卡片后后台自动生成walking/transit快照，编辑后诚实提示路线尚未更新。当前地点和路线均为fixture证据；90条数据只是内部受治理评测输入，不会进入用户页面，也不是真人、公网或生产证据；
-- Remaining risks：Qwen live lane未就绪；AMap持久化等待书面许可；地图fixture与PostgreSQL 30/120、离线故障降级已通过，但live覆盖、真实模型调用/修复预算和完整runtime Gate仍未完成；90条输入已完成但双人真人标注/裁决、外部blind custodian与Text Card Gate仍未完成；
+- Remaining risks：Qwen账号exact binding未确认；AMap持久化等待书面许可；地图fixture与PostgreSQL 30/120、离线故障降级和全部本地自动回归已通过，但live覆盖、真实模型调用/修复预算仍为`NOT_RUN`；90条输入已完成但双人真人标注/裁决、外部blind custodian、一次sealed blind与Text Card Gate仍未完成；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
