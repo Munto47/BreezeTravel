@@ -68,6 +68,12 @@
           "title": "Effect Key Sha256",
           "type": "string"
         },
+        "external_call_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "External Call Count",
+          "type": "integer"
+        },
         "persisted_status": {
           "const": "SUCCEEDED",
           "default": "SUCCEEDED",
@@ -111,6 +117,7 @@
         "request_sha256",
         "response_sha256",
         "resolution_status",
+        "external_call_count",
         "started_at",
         "completed_at"
       ],
@@ -212,6 +219,7 @@
     },
     "source_registry": {
       "enum": [
+        "POSTGRESQL_APPLICATION_TABLES",
         "POSTGRESQL_PROVIDER_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE"
       ],

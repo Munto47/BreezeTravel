@@ -234,6 +234,17 @@ class AmapPlaceResolver:
         request_sha256 = canonical_sha256(
             {"method": "GET", "endpoint": self.endpoint, "params": safe_params}
         )
+        request_binding: dict[str, object] = {
+            "provider": "AMAP_POI_V2",
+            "execution_mode": "LIVE",
+            "endpoint_sha256": _sha256_text(self.endpoint),
+            "request_sha256": request_sha256,
+            "query_sha256": _sha256_text(atomic),
+            "city": city,
+            "city_limit": True,
+            "typecodes": typecodes,
+            "raw_provider_response_retained": False,
+        }
         started = time.perf_counter()
         observed_at = datetime.now(UTC)
         try:
@@ -252,12 +263,8 @@ class AmapPlaceResolver:
             raise PlaceProviderUnavailableError(
                 "DEADLINE_EXCEEDED",
                 provider_binding={
-                    "provider": "AMAP_POI_V2",
-                    "execution_mode": "LIVE",
-                    "endpoint_sha256": _sha256_text(self.endpoint),
-                    "request_sha256": request_sha256,
+                    **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
-                    "raw_provider_response_retained": False,
                 },
                 external_call_count=1,
             ) from exc
@@ -265,12 +272,8 @@ class AmapPlaceResolver:
             raise PlaceProviderUnavailableError(
                 "PROVIDER_UNAVAILABLE",
                 provider_binding={
-                    "provider": "AMAP_POI_V2",
-                    "execution_mode": "LIVE",
-                    "endpoint_sha256": _sha256_text(self.endpoint),
-                    "request_sha256": request_sha256,
+                    **request_binding,
                     "latency_ms": round((time.perf_counter() - started) * 1000, 3),
-                    "raw_provider_response_retained": False,
                 },
                 external_call_count=1,
             ) from exc
@@ -280,31 +283,20 @@ class AmapPlaceResolver:
             raise PlaceProviderUnavailableError(
                 "INVALID_PROVIDER_RESPONSE",
                 provider_binding={
-                    "provider": "AMAP_POI_V2",
-                    "endpoint_sha256": _sha256_text(self.endpoint),
-                    "request_sha256": request_sha256,
+                    **request_binding,
                     "latency_ms": latency_ms,
-                    "raw_provider_response_retained": False,
                 },
                 external_call_count=1,
             )
         response_sha256 = canonical_sha256(payload)
         base_receipt: dict[str, object] = {
-            "provider": "AMAP_POI_V2",
-            "execution_mode": "LIVE",
-            "endpoint_sha256": _sha256_text(self.endpoint),
-            "request_sha256": request_sha256,
+            **request_binding,
             "response_sha256": response_sha256,
             "provider_request_id_sha256": _provider_request_id_hash(response),
-            "query_sha256": _sha256_text(atomic),
-            "city": city,
-            "city_limit": True,
-            "typecodes": typecodes,
             "http_status": response.status_code,
             "latency_ms": latency_ms,
             "observed_at": observed_at.isoformat().replace("+00:00", "Z"),
             "external_calls": 1,
-            "raw_provider_response_retained": False,
         }
         if payload.get("status") != "1" or payload.get("infocode") not in {None, "10000"}:
             raise PlaceProviderUnavailableError(

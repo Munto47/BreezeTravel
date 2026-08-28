@@ -35,6 +35,7 @@ InferenceExecutionMode = Literal["LIVE", "CONTROLLED_FIXTURE"]
 PlaceBoundaryStatus = Literal["VERIFIED_ATOMIC", "UNCERTAIN", "NONE"]
 PlaceBoundaryBasis = Literal[
     "PROVIDER_ACCEPTED_EXACT",
+    "SOURCE_VERBATIM_ATOMIC",
     "NONE",
 ]
 
@@ -88,6 +89,8 @@ class ProviderReceiptRef(StrictModel):
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     observed_at: datetime
     resolution_status: ProviderResolutionStatus
+    queried_source_name: str = Field(min_length=1, max_length=100)
+    queried_city: str = Field(min_length=1, max_length=80)
     accepted_source_name: str | None = Field(default=None, min_length=1, max_length=100)
     authorization_basis: Literal["OWNER_ATTESTED_EXISTING_AUTHORIZATION"] = (
         "OWNER_ATTESTED_EXISTING_AUTHORIZATION"
@@ -139,6 +142,9 @@ class ProviderRuntimeEffectReceipt(StrictModel):
     request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolution_status: ProviderResolutionStatus
+    queried_source_name: str = Field(min_length=1, max_length=100)
+    queried_city: str = Field(min_length=1, max_length=80)
+    external_call_count: int = Field(ge=0, le=1)
     place_id: str | None = Field(default=None, min_length=1, max_length=200)
     name: str | None = Field(default=None, min_length=1, max_length=100)
     city: str | None = Field(default=None, min_length=1, max_length=80)
@@ -153,6 +159,8 @@ class ProviderRuntimeEffectReceipt(StrictModel):
     def runtime_effect_is_consistent(self) -> "ProviderRuntimeEffectReceipt":
         if self.completed_at < self.started_at:
             raise ValueError("provider effect completed before it started")
+        if self.external_call_count == 0 and self.resolution_status == "MATCHED":
+            raise ValueError("zero-call Provider decisions cannot claim a matched place")
         selected = (self.place_id, self.name, self.city, self.category)
         if self.resolution_status == "MATCHED":
             if any(value is None for value in selected) or not self.accepted_source_names:
@@ -169,6 +177,7 @@ class ProviderDatabaseEffectRecord(StrictModel):
     request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolution_status: ProviderResolutionStatus
+    external_call_count: int = Field(ge=0, le=1)
     started_at: datetime
     completed_at: datetime
     persisted_status: Literal["SUCCEEDED"] = "SUCCEEDED"
@@ -190,6 +199,7 @@ class ProviderDatabaseExportReceipt(StrictModel):
     provider_binding_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     execution_mode: ProviderExecutionMode
     source_registry: Literal[
+        "POSTGRESQL_APPLICATION_TABLES",
         "POSTGRESQL_PROVIDER_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE",
     ]
@@ -216,10 +226,14 @@ class ProviderDatabaseExportReceipt(StrictModel):
             raise ValueError("database export predates a persisted effect")
         if self.execution_mode == "LIVE":
             if (
-                self.source_registry != "POSTGRESQL_PROVIDER_EFFECT_REGISTRY"
+                self.source_registry
+                not in {
+                    "POSTGRESQL_APPLICATION_TABLES",
+                    "POSTGRESQL_PROVIDER_EFFECT_REGISTRY",
+                }
                 or self.database_instance_sha256 is None
             ):
-                raise ValueError("LIVE database exports require persisted database provenance")
+                raise ValueError("LIVE database exports require application-table provenance")
             if (self.authority_signature is None) != (
                 self.authority_policy_sha256 is None
             ) or (
@@ -243,14 +257,30 @@ class ProviderHttpExchangeReceipt(StrictModel):
     effect_id: str = Field(min_length=8, max_length=160)
     request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    http_status: int = Field(ge=200, le=299)
-    provider_status: Literal["SUCCESS"] = "SUCCESS"
+    external_call_count: int = Field(ge=0, le=1)
+    http_status: int | None = Field(default=None, ge=200, le=299)
+    provider_status: Literal["SUCCESS", "FAILED", "NOT_CALLED"]
     provider_request_id_sha256: str | None = Field(
         default=None,
         pattern=r"^[0-9a-f]{64}$",
     )
     completed_at: datetime
     raw_response_retained: Literal[False] = False
+
+    @model_validator(mode="after")
+    def exchange_matches_call_count(self) -> "ProviderHttpExchangeReceipt":
+        if self.external_call_count == 0:
+            if (
+                self.http_status is not None
+                or self.provider_status != "NOT_CALLED"
+                or self.provider_request_id_sha256 is not None
+            ):
+                raise ValueError("zero-call Provider decisions cannot claim an HTTP exchange")
+        elif self.provider_status == "NOT_CALLED":
+            raise ValueError("live Provider calls cannot claim NOT_CALLED")
+        elif self.provider_status == "SUCCESS" and self.http_status is None:
+            raise ValueError("successful Provider calls require a 2xx HTTP status")
+        return self
 
 
 class ProviderHttpReceiptBundle(StrictModel):
@@ -313,6 +343,7 @@ class ProviderRuntimeReceiptBundle(StrictModel):
         "G01_AMAP_CONTROLLED_FIXTURE_EXPORTER",
     ]
     source_runtime: Literal[
+        "PERSISTED_APPLICATION_TABLES",
         "PERSISTED_PROVIDER_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE",
     ]
@@ -340,7 +371,10 @@ class ProviderRuntimeReceiptBundle(StrictModel):
             raise ValueError("provider execution mode and evidence level disagree")
         if live != (self.generated_by == "G01_AMAP_LIVE_RECEIPT_EXPORTER"):
             raise ValueError("provider execution mode and exporter disagree")
-        if live != (self.source_runtime == "PERSISTED_PROVIDER_EFFECT_REGISTRY"):
+        if live != (
+            self.source_runtime
+            in {"PERSISTED_APPLICATION_TABLES", "PERSISTED_PROVIDER_EFFECT_REGISTRY"}
+        ):
             raise ValueError("provider execution mode and source runtime disagree")
         if any(item.completed_at > self.generated_at for item in self.effects):
             raise ValueError("provider runtime bundle cannot predate an included effect")
@@ -487,7 +521,8 @@ class AgentMentionAnnotation(StrictModel):
             raise ValueError("place annotations require verified or uncertain boundaries")
         if (
             self.place_boundary_status == "VERIFIED_ATOMIC"
-            and self.place_boundary_basis != "PROVIDER_ACCEPTED_EXACT"
+            and self.place_boundary_basis
+            not in {"PROVIDER_ACCEPTED_EXACT", "SOURCE_VERBATIM_ATOMIC"}
         ):
             raise ValueError("verified place boundaries require an exact authority basis")
         if self.canonical_place is not None and not self.executable_place:
@@ -502,12 +537,21 @@ class AgentMentionAnnotation(StrictModel):
             raise ValueError("executable source spans must contain only the atomic place text")
         if self.executable_place and self.provider_resolution_receipt is not None:
             receipt = self.provider_resolution_receipt
-            if receipt.resolution_status != "MATCHED":
-                raise ValueError("only Provider-matched exact boundaries can be executable")
-            if receipt.accepted_source_name != self.raw_text:
-                raise ValueError("matched source span is not the Provider-accepted place name")
-            if self.place_boundary_basis != "PROVIDER_ACCEPTED_EXACT":
-                raise ValueError("Provider executable places require Provider exact boundary evidence")
+            if normalized_text(receipt.queried_source_name).strip() != normalized_text(
+                self.raw_text
+            ).strip():
+                raise ValueError("Provider receipt query does not match the atomic source span")
+            if receipt.resolution_status == "MATCHED":
+                if receipt.accepted_source_name != self.raw_text:
+                    raise ValueError("matched source span is not the Provider-accepted place name")
+                if self.place_boundary_basis != "PROVIDER_ACCEPTED_EXACT":
+                    raise ValueError(
+                        "Provider-matched executable places require exact Provider evidence"
+                    )
+            elif self.place_boundary_basis != "SOURCE_VERBATIM_ATOMIC":
+                raise ValueError(
+                    "unresolved executable places require verbatim atomic source evidence"
+                )
         if self.canonical_place is not None:
             if self.provider_resolution_receipt != self.canonical_place.provider_receipt:
                 raise ValueError("canonical place must bind the mention provider resolution receipt")

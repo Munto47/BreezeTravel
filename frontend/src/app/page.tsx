@@ -113,7 +113,7 @@ export default function HomePage() {
               <span className="block text-emerald-700">每天都能照着走的卡片</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              登录后无需先创建并导入行程，直接粘贴自己的长文本即可导入行程并核验；没有把握的地点会留给你确认。未登录也可以先用固定北京三日示例体验同一条整理、地点核对和结果恢复链路。
+              登录后直接粘贴长攻略，我们会整理成逐日卡片；没有把握的地点会留给你确认。未登录也可以先体验固定的北京三日示例。
             </p>
 
             {isHydrated && user && (

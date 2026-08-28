@@ -112,6 +112,12 @@
           "title": "Execution Mode",
           "type": "string"
         },
+        "external_call_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "External Call Count",
+          "type": "integer"
+        },
         "name": {
           "anyOf": [
             {
@@ -149,6 +155,18 @@
         "provider_binding_sha256": {
           "pattern": "^[0-9a-f]{64}$",
           "title": "Provider Binding Sha256",
+          "type": "string"
+        },
+        "queried_city": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Queried City",
+          "type": "string"
+        },
+        "queried_source_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Queried Source Name",
           "type": "string"
         },
         "raw_response_in_repository": {
@@ -196,6 +214,9 @@
         "request_sha256",
         "response_sha256",
         "resolution_status",
+        "queried_source_name",
+        "queried_city",
+        "external_call_count",
         "accepted_source_names",
         "started_at",
         "completed_at"
@@ -345,6 +366,7 @@
     },
     "source_runtime": {
       "enum": [
+        "PERSISTED_APPLICATION_TABLES",
         "PERSISTED_PROVIDER_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE"
       ],

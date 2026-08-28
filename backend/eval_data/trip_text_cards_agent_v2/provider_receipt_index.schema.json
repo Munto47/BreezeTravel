@@ -160,6 +160,18 @@
           "title": "Provider Binding Sha256",
           "type": "string"
         },
+        "queried_city": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Queried City",
+          "type": "string"
+        },
+        "queried_source_name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Queried Source Name",
+          "type": "string"
+        },
         "raw_response_in_git": {
           "const": false,
           "default": false,
@@ -226,6 +238,8 @@
         "response_sha256",
         "observed_at",
         "resolution_status",
+        "queried_source_name",
+        "queried_city",
         "accepted_source_names"
       ],
       "title": "ProviderPlaceReceiptRecord",

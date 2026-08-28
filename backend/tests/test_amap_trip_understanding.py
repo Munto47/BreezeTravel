@@ -145,8 +145,31 @@ async def test_amap_provider_failure_is_typed_and_redacted() -> None:
     assert captured.value.category == "PROVIDER_STATUS_ERROR"
     assert captured.value.external_call_count == 1
     assert captured.value.provider_binding["infocode"] == "10001"
+    assert captured.value.provider_binding["city"] == "北京"
+    assert captured.value.provider_binding["city_limit"] is True
+    assert len(str(captured.value.provider_binding["query_sha256"])) == 64
     assert "INVALID_USER_KEY" not in str(captured.value.provider_binding)
     assert "test-only" not in str(captured.value.provider_binding)
+
+
+@pytest.mark.asyncio
+async def test_amap_timeout_preserves_redacted_city_and_atomic_query_binding() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("controlled timeout", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        resolver = AmapPlaceResolver(api_key="test-only", client=client)
+        with pytest.raises(PlaceProviderUnavailableError) as captured:
+            await resolver.resolve(city="杭州", atomic_place_name="西湖", category_hint="景点")
+
+    binding = captured.value.provider_binding
+    assert captured.value.category == "DEADLINE_EXCEEDED"
+    assert captured.value.external_call_count == 1
+    assert binding["city"] == "杭州"
+    assert binding["city_limit"] is True
+    assert len(str(binding["query_sha256"])) == 64
+    assert "西湖" not in str(binding)
+    assert "test-only" not in str(binding)
 
 
 def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> None:

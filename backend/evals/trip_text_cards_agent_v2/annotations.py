@@ -148,11 +148,12 @@ def _require_frozen_provider_binding(
         qwen = binding.get("qwen")
         if (
             not isinstance(qwen, dict)
-            or qwen.get("exact_model_id") != exact_model_id
             or qwen.get("region") != region
-            or qwen.get("endpoint_sha256") != endpoint_sha256
+            or qwen.get("inference_endpoint_sha256") != endpoint_sha256
+            or qwen.get("model_selection_binding") != "QWEN_MODEL_PANEL"
         ):
             raise AgentAnnotationValidationError("candidate Qwen Provider binding disagrees")
+        del exact_model_id  # exact selection is independently bound by qwen_model_panel.json
     else:
         raise AgentAnnotationValidationError("unknown live Provider binding lane")
     return _git_blob_sha256(repository_root, candidate_commit, path)
@@ -645,11 +646,23 @@ def validate_provider_receipt_assets(
         or http_bundle.execution_mode != runtime_bundle.execution_mode
     ):
         raise AgentAnnotationValidationError("Provider artifact execution modes disagree")
-    if runtime_bundle.execution_mode == "LIVE" and (
-        database_export.source_registry
-        != "POSTGRESQL_PROVIDER_EFFECT_REGISTRY"
-    ):
-        raise AgentAnnotationValidationError("AMap live database source registry mismatch")
+    if runtime_bundle.execution_mode == "LIVE":
+        hardened = goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE"
+        expected_database_source = (
+            "POSTGRESQL_PROVIDER_EFFECT_REGISTRY"
+            if hardened
+            else "POSTGRESQL_APPLICATION_TABLES"
+        )
+        expected_runtime_source = (
+            "PERSISTED_PROVIDER_EFFECT_REGISTRY"
+            if hardened
+            else "PERSISTED_APPLICATION_TABLES"
+        )
+        if (
+            database_export.source_registry != expected_database_source
+            or runtime_bundle.source_runtime != expected_runtime_source
+        ):
+            raise AgentAnnotationValidationError("AMap live persistence source mismatch")
 
     receipt_by_effect = {item.runtime_effect_id: item for item in provider_index.receipts}
     effect_by_id = {item.effect_id: item for item in runtime_bundle.effects}
@@ -680,6 +693,8 @@ def validate_provider_receipt_assets(
             receipt.request_sha256,
             receipt.response_sha256,
             receipt.resolution_status,
+            receipt.queried_source_name,
+            receipt.queried_city,
             receipt.place_id,
             receipt.name,
             receipt.city,
@@ -691,6 +706,8 @@ def validate_provider_receipt_assets(
             effect.request_sha256,
             effect.response_sha256,
             effect.resolution_status,
+            effect.queried_source_name,
+            effect.queried_city,
             effect.place_id,
             effect.name,
             effect.city,
@@ -705,6 +722,7 @@ def validate_provider_receipt_assets(
             database_effect.request_sha256,
             database_effect.response_sha256,
             database_effect.resolution_status,
+            database_effect.external_call_count,
             database_effect.started_at,
             database_effect.completed_at,
             database_effect.persisted_status,
@@ -715,6 +733,7 @@ def validate_provider_receipt_assets(
             effect.request_sha256,
             effect.response_sha256,
             effect.resolution_status,
+            effect.external_call_count,
             effect.started_at,
             effect.completed_at,
             effect.status,
@@ -724,10 +743,12 @@ def validate_provider_receipt_assets(
         if (
             http_effect.request_sha256,
             http_effect.response_sha256,
+            http_effect.external_call_count,
             http_effect.completed_at,
         ) != (
             effect.request_sha256,
             effect.response_sha256,
+            effect.external_call_count,
             effect.completed_at,
         ):
             raise AgentAnnotationValidationError("HTTP receipt does not match runtime effect")
@@ -1030,6 +1051,8 @@ def verify_agent_adjudication(
                 resolution_ref.request_sha256,
                 resolution_ref.response_sha256,
                 resolution_ref.resolution_status,
+                resolution_ref.queried_source_name,
+                resolution_ref.queried_city,
                 resolution_ref.accepted_source_name,
                 resolution_ref.receipt_ref,
                 resolution_ref.observed_at,
@@ -1046,6 +1069,8 @@ def verify_agent_adjudication(
                 receipt.request_sha256,
                 receipt.response_sha256,
                 receipt.resolution_status,
+                receipt.queried_source_name,
+                receipt.queried_city,
                 receipt.accepted_source_name,
                 receipt.receipt_ref,
                 receipt.observed_at,

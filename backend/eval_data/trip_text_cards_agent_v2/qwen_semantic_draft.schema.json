@@ -16,6 +16,9 @@
       "properties": {
         "basis": {
           "const": "EXPLICIT",
+          "enum": [
+            "EXPLICIT"
+          ],
           "title": "Basis",
           "type": "string"
         },
@@ -134,16 +137,25 @@
       "properties": {
         "basis": {
           "const": "SOFT_ASSUMPTION",
+          "enum": [
+            "SOFT_ASSUMPTION"
+          ],
           "title": "Basis",
           "type": "string"
         },
         "evidence_span_end": {
           "const": null,
+          "enum": [
+            null
+          ],
           "title": "Evidence Span End",
           "type": "null"
         },
         "evidence_span_start": {
           "const": null,
+          "enum": [
+            null
+          ],
           "title": "Evidence Span Start",
           "type": "null"
         },

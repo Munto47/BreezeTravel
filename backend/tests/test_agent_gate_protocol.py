@@ -1316,9 +1316,10 @@ def test_live_and_controlled_database_receipts_cannot_swap_source_registry() -> 
         "effect_key_sha256": "4" * 64,
         "provider_binding_sha256": "1" * 64,
         "request_sha256": "5" * 64,
-        "response_sha256": "6" * 64,
-        "resolution_status": "UNRESOLVED",
-        "started_at": "2026-08-28T00:00:00Z",
+            "response_sha256": "6" * 64,
+            "resolution_status": "UNRESOLVED",
+            "external_call_count": 1,
+            "started_at": "2026-08-28T00:00:00Z",
         "completed_at": "2026-08-28T00:00:01Z",
         "persisted_status": "SUCCEEDED",
     }
@@ -1408,9 +1409,9 @@ def test_live_export_is_fixed_query_only_and_candidate_provider_bound(tmp_path: 
             "amap_walking": "AMAP_WALKING_V3",
             "amap_transit": "AMAP_TRANSIT_V3",
             "qwen": {
-                "exact_model_id": "qwen-plus-fixed",
                 "region": "cn-beijing",
-                "endpoint_sha256": "1" * 64,
+                "inference_endpoint_sha256": "1" * 64,
+                "model_selection_binding": "QWEN_MODEL_PANEL",
             },
         },
     )
@@ -1449,8 +1450,8 @@ def test_live_export_is_fixed_query_only_and_candidate_provider_bound(tmp_path: 
             repository,
             candidate,
             lane="QWEN",
-            exact_model_id="qwen-max-wrong",
-            region="cn-beijing",
+            exact_model_id="qwen-plus-fixed",
+            region="wrong-region",
             endpoint_sha256="1" * 64,
         )
 

@@ -30,6 +30,11 @@ from evals.trip_text_cards_agent_v2.split_loader import (
 from evals.trip_text_cards_v1.contracts import TextCardPrediction, canonical_sha256
 from evals.trip_text_cards_v1.scorer import ScoringError
 from evals.trip_text_cards_v1.validator import load_cases
+from scripts.export_g01_amap_live_receipts import (
+    _effect_models,
+    build_source_only_catalog,
+    extract_source_place_candidates,
+)
 from scripts.score_g01_agent_dev_validation import validate_prediction_run
 
 
@@ -150,6 +155,61 @@ def _attestation(task_id: str, role: str, *, start_minute: int = 0) -> dict[str,
     }
 
 
+def test_source_only_provider_catalog_covers_all_dev_validation_roles_without_blind() -> None:
+    cases = load_cases(DATA_ROOT)
+    ordinary = [*cases["dev"], *cases["validation"]]
+
+    for case in ordinary:
+        names = extract_source_place_candidates(case.input_text)
+        assert len(names) == 10
+        assert len(set(names)) == 10
+        assert all(name in case.input_text for name in names)
+        assert all("http" not in name.casefold() for name in names)
+
+    catalog = build_source_only_catalog(ordinary)
+    assert {"北京", "上海", "杭州", "成都", "西安", "广州", "南京"} <= set(catalog)
+    assert "故宫博物院" in catalog["北京"]
+    assert "北京环球影城" in catalog["北京"]
+    assert "王府井地铁站" in catalog["北京"]
+
+
+def test_application_table_export_preserves_other_city_zero_call_as_unresolved() -> None:
+    completed = datetime(2026, 8, 28, 2, 0, tzinfo=UTC)
+    rows = [
+        {
+            "activity_id": "application-activity-0001",
+            "role": "PLANNED",
+            "eligible_for_place_search": True,
+            "atomic_place_name": "中山陵",
+            "resolution_status": "NEEDS_CONFIRMATION",
+            "canonical_place_id": None,
+            "resolver_receipt_json": {
+                "provider": "AMAP_POI_V2",
+                "execution_mode": "LIVE",
+                "status": "BASIC_CITY_CONFIRMATION_REQUIRED",
+                "city": "南京",
+                "query_sha256": "1" * 64,
+                "endpoint_sha256": "2" * 64,
+                "external_calls": 0,
+                "raw_provider_response_retained": False,
+            },
+            "created_at": completed,
+        }
+    ]
+
+    database, http, runtime, receipts = _effect_models(
+        rows,
+        provider_binding_sha256=PROVIDER_BINDING,
+    )
+
+    assert database[0].external_call_count == 0
+    assert http[0].provider_status == "NOT_CALLED"
+    assert http[0].http_status is None
+    assert runtime[0].resolution_status == "UNRESOLVED"
+    assert runtime[0].queried_city == "南京"
+    assert receipts[0].accepted_source_name is None
+
+
 def _provider_assets(
     tmp_path: Path,
     raw: str,
@@ -165,6 +225,9 @@ def _provider_assets(
         "request_sha256": "2" * 64,
         "response_sha256": "3" * 64,
         "resolution_status": "MATCHED",
+        "queried_source_name": raw,
+        "queried_city": "北京",
+        "external_call_count": 1,
         "place_id": "B000A00001",
         "name": raw,
         "city": "北京",
@@ -198,6 +261,7 @@ def _provider_assets(
                     "request_sha256": effect.request_sha256,
                     "response_sha256": effect.response_sha256,
                     "resolution_status": effect.resolution_status,
+                    "external_call_count": effect.external_call_count,
                     "started_at": effect.started_at.isoformat(),
                     "completed_at": effect.completed_at.isoformat(),
                     "persisted_status": "SUCCEEDED",
@@ -221,6 +285,7 @@ def _provider_assets(
                     "effect_id": effect.effect_id,
                     "request_sha256": effect.request_sha256,
                     "response_sha256": effect.response_sha256,
+                    "external_call_count": effect.external_call_count,
                     "http_status": 200,
                     "provider_status": "SUCCESS",
                     "completed_at": effect.completed_at.isoformat(),
@@ -262,6 +327,8 @@ def _provider_assets(
         "response_sha256": effect.response_sha256,
         "observed_at": effect.completed_at.isoformat(),
         "resolution_status": "MATCHED",
+        "queried_source_name": raw,
+        "queried_city": "北京",
         "accepted_source_name": raw,
         "authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
         "raw_response_in_git": False,
@@ -315,6 +382,8 @@ def _case_and_receipt(record: dict[str, object] | None = None):
             "response_sha256": "3" * 64,
             "observed_at": datetime(2026, 8, 28, 0, 0, 1, tzinfo=UTC).isoformat(),
             "resolution_status": "MATCHED",
+            "queried_source_name": raw,
+            "queried_city": "北京",
             "accepted_source_name": raw,
             "authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
             "raw_response_in_git": False,
@@ -380,7 +449,7 @@ def test_agent_reference_requires_provider_exact_boundary_and_keeps_uncertain_ca
     mention = dict(case["mentions"][0])
     mention["raw_text"] = "上午先到故宫博物院然后吃饭"
     mention["atomic_place_name"] = mention["raw_text"]
-    with pytest.raises(ValueError, match="Provider-accepted place name"):
+    with pytest.raises(ValueError, match="receipt query"):
         AgentMentionAnnotation.model_validate(mention)
 
     mention = dict(case["mentions"][0])
@@ -402,8 +471,26 @@ def test_agent_reference_requires_provider_exact_boundary_and_keeps_uncertain_ca
     mention["raw_text"] = "故宫博物院值得拍照"
     mention["atomic_place_name"] = mention["raw_text"]
     mention["span_end"] = mention["span_start"] + len(mention["raw_text"])
-    with pytest.raises(ValueError, match="Provider-accepted place name"):
+    with pytest.raises(ValueError, match="receipt query"):
         AgentMentionAnnotation.model_validate(mention)
+
+
+def test_unresolved_atomic_planned_place_remains_executable() -> None:
+    _source, case = _case_and_receipt()
+    mention = dict(case["mentions"][0])
+    receipt = dict(mention["provider_resolution_receipt"])
+    receipt["resolution_status"] = "UNRESOLVED"
+    receipt["accepted_source_name"] = None
+    mention["provider_resolution_receipt"] = receipt
+    mention["canonical_place"] = None
+    mention["place_boundary_basis"] = "SOURCE_VERBATIM_ATOMIC"
+
+    parsed = AgentMentionAnnotation.model_validate(mention)
+
+    assert parsed.executable_place is True
+    assert parsed.canonical_place is None
+    assert parsed.provider_resolution_receipt is not None
+    assert parsed.provider_resolution_receipt.resolution_status == "UNRESOLVED"
 
 
 def test_destination_basis_and_evidence_participate_in_conflict_fingerprint() -> None:

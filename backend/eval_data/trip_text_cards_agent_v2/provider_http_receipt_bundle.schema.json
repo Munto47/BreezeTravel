@@ -63,11 +63,25 @@
           "title": "Effect Id",
           "type": "string"
         },
-        "http_status": {
-          "maximum": 299,
-          "minimum": 200,
-          "title": "Http Status",
+        "external_call_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "External Call Count",
           "type": "integer"
+        },
+        "http_status": {
+          "anyOf": [
+            {
+              "maximum": 299,
+              "minimum": 200,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Http Status"
         },
         "provider_request_id_sha256": {
           "anyOf": [
@@ -83,8 +97,11 @@
           "title": "Provider Request Id Sha256"
         },
         "provider_status": {
-          "const": "SUCCESS",
-          "default": "SUCCESS",
+          "enum": [
+            "SUCCESS",
+            "FAILED",
+            "NOT_CALLED"
+          ],
           "title": "Provider Status",
           "type": "string"
         },
@@ -109,7 +126,8 @@
         "effect_id",
         "request_sha256",
         "response_sha256",
-        "http_status",
+        "external_call_count",
+        "provider_status",
         "completed_at"
       ],
       "title": "ProviderHttpExchangeReceipt",

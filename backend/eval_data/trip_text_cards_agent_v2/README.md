@@ -6,7 +6,7 @@
 - A/B 使用相同冻结 prompt、schema 和 input bundle，但使用不同 task 与 assignment；
 - A/B 看不到候选预测、peer 输出或已有答案；
 - adjudicator 只能在 A/B 冻结后启动，并精确绑定两份 artifact hash；
-- 每个 executable mention 必须绑定仓库外的高德 live resolution receipt；只有`MATCHED`才可给canonical place，`UNRESOLVED/AMBIGUOUS`必须保持无canonical；
+- 每个 executable mention 必须绑定从现有应用表回读、保存于仓库外的高德 live resolution receipt；原文逐字原子地点即使`UNRESOLVED/AMBIGUOUS`仍可执行，但必须保持无canonical，只有`MATCHED`才可给canonical place；
 - 原始 reference、adjudication 和 Provider index 均保持仓库外；
 - Git 只保存 schema、prompt、contract、hash、聚合指标与脱敏验证 receipt；
 - 证据只能称 `MULTI_AGENT_SIMULATED_REVIEW`，真人/H1/生产保持 `NOT_RUN`。

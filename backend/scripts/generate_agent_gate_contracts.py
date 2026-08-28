@@ -57,6 +57,78 @@ LEGACY_BASELINE_COMMIT = "7bdd1a6abd9c10c6076aca67f08de785027501a0"
 LEGACY_BASELINE_MANIFEST_SHA256 = (
     "6638b34bda0f990b1412b1dc4c9607ab4ee98c14235879c2a4dfeced16a29310"
 )
+_PROPERTY_NAME_ENUMS = {
+    "agent_gate_pass_receipt.schema.json": {
+        "component_receipt_sha256": [
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+        ]
+    },
+    "authority_policy.schema.json": {
+        "component_verifier_paths": [
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+        ],
+        "live_exporter_paths": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE",
+        ],
+    },
+    "multi_agent_panel_gate_receipt.schema.json": {
+        "expected_input_bundle_sha256": [
+            "PRODUCT_UX",
+            "SEMANTIC_DOMAIN",
+            "RELIABILITY_SECURITY",
+        ]
+    },
+    "multi_agent_panel_verification_receipt.schema.json": {
+        "expected_input_bundle_sha256": [
+            "PRODUCT_UX",
+            "SEMANTIC_DOMAIN",
+            "RELIABILITY_SECURITY",
+        ]
+    },
+    "sealed_agent_blind_receipt.schema.json": {
+        "taxonomy_counts": [
+            "WRONG_CITY",
+            "WRONG_CATEGORY",
+            "NON_ATOMIC_PLACE",
+            "MENTION_FALSE_POSITIVE",
+            "MENTION_FALSE_NEGATIVE",
+            "DAY_ASSIGNMENT",
+            "ROLE_CLASSIFICATION",
+            "PROVIDER_RESOLUTION",
+            "PUBLIC_LEAK",
+            "LATENCY",
+            "OTHER_AGGREGATED",
+        ]
+    },
+    "sealed_agent_blind_score_receipt.schema.json": {
+        "taxonomy_counts": [
+            "WRONG_CITY",
+            "WRONG_CATEGORY",
+            "NON_ATOMIC_PLACE",
+            "MENTION_FALSE_POSITIVE",
+            "MENTION_FALSE_NEGATIVE",
+            "DAY_ASSIGNMENT",
+            "ROLE_CLASSIFICATION",
+            "PROVIDER_RESOLUTION",
+            "PUBLIC_LEAK",
+            "LATENCY",
+            "OTHER_AGGREGATED",
+        ]
+    },
+}
 
 
 def _sha256(path: Path) -> str:
@@ -68,6 +140,29 @@ def _write_json(path: Path, value: object) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
         handle.write("\n")
+
+
+def _stable_schema(filename: str, schema: dict[str, object]) -> dict[str, object]:
+    """Keep checked contracts stable across the repository's Pydantic runtime."""
+
+    def visit(value: object) -> None:
+        if isinstance(value, dict):
+            if "const" in value and value.get("enum") == [value["const"]]:
+                value.pop("enum")
+            for child in value.values():
+                visit(child)
+        elif isinstance(value, list):
+            for child in value:
+                visit(child)
+
+    visit(schema)
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for field, allowed in _PROPERTY_NAME_ENUMS.get(filename, {}).items():
+            field_schema = properties.get(field)
+            if isinstance(field_schema, dict):
+                field_schema["propertyNames"] = {"enum": allowed}
+    return schema
 
 
 def _prompt_hashes(root: Path) -> dict[str, str]:
@@ -275,6 +370,10 @@ def generate(
             ExternalSignerConformanceReceipt.model_json_schema()
         ),
     }
+    general_schemas = {
+        filename: _stable_schema(filename, schema)
+        for filename, schema in general_schemas.items()
+    }
     for filename, schema in general_schemas.items():
         _write_json(general_root / filename, schema)
     general_contract = {
@@ -454,6 +553,10 @@ def generate(
             ProviderRuntimeReceiptBundle.model_json_schema()
         ),
     }
+    g01_schemas = {
+        filename: _stable_schema(filename, schema)
+        for filename, schema in g01_schemas.items()
+    }
     for filename, schema in g01_schemas.items():
         _write_json(g01_root / filename, schema)
 
@@ -597,7 +700,7 @@ def generate(
         "destination_basis": ["EXPLICIT", "SOFT_ASSUMPTION"],
         "provider_resolution_status": ["MATCHED", "UNRESOLVED", "AMBIGUOUS"],
         "provider_receipt_authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
-        "provider_receipt_source_runtime": "PERSISTED_PROVIDER_EFFECT_REGISTRY",
+        "provider_receipt_source_runtime": "PERSISTED_APPLICATION_TABLES",
         "provider_index_frozen_before_reference_tasks": True,
         "prediction_run_requires_candidate_and_provider_bindings": True,
         "raw_artifact_storage": "REPOSITORY_EXTERNAL",

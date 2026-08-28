@@ -165,12 +165,12 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   }, { token: auth.token, userId: auth.user_id, nickname: auth.nickname })
 
   const sourceText = [
-    '北京三日行程',
-    'Day 1：故宫博物院、景山公园。',
-    'Day 2：天坛公园、前门大街。',
-    'Day 3：颐和园、圆明园。',
-    '有空可以考虑南锣鼓巷，不去上海迪士尼乐园。',
-    '预约说明：https://example.com/booking',
+    '北京三日自由行长攻略。我们想把每天控制在两个主要地点，早上不要太赶，中午留出吃饭和休息时间；没有写具体日历日期，请先按 Day 编号整理。',
+    'Day 1：上午去故宫博物院，下午游览景山公园。门票需要提前预约，预约说明仅用于出发前提醒。',
+    'Day 2：上午安排天坛公园，下午前往前门大街。两站之间优先比较步行和公交，出发当天再核对实时交通。',
+    'Day 3：上午参观颐和园，下午去圆明园。当天结束后直接返回住处，不需要自动增加新的路线节点。',
+    '补充想法：有空可以考虑南锣鼓巷，但它只是备选；这次明确不去上海迪士尼乐园，也不要把这些内容混进已确定的逐日卡片。',
+    '预约说明：https://example.com/booking?from=travel-note；这个网址、说明文字和“地铁出来后沿路步行十分钟”都不是地点。',
   ].join('\n')
 
   await page.goto('/')
@@ -237,6 +237,24 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   await applyVisibleCommand(() => page.getByTestId('save-card-editor').click())
   await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
 
+  await page.getByRole('heading', { name: '景山公园东门' }).click()
+  await page.getByRole('button', { name: '替换地点' }).click()
+  await page.getByTestId('card-editor-name').fill('景山公园观景台')
+  await applyVisibleCommand(() => page.getByTestId('save-card-editor').click())
+  await expect(page.getByRole('heading', { name: '景山公园观景台' })).toBeVisible()
+
+  await page.getByRole('heading', { name: '景山公园观景台' }).click()
+  await applyVisibleCommand(() => page.getByRole('button', { name: '移到后一天' }).click())
+  await expect(page.getByTestId('trip-days').locator('section').nth(0).locator('h3')).toHaveText([
+    '故宫博物院',
+    '北海公园',
+  ])
+  await expect(page.getByTestId('trip-days').locator('section').nth(1).locator('h3')).toHaveText([
+    '天坛公园',
+    '前门大街',
+    '景山公园观景台',
+  ])
+
   await page.getByRole('heading', { name: '北海公园' }).click()
   page.once('dialog', (dialog) => dialog.accept())
   await applyVisibleCommand(() => page.getByRole('button', { name: '删除这张卡片' }).click())
@@ -244,10 +262,14 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '景山公园观景台' })).toBeVisible()
   await expect(page.getByTestId('trip-days').locator('section').nth(0).locator('h3')).toHaveText([
-    '景山公园东门',
     '故宫博物院',
+  ])
+  await expect(page.getByTestId('trip-days').locator('section').nth(1).locator('h3')).toHaveText([
+    '天坛公园',
+    '前门大街',
+    '景山公园观景台',
   ])
   expect(await page.locator('body').innerText()).not.toContain(accepted.public_resource_id)
 
@@ -260,11 +282,132 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   await page.getByTestId('delete-trip-source').click()
   expect((await sourceDeletePromise).status()).toBe(204)
   await expect(page.getByText('原文已永久删除，逐日卡片仍可继续查看和调整。')).toBeVisible()
-  await expect(page.getByRole('heading', { name: '景山公园东门' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '景山公园观景台' })).toBeVisible()
 
   page.once('dialog', (dialog) => dialog.accept())
   await page.getByTestId('delete-entire-trip').click()
   await expect(page.getByTestId('trip-deleted')).toBeVisible()
+})
+
+
+test('two browser sessions resolve an edit conflict and replay one command idempotently', async ({ browser, page, request }) => {
+  const login = await request.post('/api/auth/test-login')
+  expect(login.ok()).toBe(true)
+  const auth = await login.json()
+  await page.goto('/')
+  const absolute = (path) => new URL(path, page.url()).toString()
+  const authorization = { Authorization: `Bearer ${auth.token}` }
+  const contextA = await browser.newContext()
+  const contextB = await browser.newContext()
+
+  try {
+    const created = await contextA.request.post(absolute('/api/v3/trip-understandings'), {
+      headers: {
+        ...authorization,
+        'Idempotency-Key': `concurrent-create-${Date.now()}`,
+      },
+      data: {
+        mode: 'FULL',
+        source: {
+          type: 'TEXT',
+          text: '北京并发编辑验证。Day 1 去故宫博物院、景山公园。Day 2 去天坛公园、前门大街。',
+        },
+      },
+    })
+    expect(created.status()).toBe(202)
+    const accepted = await created.json()
+    const resultUrl = absolute(accepted.result_url)
+
+    await expect.poll(async () => {
+      const response = await contextA.request.get(resultUrl, { headers: authorization })
+      return response.status() === 200 && (await response.json()).status !== 'PROCESSING'
+    }, { timeout: 30_000 }).toBe(true)
+
+    const before = await contextA.request.get(resultUrl, { headers: authorization })
+    expect(before.status()).toBe(200)
+    const beforeEtag = before.headers().etag
+    expect(beforeEtag).toBeTruthy()
+    const commandUrl = absolute(`/api/v3/trip-understandings/${accepted.public_resource_id}/commands`)
+    const commands = [
+      {
+        context: contextA,
+        key: `concurrent-a-${Date.now()}`,
+        body: { command_type: 'ASSUMPTION_SET', key: 'party_size', value: '3' },
+      },
+      {
+        context: contextB,
+        key: `concurrent-b-${Date.now()}`,
+        body: { command_type: 'ASSUMPTION_SET', key: 'calendar', value: '2026-10-01' },
+      },
+    ]
+    const firstAttempts = await Promise.all(commands.map((command) => command.context.request.post(commandUrl, {
+      headers: {
+        ...authorization,
+        'Idempotency-Key': command.key,
+        'If-Match': beforeEtag,
+      },
+      data: command.body,
+    })))
+    expect(firstAttempts.map((response) => response.status()).sort()).toEqual([200, 409])
+
+    const conflictedIndex = firstAttempts.findIndex((response) => response.status() === 409)
+    const current = await contextA.request.get(resultUrl, { headers: authorization })
+    const recovered = await commands[conflictedIndex].context.request.post(commandUrl, {
+      headers: {
+        ...authorization,
+        'Idempotency-Key': `${commands[conflictedIndex].key}-retry`,
+        'If-Match': current.headers().etag,
+      },
+      data: commands[conflictedIndex].body,
+    })
+    expect(recovered.status()).toBe(200)
+
+    const replayBase = await contextA.request.get(resultUrl, { headers: authorization })
+    const replayKey = `idempotent-replay-${Date.now()}`
+    const replayBody = { command_type: 'ASSUMPTION_SET', key: 'destination', value: '北京' }
+    const first = await contextA.request.post(commandUrl, {
+      headers: {
+        ...authorization,
+        'Idempotency-Key': replayKey,
+        'If-Match': replayBase.headers().etag,
+      },
+      data: replayBody,
+    })
+    const replayed = await contextB.request.post(commandUrl, {
+      headers: {
+        ...authorization,
+        'Idempotency-Key': replayKey,
+        'If-Match': replayBase.headers().etag,
+      },
+      data: replayBody,
+    })
+    expect(first.status()).toBe(200)
+    expect(replayed.status()).toBe(200)
+    expect(replayed.headers()['idempotency-replayed']).toBe('true')
+    expect(replayed.headers().etag).toBe(first.headers().etag)
+    expect(await replayed.json()).toEqual(await first.json())
+
+    const final = await contextA.request.get(resultUrl, { headers: authorization })
+    const finalBody = await final.json()
+    expect(finalBody.assumptions.find((item) => item.key === 'party_size')?.value).toBe('3')
+    expect(finalBody.assumptions.find((item) => item.key === 'calendar')?.value).toBe('2026-10-01')
+    expect(collectKeys(finalBody).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
+
+    const deleted = await contextA.request.delete(
+      absolute(`/api/v3/trip-understandings/${accepted.public_resource_id}`),
+      {
+        headers: {
+          ...authorization,
+          'Idempotency-Key': `concurrent-delete-${Date.now()}`,
+        },
+      },
+    )
+    expect(deleted.status()).toBe(204)
+    expect((await contextB.request.get(resultUrl, { headers: authorization })).status()).toBe(410)
+  } finally {
+    await contextA.close()
+    await contextB.close()
+  }
 })
 
 

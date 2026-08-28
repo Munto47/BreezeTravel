@@ -314,6 +314,12 @@ def _amap_effect_models(rows: list[dict[str, Any]], binding: dict[str, Any]):
     for row in rows:
         if row["provider_binding_sha256"] != binding["provider_binding_sha256"]:
             raise LiveEvidenceExportError("AMap effect used a different Provider binding")
+        queried_source_name = row["accepted_source_name"]
+        queried_city = row["city"]
+        if not isinstance(queried_source_name, str) or not isinstance(queried_city, str):
+            raise LiveEvidenceExportError(
+                "HARDENED AMap rows require an explicit query name and city"
+            )
         runtime = ProviderRuntimeEffectReceipt.model_validate(
             {
                 "effect_id": row["effect_id"],
@@ -324,6 +330,9 @@ def _amap_effect_models(rows: list[dict[str, Any]], binding: dict[str, Any]):
                 "request_sha256": row["request_sha256"],
                 "response_sha256": row["response_sha256"],
                 "resolution_status": row["resolution_status"],
+                "queried_source_name": queried_source_name,
+                "queried_city": queried_city,
+                "external_call_count": 1,
                 "place_id": row["place_id"],
                 "name": row["place_name"],
                 "city": row["city"],
@@ -344,6 +353,7 @@ def _amap_effect_models(rows: list[dict[str, Any]], binding: dict[str, Any]):
                     "request_sha256": runtime.request_sha256,
                     "response_sha256": runtime.response_sha256,
                     "resolution_status": runtime.resolution_status,
+                    "external_call_count": runtime.external_call_count,
                     "started_at": runtime.started_at,
                     "completed_at": runtime.completed_at,
                     "persisted_status": "SUCCEEDED",
@@ -356,6 +366,7 @@ def _amap_effect_models(rows: list[dict[str, Any]], binding: dict[str, Any]):
                     "effect_id": runtime.effect_id,
                     "request_sha256": runtime.request_sha256,
                     "response_sha256": runtime.response_sha256,
+                    "external_call_count": runtime.external_call_count,
                     "http_status": row["http_status"],
                     "provider_status": "SUCCESS",
                     "provider_request_id_sha256": row["provider_request_id_sha256"],
@@ -380,6 +391,8 @@ def _amap_effect_models(rows: list[dict[str, Any]], binding: dict[str, Any]):
                     "response_sha256": runtime.response_sha256,
                     "observed_at": runtime.completed_at,
                     "resolution_status": runtime.resolution_status,
+                    "queried_source_name": runtime.queried_source_name,
+                    "queried_city": runtime.queried_city,
                     "accepted_source_name": row["accepted_source_name"],
                     "place_id": runtime.place_id,
                     "name": runtime.name,
