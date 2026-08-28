@@ -77,6 +77,66 @@ _DAY_HEADING_RE = re.compile(
     r"(?:第\s*(?P<zh>[一二三四五六七八九十])\s*天|(?:Day|D)\s*(?P<num>1[0-4]|[1-9]))",
     re.IGNORECASE,
 )
+_CLAUSE_BOUNDARIES = "。；;\n"
+_META_ACTIVITY_MARKERS = (
+    "不要因为",
+    "不要把",
+    "不能生成地点卡",
+    "不是地点",
+    "说明句",
+    "网址",
+    "链接",
+    "主题是",
+)
+_ROLE_CONTEXT_MARKERS = {
+    ActivityRole.PLANNED: (
+        "确定行程",
+        "确定游览",
+        "安排",
+        "前往",
+        "依次到",
+        "先到",
+        "先去",
+        "再去",
+        "上午看",
+        "下午",
+    ),
+    ActivityRole.OPTIONAL: (
+        "如果",
+        "时间充裕",
+        "太累",
+        "备选",
+        "可选",
+        "可以完全不去",
+        "视情况",
+        "来不及",
+    ),
+    ActivityRole.REFERENCE: (
+        "参考",
+        "听说",
+        "提到",
+        "推荐",
+        "不表示已经安排",
+        "不是本次安排",
+        "另一篇攻略",
+    ),
+    ActivityRole.EXCLUDED: (
+        "明确不去",
+        "决定排除",
+        "已经决定",
+        "取消",
+        "排除",
+        "不安排",
+    ),
+    ActivityRole.PASS_THROUGH: (
+        "经过",
+        "路过",
+        "换乘",
+        "中转",
+        "途经",
+        "不在那里游览",
+    ),
+}
 
 
 def _verbatim_offsets_outside_urls(source_text: str, value: str) -> list[int]:
@@ -99,6 +159,57 @@ def _day_index_at(source_text: str, position: int) -> int:
         raw = match.group("zh") or match.group("num")
         day_index = int(raw) if raw.isdigit() else _DAY_NUMBER[raw]
     return day_index
+
+
+def _source_clause(source_text: str, position: int) -> str:
+    left = max(source_text.rfind(marker, 0, position) for marker in _CLAUSE_BOUNDARIES)
+    right_values = [
+        value
+        for marker in _CLAUSE_BOUNDARIES
+        if (value := source_text.find(marker, position)) >= 0
+    ]
+    right = min(right_values) if right_values else len(source_text)
+    return source_text[left + 1 : right]
+
+
+def _role_context_score(source_text: str, position: int, role: ActivityRole) -> int:
+    clause = _source_clause(source_text, position)
+    positive = sum(marker in clause for marker in _ROLE_CONTEXT_MARKERS[role])
+    if role == ActivityRole.PLANNED and _DAY_HEADING_RE.search(clause):
+        positive += 1
+    meta = sum(marker in clause for marker in _META_ACTIVITY_MARKERS)
+    if (
+        any(marker in clause for marker in ("整理", "围绕"))
+        and any(marker in clause for marker in ("路线", "笔记", "攻略", "主题"))
+    ):
+        meta += 1
+    score = positive * 20 - meta * 100
+    if role == ActivityRole.EXCLUDED and any(
+        marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.OPTIONAL]
+    ):
+        score -= 80
+    if role == ActivityRole.OPTIONAL and any(
+        marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.EXCLUDED]
+    ):
+        score -= 80
+    return score
+
+
+def _conditional_optional_role(
+    source_text: str,
+    position: int,
+    role: ActivityRole,
+) -> ActivityRole:
+    if role != ActivityRole.EXCLUDED:
+        return role
+    clause = _source_clause(source_text, position)
+    conditional = any(
+        marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.OPTIONAL]
+    )
+    unconditional = any(
+        marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.EXCLUDED]
+    )
+    return ActivityRole.OPTIONAL if conditional and not unconditional else role
 
 
 def _redacted_validation_category(exc: Exception) -> str:
@@ -431,9 +542,20 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str, int, int, int, int, int, int]:
+    ) -> tuple[list[ProposedMention], str, dict[str, int]]:
         destination = draft.destination
-        destination_span_relocation_count = 0
+        normalization_counts = {
+            "atomic_span_narrowing_count": 0,
+            "atomic_span_relocation_count": 0,
+            "atomic_span_disambiguation_count": 0,
+            "atomic_name_source_recovery_count": 0,
+            "destination_span_relocation_count": 0,
+            "planned_day_fill_count": 0,
+            "role_context_relocation_count": 0,
+            "conditional_optional_reclassification_count": 0,
+            "non_activity_mention_drop_count": 0,
+            "duplicate_mention_drop_count": 0,
+        }
         if destination.basis == DestinationBasis.EXPLICIT:
             destination_span = (
                 destination.evidence_span_start,
@@ -449,18 +571,14 @@ class QwenStructuredInferenceProvider:
                 source_text[slice(*destination_span)] != destination.name
                 or destination_span[0] not in destination_offsets
             ):
-                destination_span_relocation_count = 1
+                normalization_counts["destination_span_relocation_count"] = 1
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
-        atomic_span_narrowing_count = 0
-        atomic_span_relocation_count = 0
-        atomic_span_disambiguation_count = 0
-        atomic_name_source_recovery_count = 0
-        planned_day_fill_count = 0
         for index, item in enumerate(draft.mentions, start=1):
             span_start = item.span_start
             span_end = item.span_end
+            role = item.role
             atomic = item.atomic_place_name.strip() if item.atomic_place_name else None
             if atomic:
                 lowered = atomic.lower()
@@ -468,12 +586,16 @@ class QwenStructuredInferenceProvider:
                     raise ValueError("FORBIDDEN_ATOMIC_PLACE")
                 if any(marker in atomic for marker in _SENTENCE_MARKERS):
                     raise ValueError("NON_ATOMIC_PLACE")
+                all_source_offsets = _verbatim_offsets_outside_urls(source_text, atomic)
                 source_offsets = [
                     offset
-                    for offset in _verbatim_offsets_outside_urls(source_text, atomic)
+                    for offset in all_source_offsets
                     if (offset, offset + len(atomic)) not in seen_spans
                 ]
                 if not source_offsets:
+                    if all_source_offsets:
+                        normalization_counts["duplicate_mention_drop_count"] += 1
+                        continue
                     recovered = _safe_atomic_source_span(
                         source_text,
                         span_start,
@@ -483,60 +605,85 @@ class QwenStructuredInferenceProvider:
                         raise ValueError("ATOMIC_PLACE_NOT_VERBATIM")
                     span_start, span_end, atomic = recovered
                     source_offsets = [span_start]
-                    atomic_name_source_recovery_count += 1
-                offsets_in_span = [
+                    normalization_counts["atomic_name_source_recovery_count"] += 1
+                proposed_midpoint = (span_start + span_end) / 2
+                nearest_to_proposed = min(
+                    source_offsets,
+                    key=lambda offset: (
+                        abs((offset + len(atomic) / 2) - proposed_midpoint),
+                        offset,
+                    ),
+                )
+                ranked_offsets = sorted(
+                    source_offsets,
+                    key=lambda offset: (
+                        -_role_context_score(source_text, offset, role),
+                        abs((offset + len(atomic) / 2) - proposed_midpoint),
+                        offset,
+                    ),
+                )
+                narrowed_start = ranked_offsets[0]
+                best_score = _role_context_score(source_text, narrowed_start, role)
+                best_distance = abs(
+                    (narrowed_start + len(atomic) / 2) - proposed_midpoint
+                )
+                equally_ranked = [
+                    offset
+                    for offset in ranked_offsets
+                    if _role_context_score(source_text, offset, role) == best_score
+                    and abs(
+                        abs((offset + len(atomic) / 2) - proposed_midpoint)
+                        - best_distance
+                    )
+                    < 1e-9
+                ]
+                if len(equally_ranked) != 1:
+                    raise ValueError("ATOMIC_PLACE_AMBIGUOUS_SPAN")
+                if len(source_offsets) > 1:
+                    normalization_counts["atomic_span_disambiguation_count"] += 1
+                narrowed_end = narrowed_start + len(atomic)
+                offsets_in_original_span = [
                     offset
                     for offset in source_offsets
                     if 0 <= span_start < span_end <= len(source_text)
                     and span_start <= offset
                     and offset + len(atomic) <= span_end
                 ]
-                if len(offsets_in_span) == 1:
-                    narrowed_start = offsets_in_span[0]
-                else:
-                    if len(source_offsets) == 1:
-                        narrowed_start = source_offsets[0]
-                    else:
-                        proposed_midpoint = (span_start + span_end) / 2
-                        ranked_offsets = sorted(
-                            source_offsets,
-                            key=lambda offset: (
-                                abs((offset + len(atomic) / 2) - proposed_midpoint),
-                                offset,
-                            ),
-                        )
-                        best_distance = abs(
-                            (ranked_offsets[0] + len(atomic) / 2)
-                            - proposed_midpoint
-                        )
-                        equally_near = [
-                            offset
-                            for offset in ranked_offsets
-                            if abs(
-                                abs((offset + len(atomic) / 2) - proposed_midpoint)
-                                - best_distance
-                            )
-                            < 1e-9
-                        ]
-                        if len(equally_near) != 1:
-                            raise ValueError("ATOMIC_PLACE_AMBIGUOUS_SPAN")
-                        narrowed_start = equally_near[0]
-                        atomic_span_disambiguation_count += 1
-                    atomic_span_relocation_count += 1
-                narrowed_end = narrowed_start + len(atomic)
+                if narrowed_start not in offsets_in_original_span:
+                    normalization_counts["atomic_span_relocation_count"] += 1
+                if (
+                    narrowed_start != nearest_to_proposed
+                    and best_score
+                    > _role_context_score(source_text, nearest_to_proposed, role)
+                ):
+                    normalization_counts["role_context_relocation_count"] += 1
                 if (narrowed_start, narrowed_end) != (span_start, span_end):
-                    atomic_span_narrowing_count += 1
+                    normalization_counts["atomic_span_narrowing_count"] += 1
                 span_start, span_end = narrowed_start, narrowed_end
+                corrected_role = _conditional_optional_role(
+                    source_text,
+                    span_start,
+                    role,
+                )
+                if corrected_role != role:
+                    normalization_counts[
+                        "conditional_optional_reclassification_count"
+                    ] += 1
+                    role = corrected_role
+                if _role_context_score(source_text, span_start, role) <= -50:
+                    normalization_counts["non_activity_mention_drop_count"] += 1
+                    continue
             elif not 0 <= span_start < span_end <= len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
             raw_text = source_text[span_start:span_end]
             day_index = item.day_index
-            if item.role == ActivityRole.PLANNED and day_index is None:
+            if role == ActivityRole.PLANNED and day_index is None:
                 day_index = _day_index_at(source_text, span_start)
-                planned_day_fill_count += 1
+                normalization_counts["planned_day_fill_count"] += 1
             span = (span_start, span_end)
             if span in seen_spans:
-                raise ValueError("DUPLICATE_MENTION_SPAN")
+                normalization_counts["duplicate_mention_drop_count"] += 1
+                continue
             seen_spans.add(span)
             mentions.append(
                 ProposedMention(
@@ -544,7 +691,7 @@ class QwenStructuredInferenceProvider:
                     raw_text=raw_text,
                     span_start=span_start,
                     span_end=span_end,
-                    role=item.role,
+                    role=role,
                     day_index=day_index,
                     sequence_index=item.sequence_index,
                     atomic_place_name=atomic,
@@ -552,16 +699,7 @@ class QwenStructuredInferenceProvider:
                     time_hint=item.time_hint,
                 )
             )
-        return (
-            mentions,
-            destination.name,
-            atomic_span_narrowing_count,
-            atomic_span_relocation_count,
-            atomic_span_disambiguation_count,
-            destination_span_relocation_count,
-            planned_day_fill_count,
-            atomic_name_source_recovery_count,
-        )
+        return mentions, destination.name, normalization_counts
 
     async def propose(self, source_text: str) -> InferenceProposal:
         calls: list[dict[str, object]] = []
@@ -588,12 +726,7 @@ class QwenStructuredInferenceProvider:
                         (
                             mentions,
                             destination_name,
-                            atomic_span_narrowing_count,
-                            atomic_span_relocation_count,
-                            atomic_span_disambiguation_count,
-                            destination_span_relocation_count,
-                            planned_day_fill_count,
-                            atomic_name_source_recovery_count,
+                            normalization_counts,
                         ) = self._proposal_from_draft(source_text, draft)
                     except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                         validation_category = _redacted_validation_category(exc)
@@ -637,18 +770,7 @@ class QwenStructuredInferenceProvider:
                         "deadline_ms": round(self.deadline_seconds * 1000),
                         "external_calls": len(calls),
                         "repair_call_count": max(0, len(calls) - 1),
-                        "atomic_span_narrowing_count": atomic_span_narrowing_count,
-                        "atomic_span_relocation_count": atomic_span_relocation_count,
-                        "atomic_span_disambiguation_count": (
-                            atomic_span_disambiguation_count
-                        ),
-                        "destination_span_relocation_count": (
-                            destination_span_relocation_count
-                        ),
-                        "planned_day_fill_count": planned_day_fill_count,
-                        "atomic_name_source_recovery_count": (
-                            atomic_name_source_recovery_count
-                        ),
+                        **normalization_counts,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 3),

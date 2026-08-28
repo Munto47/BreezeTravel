@@ -16,11 +16,17 @@ Destination:
 
 Mentions:
 
-- Emit one mention for every occurrence of a place entity outside a URL,
-  including repeated occurrences in reference, optional, pass-through and
-  exclusion sentences. The mention span is the place name only, never the full
-  activity clause. Do not emit separate mentions for descriptions, transport
-  instructions, reservation notes or URLs.
+- Emit one mention for each place occurrence that states the author's actual
+  trip intent: a committed stop, conditional option, outside reference,
+  explicit exclusion or pass-through. The mention span is the place name only,
+  never the full activity clause.
+- Do not emit a place token merely because it appears in a title, topic,
+  descriptive example, meta-instruction, reservation note or URL. In
+  particular, quoted examples inside “不要因为…自动加入” and
+  “不要把…从否定句里截出来” are instructions to skip those occurrences. Emit
+  the later occurrence that directly states the actual REFERENCE or EXCLUDED
+  intent. Do not emit a bare destination city from an introduction as an
+  activity.
   Offsets are Unicode code-point, zero-based, half-open.
 - `atomic_place_name` may be non-null only when the selected span, after outer
   whitespace is removed, is exactly that standalone place name. Copy it
@@ -33,10 +39,12 @@ Mentions:
   invent or normalize a name.
 - Classify every place mention from its local sentence as exactly one of:
   - `PLANNED`: the author has committed to visit or stop there;
-  - `OPTIONAL`: it is a backup, time-permitting choice, or may be skipped;
+  - `OPTIONAL`: it is a backup, time-permitting choice, or conditionally may be
+    skipped. “如果当天太累，X可以完全不去” is OPTIONAL;
   - `REFERENCE`: somebody mentioned or recommended it, or the text says it is
     not part of the current arrangement without explicitly rejecting it;
-  - `EXCLUDED`: the author explicitly says not to go, cancel, remove or exclude;
+  - `EXCLUDED`: the author unconditionally decided not to go, cancel, remove or
+    exclude;
   - `PASS_THROUGH`: the itinerary only passes through or transfers there.
   Phrases such as “听说/网友提到/另一篇攻略/不是本次安排” are `REFERENCE`,
   not `EXCLUDED`. A quoted example inside an instruction is not a substitute

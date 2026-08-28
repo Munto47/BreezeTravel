@@ -54,7 +54,7 @@
   ],
   "qwen_candidate_artifact_sha256": {
     "qwen_inference_config.json": "f1d7377a395d1ae7e5a1e7dbb4589b8a463dbd87af2de596c6dd59830f4884c1",
-    "qwen_inference_prompt.md": "e33fe998d2748a51b43f91d1ef7fd5b4f39bbb9c3fe245dd5acb8aea4b0ff472",
+    "qwen_inference_prompt.md": "36e88e2d2bdbe63b94694492323466e2faecd2cef82ca753e8c4d9575c5cd82e",
     "qwen_model_panel.json": "4bf2193df340ecf144990412f131bb9c20b67a7aef8ddd9176a18a4a87bed3f5",
     "qwen_semantic_draft.schema.json": "0edb1e5705fb01b7e37cf9b03744529b7fa1bc4409eac63942bdaca3fa5c3d2f"
   },

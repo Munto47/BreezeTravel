@@ -254,7 +254,7 @@ async def test_qwen_provider_does_not_recover_atomic_name_from_activity_clause()
 
 
 @pytest.mark.asyncio
-async def test_qwen_provider_uses_model_offset_to_disambiguate_verbatim_place() -> None:
+async def test_qwen_provider_prefers_role_context_over_wrong_model_offset() -> None:
     source = "北京 Day 1 去故宫博物院。参考段再次提到故宫博物院。"
     output = json.loads(_valid_output(source))
     second_start = source.rindex("故宫博物院")
@@ -270,8 +270,82 @@ async def test_qwen_provider_uses_model_offset_to_disambiguate_verbatim_place() 
 
     proposal = await provider.propose(source)
 
-    assert proposal.mentions[0].span_start == second_start
+    assert proposal.mentions[0].span_start == source.index("故宫博物院")
     assert proposal.binding["atomic_span_disambiguation_count"] == 1
+    assert proposal.binding["role_context_relocation_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_option() -> None:
+    source = (
+        "上海主题是外滩。Day 1 去外滩。"
+        "不要因为‘中国国家博物馆很有名’就自动加入。"
+        "中国国家博物馆只是参考；如果太累，田子坊可以完全不去。"
+    )
+    first_shanghai = source.index("上海")
+    first_bund = source.index("外滩")
+    planned_bund = source.index("外滩", first_bund + 1)
+    meta_reference = source.index("中国国家博物馆")
+    actual_reference = source.index("中国国家博物馆", meta_reference + 1)
+    optional = source.index("田子坊")
+
+    def mention(
+        start: int,
+        value: str,
+        role: str,
+        sequence_index: int,
+        day_index: int | None = None,
+    ) -> dict[str, object]:
+        return {
+            "span_start": start,
+            "span_end": start + len(value),
+            "role": role,
+            "day_index": day_index,
+            "sequence_index": sequence_index,
+            "atomic_place_name": value,
+            "category_hint": None,
+            "time_hint": None,
+        }
+
+    output = json.dumps(
+        {
+            "destination": {
+                "name": "上海",
+                "basis": "EXPLICIT",
+                "evidence_span_start": first_shanghai,
+                "evidence_span_end": first_shanghai + 2,
+            },
+            "mentions": [
+                mention(first_shanghai, "上海", "PLANNED", 0, 1),
+                mention(first_bund, "外滩", "PLANNED", 1, 1),
+                mention(planned_bund, "外滩", "PLANNED", 2, 1),
+                mention(meta_reference, "中国国家博物馆", "REFERENCE", 3),
+                mention(actual_reference, "中国国家博物馆", "REFERENCE", 4),
+                mention(optional, "田子坊", "EXCLUDED", 5),
+            ],
+        },
+        ensure_ascii=False,
+    )
+    client = _FakeClient([output])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    assert [
+        (item.raw_text, item.span_start, item.role.value)
+        for item in proposal.mentions
+    ] == [
+        ("外滩", planned_bund, "PLANNED"),
+        ("中国国家博物馆", actual_reference, "REFERENCE"),
+        ("田子坊", optional, "OPTIONAL"),
+    ]
+    assert proposal.binding["non_activity_mention_drop_count"] == 3
+    assert proposal.binding["conditional_optional_reclassification_count"] == 1
 
 
 @pytest.mark.asyncio
