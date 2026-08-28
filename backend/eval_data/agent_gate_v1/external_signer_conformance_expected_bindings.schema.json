@@ -1,0 +1,186 @@
+{
+  "$defs": {
+    "ExternalSignerConformanceExpectedBindings": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Authority Policy Sha256",
+          "type": "string"
+        },
+        "broker_id": {
+          "pattern": "^BROKER-[A-Z0-9-]{8,100}$",
+          "title": "Broker Id",
+          "type": "string"
+        },
+        "broker_registry_identity_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Broker Registry Identity Sha256",
+          "type": "string"
+        },
+        "broker_registry_path_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Broker Registry Path Sha256",
+          "type": "string"
+        },
+        "candidate_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Candidate Commit",
+          "type": "string"
+        },
+        "candidate_tree": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Candidate Tree",
+          "type": "string"
+        },
+        "challenge_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Challenge Sha256",
+          "type": "string"
+        },
+        "commit_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Commit Sha256",
+          "type": "string"
+        },
+        "conformance_run_id": {
+          "pattern": "^SIGCONF-[0-9A-F]{32}$",
+          "title": "Conformance Run Id",
+          "type": "string"
+        },
+        "operation_role_bindings_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Operation Role Bindings Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "signer_bundle_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signer Bundle Sha256",
+          "type": "string"
+        },
+        "supervisor_bundle_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Supervisor Bundle Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "broker_id",
+        "signer_bundle_sha256",
+        "supervisor_bundle_sha256",
+        "broker_registry_identity_sha256",
+        "broker_registry_path_sha256",
+        "operation_role_bindings_sha256",
+        "candidate_commit",
+        "candidate_tree",
+        "authority_policy_sha256",
+        "conformance_run_id",
+        "request_sha256",
+        "challenge_sha256",
+        "commit_sha256",
+        "response_sha256"
+      ],
+      "title": "ExternalSignerConformanceExpectedBindings",
+      "type": "object"
+    },
+    "RequiredDetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "algorithm",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "RequiredDetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Separately signed authority observation; never derived from candidate output.",
+  "properties": {
+    "authority_signature": {
+      "$ref": "#/$defs/RequiredDetachedAuthoritySignature"
+    },
+    "bindings": {
+      "$ref": "#/$defs/ExternalSignerConformanceExpectedBindings"
+    },
+    "human_evidence": {
+      "const": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "process_isolation_only": {
+      "const": true,
+      "title": "Process Isolation Only",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "external-signer-conformance-expected-bindings-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "const": "EXPECTED_BINDINGS_FROZEN",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "bindings",
+    "observed_at",
+    "process_isolation_only",
+    "human_evidence",
+    "status",
+    "authority_signature"
+  ],
+  "title": "ExternalSignerConformanceExpectedBindingsReceipt",
+  "type": "object"
+}

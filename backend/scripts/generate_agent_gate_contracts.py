@@ -46,7 +46,10 @@ from evals.trip_text_cards_agent_v2.contracts import (
     SealedAgentReferenceBundle,
 )
 from evals.agent_gate_v1.host_tools import trusted_host_tool
-from evals.agent_gate_v1.external_authority import ExternalSignerConformanceReceipt
+from evals.agent_gate_v1.external_authority import (
+    ExternalSignerConformanceExpectedBindingsReceipt,
+    ExternalSignerConformanceReceipt,
+)
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -259,6 +262,9 @@ def generate(
         "external_signer_conformance_receipt.schema.json": (
             ExternalSignerConformanceReceipt.model_json_schema()
         ),
+        "external_signer_conformance_expected_bindings.schema.json": (
+            ExternalSignerConformanceExpectedBindingsReceipt.model_json_schema()
+        ),
     }
     for filename, schema in general_schemas.items():
         _write_json(general_root / filename, schema)
@@ -299,6 +305,18 @@ def generate(
             "AUTHORITY_OWNED_SEPARATE_PROCESS_AND_DURABLE_REGISTRY"
         ),
         "external_signer_candidate_template": "FORBIDDEN_FOR_KEY_HOLDING_PROCESS",
+        "external_signer_candidate_context": (
+            "CANONICAL_REMOTE_GIT_BOOTSTRAP_DERIVED_NOT_CALLER_SUPPLIED"
+        ),
+        "external_signer_expected_bindings_signature": (
+            "FINAL_GATE_DISTINCT_FROM_SEALED_CUSTODY"
+        ),
+        "external_signer_wire_validation": (
+            "STRICT_TYPES_DUPLICATE_KEYS_REJECTED_SIZE_LIMITED"
+        ),
+        "external_signer_activation_consumption": (
+            "PREPARE_ACTIVATION_BINDS_VERIFIED_CONFORMANCE_HASH"
+        ),
         "immutable_code_binding_closure": (
             "DIRECT_PROGRAM_CORE_OR_TRANSITIVE_PROTOCOL_CONTRACT_SHA256"
         ),

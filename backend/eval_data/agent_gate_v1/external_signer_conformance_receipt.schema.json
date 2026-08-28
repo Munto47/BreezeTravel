@@ -1,11 +1,10 @@
 {
   "$defs": {
-    "DetachedAuthoritySignature": {
+    "RequiredDetachedAuthoritySignature": {
       "additionalProperties": false,
       "properties": {
         "algorithm": {
           "const": "ED25519",
-          "default": "ED25519",
           "title": "Algorithm",
           "type": "string"
         },
@@ -17,12 +16,6 @@
         "authority_role": {
           "enum": [
             "SEALED_CUSTODY",
-            "AMAP_LIVE_EXPORTER",
-            "QWEN_LIVE_EXPORTER",
-            "AUTOMATED_PRODUCT_GATE",
-            "LIVE_PROVIDER_GATE",
-            "MULTI_AGENT_PANEL",
-            "SEALED_AGENT_BLIND",
             "FINAL_GATE"
           ],
           "title": "Authority Role",
@@ -43,10 +36,11 @@
       "required": [
         "authority_role",
         "authority_id",
+        "algorithm",
         "signed_payload_sha256",
         "signature_base64"
       ],
-      "title": "DetachedAuthoritySignature",
+      "title": "RequiredDetachedAuthoritySignature",
       "type": "object"
     }
   },
@@ -59,11 +53,10 @@
       "type": "string"
     },
     "authority_signature": {
-      "$ref": "#/$defs/DetachedAuthoritySignature"
+      "$ref": "#/$defs/RequiredDetachedAuthoritySignature"
     },
     "authority_supervisor_separate": {
       "const": true,
-      "default": true,
       "title": "Authority Supervisor Separate",
       "type": "boolean"
     },
@@ -84,19 +77,16 @@
     },
     "caller_payload_accepted": {
       "const": false,
-      "default": false,
       "title": "Caller Payload Accepted",
       "type": "boolean"
     },
     "caller_role_accepted": {
       "const": false,
-      "default": false,
       "title": "Caller Role Accepted",
       "type": "boolean"
     },
     "caller_verdict_accepted": {
       "const": false,
-      "default": false,
       "title": "Caller Verdict Accepted",
       "type": "boolean"
     },
@@ -132,7 +122,6 @@
     },
     "conflicting_request_rejected": {
       "const": true,
-      "default": true,
       "title": "Conflicting Request Rejected",
       "type": "boolean"
     },
@@ -143,31 +132,26 @@
     },
     "exact_retry_idempotent": {
       "const": true,
-      "default": true,
       "title": "Exact Retry Idempotent",
       "type": "boolean"
     },
     "expired_request_rejected": {
       "const": true,
-      "default": true,
       "title": "Expired Request Rejected",
       "type": "boolean"
     },
     "generic_signing_endpoint": {
       "const": false,
-      "default": false,
       "title": "Generic Signing Endpoint",
       "type": "boolean"
     },
     "human_evidence": {
       "const": false,
-      "default": false,
       "title": "Human Evidence",
       "type": "boolean"
     },
     "imports_candidate_code": {
       "const": false,
-      "default": false,
       "title": "Imports Candidate Code",
       "type": "boolean"
     },
@@ -178,13 +162,11 @@
     },
     "key_path_in_candidate_environment": {
       "const": false,
-      "default": false,
       "title": "Key Path In Candidate Environment",
       "type": "boolean"
     },
     "observed_exit_code": {
       "const": 0,
-      "default": 0,
       "title": "Observed Exit Code",
       "type": "integer"
     },
@@ -195,31 +177,26 @@
     },
     "private_key_in_candidate_process": {
       "const": false,
-      "default": false,
       "title": "Private Key In Candidate Process",
       "type": "boolean"
     },
     "process_isolation_only": {
       "const": true,
-      "default": true,
       "title": "Process Isolation Only",
       "type": "boolean"
     },
     "purpose_specific_payload_construction": {
       "const": true,
-      "default": true,
       "title": "Purpose Specific Payload Construction",
       "type": "boolean"
     },
     "replay_rejected": {
       "const": true,
-      "default": true,
       "title": "Replay Rejected",
       "type": "boolean"
     },
     "repository_external": {
       "const": true,
-      "default": true,
       "title": "Repository External",
       "type": "boolean"
     },
@@ -235,13 +212,11 @@
     },
     "role_private_key_count": {
       "const": 8,
-      "default": 8,
       "title": "Role Private Key Count",
       "type": "integer"
     },
     "role_process_count": {
       "const": 8,
-      "default": 8,
       "title": "Role Process Count",
       "type": "integer"
     },
@@ -252,13 +227,11 @@
     },
     "schema_version": {
       "const": "external-signer-conformance-receipt-v1",
-      "default": "external-signer-conformance-receipt-v1",
       "title": "Schema Version",
       "type": "string"
     },
     "shared_private_key_process": {
       "const": false,
-      "default": false,
       "title": "Shared Private Key Process",
       "type": "boolean"
     },
@@ -269,7 +242,6 @@
     },
     "signer_network_access": {
       "const": false,
-      "default": false,
       "title": "Signer Network Access",
       "type": "boolean"
     },
@@ -280,7 +252,6 @@
     },
     "status": {
       "const": "CONFORMANCE_PASS",
-      "default": "CONFORMANCE_PASS",
       "title": "Status",
       "type": "string"
     },
@@ -311,24 +282,22 @@
     },
     "tamper_rejected": {
       "const": true,
-      "default": true,
       "title": "Tamper Rejected",
       "type": "boolean"
     },
     "timed_out": {
       "const": false,
-      "default": false,
       "title": "Timed Out",
       "type": "boolean"
     },
     "two_stage": {
       "const": true,
-      "default": true,
       "title": "Two Stage",
       "type": "boolean"
     }
   },
   "required": [
+    "schema_version",
     "broker_id",
     "signer_bundle_sha256",
     "supervisor_bundle_sha256",
@@ -344,11 +313,36 @@
     "commit_sha256",
     "response_sha256",
     "supported_operations",
+    "two_stage",
+    "exact_retry_idempotent",
+    "conflicting_request_rejected",
+    "expired_request_rejected",
+    "replay_rejected",
+    "tamper_rejected",
+    "caller_payload_accepted",
+    "caller_role_accepted",
+    "caller_verdict_accepted",
+    "generic_signing_endpoint",
+    "purpose_specific_payload_construction",
+    "authority_supervisor_separate",
+    "role_process_count",
+    "role_private_key_count",
+    "shared_private_key_process",
     "sanitized_environment_keys_sha256",
     "inherited_handle_manifest_sha256",
     "child_process_manifest_sha256",
+    "observed_exit_code",
+    "timed_out",
+    "signer_network_access",
+    "repository_external",
+    "imports_candidate_code",
+    "private_key_in_candidate_process",
+    "key_path_in_candidate_environment",
+    "process_isolation_only",
+    "human_evidence",
     "started_at",
     "completed_at",
+    "status",
     "authority_signature"
   ],
   "title": "ExternalSignerConformanceReceipt",
