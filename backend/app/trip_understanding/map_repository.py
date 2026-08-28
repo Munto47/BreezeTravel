@@ -47,19 +47,38 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _coordinates_from_receipt(
+    receipt: dict[str, Any],
+) -> tuple[float | None, float | None]:
+    coordinates = receipt.get("coordinates")
+    if not isinstance(coordinates, dict):
+        return None, None
+    try:
+        longitude = float(coordinates["longitude"])
+        latitude = float(coordinates["latitude"])
+    except (KeyError, TypeError, ValueError):
+        return None, None
+    if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
+        return None, None
+    return longitude, latitude
+
+
 def _plan_for_result(
     understanding_id: str,
     revision: int,
     result: UserFacingTripResult,
-    activity_bindings: dict[str, tuple[str | None, str]],
+    activity_bindings: dict[str, tuple[str | None, str, dict[str, Any]]],
+    *,
+    city: str | None = None,
 ) -> MapRenderPlan:
     stops: list[MapStop] = []
     for day_index, day in enumerate(result.days, start=1):
         for sequence_index, card in enumerate(day.activities):
-            canonical_place_id, stored_status = activity_bindings.get(
+            canonical_place_id, stored_status, resolver_receipt = activity_bindings.get(
                 card.activity_token,
-                (None, "NEEDS_CONFIRMATION"),
+                (None, "NEEDS_CONFIRMATION", {}),
             )
+            longitude, latitude = _coordinates_from_receipt(resolver_receipt)
             if stored_status == "AUTO_MATCHED" and canonical_place_id:
                 resolution_status = "AUTO_MATCHED"
             elif stored_status == "UNRESOLVED":
@@ -74,6 +93,9 @@ def _plan_for_result(
                     name=card.name,
                     canonical_place_id=canonical_place_id,
                     resolution_status=resolution_status,
+                    city=city,
+                    longitude=longitude,
+                    latitude=latitude,
                 )
             )
     stop_set_hash = canonical_sha256(
@@ -84,6 +106,9 @@ def _plan_for_result(
                 "name": stop.name,
                 "canonical_place_id": stop.canonical_place_id,
                 "resolution_status": stop.resolution_status,
+                "city": stop.city,
+                "longitude": stop.longitude,
+                "latitude": stop.latitude,
             }
             for stop in stops
         ]
@@ -197,8 +222,12 @@ class PostgresMapRenderRepositoryMixin:
     ) -> MapRenderPlan:
         result_row = await conn.fetchrow(
             """
-            SELECT public_json FROM trip_understanding_results
-            WHERE understanding_id = $1 AND revision = $2
+            SELECT result.public_json, revision.destination_json
+            FROM trip_understanding_results result
+            JOIN trip_understanding_revisions revision
+              ON revision.understanding_id = result.understanding_id
+             AND revision.revision = result.revision
+            WHERE result.understanding_id = $1 AND result.revision = $2
             """,
             understanding_id,
             revision,
@@ -207,7 +236,8 @@ class PostgresMapRenderRepositoryMixin:
             raise ResourceNotReadyError("trip result is unavailable for map rendering")
         activities = await conn.fetch(
             """
-            SELECT public_activity_token, canonical_place_id, resolution_status
+            SELECT public_activity_token, canonical_place_id, resolution_status,
+                   resolver_receipt_json
             FROM trip_understanding_activities
             WHERE understanding_id = $1 AND revision = $2 AND role = 'PLANNED'
             """,
@@ -218,14 +248,18 @@ class PostgresMapRenderRepositoryMixin:
             row["public_activity_token"]: (
                 row["canonical_place_id"],
                 row["resolution_status"],
+                _json_value(row["resolver_receipt_json"]),
             )
             for row in activities
         }
+        destination = _json_value(result_row["destination_json"])
+        city = destination.get("name") if isinstance(destination, dict) else None
         return _plan_for_result(
             understanding_id,
             revision,
             UserFacingTripResult.model_validate(_json_value(result_row["public_json"])),
             bindings,
+            city=city if isinstance(city, str) else None,
         )
 
     async def _ensure_map_job(
@@ -899,14 +933,32 @@ class InMemoryMapRenderRepositoryMixin:
         stored = self.results.get(result_id or "")
         if stored is None:
             raise ResourceNotReadyError("trip result is unavailable for map rendering")
-        bindings: dict[str, tuple[str | None, str]] = {}
+        bindings: dict[str, tuple[str | None, str, dict[str, Any]]] = {}
         for day in stored.result.days:
             for card in day.activities:
                 if card.status == "READY":
-                    bindings[card.activity_token] = (f"fixture:{card.name}", "AUTO_MATCHED")
+                    bindings[card.activity_token] = (
+                        f"fixture:{card.name}",
+                        "AUTO_MATCHED",
+                        {},
+                    )
                 else:
-                    bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION")
-        return _plan_for_result(understanding_id, revision, stored.result, bindings)
+                    bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION", {})
+        destination = next(
+            (
+                assumption.value.removeprefix("暂按 ")
+                for assumption in stored.result.assumptions
+                if assumption.key == "destination"
+            ),
+            None,
+        )
+        return _plan_for_result(
+            understanding_id,
+            revision,
+            stored.result,
+            bindings,
+            city=destination,
+        )
 
     def _ensure_memory_map_job(
         self,

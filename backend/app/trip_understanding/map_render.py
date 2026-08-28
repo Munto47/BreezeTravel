@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections import defaultdict
@@ -24,9 +25,11 @@ ROUTE_FIXTURE_SHA256 = hashlib.sha256(_ROUTE_FIXTURE_BYTES).hexdigest()
 _ROUTE_FIXTURE = json.loads(_ROUTE_FIXTURE_BYTES.decode("utf-8"))
 ROUTE_CONFIG_SHA256 = canonical_sha256(
     {
-        "fixture_sha256": ROUTE_FIXTURE_SHA256,
         "selection_policy": _ROUTE_FIXTURE["selection_policy"],
         "modes": ["walking", "transit"],
+        "walking_endpoint": "https://restapi.amap.com/v3/direction/walking",
+        "transit_endpoint": "https://restapi.amap.com/v3/direction/transit/integrated",
+        "route_deadline_ms": 6000,
         "geometry_persistence": "DISABLED",
     }
 )
@@ -46,6 +49,9 @@ class MapStop(StrictModel):
     name: str
     canonical_place_id: str | None = None
     resolution_status: Literal["AUTO_MATCHED", "NEEDS_CONFIRMATION", "UNRESOLVED"]
+    city: str | None = None
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
 
 
 class MapRenderPlan(StrictModel):
@@ -304,34 +310,31 @@ class MapRenderer:
                     and destination.canonical_place_id is not None
                 )
                 if can_route:
-                    try:
-                        walking = await self.provider.route(
-                            origin, destination, "walking", observed_at=started_at
-                        )
-                    except RouteProviderUnavailableError as exc:
-                        walking = _unavailable_fact(
-                            origin,
-                            destination,
-                            "walking",
-                            reason=exc.category,
-                            observed_at=started_at,
-                            provider_binding=exc.provider_binding,
-                            external_call_count=exc.external_call_count,
-                        )
-                    try:
-                        transit = await self.provider.route(
-                            origin, destination, "transit", observed_at=started_at
-                        )
-                    except RouteProviderUnavailableError as exc:
-                        transit = _unavailable_fact(
-                            origin,
-                            destination,
-                            "transit",
-                            reason=exc.category,
-                            observed_at=started_at,
-                            provider_binding=exc.provider_binding,
-                            external_call_count=exc.external_call_count,
-                        )
+                    async def resolve_mode(
+                        mode: Literal["walking", "transit"],
+                    ) -> InternalRouteModeFact:
+                        try:
+                            return await self.provider.route(
+                                origin,
+                                destination,
+                                mode,
+                                observed_at=started_at,
+                            )
+                        except RouteProviderUnavailableError as exc:
+                            return _unavailable_fact(
+                                origin,
+                                destination,
+                                mode,
+                                reason=exc.category,
+                                observed_at=started_at,
+                                provider_binding=exc.provider_binding,
+                                external_call_count=exc.external_call_count,
+                            )
+
+                    walking, transit = await asyncio.gather(
+                        resolve_mode("walking"),
+                        resolve_mode("transit"),
+                    )
                 else:
                     walking = _unavailable_fact(
                         origin,

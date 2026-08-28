@@ -7,13 +7,20 @@ import socket
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.connection import close_pool
+from app.trip_understanding.amap_route import AmapRouteProvider
 from app.trip_understanding.map_render import MapRenderer
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_configured_renderer(settings: Settings) -> MapRenderer:
+    if settings.trip_understanding_provider_mode != "live":
+        return MapRenderer()
+    return MapRenderer(AmapRouteProvider(api_key=settings.amap_api_key))
 
 
 class MapRenderWorker:
@@ -62,6 +69,7 @@ async def run_forever() -> None:
     worker_id = f"map-render:{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
     worker = MapRenderWorker(
         PostgresTripUnderstandingRepository(),
+        renderer=build_configured_renderer(settings),
         lease_seconds=settings.map_render_job_lease_seconds,
     )
     try:
