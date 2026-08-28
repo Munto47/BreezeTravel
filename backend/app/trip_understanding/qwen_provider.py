@@ -73,8 +73,8 @@ class QwenExplicitDestinationDraft(StrictModel):
 class QwenSoftDestinationDraft(StrictModel):
     name: str = Field(min_length=1, max_length=40)
     basis: Literal[DestinationBasis.SOFT_ASSUMPTION]
-    evidence_span_start: Literal[None] = None
-    evidence_span_end: Literal[None] = None
+    evidence_span_start: Literal[None]
+    evidence_span_end: Literal[None]
 
 
 QwenDestinationDraft = Annotated[
@@ -87,11 +87,11 @@ class QwenMentionDraft(StrictModel):
     span_start: int = Field(ge=0)
     span_end: int = Field(gt=0)
     role: ActivityRole
-    day_index: int | None = Field(default=None, ge=1, le=14)
+    day_index: int | None = Field(ge=1, le=14)
     sequence_index: int = Field(ge=0)
-    atomic_place_name: str | None = Field(default=None, max_length=40)
-    category_hint: str | None = Field(default=None, max_length=40)
-    time_hint: str | None = Field(default=None, max_length=80)
+    atomic_place_name: str | None = Field(max_length=40)
+    category_hint: str | None = Field(max_length=40)
+    time_hint: str | None = Field(max_length=80)
 
     @model_validator(mode="after")
     def span_and_day_are_consistent(self) -> "QwenMentionDraft":

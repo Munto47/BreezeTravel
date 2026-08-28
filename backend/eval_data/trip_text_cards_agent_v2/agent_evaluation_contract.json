@@ -56,7 +56,7 @@
     "qwen_inference_config.json": "f1d7377a395d1ae7e5a1e7dbb4589b8a463dbd87af2de596c6dd59830f4884c1",
     "qwen_inference_prompt.md": "af5b9c5c215d8f38a6221ad92af9cafe8aa709999c782c99b6c33f6c17a17f44",
     "qwen_model_panel.json": "4bf2193df340ecf144990412f131bb9c20b67a7aef8ddd9176a18a4a87bed3f5",
-    "qwen_semantic_draft.schema.json": "d5677cf82636ebc397c07d179ccb708ebac28a9fb573fea9832bf5ad08e95883"
+    "qwen_semantic_draft.schema.json": "87e9ef21736811e7ae084a17a2f6bd7d8f3b43428de413d932c1b5ea92a43f12"
   },
   "raw_artifact_storage": "REPOSITORY_EXTERNAL",
   "reference_tasks": {

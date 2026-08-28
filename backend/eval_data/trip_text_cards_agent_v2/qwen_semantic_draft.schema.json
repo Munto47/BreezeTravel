@@ -58,7 +58,6 @@
               "type": "null"
             }
           ],
-          "default": null,
           "title": "Atomic Place Name"
         },
         "category_hint": {
@@ -71,7 +70,6 @@
               "type": "null"
             }
           ],
-          "default": null,
           "title": "Category Hint"
         },
         "day_index": {
@@ -85,7 +83,6 @@
               "type": "null"
             }
           ],
-          "default": null,
           "title": "Day Index"
         },
         "role": {
@@ -116,7 +113,6 @@
               "type": "null"
             }
           ],
-          "default": null,
           "title": "Time Hint"
         }
       },
@@ -124,7 +120,11 @@
         "span_start",
         "span_end",
         "role",
-        "sequence_index"
+        "day_index",
+        "sequence_index",
+        "atomic_place_name",
+        "category_hint",
+        "time_hint"
       ],
       "title": "QwenMentionDraft",
       "type": "object"
@@ -139,13 +139,11 @@
         },
         "evidence_span_end": {
           "const": null,
-          "default": null,
           "title": "Evidence Span End",
           "type": "null"
         },
         "evidence_span_start": {
           "const": null,
-          "default": null,
           "title": "Evidence Span Start",
           "type": "null"
         },
@@ -158,7 +156,9 @@
       },
       "required": [
         "name",
-        "basis"
+        "basis",
+        "evidence_span_start",
+        "evidence_span_end"
       ],
       "title": "QwenSoftDestinationDraft",
       "type": "object"
