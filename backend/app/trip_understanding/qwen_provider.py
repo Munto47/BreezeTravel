@@ -329,19 +329,26 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str, int]:
+    ) -> tuple[list[ProposedMention], str, int, int, int]:
         destination = draft.destination
+        destination_span_relocation_count = 0
         if destination.basis == DestinationBasis.EXPLICIT:
-            assert destination.evidence_span_start is not None
-            assert destination.evidence_span_end is not None
             if source_text[
                 destination.evidence_span_start : destination.evidence_span_end
             ] != destination.name:
-                raise ValueError("DESTINATION_SPAN_MISMATCH")
+                destination_offsets = []
+                offset = source_text.find(destination.name)
+                while offset >= 0:
+                    destination_offsets.append(offset)
+                    offset = source_text.find(destination.name, offset + 1)
+                if len(destination_offsets) != 1:
+                    raise ValueError("DESTINATION_SPAN_MISMATCH")
+                destination_span_relocation_count = 1
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
         atomic_span_narrowing_count = 0
+        atomic_span_relocation_count = 0
         for index, item in enumerate(draft.mentions, start=1):
             if item.span_end > len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
@@ -360,9 +367,18 @@ class QwenStructuredInferenceProvider:
                 while offset >= 0:
                     offsets.append(offset)
                     offset = raw_text.find(atomic, offset + 1)
-                if len(offsets) != 1:
-                    raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
-                narrowed_start = span_start + offsets[0]
+                if len(offsets) == 1:
+                    narrowed_start = span_start + offsets[0]
+                else:
+                    source_offsets = []
+                    source_offset = source_text.find(atomic)
+                    while source_offset >= 0:
+                        source_offsets.append(source_offset)
+                        source_offset = source_text.find(atomic, source_offset + 1)
+                    if len(source_offsets) != 1:
+                        raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
+                    narrowed_start = source_offsets[0]
+                    atomic_span_relocation_count += 1
                 narrowed_end = narrowed_start + len(atomic)
                 if (narrowed_start, narrowed_end) != (span_start, span_end):
                     atomic_span_narrowing_count += 1
@@ -386,7 +402,13 @@ class QwenStructuredInferenceProvider:
                     time_hint=item.time_hint,
                 )
             )
-        return mentions, destination.name, atomic_span_narrowing_count
+        return (
+            mentions,
+            destination.name,
+            atomic_span_narrowing_count,
+            atomic_span_relocation_count,
+            destination_span_relocation_count,
+        )
 
     async def propose(self, source_text: str) -> InferenceProposal:
         calls: list[dict[str, object]] = []
@@ -414,6 +436,8 @@ class QwenStructuredInferenceProvider:
                             mentions,
                             destination_name,
                             atomic_span_narrowing_count,
+                            atomic_span_relocation_count,
+                            destination_span_relocation_count,
                         ) = self._proposal_from_draft(source_text, draft)
                     except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                         validation_category = _redacted_validation_category(exc)
@@ -458,6 +482,10 @@ class QwenStructuredInferenceProvider:
                         "external_calls": len(calls),
                         "repair_call_count": max(0, len(calls) - 1),
                         "atomic_span_narrowing_count": atomic_span_narrowing_count,
+                        "atomic_span_relocation_count": atomic_span_relocation_count,
+                        "destination_span_relocation_count": (
+                            destination_span_relocation_count
+                        ),
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 3),
