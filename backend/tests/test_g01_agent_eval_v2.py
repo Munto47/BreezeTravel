@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from evals.agent_gate_v1.path_security import ArtifactPathError
 from evals.trip_text_cards_agent_v2.annotations import (
     AgentAnnotationValidationError,
     _case_semantics,
@@ -39,6 +40,7 @@ from scripts.export_g01_amap_live_receipts import (
     build_source_only_catalog,
     extract_source_place_candidates,
 )
+from scripts.run_qwen_model_predictions import _output_targets
 from scripts.score_g01_agent_dev_validation import validate_prediction_run
 
 
@@ -128,6 +130,32 @@ def _sha(path: Path) -> str:
 
 def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+
+
+def test_qwen_prediction_runner_preflights_external_targets_before_calls(
+    tmp_path: Path,
+) -> None:
+    prediction, summary = _output_targets(
+        tmp_path,
+        candidate_commit="a" * 40,
+        role="LOW_LATENCY_CANDIDATE",
+    )
+
+    assert prediction.parent == tmp_path
+    assert summary.parent == tmp_path
+    prediction.write_text("occupied\n", encoding="utf-8")
+    with pytest.raises(ArtifactPathError, match="already exists"):
+        _output_targets(
+            tmp_path,
+            candidate_commit="a" * 40,
+            role="LOW_LATENCY_CANDIDATE",
+        )
+    with pytest.raises(ArtifactPathError, match="parent must already exist"):
+        _output_targets(
+            tmp_path / "missing",
+            candidate_commit="b" * 40,
+            role="LOW_LATENCY_CANDIDATE",
+        )
 
 
 def test_non_place_reference_spans_do_not_count_as_missing_activity_roles() -> None:

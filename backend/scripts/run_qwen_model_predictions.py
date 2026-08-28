@@ -13,7 +13,10 @@ from pathlib import Path
 
 from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
-from evals.agent_gate_v1.path_security import write_external_bytes_exclusive
+from evals.agent_gate_v1.path_security import (
+    require_external_target,
+    write_external_bytes_exclusive,
+)
 from evals.trip_text_cards_agent_v2.split_loader import load_agent_split
 
 
@@ -90,6 +93,20 @@ def _call_rows(binding: dict[str, object]) -> list[dict[str, object]]:
     if not isinstance(calls, list):
         return []
     return [value for value in calls if isinstance(value, dict)]
+
+
+def _output_targets(
+    output_dir: Path,
+    *,
+    candidate_commit: str,
+    role: str,
+) -> tuple[Path, Path]:
+    stem = f"{candidate_commit[:12]}-{role.lower()}"
+    predictions = output_dir / f"{stem}.predictions.jsonl"
+    summary = output_dir / f"{stem}.summary.json"
+    require_external_target(predictions, REPOSITORY_ROOT)
+    require_external_target(summary, REPOSITORY_ROOT)
+    return predictions, summary
 
 
 async def _run(args: argparse.Namespace) -> tuple[dict[str, object], bytes]:
@@ -334,10 +351,17 @@ def main() -> int:
     args = parser.parse_args()
     if args.concurrency < 1 or args.concurrency > 8:
         parser.error("concurrency must be between 1 and 8")
+    candidate_commit = _git("rev-parse", "HEAD")
+    prediction_path, summary_path = _output_targets(
+        args.output_dir,
+        candidate_commit=candidate_commit,
+        role=args.role,
+    )
     summary, predictions = asyncio.run(_run(args))
-    stem = f"{summary['candidate_commit'][:12]}-{args.role.lower()}"
+    if summary["candidate_commit"] != candidate_commit:
+        raise ValueError("candidate changed after Qwen output preflight")
     predictions_snapshot = write_external_bytes_exclusive(
-        args.output_dir / f"{stem}.predictions.jsonl",
+        prediction_path,
         predictions,
         REPOSITORY_ROOT,
     )
@@ -347,7 +371,7 @@ def main() -> int:
         json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     ).encode("utf-8")
     summary_snapshot = write_external_bytes_exclusive(
-        args.output_dir / f"{stem}.summary.json",
+        summary_path,
         summary_bytes,
         REPOSITORY_ROOT,
     )
