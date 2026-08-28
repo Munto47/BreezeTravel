@@ -187,6 +187,46 @@ async def test_qwen_provider_ignores_duplicate_atomic_name_inside_url() -> None:
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_recovers_atomic_place_from_empty_model_span() -> None:
+    source = "北京 Day 1 上午去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    output["mentions"][0]["span_start"] = 4
+    output["mentions"][0]["span_end"] = 4
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    mention = proposal.mentions[0]
+    assert source[mention.span_start : mention.span_end] == "故宫博物院"
+    assert proposal.binding["atomic_span_relocation_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_fills_missing_planned_day_from_source_heading() -> None:
+    source = "北京 Day 1 休息。Day 2 上午去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    output["mentions"][0]["day_index"] = None
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.mentions[0].day_index == 2
+    assert proposal.binding["planned_day_fill_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_rejects_non_atomic_planned_span_after_one_repair() -> None:
     source = "北京 Day 1 预约说明：https://example.invalid。"
     start = source.index("预约说明")

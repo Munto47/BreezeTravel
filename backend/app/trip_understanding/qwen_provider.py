@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from openai import AsyncOpenAI
-from pydantic import Field, ValidationError, model_validator
+from pydantic import Field, ValidationError
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.models import (
@@ -34,6 +34,22 @@ _MODEL_PANEL_PATH = _PROMPT_PATH.with_name("qwen_model_panel.json")
 _FORBIDDEN_ATOMIC_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = set("。！？；\n")
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
+_DAY_NUMBER = {
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+_DAY_HEADING_RE = re.compile(
+    r"(?:第\s*(?P<zh>[一二三四五六七八九十])\s*天|(?:Day|D)\s*(?P<num>1[0-4]|[1-9]))",
+    re.IGNORECASE,
+)
 
 
 def _verbatim_offsets_outside_urls(source_text: str, value: str) -> list[int]:
@@ -46,6 +62,16 @@ def _verbatim_offsets_outside_urls(source_text: str, value: str) -> list[int]:
             offsets.append(offset)
         offset = source_text.find(value, offset + 1)
     return offsets
+
+
+def _day_index_at(source_text: str, position: int) -> int:
+    day_index = 1
+    for match in _DAY_HEADING_RE.finditer(source_text):
+        if match.start() > position:
+            break
+        raw = match.group("zh") or match.group("num")
+        day_index = int(raw) if raw.isdigit() else _DAY_NUMBER[raw]
+    return day_index
 
 
 def _redacted_validation_category(exc: Exception) -> str:
@@ -77,13 +103,6 @@ class QwenExplicitDestinationDraft(StrictModel):
     evidence_span_start: int = Field(ge=0)
     evidence_span_end: int = Field(gt=0)
 
-    @model_validator(mode="after")
-    def evidence_span_is_non_empty(self) -> "QwenExplicitDestinationDraft":
-        if self.evidence_span_end <= self.evidence_span_start:
-            raise ValueError("destination evidence span is empty")
-        return self
-
-
 class QwenSoftDestinationDraft(StrictModel):
     name: str = Field(min_length=1, max_length=40)
     basis: Literal[DestinationBasis.SOFT_ASSUMPTION]
@@ -106,15 +125,6 @@ class QwenMentionDraft(StrictModel):
     atomic_place_name: str | None = Field(max_length=40)
     category_hint: str | None = Field(max_length=40)
     time_hint: str | None = Field(max_length=80)
-
-    @model_validator(mode="after")
-    def span_and_day_are_consistent(self) -> "QwenMentionDraft":
-        if self.span_end <= self.span_start:
-            raise ValueError("mention span is empty")
-        if self.role == ActivityRole.PLANNED and self.day_index is None:
-            raise ValueError("planned mention requires a day")
-        return self
-
 
 class QwenSemanticDraft(StrictModel):
     destination: QwenDestinationDraft
@@ -343,7 +353,7 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str, int, int, int]:
+    ) -> tuple[list[ProposedMention], str, int, int, int, int]:
         destination = draft.destination
         destination_span_relocation_count = 0
         if destination.basis == DestinationBasis.EXPLICIT:
@@ -355,24 +365,22 @@ class QwenStructuredInferenceProvider:
                 source_text,
                 destination.name,
             )
+            if not destination_offsets:
+                raise ValueError("DESTINATION_SPAN_MISMATCH")
             if (
                 source_text[slice(*destination_span)] != destination.name
                 or destination_span[0] not in destination_offsets
             ):
-                if len(destination_offsets) != 1:
-                    raise ValueError("DESTINATION_SPAN_MISMATCH")
                 destination_span_relocation_count = 1
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
         atomic_span_narrowing_count = 0
         atomic_span_relocation_count = 0
+        planned_day_fill_count = 0
         for index, item in enumerate(draft.mentions, start=1):
-            if item.span_end > len(source_text):
-                raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
             span_start = item.span_start
             span_end = item.span_end
-            raw_text = source_text[span_start:span_end]
             atomic = item.atomic_place_name.strip() if item.atomic_place_name else None
             if atomic:
                 lowered = atomic.lower()
@@ -384,7 +392,9 @@ class QwenStructuredInferenceProvider:
                 offsets_in_span = [
                     offset
                     for offset in source_offsets
-                    if span_start <= offset and offset + len(atomic) <= span_end
+                    if 0 <= span_start < span_end <= len(source_text)
+                    and span_start <= offset
+                    and offset + len(atomic) <= span_end
                 ]
                 if len(offsets_in_span) == 1:
                     narrowed_start = offsets_in_span[0]
@@ -397,7 +407,13 @@ class QwenStructuredInferenceProvider:
                 if (narrowed_start, narrowed_end) != (span_start, span_end):
                     atomic_span_narrowing_count += 1
                 span_start, span_end = narrowed_start, narrowed_end
-                raw_text = source_text[span_start:span_end]
+            elif not 0 <= span_start < span_end <= len(source_text):
+                raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
+            raw_text = source_text[span_start:span_end]
+            day_index = item.day_index
+            if item.role == ActivityRole.PLANNED and day_index is None:
+                day_index = _day_index_at(source_text, span_start)
+                planned_day_fill_count += 1
             span = (span_start, span_end)
             if span in seen_spans:
                 raise ValueError("DUPLICATE_MENTION_SPAN")
@@ -409,7 +425,7 @@ class QwenStructuredInferenceProvider:
                     span_start=span_start,
                     span_end=span_end,
                     role=item.role,
-                    day_index=item.day_index,
+                    day_index=day_index,
                     sequence_index=item.sequence_index,
                     atomic_place_name=atomic,
                     category_hint=item.category_hint,
@@ -422,6 +438,7 @@ class QwenStructuredInferenceProvider:
             atomic_span_narrowing_count,
             atomic_span_relocation_count,
             destination_span_relocation_count,
+            planned_day_fill_count,
         )
 
     async def propose(self, source_text: str) -> InferenceProposal:
@@ -452,6 +469,7 @@ class QwenStructuredInferenceProvider:
                             atomic_span_narrowing_count,
                             atomic_span_relocation_count,
                             destination_span_relocation_count,
+                            planned_day_fill_count,
                         ) = self._proposal_from_draft(source_text, draft)
                     except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                         validation_category = _redacted_validation_category(exc)
@@ -500,6 +518,7 @@ class QwenStructuredInferenceProvider:
                         "destination_span_relocation_count": (
                             destination_span_relocation_count
                         ),
+                        "planned_day_fill_count": planned_day_fill_count,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 3),
