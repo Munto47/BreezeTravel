@@ -329,7 +329,7 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str]:
+    ) -> tuple[list[ProposedMention], str, int]:
         destination = draft.destination
         if destination.basis == DestinationBasis.EXPLICIT:
             assert destination.evidence_span_start is not None
@@ -341,29 +341,43 @@ class QwenStructuredInferenceProvider:
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
+        atomic_span_narrowing_count = 0
         for index, item in enumerate(draft.mentions, start=1):
             if item.span_end > len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
-            span = (item.span_start, item.span_end)
-            if span in seen_spans:
-                raise ValueError("DUPLICATE_MENTION_SPAN")
-            seen_spans.add(span)
-            raw_text = source_text[item.span_start : item.span_end]
+            span_start = item.span_start
+            span_end = item.span_end
+            raw_text = source_text[span_start:span_end]
             atomic = item.atomic_place_name.strip() if item.atomic_place_name else None
             if atomic:
-                if atomic != raw_text.strip():
-                    raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
                 lowered = atomic.lower()
                 if any(marker in lowered for marker in _FORBIDDEN_ATOMIC_MARKERS):
                     raise ValueError("FORBIDDEN_ATOMIC_PLACE")
                 if any(marker in atomic for marker in _SENTENCE_MARKERS):
                     raise ValueError("NON_ATOMIC_PLACE")
+                offsets = []
+                offset = raw_text.find(atomic)
+                while offset >= 0:
+                    offsets.append(offset)
+                    offset = raw_text.find(atomic, offset + 1)
+                if len(offsets) != 1:
+                    raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
+                narrowed_start = span_start + offsets[0]
+                narrowed_end = narrowed_start + len(atomic)
+                if (narrowed_start, narrowed_end) != (span_start, span_end):
+                    atomic_span_narrowing_count += 1
+                span_start, span_end = narrowed_start, narrowed_end
+                raw_text = source_text[span_start:span_end]
+            span = (span_start, span_end)
+            if span in seen_spans:
+                raise ValueError("DUPLICATE_MENTION_SPAN")
+            seen_spans.add(span)
             mentions.append(
                 ProposedMention(
                     mention_id=f"mention-{index}",
                     raw_text=raw_text,
-                    span_start=item.span_start,
-                    span_end=item.span_end,
+                    span_start=span_start,
+                    span_end=span_end,
                     role=item.role,
                     day_index=item.day_index,
                     sequence_index=item.sequence_index,
@@ -372,7 +386,7 @@ class QwenStructuredInferenceProvider:
                     time_hint=item.time_hint,
                 )
             )
-        return mentions, destination.name
+        return mentions, destination.name, atomic_span_narrowing_count
 
     async def propose(self, source_text: str) -> InferenceProposal:
         calls: list[dict[str, object]] = []
@@ -396,10 +410,11 @@ class QwenStructuredInferenceProvider:
                         )
                         last_output = content
                         draft = QwenSemanticDraft.model_validate_json(content)
-                        mentions, destination_name = self._proposal_from_draft(
-                            source_text,
-                            draft,
-                        )
+                        (
+                            mentions,
+                            destination_name,
+                            atomic_span_narrowing_count,
+                        ) = self._proposal_from_draft(source_text, draft)
                     except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                         validation_category = _redacted_validation_category(exc)
                         receipt["validation_failure"] = validation_category
@@ -442,6 +457,7 @@ class QwenStructuredInferenceProvider:
                         "deadline_ms": round(self.deadline_seconds * 1000),
                         "external_calls": len(calls),
                         "repair_call_count": max(0, len(calls) - 1),
+                        "atomic_span_narrowing_count": atomic_span_narrowing_count,
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 3),

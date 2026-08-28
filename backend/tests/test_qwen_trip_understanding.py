@@ -118,6 +118,29 @@ async def test_qwen_provider_uses_at_most_one_schema_repair() -> None:
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_deterministically_narrows_atomic_place_span() -> None:
+    source = "北京 Day 1 上午去故宫博物院，下午休息。"
+    output = json.loads(_valid_output(source))
+    clause_start = source.index("上午去")
+    output["mentions"][0]["span_start"] = clause_start
+    output["mentions"][0]["span_end"] = source.index("，")
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    mention = proposal.mentions[0]
+    assert mention.raw_text == "故宫博物院"
+    assert source[mention.span_start : mention.span_end] == "故宫博物院"
+    assert proposal.binding["atomic_span_narrowing_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_rejects_non_atomic_planned_span_after_one_repair() -> None:
     source = "北京 Day 1 预约说明：https://example.invalid。"
     start = source.index("预约说明")
