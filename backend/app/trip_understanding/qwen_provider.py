@@ -89,6 +89,8 @@ def _redacted_validation_category(exc: Exception) -> str:
         "MENTION_SPAN_OUT_OF_RANGE",
         "DUPLICATE_MENTION_SPAN",
         "ATOMIC_PLACE_SPAN_MISMATCH",
+        "ATOMIC_PLACE_NOT_VERBATIM",
+        "ATOMIC_PLACE_AMBIGUOUS_SPAN",
         "FORBIDDEN_ATOMIC_PLACE",
         "NON_ATOMIC_PLACE",
         "EMPTY_STRUCTURED_OUTPUT",
@@ -353,7 +355,7 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str, int, int, int, int]:
+    ) -> tuple[list[ProposedMention], str, int, int, int, int, int]:
         destination = draft.destination
         destination_span_relocation_count = 0
         if destination.basis == DestinationBasis.EXPLICIT:
@@ -377,6 +379,7 @@ class QwenStructuredInferenceProvider:
         seen_spans: set[tuple[int, int]] = set()
         atomic_span_narrowing_count = 0
         atomic_span_relocation_count = 0
+        atomic_span_disambiguation_count = 0
         planned_day_fill_count = 0
         for index, item in enumerate(draft.mentions, start=1):
             span_start = item.span_start
@@ -388,7 +391,13 @@ class QwenStructuredInferenceProvider:
                     raise ValueError("FORBIDDEN_ATOMIC_PLACE")
                 if any(marker in atomic for marker in _SENTENCE_MARKERS):
                     raise ValueError("NON_ATOMIC_PLACE")
-                source_offsets = _verbatim_offsets_outside_urls(source_text, atomic)
+                source_offsets = [
+                    offset
+                    for offset in _verbatim_offsets_outside_urls(source_text, atomic)
+                    if (offset, offset + len(atomic)) not in seen_spans
+                ]
+                if not source_offsets:
+                    raise ValueError("ATOMIC_PLACE_NOT_VERBATIM")
                 offsets_in_span = [
                     offset
                     for offset in source_offsets
@@ -399,9 +408,34 @@ class QwenStructuredInferenceProvider:
                 if len(offsets_in_span) == 1:
                     narrowed_start = offsets_in_span[0]
                 else:
-                    if len(source_offsets) != 1:
-                        raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
-                    narrowed_start = source_offsets[0]
+                    if len(source_offsets) == 1:
+                        narrowed_start = source_offsets[0]
+                    else:
+                        proposed_midpoint = (span_start + span_end) / 2
+                        ranked_offsets = sorted(
+                            source_offsets,
+                            key=lambda offset: (
+                                abs((offset + len(atomic) / 2) - proposed_midpoint),
+                                offset,
+                            ),
+                        )
+                        best_distance = abs(
+                            (ranked_offsets[0] + len(atomic) / 2)
+                            - proposed_midpoint
+                        )
+                        equally_near = [
+                            offset
+                            for offset in ranked_offsets
+                            if abs(
+                                abs((offset + len(atomic) / 2) - proposed_midpoint)
+                                - best_distance
+                            )
+                            < 1e-9
+                        ]
+                        if len(equally_near) != 1:
+                            raise ValueError("ATOMIC_PLACE_AMBIGUOUS_SPAN")
+                        narrowed_start = equally_near[0]
+                        atomic_span_disambiguation_count += 1
                     atomic_span_relocation_count += 1
                 narrowed_end = narrowed_start + len(atomic)
                 if (narrowed_start, narrowed_end) != (span_start, span_end):
@@ -437,6 +471,7 @@ class QwenStructuredInferenceProvider:
             destination.name,
             atomic_span_narrowing_count,
             atomic_span_relocation_count,
+            atomic_span_disambiguation_count,
             destination_span_relocation_count,
             planned_day_fill_count,
         )
@@ -468,6 +503,7 @@ class QwenStructuredInferenceProvider:
                             destination_name,
                             atomic_span_narrowing_count,
                             atomic_span_relocation_count,
+                            atomic_span_disambiguation_count,
                             destination_span_relocation_count,
                             planned_day_fill_count,
                         ) = self._proposal_from_draft(source_text, draft)
@@ -515,6 +551,9 @@ class QwenStructuredInferenceProvider:
                         "repair_call_count": max(0, len(calls) - 1),
                         "atomic_span_narrowing_count": atomic_span_narrowing_count,
                         "atomic_span_relocation_count": atomic_span_relocation_count,
+                        "atomic_span_disambiguation_count": (
+                            atomic_span_disambiguation_count
+                        ),
                         "destination_span_relocation_count": (
                             destination_span_relocation_count
                         ),

@@ -208,6 +208,27 @@ async def test_qwen_provider_recovers_atomic_place_from_empty_model_span() -> No
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_uses_model_offset_to_disambiguate_verbatim_place() -> None:
+    source = "北京 Day 1 去故宫博物院。参考段再次提到故宫博物院。"
+    output = json.loads(_valid_output(source))
+    second_start = source.rindex("故宫博物院")
+    output["mentions"][0]["span_start"] = second_start - 2
+    output["mentions"][0]["span_end"] = second_start - 1
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.mentions[0].span_start == second_start
+    assert proposal.binding["atomic_span_disambiguation_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_fills_missing_planned_day_from_source_heading() -> None:
     source = "北京 Day 1 休息。Day 2 上午去故宫博物院。"
     output = json.loads(_valid_output(source))
