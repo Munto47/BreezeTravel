@@ -611,6 +611,15 @@ def generate(
             g01_root / "sealed_blind_thresholds.json"
         ),
         "prompt_sha256": _prompt_hashes(G01_SOURCE_ROOT),
+        "qwen_candidate_artifact_sha256": {
+            filename: _sha256(G01_SOURCE_ROOT / filename)
+            for filename in (
+                "qwen_inference_config.json",
+                "qwen_inference_prompt.md",
+                "qwen_model_panel.json",
+                "qwen_semantic_draft.schema.json",
+            )
+        },
         "schema_sha256": {
             filename: _sha256(g01_root / filename)
             for filename in sorted(g01_schemas)

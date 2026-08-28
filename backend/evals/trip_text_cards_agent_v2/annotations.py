@@ -268,7 +268,7 @@ def validate_inference_runtime_receipt_assets(
         "schema_sha256": _git_blob_sha256(
             repository_root,
             expected_candidate_commit,
-            "backend/eval_data/trip_text_cards_agent_v2/agent_inference_case_output.schema.json",
+            "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
         ),
         "config_sha256": _git_blob_sha256(
             repository_root,

@@ -5,7 +5,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from openai import AsyncOpenAI
 from pydantic import Field, ValidationError, model_validator
@@ -27,6 +27,9 @@ _PROMPT_PATH = (
     / "trip_text_cards_agent_v2"
     / "qwen_inference_prompt.md"
 )
+_SCHEMA_PATH = _PROMPT_PATH.with_name("qwen_semantic_draft.schema.json")
+_CONFIG_PATH = _PROMPT_PATH.with_name("qwen_inference_config.json")
+_MODEL_PANEL_PATH = _PROMPT_PATH.with_name("qwen_model_panel.json")
 _FORBIDDEN_ATOMIC_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = set("。！？；\n")
 
@@ -54,27 +57,30 @@ def _redacted_validation_category(exc: Exception) -> str:
     return "VALUE_ERROR"
 
 
-class QwenDestinationDraft(StrictModel):
+class QwenExplicitDestinationDraft(StrictModel):
     name: str = Field(min_length=1, max_length=40)
-    basis: DestinationBasis
-    evidence_span_start: int | None = Field(default=None, ge=0)
-    evidence_span_end: int | None = Field(default=None, gt=0)
+    basis: Literal[DestinationBasis.EXPLICIT]
+    evidence_span_start: int = Field(ge=0)
+    evidence_span_end: int = Field(gt=0)
 
     @model_validator(mode="after")
-    def evidence_matches_basis(self) -> "QwenDestinationDraft":
-        has_evidence = (
-            self.evidence_span_start is not None
-            and self.evidence_span_end is not None
-        )
-        if self.basis == DestinationBasis.EXPLICIT and not has_evidence:
-            raise ValueError("explicit destination requires an evidence span")
-        if self.basis == DestinationBasis.SOFT_ASSUMPTION and (
-            self.evidence_span_start is not None or self.evidence_span_end is not None
-        ):
-            raise ValueError("soft destination cannot claim source evidence")
-        if has_evidence and self.evidence_span_end <= self.evidence_span_start:
+    def evidence_span_is_non_empty(self) -> "QwenExplicitDestinationDraft":
+        if self.evidence_span_end <= self.evidence_span_start:
             raise ValueError("destination evidence span is empty")
         return self
+
+
+class QwenSoftDestinationDraft(StrictModel):
+    name: str = Field(min_length=1, max_length=40)
+    basis: Literal[DestinationBasis.SOFT_ASSUMPTION]
+    evidence_span_start: Literal[None] = None
+    evidence_span_end: Literal[None] = None
+
+
+QwenDestinationDraft = Annotated[
+    QwenExplicitDestinationDraft | QwenSoftDestinationDraft,
+    Field(discriminator="basis"),
+]
 
 
 class QwenMentionDraft(StrictModel):
@@ -139,7 +145,7 @@ class QwenStructuredInferenceProvider:
         base_url: str,
         model: str,
         deadline_seconds: float = 7.0,
-        max_output_tokens: int = 8192,
+        max_output_tokens: int = 2048,
         temperature: float = 0.1,
         input_cny_per_million: float | None = None,
         output_cny_per_million: float | None = None,
@@ -159,8 +165,16 @@ class QwenStructuredInferenceProvider:
         self.temperature = temperature
         self.input_cny_per_million = input_cny_per_million
         self.output_cny_per_million = output_cny_per_million
-        self.prompt = prompt if prompt is not None else _PROMPT_PATH.read_text(encoding="utf-8")
-        self.schema = qwen_semantic_schema()
+        prompt_bytes = _PROMPT_PATH.read_bytes()
+        self.prompt = (
+            prompt if prompt is not None else prompt_bytes.decode("utf-8")
+        )
+        generated_schema = qwen_semantic_schema()
+        stored_schema_bytes = _SCHEMA_PATH.read_bytes()
+        stored_schema = json.loads(stored_schema_bytes)
+        if canonical_sha256(stored_schema) != canonical_sha256(generated_schema):
+            raise ValueError("frozen Qwen schema disagrees with adapter models")
+        self.schema = stored_schema
         self.client = client or AsyncOpenAI(
             api_key=api_key,
             base_url=self.base_url,
@@ -168,8 +182,16 @@ class QwenStructuredInferenceProvider:
             max_retries=0,
         )
         self.prompt_sha256 = _sha256_text(self.prompt)
-        self.schema_sha256 = canonical_sha256(self.schema)
-        self.config_sha256 = canonical_sha256(
+        self.prompt_artifact_sha256 = hashlib.sha256(prompt_bytes).hexdigest()
+        self.schema_canonical_sha256 = canonical_sha256(self.schema)
+        self.schema_artifact_sha256 = hashlib.sha256(stored_schema_bytes).hexdigest()
+        self.config_artifact_sha256 = hashlib.sha256(
+            _CONFIG_PATH.read_bytes()
+        ).hexdigest()
+        self.model_panel_sha256 = hashlib.sha256(
+            _MODEL_PANEL_PATH.read_bytes()
+        ).hexdigest()
+        self.effective_config_sha256 = canonical_sha256(
             {
                 "thinking": False,
                 "temperature": temperature,
@@ -178,6 +200,8 @@ class QwenStructuredInferenceProvider:
                 "max_output_tokens": max_output_tokens,
             }
         )
+        self.schema_sha256 = self.schema_artifact_sha256
+        self.config_sha256 = self.config_artifact_sha256
 
     async def _call(
         self,
@@ -213,7 +237,9 @@ class QwenStructuredInferenceProvider:
                 "endpoint_sha256": _sha256_text(self.base_url),
                 "prompt_sha256": self.prompt_sha256,
                 "schema_sha256": self.schema_sha256,
+                "schema_canonical_sha256": self.schema_canonical_sha256,
                 "config_sha256": self.config_sha256,
+                "effective_config_sha256": self.effective_config_sha256,
                 "attempt": attempt,
                 "validation_category": validation_category,
                 "prior_response_sha256": (
@@ -403,8 +429,14 @@ class QwenStructuredInferenceProvider:
                         "exact_model_id": self.model,
                         "endpoint_sha256": _sha256_text(self.base_url),
                         "prompt_sha256": self.prompt_sha256,
+                        "prompt_artifact_sha256": self.prompt_artifact_sha256,
                         "schema_sha256": self.schema_sha256,
+                        "schema_artifact_sha256": self.schema_artifact_sha256,
+                        "schema_canonical_sha256": self.schema_canonical_sha256,
                         "config_sha256": self.config_sha256,
+                        "config_artifact_sha256": self.config_artifact_sha256,
+                        "effective_config_sha256": self.effective_config_sha256,
+                        "model_panel_sha256": self.model_panel_sha256,
                         "thinking": False,
                         "temperature": self.temperature,
                         "deadline_ms": round(self.deadline_seconds * 1000),
@@ -464,18 +496,39 @@ class QwenStructuredInferenceProvider:
         started: float,
         category: str,
     ) -> dict[str, object]:
+        input_tokens = sum(int(call["input_tokens"]) for call in calls)
+        output_tokens = sum(int(call["output_tokens"]) for call in calls)
+        cost, cost_status = _estimated_cost(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            input_cny_per_million=self.input_cny_per_million,
+            output_cny_per_million=self.output_cny_per_million,
+        )
         return {
             "provider": "QWEN",
             "execution_mode": "LIVE",
             "exact_model_id": self.model,
             "endpoint_sha256": _sha256_text(self.base_url),
             "prompt_sha256": self.prompt_sha256,
+            "prompt_artifact_sha256": self.prompt_artifact_sha256,
             "schema_sha256": self.schema_sha256,
+            "schema_artifact_sha256": self.schema_artifact_sha256,
+            "schema_canonical_sha256": self.schema_canonical_sha256,
             "config_sha256": self.config_sha256,
+            "config_artifact_sha256": self.config_artifact_sha256,
+            "effective_config_sha256": self.effective_config_sha256,
+            "model_panel_sha256": self.model_panel_sha256,
             "failure_category": category,
+            "thinking": False,
+            "temperature": self.temperature,
+            "deadline_ms": round(self.deadline_seconds * 1000),
             "external_calls": len(calls),
             "repair_call_count": max(0, len(calls) - 1),
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "latency_ms": round((time.perf_counter() - started) * 1000, 3),
+            "estimated_cost_cny": cost,
+            "estimated_cost_status": cost_status,
             "calls": calls,
             "raw_request_or_response_retained": False,
         }

@@ -4,6 +4,7 @@
   "thinking": false,
   "temperature": 0.1,
   "deadline_ms": 7000,
+  "max_output_tokens": 2048,
   "maximum_repair_calls": 1,
   "silent_fallback": false,
   "raw_request_or_response_in_repository": false,

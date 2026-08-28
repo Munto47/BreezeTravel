@@ -8,7 +8,7 @@
   },
   "canonical_place_authority": "PROVIDER_BOUND_AGENT_REFERENCE",
   "contract_code_sha256": {
-    "annotations.py": "74d0e5db827ec6462c9061ef4c42111e2580c892fc7473bca48b976051b9b3df",
+    "annotations.py": "0d1ffbe44c711928443e686bc8c7130141573c4651da28c11c441e3e128a0910",
     "contracts.py": "a3527c4e023aadd0abc749efbde6fb4e5228445a55283ad82c0da6e0abad20d6",
     "split_loader.py": "81730e7e12545dfcbba5b1cb26f14695db860b550c75b2369322bd276e4e24a5"
   },
@@ -52,6 +52,12 @@
     "UNRESOLVED",
     "AMBIGUOUS"
   ],
+  "qwen_candidate_artifact_sha256": {
+    "qwen_inference_config.json": "f1d7377a395d1ae7e5a1e7dbb4589b8a463dbd87af2de596c6dd59830f4884c1",
+    "qwen_inference_prompt.md": "af5b9c5c215d8f38a6221ad92af9cafe8aa709999c782c99b6c33f6c17a17f44",
+    "qwen_model_panel.json": "4bf2193df340ecf144990412f131bb9c20b67a7aef8ddd9176a18a4a87bed3f5",
+    "qwen_semantic_draft.schema.json": "d5677cf82636ebc397c07d179ccb708ebac28a9fb573fea9832bf5ad08e95883"
+  },
   "raw_artifact_storage": "REPOSITORY_EXTERNAL",
   "reference_tasks": {
     "candidate_output_visibility": "NONE",
