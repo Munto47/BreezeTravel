@@ -614,12 +614,19 @@ class QwenStructuredInferenceProvider:
     ) -> dict[str, object]:
         input_tokens = sum(int(call["input_tokens"]) for call in calls)
         output_tokens = sum(int(call["output_tokens"]) for call in calls)
-        cost, cost_status = _estimated_cost(
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            input_cny_per_million=self.input_cny_per_million,
-            output_cny_per_million=self.output_cny_per_million,
+        usage_complete = all(
+            call.get("outcome") == "RESPONSE_RECEIVED" for call in calls
         )
+        if usage_complete:
+            cost, cost_status = _estimated_cost(
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                input_cny_per_million=self.input_cny_per_million,
+                output_cny_per_million=self.output_cny_per_million,
+            )
+        else:
+            cost = None
+            cost_status = "NOT_EXPOSED_BY_PROVIDER_FOR_INCOMPLETE_CALL"
         return {
             "provider": "QWEN",
             "execution_mode": "LIVE",

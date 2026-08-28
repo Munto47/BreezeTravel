@@ -637,7 +637,7 @@ export default function TripResultPage() {
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />删除这张卡片
             </button>
-            <p className="mt-4 text-xs leading-5 text-slate-400">调整会保存为新版本；路线不会自动重算。这里不展示攻略原文或内部判断数字。</p>
+            <p className="mt-4 text-xs leading-5 text-slate-400">调整会自动保存；路线不会自动重算，需要时可稍后手动更新。</p>
           </div>
         </div>
       )}

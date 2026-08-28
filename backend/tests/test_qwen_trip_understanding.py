@@ -318,4 +318,8 @@ async def test_qwen_provider_deadline_records_the_started_call_without_raw_text(
     assert binding["external_calls"] == 1
     assert binding["calls"][0]["outcome"] == "NO_RESPONSE"
     assert len(binding["calls"][0]["request_sha256"]) == 64
+    assert binding["estimated_cost_cny"] is None
+    assert binding["estimated_cost_status"] == (
+        "NOT_EXPOSED_BY_PROVIDER_FOR_INCOMPLETE_CALL"
+    )
     assert source not in json.dumps(binding, ensure_ascii=False)
