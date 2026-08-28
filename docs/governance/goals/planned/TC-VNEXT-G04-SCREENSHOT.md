@@ -79,7 +79,7 @@
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012、ADR-013。
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 

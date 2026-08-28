@@ -33,27 +33,28 @@
 | R-23 | 开发上下文、候选输出或blind truth泄漏给评测任务 | 独立性失效、指标污染 | `fork_turns=none`、仓库外原始输出、输入包allowlist、hash绑定和one-shot tranche | Agent Gate validator fail closed | OPEN，G01～G07 |
 | R-24 | Agent模拟审查被对外表述为真人证据 | 用户和面试方被误导 | 固定证据枚举、`human_evidence=false`、G07状态显式agent verified | manifest和完成措辞扫描 | ACTIVE |
 | R-25 | live Provider在事务外完成后进程崩溃导致重复调用 | 重复费用、回执与事实不一致 | 调用前持久化稳定effect key/STARTED，恢复时UNKNOWN_OUTCOME而非盲目重发 | Qwen/AMap crash-window矩阵 | OPEN，G01 |
-| R-26 | 开发任务自行创建key、registry或通用PASS回执 | Gate成为自我证明，无法区分四类必需证据 | 首次Git只建不能签发证据的BOOTSTRAP；ACTIVE前交付仓库外隔离signer，八类外部私钥、角色专用schema/签名与上游verification receipt | bootstrap拒绝 + signer进程隔离 + policy历史回读 + final fresh checkout | OPEN，外部signer未交付，禁止ACTIVE |
+| R-26 | 开发任务自行创建key、registry或通用PASS回执 | Gate成为自我证明 | G01～G06用候选绑定、原始证据hash、确定性scorer和clean checkout降低风险；外部signer只在G07威胁模型批准后启用 | CORE receipt回读；G07 HARDENED审查 | DEFERRED_CANDIDATE_HARDENING，不阻断G01～G06 |
 | R-27 | sealed指标由调用者填写，或外部文件在hash后被替换 | blind未真正评分或回执绑定错误字节 | 原始输入/预测/truth确定性scorer、HMAC truth commitment、单句柄snapshot、hardlink拒绝、独占输出与DB-first nonce | sealed mutation/replay/TOCTOU矩阵 | OPEN，G01 |
-| R-28 | 候选自带弱化verifier或自行建立新签名根 | 恶意/错误候选可给自己签发PASS | 当前Goal generation协议字节锚、生成代码hash、仓库外签名authority anchor、immutable candidate ref与fresh checkout | immutable-byte负向测试 + external anchor readback | OPEN，G01～G07 |
-| R-29 | 组件签名者手填PASS摘要而未运行底层事实检查 | Gate显示通过但测试、Provider、审查或blind并未成立 | 目的专一builder只接受raw paths；final端重跑自动命令并重算Provider/panel/sealed验证 | forged-summary反例 + 四组件fresh revalidation | OPEN，G01～G07 |
-| R-30 | 本机管理员或custodian失陷后整体回滚SQLite或窃取运营密钥 | nonce重放或伪造新回执 | v1明确只提供进程隔离；registry/密钥最小暴露；疑似失陷立即停止Gate，新generation需所有者批准；更强威胁模型使用远端透明日志/HSM | registry完整性readback + generation事件；不得宣称host-admin resistant | ACCEPTED RESIDUAL，阻断受影响Gate |
+| R-28 | 候选自带弱化verifier或自行建立新签名根 | 恶意/错误候选可给自己签发PASS | CORE profile以冻结合同、确定性重算和clean checkout缓解；外部authority仅在G07评估 | CORE contract hash；G07 threat-model review | DEFERRED_CANDIDATE_HARDENING，不阻断G01～G06 |
+| R-29 | 组件签名者手填PASS摘要而未运行底层事实检查 | Gate显示通过但底层事实未成立 | CORE聚合器只接受可回读的测试、Provider、panel和sealed原始回执并重算指标；角色签名留到G07 | raw-receipt与scorer重算；G07签名反例 | OPEN，CORE需验证；签名链DEFERRED |
+| R-30 | 本机管理员或custodian失陷后回滚外部状态或窃取运营密钥 | nonce重放或伪造新回执 | 当前工程Gate不宣称抵抗host admin；G07/生产按威胁模型决定远端透明日志/HSM | G07 threat-model review | ACCEPTED RESIDUAL，G07/生产评估 |
 | R-31 | Goal切换或候选调用者选择弱化的自动Gate合同 | 应运行的检查被替换为简单PASS | current Goal binding固定序号、前驱、canonical ref、合同路径/hash；组件builder与final verifier均从candidate Git推导 | binding hash + caller-input负向测试 | OPEN，G01～G07 |
-| R-32 | 首次外部anchor登记错误事实或冻结未完成live stub | generation 1永久错误或G01晋级死锁 | BOOTSTRAP不能登记anchor；完整capture/signer后一次切ACTIVE，anchor API只收candidate commit并从Git、tree、immutable bundle与canonical远端推导 | bootstrap拒绝 + active transition + derived-anchor负向测试 + external readback | OPEN，ACTIVE与首次锚未运行 |
-| R-33 | current binding跳级或候选引入弱自动合同 | 未完成G01～G06却生成后续PASS | 跨代稳定七Goal转换表/合同hash；generation必须与Goal同序；仓库外append-only predecessor PASS ledger | generation/skip/weak-contract/empty-ledger负向测试 | OPEN，G01～G07 |
-| R-34 | 自动测试进程读取FINAL、custody或Provider秘密 | 候选代码可伪造回执或泄漏账号 | 候选命令只在无外网、宿主挂载/PID和秘密的OCI镜像执行；合成HOME/XDG/npm profile | OCI参数、环境注入和镜像绑定回归 | OPEN，G01～G07；正式OCI Gate未运行 |
-| R-35 | live回执自报模型/配置或来自controlled fixture | 错模型、错配置或fixture冒充真实Provider | 正式exporter先fail closed；完整实现时由custody registry/mint和逐effect HTTPS capture签名建立来源，再由候选Git独立计算AMap/Qwen binding | live source/config/capture负向矩阵 | OPEN，G01；正式live `NOT_RUN` |
+| R-32 | 首次外部anchor登记错误事实 | G07候选加固证据失真 | G01～G06不登记authority anchor；G07先做威胁模型和BOOTSTRAP资产复审 | G07 HARDENED transition测试 | DEFERRED_CANDIDATE_HARDENING |
+| R-33 | current binding跳级或候选引入弱自动合同 | 未完成前置Goal却生成后续PASS | Program顺序、completed Goal回执、current binding和原子Goal切换 | skip/weak-contract/empty-predecessor负向测试 | OPEN，G01～G07；不依赖authority generation |
+| R-34 | 自动测试进程读取Gate或Provider秘密 | 候选代码可伪造回执或泄漏账号 | G01～G06最小环境与secret allowlist；完整隔离OCI在G07评估 | 环境泄漏扫描；G07 OCI回归 | OPEN，CORE secret scan；OCI DEFERRED |
+| R-35 | live回执自报模型/配置或来自controlled fixture | 错模型、错配置或fixture冒充真实Provider | CORE回执绑定候选Git计算的exact Provider配置、脱敏请求/响应hash、request ID和effect ID；逐effect外部签名在G07评估 | live/fixture区分、配置与response hash回读 | OPEN，G01 live `NOT_RUN` |
 | R-36 | 原始证据位于其他Git worktree，或sealed验证重复开文件 | truth/私钥入Git或同一尝试读取不同字节 | 排除所有Git管理目录；consume前冻结完整snapshot图并复用 | linked-worktree + snapshot reuse回归 | OPEN，G01 |
-| R-37 | live exporter从通用JSON列或任意数据库读取预组装事实 | 写入方可伪造schema合法的Provider证据 | 通用JSON入口已删除；任意DSN正式入口已禁用；完整链必须绑定custody登记数据库、一次性mint与逐effect capture签名 | generic JSON/DSN/query/capture负向测试 + live readback | DIRECT PATH DISABLED，完整live链待实现 |
-| R-38 | generation 1永久冻结G01 scorer导致G02～G07无法定义专属Gate | 后续版本只能复用错误门槛或请求手工破例 | 每Goal一代、上一PASS后精确加一；稳定Program事实跨代不变，Goal专属协议在激活commit冻结 | generation transition与前驱ledger负向测试 | MITIGATED_IN_CODE，G02链未运行 |
-| R-39 | 长耗时验证期间远端开发分支被移动 | 最终回执可能指向验证前后不同候选 | 每候选唯一不可变ref；组件验证前和签名前双readback；registry事务提交前再次回读 | ref TOCTOU/remote mismatch回归 | MITIGATED_IN_CODE，正式远端Gate未运行 |
+| R-37 | live回执来自预组装事实而非真实Provider调用 | fixture或伪造行被包装成live证据 | CORE要求运行时HTTP结果、Provider request ID（若提供）、脱敏hash和持久effect交叉回读；外部逐effect签名留到G07 | live/fixture反例 + runtime/effect readback | OPEN，G01 CORE live待运行；HARDENED capture DEFERRED |
+| R-38 | 过早冻结authority generation使后续Goal无法定义专属Gate | 后续版本被早期治理合同锁死 | ADR-014取消G01～G06 authority generation前置；每Goal独立冻结自己的CORE scorer/threshold | Goal contract transition测试 | SUPERSEDED_BY_ADR_014 |
+| R-39 | 长耗时验证期间远端开发分支被移动 | 最终回执可能指向不同候选 | CORE以subject/tree再次回读；G07再评估唯一不可变ref与双readback | remote mismatch回归；G07 ref审查 | OPEN，CORE readback；immutable ref DEFERRED |
 | R-40 | G02～G07自动合同只有通用测试 | 版本Outcome未被浏览器/PostgreSQL场景证明 | 七份合同各自冻结至少一个Goal后端检查和一个浏览器检查；缺文件或未运行即fail closed | Goal-specific contract覆盖测试 | MITIGATED_IN_CODE，未来Goal未运行 |
 | R-41 | PASS先写ledger后写回执文件 | 磁盘失败却已授权下一Goal | 先独占写入、fsync并回读相同字节，再在外部事务登记 | write-before-register回归 | MITIGATED_IN_CODE，正式PASS未运行 |
 | R-42 | 前端/小程序锁文件含已知npm audit告警及Node engine边界告警 | 供应链漏洞或未来构建漂移 | 不在治理切片中自动升级；G01后建立独立依赖审计、可达性分析、升级与浏览器回归切片 | 当前重建记录frontend 10项、miniapp 41项；生产前必须分级处置 | OPEN，既有依赖风险 |
-| R-43 | OCI镜像复制源码但排除Git元数据，无法在容器内证明候选身份；复制完整历史又可能暴露已删除对象 | 自动结果可能绑定错误字节，或镜像携带不必要历史 | 构建器输出治理基线到候选的受控浅object pack；镜像重建精确HEAD/tree且运行期无宿主挂载/网络 | object-pack重建测试 + clean候选容器readback | MITIGATED_IN_CODE，clean候选OCI回读待运行 |
-| R-44 | candidate lock在root且联网的镜像构建阶段执行二进制 | 候选可污染Python verifier或伪造后续自动结果 | 候选依赖只在无特权隔离stage以`--ignore-scripts`解析；root阶段Playwright来自authority-owned exact lock并纳入Program core | Dockerfile反例扫描 + clean候选OCI build/readback | MITIGATED_IN_CODE，clean OCI待运行 |
-| R-45 | 可变OCI tag、archive路径重开或缓存tag短路使旧自动回执无法证明fresh readback消费的是原镜像 | Gate可能保存/运行另一镜像、接受无效archive，或依赖单一Docker daemon短期状态 | 按完整image ID经匿名stdout保存；解析单image/config/tag/layer结构后用独占句柄发布；fresh verifier总是单句柄复制到匿名快照、经stdin加载并只按完整image ID复跑 | cached-tag无效archive、路径替换、额外image/tag、hash/identity mismatch反例；clean跨daemon回读 | MITIGATED_IN_CODE，正式archive及跨daemon回读待运行 |
-| R-46 | canonical远端分支缺少服务端不可变保护 | 两次回读之间仍可能被具备远端写权限者移动 | 每候选唯一freeze ref、长验证前后及registry提交前回读；正式Git服务端分支保护仍是外部控制 | remote mismatch/TOCTOU反例 + 仓库设置审计 | ACCEPTED PROCESS RESIDUAL，正式Gate前需确认远端保护 |
-| R-47 | 类型化数据库行与exporter签名被误当作Provider真实调用证明 | 任意成功状态/hash可被包装成live证据 | 当前正式exporter无条件fail closed；后续只接受custody固定registry、一次性mint、冻结HTTPS捕获器逐effect签名和完整coverage | arbitrary DB、重放、篡改、fixture升级负向矩阵 | OPEN，G01；阻断`LIVE_PROVIDER_EVIDENCE` |
+| R-43 | OCI镜像无法可靠绑定候选或携带多余Git历史 | 候选加固证据错误或泄露历史对象 | 现有object-pack方案保留实验；G07根据威胁模型复审 | G07 clean OCI readback | DEFERRED_CANDIDATE_HARDENING |
+| R-44 | 联网/root镜像构建执行候选依赖脚本 | 候选污染验证环境 | G01～G06不以HARDENED OCI作为Gate；G07启用时使用无特权、锁定依赖构建 | G07 Dockerfile反例 | DEFERRED_CANDIDATE_HARDENING |
+| R-45 | 可变OCI tag或archive TOCTOU导致回读另一镜像 | HARDENED Gate绑定错误候选 | 现有完整image ID/单句柄方案保留；G07启用时重验 | G07 OCI identity矩阵 | DEFERRED_CANDIDATE_HARDENING |
+| R-46 | canonical远端分支缺少服务端不可变保护 | 长验证期间候选被移动 | CORE checkpoint使用subject/tree回读；G07或对外候选再要求不可变ref/服务端保护 | remote mismatch；G07仓库设置审计 | ACCEPTED PROCESS RESIDUAL，G07评估 |
+| R-47 | 类型化数据库行被误当作Provider真实调用证明 | 任意成功状态/hash被包装成live证据 | G01 CORE要求HTTP/runtime/effect交叉回读和fixture显式隔离；外部逐effect签名在G07评估 | live source/config/hash反例 | OPEN，G01 CORE live待运行；HARDENED exporter DEFERRED |
+| R-48 | 治理、安全或审查基础设施反客为主 | 用户主链长期无进展，真实模型/Provider/Gate继续NOT_RUN | 纯治理最多连续一个checkpoint；两次`Product progress = NONE`强制转向；P2分级和两轮复审上限 | CURRENT_GOAL Product progress/Governance ratio；每checkpoint检查下一动作 | ACTIVE，所有Goal |
 
 风险状态只能通过对应Goal的实际证据关闭。文档、计划或单次测试不能把OPEN改为CLOSED。

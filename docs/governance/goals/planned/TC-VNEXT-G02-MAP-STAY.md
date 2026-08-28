@@ -95,7 +95,7 @@
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
 - Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-010、ADR-012、ADR-013。
+- ADR-007、ADR-008、ADR-010、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 

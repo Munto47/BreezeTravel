@@ -89,7 +89,7 @@
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
 - Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-011、ADR-012、ADR-013及现有Audit/Repair ADR中未被取代的证据不变量。
+- ADR-007、ADR-008、ADR-011、ADR-012、ADR-013、ADR-014及现有Audit/Repair ADR中未被取代的证据不变量。
 
 ## Baseline
 

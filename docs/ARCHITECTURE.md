@@ -264,19 +264,20 @@ Provider副作用使用稳定幂等键。调用前先在PostgreSQL持久化`STAR
 G01～G07 的评测不进入产品运行时。Agent参考标注、三角色审查、ultra裁决和sealed blind由仓库外任务编排，产品代码只消费冻结schema、hash、脱敏回执和聚合指标。
 
 ```text
-G01 pre-anchor BOOTSTRAP (no evidence, no keys, no PASS)
-→ complete capture chain + repository-external isolated signer
-→ SEALED_CUSTODY signed activation-readiness receipt binds both deliverables and the full ACTIVE tree/program/config/data snapshot (excluding only its self-referential receipt path)
-→ Goal-scoped ACTIVE authority generation + repository-external anchor
-→ Candidate commit/tree/config/data Git-blob freeze
-→ secret-free OCI checks + custody mint + signed direct-HTTPS Provider capture
+G01～G06 CORE_AGENT_GATE
+→ Candidate commit/tree/config/data + prompt/schema/scorer freeze
+→ automated checks + redacted live Provider receipts
 → isolated Agent references/reviews
 → fresh ultra adjudication
-→ DB-first one-shot mint + raw-input sealed scorer
-→ four role-specific signed component receipts
-→ immutable candidate ref double-readback + clean checkout
-→ durable PASS materialization before append-only registration
-→ FINAL_GATE signed AGENT_GATE_PASS / FAIL
+→ Goal-required one-shot sealed blind
+→ deterministic score + clean checkout readback
+→ durable AGENT_GATE_PASS / FAIL
+
+G07 HARDENED_CANDIDATE_GATE (only after threat-model review)
+→ evaluate deferred BOOTSTRAP / authority / purpose-specific broker assets
+→ optional role signatures + immutable remote ref + isolated OCI
+→ candidate evidence manifest and fresh readback
+→ VNEXT_CANDIDATE_READY_AGENT_VERIFIED
 ```
 
-原始Agent输出、blind truth、私钥和custody registry实际路径不进入Git。签名只证明角色任务对规范化字段的证明，仍需上游回执与候选字节回读；sealed scorer不接受调用者手填聚合指标。`MULTI_AGENT_SIMULATED_REVIEW`和`SEALED_AGENT_BLIND`必须标记`human_evidence=false`；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。完整合同见`governance/AGENT_GATE_PROTOCOL.md`和ADR-013。
+原始Agent输出和blind truth不进入Git。CORE回执必须绑定候选字节和上游事实；HARDENED签名也只能证明对应执行事实。sealed scorer不接受调用者手填聚合指标。`MULTI_AGENT_SIMULATED_REVIEW`和`SEALED_AGENT_BLIND`必须标记`human_evidence=false`；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。完整合同见`governance/AGENT_GATE_PROTOCOL.md`、ADR-013和ADR-014。

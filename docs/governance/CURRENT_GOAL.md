@@ -45,10 +45,19 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 唯一激活依赖`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`；本Goal已按Program置为`APPROVED`。
 - 当前环境中的既有Qwen凭据由程序安全加载，并通过官方目录自动readback region、endpoint、exact model ID、context和Provider可暴露价格字段；未暴露字段记`NOT_EXPOSED_BY_PROVIDER`。
 - 高德开发授权记录为`OWNER_ATTESTED_EXISTING_AUTHORIZATION`；凭据或目录失败先自动诊断。只有确需新账号/费用/数据权限时才进入HITL；fixture不得冒充live准入，也不得留下0个active Goal。
-- 本Goal绑定必须逐项等于Program稳定表中的G01记录；首个治理subject push/readback只建立不能签发证据的generation-1 `BOOTSTRAP`。完整capture与仓库外signer交付后，必须先由独立custody签发机器绑定双lane执行回执、signer执行回执和bootstrap/ACTIVE字节的activation-readiness，才允许切`ACTIVE`并从Git和canonical远端推导登记anchor。未来G02只能在本Goal FINAL_GATE签名PASS先耐久物化并写入仓库外Goal pass ledger后，于原子过渡commit创建generation 2并激活。
+- 本Goal使用`CORE_AGENT_GATE`。候选必须绑定同一commit/config/data、prompt/schema和scorer，并完成自动化、所需live Provider、三角色审查、ultra裁决、一次sealed blind和clean checkout readback。
+- 已有generation-1 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`；G01不继续实现、不切`ACTIVE`，其`NOT_RUN`不阻断Text Card Gate。是否复用由G07基于明确威胁模型重新决定。
 
-- activation-readiness必须绑定bootstrap commit/tree/policy/core、排除回执自身固定路径后的完整ACTIVE tree，以及ACTIVE policy/Program core/config/data；任一其他Git blob变化都使旧回执失效。
-- ACTIVE data分组对同一固定回执路径应用排除，消除自引用；tree校验仍要求该路径存在且只允许排除这一项。
+## Current execution directive
+
+项目所有者于2026-08-28要求把“治理挤占产品主线”的踩坑固化为约束。本Goal立即执行以下纠偏，优先级高于Checkpoint ledger中历史行的旧“下一自主动作”：
+
+1. 不再继续仓库外authority broker/supervisor、八角色签名、activation-readiness或隔离OCI供应链建设；现有实现和证据保留，不删除、不冒充PASS。
+2. 下一自主动作切回Qwen账号自动发现、模型中立adapter和Max/Plus/Flash同数据比较。
+3. 随后接通高德POI真实地点映射与最小脱敏live回执，验证严重错配为0。
+4. 再运行Agent A/B、ultra裁决、一次sealed blind和完整Text Card Gate。
+5. 只修复可复现的当前Goal P0/P1及blocking P2；其他P2登记到后续Goal或风险清单。
+6. 从本指令起，纯治理切片不得连续；两个无产品/模型/Provider/产品指标进展的checkpoint会强制回到主线。
 
 ## User Outcome
 
@@ -101,6 +110,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 完整Audit、Top-3、Repair；
 - 截图、知识、记忆、分享；
 - 删除旧room/API；
+- 外部authority、目的专一broker、八角色签名、activation-readiness和完整OCI供应链证明；这些属于G07候选加固；
 - H1、公网、生产、`main`。
 
 ## Dataset
@@ -130,9 +140,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 标准3～12地点负载从卡片READY到可用snapshot：snapshot P95≤15秒、受控live dev P95≤20秒；
 - 30份行程、120条已知成功路线正例中snapshot可用覆盖100%、受控live dev≥95%；永远UNAVAILABLE不能过Gate；
 - source TTL/delete、匿名越权、日志/trace/分析泄漏全部通过。
-- current binding与generation 1 BOOTSTRAP policy及跨代稳定Program表中的G01顺序、前驱和自动Gate合同一致；BOOTSTRAP不得登记anchor或生成组件，完整capture/signer闭合并由`SEALED_CUSTODY`签发`authority-activation-readiness-v1`后才切ACTIVE并登记外部authority anchor。
-
-- ACTIVE加载必须用固定回执路径重新计算完整tree/program/config/data绑定，拒绝跨实现、配置或数据树重放旧readiness。
+- current binding与Program表中的G01顺序、前驱和`CORE_AGENT_GATE`合同一致；候选commit/config/data、prompt/schema/scorer和全部required回执绑定一致。
+- `DEFERRED_CANDIDATE_HARDENING`不得被误报为已运行，也不得作为G01 required项。
 
 ## Verification
 
@@ -146,14 +155,14 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 浏览器登录、固定体验、文本、编辑、刷新，以及结果页source/整程删除、二次确认、完成/重试和fresh readback；
 - 账号隐私页重新验证身份、清空旅行数据、异步状态与完成后空readback；
 - H1/公网/生产：`NOT_RUN`。
-- Agent Gate：三个隔离审查角色、fresh ultra裁决、sealed agent blind和同commit干净checkout回读。
-- Agent Gate自动命令必须在无外网、无宿主挂载/宿主PID、合成profile且无Gate/Provider秘密的OCI候选镜像中执行；PostgreSQL/worker/浏览器链在容器loopback内自包含运行。AMap/Qwen live回执必须绑定custody登记的registry、一次性mint、冻结HTTPS capture runner的逐effect签名、类型化purpose-specific effect表和完整coverage；该链未完成时正式exporter fail closed并保持`NOT_RUN`。候选进程不得收到任何角色私钥或key path，正式签名必须经不导入候选代码的仓库外signer IPC。sealed评分复用consume前一次冻结的artifact snapshot集合。
+- `CORE_AGENT_GATE`：三个隔离审查角色、fresh ultra裁决、sealed agent blind、确定性scorer和同commit干净checkout回读。
+- Qwen/AMap live回执绑定candidate commit/tree、Goal/split、exact Provider配置、请求purpose、脱敏请求/响应hash、Provider request ID（若提供）、时间、token/latency/repair/费用和持久化effect ID；不保存key、完整原文或完整响应。外部签名/capture/OCI HARDENED链在G01为`DEFERRED / NOT_RUN`。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-009、ADR-012、ADR-013。
+- Program、Roadmap、Release Gates、Agent Gate Protocol、Product Mainline Execution Guide、Provider Admission、Risk Register；
+- ADR-007、ADR-008、ADR-009、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 
@@ -186,7 +195,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - `PlanRevisionRef`、ETag、CAS、请求幂等和地图逻辑唯一键必须一致；
 - LLM不产生POI/路线事实；`UNKNOWN/UNAVAILABLE`不算PASS；
 - card edit路线Provider调用为0；source隐私与旧API兼容不可弱化。
-- G01～G07顺序、前驱和自动Gate合同由跨代稳定Program表固定；外部Goal pass ledger是后续Goal唯一工程晋级授权，候选binding不能替代。
+- G01～G07顺序、前驱和自动Gate合同由Program表固定；G01完成回执和远端readback是G02晋级依据，候选binding不能替代实际Gate结果。
 
 ## Budget
 
@@ -200,6 +209,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 新账号/费用/扩大数据权限、未预批准schema/migration/依赖、读取或修改blind truth/oracle、H1/公网/生产/`main`或删除旧数据时请求人工批准。按协议启动Agent评测和sealed blind不属于HITL；普通实现、测试、Provider诊断或Gate失败不请求用户诊断。
 
 ## Checkpoint ledger
+
+下表是不可改写的历史执行记录；其中旧行的“下一自主动作”只说明当时决策，不覆盖上方`Current execution directive`。从本指令后的新checkpoint必须在Verification或Risk/failure中记录`Product progress`和`Governance ratio`。
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|
@@ -222,7 +233,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Auto-advance
 
 - Required gate：`Text Card Gate + AGENT_GATE_PASS`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`写入仓库外Goal pass ledger、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；G02 binding必须等于Program稳定表记录，同时authority generation精确推进到2并冻结G02专属协议后由独立custody登记新anchor；
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；G02 binding必须等于Program记录；G01不推进authority generation；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
@@ -234,7 +245,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验并登录领取；登录后可粘贴文本生成卡片、执行六类编辑、删除原文/单份行程/全部v3旅行数据；首批卡片后后台自动生成walking/transit快照，编辑后诚实提示路线尚未更新。当前地点和路线均为fixture证据；90条数据只是内部受治理评测输入，不会进入用户页面，也不是真人、公网或生产证据；
-- Remaining risks：候选侧外部authority verifier foundation已完成，但仓库外purpose-specific broker/supervisor、固定registry conformance和直接HTTPS capture仍未实现；Qwen exact binding自动发现尚未运行；AMap v3最小回执、地点和路线live lane尚未实现；地图fixture与PostgreSQL 30/120、离线故障降级和本地自动回归已通过，但live覆盖、真实模型调用/修复预算仍为`NOT_RUN`；90条输入已完成，Agent A/B、ultra裁决、独立sealed blind与Text Card Gate仍未运行；
+- Remaining risks：Qwen exact binding自动发现尚未运行；AMap v3最小回执、地点和路线live lane尚未实现；地图fixture与PostgreSQL 30/120、离线故障降级和本地自动回归已通过，但live覆盖、真实模型调用/修复预算仍为`NOT_RUN`；90条输入已完成，Agent A/B、ultra裁决、独立sealed blind与Text Card Gate仍未运行；外部authority verifier foundation保留为G07候选加固实验，broker/supervisor/capture/ACTIVE均`DEFERRED / NOT_RUN`且不阻断G01；
+- Next autonomous action：安全自动发现Qwen exact binding，完成模型中立adapter并在dev/validation比较Max/Plus/Flash；不得先继续authority/broker加固；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。

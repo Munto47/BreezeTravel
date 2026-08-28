@@ -97,7 +97,28 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 用户记忆必须显式开启、结构化、可查看、可更改、可删除。原始攻略、截图和聊天默认不进入长期记忆，训练或评测使用需要单独同意。
 
-## 6. 权威顺序与 Goal 执行
+## 6. 产品主线与执行比例
+
+治理、测试、审查和证据只用于保护产品结果，不能自行升级为产品目标。每个可回滚切片必须先写明它直接推进的用户结果或当前 Goal 硬指标；优先级固定为：
+
+1. 可运行、可查看的端到端用户主链；
+2. 真实模型/Provider效果、确定性质量指标和失败降级；
+3. 当前版本所需的最小充分证据；
+4. 候选版、生产或组织级加固。
+
+执行时遵守以下硬规则：
+
+- 纯治理/审查切片最多连续一个 checkpoint。若连续两个切片的产品代码/API/UI diff 为0，且模型、Provider或产品评测指标也没有前进，必须停止治理扩展并回到产品主线。
+- G01～G06使用`CORE_AGENT_GATE`：固定输入、prompt、schema、候选commit/config/data、确定性scorer、三个隔离审查、一次ultra裁决、Goal要求的sealed blind和干净checkout回读。不得把远端透明日志、硬件密钥、组织级custody、复杂broker或完整供应链签名作为这些版本的前置条件。
+- G07才执行`HARDENED_CANDIDATE_GATE`，可以评估并启用外部authority、目的专一broker、角色签名、不可变远端ref和隔离OCI等候选加固。已有BOOTSTRAP/verifier代码保留为实验资产，在G07前不得继续成为关键路径或阻断G01～G06。
+- P0/P1在可复现且属于当前Goal时立即阻断。P2只有在会使当前用户Outcome、硬Gate指标、隐私/安全不变量失真，或在Goal激活时被显式列为blocking时才阻断；其他P2必须进入风险登记或明确的后续Goal，不能无限修复。P3只进入backlog。
+- 每个候选固定一轮三角色审查和一轮裁决；修复后只重跑受影响的检查，最多两轮“修复→复审”。第三轮必须在`CURRENT_GOAL.md`明确记录其直接阻断的P0/P1及用户影响，否则降级为后续加固。
+- 测试通过、审查通过、receipt或签名都不是用户结果；未运行的模型、Provider、blind、真人和生产证据必须继续写`NOT_RUN`。
+- checkpoint的“下一自主动作”必须优先指向当前Goal尚未完成的用户主链。只有一个可复现的当前版本P0/P1确实挡住该动作时，才允许继续做治理基础设施。
+
+具体执行模板和本次偏航复盘见`docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md`。
+
+## 7. 权威顺序与 Goal 执行
 
 冲突时按以下顺序处理：
 
@@ -107,7 +128,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 4. `docs/product/TRIP_CHECK_API_CONTRACT.md`；
 5. `docs/ARCHITECTURE.md` 与 Accepted ADR；
 6. `docs/governance/PROGRAM.md`；
-7. `docs/governance/AGENT_GATE_PROTOCOL.md`；
+7. `docs/governance/AGENT_GATE_PROTOCOL.md`与`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`；
 8. `docs/governance/CURRENT_GOAL.md`、`ROADMAP.md`、`RELEASE_GATES.md`；
 9. 当前 commit/config/dataset 对应的 evidence。
 
@@ -121,18 +142,15 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 任何时刻 `CURRENT_GOAL.md` 只能有一个 `APPROVED` 或 `IN_PROGRESS` Goal。当前和可自动激活的planned Goal都必须写明用户Outcome、Dependencies、Scope、Non-goals、Authority、Baseline、Invariants、Acceptance/Gate、Verification、Budget、HITL、Stop conditions、Checkpoint、Auto-advance和Completion record；动态baseline可标记为“激活时填写”，其他字段不得省略。
 
-每个可回滚切片后必须更新Goal checkpoint：用户结果、commit、实际验证、证据等级、剩余工作、新风险和下一自主动作。完成时先push并readback subject checkpoint；随后在一个治理过渡commit中，以完整当前合同生成最终completed归档，把 `CURRENT_GOAL.md` 原子替换为下一份完整 `APPROVED`合同，并同步替换`docs/governance/current_goal_binding.json`、把`authority_policy.json`精确推进到下一Goal generation、冻结该Goal专属scorer/threshold/schema/exporter，再push/readback并由独立custody登记新generation anchor。Program的Goal表、公钥、registry身份和既定自动Gate合同不得在自动过渡中改变。归档不得丢字段或保留PENDING；过渡commit不要求把自身未知hash写进自身。不得留下已完成Goal继续指挥开发，也不得跳过Program顺序。
+每个可回滚切片后必须更新Goal checkpoint：用户结果、commit、实际验证、证据等级、剩余工作、新风险和下一自主动作。完成时先push并readback subject checkpoint；随后在一个治理过渡commit中，以完整当前合同生成最终completed归档，把 `CURRENT_GOAL.md` 原子替换为下一份完整 `APPROVED`合同，并同步替换`docs/governance/current_goal_binding.json`，再push/readback。只有G07显式启用`HARDENED_CANDIDATE_GATE`时才推进authority generation、冻结对应协议并登记外部anchor。归档不得丢字段或保留PENDING；过渡commit不要求把自身未知hash写进自身。不得留下已完成Goal继续指挥开发，也不得跳过Program顺序。
 
 新组件固定执行“实验 → 同数据比较 → 达到预设门槛 → 进入运行时”。失败是调查证据，不能通过弱化测试、修改 blind/oracle、隐藏错误或缩小用户目标获得 PASS。
 
-G01～G07 必须执行 `docs/governance/AGENT_GATE_PROTOCOL.md`：隔离的 GPT-5.6-sol 任务只能形成 `MULTI_AGENT_SIMULATED_REVIEW` 或 `SEALED_AGENT_BLIND`，不得写成真人标注、真人验收或组织外独立证据。对应 Goal 的自动化、live Provider、三角色审查、ultra 裁决、sealed blind 和 fresh readback 全部通过，且没有未处理P0/P1或属于当前Goal的P2，才能标记 `AGENT_GATE_PASS`；候选绑定改变即使旧结论失效。G07 的最高自动状态是 `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，不得自动进入 H1。
+G01～G07 必须执行 `docs/governance/AGENT_GATE_PROTOCOL.md`：隔离的 GPT-5.6-sol 任务只能形成 `MULTI_AGENT_SIMULATED_REVIEW` 或 `SEALED_AGENT_BLIND`，不得写成真人标注、真人验收或组织外独立证据。对应 Goal 的自动化、所需live Provider、三角色审查、ultra裁决、所需sealed blind和fresh readback全部通过，且没有未处理的当前版本P0/P1或blocking P2，才能标记 `AGENT_GATE_PASS`；候选绑定改变时只让受影响结论失效。G07 的最高自动状态是 `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，不得自动进入 H1。
 
-Agent Gate 的 `authority_policy.json` 按Goal使用1～7代权限锚。G01首次Git新增只建立`BOOTSTRAP`预锚：它不能登记anchor、读取角色私钥、生成组件回执或PASS；完整live capture、外部authority signer与所有P0/P1闭合后，必须先生成由`SEALED_CUSTODY`签名的`authority-activation-readiness-v1`，机器绑定bootstrap commit/tree/policy/core、ACTIVE policy、AMap/Qwen执行回执、capture runner、registry合同及外部signer执行回执，才允许一次原子`BOOTSTRAP → ACTIVE`提交并由独立custody登记generation 1。后续只能在上一Goal已登记FINAL_GATE PASS的原子过渡commit中精确加一。每一代ACTIVE policy与`immutable_protocol_paths`从该Goal anchor起逐字节冻结；bootstrap core从首次新增起跨激活保持不变；Program的G01～G07顺序、前驱、自动Gate合同、公钥、registry、路径集合与绑定根跨代稳定。所有anchor的commit/tree/policy/protocol事实只能从Git与canonical远端推导，调用者不得填写。G02～G07必须回读仓库外append-only上一Goal PASS，候选不得自行跳级。私钥、custody registry实际路径、原始Agent输出、OCI镜像archive和blind truth必须留在所有Git worktree及Git目录之外；候选Python进程不得持有角色私钥或私钥路径，ACTIVE前必须交付不导入候选代码的仓库外隔离signer。八种角色签名不得互换，签名只证明对应隔离任务的字段证明，不能单独建立Provider事实、真人证据或PASS。自动产品检查只能在无外网、无宿主挂载、无宿主PID、合成profile且不含Gate/Provider秘密的OCI候选镜像中执行；候选依赖不得在root构建阶段执行。首次执行必须按完整`sha256:` image ID保存镜像，把只含一个目标image、无额外tag/链接/路径穿越且OCI root digest或legacy config digest与回执image ID一致、legacy graph精确等于primary manifest、attestation严格为unknown/unknown与in-toto、所有config/blob自校验的仓库外archive之路径、hash、大小和image ID写入回执；fresh readback无论本地tag是否存在都必须从单一安全句柄复制到匿名快照、解析校验并经stdin加载，只按完整image ID复跑，不得把可变tag或冷重建冒充原镜像。类型化effect表本身不证明live Provider调用：正式live证据还必须绑定custody登记的registry、一次性mint、冻结HTTPS capture runner的逐effect purpose签名和完整coverage；链路未完成时exporter、live component builder与verifier必须fail closed并保持`NOT_RUN`。Sealed scorer必须从一次冻结的输入、候选预测和仓库外truth重新计算完整冻结指标，禁止接受调用者手填aggregate metrics；首次验证尝试无论成功、失败或格式错误都消费一次性nonce。
+现有`authority_policy.json`、BOOTSTRAP、外部signer/broker/verifier和隔离OCI设计属于`DEFERRED_CANDIDATE_HARDENING`。历史提交和测试保留，不删除、不伪称已运行；G01～G06不得继续实现这条链，也不得因其`NOT_RUN`阻断产品Goal。G07如确有候选篡改、供应链或组织隔离威胁需要，再按ADR-014显式激活、审查和验证。
 
-activation-readiness 还必须绑定排除该自引用回执固定路径后的完整 ACTIVE tree，以及 ACTIVE 的 policy、Program core、config 与 data 分组哈希。固定回执路径之外的任一 Git blob 变化都会使旧回执失效，禁止把同一 readiness 跨实现、配置或数据树重放。
-由于回执位于 data root 内，ACTIVE data 分组使用同一固定路径排除；禁止把回执自身或签名计入其自身摘要。
-
-## 7. 授权与证据边界
+## 8. 授权与证据边界
 
 Program/当前 Goal 明确预批准的开发分支、追加式 migration、v3 API、现有零增量费用 Provider 矩阵、离线测试、Agent Gate 任务、checkpoint commit/push 可自主执行。当前环境已有 Qwen/高德开发授权按 `AUTO_DISCOVERED_PROVIDER_BINDING` 和 `OWNER_ATTESTED_EXISTING_AUTHORIZATION` 记录；不得打印或提交密钥，也不得把 Provider 未暴露字段重新变成用户 HITL。
 

@@ -2,7 +2,7 @@
 
 > 状态：`ACCEPTED`
 >
-> 版本：`agent-gate-v2`
+> 版本：`agent-gate-v2.1 / proportionate profiles`
 >
 > 适用范围：`TC-VNEXT-G01`～`TC-VNEXT-G07`
 >
@@ -22,6 +22,13 @@ G01～G07 的开发门禁使用可复现、上下文隔离的多 Agent 模拟审
 - `PRODUCTION_EVIDENCE`：生产环境的真实运行证据。
 
 `MULTI_AGENT_SIMULATED_REVIEW` 和 `SEALED_AGENT_BLIND` 的回执必须声明 `human_evidence=false`。H1、生产和商业层级未运行时必须保持 `NOT_RUN`。
+
+### 1.1 两级Gate与产品主线
+
+- `CORE_AGENT_GATE`适用于G01～G06：固定候选、输入、prompt、schema和scorer；运行当前Goal所需自动化/live Provider、三角色审查、ultra裁决、所需sealed blind和clean checkout readback。
+- `HARDENED_CANDIDATE_GATE`适用于G07：在CORE之上，根据明确威胁模型增加外部authority、purpose-specific broker、角色签名、不可变远端ref、隔离OCI和供应链回读。
+- G07/H1/生产级机制不得前置成为G01～G06的required检查；它们未运行时记录`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不阻断CORE Gate。
+- 连续两个checkpoint没有产品代码/API/UI、真实模型/Provider或产品评测指标进展时，必须暂停Gate基础设施扩展并执行`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`中的转向规则。
 
 ## 2. 固定任务编组
 
@@ -48,7 +55,9 @@ G01～G07 的开发门禁使用可复现、上下文隔离的多 Agent 模拟审
 
 三个输出冻结并计算 hash 后，启动新的 `gpt-5.6-sol / ultra` Gate 裁决任务。裁决只接受可复现、带证据的发现；每个发现必须包含预期行为、实际行为、复现步骤、证据和严重度。未执行的检查写 `NOT_RUN`，不得因已有自动测试通过而推断 PASS。
 
-主 Codex 负责修复全部P0/P1和属于当前Goal的P2；Program明确归属后续Goal的P2必须记录scope disposition与依赖，不能静默忽略。候选 commit、prompt、schema、配置或数据绑定任一改变，旧 Gate 结论立即失效；必须重跑受影响审查。最终在干净 checkout 对同一 commit 做 fresh readback。
+主 Codex 负责修复可复现且属于当前Goal的全部P0/P1。P2只有在破坏当前用户Outcome、硬Gate指标、隐私/安全不变量，或Goal激活时已列为blocking时才必须修复；其余P2记录scope disposition、后续Goal和残余风险，不能静默忽略。候选commit、prompt、schema、配置或数据绑定改变时，只让受影响结论失效并重跑受影响审查。
+
+每个候选固定一轮三角色审查和一轮ultra裁决，修复后最多两轮受影响复审。第三轮前必须在`CURRENT_GOAL.md`记录直接阻断用户结果的可复现P0/P1、最小修复和停止条件；否则停止继续加固并回到产品主线。最终在干净checkout对同一commit做fresh readback。
 
 ## 3. 任务与回执绑定
 
@@ -76,7 +85,9 @@ Gate验证器不得只相信这些字段。它必须：
 
 Git 只保存 schema、prompt、hash、聚合指标、脱敏发现和回执。原始 Agent 输出、Provider 原始响应和 blind truth 只能保存在仓库外受限临时目录；不得进入 Git、普通日志或公共 API。
 
-### 3.1 权限锚与签名边界
+### 3.1 HARDENED候选的权限锚与签名边界
+
+本节只定义G07可能启用的`HARDENED_CANDIDATE_GATE`，不属于G01～G06的required合同。当前BOOTSTRAP/verifier及其schema属于`DEFERRED_CANDIDATE_HARDENING`：历史代码和验证保留，但在G07前不得继续实现外部broker、不得切`ACTIVE`、不得因本节任何`NOT_RUN`阻断CORE Gate。
 
 `backend/eval_data/agent_gate_v1/authority_policy.json` 按Program Goal序号使用1～7代ACTIVE权限锚。该文件第一次进入Git时只能是generation 1的`BOOTSTRAP`预锚；BOOTSTRAP不能登记authority anchor、读取角色私钥、构造任何Gate组件或产生PASS。只有完整live capture execution receipt、仓库外隔离signer和全部阻断问题交付后，才允许一次原子`BOOTSTRAP → ACTIVE`提交。该提交必须同时包含固定路径的`authority-activation-readiness-v1`：由`SEALED_CUSTODY`签名，绑定bootstrap commit/tree/policy/core、ACTIVE policy、AMap/Qwen执行回执、capture runner、registry合同和外部signer bundle/执行回执，并声明候选进程没有私钥或私钥路径；缺失、字段不一致、签名错误或时间不在transition区间内均拒绝。独立custody随后登记generation 1，从该ACTIVE anchor起policy与`immutable_protocol_paths`在整个G01逐字节不变。bootstrap core从第一次新增起到ACTIVE以及G01～G07始终逐字节不变。G02～G07的原子治理过渡只有在上一Goal的FINAL_GATE PASS已写入仓库外ledger后，才能把generation精确加一，并在同一commit冻结下一Goal专属scorer、threshold、schema、exporter与current binding。除generation、单调递增的冻结时间和G01一次性phase切换外，manifest新增或既有字段默认全部跨代稳定；改变Program顺序、前驱、合同、路径集合、绑定根、公钥、canonical refs或registry身份都拒绝。
 
@@ -85,6 +96,10 @@ Git 只保存 schema、prompt、hash、聚合指标、脱敏发现和回执。�
 八个角色分别使用仓库外 Ed25519 私钥：sealed custody、AMap live exporter、Qwen live exporter、自动产品 Gate、live Provider Gate、多 Agent panel、sealed blind Gate 和最终 Gate。仓库只保存公钥与外部 registry 的身份/路径指纹，不保存、打印或搜索私钥和实际外部路径。候选checkout内的Python、CLI、环境、参数和stdin都不得获得私钥路径或私钥字节；正式签名由仓库外、不导入候选模块的authority signer通过受保护IPC完成。当前BOOTSTRAP内四个正式入口在读取任何密钥相关环境之前直接fail closed。四类组件回执使用不同 schema 和不同角色签名，不能用通用 `PASS` JSON 相互替代。
 
 持钥broker不得执行或复制候选Git中的signer模板，也不得开放接收`payload`、role、verdict、aggregate或expected hash的通用签名接口。它由authority supervisor在仓库外固定、分角色持钥并使用固定registry防重放，只暴露`PREPARE_ACTIVATION / MINT_LIVE / CAPTURE_AMAP_EFFECT / CAPTURE_QWEN_EFFECT / SIGN_AUTOMATED_COMPONENT / SIGN_LIVE_COMPONENT / SIGN_PANEL_COMPONENT / SIGN_SEALED_COMPONENT / SIGN_FINAL_GATE`九个目的专一操作；每个操作从canonical Git、固定外部snapshot和冻结prepare/verifier自行构造待签payload。conformance回执只是supervisor对进程、bundle、sanitized env、继承句柄、一次性状态和攻击测试的`process_isolation_only`证明，不能授权generic signing、不能替代Provider事实，也不构成人工证据。
+
+conformance回执中的所有安全声明、计数、终态和`human_evidence=false`都必须由外部supervisor显式写入，schema不得用默认值补成成功。候选verifier必须把broker/supervisor bundle、registry identity/path、操作角色映射、candidate/policy和request/challenge/commit/response四段transcript hash逐项与独立来源的expected binding比较；expected binding属于authority内部验证输入，绝不能变成broker ingress允许candidate填写的字段。
+
+候选侧只接受两个仓库外、不同authority签名的严格wire对象：`SEALED_CUSTODY`签conformance，`FINAL_GATE`签expected binding。verifier不接受调用者传入manifest或expected对象；candidate commit、tree、policy、registry identity/path从canonical origin、`ls-remote --refs`远端精确回读、policy固定本地分支、单次BOOTSTRAP历史和未变化的bootstrap core重新推导。两个对象都通过同一个已验证文件句柄最多读取256KB+1字节，拒绝重复JSON key、跨类型归一化、缺省签名算法、同文件/同inode和未进入Git协议hash闭包的schema。这里只形成激活前的只读验证基础；正式`PREPARE_ACTIVATION`必须把已验证conformance hash原样写入`signer_execution_receipt_sha256`后才可由custody签readiness。外部broker和该调用链未正式运行前，authority继续是`BOOTSTRAP`，不得宣称formal conformance或`ACTIVE`。
 
 不可变协议代码既可以直接列入`program_core_paths / immutable_protocol_paths`，也可以由其中不可变的`protocol_contract.json`通过`contract_code_sha256`形成传递式hash闭包；后一类模块还必须进入final Gate运行时来源校验。任何只新增文件但未进入上述任一闭包的实现都不属于正式协议。BOOTSTRAP后不得通过修改policy路径集合来补录文件。
 
@@ -132,19 +147,23 @@ Goal、commit/tree、tranche、prompt、schema、threshold、config、Provider b
 
 ## 5. Gate 结论与自动推进
 
-G01～G07 只有同时满足以下条件才可记为 `AGENT_GATE_PASS`：
+G01～G06的`CORE_AGENT_GATE`只有同时满足以下条件才可记为`AGENT_GATE_PASS`：
 
 - 当前 Goal 的用户 Outcome 已实现；
 - 必需的自动化与 live Provider 检查均实际运行且通过；
-- 三个角色审查覆盖完整，ultra 裁决不存在未处理 P0/P1或属于当前Goal的P2；
+- 三个角色审查覆盖完整，ultra裁决不存在未处理的当前Goal P0/P1或blocking P2；
 - 当前 Goal 要求的 sealed blind 已通过；
 - 所有 receipt 绑定同一候选 commit/config/data；
 - 干净 checkout fresh readback 通过；
 - H1、生产、商业层级仍按事实标记 `NOT_RUN`。
 
-任何必需项 `NOT_RUN`、候选绑定不一致、原始答案泄漏、未处理 P0/P1或属于当前Goal的P2都必须 fail closed。G07 通过后的最高状态固定为 `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，随后停止自动推进并等待 H1 的单独人工批准。
+任何当前Goal必需项`NOT_RUN`、候选绑定不一致、原始答案泄漏、未处理的当前Goal P0/P1或blocking P2都必须fail closed。后续版本加固项的`NOT_RUN`不参与CORE结论。
 
-最终结论的规范化unsigned payload只能由候选commit内冻结的`agent_gate_v1.final_gate`聚合器产生，而且验证Python进程必须从该候选的独立干净checkout启动。聚合器逐项核对authority、contracts、custody、component verifier、sealed scorer、validator、path security、signing、G01 Provider validator及自身模块的实际加载路径和Git blob，拒绝从开发工作区或`PYTHONPATH`注入的未提交模块。随后仓库外FINAL_GATE signer在不导入候选代码、不接收候选环境的独立进程中重新校验unsigned request绑定并签名；候选进程从不接收私钥路径。当前仓库内正式CLI保持BOOTSTRAP fail closed，只有签名执行回执被activation readiness绑定后才能替换为该IPC链。它要求四个
+G07的`HARDENED_CANDIDATE_GATE`还必须满足本协议3.1及下述authority/隔离执行合同；G07通过后的最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，随后停止自动推进并等待H1的单独人工批准。
+
+下述规范化unsigned payload、外部FINAL_GATE signer和四组件签名流程只适用于G07的HARDENED profile；CORE profile使用同一候选绑定、确定性聚合和clean checkout回读，但不要求外部私钥或activation-readiness。
+
+HARDENED最终结论的规范化unsigned payload只能由候选commit内冻结的`agent_gate_v1.final_gate`聚合器产生，而且验证Python进程必须从该候选的独立干净checkout启动。聚合器逐项核对authority、contracts、custody、component verifier、sealed scorer、validator、path security、signing、Provider validator及自身模块的实际加载路径和Git blob，拒绝从开发工作区或`PYTHONPATH`注入的未提交模块。随后仓库外FINAL_GATE signer在不导入候选代码、不接收候选环境的独立进程中重新校验unsigned request绑定并签名；候选进程从不接收私钥路径。它要求四个
 组件回执（自动产品、live Provider、多Agent panel、sealed blind）全部为PASS且没有
 `NOT_RUN`，在与开发checkout不同的干净checkout回读同一commit/tree和每候选唯一的不可变远端ref；该ref在长耗时组件校验前和最终签名前各回读一次，
 校验组件证据与验证器字节后，才输出唯一结论`AGENT_GATE_PASS`。手写一份总回执、仅有
@@ -157,6 +176,10 @@ G01～G07 只有同时满足以下条件才可记为 `AGENT_GATE_PASS`：
 项目所有者已声明可使用当前环境中已有的 Qwen 和高德开发授权。G01 应安全读取凭据并自动发现 region、endpoint、exact model ID、模型能力和 Provider 可返回的价格字段；Provider 不暴露的字段记录 `NOT_EXPOSED_BY_PROVIDER`，不得继续向用户索要。
 
 高德开发 lane 记录 `OWNER_ATTESTED_EXISTING_AUTHORIZATION`，不再把上传书面许可作为 G01～G07 Gate。调用仍必须遵守最小留存、脱敏、成本和当前条款；生产、公开演示、长期缓存或商业使用的许可判断继续留到对应人工审批点。
+
+在G01～G06的CORE profile中，live Provider回执至少绑定candidate commit/tree、Goal/split、exact endpoint/model或AMap service、配置指纹、请求purpose、脱敏请求/响应hash、Provider request ID（若提供）、时间、token/latency/repair/费用字段和持久化effect ID。回执由当前候选代码生成并在clean checkout验证；不得保存密钥、完整原文或未脱敏Provider响应。fixture与live必须明确区分。
+
+以下purpose-specific capture、registry/mint、逐effect角色签名和数据库权限链只属于G07 HARDENED profile；在G01～G06未实现时记录`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不使CORE live证据自动失效。
 
 PostgreSQL中的类型化effect行本身不证明真实Provider调用，lane exporter签名也不能把任意数据库行升级成live事实。正式链必须固定为：`SEALED_CUSTODY`登记唯一live registry身份并签发绑定Goal、candidate commit/tree、lane、split、Provider配置和覆盖集合的一次性mint；authority policy冻结的lane capture runner直接观察真实HTTPS请求与响应，为每个effect生成purpose-specific签名后，才能以INSERT-only角色写入类型化表；SELECT-only exporter从custody登记的registry anchor解析连接，逐项验证数据库system identity、DB OID、endpoint/TLS SPKI、DDL/ACL hash、mint状态、coverage及每行capture签名，再构造仓库外回执。正式入口不得接受调用者或环境任意指定DSN、SQL、表名、HTTP事实、预组装receipt JSON或payload。
 

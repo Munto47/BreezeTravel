@@ -1,6 +1,6 @@
 # ADR-013：H1 前采用隔离式 Agent Gate
 
-> 状态：`ACCEPTED`
+> 状态：`ACCEPTED；证据配比与authority适用版本由ADR-014部分取代`
 >
 > 日期：2026-08-28
 >
@@ -13,6 +13,8 @@
 项目所有者明确批准：H1 前使用隔离的 GPT-5.6-sol 任务完成参考标注、裁决和 Gate 审查；已有 Qwen/高德开发授权由系统自动 readback 或所有者声明绑定；真人、生产、公网和商业证据保持独立。
 
 ## Decision
+
+> ADR-014修订：以下第9～19项只作为G07 `HARDENED_CANDIDATE_GATE`的候选设计保留，不再约束G01～G06 `CORE_AGENT_GATE`。第1～8项继续直接生效。
 
 1. 新增 `docs/governance/AGENT_GATE_PROTOCOL.md`，作为 G01～G07 的强制工程门禁协议。
 2. 两个 `gpt-5.6-sol / xhigh` 独立任务生成参考结果，新的 `gpt-5.6-sol / ultra` 任务在输出冻结后裁决。
@@ -47,3 +49,5 @@
 ## Supersession
 
 本 ADR 仅替代 ADR-003、ADR-009 和 ADR-012 中“G01～G07 必须真人标注/裁决/外部 custodian 或必须由用户手工确认当前 Provider 绑定”的部分。它不改变这些 ADR 对历史证据、sealed blind 不可篡改、模型中立、H1 真人证据和生产授权的其他约束。
+
+ADR-014进一步规定：本ADR第10～19项中的外部authority、signer/broker、activation-readiness、角色签名和隔离OCI只属于G07可能启用的`HARDENED_CANDIDATE_GATE`，不再是G01～G06 `CORE_AGENT_GATE`的前置条件。其余Agent隔离和证据诚实性约束继续有效。

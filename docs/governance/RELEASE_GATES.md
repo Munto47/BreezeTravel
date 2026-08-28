@@ -1,4 +1,4 @@
-# 「行程查」Blueprint 1.0 Release Gates
+# 「行程查」Blueprint 1.1 Release Gates
 
 > 状态：`ACCEPTED`
 >
@@ -18,6 +18,8 @@
 - `PRODUCTION_EVIDENCE`。
 
 G01～G07必须按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
+
+G01～G06使用`CORE_AGENT_GATE`，只要求当前产品Goal的最小充分证据；G07使用`HARDENED_CANDIDATE_GATE`。后续候选/生产加固不得前置阻断G01～G06。连续两个纯治理checkpoint且没有产品、模型、Provider或产品评测指标进展时，Gate工作必须暂停并回到产品主线。
 
 新版状态：
 
@@ -105,9 +107,9 @@ G00必须同时满足：
 
 模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后由独立Codex任务对同一tranche运行sealed blind一次。
 
-Gate还必须并行完成`PRODUCT_UX / SEMANTIC_DOMAIN / RELIABILITY_SECURITY`三个隔离审查，新的ultra裁决任务确认无未处理P0/P1或属于G01的P2，并在干净checkout对同一commit fresh readback。任何required `NOT_RUN`或候选binding漂移都不得PASS。
+Gate还必须并行完成`PRODUCT_UX / SEMANTIC_DOMAIN / RELIABILITY_SECURITY`三个隔离审查，新的ultra裁决任务确认无未处理的当前Goal P0/P1或blocking P2，并在干净checkout对同一commit fresh readback。P2只有在破坏G01用户Outcome、上述硬指标、隐私/安全不变量，或已在Goal激活时列为blocking时才阻断；其他P2记录后续归属。任何G01 required `NOT_RUN`或候选binding漂移都不得PASS。
 
-正式`AGENT_GATE_PASS`还要求：当前Goal同序的authority generation锚可从候选Git历史及仓库外registry回读，上一Goal PASS链连续；八个角色公钥和registry指纹匹配；四类组件分别通过严格schema、角色签名和上游verification receipt；自动产品命令在无外网/宿主挂载/PID/秘密的OCI镜像重跑；live回执来自类型化purpose-specific effect表；sealed scorer直接从输入/预测/truth计算且完整指标集与冻结阈值一致；最终聚合器在独立clean checkout对每候选唯一远端ref做前后两次subject/tree回读，并在PASS登记前先耐久物化回执。自签新key、通用手写PASS、调用者提供aggregate metrics、预组装live JSON、宿主直接执行或只校验文件名/hash均为拒绝项。
+G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回执、Agent panel、sealed blind分别绑定同一candidate commit/config/data；sealed scorer直接从输入/预测/truth计算完整冻结指标；原始Agent输出与blind truth不进入Git；clean checkout回读同一候选并耐久保存结论。外部authority、八角色签名、activation-readiness、目的专一broker和隔离OCI属于G07候选加固，不是G01 required项，其`NOT_RUN`不得阻断Text Card Gate。
 
 ## 4. Map & Stay Gate — G02
 
@@ -210,6 +212,7 @@ Gate还必须并行完成`PRODUCT_UX / SEMANTIC_DOMAIN / RELIABILITY_SECURITY`�
 | G5 浏览器/性能 | 登录、体验、卡片、地图stale/rerender、住宿、Top-3、刷新、断线和P95 |
 | G6 Manifest | 同一commit/config/dataset/model/rule/provider的不可变汇总 |
 | G7 Agent Gate | 三角色隔离审查、ultra裁决、所需sealed blind与fresh readback |
+| G8 候选加固 | 根据已批准威胁模型验证或明确豁免外部authority、不可变远端ref、角色签名与隔离执行；不得把它外推为H1或生产证明 |
 
 G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不同配置不能拼接。候选材料包括受控演示、90秒视频、5分钟完整演示、架构图、恢复时序图、模型消融和已知边界。
 

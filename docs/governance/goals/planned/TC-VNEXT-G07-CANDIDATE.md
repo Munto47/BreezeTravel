@@ -85,7 +85,7 @@
 
 ## Authority
 
-- `AGENTS.md`、全部Blueprint产品/架构/治理权威、Agent Gate Protocol、ADR-007～ADR-013；
+- `AGENTS.md`、全部Blueprint产品/架构/治理权威、Agent Gate Protocol、Product Mainline Execution Guide、ADR-007～ADR-012、ADR-013、ADR-014；
 - G01～G06 completed归档、当前候选RunSpec和同subject evidence；历史V1 manifest仅作baseline。
 
 ## Baseline

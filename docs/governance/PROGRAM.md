@@ -2,7 +2,7 @@
 
 > 状态：`APPROVED`
 >
-> Program 版本：`Blueprint 1.1 / Agent Gate Transition`
+> Program 版本：`Blueprint 1.2 / Product Mainline Correction`
 >
 > 授权日期：2026-08-27
 >
@@ -63,7 +63,13 @@
 - 新风险或失败；
 - 下一自主动作。
 
-### 3.1 G01～G07 统一 Agent Gate
+### 3.1 产品主线比例
+
+每个切片必须推进用户可见主链或当前Goal硬指标。纯治理切片最多连续一个checkpoint；连续两个checkpoint均为`Product progress = NONE`时，必须按`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`停止治理扩展并回到产品实现。
+
+版本证据采用比例原则：G01～G06只要求`CORE_AGENT_GATE`；G07才要求候选级`HARDENED_CANDIDATE_GATE`。任何后续版本或生产加固不得前置阻断早期产品Goal。
+
+### 3.2 G01～G07 统一 Agent Gate
 
 G01～G07 固定执行 `AGENT_GATE_PROTOCOL.md`，通过状态为 `AGENT_GATE_PASS`。证据等级只允许：
 
@@ -74,11 +80,11 @@ G01～G07 固定执行 `AGENT_GATE_PROTOCOL.md`，通过状态为 `AGENT_GATE_PA
 - `HUMAN_USABILITY`；
 - `PRODUCTION_EVIDENCE`。
 
-Agent 参考答案、裁决和审查不属于真人证据。每个候选必须绑定同一 commit/config/data，执行三个隔离审查角色和新的 ultra 裁决；P0/P1及属于当前Goal的P2必须修复，需要 blind 的 Gate 必须由独立 Codex 任务执行。候选绑定改变，旧结论失效。历史真人 schema 与历史证据只读保留。
+Agent 参考答案、裁决和审查不属于真人证据。每个候选必须绑定同一 commit/config/data，执行三个隔离审查角色和新的 ultra 裁决；可复现且属于当前Goal的P0/P1必须修复。P2只有在破坏当前用户Outcome、硬Gate指标、隐私/安全不变量，或在Goal激活时被显式列为blocking时才阻断，其余必须记录后续归属。需要blind的Gate必须由独立Codex任务执行。候选绑定改变时只让受影响结论失效。历史真人schema与历史证据只读保留。
 
-Agent Gate 权限按Goal使用generation 1～7。当前治理提交只是G01 `BOOTSTRAP`预锚，不是generation 1 authority anchor，也不能生成Gate证据；完整live capture execution receipt、仓库外隔离signer和全部阻断问题闭合后，还必须由`SEALED_CUSTODY`签发机器绑定bootstrap/ACTIVE字节、双lane capture和signer执行回执的`authority-activation-readiness-v1`，才进行一次`BOOTSTRAP → ACTIVE`候选冻结并由独立custody登记generation 1。此后每代从该Goal的原子过渡commit起冻结policy和协议字节，下一代只可在上一Goal FINAL_GATE PASS已登记后精确加一。Program的G01～G07顺序、前驱、自动Gate合同、公钥、registry、路径集合与绑定根跨代稳定；下一Goal专属scorer/threshold/schema/exporter在激活commit冻结。G02～G07必须从仓库外append-only登记回读上一Goal PASS。角色私钥、custody registry实际路径、原始Agent输出和blind truth留在所有Git worktree/Git目录之外；候选Python不得持有私钥或key path，ACTIVE前必须提供不导入候选代码的仓库外隔离signer。自动产品命令在secret-free OCI候选镜像执行。live证据必须由custody固定registry与一次性mint、冻结capture runner直接观察HTTPS所得逐effect签名、类型化append-only表和完整coverage共同成立；缺任一环时exporter、builder和verifier全部`NOT_RUN`。Sealed scorer不接受手填聚合指标。任何角色签名不能替代Provider事实、真人、生产或商业证据。
+`CORE_AGENT_GATE`固定候选commit/config/data、prompt/schema、确定性scorer、三角色审查、ultra裁决、Goal要求的sealed blind和clean checkout readback。仓库外保存原始Agent输出和blind truth，Git只保存hash、脱敏回执和聚合指标。G01～G06不要求角色私钥、外部broker、authority generation、activation-readiness或隔离OCI供应链证明。
 
-activation-readiness 必须另外绑定排除该自引用回执固定路径后的完整 ACTIVE tree，以及 ACTIVE 的 policy、Program core、config 与 data；除固定回执路径外的任一 Git blob 变化都会使旧回执失效。
+现有G01 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`历史资产，不删除也不冒充PASS；在G07前不继续实现、不切`ACTIVE`、不阻断Goal。G07只有在明确威胁模型和成本收益审查后才可启用`HARDENED_CANDIDATE_GATE`。任何签名只能证明对应执行事实，不能替代Provider事实、真人、生产或商业证据。
 
 ## 4. 预批准的公共合同与 migration
 
@@ -131,6 +137,7 @@ activation-readiness 必须另外绑定排除该自引用回执固定路径后�
 
 - 不预批准新产品功能；
 - 只做性能、可靠性、隐私、可访问性、Provider证据和候选材料收口；
+- 基于明确威胁模型决定是否启用外部authority、purpose-specific broker、角色签名、不可变远端ref和隔离OCI；若不启用，必须记录替代控制与残余风险；
 - 更新release manifest生成器，使其读取TC-VNEXT Goal/Gate、v3 OpenAPI、新数据集和同绑定receipts；旧360/三城manifest测试只保留历史兼容，不是新版Blueprint证明；
 - 不自动部署或进入 H1。
 
@@ -180,7 +187,7 @@ Goal完成后只有同时满足以下条件才能激活下一 Goal：
 - 从current Goal完整内容生成最终completed归档，不删除字段或保留PENDING；
 - 下一 Goal合同与 Program模板一致。
 
-subject checkpoint先push/readback，并把其FINAL_GATE签名PASS先耐久物化再登记到仓库外Goal pass ledger；归档、下一Goal激活、`current_goal_binding.json`和下一authority generation在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash必须与跨代稳定Program表对应项完全一致，该commit也必须push/readback并由独立custody登记新anchor。transition commit不要求把自身未知hash写入自身。
+subject checkpoint先push/readback，并把Gate回执耐久物化；归档、下一Goal激活和`current_goal_binding.json`在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash必须与Program表对应项完全一致，该commit也必须push/readback。只有G07显式启用`HARDENED_CANDIDATE_GATE`时才同时处理authority generation和外部anchor。transition commit不要求把自身未知hash写入自身。
 
 自动推进只到 G07。G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；H1、生产、公网、商业、合并 `main` 始终需要人工批准。
 
