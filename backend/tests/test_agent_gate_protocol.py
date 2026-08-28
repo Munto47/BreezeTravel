@@ -443,6 +443,11 @@ def _manifest_and_keys(
                     ),
                     "automated_gate_contract_path": goal_paths[index - 1],
                     "automated_gate_contract_sha256": goal_hashes[index - 1],
+                    "gate_profile": (
+                        "HARDENED_CANDIDATE_GATE"
+                        if index == 7
+                        else "CORE_AGENT_GATE"
+                    ),
                 }
                 for index, goal_id in enumerate(goal_ids, start=1)
             ],
@@ -807,7 +812,8 @@ def test_bootstrap_formal_entrypoints_never_read_private_key_paths() -> None:
         assert "KEY_PATH" not in source
         assert "private_key_path" not in source
         assert "repository-external" in source
-        assert "NOT_RUN during BOOTSTRAP" in source
+        assert "CORE_AGENT_GATE" in source or "CORE " in source
+        assert "HARDENED" in source
 
     formal_modules = (
         "component_builders.py",
@@ -1637,6 +1643,7 @@ def test_strict_component_requires_role_signature_and_exact_upstream(
         {
             "schema_version": "automated-product-gate-contract-v1",
             "goal_id": GOAL_ID,
+            "gate_profile": "CORE_AGENT_GATE",
             "isolation": {
                 "mode": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
                 "runner_recipe_path": runner_recipe_path,
@@ -1678,6 +1685,7 @@ def test_strict_component_requires_role_signature_and_exact_upstream(
             "automated_gate_contract_sha256": hashlib.sha256(
                 gate_contract_file.read_bytes()
             ).hexdigest(),
+            "gate_profile": "CORE_AGENT_GATE",
         },
     )
     gate_contract_sha256 = hashlib.sha256(gate_contract_file.read_bytes()).hexdigest()
@@ -2058,6 +2066,7 @@ def test_candidate_cannot_skip_to_g07_or_select_a_weaker_contract(
         {
             "schema_version": "automated-product-gate-contract-v1",
             "goal_id": "TC-VNEXT-G07-CANDIDATE",
+            "gate_profile": "HARDENED_CANDIDATE_GATE",
             "checks": [],
         },
     )
@@ -2076,6 +2085,7 @@ def test_candidate_cannot_skip_to_g07_or_select_a_weaker_contract(
             "automated_gate_contract_sha256": hashlib.sha256(
                 weak_contract.read_bytes()
             ).hexdigest(),
+            "gate_profile": "HARDENED_CANDIDATE_GATE",
         },
     )
     subprocess.run(["git", "init", str(repository)], check=True, capture_output=True)
@@ -2131,8 +2141,9 @@ def test_external_goal_pass_registry_is_idempotent_and_required_for_next_goal(
             "status": "IN_PROGRESS",
             "predecessor_goal_id": "TC-BP-G00-BLUEPRINT",
             "predecessor_completion_commit": "f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
-            "automated_gate_contract_path": manifest.goal_bindings[0].automated_gate_contract_path,
-            "automated_gate_contract_sha256": manifest.goal_bindings[0].automated_gate_contract_sha256,
+                "automated_gate_contract_path": manifest.goal_bindings[0].automated_gate_contract_path,
+                "automated_gate_contract_sha256": manifest.goal_bindings[0].automated_gate_contract_sha256,
+                "gate_profile": "CORE_AGENT_GATE",
         }
     )
     monkeypatch.setattr(
@@ -2255,8 +2266,9 @@ def test_external_goal_pass_registry_is_idempotent_and_required_for_next_goal(
             "status": "APPROVED",
             "predecessor_goal_id": GOAL_ID,
             "predecessor_completion_commit": SUBJECT,
-            "automated_gate_contract_path": manifest.goal_bindings[1].automated_gate_contract_path,
-            "automated_gate_contract_sha256": manifest.goal_bindings[1].automated_gate_contract_sha256,
+                "automated_gate_contract_path": manifest.goal_bindings[1].automated_gate_contract_path,
+                "automated_gate_contract_sha256": manifest.goal_bindings[1].automated_gate_contract_sha256,
+                "gate_profile": "CORE_AGENT_GATE",
         }
     )
     generation_two = manifest.model_copy(update={"authority_generation": 2})
@@ -2444,9 +2456,10 @@ def test_authority_anchor_registration_is_idempotent_and_conflict_rejecting(
             "automated_gate_contract_path": (
                 manifest.goal_bindings[0].automated_gate_contract_path
             ),
-            "automated_gate_contract_sha256": (
-                manifest.goal_bindings[0].automated_gate_contract_sha256
-            ),
+                "automated_gate_contract_sha256": (
+                    manifest.goal_bindings[0].automated_gate_contract_sha256
+                ),
+                "gate_profile": "CORE_AGENT_GATE",
         }
     )
     monkeypatch.setattr(
@@ -2549,8 +2562,10 @@ def test_bootstrap_sealed_scorer_has_no_secret_path_and_fails_closed() -> None:
     )
     assert "KEY_PATH" not in source
     assert "private_key_path" not in source
-    assert "NOT_RUN during BOOTSTRAP" in source
-    assert "repository-external custodian scorer and signer IPC" in source
+    assert "CORE sealed scoring" in source
+    assert "HARDENED sealed scoring" in source
+    assert "repository-external" in source
+    assert "custodian scorer and signer IPC" in source
 
 
 def test_every_goal_has_goal_specific_backend_and_browser_automation() -> None:

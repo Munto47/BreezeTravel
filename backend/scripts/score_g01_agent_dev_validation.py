@@ -12,7 +12,10 @@ from evals.agent_gate_v1.path_security import (
     require_canonical_data_root,
     write_external_bytes_exclusive,
 )
-from evals.agent_gate_v1.authority import load_anchored_authority_policy
+from evals.agent_gate_v1.authority import (
+    load_anchored_authority_policy,
+    load_candidate_current_goal_binding,
+)
 from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
 from evals.trip_text_cards_agent_v2.annotations import verify_agent_adjudication
 from evals.trip_text_cards_agent_v2.contracts import (
@@ -164,23 +167,41 @@ def validate_prediction_run(
     if require_live_inference_evidence and inference.execution_mode != "LIVE":
         raise ScoringError("live Qwen inference evidence is required for this lane")
     if inference.execution_mode == "LIVE":
-        anchored = load_anchored_authority_policy(
+        goal_binding = load_candidate_current_goal_binding(
             repository_root,
             expected_bindings["candidate_commit"],
         )
-        if inference.authority_policy_sha256 != anchored.sha256:
-            raise ScoringError("Qwen inference authority policy mismatch")
-        if inference.authority_signature is None:
-            raise ScoringError("Qwen inference authority signature is missing")
-        verify_payload_signature(
-            payload=unsigned_payload(inference),
-            signature=inference.authority_signature,
-            manifest=anchored.manifest,
-            expected_role="QWEN_LIVE_EXPORTER",
-        )
+        expected_exporter_path = "backend/scripts/export_g01_qwen_live_receipts.py"
+        if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE":
+            anchored = load_anchored_authority_policy(
+                repository_root,
+                expected_bindings["candidate_commit"],
+            )
+            if inference.authority_policy_sha256 != anchored.sha256:
+                raise ScoringError("Qwen inference authority policy mismatch")
+            if inference.authority_signature is None:
+                raise ScoringError("Qwen inference authority signature is missing")
+            verify_payload_signature(
+                payload=unsigned_payload(inference),
+                signature=inference.authority_signature,
+                manifest=anchored.manifest,
+                expected_role="QWEN_LIVE_EXPORTER",
+            )
+            expected_exporter_path = anchored.manifest.live_exporter_paths[
+                "QWEN_LIVE_EXPORTER"
+            ]
+        elif (
+            inference.authority_policy_sha256 is not None
+            or inference.authority_signature is not None
+        ):
+            raise ScoringError(
+                "CORE Qwen inference cannot claim HARDENED authority evidence"
+            )
         exporter_path = inference.exporter_path
         if exporter_path is None or inference.exporter_sha256 is None:
             raise ScoringError("Qwen live exporter binding is incomplete")
+        if exporter_path != expected_exporter_path:
+            raise ScoringError("Qwen live exporter path mismatch")
         exporter = (repository_root / exporter_path).resolve(strict=True)
         if repository_root.resolve() not in exporter.parents:
             raise ScoringError("Qwen exporter must be frozen in the repository")

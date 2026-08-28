@@ -117,6 +117,11 @@ def _synchronize_authority_files(
         filename = f"g{sequence:02d}_automated_product_gate.json"
         path = general_root / filename
         value = json.loads(path.read_text(encoding="utf-8"))
+        value["gate_profile"] = (
+            "HARDENED_CANDIDATE_GATE"
+            if sequence == 7
+            else "CORE_AGENT_GATE"
+        )
         value["isolation"] = runner
         AutomatedProductGateContract.model_validate(value)
         _write_json(path, value)
@@ -184,6 +189,11 @@ def _synchronize_authority_files(
     for binding in policy["goal_bindings"]:
         filename = Path(binding["automated_gate_contract_path"]).name
         binding["automated_gate_contract_sha256"] = goal_hashes[filename]
+        binding["gate_profile"] = (
+            "HARDENED_CANDIDATE_GATE"
+            if binding["goal_sequence"] == 7
+            else "CORE_AGENT_GATE"
+        )
     AgentGateAuthorityManifest.model_validate(policy)
     _write_json(policy_path, policy)
 
@@ -192,6 +202,11 @@ def _synchronize_authority_files(
     current_binding = json.loads(current_binding_path.read_text(encoding="utf-8"))
     filename = Path(current_binding["automated_gate_contract_path"]).name
     current_binding["automated_gate_contract_sha256"] = goal_hashes[filename]
+    current_binding["gate_profile"] = (
+        "HARDENED_CANDIDATE_GATE"
+        if current_binding["goal_sequence"] == 7
+        else "CORE_AGENT_GATE"
+    )
     CurrentGoalBinding.model_validate(current_binding)
     _write_json(current_binding_path, current_binding)
 

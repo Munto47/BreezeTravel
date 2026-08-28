@@ -161,6 +161,15 @@ class Settings(BaseSettings):
     trip_understanding_worker_poll_seconds: float = 0.5
     trip_understanding_sse_poll_seconds: float = 0.25
     trip_understanding_sse_max_seconds: float = 15.0
+    trip_understanding_provider_mode: Literal["fixture", "live"] = "fixture"
+    qwen_api_key: str = ""
+    qwen_api_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    qwen_model_catalog_url: str = "https://dashscope.aliyuncs.com/api/v1/models"
+    trip_understanding_qwen_model: str = ""
+    trip_understanding_qwen_deadline_seconds: float = 7.0
+    trip_understanding_qwen_max_output_tokens: int = 8192
+    trip_understanding_qwen_input_cny_per_million: float | None = None
+    trip_understanding_qwen_output_cny_per_million: float | None = None
     map_render_job_lease_seconds: int = 30
     map_render_worker_poll_seconds: float = 0.5
     memory_enabled_default: bool = True

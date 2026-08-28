@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 
@@ -98,6 +99,40 @@ def test_current_goal_is_the_only_active_goal_and_g02_is_not_activated() -> None
         assert "- Status：`DRAFT`" in _text(path)
     assert "AGENT_GATE_NOT_RUN" in current
     assert "H1、公网、生产、商业：`NOT_RUN`" in current
+
+
+def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
+    current_binding = json.loads(
+        _text(GOVERNANCE / "current_goal_binding.json")
+    )
+    assert current_binding["goal_sequence"] == 1
+    assert current_binding["gate_profile"] == "CORE_AGENT_GATE"
+
+    policy = json.loads(
+        _text(ROOT / "backend/eval_data/agent_gate_v1/authority_policy.json")
+    )
+    observed = {
+        item["goal_sequence"]: item["gate_profile"]
+        for item in policy["goal_bindings"]
+    }
+    assert observed == {
+        1: "CORE_AGENT_GATE",
+        2: "CORE_AGENT_GATE",
+        3: "CORE_AGENT_GATE",
+        4: "CORE_AGENT_GATE",
+        5: "CORE_AGENT_GATE",
+        6: "CORE_AGENT_GATE",
+        7: "HARDENED_CANDIDATE_GATE",
+    }
+
+
+def test_checkpoint_ledger_never_has_two_consecutive_none_progress_rows() -> None:
+    progress = re.findall(
+        r"Product progress\s*=\s*(UI|API|MODEL|PROVIDER|EVAL_METRIC|NONE)",
+        _text(CURRENT),
+    )
+    assert progress, "checkpoint ledger has no machine-readable Product progress"
+    assert all(pair != ("NONE", "NONE") for pair in zip(progress, progress[1:]))
 
 
 def test_legacy_human_v1_schemas_are_byte_frozen() -> None:

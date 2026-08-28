@@ -8,11 +8,13 @@ from pathlib import Path
 
 from app.trip_understanding.models import (
     ActivityRole,
+    DestinationBasis,
     InferenceProposal,
     ProposedMention,
     ResolvedPlace,
 )
 from app.trip_understanding.pipeline import (
+    PlaceResolver,
     ResilientStructuredInferenceProvider,
     StructuredInferenceProvider,
     TripUnderstandingPipeline,
@@ -140,7 +142,7 @@ def _destination(
     source_text: str,
     candidates: list[tuple[int, int, str, set[str]]],
     headings: list[tuple[int, int]],
-) -> str:
+) -> tuple[str, DestinationBasis]:
     candidate_spans = [(start, end) for start, end, *_ in candidates]
     explicit: list[str] = []
     for city in _DEEP_CITIES:
@@ -149,7 +151,7 @@ def _destination(
                 explicit.append(city)
                 break
     if len(explicit) == 1:
-        return explicit[0]
+        return explicit[0], DestinationBasis.EXPLICIT
     planned_cities = {
         city
         for start, _end, _name, cities in candidates
@@ -162,8 +164,8 @@ def _destination(
         for city in cities
     }
     if len(planned_cities) == 1:
-        return next(iter(planned_cities))
-    return "目的地待确认"
+        return next(iter(planned_cities)), DestinationBasis.SOFT_ASSUMPTION
+    return "目的地待确认", DestinationBasis.SOFT_ASSUMPTION
 
 
 class DeterministicTextInferenceProvider:
@@ -192,7 +194,7 @@ class DeterministicTextInferenceProvider:
                 candidates.append((span[0], span[1], name, cities))
         candidates.sort(key=lambda item: (item[0], item[1]))
 
-        destination = _destination(source_text, candidates, headings)
+        destination, destination_basis = _destination(source_text, candidates, headings)
         day_sequences: dict[int, int] = {}
         mentions: list[ProposedMention] = []
         for index, (start, end, name, _cities) in enumerate(candidates, start=1):
@@ -221,6 +223,7 @@ class DeterministicTextInferenceProvider:
         return InferenceProposal(
             source_hash=source_hash,
             destination_name=destination,
+            destination_basis=destination_basis,
             mentions=mentions,
             binding={
                 "provider": "deterministic-controlled-text",
@@ -255,6 +258,7 @@ class ControlledSnapshotPlaceResolver:
 
 def build_full_text_pipeline(
     primary_inference_provider: StructuredInferenceProvider | None = None,
+    place_resolver: PlaceResolver | None = None,
 ) -> TripUnderstandingPipeline:
     deterministic_fallback = DeterministicTextInferenceProvider()
     return TripUnderstandingPipeline(
@@ -266,5 +270,5 @@ def build_full_text_pipeline(
             if primary_inference_provider is not None
             else deterministic_fallback
         ),
-        place_resolver=ControlledSnapshotPlaceResolver(),
+        place_resolver=place_resolver or ControlledSnapshotPlaceResolver(),
     )

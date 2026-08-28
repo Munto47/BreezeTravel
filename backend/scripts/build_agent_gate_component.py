@@ -3,6 +3,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from evals.agent_gate_v1.authority import load_worktree_current_goal_binding
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
 
 def _common_outputs(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--verification-output", required=True, type=Path)
@@ -46,8 +51,17 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = _parser()
     parser.parse_args()
+    binding = load_worktree_current_goal_binding(REPOSITORY_ROOT)
+    if binding.gate_profile == "CORE_AGENT_GATE":
+        parser.error(
+            "CORE_AGENT_GATE uses candidate-bound verification receipts and the "
+            "clean-checkout CORE aggregator; HARDENED component signing is not "
+            "part of G01-G06"
+        )
+    if binding.goal_sequence != 7:
+        parser.error("HARDENED_CANDIDATE_GATE is restricted to G07")
     parser.error(
-        "formal component signing is NOT_RUN during BOOTSTRAP; an activated "
+        "HARDENED component signing is fail-closed until an activated "
         "repository-external signer IPC must sign without exposing a key path "
         "to the candidate process"
     )

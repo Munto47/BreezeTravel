@@ -82,6 +82,14 @@
           "title": "Automated Gate Contract Sha256",
           "type": "string"
         },
+        "gate_profile": {
+          "enum": [
+            "CORE_AGENT_GATE",
+            "HARDENED_CANDIDATE_GATE"
+          ],
+          "title": "Gate Profile",
+          "type": "string"
+        },
         "goal_id": {
           "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
           "title": "Goal Id",
@@ -117,7 +125,8 @@
         "goal_id",
         "predecessor_goal_id",
         "automated_gate_contract_path",
-        "automated_gate_contract_sha256"
+        "automated_gate_contract_sha256",
+        "gate_profile"
       ],
       "title": "ProgramGoalAuthorityBinding",
       "type": "object"

@@ -19,6 +19,11 @@ class ActivityRole(str, Enum):
     PASS_THROUGH = "PASS_THROUGH"
 
 
+class DestinationBasis(str, Enum):
+    EXPLICIT = "EXPLICIT"
+    SOFT_ASSUMPTION = "SOFT_ASSUMPTION"
+
+
 class ResolutionStatus(str, Enum):
     NOT_ELIGIBLE = "NOT_ELIGIBLE"
     UNRESOLVED = "UNRESOLVED"
@@ -49,6 +54,7 @@ class InferenceProposal(StrictModel):
     schema_version: Literal["trip-understanding-proposal-v1"] = "trip-understanding-proposal-v1"
     source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     destination_name: str
+    destination_basis: DestinationBasis = DestinationBasis.EXPLICIT
     mentions: list[ProposedMention]
     binding: dict[str, object]
 

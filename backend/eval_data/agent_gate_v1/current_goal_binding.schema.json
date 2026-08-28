@@ -18,6 +18,14 @@
       "title": "Canonical Candidate Ref",
       "type": "string"
     },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
     "goal_id": {
       "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
       "title": "Goal Id",
@@ -66,7 +74,8 @@
     "predecessor_goal_id",
     "predecessor_completion_commit",
     "automated_gate_contract_path",
-    "automated_gate_contract_sha256"
+    "automated_gate_contract_sha256",
+    "gate_profile"
   ],
   "title": "CurrentGoalBinding",
   "type": "object"

@@ -132,6 +132,14 @@
       "title": "Checks",
       "type": "array"
     },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
     "goal_id": {
       "pattern": "^TC-[A-Z0-9-]+$",
       "title": "Goal Id",
@@ -149,6 +157,7 @@
   },
   "required": [
     "goal_id",
+    "gate_profile",
     "isolation",
     "checks"
   ],

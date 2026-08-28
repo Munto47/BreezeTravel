@@ -6,7 +6,10 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from evals.agent_gate_v1.authority import load_anchored_authority_policy
+from evals.agent_gate_v1.authority import (
+    load_anchored_authority_policy,
+    load_candidate_current_goal_binding,
+)
 from evals.agent_gate_v1.host_tools import trusted_host_tool
 from evals.agent_gate_v1.path_security import ArtifactSnapshot, read_external_snapshot
 from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
@@ -34,6 +37,10 @@ from evals.trip_text_cards_v1.contracts import (
 
 class AgentAnnotationValidationError(ValueError):
     pass
+
+
+_QWEN_CORE_EXPORTER_PATH = "backend/scripts/export_g01_qwen_live_receipts.py"
+_AMAP_CORE_EXPORTER_PATH = "backend/scripts/export_g01_amap_live_receipts.py"
 
 
 def _external_snapshot(
@@ -202,23 +209,42 @@ def validate_inference_runtime_receipt_assets(
             "evidence_level": runtime.evidence_level,
         }
 
-    anchored = load_anchored_authority_policy(repository_root, expected_candidate_commit)
-    if (
-        runtime.authority_policy_sha256 != anchored.sha256
-        or runtime.authority_signature is None
-    ):
-        raise AgentAnnotationValidationError("Qwen runtime authority binding mismatch")
-    verify_payload_signature(
-        payload=unsigned_payload(runtime),
-        signature=runtime.authority_signature,
-        manifest=anchored.manifest,
-        expected_role="QWEN_LIVE_EXPORTER",
+    goal_binding = load_candidate_current_goal_binding(
+        repository_root,
+        expected_candidate_commit,
     )
+    anchored = None
+    expected_exporter_path = _QWEN_CORE_EXPORTER_PATH
+    if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE":
+        anchored = load_anchored_authority_policy(
+            repository_root,
+            expected_candidate_commit,
+        )
+        if (
+            runtime.authority_policy_sha256 != anchored.sha256
+            or runtime.authority_signature is None
+        ):
+            raise AgentAnnotationValidationError("Qwen runtime authority binding mismatch")
+        verify_payload_signature(
+            payload=unsigned_payload(runtime),
+            signature=runtime.authority_signature,
+            manifest=anchored.manifest,
+            expected_role="QWEN_LIVE_EXPORTER",
+        )
+        expected_exporter_path = anchored.manifest.live_exporter_paths[
+            "QWEN_LIVE_EXPORTER"
+        ]
+    elif (
+        runtime.authority_policy_sha256 is not None
+        or runtime.authority_signature is not None
+    ):
+        raise AgentAnnotationValidationError(
+            "CORE Qwen runtime cannot claim HARDENED authority evidence"
+        )
     if (
         runtime.exporter_path is None
         or runtime.exporter_sha256 is None
-        or runtime.exporter_path
-        != anchored.manifest.live_exporter_paths["QWEN_LIVE_EXPORTER"]
+        or runtime.exporter_path != expected_exporter_path
         or _git_blob_sha256(
             repository_root,
             expected_candidate_commit,
@@ -329,17 +355,27 @@ def validate_inference_runtime_receipt_assets(
             raise AgentAnnotationValidationError("Qwen runtime effect output hash mismatch")
 
     for artifact in (database, http):
-        if (
-            artifact.authority_policy_sha256 != anchored.sha256
-            or artifact.authority_signature is None
+        if anchored is not None:
+            if (
+                artifact.authority_policy_sha256 != anchored.sha256
+                or artifact.authority_signature is None
+            ):
+                raise AgentAnnotationValidationError(
+                    "Qwen child receipt authority mismatch"
+                )
+            verify_payload_signature(
+                payload=unsigned_payload(artifact),
+                signature=artifact.authority_signature,
+                manifest=anchored.manifest,
+                expected_role="QWEN_LIVE_EXPORTER",
+            )
+        elif (
+            artifact.authority_policy_sha256 is not None
+            or artifact.authority_signature is not None
         ):
-            raise AgentAnnotationValidationError("Qwen child receipt authority mismatch")
-        verify_payload_signature(
-            payload=unsigned_payload(artifact),
-            signature=artifact.authority_signature,
-            manifest=anchored.manifest,
-            expected_role="QWEN_LIVE_EXPORTER",
-        )
+            raise AgentAnnotationValidationError(
+                "CORE Qwen child receipt cannot claim HARDENED authority evidence"
+            )
         if (
             artifact.goal_id != expected_goal_id
             or artifact.candidate_commit != expected_candidate_commit
@@ -487,29 +523,49 @@ def validate_provider_receipt_assets(
             )
     anchored_policy = None
     if runtime_bundle.execution_mode == "LIVE":
-        try:
-            anchored_policy = load_anchored_authority_policy(
-                repository_root,
-                expected_candidate_commit,
-            )
-        except ValueError as exc:
-            raise AgentAnnotationValidationError(str(exc)) from exc
-        for artifact in (provider_index, runtime_bundle):
-            if artifact.authority_policy_sha256 != anchored_policy.sha256:
-                raise AgentAnnotationValidationError("live Provider authority policy mismatch")
-            if artifact.authority_signature is None:
-                raise AgentAnnotationValidationError("live Provider authority signature is missing")
-            verify_payload_signature(
-                payload=unsigned_payload(artifact),
-                signature=artifact.authority_signature,
-                manifest=anchored_policy.manifest,
-                expected_role="AMAP_LIVE_EXPORTER",
+        goal_binding = load_candidate_current_goal_binding(
+            repository_root,
+            expected_candidate_commit,
+        )
+        expected_exporter_path = _AMAP_CORE_EXPORTER_PATH
+        if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE":
+            try:
+                anchored_policy = load_anchored_authority_policy(
+                    repository_root,
+                    expected_candidate_commit,
+                )
+            except ValueError as exc:
+                raise AgentAnnotationValidationError(str(exc)) from exc
+            for artifact in (provider_index, runtime_bundle):
+                if artifact.authority_policy_sha256 != anchored_policy.sha256:
+                    raise AgentAnnotationValidationError(
+                        "live Provider authority policy mismatch"
+                    )
+                if artifact.authority_signature is None:
+                    raise AgentAnnotationValidationError(
+                        "live Provider authority signature is missing"
+                    )
+                verify_payload_signature(
+                    payload=unsigned_payload(artifact),
+                    signature=artifact.authority_signature,
+                    manifest=anchored_policy.manifest,
+                    expected_role="AMAP_LIVE_EXPORTER",
+                )
+            expected_exporter_path = anchored_policy.manifest.live_exporter_paths[
+                "AMAP_LIVE_EXPORTER"
+            ]
+        elif any(
+            artifact.authority_policy_sha256 is not None
+            or artifact.authority_signature is not None
+            for artifact in (provider_index, runtime_bundle)
+        ):
+            raise AgentAnnotationValidationError(
+                "CORE AMap receipts cannot claim HARDENED authority evidence"
             )
         if (
             runtime_bundle.exporter_path is None
             or runtime_bundle.exporter_sha256 is None
-            or runtime_bundle.exporter_path
-            != anchored_policy.manifest.live_exporter_paths["AMAP_LIVE_EXPORTER"]
+            or runtime_bundle.exporter_path != expected_exporter_path
             or _git_blob_sha256(
                 repository_root,
                 expected_candidate_commit,
@@ -557,6 +613,14 @@ def validate_provider_receipt_assets(
                 manifest=anchored_policy.manifest,
                 expected_role="AMAP_LIVE_EXPORTER",
             )
+    elif any(
+        artifact.authority_policy_sha256 is not None
+        or artifact.authority_signature is not None
+        for artifact in (database_export, http_bundle)
+    ):
+        raise AgentAnnotationValidationError(
+            "CORE AMap child receipts cannot claim HARDENED authority evidence"
+        )
     expected_asset_binding = (
         expected_candidate_commit,
         expected_candidate_tree,

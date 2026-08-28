@@ -581,6 +581,42 @@ def compute_public_key_set_sha256(manifest: AgentGateAuthorityManifest) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def load_worktree_current_goal_binding(repository_root: Path) -> CurrentGoalBinding:
+    """Read the active Goal profile without activating HARDENED authority.
+
+    CORE Gate callers use this profile selector before any authority, signer,
+    registry, or OCI code is imported. The candidate-bound loader below remains
+    the stricter path used by HARDENED verification.
+    """
+
+    path = repository_root / "docs/governance/current_goal_binding.json"
+    try:
+        return CurrentGoalBinding.model_validate_json(path.read_bytes())
+    except (OSError, ValueError) as exc:
+        raise AuthorityPolicyError(f"invalid worktree Goal binding: {exc}") from exc
+
+
+def load_candidate_current_goal_binding(
+    repository_root: Path,
+    candidate_commit: str,
+) -> CurrentGoalBinding:
+    """Read the candidate-bound Goal profile without activating authority."""
+
+    path = "docs/governance/current_goal_binding.json"
+    content = _git(repository_root, "show", f"{candidate_commit}:{path}", text=False)
+    try:
+        binding = CurrentGoalBinding.model_validate_json(content)
+    except ValueError as exc:
+        raise AuthorityPolicyError(f"invalid candidate Goal binding: {exc}") from exc
+    if git_blob_sha256(
+        repository_root,
+        candidate_commit,
+        binding.automated_gate_contract_path,
+    ) != binding.automated_gate_contract_sha256:
+        raise AuthorityPolicyError("candidate Goal automation contract hash mismatch")
+    return binding
+
+
 def load_current_goal_binding(
     repository_root: Path,
     candidate_commit: str,
@@ -610,6 +646,7 @@ def load_current_goal_binding(
         expected.predecessor_goal_id,
         expected.automated_gate_contract_path,
         expected.automated_gate_contract_sha256,
+        expected.gate_profile,
     )
     observed_facts = (
         binding.goal_sequence,
@@ -617,6 +654,7 @@ def load_current_goal_binding(
         binding.predecessor_goal_id,
         binding.automated_gate_contract_path,
         binding.automated_gate_contract_sha256,
+        binding.gate_profile,
     )
     if observed_facts != expected_facts:
         raise AuthorityPolicyError(

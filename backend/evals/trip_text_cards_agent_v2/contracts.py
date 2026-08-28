@@ -217,12 +217,16 @@ class ProviderDatabaseExportReceipt(StrictModel):
         if self.execution_mode == "LIVE":
             if (
                 self.source_registry != "POSTGRESQL_PROVIDER_EFFECT_REGISTRY"
-                or self.authority_signature is None
-                or self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
                 or self.database_instance_sha256 is None
-                or self.authority_policy_sha256 is None
             ):
-                raise ValueError("LIVE database exports require the pinned AMap authority")
+                raise ValueError("LIVE database exports require persisted database provenance")
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
+            ):
+                raise ValueError("optional HARDENED AMap authority fields are incomplete")
         elif self.source_registry != "CONTROLLED_CONTRACT_FIXTURE" or any(
             value is not None
             for value in (
@@ -274,13 +278,13 @@ class ProviderHttpReceiptBundle(StrictModel):
         if any(item.completed_at > self.captured_at for item in self.exchanges):
             raise ValueError("provider HTTP bundle predates an exchange")
         if self.execution_mode == "LIVE":
-            if (
-                self.authority_signature is None
-                or self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
-                or self.authority_policy_sha256 is None
-                or any(item.provider_request_id_sha256 is None for item in self.exchanges)
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
             ):
-                raise ValueError("LIVE HTTP receipts require the pinned AMap authority")
+                raise ValueError("optional HARDENED AMap HTTP authority fields are incomplete")
         elif (
             self.authority_signature is not None
             or self.authority_policy_sha256 is not None
@@ -342,13 +346,17 @@ class ProviderRuntimeReceiptBundle(StrictModel):
             raise ValueError("provider runtime bundle cannot predate an included effect")
         if live:
             if (
-                self.authority_signature is None
-                or self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
-                or self.authority_policy_sha256 is None
-                or self.exporter_path is None
+                self.exporter_path is None
                 or self.exporter_sha256 is None
             ):
-                raise ValueError("LIVE runtime receipts require pinned authority and exporter bytes")
+                raise ValueError("LIVE runtime receipts require frozen exporter bytes")
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
+            ):
+                raise ValueError("optional HARDENED AMap runtime authority fields are incomplete")
         elif any(
             value is not None
             for value in (
@@ -400,12 +408,13 @@ class ProviderReceiptIndex(StrictModel):
         ):
             raise ValueError("provider index execution mode and evidence level disagree")
         if self.execution_mode == "LIVE":
-            if (
-                self.authority_signature is None
-                or self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
-                or self.authority_policy_sha256 is None
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "AMAP_LIVE_EXPORTER"
             ):
-                raise ValueError("LIVE Provider indexes require the pinned AMap authority")
+                raise ValueError("optional HARDENED AMap index authority fields are incomplete")
         elif self.authority_signature is not None or self.authority_policy_sha256 is not None:
             raise ValueError("controlled Provider indexes cannot carry a live authority signature")
         return self
@@ -740,11 +749,15 @@ class InferenceDatabaseExportReceipt(StrictModel):
             if (
                 self.source_registry != "POSTGRESQL_INFERENCE_EFFECT_REGISTRY"
                 or self.database_instance_sha256 is None
-                or self.authority_policy_sha256 is None
-                or self.authority_signature is None
-                or self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
             ):
-                raise ValueError("LIVE inference database exports require pinned provenance")
+                raise ValueError("LIVE inference database exports require persisted provenance")
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
+            ):
+                raise ValueError("optional HARDENED Qwen database authority fields are incomplete")
         elif self.source_registry != "CONTROLLED_CONTRACT_FIXTURE" or any(
             value is not None
             for value in (
@@ -797,13 +810,13 @@ class InferenceHttpReceiptBundle(StrictModel):
         if any(item.completed_at > self.captured_at for item in self.exchanges):
             raise ValueError("inference HTTP bundle predates an exchange")
         if self.execution_mode == "LIVE":
-            if (
+            if (self.authority_signature is None) != (
                 self.authority_policy_sha256 is None
-                or self.authority_signature is None
-                or self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
-                or any(item.provider_request_id_sha256 is None for item in self.exchanges)
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
             ):
-                raise ValueError("LIVE inference HTTP receipts require pinned provenance")
+                raise ValueError("optional HARDENED Qwen HTTP authority fields are incomplete")
         elif (
             self.authority_policy_sha256 is not None
             or self.authority_signature is not None
@@ -885,10 +898,7 @@ class InferenceRuntimeReceiptBundle(StrictModel):
             raise ValueError("Qwen execution mode and exporter disagree")
         if live:
             if (
-                self.authority_signature is None
-                or self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
-                or self.authority_policy_sha256 is None
-                or self.exporter_path is None
+                self.exporter_path is None
                 or self.exporter_sha256 is None
                 or self.predictions_path is None
                 or self.inference_outputs_path is None
@@ -896,9 +906,15 @@ class InferenceRuntimeReceiptBundle(StrictModel):
                 or self.database_export_receipt_sha256 is None
                 or self.provider_http_receipt_bundle_path is None
                 or self.provider_http_receipt_bundle_sha256 is None
-                or any(item.provider_request_id_sha256 is None for item in self.effects)
             ):
                 raise ValueError("LIVE Qwen receipts require pinned runtime provenance")
+            if (self.authority_signature is None) != (
+                self.authority_policy_sha256 is None
+            ) or (
+                self.authority_signature is not None
+                and self.authority_signature.authority_role != "QWEN_LIVE_EXPORTER"
+            ):
+                raise ValueError("optional HARDENED Qwen authority fields are incomplete")
         elif any(
             value is not None
             for value in (

@@ -15,6 +15,7 @@ from app.trip_understanding.repository import (
     PostgresTripUnderstandingRepository,
     TripUnderstandingRepository,
 )
+from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
 
 
 logger = logging.getLogger(__name__)
@@ -25,12 +26,13 @@ class TripUnderstandingWorker:
         self,
         repository: TripUnderstandingRepository,
         *,
+        full_pipeline=None,
         lease_seconds: int = 30,
     ) -> None:
         self.repository = repository
         self.lease_seconds = lease_seconds
         self.demo_pipeline = build_demo_pipeline()
-        self.full_pipeline = build_full_text_pipeline()
+        self.full_pipeline = full_pipeline or build_full_text_pipeline()
 
     async def run_once(self, worker_id: str, *, now: datetime | None = None) -> bool:
         observed_at = now or datetime.now(timezone.utc)
@@ -65,8 +67,25 @@ class TripUnderstandingWorker:
 async def run_forever() -> None:
     settings = get_settings()
     worker_id = f"trip-understanding:{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
+    full_pipeline = build_full_text_pipeline()
+    if settings.trip_understanding_provider_mode == "live":
+        qwen = QwenStructuredInferenceProvider(
+            api_key=settings.qwen_api_key,
+            base_url=settings.qwen_api_url,
+            model=settings.trip_understanding_qwen_model,
+            deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
+            max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
+            input_cny_per_million=(
+                settings.trip_understanding_qwen_input_cny_per_million
+            ),
+            output_cny_per_million=(
+                settings.trip_understanding_qwen_output_cny_per_million
+            ),
+        )
+        full_pipeline = build_full_text_pipeline(qwen)
     worker = TripUnderstandingWorker(
         PostgresTripUnderstandingRepository(),
+        full_pipeline=full_pipeline,
         lease_seconds=settings.trip_understanding_job_lease_seconds,
     )
     try:

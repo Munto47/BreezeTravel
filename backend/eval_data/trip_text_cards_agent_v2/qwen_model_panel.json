@@ -1,27 +1,319 @@
 {
-  "schema_version": "g01-qwen-model-panel-v1",
-  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
-  "discovery_source": "QWEN_ACCOUNT_MODEL_LIST_API",
-  "region": "DISCOVERY_PENDING",
-  "workspace": "NOT_EXPOSED_BY_PROVIDER",
   "candidates": [
     {
-      "role": "QUALITY_CEILING",
+      "binding_mode": "PROVIDER_EXACT_ID_NO_EQUIVALENT_SNAPSHOT",
+      "context": 991808,
+      "effective_snapshot_id": "qwen3.8-max",
+      "exact_model_id": "qwen3.8-max",
       "family": "QWEN_MAX",
-      "exact_model_id": "DISCOVERY_PENDING"
+      "pricing": [
+        {
+          "prices": [
+            {
+              "price": "12",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token"
+            },
+            {
+              "price": "36",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token"
+            },
+            {
+              "price": "1.5",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache"
+            },
+            {
+              "price": "6",
+              "price_name": "输入（Batch File）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_batch"
+            },
+            {
+              "price": "18",
+              "price_name": "输出（Batch File）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token_batch"
+            },
+            {
+              "price": "15",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "1",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_read"
+            },
+            {
+              "price": "12",
+              "price_name": "输入（Batch Chat)",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_batch_chat"
+            },
+            {
+              "price": "36",
+              "price_name": "输出（Batch Chat)",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token_batch_chat"
+            }
+          ],
+          "range_name": "Default"
+        }
+      ],
+      "role": "QUALITY_CEILING",
+      "structured_output": true
     },
     {
-      "role": "PRODUCTION_CANDIDATE",
+      "binding_mode": "EXACT_SNAPSHOT_ID",
+      "context": 991808,
+      "effective_snapshot_id": "qwen3.7-plus-2026-05-26",
+      "exact_model_id": "qwen3.7-plus-2026-05-26",
       "family": "QWEN_PLUS",
-      "exact_model_id": "DISCOVERY_PENDING"
+      "pricing": [
+        {
+          "prices": [
+            {
+              "price": "2",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token"
+            },
+            {
+              "price": "8",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "output_token"
+            },
+            {
+              "price": "0.4",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache"
+            },
+            {
+              "price": "2.5",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "0.2",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache_read"
+            }
+          ],
+          "range_name": "输入<=256k"
+        },
+        {
+          "prices": [
+            {
+              "price": "6",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token"
+            },
+            {
+              "price": "24",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "output_token"
+            },
+            {
+              "price": "1.2",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache"
+            },
+            {
+              "price": "7.5",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "0.6",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": "standard",
+              "type": "input_token_cache_read"
+            }
+          ],
+          "range_name": "256k<输入<=1m"
+        }
+      ],
+      "role": "PRODUCTION_CANDIDATE",
+      "structured_output": true
     },
     {
-      "role": "LOW_LATENCY_CANDIDATE",
+      "binding_mode": "EXACT_SNAPSHOT_ID",
+      "context": 991808,
+      "effective_snapshot_id": "qwen3.7-flash-2026-07-15",
+      "exact_model_id": "qwen3.7-flash-2026-07-15",
       "family": "QWEN_FLASH",
-      "exact_model_id": "DISCOVERY_PENDING"
+      "pricing": [
+        {
+          "prices": [
+            {
+              "price": "0.2",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token"
+            },
+            {
+              "price": "0.8",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token"
+            },
+            {
+              "price": "0.04",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache"
+            },
+            {
+              "price": "0.25",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "0.02",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_read"
+            }
+          ],
+          "range_name": "输入<=32k"
+        },
+        {
+          "prices": [
+            {
+              "price": "0.6",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token"
+            },
+            {
+              "price": "2.4",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token"
+            },
+            {
+              "price": "0.12",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache"
+            },
+            {
+              "price": "0.75",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "0.06",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_read"
+            }
+          ],
+          "range_name": "32k<输入<=256k"
+        },
+        {
+          "prices": [
+            {
+              "price": "1.2",
+              "price_name": "输入",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token"
+            },
+            {
+              "price": "4.8",
+              "price_name": "输出",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "output_token"
+            },
+            {
+              "price": "0.24",
+              "price_name": "输入（缓存命中）",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache"
+            },
+            {
+              "price": "1.5",
+              "price_name": "显式缓存创建",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_creation_5m"
+            },
+            {
+              "price": "0.12",
+              "price_name": "显式缓存命中",
+              "price_unit": "每百万tokens",
+              "time_band": null,
+              "type": "input_token_cache_read"
+            }
+          ],
+          "range_name": "256k<输入<=1m"
+        }
+      ],
+      "role": "LOW_LATENCY_CANDIDATE",
+      "structured_output": true
     }
   ],
+  "discovered_at": "2026-08-28T16:45:28.015357Z",
+  "discovery_source": "QWEN_ACCOUNT_MODEL_LIST_API",
+  "endpoint": "https://dashscope.aliyuncs.com/api/v1/models",
+  "endpoint_sha256": "748cac37d79609a8425d8a46f2536b3cbb880d87dc460da6fb480a42e418a1f2",
   "frozen_candidate": null,
-  "status": "NOT_DISCOVERED",
-  "human_evidence": false
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "human_evidence": false,
+  "provider_model_count": 20,
+  "provider_response_sha256": "e58f0a7c7095fbb3d9db36ee0137b72adf8c34b06003ce734b24076813b34e01",
+  "raw_provider_response_retained": false,
+  "region": "NOT_EXPOSED_BY_PROVIDER",
+  "schema_version": "g01-qwen-model-panel-v1",
+  "status": "DISCOVERED",
+  "workspace": "NOT_EXPOSED_BY_PROVIDER"
 }

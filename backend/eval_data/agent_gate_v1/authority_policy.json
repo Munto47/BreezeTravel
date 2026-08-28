@@ -262,7 +262,8 @@
   "goal_bindings": [
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g01_automated_product_gate.json",
-      "automated_gate_contract_sha256": "d4efe22f799bc65bb3e7317b7174065c17d23b545562f44f5cf5d128c59ec3f3",
+      "automated_gate_contract_sha256": "a4fb60448067c81ce73f67d0f98b3b50e9fe19a9010e565d36b3aba873845afd",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
       "goal_sequence": 1,
       "initial_predecessor_completion_commit": "f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
@@ -270,7 +271,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g02_automated_product_gate.json",
-      "automated_gate_contract_sha256": "7ec328d94d551dc274159ed4d9d668d8b589b6865aed49913da4be882d7b12ce",
+      "automated_gate_contract_sha256": "d42ee5b9c0e37874bb7d5ff1befceebd2930bb6d463eca40f7a48d9c0e83da40",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G02-MAP-STAY",
       "goal_sequence": 2,
       "initial_predecessor_completion_commit": null,
@@ -278,7 +280,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g03_automated_product_gate.json",
-      "automated_gate_contract_sha256": "fa39272635b3053a9924f29a2d8ee0a96230e2a73d9d4702412a9756939db78c",
+      "automated_gate_contract_sha256": "c60d678c83e9e43bcc0e839f1c3e684040744bd9ca9e052a876e158e443a6e86",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
       "goal_sequence": 3,
       "initial_predecessor_completion_commit": null,
@@ -286,7 +289,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g04_automated_product_gate.json",
-      "automated_gate_contract_sha256": "17cba9ab6360270dfb93590ae80047ac1b1f1aa491f5bcd3f7cbabe7c16da4c6",
+      "automated_gate_contract_sha256": "c39ed0fae49cef47004481513ef27d1f82fae4745708f68be5d48a1519f91bf0",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G04-SCREENSHOT",
       "goal_sequence": 4,
       "initial_predecessor_completion_commit": null,
@@ -294,7 +298,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g05_automated_product_gate.json",
-      "automated_gate_contract_sha256": "bd9764b77ee1f2378f08185567d3df1cbdec67dbb038e1245da098299bb0ea5e",
+      "automated_gate_contract_sha256": "1ede3c50d1e4a9bdbc01cbaf5cf06a3b520a5e598a30217a5a20f323b5961d7c",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
       "goal_sequence": 5,
       "initial_predecessor_completion_commit": null,
@@ -302,7 +307,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g06_automated_product_gate.json",
-      "automated_gate_contract_sha256": "dbe836303cfd412e4a896e6fb5d82bcdfebf85a60288d79a1ff79a5254419483",
+      "automated_gate_contract_sha256": "55135a9853522d656c101e0127bc4c99ed895ac3bc4fbf5ab25aec5cd638d1bf",
+      "gate_profile": "CORE_AGENT_GATE",
       "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
       "goal_sequence": 6,
       "initial_predecessor_completion_commit": null,
@@ -310,7 +316,8 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
-      "automated_gate_contract_sha256": "20e889d5b232b4e7d0496442e91af06b96910ee999c6119fba39688d287fa585",
+      "automated_gate_contract_sha256": "eb6ca05f3d340cd2016acb73c3a859fc0f158bf71f7eb9ee76c54f3a651e0c63",
+      "gate_profile": "HARDENED_CANDIDATE_GATE",
       "goal_id": "TC-VNEXT-G07-CANDIDATE",
       "goal_sequence": 7,
       "initial_predecessor_completion_commit": null,

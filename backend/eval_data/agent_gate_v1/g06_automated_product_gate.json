@@ -110,6 +110,7 @@
       "workdir": "miniapp"
     }
   ],
+  "gate_profile": "CORE_AGENT_GATE",
   "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
   "isolation": {
     "authority_secret_mount_count": 0,

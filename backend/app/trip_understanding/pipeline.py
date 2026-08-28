@@ -16,6 +16,7 @@ from app.trip_understanding.models import (
     ActivityRole,
     AssumptionChipView,
     CompiledActivity,
+    DestinationBasis,
     InferenceProposal,
     MapReadinessView,
     PipelineOutput,
@@ -146,7 +147,12 @@ class EvidenceCompiler:
 
 
 class PublicResultProjector:
-    def project(self, destination_name: str, activities: list[ResolvedActivity]) -> UserFacingTripResult:
+    def project(
+        self,
+        destination_name: str,
+        destination_basis: DestinationBasis,
+        activities: list[ResolvedActivity],
+    ) -> UserFacingTripResult:
         planned = [
             activity
             for activity in activities
@@ -196,7 +202,11 @@ class PublicResultProjector:
                 AssumptionChipView(
                     key="destination",
                     label="目的地",
-                    value=destination_name,
+                    value=(
+                        destination_name
+                        if destination_basis == DestinationBasis.EXPLICIT
+                        else f"暂按 {destination_name}"
+                    ),
                     editable=True,
                 ),
                 AssumptionChipView(
@@ -320,7 +330,11 @@ class TripUnderstandingPipeline:
                     ),
                 )
             )
-        public_result = self.projector.project(proposal.destination_name, resolved)
+        public_result = self.projector.project(
+            proposal.destination_name,
+            proposal.destination_basis,
+            resolved,
+        )
         fallback_used = proposal.binding.get("fallback_used") is True
         if budget_limited_count:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
@@ -350,7 +364,10 @@ class TripUnderstandingPipeline:
         }
         return PipelineOutput(
             source_hash=proposal.source_hash,
-            destination={"name": proposal.destination_name, "status": "EXPLICIT"},
+            destination={
+                "name": proposal.destination_name,
+                "status": proposal.destination_basis.value,
+            },
             assumptions=[
                 {"key": "calendar", "value": "DAY_INDEX_ONLY", "source": "SOFT_ASSUMPTION"},
                 {"key": "party_size", "value": 2, "source": "SOFT_ASSUMPTION"},

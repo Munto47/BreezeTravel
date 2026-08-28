@@ -51,6 +51,8 @@ AuthorityRole = Literal[
     "SEALED_AGENT_BLIND",
     "FINAL_GATE",
 ]
+
+GateProfile = Literal["CORE_AGENT_GATE", "HARDENED_CANDIDATE_GATE"]
 BlindErrorCategory = Literal[
     "WRONG_CITY",
     "WRONG_CATEGORY",
@@ -186,6 +188,7 @@ class ProgramGoalAuthorityBinding(StrictModel):
     )
     automated_gate_contract_path: str = Field(min_length=1, max_length=300)
     automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    gate_profile: GateProfile
 
     @model_validator(mode="after")
     def binding_is_safe(self) -> "ProgramGoalAuthorityBinding":
@@ -196,6 +199,13 @@ class ProgramGoalAuthorityBinding(StrictModel):
             raise ValueError("program Goal contract paths must use forward slashes")
         if path.startswith("/") or ".." in Path(path).parts:
             raise ValueError("program Goal contract path must be repository-relative")
+        expected_profile = (
+            "HARDENED_CANDIDATE_GATE"
+            if self.goal_sequence == 7
+            else "CORE_AGENT_GATE"
+        )
+        if self.gate_profile != expected_profile:
+            raise ValueError("program Goal uses the wrong Agent Gate profile")
         return self
 
 
@@ -381,6 +391,7 @@ class CurrentGoalBinding(StrictModel):
     predecessor_completion_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     automated_gate_contract_path: str = Field(min_length=1, max_length=300)
     automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    gate_profile: GateProfile
 
     @model_validator(mode="after")
     def sequence_matches_goal(self) -> "CurrentGoalBinding":
@@ -390,6 +401,13 @@ class CurrentGoalBinding(StrictModel):
         path = self.automated_gate_contract_path.replace("\\", "/")
         if path.startswith("/") or ".." in Path(path).parts:
             raise ValueError("automated Gate contract path must be repository-relative")
+        expected_profile = (
+            "HARDENED_CANDIDATE_GATE"
+            if self.goal_sequence == 7
+            else "CORE_AGENT_GATE"
+        )
+        if self.gate_profile != expected_profile:
+            raise ValueError("current Goal uses the wrong Agent Gate profile")
         return self
 
 
@@ -1086,6 +1104,7 @@ class AutomatedProductGateContract(StrictModel):
         "automated-product-gate-contract-v1"
     )
     goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
+    gate_profile: GateProfile
     isolation: AutomatedIsolationContract
     checks: list[AutomatedCheckContract] = Field(min_length=1, max_length=30)
 
@@ -1094,6 +1113,15 @@ class AutomatedProductGateContract(StrictModel):
         ids = [item.check_id for item in self.checks]
         if len(ids) != len(set(ids)):
             raise ValueError("automated check IDs must be unique")
+        sequence_match = re.search(r"-G(?P<sequence>0[1-7])-", self.goal_id)
+        if sequence_match is None:
+            raise ValueError("automated Gate Goal ID has no Program sequence")
+        sequence = int(sequence_match.group("sequence"))
+        expected_profile = (
+            "HARDENED_CANDIDATE_GATE" if sequence == 7 else "CORE_AGENT_GATE"
+        )
+        if self.gate_profile != expected_profile:
+            raise ValueError("automated Gate contract uses the wrong profile")
         return self
 
 

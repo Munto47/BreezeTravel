@@ -8,8 +8,8 @@
   },
   "canonical_place_authority": "PROVIDER_BOUND_AGENT_REFERENCE",
   "contract_code_sha256": {
-    "annotations.py": "df10064c353cf20fc3cebdde90b709870adcebb9a1a53598c7b0ad2ad5c081ff",
-    "contracts.py": "bc43b68da146a15e67e3a4721574c4a168d3b9201b0fae33d1af1132ff84223a",
+    "annotations.py": "74d0e5db827ec6462c9061ef4c42111e2580c892fc7473bca48b976051b9b3df",
+    "contracts.py": "a3527c4e023aadd0abc749efbde6fb4e5228445a55283ad82c0da6e0abad20d6",
     "split_loader.py": "81730e7e12545dfcbba5b1cb26f14695db860b550c75b2369322bd276e4e24a5"
   },
   "dataset_version": "g01-text-card-dataset-v1",
