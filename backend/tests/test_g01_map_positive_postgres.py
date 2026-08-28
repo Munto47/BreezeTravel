@@ -85,7 +85,14 @@ class PlanPlaceResolver:
         self.city = city
         self.place_ids = place_ids
 
-    async def resolve(self, *, city: str, atomic_place_name: str) -> ResolvedPlace | None:
+    async def resolve(
+        self,
+        *,
+        city: str,
+        atomic_place_name: str,
+        category_hint: str | None = None,
+    ) -> ResolvedPlace | None:
+        del category_hint
         if city != self.city or atomic_place_name not in self.place_ids:
             return None
         return ResolvedPlace(

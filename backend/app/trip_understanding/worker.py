@@ -7,8 +7,9 @@ import socket
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.connection import close_pool
+from app.trip_understanding.amap_place import AmapPlaceResolver
 from app.trip_understanding.demo import build_demo_pipeline
 from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.repository import (
@@ -19,6 +20,35 @@ from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_configured_full_pipeline(settings: Settings):
+    if settings.trip_understanding_provider_mode != "live":
+        return build_full_text_pipeline()
+    qwen = QwenStructuredInferenceProvider(
+        api_key=settings.qwen_api_key,
+        base_url=settings.qwen_api_url,
+        model=settings.trip_understanding_qwen_model,
+        deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
+        max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
+        input_cny_per_million=(
+            settings.trip_understanding_qwen_input_cny_per_million
+        ),
+        output_cny_per_million=(
+            settings.trip_understanding_qwen_output_cny_per_million
+        ),
+    )
+    amap = AmapPlaceResolver(
+        api_key=settings.amap_api_key,
+        deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
+    )
+    return build_full_text_pipeline(
+        qwen,
+        amap,
+        max_place_concurrency=(
+            settings.trip_understanding_amap_place_max_concurrency
+        ),
+    )
 
 
 class TripUnderstandingWorker:
@@ -67,22 +97,7 @@ class TripUnderstandingWorker:
 async def run_forever() -> None:
     settings = get_settings()
     worker_id = f"trip-understanding:{socket.gethostname()}:{os.getpid()}:{uuid4().hex[:8]}"
-    full_pipeline = build_full_text_pipeline()
-    if settings.trip_understanding_provider_mode == "live":
-        qwen = QwenStructuredInferenceProvider(
-            api_key=settings.qwen_api_key,
-            base_url=settings.qwen_api_url,
-            model=settings.trip_understanding_qwen_model,
-            deadline_seconds=settings.trip_understanding_qwen_deadline_seconds,
-            max_output_tokens=settings.trip_understanding_qwen_max_output_tokens,
-            input_cny_per_million=(
-                settings.trip_understanding_qwen_input_cny_per_million
-            ),
-            output_cny_per_million=(
-                settings.trip_understanding_qwen_output_cny_per_million
-            ),
-        )
-        full_pipeline = build_full_text_pipeline(qwen)
+    full_pipeline = build_configured_full_pipeline(settings)
     worker = TripUnderstandingWorker(
         PostgresTripUnderstandingRepository(),
         full_pipeline=full_pipeline,

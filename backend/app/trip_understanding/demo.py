@@ -180,7 +180,14 @@ class FixedBeijingPlaceResolver:
         "圆明园": ("fixture-bj-old-summer-palace", "公园", "海淀区·清华西路28号"),
     }
 
-    async def resolve(self, *, city: str, atomic_place_name: str) -> ResolvedPlace | None:
+    async def resolve(
+        self,
+        *,
+        city: str,
+        atomic_place_name: str,
+        category_hint: str | None = None,
+    ) -> ResolvedPlace | None:
+        del category_hint
         if city != "北京":
             return None
         value = self._PLACES.get(atomic_place_name)

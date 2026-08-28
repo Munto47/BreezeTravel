@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -20,6 +21,7 @@ from app.trip_understanding.models import (
     InferenceProposal,
     MapReadinessView,
     PipelineOutput,
+    PlaceResolutionOutcome,
     ResolutionStatus,
     ResolvedActivity,
     ResolvedPlace,
@@ -49,7 +51,13 @@ class StructuredInferenceProvider(Protocol):
 
 
 class PlaceResolver(Protocol):
-    async def resolve(self, *, city: str, atomic_place_name: str) -> ResolvedPlace | None: ...
+    async def resolve(
+        self,
+        *,
+        city: str,
+        atomic_place_name: str,
+        category_hint: str | None = None,
+    ) -> PlaceResolutionOutcome | ResolvedPlace | None: ...
 
 
 class ResilientStructuredInferenceProvider:
@@ -96,6 +104,17 @@ def is_atomic_planned_place(mention) -> bool:
     if any(word in candidate for word in ("预约", "说明", "网址", "链接")):
         return False
     return True
+
+
+def is_user_facing_planned_place(mention) -> bool:
+    if mention.role != ActivityRole.PLANNED or mention.day_index is None:
+        return False
+    candidate = (mention.atomic_place_name or mention.raw_text or "").strip()
+    if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
+        return False
+    if any(marker in candidate for marker in SENTENCE_MARKERS):
+        return False
+    return not any(word in candidate for word in ("预约", "说明", "网址", "链接"))
 
 
 class EvidenceCompiler:
@@ -156,8 +175,7 @@ class PublicResultProjector:
         planned = [
             activity
             for activity in activities
-            if activity.compiled.mention.role == ActivityRole.PLANNED
-            and activity.compiled.mention.day_index is not None
+            if is_user_facing_planned_place(activity.compiled.mention)
         ]
         day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
@@ -170,7 +188,7 @@ class PublicResultProjector:
                 (
                     activity
                     for activity in activities
-                    if activity.compiled.mention.role == ActivityRole.PLANNED
+                    if is_user_facing_planned_place(activity.compiled.mention)
                     and activity.compiled.mention.day_index == day_index
                 ),
                 key=lambda activity: activity.compiled.mention.sequence_index,
@@ -247,12 +265,65 @@ class TripUnderstandingPipeline:
         compiler: EvidenceCompiler | None = None,
         projector: PublicResultProjector | None = None,
         max_executable_activities: int = 80,
+        max_place_concurrency: int = 4,
     ) -> None:
+        if max_place_concurrency < 1 or max_place_concurrency > 8:
+            raise ValueError("place concurrency must be between 1 and 8")
         self.inference_provider = inference_provider
         self.place_resolver = place_resolver
         self.compiler = compiler or EvidenceCompiler()
         self.projector = projector or PublicResultProjector()
         self.max_executable_activities = max_executable_activities
+        self.max_place_concurrency = max_place_concurrency
+
+    async def _resolve_place(
+        self,
+        item: CompiledActivity,
+        *,
+        city: str,
+        semaphore: asyncio.Semaphore,
+    ) -> tuple[PlaceResolutionOutcome, bool]:
+        try:
+            async with semaphore:
+                raw_outcome = await self.place_resolver.resolve(
+                    city=city,
+                    atomic_place_name=item.mention.atomic_place_name or "",
+                    category_hint=item.mention.category_hint,
+                )
+        except PlaceProviderUnavailableError as exc:
+            return (
+                PlaceResolutionOutcome(
+                    receipt={
+                        "status": "UNAVAILABLE",
+                        "failure_category": exc.category,
+                        "provider_binding": exc.provider_binding,
+                        "external_calls": exc.external_call_count,
+                    }
+                ),
+                True,
+            )
+        if isinstance(raw_outcome, PlaceResolutionOutcome):
+            return raw_outcome, False
+        if isinstance(raw_outcome, ResolvedPlace):
+            return (
+                PlaceResolutionOutcome(
+                    place=raw_outcome,
+                    receipt={
+                        "status": "AUTO_MATCHED",
+                        **raw_outcome.provider_binding,
+                    },
+                ),
+                False,
+            )
+        return (
+            PlaceResolutionOutcome(
+                receipt={
+                    "status": "NO_UNIQUE_MATCH",
+                    "external_calls": 0,
+                }
+            ),
+            False,
+        )
 
     async def run(self, source_text: str) -> PipelineOutput:
         proposal = await self.inference_provider.propose(source_text)
@@ -261,8 +332,60 @@ class TripUnderstandingPipeline:
         attempted_count = 0
         unavailable_count = 0
         budget_limited_count = 0
+        deduplicated_count = 0
+        semaphore = asyncio.Semaphore(self.max_place_concurrency)
+        tasks_by_key: dict[
+            tuple[str, str, str],
+            asyncio.Task[tuple[PlaceResolutionOutcome, bool]],
+        ] = {}
+        resolution_slots: list[
+            tuple[str, asyncio.Task[tuple[PlaceResolutionOutcome, bool]] | None, bool, str]
+        ] = []
         for item in compiled:
             if not item.eligible_for_place_search:
+                resolution_slots.append(("NOT_ELIGIBLE", None, False, ""))
+                continue
+            if attempted_count >= self.max_executable_activities:
+                budget_limited_count += 1
+                resolution_slots.append(("BUDGET_LIMITED", None, False, ""))
+                continue
+            attempted_count += 1
+            resolution_key = (
+                proposal.destination_name.strip().casefold(),
+                (item.mention.atomic_place_name or "").strip().casefold(),
+                (item.mention.category_hint or "").strip().casefold(),
+            )
+            task = tasks_by_key.get(resolution_key)
+            is_owner = task is None
+            if task is None:
+                task = asyncio.create_task(
+                    self._resolve_place(
+                        item,
+                        city=proposal.destination_name,
+                        semaphore=semaphore,
+                    )
+                )
+                tasks_by_key[resolution_key] = task
+            else:
+                deduplicated_count += 1
+            resolution_slots.append(
+                (
+                    "RESOLVE",
+                    task,
+                    is_owner,
+                    canonical_sha256(resolution_key),
+                )
+            )
+
+        if tasks_by_key:
+            await asyncio.gather(*tasks_by_key.values())
+
+        for item, (slot_type, task, is_owner, resolution_key_sha256) in zip(
+            compiled,
+            resolution_slots,
+            strict=True,
+        ):
+            if slot_type == "NOT_ELIGIBLE":
                 resolved.append(
                     ResolvedActivity(
                         compiled=item,
@@ -274,8 +397,7 @@ class TripUnderstandingPipeline:
                     )
                 )
                 continue
-            if attempted_count >= self.max_executable_activities:
-                budget_limited_count += 1
+            if slot_type == "BUDGET_LIMITED":
                 resolved.append(
                     ResolvedActivity(
                         compiled=item,
@@ -289,27 +411,19 @@ class TripUnderstandingPipeline:
                     )
                 )
                 continue
-            attempted_count += 1
-            try:
-                place = await self.place_resolver.resolve(
-                    city=proposal.destination_name,
-                    atomic_place_name=item.mention.atomic_place_name or "",
+            assert task is not None
+            outcome, provider_unavailable = task.result()
+            unavailable_count += int(provider_unavailable)
+            receipt = dict(outcome.receipt)
+            if not is_owner:
+                receipt.update(
+                    {
+                        "external_calls": 0,
+                        "deduplicated": True,
+                        "resolution_key_sha256": resolution_key_sha256,
+                    }
                 )
-            except PlaceProviderUnavailableError as exc:
-                unavailable_count += 1
-                resolved.append(
-                    ResolvedActivity(
-                        compiled=item,
-                        resolution_status=ResolutionStatus.UNRESOLVED,
-                        resolver_receipt={
-                            "status": "UNAVAILABLE",
-                            "failure_category": exc.category,
-                            "provider_binding": exc.provider_binding,
-                            "external_calls": exc.external_call_count,
-                        },
-                    )
-                )
-                continue
+            place = outcome.place
             resolved.append(
                 ResolvedActivity(
                     compiled=item,
@@ -317,17 +431,7 @@ class TripUnderstandingPipeline:
                         ResolutionStatus.AUTO_MATCHED if place else ResolutionStatus.NEEDS_CONFIRMATION
                     ),
                     place=place,
-                    resolver_receipt=(
-                        {
-                            "status": "AUTO_MATCHED",
-                            **place.provider_binding,
-                        }
-                        if place
-                        else {
-                            "status": "NO_UNIQUE_MATCH",
-                            "external_calls": 0,
-                        }
-                    ),
+                    resolver_receipt=receipt,
                 )
             )
         public_result = self.projector.project(
@@ -349,6 +453,14 @@ class TripUnderstandingPipeline:
                 item.resolution_status == ResolutionStatus.NEEDS_CONFIRMATION for item in resolved
             ),
             "provider_unavailable_count": unavailable_count,
+            "unique_resolution_count": len(tasks_by_key),
+            "deduplicated_resolution_count": deduplicated_count,
+            "place_external_call_count": sum(
+                int(item.resolver_receipt.get("external_calls", 0))
+                for item in resolved
+                if isinstance(item.resolver_receipt.get("external_calls"), int)
+            ),
+            "max_place_concurrency": self.max_place_concurrency,
             "budget_limited_count": budget_limited_count,
             "max_executable_activities": self.max_executable_activities,
             "inference_fallback_used": fallback_used,

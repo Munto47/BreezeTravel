@@ -236,7 +236,14 @@ class DeterministicTextInferenceProvider:
 
 
 class ControlledSnapshotPlaceResolver:
-    async def resolve(self, *, city: str, atomic_place_name: str) -> ResolvedPlace | None:
+    async def resolve(
+        self,
+        *,
+        city: str,
+        atomic_place_name: str,
+        category_hint: str | None = None,
+    ) -> ResolvedPlace | None:
+        del category_hint
         if city not in _DEEP_CITIES:
             return None
         candidates = [fact for fact in _PLACES_BY_NAME.get(atomic_place_name, []) if fact.city == city]
@@ -259,6 +266,8 @@ class ControlledSnapshotPlaceResolver:
 def build_full_text_pipeline(
     primary_inference_provider: StructuredInferenceProvider | None = None,
     place_resolver: PlaceResolver | None = None,
+    *,
+    max_place_concurrency: int = 4,
 ) -> TripUnderstandingPipeline:
     deterministic_fallback = DeterministicTextInferenceProvider()
     return TripUnderstandingPipeline(
@@ -271,4 +280,5 @@ def build_full_text_pipeline(
             else deterministic_fallback
         ),
         place_resolver=place_resolver or ControlledSnapshotPlaceResolver(),
+        max_place_concurrency=max_place_concurrency,
     )

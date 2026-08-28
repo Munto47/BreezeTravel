@@ -170,6 +170,8 @@ class Settings(BaseSettings):
     trip_understanding_qwen_max_output_tokens: int = 2048
     trip_understanding_qwen_input_cny_per_million: float | None = None
     trip_understanding_qwen_output_cny_per_million: float | None = None
+    trip_understanding_amap_place_deadline_seconds: float = 3.0
+    trip_understanding_amap_place_max_concurrency: int = 4
     map_render_job_lease_seconds: int = 30
     map_render_worker_poll_seconds: float = 0.5
     memory_enabled_default: bool = True

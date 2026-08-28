@@ -74,6 +74,11 @@ class ResolvedPlace(StrictModel):
     provider_binding: dict[str, object]
 
 
+class PlaceResolutionOutcome(StrictModel):
+    place: ResolvedPlace | None = None
+    receipt: dict[str, object]
+
+
 class ResolvedActivity(StrictModel):
     compiled: CompiledActivity
     resolution_status: ResolutionStatus

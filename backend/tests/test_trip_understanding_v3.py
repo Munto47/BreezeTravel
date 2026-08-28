@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
@@ -44,6 +45,7 @@ from app.trip_understanding.models import (
     InferenceProposal,
     PlaceReplaceCommand,
     ProposedMention,
+    ResolvedPlace,
 )
 from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
@@ -161,6 +163,72 @@ async def test_full_text_unknown_or_reference_only_input_does_not_invent_a_place
 
 
 @pytest.mark.asyncio
+async def test_only_atomic_planned_mentions_reach_place_provider_or_public_cards() -> None:
+    source = (
+        "北京 Day 1 故宫博物院；天坛公园仅作备选；景山公园只是参考；"
+        "路过王府井地铁站；排除颐和园；预约说明；https://example.invalid/place"
+    )
+    values = [
+        ("故宫博物院", "PLANNED"),
+        ("天坛公园", "OPTIONAL"),
+        ("景山公园", "REFERENCE"),
+        ("王府井地铁站", "PASS_THROUGH"),
+        ("颐和园", "EXCLUDED"),
+        ("预约说明", "PLANNED"),
+        ("https://example.invalid/place", "PLANNED"),
+    ]
+
+    class RoleProvider:
+        async def propose(self, source_text: str):
+            mentions = []
+            for index, (raw, role) in enumerate(values):
+                start = source_text.index(raw)
+                mentions.append(
+                    ProposedMention(
+                        mention_id=f"role-{index}",
+                        raw_text=raw,
+                        span_start=start,
+                        span_end=start + len(raw),
+                        role=role,
+                        day_index=1 if role == "PLANNED" else None,
+                        sequence_index=index,
+                        atomic_place_name=raw,
+                    )
+                )
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="北京",
+                mentions=mentions,
+                binding={"provider": "role-test-double", "external_calls": 0},
+            )
+
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, category_hint
+            self.calls.append(atomic_place_name)
+            return None
+
+    resolver = RecordingResolver()
+    output = await TripUnderstandingPipeline(RoleProvider(), resolver).run(source)
+
+    assert resolver.calls == ["故宫博物院"]
+    cards = [card for day in output.public_result.days for card in day.activities]
+    assert [card.name for card in cards] == ["故宫博物院"]
+    public = json.dumps(output.public_result.model_dump(mode="json"), ensure_ascii=False)
+    assert "预约说明" not in public
+    assert "https://" not in public
+
+
+@pytest.mark.asyncio
 async def test_typed_inference_outage_uses_explicit_local_fallback_and_returns_editable_partial() -> None:
     class UnavailableInferenceProvider:
         async def propose(self, source_text: str):
@@ -191,8 +259,14 @@ async def test_typed_inference_outage_uses_explicit_local_fallback_and_returns_e
 @pytest.mark.asyncio
 async def test_typed_place_provider_outage_keeps_every_planned_card_editable() -> None:
     class UnavailablePlaceResolver:
-        async def resolve(self, *, city: str, atomic_place_name: str):
-            del city, atomic_place_name
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, atomic_place_name, category_hint
             raise PlaceProviderUnavailableError(
                 "PROVIDER_UNAVAILABLE",
                 provider_binding={"provider": "amap-test-double"},
@@ -310,8 +384,14 @@ async def test_executable_activity_budget_preserves_all_cards_and_returns_limite
         def __init__(self) -> None:
             self.calls = 0
 
-        async def resolve(self, *, city: str, atomic_place_name: str):
-            del city, atomic_place_name
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, atomic_place_name, category_hint
             self.calls += 1
             return None
 
@@ -325,6 +405,84 @@ async def test_executable_activity_budget_preserves_all_cards_and_returns_limite
     assert output.resolution_receipt["budget_limited_count"] == 1
     assert output.resolution_receipt["max_executable_activities"] == 80
     assert output.activities[-1].resolver_receipt["status"] == "BUDGET_LIMITED"
+
+
+@pytest.mark.asyncio
+async def test_place_resolution_is_deduplicated_bounded_and_order_preserving() -> None:
+    names = ["故宫博物院", "景山公园", "故宫博物院", "天坛公园"]
+    source_text = "北京 Day 1 " + "、".join(names)
+
+    class OrderedProvider:
+        async def propose(self, source: str):
+            mentions = []
+            cursor = 0
+            for index, name in enumerate(names):
+                start = source.index(name, cursor)
+                cursor = start + len(name)
+                mentions.append(
+                    ProposedMention(
+                        mention_id=f"ordered-{index}",
+                        raw_text=name,
+                        span_start=start,
+                        span_end=cursor,
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=index,
+                        atomic_place_name=name,
+                        category_hint="景点",
+                    )
+                )
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source.encode("utf-8")).hexdigest(),
+                destination_name="北京",
+                mentions=mentions,
+                binding={"provider": "ordered-test-double", "external_calls": 0},
+            )
+
+    class BoundedResolver:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+            self.active = 0
+            self.maximum_active = 0
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            assert city == "北京"
+            assert category_hint == "景点"
+            self.calls.append(atomic_place_name)
+            self.active += 1
+            self.maximum_active = max(self.maximum_active, self.active)
+            await asyncio.sleep(0.01)
+            self.active -= 1
+            return ResolvedPlace(
+                canonical_place_id=f"test-{atomic_place_name}",
+                name=atomic_place_name,
+                category="景点",
+                area_or_address="测试地址",
+                provider_binding={"provider": "test-double", "external_calls": 1},
+            )
+
+    resolver = BoundedResolver()
+    output = await TripUnderstandingPipeline(
+        OrderedProvider(),
+        resolver,
+        max_place_concurrency=2,
+    ).run(source_text)
+
+    cards = [card for day in output.public_result.days for card in day.activities]
+    assert [card.name for card in cards] == names
+    assert resolver.calls == ["故宫博物院", "景山公园", "天坛公园"]
+    assert resolver.maximum_active == 2
+    assert output.resolution_receipt["unique_resolution_count"] == 3
+    assert output.resolution_receipt["deduplicated_resolution_count"] == 1
+    assert output.resolution_receipt["place_external_call_count"] == 3
+    assert output.activities[2].resolver_receipt["deduplicated"] is True
+    assert output.activities[2].resolver_receipt["external_calls"] == 0
 
 
 def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:
