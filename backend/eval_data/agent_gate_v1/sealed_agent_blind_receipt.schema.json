@@ -99,17 +99,41 @@
       "type": "object"
     },
     "attempt_commitment_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Attempt Commitment Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Attempt Commitment Sha256"
     },
     "authority_policy_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Authority Policy Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Policy Sha256"
     },
     "authority_signature": {
-      "$ref": "#/$defs/DetachedAuthoritySignature"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetachedAuthoritySignature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "blind_truth_returned_to_developer": {
       "const": false,
@@ -128,9 +152,17 @@
       "type": "string"
     },
     "case_set_commitment_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Case Set Commitment Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Case Set Commitment Sha256"
     },
     "completed_at": {
       "format": "date-time",
@@ -149,14 +181,30 @@
       "type": "string"
     },
     "custody_registry_identity_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Custody Registry Identity Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Custody Registry Identity Sha256"
     },
     "deterministic_score_receipt_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Deterministic Score Receipt Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Deterministic Score Receipt Sha256"
     },
     "error_taxonomy": {
       "items": {
@@ -184,6 +232,14 @@
       "title": "Evidence Level",
       "type": "string"
     },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
     "goal_id": {
       "pattern": "^TC-[A-Z0-9-]+$",
       "title": "Goal Id",
@@ -201,9 +257,17 @@
       "type": "string"
     },
     "mint_receipt_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Mint Receipt Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mint Receipt Sha256"
     },
     "model": {
       "const": "gpt-5.6-sol",
@@ -218,9 +282,17 @@
       "type": "boolean"
     },
     "one_shot_nonce_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "One Shot Nonce Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "One Shot Nonce Sha256"
     },
     "organizational_independence_claimed": {
       "const": false,
@@ -277,14 +349,27 @@
       "type": "string"
     },
     "score_input_manifest_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Score Input Manifest Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Score Input Manifest Sha256"
     },
     "scored_case_count": {
       "minimum": 1,
       "title": "Scored Case Count",
       "type": "integer"
+    },
+    "scorer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Scorer Sha256",
+      "type": "string"
     },
     "taxonomy_counts": {
       "additionalProperties": {
@@ -314,12 +399,28 @@
       "type": "string"
     },
     "tranche_commitment_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Tranche Commitment Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Tranche Commitment Sha256"
     },
     "truth_bundle_commitment": {
-      "$ref": "#/$defs/TruthBundleCommitment"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/TruthBundleCommitment"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "verdict": {
       "enum": [
@@ -332,26 +433,18 @@
     }
   },
   "required": [
+    "gate_profile",
     "goal_id",
     "candidate_commit",
     "candidate_tree",
-    "tranche_commitment_sha256",
-    "one_shot_nonce_sha256",
-    "attempt_commitment_sha256",
-    "custody_registry_identity_sha256",
-    "authority_policy_sha256",
-    "mint_receipt_sha256",
     "prompt_sha256",
     "schema_sha256",
     "thresholds_sha256",
     "config_sha256",
     "provider_binding_sha256",
-    "deterministic_score_receipt_sha256",
-    "score_input_manifest_sha256",
+    "scorer_sha256",
     "input_bundle_sha256",
     "prediction_bundle_sha256",
-    "truth_bundle_commitment",
-    "case_set_commitment_sha256",
     "scored_case_count",
     "custodian_task_id",
     "aggregate_metrics",
@@ -359,8 +452,7 @@
     "error_taxonomy",
     "required_gate_metrics_passed",
     "verdict",
-    "completed_at",
-    "authority_signature"
+    "completed_at"
   ],
   "title": "SealedAgentBlindReceipt",
   "type": "object"

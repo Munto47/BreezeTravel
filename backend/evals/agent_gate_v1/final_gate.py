@@ -332,6 +332,7 @@ def verify_agent_gate_pass(
 
     unsigned = {
         "schema_version": "agent-gate-pass-receipt-v2",
+        "gate_profile": goal_binding.gate_profile,
         "goal_sequence": goal_binding.goal_sequence,
         "goal_id": expected_goal_id,
         "predecessor_goal_id": goal_binding.predecessor_goal_id,
@@ -356,6 +357,7 @@ def verify_agent_gate_pass(
         "canonical_origin_url": anchored.manifest.canonical_origin_url,
         "candidate_config_sha256": config_sha256,
         "candidate_data_sha256": data_sha256,
+        "frozen_binding_sha256": {},
         "component_receipt_sha256": receipt_hashes,
         "fresh_checkout_root_sha256": hashlib.sha256(
             str(fresh_root).encode("utf-8")

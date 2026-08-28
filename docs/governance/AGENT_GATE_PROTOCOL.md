@@ -28,6 +28,8 @@ G01～G07 的开发门禁使用可复现、上下文隔离的多 Agent 模拟审
 - `CORE_AGENT_GATE`适用于G01～G06：固定候选、输入、prompt、schema和scorer；运行当前Goal所需自动化/live Provider、三角色审查、ultra裁决、所需sealed blind和clean checkout readback。
 - `HARDENED_CANDIDATE_GATE`适用于G07：在CORE之上，根据明确威胁模型增加外部authority、purpose-specific broker、角色签名、不可变远端ref、隔离OCI和供应链回读。
 - G07/H1/生产级机制不得前置成为G01～G06的required检查；它们未运行时记录`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不阻断CORE Gate。
+
+CORE最终入口固定为现有`build_agent_gate_pass.py`按`gate_profile`选择的`agent_gate_v1.core_gate`：它不加载authority、custody、broker、registry、角色私钥或OCI路径，只在独立干净checkout实际执行当前Goal冻结命令，并聚合同commit的validation live score、三角色panel verification、一次sealed blind和远端subject/tree回读。CORE自动回执明确写`FRESH_CLEAN_CHECKOUT`且不得携带OCI或authority声明；最终PASS仍绑定candidate tree、config/data以及model/prompt/schema/config/provider/threshold/scorer hash。`agent_gate_v1.final_gate`及签名组件入口继续只服务G07 HARDENED，并在未激活时fail closed。
 - 连续两个checkpoint没有产品代码/API/UI、真实模型/Provider或产品评测指标进展时，必须暂停Gate基础设施扩展并执行`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`中的转向规则。
 
 ## 2. 固定任务编组

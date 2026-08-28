@@ -836,26 +836,28 @@ class SealedAgentBlindMintReceipt(StrictModel):
 
 class SealedAgentBlindReceipt(StrictModel):
     schema_version: Literal["sealed-agent-blind-receipt-v2"] = SEALED_AGENT_BLIND_SCHEMA_VERSION
+    gate_profile: GateProfile
     goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
     candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
-    tranche_commitment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    one_shot_nonce_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    attempt_commitment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    custody_registry_identity_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    authority_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    mint_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    tranche_commitment_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    one_shot_nonce_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    attempt_commitment_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    custody_registry_identity_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    authority_policy_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    mint_receipt_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     prompt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     schema_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     thresholds_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     provider_binding_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    deterministic_score_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    score_input_manifest_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    scorer_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    deterministic_score_receipt_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    score_input_manifest_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     input_bundle_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     prediction_bundle_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    truth_bundle_commitment: TruthBundleCommitment
-    case_set_commitment_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    truth_bundle_commitment: TruthBundleCommitment | None = None
+    case_set_commitment_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     scored_case_count: int = Field(ge=1)
     custodian_task_id: str = Field(min_length=8, max_length=160)
     model: Literal["gpt-5.6-sol"] = "gpt-5.6-sol"
@@ -873,7 +875,7 @@ class SealedAgentBlindReceipt(StrictModel):
     evidence_level: Literal["SEALED_AGENT_BLIND"] = "SEALED_AGENT_BLIND"
     verdict: ReviewVerdict
     completed_at: datetime
-    authority_signature: DetachedAuthoritySignature
+    authority_signature: DetachedAuthoritySignature | None = None
 
     @model_validator(mode="after")
     def verdict_matches_deterministic_gate_result(self) -> "SealedAgentBlindReceipt":
@@ -889,8 +891,31 @@ class SealedAgentBlindReceipt(StrictModel):
         ]
         if self.error_taxonomy != expected_taxonomy:
             raise ValueError("sealed blind error taxonomy contradicts scorer counts")
-        if self.authority_signature.authority_role != "SEALED_CUSTODY":
-            raise ValueError("sealed blind result requires the pinned custody authority")
+        hardened_values = (
+            self.tranche_commitment_sha256,
+            self.one_shot_nonce_sha256,
+            self.attempt_commitment_sha256,
+            self.custody_registry_identity_sha256,
+            self.authority_policy_sha256,
+            self.mint_receipt_sha256,
+            self.deterministic_score_receipt_sha256,
+            self.score_input_manifest_sha256,
+            self.truth_bundle_commitment,
+            self.case_set_commitment_sha256,
+        )
+        if self.gate_profile == "CORE_AGENT_GATE":
+            if not re.match(r"^TC-VNEXT-G0[1-6]-", self.goal_id):
+                raise ValueError("CORE sealed blind is restricted to G01-G06")
+            if any(value is not None for value in hardened_values):
+                raise ValueError("CORE sealed blind cannot claim HARDENED custody evidence")
+            if self.authority_signature is not None:
+                raise ValueError("CORE sealed blind cannot carry an authority signature")
+        elif (
+            any(value is None for value in hardened_values)
+            or self.authority_signature is None
+            or self.authority_signature.authority_role != "SEALED_CUSTODY"
+        ):
+            raise ValueError("HARDENED sealed blind requires complete custody authority")
         return self
 
 
@@ -1148,15 +1173,24 @@ class AutomatedProductExecutionManifest(StrictModel):
         "automated-product-execution-manifest-v1"
     )
     goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
+    gate_profile: GateProfile
     candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
     candidate_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_data_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    isolation_mode: Literal["OCI_EPHEMERAL_NO_HOST_MOUNTS"]
-    runner_recipe_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    runner_entrypoint_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    runner_context_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    isolation_mode: Literal[
+        "FRESH_CLEAN_CHECKOUT", "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+    ]
+    runner_recipe_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    runner_entrypoint_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    runner_context_policy_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     runner_image_id: str | None = Field(
         default=None,
         pattern=r"^sha256:[0-9a-f]{64}$",
@@ -1175,7 +1209,7 @@ class AutomatedProductExecutionManifest(StrictModel):
     network_access: Literal[False] = False
     host_mount_count: Literal[0] = 0
     host_pid_namespace: Literal[False] = False
-    synthetic_profile: Literal[True] = True
+    synthetic_profile: bool
     authority_secret_mount_count: Literal[0] = 0
     checks: list[AutomatedCheckExecution] = Field(max_length=30)
     checks_not_run: list[str] = Field(max_length=30)
@@ -1192,6 +1226,42 @@ class AutomatedProductExecutionManifest(StrictModel):
         ids = [item.check_id for item in self.checks]
         if len(ids) != len(set(ids)):
             raise ValueError("automated execution check IDs must be unique")
+        if self.gate_profile == "CORE_AGENT_GATE":
+            if self.isolation_mode != "FRESH_CLEAN_CHECKOUT":
+                raise ValueError("CORE automation must use a fresh clean checkout")
+            if self.synthetic_profile:
+                raise ValueError("CORE automation cannot claim the OCI synthetic profile")
+            if any(
+                value is not None
+                for value in (
+                    self.runner_recipe_sha256,
+                    self.runner_entrypoint_sha256,
+                    self.runner_context_policy_sha256,
+                    self.runner_image_id,
+                    self.runner_image_archive_format,
+                    self.runner_image_archive_path,
+                    self.runner_image_archive_sha256,
+                    self.runner_image_archive_size,
+                    self.failure_stage,
+                )
+            ):
+                raise ValueError("CORE automation cannot claim OCI runner evidence")
+            if self.verdict != "PASS" or not self.checks or self.checks_not_run:
+                raise ValueError("CORE automation requires every configured check to pass")
+            return self
+        if self.isolation_mode != "OCI_EPHEMERAL_NO_HOST_MOUNTS":
+            raise ValueError("HARDENED automation must use the isolated OCI runner")
+        if not self.synthetic_profile:
+            raise ValueError("HARDENED automation requires the synthetic OCI profile")
+        if any(
+            value is None
+            for value in (
+                self.runner_recipe_sha256,
+                self.runner_entrypoint_sha256,
+                self.runner_context_policy_sha256,
+            )
+        ):
+            raise ValueError("HARDENED automation requires the OCI runner bindings")
         if self.verdict == "PASS":
             if (
                 not self.checks
@@ -1341,6 +1411,7 @@ class SealedBlindVerificationReceipt(StrictModel):
 
 class AgentGatePassReceipt(StrictModel):
     schema_version: Literal["agent-gate-pass-receipt-v2"] = "agent-gate-pass-receipt-v2"
+    gate_profile: GateProfile
     goal_sequence: int = Field(ge=1, le=7)
     goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
     predecessor_goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
@@ -1350,15 +1421,22 @@ class AgentGatePassReceipt(StrictModel):
     automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
-    authority_anchor_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
-    authority_policy_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    authority_generation: int = Field(ge=1, le=7)
-    authority_anchor_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    authority_anchor_commit: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{40}$"
+    )
+    authority_policy_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+    authority_generation: int | None = Field(default=None, ge=1, le=7)
+    authority_anchor_receipt_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     canonical_origin_url: Literal["https://github.com/Munto47/BreezeTravel.git"] = (
         "https://github.com/Munto47/BreezeTravel.git"
     )
     candidate_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     candidate_data_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    frozen_binding_sha256: dict[str, str] = Field(default_factory=dict)
     component_receipt_sha256: dict[AgentGateComponent, str]
     fresh_checkout_root_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     remote_name: str = Field(min_length=1, max_length=80)
@@ -1371,14 +1449,12 @@ class AgentGatePassReceipt(StrictModel):
     production_status: Literal["NOT_RUN"] = "NOT_RUN"
     verdict: Literal["AGENT_GATE_PASS"] = "AGENT_GATE_PASS"
     completed_at: datetime
-    authority_signature: DetachedAuthoritySignature
+    authority_signature: DetachedAuthoritySignature | None = None
 
     @model_validator(mode="after")
     def all_components_and_levels_are_present(self) -> "AgentGatePassReceipt":
         if not self.goal_id.startswith(f"TC-VNEXT-G{self.goal_sequence:02d}-"):
             raise ValueError("AGENT_GATE_PASS Goal sequence and ID disagree")
-        if self.authority_generation != self.goal_sequence:
-            raise ValueError("AGENT_GATE_PASS must use the Goal-scoped authority generation")
         required_components = {
             "AUTOMATED_PRODUCT_GATE",
             "LIVE_PROVIDER_GATE",
@@ -1395,6 +1471,44 @@ class AgentGatePassReceipt(StrictModel):
         }
         if not required_levels.issubset(self.evidence_levels):
             raise ValueError("AGENT_GATE_PASS evidence levels are incomplete")
-        if self.authority_signature.authority_role != "FINAL_GATE":
-            raise ValueError("AGENT_GATE_PASS requires the pinned final Gate authority")
+        if any(
+            not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", key)
+            or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for key, value in self.frozen_binding_sha256.items()
+        ):
+            raise ValueError("AGENT_GATE_PASS frozen bindings are invalid")
+        authority_values = (
+            self.authority_anchor_commit,
+            self.authority_policy_sha256,
+            self.authority_generation,
+            self.authority_anchor_receipt_sha256,
+        )
+        if self.gate_profile == "CORE_AGENT_GATE":
+            if self.goal_sequence == 7:
+                raise ValueError("CORE_AGENT_GATE is restricted to G01-G06")
+            if any(value is not None for value in authority_values):
+                raise ValueError("CORE_AGENT_GATE cannot claim HARDENED authority")
+            if self.authority_signature is not None:
+                raise ValueError("CORE_AGENT_GATE cannot carry an authority signature")
+            required_bindings = {
+                "model",
+                "prompt",
+                "schema",
+                "config",
+                "provider",
+                "thresholds",
+                "dev_validation_scorer",
+                "sealed_scorer",
+                "review_schema",
+                "adjudication_schema",
+            }
+            if set(self.frozen_binding_sha256) != required_bindings:
+                raise ValueError("CORE_AGENT_GATE frozen binding set is incomplete")
+        elif (
+            self.authority_generation != self.goal_sequence
+            or any(value is None for value in authority_values)
+            or self.authority_signature is None
+            or self.authority_signature.authority_role != "FINAL_GATE"
+        ):
+            raise ValueError("HARDENED_CANDIDATE_GATE requires G07 authority")
         return self

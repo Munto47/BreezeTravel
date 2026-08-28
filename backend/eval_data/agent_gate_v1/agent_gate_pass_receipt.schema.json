@@ -53,28 +53,68 @@
   "additionalProperties": false,
   "properties": {
     "authority_anchor_commit": {
-      "pattern": "^[0-9a-f]{40}$",
-      "title": "Authority Anchor Commit",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Anchor Commit"
     },
     "authority_anchor_receipt_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Authority Anchor Receipt Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Anchor Receipt Sha256"
     },
     "authority_generation": {
-      "maximum": 7,
-      "minimum": 1,
-      "title": "Authority Generation",
-      "type": "integer"
+      "anyOf": [
+        {
+          "maximum": 7,
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Generation"
     },
     "authority_policy_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Authority Policy Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Policy Sha256"
     },
     "authority_signature": {
-      "$ref": "#/$defs/DetachedAuthoritySignature"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetachedAuthoritySignature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "automated_gate_contract_sha256": {
       "pattern": "^[0-9a-f]{64}$",
@@ -158,6 +198,21 @@
       "title": "Fresh Checkout Root Sha256",
       "type": "string"
     },
+    "frozen_binding_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Frozen Binding Sha256",
+      "type": "object"
+    },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
     "goal_id": {
       "pattern": "^TC-[A-Z0-9-]+$",
       "title": "Goal Id",
@@ -231,6 +286,7 @@
     }
   },
   "required": [
+    "gate_profile",
     "goal_sequence",
     "goal_id",
     "predecessor_goal_id",
@@ -240,10 +296,6 @@
     "automated_gate_contract_sha256",
     "candidate_commit",
     "candidate_tree",
-    "authority_anchor_commit",
-    "authority_policy_sha256",
-    "authority_generation",
-    "authority_anchor_receipt_sha256",
     "candidate_config_sha256",
     "candidate_data_sha256",
     "component_receipt_sha256",
@@ -254,8 +306,7 @@
     "remote_tree",
     "verifier_sha256",
     "evidence_levels",
-    "completed_at",
-    "authority_signature"
+    "completed_at"
   ],
   "title": "AgentGatePassReceipt",
   "type": "object"

@@ -1046,6 +1046,7 @@ def test_automation_host_command_cannot_be_shadowed_by_candidate_cwd(
 def test_automation_not_run_manifest_cannot_be_mistaken_for_pass() -> None:
     common = {
         "goal_id": GOAL_ID,
+        "gate_profile": "HARDENED_CANDIDATE_GATE",
         "candidate_commit": "1" * 40,
         "candidate_tree": "2" * 40,
         "candidate_config_sha256": "3" * 64,
@@ -1744,6 +1745,7 @@ def test_strict_component_requires_role_signature_and_exact_upstream(
         {
             "schema_version": "automated-product-execution-manifest-v1",
             "goal_id": GOAL_ID,
+            "gate_profile": "HARDENED_CANDIDATE_GATE",
             "candidate_commit": component_subject,
             "candidate_tree": component_tree,
             "candidate_config_sha256": "1" * 64,
@@ -2187,6 +2189,7 @@ def test_external_goal_pass_registry_is_idempotent_and_required_for_next_goal(
     )
     unsigned = {
         "schema_version": "agent-gate-pass-receipt-v2",
+        "gate_profile": "HARDENED_CANDIDATE_GATE",
         "goal_sequence": 1,
         "goal_id": GOAL_ID,
         "predecessor_goal_id": g01.predecessor_goal_id,
@@ -2203,6 +2206,7 @@ def test_external_goal_pass_registry_is_idempotent_and_required_for_next_goal(
         "canonical_origin_url": "https://github.com/Munto47/BreezeTravel.git",
         "candidate_config_sha256": "c" * 64,
         "candidate_data_sha256": "d" * 64,
+        "frozen_binding_sha256": {},
         "component_receipt_sha256": {
             "AUTOMATED_PRODUCT_GATE": "1" * 64,
             "LIVE_PROVIDER_GATE": "2" * 64,

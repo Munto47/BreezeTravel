@@ -132,6 +132,14 @@
       "title": "Gate Contract Sha256",
       "type": "string"
     },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
     "goal_id": {
       "pattern": "^TC-[A-Z0-9-]+$",
       "title": "Goal Id",
@@ -150,7 +158,10 @@
       "type": "boolean"
     },
     "isolation_mode": {
-      "const": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
+      "enum": [
+        "FRESH_CLEAN_CHECKOUT",
+        "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+      ],
       "title": "Isolation Mode",
       "type": "string"
     },
@@ -161,14 +172,30 @@
       "type": "boolean"
     },
     "runner_context_policy_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Runner Context Policy Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Context Policy Sha256"
     },
     "runner_entrypoint_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Runner Entrypoint Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Entrypoint Sha256"
     },
     "runner_image_archive_format": {
       "anyOf": [
@@ -237,9 +264,17 @@
       "title": "Runner Image Id"
     },
     "runner_recipe_sha256": {
-      "pattern": "^[0-9a-f]{64}$",
-      "title": "Runner Recipe Sha256",
-      "type": "string"
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Recipe Sha256"
     },
     "schema_version": {
       "const": "automated-product-execution-manifest-v1",
@@ -248,8 +283,6 @@
       "type": "string"
     },
     "synthetic_profile": {
-      "const": true,
-      "default": true,
       "title": "Synthetic Profile",
       "type": "boolean"
     },
@@ -264,15 +297,14 @@
   },
   "required": [
     "goal_id",
+    "gate_profile",
     "candidate_commit",
     "candidate_tree",
     "candidate_config_sha256",
     "candidate_data_sha256",
     "gate_contract_sha256",
     "isolation_mode",
-    "runner_recipe_sha256",
-    "runner_entrypoint_sha256",
-    "runner_context_policy_sha256",
+    "synthetic_profile",
     "checks",
     "checks_not_run",
     "verdict"

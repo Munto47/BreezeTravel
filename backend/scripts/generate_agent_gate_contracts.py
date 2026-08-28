@@ -435,7 +435,7 @@ def generate(
         "strict_component_raw_revalidation": True,
         "automated_component_fresh_command_rerun": True,
         "automated_component_subprocess_environment": (
-            "OCI_NO_NETWORK_NO_HOST_MOUNTS_NO_HOST_PID_SYNTHETIC_PROFILE"
+            "CORE_FRESH_CLEAN_CHECKOUT_OR_HARDENED_OCI_BY_GATE_PROFILE"
         ),
         "automation_runner_recipe_sha256": _sha256(
             GENERAL_SOURCE_ROOT / "automation_runner.Dockerfile"
@@ -465,7 +465,9 @@ def generate(
             "canonical_sha256(input_bundle_sha256,case_set_commitment_sha256,"
             "truth_bundle_commitment)"
         ),
-        "final_agent_gate_pass_aggregator": "evals.agent_gate_v1.final_gate",
+        "final_agent_gate_pass_aggregator": "PROFILE_SELECTED_BY_GATE_PROFILE",
+        "core_agent_gate_pass_aggregator": "evals.agent_gate_v1.core_gate",
+        "hardened_agent_gate_pass_aggregator": "evals.agent_gate_v1.final_gate",
         "remote_and_fresh_checkout_readback_required": True,
         "immutable_candidate_ref_per_goal_commit": True,
         "blocking_findings": ["P0", "P1", "P2_IN_CURRENT_GOAL"],
@@ -486,6 +488,9 @@ def generate(
         },
         "contract_code_sha256": {
             "contracts.py": _sha256(BACKEND_ROOT / "evals" / "agent_gate_v1" / "contracts.py"),
+            "core_gate.py": _sha256(
+                BACKEND_ROOT / "evals" / "agent_gate_v1" / "core_gate.py"
+            ),
             "automation_isolation.py": _sha256(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "automation_isolation.py"
             ),
