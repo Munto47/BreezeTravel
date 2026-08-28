@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -32,6 +33,19 @@ _CONFIG_PATH = _PROMPT_PATH.with_name("qwen_inference_config.json")
 _MODEL_PANEL_PATH = _PROMPT_PATH.with_name("qwen_model_panel.json")
 _FORBIDDEN_ATOMIC_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = set("。！？；\n")
+_URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
+
+
+def _verbatim_offsets_outside_urls(source_text: str, value: str) -> list[int]:
+    url_spans = [match.span() for match in _URL_TOKEN_RE.finditer(source_text)]
+    offsets: list[int] = []
+    offset = source_text.find(value)
+    while offset >= 0:
+        end = offset + len(value)
+        if not any(offset < url_end and end > url_start for url_start, url_end in url_spans):
+            offsets.append(offset)
+        offset = source_text.find(value, offset + 1)
+    return offsets
 
 
 def _redacted_validation_category(exc: Exception) -> str:
@@ -333,14 +347,18 @@ class QwenStructuredInferenceProvider:
         destination = draft.destination
         destination_span_relocation_count = 0
         if destination.basis == DestinationBasis.EXPLICIT:
-            if source_text[
-                destination.evidence_span_start : destination.evidence_span_end
-            ] != destination.name:
-                destination_offsets = []
-                offset = source_text.find(destination.name)
-                while offset >= 0:
-                    destination_offsets.append(offset)
-                    offset = source_text.find(destination.name, offset + 1)
+            destination_span = (
+                destination.evidence_span_start,
+                destination.evidence_span_end,
+            )
+            destination_offsets = _verbatim_offsets_outside_urls(
+                source_text,
+                destination.name,
+            )
+            if (
+                source_text[slice(*destination_span)] != destination.name
+                or destination_span[0] not in destination_offsets
+            ):
                 if len(destination_offsets) != 1:
                     raise ValueError("DESTINATION_SPAN_MISMATCH")
                 destination_span_relocation_count = 1
@@ -362,19 +380,15 @@ class QwenStructuredInferenceProvider:
                     raise ValueError("FORBIDDEN_ATOMIC_PLACE")
                 if any(marker in atomic for marker in _SENTENCE_MARKERS):
                     raise ValueError("NON_ATOMIC_PLACE")
-                offsets = []
-                offset = raw_text.find(atomic)
-                while offset >= 0:
-                    offsets.append(offset)
-                    offset = raw_text.find(atomic, offset + 1)
-                if len(offsets) == 1:
-                    narrowed_start = span_start + offsets[0]
+                source_offsets = _verbatim_offsets_outside_urls(source_text, atomic)
+                offsets_in_span = [
+                    offset
+                    for offset in source_offsets
+                    if span_start <= offset and offset + len(atomic) <= span_end
+                ]
+                if len(offsets_in_span) == 1:
+                    narrowed_start = offsets_in_span[0]
                 else:
-                    source_offsets = []
-                    source_offset = source_text.find(atomic)
-                    while source_offset >= 0:
-                        source_offsets.append(source_offset)
-                        source_offset = source_text.find(atomic, source_offset + 1)
                     if len(source_offsets) != 1:
                         raise ValueError("ATOMIC_PLACE_SPAN_MISMATCH")
                     narrowed_start = source_offsets[0]
