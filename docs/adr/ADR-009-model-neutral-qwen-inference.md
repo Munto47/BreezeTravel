@@ -1,6 +1,6 @@
 # ADR-009：模型中立结构化推理与 Qwen 主模型族
 
-- 状态：Accepted
+- 状态：Accepted；人工配置readback部分由ADR-013取代
 - 日期：2026-08-27
 - Program：`TC-VNEXT-2026`
 
@@ -31,7 +31,7 @@
 
 fixed model binding必须冻结provider、region、endpoint、不可漂移exact model ID、structured-schema能力、非思考模式、温度、prompt/schema/config hash、pricing version与币种。首次schema失败最多一次带错误反馈的修复调用，之后确定性PARTIAL。所有调用记录token、延迟、失败、修复、fallback和估算费用。
 
-G01首个preflight必须读回账号可用性、区域、exact model ID、endpoint、价格版本和数据使用条款；不存在“现有Qwen配置”的假定。开发benchmark不等于产品默认，未通过Validation前不得写入候选release配置。
+G01从当前环境安全读取既有凭据，并通过官方模型目录自动读回账号可用性、区域、exact model ID、endpoint、上下文和Provider可暴露的价格字段；未暴露字段写`NOT_EXPOSED_BY_PROVIDER`。开发benchmark不等于产品默认，未通过Validation前不得写入候选release配置。该自动readback与H1前Agent Gate边界由ADR-013补充。
 
 ## 晋级
 
@@ -41,7 +41,7 @@ G01首个preflight必须读回账号可用性、区域、exact model ID、endpoi
 2. 全部零容忍和Validation硬Gate通过；
 3. 质量相对Validation最佳下降≤0.5个百分点；
 4. P95改善≥20%才因性能替换；
-5. 选择唯一候选并冻结model/prompt/schema/config/threshold后，sealed blind只正式运行一次；blind标签由独立custodian保管，开发代理与运行模型不可读；
+5. 选择唯一候选并冻结model/prompt/schema/config/threshold后，sealed blind只正式运行一次；答案由不继承开发上下文的独立Codex任务在仓库外保管，开发任务与运行模型不可读；
 6. blind失败后只从独立dev/regression故障族修复；只有输入分布或产品schema实质变化并经独立批准才新建blind版本，旧blind永不重新成为选择集。
 
 ## 后果

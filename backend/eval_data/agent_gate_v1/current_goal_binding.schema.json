@@ -1,0 +1,73 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "automated_gate_contract_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Automated Gate Contract Path",
+      "type": "string"
+    },
+    "automated_gate_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Automated Gate Contract Sha256",
+      "type": "string"
+    },
+    "canonical_candidate_ref": {
+      "const": "refs/heads/codex/trip-check-product-reset",
+      "default": "refs/heads/codex/trip-check-product-reset",
+      "title": "Canonical Candidate Ref",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "goal_sequence": {
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Goal Sequence",
+      "type": "integer"
+    },
+    "predecessor_completion_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Predecessor Completion Commit",
+      "type": "string"
+    },
+    "predecessor_goal_id": {
+      "title": "Predecessor Goal Id",
+      "type": "string"
+    },
+    "program_id": {
+      "const": "TC-VNEXT-2026",
+      "default": "TC-VNEXT-2026",
+      "title": "Program Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "current-goal-binding-v1",
+      "default": "current-goal-binding-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "APPROVED",
+        "IN_PROGRESS"
+      ],
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_sequence",
+    "goal_id",
+    "status",
+    "predecessor_goal_id",
+    "predecessor_completion_commit",
+    "automated_gate_contract_path",
+    "automated_gate_contract_sha256"
+  ],
+  "title": "CurrentGoalBinding",
+  "type": "object"
+}

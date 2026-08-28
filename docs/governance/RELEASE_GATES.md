@@ -4,9 +4,20 @@
 >
 > Program：`TC-VNEXT-2026`
 >
-> 日期：2026-08-27
+> 日期：2026-08-28
 
 ## 0. 证据状态分层
+
+证据等级：
+
+- `AUTOMATED_TEST`；
+- `LIVE_PROVIDER_EVIDENCE`；
+- `MULTI_AGENT_SIMULATED_REVIEW`；
+- `SEALED_AGENT_BLIND`；
+- `HUMAN_USABILITY`；
+- `PRODUCTION_EVIDENCE`。
+
+G01～G07必须按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
 
 新版状态：
 
@@ -17,7 +28,7 @@
 - `SCREENSHOT_PARITY_READY`：V0.4截图一致性门禁通过。
 - `CITY_KNOWLEDGE_READY`：V0.5知识层准入通过。
 - `MEMORY_SHARE_READY`：V0.6 consent与分享门禁通过。
-- `VNEXT_CANDIDATE_READY`：G07同绑定Candidate Gate通过。
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`：G07同绑定Candidate Gate与Agent Gate通过；不含真人、生产或商业证据。
 - `HUMAN_USABILITY_READY`：经人工批准的H1通过。
 
 历史状态 `INTAKE_V2_DEVELOPMENT_READY` 和 `V1_CANDIDATE_READY` 保持只读，前者不得改写或替代后者，也都不能升级新版。历史 PASS、REJECT和NOT_RUN不得复制到新commit。
@@ -65,7 +76,7 @@ G00必须同时满足：
 - 90条family-isolated主集：54 dev / 18 validation / 18 sealed blind；
 - 北京/上海/杭州60条、其他城市15条、对抗15条；
 - 已删除的旧根`tests/`旅行文本不得作为regression、oracle或Gate证据；
-- 双人独立标注与冲突裁决；
+- 使用`trip_text_cards_agent_v2`：两个隔离的`gpt-5.6-sol / xhigh`任务独立生成`agent_reference`，新的`gpt-5.6-sol / ultra`任务在A/B冻结后进行`agent_adjudication`；历史human v1 schema与证据逐字节只读；
 - family不跨split。
 
 硬指标：
@@ -78,7 +89,7 @@ G00必须同时满足：
 - day assignment F1 ≥97%；
 - `PLANNED/OPTIONAL/REFERENCE/EXCLUDED/PASS_THROUGH` macro-F1 ≥94%；
 - 三城自动匹配coverage ≥80%；
-- 每份输入人工地点确认中位数≤1，P90≤3；
+- 每份输入需要用户地点确认中位数≤1，P90≤3；
 - 普通用户API/DOM中禁用字段命中0；
 - 首次进度≤500ms，首批卡片P95≤8s；
 - Qwen或AMap失败仍返回可编辑部分结果；
@@ -92,7 +103,11 @@ G00必须同时满足：
 - 地图正例集至少30份行程、120条已冻结为可成功的相邻边；fixture/snapshot中每条边至少一种模式成功率100%，受控live dev中≥95%，全局永远`UNAVAILABLE`或零可用边不能通过Gate；
 - 输入/活动/并发/模型/POI/路线预算均有边界，超限返回可编辑`LIMITED`而非静默截断。
 
-模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后sealed blind只运行一次。
+模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后由独立Codex任务对同一tranche运行sealed blind一次。
+
+Gate还必须并行完成`PRODUCT_UX / SEMANTIC_DOMAIN / RELIABILITY_SECURITY`三个隔离审查，新的ultra裁决任务确认无未处理P0/P1或属于G01的P2，并在干净checkout对同一commit fresh readback。任何required `NOT_RUN`或候选binding漂移都不得PASS。
+
+正式`AGENT_GATE_PASS`还要求：当前Goal同序的authority generation锚可从候选Git历史及仓库外registry回读，上一Goal PASS链连续；八个角色公钥和registry指纹匹配；四类组件分别通过严格schema、角色签名和上游verification receipt；自动产品命令在无外网/宿主挂载/PID/秘密的OCI镜像重跑；live回执来自类型化purpose-specific effect表；sealed scorer直接从输入/预测/truth计算且完整指标集与冻结阈值一致；最终聚合器在独立clean checkout对每候选唯一远端ref做前后两次subject/tree回读，并在PASS登记前先耐久物化回执。自签新key、通用手写PASS、调用者提供aggregate metrics、预组装live JSON、宿主直接执行或只校验文件名/hash均为拒绝项。
 
 ## 4. Map & Stay Gate — G02
 
@@ -146,11 +161,11 @@ G00必须同时满足：
 - 真实来源OCR关键字段F1≥95%；
 - 低置信关键字段确认召回100%；
 - 冻结paired set上阅读顺序adjacency-F1≥97%；
-- 使用人工校正转写作为同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；
+- 使用两个隔离Agent转写和新的ultra裁决形成同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；Agent结果不得称为人工校正；
 - 原图泄漏0，清理receipt 100%；
 - 三张1080×1920图片在候选RunSpec冻结CPU/GPU/内存和并发1环境下P95≤12秒；
 - Qwen-VL若晋级，关键字段、阅读顺序、卡片结果、bbox来源追踪和P95均不得低于PaddleOCR，且至少一项错误率相对下降≥20%；
-- synthetic、自动视觉复核和真人OCR证据分别披露。
+- synthetic、自动视觉复核、`MULTI_AGENT_SIMULATED_REVIEW`分别披露；真人OCR只在另行批准并实际运行后记为`HUMAN_USABILITY`，不阻断G04。
 
 ## 7. Knowledge Admission Gate — G05
 
@@ -194,10 +209,11 @@ G00必须同时满足：
 | G4 真实Provider | 高德POI/步行/公交、天气与许可范围的脱敏回执 |
 | G5 浏览器/性能 | 登录、体验、卡片、地图stale/rerender、住宿、Top-3、刷新、断线和P95 |
 | G6 Manifest | 同一commit/config/dataset/model/rule/provider的不可变汇总 |
+| G7 Agent Gate | 三角色隔离审查、ultra裁决、所需sealed blind与fresh readback |
 
 G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不同配置不能拼接。候选材料包括受控演示、90秒视频、5分钟完整演示、架构图、恢复时序图、模型消融和已知边界。
 
-`VNEXT_CANDIDATE_READY`不等于H1、生产、公开发布或商业验证。
+`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产、公开发布或商业验证。G07通过后停止自动推进。
 
 ## 10. Reliability Gate
 
@@ -234,4 +250,4 @@ H1只能表述为小样本真人可用性证据，不等于统计显著、生产
 
 ## 12. 禁止替代
 
-历史Intake/Builder、旧Candidate、测试数量、synthetic proxy、自动Judge、source prior、旧RAGAS、单个演示或计划文档不得替代任何新版Gate。
+历史Intake/Builder、旧Candidate、测试数量、synthetic proxy、未按Agent Gate Protocol隔离和绑定的自动Judge、source prior、旧RAGAS、单个演示或计划文档不得替代任何新版Gate。按协议形成的Agent证据仍不能替代H1、生产或商业证据。

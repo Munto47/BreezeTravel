@@ -1,0 +1,87 @@
+{
+  "adjudication_task": {
+    "candidate_output_visibility": "NONE",
+    "count": 1,
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "ultra",
+    "starts_after_references_frozen": true
+  },
+  "canonical_place_authority": "PROVIDER_BOUND_AGENT_REFERENCE",
+  "contract_code_sha256": {
+    "annotations.py": "df10064c353cf20fc3cebdde90b709870adcebb9a1a53598c7b0ad2ad5c081ff",
+    "contracts.py": "bc43b68da146a15e67e3a4721574c4a168d3b9201b0fae33d1af1132ff84223a",
+    "split_loader.py": "81730e7e12545dfcbba5b1cb26f14695db860b550c75b2369322bd276e4e24a5"
+  },
+  "dataset_version": "g01-text-card-dataset-v1",
+  "destination_basis": [
+    "EXPLICIT",
+    "SOFT_ASSUMPTION"
+  ],
+  "evidence_levels": [
+    "MULTI_AGENT_SIMULATED_REVIEW",
+    "LIVE_PROVIDER_EVIDENCE"
+  ],
+  "executable_source_span_must_be_atomic": true,
+  "human_usability_status": "NOT_RUN",
+  "input_dataset_contract_sha256": "e14203e190a3f0533a0c7c01b01b6aa7c96b45c9c2310c473f9df82758649bff",
+  "input_file_sha256": {
+    "dev": "fb0a55eaae20f4a6ea6bbaee39a7ce6e81c673a43f294bb2953fdc0baf7c6118",
+    "frozen_blind": "a1d98c44ba5626513546c0c525e335623acbac1ef7f9e1d4431995131c602008",
+    "validation": "1e550a45efe2cfa4efb178c624b677701b3f1edb834a696e39aca9a7226c8780"
+  },
+  "legacy_human_v1_manifest_sha256": "6638b34bda0f990b1412b1dc4c9607ab4ee98c14235879c2a4dfeced16a29310",
+  "limitations": [
+    "PROCESS_ISOLATION_NOT_ORGANIZATIONAL_INDEPENDENCE"
+  ],
+  "ordinary_agent_blind_access": false,
+  "ordinary_agent_splits": [
+    "dev",
+    "validation"
+  ],
+  "prediction_run_requires_candidate_and_provider_bindings": true,
+  "production_status": "NOT_RUN",
+  "prompt_sha256": {
+    "adjudication.md": "302a9a1d974a44aee900bf51c4f3acaa7021c786035a8df4060a1bcb096a61b2",
+    "reference.md": "417fd2e66f5b31a8a8e41b0c46e647d984868aa2c181f2e43f58dcafc5b412d9"
+  },
+  "provider_index_frozen_before_reference_tasks": true,
+  "provider_receipt_authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
+  "provider_receipt_source_runtime": "PERSISTED_PROVIDER_EFFECT_REGISTRY",
+  "provider_resolution_status": [
+    "MATCHED",
+    "UNRESOLVED",
+    "AMBIGUOUS"
+  ],
+  "raw_artifact_storage": "REPOSITORY_EXTERNAL",
+  "reference_tasks": {
+    "candidate_output_visibility": "NONE",
+    "count": 2,
+    "model": "gpt-5.6-sol",
+    "peer_output_visibility": "NONE",
+    "reasoning_effort": "xhigh"
+  },
+  "repository_truth_payloads": 0,
+  "schema_sha256": {
+    "agent_adjudication.schema.json": "014b3d1443f21b2ea550566dec946c3d842f0e33c4df10e4adae99984e2608f7",
+    "agent_annotation.schema.json": "aac13cbf473202ac8e9a03c73073dd9ef4202fbf4f610a3a25f56a624c4ec793",
+    "agent_inference_case_output.schema.json": "b4af30d6da000d6ae81151242ea23eea4540ad080ff19dbbab26c3c22fb6be73",
+    "agent_prediction_run.schema.json": "f50fbb607dd5b0484fcc7baffcf4d1c739d791702049c062e1a616e9f1ec54c0",
+    "inference_database_export_receipt.schema.json": "d6f2f39a5c52c8bbba3473761518b51a1f445c9c946e7c58d0f7c88d565f5ecd",
+    "inference_http_receipt_bundle.schema.json": "fb645cfd9cfe5e4d94d4bafce600e8023b086f40daec1d80d90475e15f9dd1fe",
+    "inference_runtime_receipt_bundle.schema.json": "9cb9e9988c2dcd5956456cbfb8b1dad7b1590a950d29b20289a74fecd6336a0f",
+    "provider_database_export_receipt.schema.json": "9726667721b7baae5e5baaa58b324c017b5ce4dadeff67bc2593671d722c8887",
+    "provider_http_receipt_bundle.schema.json": "22be7d1cae4c782e174659fc981e1c8a0a8f0caa182b0575646770ea8bbe02ed",
+    "provider_receipt_index.schema.json": "f05310dfed22b307ee486561522b906f5c1a8dfaf35d1e75cfd8fea74cc4b796",
+    "provider_runtime_receipt_bundle.schema.json": "2997e5d349f1e3cd8b73eadcea5553c7eb7642fbea70feccde87e33bd7c3322d",
+    "sealed_agent_reference.schema.json": "d7c1a99db83e0d495ad64ec124e5525e30abfdbf85e6dcf366169561ec1f80bf"
+  },
+  "schema_version": "g01-text-card-agent-evaluation-contract-v2",
+  "sealed_agent_reference_candidate_output_visibility": "NONE",
+  "sealed_agent_reference_schema": "sealed_agent_reference.schema.json",
+  "sealed_agent_reference_storage": "REPOSITORY_EXTERNAL",
+  "sealed_blind_protocol": "agent-gate-protocol-contract-v2",
+  "sealed_blind_thresholds_sha256": "93f630bb1fccdb657ffa4012fed6dbdb73cb6ffbfbc2f595d644ce4280e9af7d",
+  "sealed_runtime_split": "frozen_blind",
+  "sealed_scorer_accepts_aggregate_metrics": false,
+  "sealed_scorer_path": "backend/scripts/score_g01_sealed_agent_blind.py"
+}

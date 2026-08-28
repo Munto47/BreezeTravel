@@ -1,0 +1,27 @@
+{
+  "baseline_commit": "7bdd1a6abd9c10c6076aca67f08de785027501a0",
+  "files": {
+    "backend/eval_data/trip_text_cards_v1/README.md": "b27fcb593646fd7ef0312815915c78c5b98972fea326240b0ae135f22ff10c0a",
+    "backend/eval_data/trip_text_cards_v1/adjudication.schema.json": "7d97924134f35a65b5691c4bf525c54a94c1576ce0bc8733f43add3c819507fb",
+    "backend/eval_data/trip_text_cards_v1/annotation.schema.json": "4f82afbea940fe6a71b5907ad034d116932dd2547f503a7271594b7620c6fee7",
+    "backend/eval_data/trip_text_cards_v1/dataset_contract.json": "e14203e190a3f0533a0c7c01b01b6aa7c96b45c9c2310c473f9df82758649bff",
+    "backend/eval_data/trip_text_cards_v1/dev.inputs.jsonl": "fb0a55eaae20f4a6ea6bbaee39a7ce6e81c673a43f294bb2953fdc0baf7c6118",
+    "backend/eval_data/trip_text_cards_v1/frozen_blind.inputs.jsonl": "a1d98c44ba5626513546c0c525e335623acbac1ef7f9e1d4431995131c602008",
+    "backend/eval_data/trip_text_cards_v1/generation_receipt.json": "b5c6fc6e1c3d790e03e342ea1b921eed41ff3dae9d539efeb83a38ff3aae7fc5",
+    "backend/eval_data/trip_text_cards_v1/input.schema.json": "7475b09481f64a42e04969addc7fd2193a1d5850861d19ce73cc6dca23262bdc",
+    "backend/eval_data/trip_text_cards_v1/prediction.schema.json": "7ec739cb327b2fc71b6a314deabc32a5d54fe56bf75b4debf65366855e841084",
+    "backend/eval_data/trip_text_cards_v1/runtime_evidence.schema.json": "42964e2bdc649d66316c6a283d0ca5b4a7f1fe2f938a8302be147553c2598e0d",
+    "backend/eval_data/trip_text_cards_v1/validation.inputs.jsonl": "1e550a45efe2cfa4efb178c624b677701b3f1edb834a696e39aca9a7226c8780",
+    "backend/evidence/trip_text_cards_v1/1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2/map_positive_receipt.json": "062125a28fe46c2c9ced4ed98e5f119e9a79a34db929834a0b4ad24260a0ea6f",
+    "backend/evidence/trip_text_cards_v1/80a9dc3835f1685f80a6d06513a0f82c22368091/offline_runtime_receipt.json": "7621b8531f25dec7809f5469bf46c16145c897d7bf4ee32fc411064cc2e295b2",
+    "backend/evidence/trip_text_cards_v1/869bdaf282cbf7ab0e2b4f249426d49061bd5593/postgres_map_matrix_receipt.json": "e36994fe68d8ac005e024f87f68540cfd125ca9e9895fd75e9ce10f09db4a7ae",
+    "backend/evidence/trip_text_cards_v1/9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4/dev.predictions.jsonl": "181d43e77b9af8726cf11ae8ca3850c4ff76ed8641b55dff1f57e895d7ddfbad",
+    "backend/evidence/trip_text_cards_v1/9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4/readiness_receipt.json": "53cc6a5187f00839392ef51c7ba9884dfb48fe48c189128063efe272fcee55d7",
+    "backend/evidence/trip_text_cards_v1/9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4/run_receipt.json": "8b473fc434551de338715151d1b376d18663231c3bd98c19d7b29cfd7b199c85",
+    "backend/evidence/trip_text_cards_v1/9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4/validation.predictions.jsonl": "296276c9d4719e965c752adb8924e607dad758f1af1077109764a1ccb345eaef",
+    "backend/evidence/trip_text_cards_v1/e99ed68412d54978ac4f187ccb3e5e9b3659d57f/final_automated_verification_receipt.json": "e2f668c98950c593d5dabb964c7a2a4727f4e5c6310060d21b18ca9937771b01"
+  },
+  "modified_by_agent_evaluation_v2": false,
+  "schema_version": "g01-text-card-human-v1-baseline-manifest-v2",
+  "status": "HISTORICAL_OPTIONAL_H1_INPUT_NOT_ACTIVE_PRE_H1_GATE"
+}

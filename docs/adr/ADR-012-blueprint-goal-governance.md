@@ -1,6 +1,6 @@
 # ADR-012：Blueprint 优先与持续 Current Goal 治理
 
-- 状态：Accepted
+- 状态：Accepted；H1前Gate编组由ADR-013补充
 - 日期：2026-08-27
 - Program：`TC-VNEXT-2026`
 - 取代范围：ADR-004 的旧P0～P6阶段顺序与`TC-INTAKE-V2-2026` Program
@@ -24,6 +24,8 @@
 归档不是先复制PENDING文件再在别处补结果；transition commit自身由Git历史和远端branch readback证明，不要求把自己的未知hash写进自身，从而避免无限自引用。
 
 Program预批准各Goal的公共API和追加migration，避免每个实现细节反复阻塞；扩大产品目标、费用、数据、生产、H1、`main`或破坏性操作仍需人工批准。
+
+G01～G07的当前工程证据采用ADR-013规定的隔离Agent Gate，可在`AGENT_GATE_PASS`后自动推进；它不属于真人证据。普通Agent Gate或sealed blind失败留在当前Goal诊断，不因失败次数自动请求用户。G07最高自动状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，H1仍需单独人工批准。
 
 ## 状态
 

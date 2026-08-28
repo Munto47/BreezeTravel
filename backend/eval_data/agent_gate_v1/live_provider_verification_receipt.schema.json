@@ -1,0 +1,142 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "amap_database_export_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Database Export Receipt Sha256",
+      "type": "string"
+    },
+    "amap_execution_mode": {
+      "const": "LIVE",
+      "default": "LIVE",
+      "title": "Amap Execution Mode",
+      "type": "string"
+    },
+    "amap_http_receipt_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Http Receipt Bundle Sha256",
+      "type": "string"
+    },
+    "amap_live_effect_count": {
+      "minimum": 1,
+      "title": "Amap Live Effect Count",
+      "type": "integer"
+    },
+    "amap_provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Provider Binding Sha256",
+      "type": "string"
+    },
+    "amap_provider_receipt_index_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Amap Provider Receipt Index Path",
+      "type": "string"
+    },
+    "amap_provider_receipt_index_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Provider Receipt Index Sha256",
+      "type": "string"
+    },
+    "amap_runtime_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Amap Runtime Receipt Path",
+      "type": "string"
+    },
+    "amap_runtime_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Runtime Receipt Sha256",
+      "type": "string"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "fixture_effect_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Fixture Effect Count",
+      "type": "integer"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "qwen_execution_mode": {
+      "const": "LIVE",
+      "default": "LIVE",
+      "title": "Qwen Execution Mode",
+      "type": "string"
+    },
+    "qwen_live_effect_count": {
+      "minimum": 1,
+      "title": "Qwen Live Effect Count",
+      "type": "integer"
+    },
+    "qwen_runtime_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Qwen Runtime Receipt Path",
+      "type": "string"
+    },
+    "qwen_runtime_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Qwen Runtime Receipt Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "live-provider-verification-receipt-v2",
+      "default": "live-provider-verification-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "authority_policy_sha256",
+    "amap_provider_receipt_index_path",
+    "amap_provider_receipt_index_sha256",
+    "amap_runtime_receipt_path",
+    "amap_runtime_receipt_sha256",
+    "qwen_runtime_receipt_path",
+    "qwen_runtime_receipt_sha256",
+    "split",
+    "amap_provider_binding_sha256",
+    "amap_database_export_receipt_sha256",
+    "amap_http_receipt_bundle_sha256",
+    "amap_live_effect_count",
+    "qwen_live_effect_count"
+  ],
+  "title": "LiveProviderVerificationReceipt",
+  "type": "object"
+}

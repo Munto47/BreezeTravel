@@ -1,0 +1,129 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "accepted_in_scope_p2_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted In Scope P2 Count",
+      "type": "integer"
+    },
+    "accepted_p0_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted P0 Count",
+      "type": "integer"
+    },
+    "accepted_p1_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted P1 Count",
+      "type": "integer"
+    },
+    "adjudication_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Adjudication Path",
+      "type": "string"
+    },
+    "adjudication_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Adjudication Sha256",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "expected_input_bundle_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "PRODUCT_UX",
+          "SEMANTIC_DOMAIN",
+          "RELIABILITY_SECURITY"
+        ]
+      },
+      "title": "Expected Input Bundle Sha256",
+      "type": "object"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "required_scenario_union_complete": {
+      "const": true,
+      "default": true,
+      "title": "Required Scenario Union Complete",
+      "type": "boolean"
+    },
+    "review_count": {
+      "const": 3,
+      "default": 3,
+      "title": "Review Count",
+      "type": "integer"
+    },
+    "review_paths": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Review Paths",
+      "type": "array"
+    },
+    "review_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Review Sha256",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "multi-agent-panel-verification-receipt-v2",
+      "default": "multi-agent-panel-verification-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "review_paths",
+    "adjudication_path",
+    "expected_input_bundle_sha256",
+    "review_sha256",
+    "adjudication_sha256"
+  ],
+  "title": "MultiAgentPanelVerificationReceipt",
+  "type": "object"
+}

@@ -7,7 +7,7 @@
 - Product version：`V0.5`
 - Status：`DRAFT`
 - Activation：G04 Screenshot Parity Gate通过并归档后
-- Required gate：`Knowledge Admission Gate`
+- Required gate：`Knowledge Admission Gate + AGENT_GATE_PASS`
 - Next Goal：`TC-VNEXT-G06-MEMORY-SHARE`
 
 ## Dependencies
@@ -76,11 +76,12 @@
 - PostgreSQL 032；
 - three-city browser cases；
 - privacy/copyright scan；
+- 三角色Agent审查、ultra裁决、所需sealed agent blind与同commit fresh readback；
 - H1/商业：`NOT_RUN`。
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Provider Admission、Risk Register；ADR-011、ADR-012。
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；ADR-011、ADR-012、ADR-013。
 
 ## Baseline
 
@@ -112,12 +113,13 @@
 ## Auto-advance
 
 - Required gate：`Knowledge Admission Gate`；Next template：`TC-VNEXT-G06-MEMORY-SHARE.md`；
-- subject push/readback、Gate PASS、clean tree、无Stop后，最终归档并原子激活G06；H1/商业不自动启动。
+- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G06并创建generation 6权限锚；H1/商业不自动启动。
 
 ## Completion record
 
 - Status / Subject commits / Remote branch：激活后填写；
 - Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
+- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：激活后填写；
 - Promotion decision：`NOT_REQUESTED`。
 

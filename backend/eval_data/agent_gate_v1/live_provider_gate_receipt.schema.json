@@ -1,0 +1,256 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "amap_database_export_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Database Export Receipt Sha256",
+      "type": "string"
+    },
+    "amap_http_receipt_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Http Receipt Bundle Sha256",
+      "type": "string"
+    },
+    "amap_live_effect_count": {
+      "minimum": 1,
+      "title": "Amap Live Effect Count",
+      "type": "integer"
+    },
+    "amap_provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Provider Binding Sha256",
+      "type": "string"
+    },
+    "amap_provider_receipt_index_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Amap Provider Receipt Index Path",
+      "type": "string"
+    },
+    "amap_provider_receipt_index_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Provider Receipt Index Sha256",
+      "type": "string"
+    },
+    "amap_runtime_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Amap Runtime Receipt Path",
+      "type": "string"
+    },
+    "amap_runtime_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Amap Runtime Receipt Sha256",
+      "type": "string"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "checks_not_run": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Checks Not Run",
+      "type": "array"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "component": {
+      "const": "LIVE_PROVIDER_GATE",
+      "default": "LIVE_PROVIDER_GATE",
+      "title": "Component",
+      "type": "string"
+    },
+    "evidence_level": {
+      "const": "LIVE_PROVIDER_EVIDENCE",
+      "default": "LIVE_PROVIDER_EVIDENCE",
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "fixture_effect_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Fixture Effect Count",
+      "type": "integer"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "qwen_live_effect_count": {
+      "minimum": 1,
+      "title": "Qwen Live Effect Count",
+      "type": "integer"
+    },
+    "qwen_runtime_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Qwen Runtime Receipt Path",
+      "type": "string"
+    },
+    "qwen_runtime_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Qwen Runtime Receipt Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "live-provider-gate-receipt-v2",
+      "default": "live-provider-gate-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verification_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Verification Receipt Path",
+      "type": "string"
+    },
+    "verification_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verification Receipt Sha256",
+      "type": "string"
+    },
+    "verifier_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Verifier Path",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "authority_policy_sha256",
+    "verifier_path",
+    "verifier_sha256",
+    "verification_receipt_path",
+    "verification_receipt_sha256",
+    "checks_not_run",
+    "completed_at",
+    "authority_signature",
+    "amap_provider_receipt_index_path",
+    "amap_provider_receipt_index_sha256",
+    "amap_runtime_receipt_path",
+    "amap_runtime_receipt_sha256",
+    "qwen_runtime_receipt_path",
+    "qwen_runtime_receipt_sha256",
+    "split",
+    "amap_provider_binding_sha256",
+    "amap_database_export_receipt_sha256",
+    "amap_http_receipt_bundle_sha256",
+    "amap_live_effect_count",
+    "qwen_live_effect_count"
+  ],
+  "title": "LiveProviderGateReceipt",
+  "type": "object"
+}

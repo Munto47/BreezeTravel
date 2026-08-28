@@ -7,13 +7,13 @@
 - Product version：`V0.9`
 - Status：`DRAFT`
 - Activation：G06 Consent & Share Gate通过并归档后
-- Required gate：`Candidate Evidence Gate G0～G6`
+- Required gate：`Candidate Evidence Gate G0～G7 + AGENT_GATE_PASS`
 - Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
 
 ## Dependencies
 
 - 唯一激活依赖是G06归档且Consent & Share Gate通过；随后G07置为`APPROVED`。
-- 首个preflight填写branch/baseline、候选RunSpec、Provider许可和全部required Gate矩阵；缺失项标记`NOT_RUN/NOT_READY`并修复或按HITL处理，不能把缺失证据包装成PASS。
+- 首个preflight填写branch/baseline、候选RunSpec、Provider绑定和全部required Gate矩阵；缺失项标记`NOT_RUN/NOT_READY`并自主修复，只有确需新授权或人工阶段时才按HITL处理，不能把缺失证据包装成PASS。
 
 ## User Outcome
 
@@ -41,10 +41,10 @@
 
 ## Decisions locked
 
-- 候选commit上重新运行G0～G6。
+- 候选commit上重新运行G0～G7。
 - 历史证据不得拼接。
 - 自动/fixture/live/browser/public/human分层披露。
-- `VNEXT_CANDIDATE_READY`不等于H1、生产或商业。
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
 - 新功能请求进入未来Program，不在收口Goal扩展。
 - 所有`NOT_RUN`明确列出。
 
@@ -62,7 +62,7 @@
 
 完全继承Candidate Evidence Gate：
 
-- G0～G6同一subject全部PASS；
+- G0～G7同一subject全部PASS，并取得`AGENT_GATE_PASS`；
 - 所有版本零容忍0；
 - browser主链、刷新、断线、并发、重启、partial和performance通过；
 - Provider许可与隐私无阻断；
@@ -80,11 +80,12 @@
 - browser E2E和P95；
 - accessibility/security/privacy；
 - release manifest hash/readback；
+- 三角色Agent审查、fresh ultra裁决、全部所需sealed agent blind与clean checkout fresh readback；
 - H1、production、commercial：`NOT_RUN`。
 
 ## Authority
 
-- `AGENTS.md`、全部Blueprint产品/架构/治理权威、ADR-007～ADR-012；
+- `AGENTS.md`、全部Blueprint产品/架构/治理权威、Agent Gate Protocol、ADR-007～ADR-013；
 - G01～G06 completed归档、当前候选RunSpec和同subject evidence；历史V1 manifest仅作baseline。
 
 ## Baseline
@@ -95,10 +96,10 @@
 ## Invariants
 
 - 不新增产品功能、不降低Gate、不修改blind/oracle；
-- G0～G6同一subject/config/dataset/model/rule/provider重新运行；
+- G0～G7同一subject/config/dataset/model/rule/provider重新运行；
 - fixture/snapshot/live/browser/public/human/commercial分层；UNKNOWN/NOT_RUN不算PASS；
 - Provider许可、隐私删除、内部字段和事实正确性均为阻断项；
-- `VNEXT_CANDIDATE_READY`不自动授权H1、公网、生产、release或`main`。
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不自动授权H1、公网、生产、release或`main`。
 
 ## Budget
 
@@ -117,13 +118,14 @@
 
 ## Auto-advance
 
-- Candidate Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY`；
+- Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
 - 不自动创建或激活H1 Goal，不自动部署、公网、release、商业或合并`main`；必须等待用户明确批准。
 
 ## Completion record
 
 - Status / Subject commits / Remote branch：激活后填写；
 - Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
+- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived：激活后填写；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
@@ -133,6 +135,6 @@
 - 需要新增产品功能才能通过；
 - 需要降低任何Gate；
 - 需要拼接历史证据；
-- Provider许可、隐私或事实矛盾未解决；
+- 需要新增Provider权限/费用，或隐私/事实矛盾只能通过改变Gate解决；
 - 需要公网部署、H1、付费、release或`main`；
-- 连续两个修复切片无法改善同一candidate blocker。
+- 需要降低candidate blocker门槛而非继续技术诊断。

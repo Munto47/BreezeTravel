@@ -4,6 +4,24 @@ Goal ID: TC-VNEXT-G01-TEXT-CARDS
 Status: IN_PROGRESS
 Goal type: PRODUCT_VERTICAL_SLICE
 
+<!-- AGENT_GATE_CURRENT_GOAL_STATE
+{
+  "schema_version": "current-goal-document-state-v1",
+  "program_id": "TC-VNEXT-2026",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "goal_status": "IN_PROGRESS",
+  "required_gate": "Text Card Gate + AGENT_GATE_PASS",
+  "completion_status": "PENDING",
+  "gate_result": "AGENT_GATE_NOT_RUN",
+  "goal_archived": false,
+  "next_goal_id": "TC-VNEXT-G02-MAP-STAY",
+  "next_activated": false,
+  "h1_status": "NOT_RUN",
+  "production_status": "NOT_RUN",
+  "commercial_status": "NOT_RUN"
+}
+-->
+
 ## Metadata
 
 - Goal ID：`TC-VNEXT-G01-TEXT-CARDS`
@@ -16,17 +34,21 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Implementation baseline/upstream：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`，现场`ls-remote`与clean-tree readback `PASS`
 - Blueprint subject commit：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`
 - Activation commit：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`
-- Latest delivered checkpoint：最终本地自动验证 subject `e99ed68412d54978ac4f187ccb3e5e9b3659d57f`，tree `3d1cc92ca6932db33c567374fc4e6d3ad8806e34`；除两项冻结Candidate绑定失败外新增失败为0，远端subject/tree/地图证据readback `PASS`
+- Latest delivered checkpoint：最终本地自动验证记录 `7bdd1a6abd9c10c6076aca67f08de785027501a0`，tree `4b9154077eda3e7c0207b11ce448c6c2b4eced6f`；远端subject/tree/文件readback `PASS`
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
-- Required gate：`Text Card Gate`
+- Required gate：`Text Card Gate + AGENT_GATE_PASS`
 - Next Goal：`TC-VNEXT-G02-MAP-STAY`
 
 ## Dependencies
 
 - 唯一激活依赖`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`；本Goal已按Program置为`APPROVED`。
-- 首个preflight读取已固化的activation commit并填写现场baseline，同时readback Qwen账号、region、endpoint、exact model ID、pricing/privacy条款和高德POI/route最小持久化许可；缺失lane标记`NOT_READY`，不阻止schema、UI、fixture和其他安全独立切片。
-- 到真实模型/Provider Gate前仍缺失时按HITL请求最小动作；不得用fixture冒充live准入，也不得留下0个active Goal。
+- 当前环境中的既有Qwen凭据由程序安全加载，并通过官方目录自动readback region、endpoint、exact model ID、context和Provider可暴露价格字段；未暴露字段记`NOT_EXPOSED_BY_PROVIDER`。
+- 高德开发授权记录为`OWNER_ATTESTED_EXISTING_AUTHORIZATION`；凭据或目录失败先自动诊断。只有确需新账号/费用/数据权限时才进入HITL；fixture不得冒充live准入，也不得留下0个active Goal。
+- 本Goal绑定必须逐项等于Program稳定表中的G01记录；首个治理subject push/readback只建立不能签发证据的generation-1 `BOOTSTRAP`。完整capture与仓库外signer交付后，必须先由独立custody签发机器绑定双lane执行回执、signer执行回执和bootstrap/ACTIVE字节的activation-readiness，才允许切`ACTIVE`并从Git和canonical远端推导登记anchor。未来G02只能在本Goal FINAL_GATE签名PASS先耐久物化并写入仓库外Goal pass ledger后，于原子过渡commit创建generation 2并激活。
+
+- activation-readiness必须绑定bootstrap commit/tree/policy/core、排除回执自身固定路径后的完整ACTIVE tree，以及ACTIVE policy/Program core/config/data；任一其他Git blob变化都使旧回执失效。
+- ACTIVE data分组对同一固定回执路径应用排除，消除自引用；tree校验仍要求该路径存在且只允许排除这一项。
 
 ## User Outcome
 
@@ -54,8 +76,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - `028_trip_understanding_v3.sql`；
 - `029_map_render_snapshots.sql`；
 - `/api/v3/trip-understandings`的create/result/events/commands、source删除、整程删除、demo claim和账号旅行数据级联删除；
-- G00所列Qwen模型面板在账号/区域/exact binding readback后做dev/validation实验；
-- 高德POI与walking/transit只在许可readback及现有无增量费用开发范围使用；
+- G00所列Qwen模型面板在官方目录自动readback后做dev/validation实验；
+- 高德POI与walking/transit在`OWNER_ATTESTED_EXISTING_AUTHORIZATION`及现有无增量费用开发范围使用；
 - 新首页和结果页；
 - 结果页隐私操作与账号旅行数据隐私页；
 - 旧room/v2 API保持可读。
@@ -86,9 +108,9 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 90条：54 dev / 18 validation / 18 sealed blind；
 - 三城60、其他城市15、对抗15；
 - 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不再作为regression、oracle或当前数据源；G01必须从本合同的90条受治理数据重新建立可复现基线；
-- 双人独立标注、冲突裁决、family隔离；
+- 两个隔离的`gpt-5.6-sol / xhigh`任务独立生成agent reference，新的`gpt-5.6-sol / ultra`任务在A/B输出冻结并hash后裁决，family隔离；
 - validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
-- blind标签由独立custodian保管；只在dev/validation选模，唯一候选冻结后blind一次。
+- blind答案由不继承开发上下文的独立Codex任务在仓库外保管；只在dev/validation选模，唯一候选冻结后blind一次。
 
 ## Acceptance
 
@@ -108,6 +130,9 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 标准3～12地点负载从卡片READY到可用snapshot：snapshot P95≤15秒、受控live dev P95≤20秒；
 - 30份行程、120条已知成功路线正例中snapshot可用覆盖100%、受控live dev≥95%；永远UNAVAILABLE不能过Gate；
 - source TTL/delete、匿名越权、日志/trace/分析泄漏全部通过。
+- current binding与generation 1 BOOTSTRAP policy及跨代稳定Program表中的G01顺序、前驱和自动Gate合同一致；BOOTSTRAP不得登记anchor或生成组件，完整capture/signer闭合并由`SEALED_CUSTODY`签发`authority-activation-readiness-v1`后才切ACTIVE并登记外部authority anchor。
+
+- ACTIVE加载必须用固定回执路径重新计算完整tree/program/config/data绑定，拒绝跨实现、配置或数据树重放旧readiness。
 
 ## Verification
 
@@ -121,33 +146,35 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 浏览器登录、固定体验、文本、编辑、刷新，以及结果页source/整程删除、二次确认、完成/重试和fresh readback；
 - 账号隐私页重新验证身份、清空旅行数据、异步状态与完成后空readback；
 - H1/公网/生产：`NOT_RUN`。
+- Agent Gate：三个隔离审查角色、fresh ultra裁决、sealed agent blind和同commit干净checkout回读。
+- Agent Gate自动命令必须在无外网、无宿主挂载/宿主PID、合成profile且无Gate/Provider秘密的OCI候选镜像中执行；PostgreSQL/worker/浏览器链在容器loopback内自包含运行。AMap/Qwen live回执必须绑定custody登记的registry、一次性mint、冻结HTTPS capture runner的逐effect签名、类型化purpose-specific effect表和完整coverage；该链未完成时正式exporter fail closed并保持`NOT_RUN`。候选进程不得收到任何角色私钥或key path，正式签名必须经不导入候选代码的仓库外signer IPC。sealed评分复用consume前一次冻结的artifact snapshot集合。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-009、ADR-012。
+- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
+- ADR-007、ADR-008、ADR-009、ADR-012、ADR-013。
 
 ## Baseline
 
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
 - canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
 - implementation baseline：`origin/codex/trip-check-product-reset@d114d6a1e9a06b1e26fb62519710e35d50300d70`；写入前`ls-remote`、HEAD与clean-tree一致；
-- current delivered subject：`origin/codex/trip-check-product-reset@e99ed68412d54978ac4f187ccb3e5e9b3659d57f`，tree `3d1cc92ca6932db33c567374fc4e6d3ad8806e34`，远端文件readback `PASS`；
+- current delivered subject：`origin/codex/trip-check-product-reset@7bdd1a6abd9c10c6076aca67f08de785027501a0`，tree `4b9154077eda3e7c0207b11ce448c6c2b4eced6f`，远端文件readback `PASS`；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
 - 当前生成OpenAPI：116 paths，其中v3为11；与99路径冻结快照物理隔离，新增17路径全部机器归类且旧路径/方法零缺失；`UserFacingTripResult.status`已按冻结预算合同包含可编辑`LIMITED`；
-- Qwen live lane：`NOT_READY`（key与通用兼容URL存在；账号region/workspace/exact model ID/价格绑定未确认；旧Intake runtime仍为DeepSeek绑定，v3只用受控fixture且不会静默回退DeepSeek）；
-- AMap live persistence：`BLOCKED_PENDING_WRITTEN_PERMISSION`（凭据存在但没有持久化书面许可；仅允许fixture且本切片不发起live调用）；
+- Qwen live lane：`AUTO_DISCOVERY_PENDING`（既有key与兼容URL存在；需由官方目录自动冻结region/endpoint/exact model ID/context/价格可见性；旧Intake仍为DeepSeek绑定，v3目前只用受控fixture且不会静默回退DeepSeek）；
+- AMap live lane：`OWNER_ATTESTED_EXISTING_AUTHORIZATION / NOT_RUN`（既有凭据可用于G01受控开发；仍需实现v3专用最小回执、地点身份与walking/transit调用，不保存key或完整响应）；
 - 历史Candidate：`HISTORICAL_BINDING_INVALID / FROZEN`；10/10数据、schema和generator绑定有效，validator/scorer/gate绑定失效；不得修改manifest、blind、oracle或冻结证据；
-- G01 Text Card数据：独立90条输入已生成并字节绑定，`54 dev / 18 validation / 18 frozen_blind`、`60 DEEP_CITY / 15 OTHER_CITY / 15 ADVERSARIAL`、30个family各A/B/C且不跨split；仓库内human label/gold/oracle为0；
-- G01标注与评分：双人独立标注、第三人冲突裁决、逐字span、Provider receipt、仓库外保管和validation最小gold分母均由机器合同fail closed；通用开发scorer拒绝读取blind；当前状态为`HITL_PENDING / TEXT_CARD_GATE_NOT_RUN`；
+- G01 Text Card数据：独立90条输入已生成并字节绑定，`54 dev / 18 validation / 18 frozen_blind`、`60 DEEP_CITY / 15 OTHER_CITY / 15 ADVERSARIAL`、30个family各A/B/C且不跨split；仓库内旧human label/gold/oracle为0，历史v1 schema与manifest保持逐字节只读；
+- G01标注与评分：agent evaluation v2使用A/B隔离标注、fresh ultra裁决、逐字span、live Provider receipt、仓库外原始输出和validation最小分母的fail-closed合同；通用开发scorer拒绝读取blind；当前状态为`AGENT_EVALUATION_V2_PROTOCOL_PENDING / TEXT_CARD_GATE_NOT_RUN`，不是HITL；
 - 本地确定性proposal baseline：只读取dev/validation，dev `54 cases / 80 eligible / 53 auto-matched`，validation `18 / 5 / 5`，external calls、human labels和blind reads均为0；没有gold故质量`NOT_SCORED`，且validation auto-selected分母5明确低于门槛50；
 - 地图正例fixture：北京/上海/杭州各10份、每份5个已映射地点与4条相邻边，共30份行程/120条唯一有向边；真实`MapRenderWorker → MapRenderer`受控矩阵生成30个READY snapshot、walking/transit各120个可用mode fact、可用覆盖100%、逻辑重复请求0、external call 0、worker→snapshot P95 `0.45ms`；只计`CONTROLLED_FIXTURE`子门禁，live高德和完整Gate仍为`NOT_RUN`；
 - Provider故障与预算：只有显式脱敏的typed unavailable会被降级，普通代码/schema异常不吞掉；Qwen候选故障用本地确定性语义返回`PARTIAL_RESULT`且不使用DeepSeek，地点故障保留六张可确认卡，单一路线模式故障隔离到该模式；81个可执行活动保留81张卡、只发起前80次地点解析并返回`LIMITED`，没有静默截断；以上均为test double/fixture，不是live调用；
 - PostgreSQL地图正例矩阵：fresh database应用现有migration后，30份FULL理解结果各原子创建初次地图job；独立worker持久化30个READY job/snapshot、120条selected edge、240个AVAILABLE mode fact与240个Provider effect receipt，external calls与重复逻辑请求均为0，P95门槛断言≤15秒，旧`rooms`表仍存在；数据库结束后安全删除，仅证明受控fixture持久链；
-- 最终本地自动验证：后端全量`2054 PASS / 34 SKIP / 2 FAIL`，两项均为已登记的冻结Candidate manifest代码绑定失败，新增失败0；S0、fresh PostgreSQL、90条数据合同、地图矩阵、Ruff、OpenAPI、共享client、前端生产build和真实本地浏览器链均通过；Text Card Gate仍为`HITL_PENDING`，不因此宣称Goal完成；
+- 最终本地自动验证：后端全量`2054 PASS / 34 SKIP / 2 FAIL`，两项均为已登记的冻结Candidate manifest代码绑定失败，新增失败0；S0、fresh PostgreSQL、90条数据合同、地图矩阵、Ruff、OpenAPI、共享client、前端生产build和真实本地浏览器链均通过；Text Card Gate仍为`NOT_RUN`，不因此宣称Goal完成；
 - G00治理结构验证`structurally_valid=true`；这只证明蓝图结构，不证明V0.1产品能力；
 - 历史Intake/Candidate只作资产基线，不是G01 PASS，不得因此宣称 `V1_CANDIDATE_READY`；
 - H1、公网、生产、商业：`NOT_RUN`。
@@ -159,6 +186,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - `PlanRevisionRef`、ETag、CAS、请求幂等和地图逻辑唯一键必须一致；
 - LLM不产生POI/路线事实；`UNKNOWN/UNAVAILABLE`不算PASS；
 - card edit路线Provider调用为0；source隐私与旧API兼容不可弱化。
+- G01～G07顺序、前驱和自动Gate合同由跨代稳定Program表固定；外部Goal pass ledger是后续Goal唯一工程晋级授权，候选binding不能替代。
 
 ## Budget
 
@@ -169,7 +197,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## HITL
 
-新账号/费用、许可无法满足、未预批准schema/migration/依赖、sealed blind/oracle变化、H1/公网/生产/`main`或删除旧数据时请求人工批准；普通实现/测试失败不请求用户诊断。
+新账号/费用/扩大数据权限、未预批准schema/migration/依赖、读取或修改blind truth/oracle、H1/公网/生产/`main`或删除旧数据时请求人工批准。按协议启动Agent评测和sealed blind不属于HITL；普通实现、测试、Provider诊断或Gate失败不请求用户诊断。
 
 ## Checkpoint ledger
 
@@ -191,8 +219,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Auto-advance
 
-- Required gate：`Text Card Gate`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、Gate PASS、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；
+- Required gate：`Text Card Gate + AGENT_GATE_PASS`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
+- subject push/readback、耐久`AGENT_GATE_PASS`写入仓库外Goal pass ledger、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；G02 binding必须等于Program稳定表记录，同时authority generation精确推进到2并冻结G02专属协议后由独立custody登记新anchor；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
@@ -200,10 +228,11 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Status：`PENDING`；
 - Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`，领取/隐私 `1ed7927813fcf197db519ccdad3b7472239eeb46`，029地图 `ccfe16e0d110ed0243576f327c1df93dcb8e61a0`，90条数据/评测合同 `9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4`，地图正例矩阵 `1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2`，Provider/预算降级 `80a9dc3835f1685f80a6d06513a0f82c22368091`，同镜像worker `cf9003c97e0c5b3350021c102183a0d39bbf269c`，PostgreSQL 30/120矩阵 `869bdaf282cbf7ab0e2b4f249426d49061bd5593`，最终自动验证 `e99ed68412d54978ac4f187ccb3e5e9b3659d57f`；Text Card Gate仍未完成；
 - Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
-- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / FIXTURE_DEMO_AND_CONSERVATIVE_FULL_PASS / LIVE_PROVIDER_NOT_RUN / TEXT_CARD_GATE_HITL_PENDING`；
+- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / FIXTURE_DEMO_AND_CONSERVATIVE_FULL_PASS / LIVE_PROVIDER_NOT_RUN / AGENT_GATE_NOT_RUN / TEXT_CARD_GATE_NOT_RUN`；
+- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验并登录领取；登录后可粘贴文本生成卡片、执行六类编辑、删除原文/单份行程/全部v3旅行数据；首批卡片后后台自动生成walking/transit快照，编辑后诚实提示路线尚未更新。当前地点和路线均为fixture证据；90条数据只是内部受治理评测输入，不会进入用户页面，也不是真人、公网或生产证据；
-- Remaining risks：Qwen账号exact binding未确认；AMap持久化等待书面许可；地图fixture与PostgreSQL 30/120、离线故障降级和全部本地自动回归已通过，但live覆盖、真实模型调用/修复预算仍为`NOT_RUN`；90条输入已完成但双人真人标注/裁决、外部blind custodian、一次sealed blind与Text Card Gate仍未完成；
+- Remaining risks：Qwen exact binding自动发现尚未运行；AMap v3最小回执、地点和路线live lane尚未实现；地图fixture与PostgreSQL 30/120、离线故障降级和全部本地自动回归已通过，但live覆盖、真实模型调用/修复预算仍为`NOT_RUN`；90条输入已完成，Agent A/B、ultra裁决、独立sealed blind与Text Card Gate仍未运行；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
@@ -211,8 +240,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Stop conditions
 
 - 需要降低严重错配为0的门禁；
-- Qwen账号/区域/隐私无法满足；
 - 需要新增付费账号或未批准Provider；
 - 必须修改sealed blind/oracle；
 - 无法保持旧API可读；
-- 两个不同切片仍不能阻止整句成为地点。
+- 需要降低严重错配、整句/URL地点或隐私门禁。

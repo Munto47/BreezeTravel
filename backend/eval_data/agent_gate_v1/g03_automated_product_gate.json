@@ -1,0 +1,129 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "check_id": "backend.ruff",
+      "timeout_seconds": 600,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "--ignore=tests/test_trip_nlu_v2_gate.py",
+        "--timeout=180"
+      ],
+      "check_id": "backend.current_suite",
+      "timeout_seconds": 3600,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_g03_top3_audit_gate.py",
+        "tests/test_g03_audit_postgres.py",
+        "--timeout=180"
+      ],
+      "check_id": "g03.top3_audit_postgres_gate",
+      "timeout_seconds": 1800,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "check_id": "shared_client.typecheck",
+      "timeout_seconds": 600,
+      "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "check_id": "shared_client.build",
+      "timeout_seconds": 600,
+      "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "check_id": "frontend.production_build",
+      "timeout_seconds": 1200,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "test:e2e:top3-audit"
+      ],
+      "check_id": "g03.browser_top3_repair_postcheck",
+      "timeout_seconds": 1800,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "check_id": "miniapp.typecheck",
+      "timeout_seconds": 600,
+      "workdir": "miniapp"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "test"
+      ],
+      "check_id": "miniapp.tests",
+      "timeout_seconds": 900,
+      "workdir": "miniapp"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build:weapp"
+      ],
+      "check_id": "miniapp.production_build",
+      "timeout_seconds": 1200,
+      "workdir": "miniapp"
+    }
+  ],
+  "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "isolation": {
+    "authority_secret_mount_count": 0,
+    "host_mount_count": 0,
+    "host_pid_namespace": false,
+    "mode": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
+    "network_access": false,
+    "runner_context_policy_path": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile.dockerignore",
+    "runner_context_policy_sha256": "27f8eb8e845cec69706c9322b65654b2b1d0c8a226bfa711f99b8b7df24c217d",
+    "runner_entrypoint_path": "backend/eval_data/agent_gate_v1/automation_runner_entrypoint.sh",
+    "runner_entrypoint_sha256": "7d406ff1ef3aa42805df1a913a209959856b4da1fdb31c3cb1cf0be24fe058a4",
+    "runner_recipe_path": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile",
+    "runner_recipe_sha256": "c2f7a08ddefacef417d2fb60125ad4388628b4f3076acf0a285686eff46f6b8c",
+    "synthetic_profile": true
+  },
+  "schema_version": "automated-product-gate-contract-v1"
+}

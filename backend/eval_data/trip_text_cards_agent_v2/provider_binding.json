@@ -1,0 +1,13 @@
+{
+  "schema_version": "g01-provider-binding-v1",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "amap_authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
+  "amap_place_search": "LIVE_CONFIGURATION_DISCOVERY_PENDING",
+  "amap_walking": "LIVE_CONFIGURATION_DISCOVERY_PENDING",
+  "amap_transit": "LIVE_CONFIGURATION_DISCOVERY_PENDING",
+  "qwen": "ACCOUNT_DISCOVERY_PENDING",
+  "credential_storage": "ENVIRONMENT_ONLY",
+  "raw_provider_payload_in_git": false,
+  "retention": "REDACTED_MINIMAL",
+  "status": "NOT_FROZEN"
+}

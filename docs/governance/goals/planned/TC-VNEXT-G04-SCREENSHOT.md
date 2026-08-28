@@ -7,13 +7,13 @@
 - Product version：`V0.4`
 - Status：`DRAFT`
 - Activation：G03 Top-3 Audit Gate通过并归档后
-- Required gate：`Screenshot Parity Gate`
+- Required gate：`Screenshot Parity Gate + AGENT_GATE_PASS`
 - Next Goal：`TC-VNEXT-G05-CITY-KNOWLEDGE`
 
 ## Dependencies
 
 - 唯一激活依赖是G03归档且Top-3 Audit Gate通过；随后G04置为`APPROVED`。
-- 首个preflight填写branch/baseline并回读统一编译器、source删除、PaddleOCR、Qwen-VL binding和真实来源consent；缺失lane标记`NOT_READY`，不阻止synthetic/fixture等安全独立切片且不得冒充真人数据。
+- 首个preflight填写branch/baseline并回读统一编译器、source删除、PaddleOCR、Qwen-VL binding和许可清晰的代表性截图集；不需要真人OCR或新consent才能进入G04 Gate，任何Agent结果不得冒充真人数据。
 
 ## User Outcome
 
@@ -50,7 +50,7 @@
 
 - 新输入来源、视频、PDF或网页抓取；
 - 手写识别承诺；
-- 通过合成图片冒充真人OCR；
+- 通过合成图片或Agent转写冒充真人OCR；
 - 修改sealed文本blind。
 
 ## Acceptance
@@ -58,7 +58,7 @@
 完全继承Screenshot Parity Gate：
 
 - 格式/数量/大小/顺序正确；
-- 真实来源关键字段F1≥95%；
+- 许可清晰的代表性截图集关键字段F1≥95%；参考转写由双Agent隔离生成并由fresh ultra任务裁决；
 - 低置信确认召回100%；
 - 最终卡片与文本parity达标；
 - reading-order adjacency-F1≥97%，地点precision/recall较同源文本下降各≤1个百分点，严重错误0；
@@ -71,7 +71,7 @@
 
 - upload/cleanup/timeout/cancel/failure；
 - OCR baseline和VL panel；
-- real/synthetic证据分层；
+- representative/synthetic/Agent证据分层；
 - browser多图、刷新、断线和partial；
 - secret/privacy scan；
 - backend/frontend/full regression；
@@ -79,12 +79,12 @@
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012。
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012、ADR-013。
 
 ## Baseline
 
 - branch/commit/upstream、G03 subject/transition、PaddleOCR版本与候选硬件：激活时填写；
-- synthetic、授权真实来源、自动视觉复核和真人OCR证据严格分层；H1/生产：`NOT_RUN`。
+- synthetic、许可清晰的代表性截图、自动视觉复核和`MULTI_AGENT_SIMULATED_REVIEW`严格分层；真人OCR、H1/生产：`NOT_RUN`。
 
 ## Invariants
 
@@ -99,7 +99,7 @@
 
 ## HITL
 
-真实来源consent、Qwen-VL新账号/费用、对象存储/付费OCR、未预批准migration、H1/公网/生产/`main`需批准。
+新增真人来源或consent、Qwen-VL新账号/费用、对象存储/付费OCR、未预批准migration、H1/公网/生产/`main`需批准。现有许可数据上的Agent参考转写、裁决和Gate审查可自主执行。
 
 ## Checkpoint ledger
 
@@ -110,12 +110,13 @@
 ## Auto-advance
 
 - Required gate：`Screenshot Parity Gate`；Next template：`TC-VNEXT-G05-CITY-KNOWLEDGE.md`；
-- subject push/readback、Gate PASS、clean tree、无Stop后，最终归档并原子激活G05；H1/公网/生产不自动启动。
+- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G05并创建generation 5权限锚；H1/公网/生产不自动启动。
 
 ## Completion record
 
 - Status / Subject commits / Remote branch：激活后填写；
 - Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
+- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：激活后填写；
 - Promotion decision：`NOT_REQUESTED`。
 
@@ -125,4 +126,4 @@
 - 需要新增付费OCR/对象存储；
 - Qwen-VL只能通过弱化bbox或来源门禁晋级；
 - 截图链必须绕开统一语义编译器；
-- 真实来源数据需要新的consent。
+- 必须新增真人来源数据且无法以许可清晰的代表性集满足门禁。

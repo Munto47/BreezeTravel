@@ -1,0 +1,91 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "commercial_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Commercial Status",
+      "type": "string"
+    },
+    "completion_status": {
+      "const": "PENDING",
+      "default": "PENDING",
+      "title": "Completion Status",
+      "type": "string"
+    },
+    "gate_result": {
+      "const": "AGENT_GATE_NOT_RUN",
+      "default": "AGENT_GATE_NOT_RUN",
+      "title": "Gate Result",
+      "type": "string"
+    },
+    "goal_archived": {
+      "const": false,
+      "default": false,
+      "title": "Goal Archived",
+      "type": "boolean"
+    },
+    "goal_id": {
+      "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "goal_status": {
+      "enum": [
+        "APPROVED",
+        "IN_PROGRESS"
+      ],
+      "title": "Goal Status",
+      "type": "string"
+    },
+    "h1_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "H1 Status",
+      "type": "string"
+    },
+    "next_activated": {
+      "const": false,
+      "default": false,
+      "title": "Next Activated",
+      "type": "boolean"
+    },
+    "next_goal_id": {
+      "pattern": "^(TC-VNEXT-G0[2-7]-[A-Z0-9-]+|TC-H1-G01-HUMAN-USABILITY)$",
+      "title": "Next Goal Id",
+      "type": "string"
+    },
+    "production_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Production Status",
+      "type": "string"
+    },
+    "program_id": {
+      "const": "TC-VNEXT-2026",
+      "default": "TC-VNEXT-2026",
+      "title": "Program Id",
+      "type": "string"
+    },
+    "required_gate": {
+      "maxLength": 160,
+      "minLength": 8,
+      "title": "Required Gate",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "current-goal-document-state-v1",
+      "default": "current-goal-document-state-v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "goal_status",
+    "required_gate",
+    "next_goal_id"
+  ],
+  "title": "CurrentGoalDocumentState",
+  "type": "object"
+}

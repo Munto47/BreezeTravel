@@ -1,0 +1,11 @@
+{
+  "schema_version": "g01-qwen-inference-config-v1",
+  "structured_output": "STRICT_JSON_SCHEMA",
+  "thinking": false,
+  "temperature": 0.1,
+  "deadline_ms": 7000,
+  "maximum_repair_calls": 1,
+  "silent_fallback": false,
+  "raw_request_or_response_in_repository": false,
+  "record_token_latency_repair_and_estimated_cost": true
+}

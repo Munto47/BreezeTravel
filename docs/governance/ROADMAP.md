@@ -4,7 +4,7 @@
 >
 > Program：`TC-VNEXT-2026`
 >
-> 版本：`Blueprint 1.0`
+> 版本：`Blueprint 1.1 / Agent Gate Transition`
 >
 > 日期：2026-08-27
 
@@ -32,7 +32,7 @@ H1 真人可用性
 V1.1 商业探索
 ```
 
-路线不按日历时间自动推进，只按用户结果和证据门禁推进。
+路线不按日历时间自动推进，只按用户结果和证据门禁推进。G01～G07统一按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`后自动切换；Agent证据不等于真人证据。G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，到H1前停止。
 
 ## 2. Blueprint 1.0 — G00
 
@@ -156,6 +156,8 @@ Qwen-VL只有在关键字段、阅读顺序、卡片结果、bbox和性能均满
 - 明确所有 `NOT_RUN`。
 
 完成不等于H1、生产或商业验证。
+
+G07收口必须包含三个隔离审查角色、新的ultra裁决、所需sealed agent blind和同commit干净checkout回读。完成状态只能是`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
 
 ## 10. V1.0 与 V1.1
 

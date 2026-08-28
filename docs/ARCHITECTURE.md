@@ -2,11 +2,11 @@
 
 > 状态：`ACCEPTED_BLUEPRINT`
 >
-> 架构版本：`Blueprint 1.0`
+> 架构版本：`Blueprint 1.1 / Agent Gate Transition`
 >
 > 实现状态：`INCREMENTAL`
 >
-> 日期：2026-08-27
+> 日期：2026-08-28
 
 ## 1. 架构目标
 
@@ -228,7 +228,7 @@ Top-3排序由确定性 severity、confidence tier、actionability 和 itinerary
 - SSE：用户进度投影；断线不取消后台工作。
 - LangGraph checkpoint：可恢复计算进度，不是业务状态或 exactly-once 证明。
 
-Provider副作用使用稳定幂等键、事务外调用和事务内回执写入。配置漂移创建新任务，不能拼接旧阶段。
+Provider副作用使用稳定幂等键。调用前先在PostgreSQL持久化`STARTED` effect与冻结binding，调用完成后事务内写`SUCCEEDED/FAILED`回执；恢复遇到遗留`STARTED`必须记`UNKNOWN_OUTCOME/PARTIAL`并人工可审计，不能盲目重发或冒充exactly-once。配置漂移创建新任务，不能拼接旧阶段。
 
 ## 11. 隐私与可观测性
 
@@ -258,3 +258,25 @@ Provider副作用使用稳定幂等键、事务外调用和事务内回执写入
 拒绝运行时多 Agent、微服务、Kafka、Temporal、Kubernetes、GraphRAG和重新微调。新技术只有在对应产品问题、固定数据、预设指标、失败降级和回滚都明确时才可进入默认运行时。
 
 版本实施顺序与门禁以 `governance/PROGRAM.md` 和 `governance/RELEASE_GATES.md` 为准。
+
+## 14. 评测控制面
+
+G01～G07 的评测不进入产品运行时。Agent参考标注、三角色审查、ultra裁决和sealed blind由仓库外任务编排，产品代码只消费冻结schema、hash、脱敏回执和聚合指标。
+
+```text
+G01 pre-anchor BOOTSTRAP (no evidence, no keys, no PASS)
+→ complete capture chain + repository-external isolated signer
+→ SEALED_CUSTODY signed activation-readiness receipt binds both deliverables and the full ACTIVE tree/program/config/data snapshot (excluding only its self-referential receipt path)
+→ Goal-scoped ACTIVE authority generation + repository-external anchor
+→ Candidate commit/tree/config/data Git-blob freeze
+→ secret-free OCI checks + custody mint + signed direct-HTTPS Provider capture
+→ isolated Agent references/reviews
+→ fresh ultra adjudication
+→ DB-first one-shot mint + raw-input sealed scorer
+→ four role-specific signed component receipts
+→ immutable candidate ref double-readback + clean checkout
+→ durable PASS materialization before append-only registration
+→ FINAL_GATE signed AGENT_GATE_PASS / FAIL
+```
+
+原始Agent输出、blind truth、私钥和custody registry实际路径不进入Git。签名只证明角色任务对规范化字段的证明，仍需上游回执与候选字节回读；sealed scorer不接受调用者手填聚合指标。`MULTI_AGENT_SIMULATED_REVIEW`和`SEALED_AGENT_BLIND`必须标记`human_evidence=false`；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。完整合同见`governance/AGENT_GATE_PROTOCOL.md`和ADR-013。

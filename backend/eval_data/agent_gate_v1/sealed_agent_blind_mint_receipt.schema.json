@@ -1,0 +1,179 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Sha256",
+      "type": "string"
+    },
+    "custodian_task_id": {
+      "maxLength": 160,
+      "minLength": 8,
+      "title": "Custodian Task Id",
+      "type": "string"
+    },
+    "custody_registry_identity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Custody Registry Identity Sha256",
+      "type": "string"
+    },
+    "custody_registry_path_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Custody Registry Path Sha256",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "mint_sequence": {
+      "minimum": 1,
+      "title": "Mint Sequence",
+      "type": "integer"
+    },
+    "minted_at": {
+      "format": "date-time",
+      "title": "Minted At",
+      "type": "string"
+    },
+    "one_shot_nonce_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "One Shot Nonce Sha256",
+      "type": "string"
+    },
+    "prompt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Binding Sha256",
+      "type": "string"
+    },
+    "schema_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Schema Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "sealed-agent-blind-mint-receipt-v2",
+      "default": "sealed-agent-blind-mint-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scorer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Scorer Sha256",
+      "type": "string"
+    },
+    "state": {
+      "const": "MINTED",
+      "default": "MINTED",
+      "title": "State",
+      "type": "string"
+    },
+    "thresholds_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Thresholds Sha256",
+      "type": "string"
+    },
+    "tranche_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Tranche Commitment Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "custody_registry_identity_sha256",
+    "custody_registry_path_sha256",
+    "authority_policy_sha256",
+    "mint_sequence",
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "tranche_commitment_sha256",
+    "one_shot_nonce_sha256",
+    "custodian_task_id",
+    "prompt_sha256",
+    "schema_sha256",
+    "thresholds_sha256",
+    "config_sha256",
+    "provider_binding_sha256",
+    "scorer_sha256",
+    "minted_at",
+    "authority_signature"
+  ],
+  "title": "SealedAgentBlindMintReceipt",
+  "type": "object"
+}

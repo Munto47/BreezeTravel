@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    },
+    "InferenceEffectReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "effect_id": {
+          "maxLength": 160,
+          "minLength": 8,
+          "title": "Effect Id",
+          "type": "string"
+        },
+        "input_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "input_tokens": {
+          "minimum": 0,
+          "title": "Input Tokens",
+          "type": "integer"
+        },
+        "latency_ms": {
+          "minimum": 0.0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "output_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Sha256",
+          "type": "string"
+        },
+        "output_tokens": {
+          "minimum": 0,
+          "title": "Output Tokens",
+          "type": "integer"
+        },
+        "provider_request_id_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider Request Id Sha256"
+        },
+        "repair_call_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Repair Call Count",
+          "type": "integer"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "const": "SUCCEEDED",
+          "default": "SUCCEEDED",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "effect_id",
+        "case_id",
+        "input_sha256",
+        "request_sha256",
+        "response_sha256",
+        "output_sha256",
+        "input_tokens",
+        "output_tokens",
+        "latency_ms",
+        "repair_call_count",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "InferenceEffectReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Policy Sha256"
+    },
+    "authority_signature": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetachedAuthoritySignature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Sha256",
+      "type": "string"
+    },
+    "database_export_receipt_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Database Export Receipt Path"
+    },
+    "database_export_receipt_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Database Export Receipt Sha256"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "effects": {
+      "items": {
+        "$ref": "#/$defs/InferenceEffectReceipt"
+      },
+      "minItems": 1,
+      "title": "Effects",
+      "type": "array"
+    },
+    "endpoint_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Endpoint Sha256",
+      "type": "string"
+    },
+    "evidence_level": {
+      "enum": [
+        "LIVE_PROVIDER_EVIDENCE",
+        "AUTOMATED_TEST"
+      ],
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "exact_model_id": {
+      "maxLength": 160,
+      "minLength": 2,
+      "title": "Exact Model Id",
+      "type": "string"
+    },
+    "execution_mode": {
+      "enum": [
+        "LIVE",
+        "CONTROLLED_FIXTURE"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "exporter_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exporter Path"
+    },
+    "exporter_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exporter Sha256"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "generated_by": {
+      "enum": [
+        "G01_QWEN_LIVE_RECEIPT_EXPORTER",
+        "G01_QWEN_CONTROLLED_FIXTURE_EXPORTER"
+      ],
+      "title": "Generated By",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G01-TEXT-CARDS",
+      "default": "TC-VNEXT-G01-TEXT-CARDS",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "inference_outputs_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Inference Outputs Path"
+    },
+    "inference_outputs_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Inference Outputs Sha256",
+      "type": "string"
+    },
+    "model_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Model Binding Sha256",
+      "type": "string"
+    },
+    "predictions_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Predictions Path"
+    },
+    "predictions_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Predictions Sha256",
+      "type": "string"
+    },
+    "prompt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "provider": {
+      "const": "QWEN",
+      "default": "QWEN",
+      "title": "Provider",
+      "type": "string"
+    },
+    "provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Binding Sha256",
+      "type": "string"
+    },
+    "provider_http_receipt_bundle_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Http Receipt Bundle Path"
+    },
+    "provider_http_receipt_bundle_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Http Receipt Bundle Sha256"
+    },
+    "raw_request_or_response_in_repository": {
+      "const": false,
+      "default": false,
+      "title": "Raw Request Or Response In Repository",
+      "type": "boolean"
+    },
+    "region": {
+      "maxLength": 80,
+      "minLength": 2,
+      "title": "Region",
+      "type": "string"
+    },
+    "schema_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Schema Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-qwen-inference-receipt-bundle-v2",
+      "default": "g01-qwen-inference-receipt-bundle-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    }
+  },
+  "required": [
+    "split",
+    "candidate_commit",
+    "candidate_tree",
+    "execution_mode",
+    "evidence_level",
+    "region",
+    "endpoint_sha256",
+    "exact_model_id",
+    "model_binding_sha256",
+    "prompt_sha256",
+    "schema_sha256",
+    "config_sha256",
+    "provider_binding_sha256",
+    "predictions_sha256",
+    "inference_outputs_sha256",
+    "generated_at",
+    "generated_by",
+    "effects"
+  ],
+  "title": "InferenceRuntimeReceiptBundle",
+  "type": "object"
+}

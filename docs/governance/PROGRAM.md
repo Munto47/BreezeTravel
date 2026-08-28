@@ -2,7 +2,7 @@
 
 > 状态：`APPROVED`
 >
-> Program 版本：`Blueprint 1.0`
+> Program 版本：`Blueprint 1.1 / Agent Gate Transition`
 >
 > 授权日期：2026-08-27
 >
@@ -63,6 +63,23 @@
 - 新风险或失败；
 - 下一自主动作。
 
+### 3.1 G01～G07 统一 Agent Gate
+
+G01～G07 固定执行 `AGENT_GATE_PROTOCOL.md`，通过状态为 `AGENT_GATE_PASS`。证据等级只允许：
+
+- `AUTOMATED_TEST`；
+- `LIVE_PROVIDER_EVIDENCE`；
+- `MULTI_AGENT_SIMULATED_REVIEW`；
+- `SEALED_AGENT_BLIND`；
+- `HUMAN_USABILITY`；
+- `PRODUCTION_EVIDENCE`。
+
+Agent 参考答案、裁决和审查不属于真人证据。每个候选必须绑定同一 commit/config/data，执行三个隔离审查角色和新的 ultra 裁决；P0/P1及属于当前Goal的P2必须修复，需要 blind 的 Gate 必须由独立 Codex 任务执行。候选绑定改变，旧结论失效。历史真人 schema 与历史证据只读保留。
+
+Agent Gate 权限按Goal使用generation 1～7。当前治理提交只是G01 `BOOTSTRAP`预锚，不是generation 1 authority anchor，也不能生成Gate证据；完整live capture execution receipt、仓库外隔离signer和全部阻断问题闭合后，还必须由`SEALED_CUSTODY`签发机器绑定bootstrap/ACTIVE字节、双lane capture和signer执行回执的`authority-activation-readiness-v1`，才进行一次`BOOTSTRAP → ACTIVE`候选冻结并由独立custody登记generation 1。此后每代从该Goal的原子过渡commit起冻结policy和协议字节，下一代只可在上一Goal FINAL_GATE PASS已登记后精确加一。Program的G01～G07顺序、前驱、自动Gate合同、公钥、registry、路径集合与绑定根跨代稳定；下一Goal专属scorer/threshold/schema/exporter在激活commit冻结。G02～G07必须从仓库外append-only登记回读上一Goal PASS。角色私钥、custody registry实际路径、原始Agent输出和blind truth留在所有Git worktree/Git目录之外；候选Python不得持有私钥或key path，ACTIVE前必须提供不导入候选代码的仓库外隔离signer。自动产品命令在secret-free OCI候选镜像执行。live证据必须由custody固定registry与一次性mint、冻结capture runner直接观察HTTPS所得逐effect签名、类型化append-only表和完整coverage共同成立；缺任一环时exporter、builder和verifier全部`NOT_RUN`。Sealed scorer不接受手填聚合指标。任何角色签名不能替代Provider事实、真人、生产或商业证据。
+
+activation-readiness 必须另外绑定排除该自引用回执固定路径后的完整 ACTIVE tree，以及 ACTIVE 的 policy、Program core、config 与 data；除固定回执路径外的任一 Git blob 变化都会使旧回执失效。
+
 ## 4. 预批准的公共合同与 migration
 
 这些授权只在对应 Goal 激活后生效。
@@ -72,10 +89,10 @@
 - 新增 `/api/v3/trip-understandings` create/result/events/commands、source/行程删除和账号旅行数据级联删除合同；
 - 新增 `028_trip_understanding_v3.sql`，包含持久job/lease/event、资源所有权、source TTL和删除回执；
 - 新增 `029_map_render_snapshots.sql`、最小地图worker、walking/transit计算、逻辑去重和迟到写保护，使首批卡片后真正开始后台地图准备；
-- 接入模型中立 `StructuredInferenceProvider`；G01置为`APPROVED`后，首个preflight必须现场readback Qwen账号、区域、exact model ID、endpoint、价格和隐私条款，不假定已有配置；
+- 接入模型中立 `StructuredInferenceProvider`；从当前环境安全加载已有凭据并通过官方目录自动readback Qwen区域、exact model ID、endpoint、上下文和Provider可返回的价格字段；未暴露字段写`NOT_EXPOSED_BY_PROVIDER`，不向用户索要；
 - 修改 Web 首页/登录顺序，新增匿名体验；
 - 冻结现有未版本化API的OpenAPI兼容snapshot；
-- 复用现有高德POI与walking/transit开发能力，但只有许可readback允许的最小字段可以持久化。
+- 在`OWNER_ATTESTED_EXISTING_AUTHORIZATION`范围使用高德POI与walking/transit开发能力，只持久化最小脱敏字段；生产、公开展示和长期缓存许可仍在对应人工审批点处理。
 
 ### G02
 
@@ -125,7 +142,7 @@
 - G01：Qwen开发调用不设总费用硬上限，但每任务最多一次初始调用和一次schema修复，并记录exact model、token、延迟、修复、失败和估算费用；不得新增付费账号、绑卡或生产调用。
 - Qwen Max为质量上限和初始开发benchmark候选，Plus为生产候选，Flash为低延迟候选；只在dev/validation选唯一候选，冻结后sealed blind一次性验证。
 - DeepSeek保留冻结 Baseline，不作静默 fallback。
-- G01地图预计算及以后只允许当前已有、许可readback通过且无增量费用的高德/天气开发矩阵；扩大范围或产生新费用需人工批准。
+- G01地图预计算及以后只允许当前已有、所有者声明授权且无增量费用的高德/天气开发矩阵；扩大范围或产生新费用需人工批准。
 - 同一失败策略最多两次；第三次尝试前必须改变假设、实现、工具、数据或验证方法。
 
 ## 6. 数据与评测
@@ -137,13 +154,13 @@ G01新建语义/地点数据集：
 - 15 条其他城市；
 - 15 条多城市、URL、描述、备选、否定和经过地点对抗样本；
 - 54 dev / 18 validation / 18 sealed blind；
-- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不进入regression、oracle或blind；G01的90条数据必须按本Program重新生成、双人标注并冻结；
-- 双人独立标注，冲突裁决；
-- blind schema/oracle冻结后禁止修改；标签由独立custodian保管，开发代理和运行模型不可读；
+- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不进入regression、oracle或blind；G01的90条数据必须按本Program重新生成、双Agent独立标注并冻结；
+- 两个`gpt-5.6-sol / xhigh`隔离任务独立标注，新的`gpt-5.6-sol / ultra`任务在A/B输出冻结并计算hash后裁决；字段使用`agent_reference/agent_adjudication`，不得伪装真人；
+- blind schema/oracle冻结后禁止修改；答案由独立Codex任务在仓库外保管，开发任务和运行模型不可读；
 - Max/Plus/Flash只在dev/validation选择，唯一候选、prompt、schema、threshold和最小预测分母冻结后才运行sealed blind一次；
 - blind失败只生成独立dev/regression故障族，不回看标签调参；输入分布或schema实质变化时必须经独立批准创建新版blind，旧版只读。
 
-每个真实修复故障追加 regression。模型不能评价自己的输出；自动 Judge只作辅助，确定性 scorer和可执行行为是门禁权威。
+每个真实修复故障追加 regression。候选模型不能评价自己的输出；Agent裁决只接收可复现证据，确定性 scorer、live Provider回执和可执行行为共同构成门禁权威。
 
 ### 可选形成性用户学习
 
@@ -154,7 +171,7 @@ G01、G02、G03通过工程Gate后分别预留 `FUX-01卡片理解`、`FUX-02地
 Goal完成后只有同时满足以下条件才能激活下一 Goal：
 
 - 当前 Goal 的用户 Outcome 已实现；
-- 对应 Gate 全 PASS；
+- 对应 Gate 已绑定同一候选并取得 `AGENT_GATE_PASS`；
 - 没有未披露的 required `NOT_RUN`；
 - working tree clean；
 - checkpoint commit 已推送；
@@ -163,9 +180,9 @@ Goal完成后只有同时满足以下条件才能激活下一 Goal：
 - 从current Goal完整内容生成最终completed归档，不删除字段或保留PENDING；
 - 下一 Goal合同与 Program模板一致。
 
-subject checkpoint先push/readback；归档与下一Goal激活在同一个治理过渡commit中完成，该commit也必须push/readback。transition commit不要求把自身未知hash写入自身。
+subject checkpoint先push/readback，并把其FINAL_GATE签名PASS先耐久物化再登记到仓库外Goal pass ledger；归档、下一Goal激活、`current_goal_binding.json`和下一authority generation在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash必须与跨代稳定Program表对应项完全一致，该commit也必须push/readback并由独立custody登记新anchor。transition commit不要求把自身未知hash写入自身。
 
-自动推进只到 G07。H1、生产、公网、商业、合并 `main` 始终需要人工批准。
+自动推进只到 G07。G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；H1、生产、公网、商业、合并 `main` 始终需要人工批准。
 
 ## 8. Stop conditions
 
@@ -174,13 +191,11 @@ subject checkpoint先push/readback；归档与下一Goal激活在同一个治理
 - 需要改变产品北极星或跳过 Goal；
 - 需要未预批准 migration/API/生产依赖；
 - 需要新账号、绑卡、付费 Provider或扩大数据来源；
-- 高德/模型/知识数据留存或许可无法满足；
 - 需要读取或修改 sealed blind/oracle；
 - 发现隐私泄漏、事实与证据无法消解；
-- 连续两个不同切片无法改善同一硬门禁；
 - 需要真人、发布、部署或 `main` 合并。
 
-普通代码错误、测试失败、构建失败、环境问题和可调查的不确定性不是用户阻塞。
+普通代码错误、测试失败、构建失败、Agent Gate或blind失败、环境问题、当前已有Provider的可诊断配置问题和可调查的不确定性不是用户阻塞；它们留在当前Goal继续诊断。只有解决方案需要改变产品目标/Gate、扩大付费/数据权限或进入上述人工阶段时才停止请求决定。
 
 ## 9. 历史证据边界
 

@@ -1,0 +1,262 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_anchor_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Authority Anchor Commit",
+      "type": "string"
+    },
+    "authority_anchor_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Anchor Receipt Sha256",
+      "type": "string"
+    },
+    "authority_generation": {
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Authority Generation",
+      "type": "integer"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "automated_gate_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Automated Gate Contract Sha256",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "canonical_origin_url": {
+      "const": "https://github.com/Munto47/BreezeTravel.git",
+      "default": "https://github.com/Munto47/BreezeTravel.git",
+      "title": "Canonical Origin Url",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "component_receipt_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "AUTOMATED_PRODUCT_GATE",
+          "LIVE_PROVIDER_GATE",
+          "MULTI_AGENT_PANEL",
+          "SEALED_AGENT_BLIND"
+        ]
+      },
+      "title": "Component Receipt Sha256",
+      "type": "object"
+    },
+    "current_goal_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Current Goal Binding Sha256",
+      "type": "string"
+    },
+    "current_goal_document_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Current Goal Document Sha256",
+      "type": "string"
+    },
+    "evidence_levels": {
+      "items": {
+        "enum": [
+          "AUTOMATED_TEST",
+          "LIVE_PROVIDER_EVIDENCE",
+          "MULTI_AGENT_SIMULATED_REVIEW",
+          "SEALED_AGENT_BLIND",
+          "HUMAN_USABILITY",
+          "PRODUCTION_EVIDENCE"
+        ],
+        "type": "string"
+      },
+      "minItems": 4,
+      "title": "Evidence Levels",
+      "type": "array"
+    },
+    "fresh_checkout_root_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Fresh Checkout Root Sha256",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "goal_sequence": {
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Goal Sequence",
+      "type": "integer"
+    },
+    "human_usability_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Human Usability Status",
+      "type": "string"
+    },
+    "predecessor_completion_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Predecessor Completion Commit",
+      "type": "string"
+    },
+    "predecessor_goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Predecessor Goal Id",
+      "type": "string"
+    },
+    "production_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Production Status",
+      "type": "string"
+    },
+    "remote_name": {
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Remote Name",
+      "type": "string"
+    },
+    "remote_ref": {
+      "pattern": "^refs/heads/[A-Za-z0-9._/-]+$",
+      "title": "Remote Ref",
+      "type": "string"
+    },
+    "remote_subject": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Remote Subject",
+      "type": "string"
+    },
+    "remote_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Remote Tree",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "agent-gate-pass-receipt-v2",
+      "default": "agent-gate-pass-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "AGENT_GATE_PASS",
+      "default": "AGENT_GATE_PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_sequence",
+    "goal_id",
+    "predecessor_goal_id",
+    "predecessor_completion_commit",
+    "current_goal_binding_sha256",
+    "current_goal_document_sha256",
+    "automated_gate_contract_sha256",
+    "candidate_commit",
+    "candidate_tree",
+    "authority_anchor_commit",
+    "authority_policy_sha256",
+    "authority_generation",
+    "authority_anchor_receipt_sha256",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "component_receipt_sha256",
+    "fresh_checkout_root_sha256",
+    "remote_name",
+    "remote_ref",
+    "remote_subject",
+    "remote_tree",
+    "verifier_sha256",
+    "evidence_levels",
+    "completed_at",
+    "authority_signature"
+  ],
+  "title": "AgentGatePassReceipt",
+  "type": "object"
+}

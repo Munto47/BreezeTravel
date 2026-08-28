@@ -7,13 +7,13 @@
 - Product version：`V0.2`
 - Status：`DRAFT`
 - Activation：G01 Text Card Gate通过并归档后
-- Required gate：`Map & Stay Gate`
+- Required gate：`Map & Stay Gate + AGENT_GATE_PASS`
 - Next Goal：`TC-VNEXT-G03-TOP3-AUDIT`
 
 ## Dependencies
 
 - 唯一激活依赖是G01归档且Text Card Gate通过；随后G02置为`APPROVED`。
-- 首个preflight填写branch/baseline、current OpenAPI、G01的029/worker/snapshot/许可和未关闭风险；缺失lane标记`NOT_READY`，不伪装通过并继续其他安全独立切片。
+- 首个preflight填写branch/baseline、current OpenAPI、G01的029/worker/snapshot、`OWNER_ATTESTED_EXISTING_AUTHORIZATION`和未关闭风险；缺失lane标记`NOT_READY`，不伪装通过并继续其他安全独立切片。
 
 ## User Outcome
 
@@ -87,14 +87,15 @@
 - browser pre-ready/ready/stale/rerender/partial；
 - stay scoring/property tests；
 - public result禁止内部字段；
-- 高德条款/数据留存readback；
+- 高德最小留存与owner attestation readback；
+- 三角色Agent审查、ultra裁决和同commit fresh readback；
 - H1/生产：`NOT_RUN`。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-010、ADR-012。
+- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
+- ADR-007、ADR-008、ADR-010、ADR-012、ADR-013。
 
 ## Baseline
 
@@ -118,7 +119,7 @@
 
 ## HITL
 
-高德许可/费用/账号变化、HotelBrandRegistry来源无法授权、未预批准migration/依赖、H1/公网/生产/`main`时请求批准；可修复地图或评分故障由代理继续诊断。
+新高德账号/费用/扩大数据权限、HotelBrandRegistry新增受限来源、未预批准migration/依赖、H1/公网/生产/`main`时请求批准；现有授权和可修复地图、评分或Agent Gate故障由Codex继续诊断。
 
 ## Checkpoint ledger
 
@@ -129,19 +130,19 @@
 ## Auto-advance
 
 - Required gate：`Map & Stay Gate`；Next template：`TC-VNEXT-G03-TOP3-AUDIT.md`；
-- subject push/readback、Gate PASS、clean tree、无Stop后，最终归档并原子激活G03；
+- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G03并创建generation 3权限锚；
 - FUX-02、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
 
 - Status / Subject commits / Remote branch：激活后填写；
 - Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
+- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：激活后填写；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
 
-- 高德许可不允许开发所需短期使用；
 - 需要新账号/费用或扩大地图来源；
 - 无法保证编辑零自动调用；
 - 迟到任务可能覆盖current revision；

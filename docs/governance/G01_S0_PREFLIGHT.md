@@ -1,5 +1,10 @@
 # G01-S0 现场 Preflight、旧入口隔离与 v3 公共边界
 
+> 历史 checkpoint：本文记录 2026-08-27 当时的现场判断，不再指挥当前执行。
+> 其中 Qwen 手工确认和高德书面许可的旧前置条件已由 ADR-013 与
+> `AGENT_GATE_PROTOCOL.md` 取代；历史文字保留用于追溯，不得覆盖
+> `CURRENT_GOAL.md` 的当前合同。
+
 日期：2026-08-27
 
 Goal：`TC-VNEXT-G01-TEXT-CARDS`

@@ -1,0 +1,316 @@
+{
+  "$defs": {
+    "AgentDestinationPrediction": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "destination_basis": {
+          "enum": [
+            "EXPLICIT",
+            "SOFT_ASSUMPTION"
+          ],
+          "title": "Destination Basis",
+          "type": "string"
+        },
+        "destination_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Destination Name",
+          "type": "string"
+        },
+        "evidence_raw_text": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Raw Text"
+        },
+        "evidence_span_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Span End"
+        },
+        "evidence_span_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Span Start"
+        }
+      },
+      "required": [
+        "case_id",
+        "destination_name",
+        "destination_basis"
+      ],
+      "title": "AgentDestinationPrediction",
+      "type": "object"
+    },
+    "PredictedMention": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_place_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Atomic Place Name"
+        },
+        "canonical_category": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Category"
+        },
+        "canonical_city": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical City"
+        },
+        "canonical_place_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Canonical Place Id"
+        },
+        "day_index": {
+          "anyOf": [
+            {
+              "maximum": 14,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day Index"
+        },
+        "eligible_for_place_search": {
+          "title": "Eligible For Place Search",
+          "type": "boolean"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "resolution_status": {
+          "enum": [
+            "NOT_ELIGIBLE",
+            "UNRESOLVED",
+            "AUTO_MATCHED",
+            "NEEDS_CONFIRMATION"
+          ],
+          "title": "Resolution Status",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "PLANNED",
+            "OPTIONAL",
+            "REFERENCE",
+            "EXCLUDED",
+            "PASS_THROUGH"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "span_end": {
+          "exclusiveMinimum": 0,
+          "title": "Span End",
+          "type": "integer"
+        },
+        "span_start": {
+          "minimum": 0,
+          "title": "Span Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "span_start",
+        "span_end",
+        "raw_text",
+        "role",
+        "eligible_for_place_search",
+        "resolution_status"
+      ],
+      "title": "PredictedMention",
+      "type": "object"
+    },
+    "TextCardPrediction": {
+      "additionalProperties": false,
+      "properties": {
+        "cards_ready_ms": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cards Ready Ms"
+        },
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "dataset_version": {
+          "const": "g01-text-card-dataset-v1",
+          "default": "g01-text-card-dataset-v1",
+          "title": "Dataset Version",
+          "type": "string"
+        },
+        "destination_name": {
+          "title": "Destination Name",
+          "type": "string"
+        },
+        "first_progress_ms": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "First Progress Ms"
+        },
+        "measurement_scope": {
+          "enum": [
+            "LOCAL_PIPELINE_ONLY",
+            "PUBLIC_API_BROWSER"
+          ],
+          "title": "Measurement Scope",
+          "type": "string"
+        },
+        "mentions": {
+          "items": {
+            "$ref": "#/$defs/PredictedMention"
+          },
+          "title": "Mentions",
+          "type": "array"
+        },
+        "provider_binding": {
+          "title": "Provider Binding",
+          "type": "object"
+        },
+        "public_result": {
+          "title": "Public Result",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": "g01-text-card-prediction-v1",
+          "default": "g01-text-card-prediction-v1",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "source_sha256",
+        "destination_name",
+        "provider_binding",
+        "mentions",
+        "public_result",
+        "measurement_scope"
+      ],
+      "title": "TextCardPrediction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "pattern": "^G01-TC-\\d{3}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "destination_prediction": {
+      "$ref": "#/$defs/AgentDestinationPrediction"
+    },
+    "schema_version": {
+      "const": "g01-agent-inference-case-output-v2",
+      "default": "g01-agent-inference-case-output-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "text_card_prediction": {
+      "$ref": "#/$defs/TextCardPrediction"
+    }
+  },
+  "required": [
+    "case_id",
+    "source_sha256",
+    "text_card_prediction",
+    "destination_prediction"
+  ],
+  "title": "AgentInferenceCaseOutputV2",
+  "type": "object"
+}

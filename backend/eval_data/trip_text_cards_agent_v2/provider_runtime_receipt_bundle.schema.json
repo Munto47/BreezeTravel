@@ -1,0 +1,372 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    },
+    "ProviderRuntimeEffectReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_source_names": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Accepted Source Names",
+          "type": "array"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category"
+        },
+        "city": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "City"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "effect_id": {
+          "maxLength": 160,
+          "minLength": 8,
+          "title": "Effect Id",
+          "type": "string"
+        },
+        "effect_key_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Effect Key Sha256",
+          "type": "string"
+        },
+        "execution_mode": {
+          "enum": [
+            "LIVE",
+            "CONTROLLED_FIXTURE"
+          ],
+          "title": "Execution Mode",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "place_id": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Place Id"
+        },
+        "provider": {
+          "const": "AMAP",
+          "default": "AMAP",
+          "title": "Provider",
+          "type": "string"
+        },
+        "provider_binding_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Provider Binding Sha256",
+          "type": "string"
+        },
+        "raw_response_in_repository": {
+          "const": false,
+          "default": false,
+          "title": "Raw Response In Repository",
+          "type": "boolean"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "resolution_status": {
+          "enum": [
+            "MATCHED",
+            "UNRESOLVED",
+            "AMBIGUOUS"
+          ],
+          "title": "Resolution Status",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "const": "SUCCEEDED",
+          "default": "SUCCEEDED",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "effect_id",
+        "effect_key_sha256",
+        "execution_mode",
+        "provider_binding_sha256",
+        "request_sha256",
+        "response_sha256",
+        "resolution_status",
+        "accepted_source_names",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "ProviderRuntimeEffectReceipt",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Policy Sha256"
+    },
+    "authority_signature": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetachedAuthoritySignature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "database_export_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Database Export Receipt Path",
+      "type": "string"
+    },
+    "database_export_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Database Export Receipt Sha256",
+      "type": "string"
+    },
+    "effects": {
+      "items": {
+        "$ref": "#/$defs/ProviderRuntimeEffectReceipt"
+      },
+      "minItems": 1,
+      "title": "Effects",
+      "type": "array"
+    },
+    "evidence_level": {
+      "enum": [
+        "LIVE_PROVIDER_EVIDENCE",
+        "AUTOMATED_TEST"
+      ],
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "execution_mode": {
+      "enum": [
+        "LIVE",
+        "CONTROLLED_FIXTURE"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "exporter_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exporter Path"
+    },
+    "exporter_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Exporter Sha256"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "generated_by": {
+      "enum": [
+        "G01_AMAP_LIVE_RECEIPT_EXPORTER",
+        "G01_AMAP_CONTROLLED_FIXTURE_EXPORTER"
+      ],
+      "title": "Generated By",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G01-TEXT-CARDS",
+      "default": "TC-VNEXT-G01-TEXT-CARDS",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Binding Sha256",
+      "type": "string"
+    },
+    "provider_http_receipt_bundle_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Provider Http Receipt Bundle Path",
+      "type": "string"
+    },
+    "provider_http_receipt_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Http Receipt Bundle Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-amap-runtime-receipt-bundle-v2",
+      "default": "g01-amap-runtime-receipt-bundle-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_runtime": {
+      "enum": [
+        "PERSISTED_PROVIDER_EFFECT_REGISTRY",
+        "CONTROLLED_CONTRACT_FIXTURE"
+      ],
+      "title": "Source Runtime",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "provider_binding_sha256",
+    "execution_mode",
+    "database_export_receipt_path",
+    "database_export_receipt_sha256",
+    "provider_http_receipt_bundle_path",
+    "provider_http_receipt_bundle_sha256",
+    "generated_at",
+    "generated_by",
+    "source_runtime",
+    "evidence_level",
+    "effects"
+  ],
+  "title": "ProviderRuntimeReceiptBundle",
+  "type": "object"
+}
