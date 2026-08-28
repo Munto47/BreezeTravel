@@ -34,6 +34,32 @@ _CONFIG_PATH = _PROMPT_PATH.with_name("qwen_inference_config.json")
 _MODEL_PANEL_PATH = _PROMPT_PATH.with_name("qwen_model_panel.json")
 _FORBIDDEN_ATOMIC_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = set("。！？；\n")
+_NON_ATOMIC_SOURCE_MARKERS = (
+    "上午",
+    "下午",
+    "随后",
+    "前往",
+    "游览",
+    "安排",
+    "确定",
+    "如果",
+    "只是",
+    "网友",
+    "提到",
+    "参考",
+    "备选",
+    "路过",
+    "经过",
+    "换乘",
+    "放在",
+    "不去",
+    "排除",
+    "很有名",
+    "去",
+    "到",
+    "与",
+)
+_NON_ATOMIC_SOURCE_CHARACTERS = set("。！？；\n，,:：;、")
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
 _DAY_NUMBER = {
     "一": 1,
@@ -98,6 +124,34 @@ def _redacted_validation_category(exc: Exception) -> str:
     }:
         return message
     return "VALUE_ERROR"
+
+
+def _safe_atomic_source_span(
+    source_text: str,
+    span_start: int,
+    span_end: int,
+) -> tuple[int, int, str] | None:
+    if not 0 <= span_start < span_end <= len(source_text):
+        return None
+    selected = source_text[span_start:span_end]
+    value = selected.strip()
+    if not value or len(value) > 40:
+        return None
+    start = span_start + len(selected) - len(selected.lstrip())
+    end = start + len(value)
+    if any(
+        match.start() < end and match.end() > start
+        for match in _URL_TOKEN_RE.finditer(source_text)
+    ):
+        return None
+    lowered = value.casefold()
+    if any(marker in lowered for marker in _FORBIDDEN_ATOMIC_MARKERS):
+        return None
+    if any(marker in value for marker in _NON_ATOMIC_SOURCE_CHARACTERS):
+        return None
+    if any(marker in value for marker in _NON_ATOMIC_SOURCE_MARKERS):
+        return None
+    return start, end, value
 
 
 class QwenExplicitDestinationDraft(StrictModel):
@@ -377,7 +431,7 @@ class QwenStructuredInferenceProvider:
     def _proposal_from_draft(
         source_text: str,
         draft: QwenSemanticDraft,
-    ) -> tuple[list[ProposedMention], str, int, int, int, int, int]:
+    ) -> tuple[list[ProposedMention], str, int, int, int, int, int, int]:
         destination = draft.destination
         destination_span_relocation_count = 0
         if destination.basis == DestinationBasis.EXPLICIT:
@@ -402,6 +456,7 @@ class QwenStructuredInferenceProvider:
         atomic_span_narrowing_count = 0
         atomic_span_relocation_count = 0
         atomic_span_disambiguation_count = 0
+        atomic_name_source_recovery_count = 0
         planned_day_fill_count = 0
         for index, item in enumerate(draft.mentions, start=1):
             span_start = item.span_start
@@ -419,7 +474,16 @@ class QwenStructuredInferenceProvider:
                     if (offset, offset + len(atomic)) not in seen_spans
                 ]
                 if not source_offsets:
-                    raise ValueError("ATOMIC_PLACE_NOT_VERBATIM")
+                    recovered = _safe_atomic_source_span(
+                        source_text,
+                        span_start,
+                        span_end,
+                    )
+                    if recovered is None:
+                        raise ValueError("ATOMIC_PLACE_NOT_VERBATIM")
+                    span_start, span_end, atomic = recovered
+                    source_offsets = [span_start]
+                    atomic_name_source_recovery_count += 1
                 offsets_in_span = [
                     offset
                     for offset in source_offsets
@@ -496,6 +560,7 @@ class QwenStructuredInferenceProvider:
             atomic_span_disambiguation_count,
             destination_span_relocation_count,
             planned_day_fill_count,
+            atomic_name_source_recovery_count,
         )
 
     async def propose(self, source_text: str) -> InferenceProposal:
@@ -528,6 +593,7 @@ class QwenStructuredInferenceProvider:
                             atomic_span_disambiguation_count,
                             destination_span_relocation_count,
                             planned_day_fill_count,
+                            atomic_name_source_recovery_count,
                         ) = self._proposal_from_draft(source_text, draft)
                     except (ValidationError, json.JSONDecodeError, ValueError) as exc:
                         validation_category = _redacted_validation_category(exc)
@@ -580,6 +646,9 @@ class QwenStructuredInferenceProvider:
                             destination_span_relocation_count
                         ),
                         "planned_day_fill_count": planned_day_fill_count,
+                        "atomic_name_source_recovery_count": (
+                            atomic_name_source_recovery_count
+                        ),
                         "input_tokens": input_tokens,
                         "output_tokens": output_tokens,
                         "latency_ms": round((time.perf_counter() - started) * 1000, 3),

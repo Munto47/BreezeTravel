@@ -23,7 +23,9 @@ Mentions:
   instructions, reservation notes or URLs.
   Offsets are Unicode code-point, zero-based, half-open.
 - `atomic_place_name` may be non-null only when the selected span, after outer
-  whitespace is removed, is exactly that standalone place name.
+  whitespace is removed, is exactly that standalone place name. Copy it
+  character-for-character from that span: do not translate it, add a city or
+  category suffix, remove an existing city prefix, or substitute a common name.
 - A whole sentence, description, route instruction, booking note, phone number
   or URL is never an atomic place. When the exact span clearly is a place entity,
   `atomic_place_name` MUST equal that span; do not set it to null. Use null only

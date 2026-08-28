@@ -209,6 +209,51 @@ async def test_qwen_provider_recovers_atomic_place_from_empty_model_span() -> No
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_recovers_atomic_name_from_safe_exact_source_span() -> None:
+    source = "北京 Day 1 上午去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    output["mentions"][0]["atomic_place_name"] = "Forbidden Palace Museum"
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    mention = proposal.mentions[0]
+    assert mention.raw_text == "故宫博物院"
+    assert mention.atomic_place_name == "故宫博物院"
+    assert proposal.binding["atomic_name_source_recovery_count"] == 1
+    assert proposal.binding["repair_call_count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_does_not_recover_atomic_name_from_activity_clause() -> None:
+    source = "北京 Day 1 上午去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    output["mentions"][0]["span_start"] = source.index("上午")
+    output["mentions"][0]["span_end"] = source.index("。")
+    output["mentions"][0]["atomic_place_name"] = "Forbidden Palace Museum"
+    invalid = json.dumps(output, ensure_ascii=False)
+    client = _FakeClient([invalid, invalid])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    with pytest.raises(InferenceProviderUnavailableError) as raised:
+        await provider.propose(source)
+
+    assert raised.value.category == "SCHEMA_REPAIR_EXHAUSTED"
+    assert len(client.chat.completions.calls) == 2
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_uses_model_offset_to_disambiguate_verbatim_place() -> None:
     source = "北京 Day 1 去故宫博物院。参考段再次提到故宫博物院。"
     output = json.loads(_valid_output(source))
