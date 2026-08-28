@@ -40,6 +40,7 @@ from scripts.export_g01_amap_live_receipts import (
     build_source_only_catalog,
     extract_source_place_candidates,
 )
+from scripts.export_g01_qwen_live_receipts import _json_object
 from scripts.run_qwen_model_predictions import _output_targets
 from scripts.score_g01_agent_dev_validation import validate_prediction_run
 
@@ -130,6 +131,15 @@ def _sha(path: Path) -> str:
 
 def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+
+
+def test_qwen_application_export_normalizes_asyncpg_jsonb_objects() -> None:
+    assert _json_object({"mode": "LIVE"}, label="binding") == {"mode": "LIVE"}
+    assert _json_object('{"mode":"LIVE"}', label="binding") == {"mode": "LIVE"}
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        _json_object('["LIVE"]', label="binding")
+    with pytest.raises(ValueError, match="not valid JSON"):
+        _json_object("{", label="binding")
 
 
 def test_qwen_prediction_runner_preflights_external_targets_before_calls(

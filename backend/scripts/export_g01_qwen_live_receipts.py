@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import subprocess
+from collections.abc import Mapping
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -120,6 +121,19 @@ def _sha256_bytes(value: bytes) -> str:
 
 def _sha256_path(path: Path) -> str:
     return _sha256_bytes(path.read_bytes())
+
+
+def _json_object(value: Any, *, label: str) -> dict[str, Any]:
+    """Normalize asyncpg JSONB values while preserving an object-only contract."""
+
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{label} is not valid JSON") from exc
+    if not isinstance(value, Mapping):
+        raise ValueError(f"{label} must be a JSON object")
+    return dict(value)
 
 
 def _serialized(model: Any) -> bytes:
@@ -496,12 +510,16 @@ def _prediction_from_readback(
     activities: list[Any],
     provider_binding: dict[str, Any],
 ) -> AgentInferenceCaseOutputV2:
-    destination = dict(revision["destination_json"])
+    destination = _json_object(
+        revision["destination_json"], label="persisted destination"
+    )
     destination_name = str(destination["name"])
     destination_basis = str(destination["status"])
     mentions = []
     for row in activities:
-        receipt = dict(row["resolver_receipt_json"])
+        receipt = _json_object(
+            row["resolver_receipt_json"], label="persisted resolver receipt"
+        )
         matched = row["resolution_status"] == "AUTO_MATCHED"
         canonical_city = (
             receipt.get("selected_city") or receipt.get("city") if matched else None
@@ -535,7 +553,9 @@ def _prediction_from_readback(
         destination_name=destination_name,
         provider_binding=provider_binding,
         mentions=mentions,
-        public_result=dict(revision["public_json"]),
+        public_result=_json_object(
+            revision["public_json"], label="persisted public result"
+        ),
         measurement_scope="LOCAL_PIPELINE_ONLY",
     )
     if destination_basis == "EXPLICIT":
@@ -702,8 +722,14 @@ async def _capture(args: argparse.Namespace) -> dict[str, bytes | int | str]:
             understanding_id = str(revision["understanding_id"])
             if case_by_understanding.get(understanding_id) != source:
                 raise ValueError("Qwen readback understanding/source mapping mismatch")
-            persisted_binding = dict(revision["inference_binding_json"])
-            side_effect_binding = dict(revision["provider_binding_json"])
+            persisted_binding = _json_object(
+                revision["inference_binding_json"],
+                label="persisted inference binding",
+            )
+            side_effect_binding = _json_object(
+                revision["provider_binding_json"],
+                label="persisted side-effect binding",
+            )
             if side_effect_binding.get("inference") != persisted_binding:
                 raise ValueError("Qwen revision and side-effect inference bindings disagree")
             output = _prediction_from_readback(
