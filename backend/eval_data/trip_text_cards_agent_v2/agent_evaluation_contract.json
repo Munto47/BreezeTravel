@@ -8,8 +8,8 @@
   },
   "canonical_place_authority": "PROVIDER_BOUND_AGENT_REFERENCE",
   "contract_code_sha256": {
-    "annotations.py": "15ed52d6fcd1b1fc494ea96cc1d157cb2f4a1190bbe0223939d6fc9991702b6d",
-    "contracts.py": "f7dfc7610901b6287794590ceb4a1e0ebcaea67023399d1f70edd4ed6b796200",
+    "annotations.py": "6decdeb729920f8a2a090bcf0dd52eaf41ea189504d7df14b1baca928c49010e",
+    "contracts.py": "a87237f0fddbe5e7e7b8131502eb168db7d4e509545bc5f865788d6b466fb873",
     "split_loader.py": "81730e7e12545dfcbba5b1cb26f14695db860b550c75b2369322bd276e4e24a5"
   },
   "dataset_version": "g01-text-card-dataset-v1",
@@ -54,7 +54,7 @@
   ],
   "qwen_candidate_artifact_sha256": {
     "qwen_inference_config.json": "f1d7377a395d1ae7e5a1e7dbb4589b8a463dbd87af2de596c6dd59830f4884c1",
-    "qwen_inference_prompt.md": "4f7b1956c7a46fe3f3defd11fa73fd54156d377c0825596e46ab4c3c06a37449",
+    "qwen_inference_prompt.md": "f2221274f9e371934d55bca8f6dc62ba7b751ce2201e052f7ba364114bc94052",
     "qwen_model_panel.json": "4bf2193df340ecf144990412f131bb9c20b67a7aef8ddd9176a18a4a87bed3f5",
     "qwen_semantic_draft.schema.json": "0edb1e5705fb01b7e37cf9b03744529b7fa1bc4409eac63942bdaca3fa5c3d2f"
   },
@@ -72,8 +72,8 @@
     "agent_annotation.schema.json": "c74f99f3cb6c559534f995f4f2f34d4f0320d381659c118d2fd290d20757287c",
     "agent_inference_case_output.schema.json": "b4af30d6da000d6ae81151242ea23eea4540ad080ff19dbbab26c3c22fb6be73",
     "agent_prediction_run.schema.json": "f50fbb607dd5b0484fcc7baffcf4d1c739d791702049c062e1a616e9f1ec54c0",
-    "inference_database_export_receipt.schema.json": "d6f2f39a5c52c8bbba3473761518b51a1f445c9c946e7c58d0f7c88d565f5ecd",
-    "inference_http_receipt_bundle.schema.json": "fb645cfd9cfe5e4d94d4bafce600e8023b086f40daec1d80d90475e15f9dd1fe",
+    "inference_database_export_receipt.schema.json": "3199f6cba3e9db80c4c0ab63a479d404dcaa4cb92eca7ee3f7dde4cf6cd70b3a",
+    "inference_http_receipt_bundle.schema.json": "30449ff0de2622d0fabc28d027fb4ec531dea809b66bc16375f9b6716e5639b1",
     "inference_runtime_receipt_bundle.schema.json": "9cb9e9988c2dcd5956456cbfb8b1dad7b1590a950d29b20289a74fecd6336a0f",
     "provider_database_export_receipt.schema.json": "2ea7188b642cf5e92156dbf406fcb034a40110ec82cd4c0bba2bbc00e9b5f6e3",
     "provider_http_receipt_bundle.schema.json": "a3f30987e814fcc6569dc8105cda3d0526d2060e7e590bec8fe4a11ee45e09ff",

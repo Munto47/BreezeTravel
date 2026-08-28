@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -765,6 +765,7 @@ class InferenceDatabaseExportReceipt(StrictModel):
     provider_binding_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     execution_mode: InferenceExecutionMode
     source_registry: Literal[
+        "POSTGRESQL_APPLICATION_TABLES",
         "POSTGRESQL_INFERENCE_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE",
     ]
@@ -791,7 +792,11 @@ class InferenceDatabaseExportReceipt(StrictModel):
             raise ValueError("inference database export predates a persisted effect")
         if self.execution_mode == "LIVE":
             if (
-                self.source_registry != "POSTGRESQL_INFERENCE_EFFECT_REGISTRY"
+                self.source_registry
+                not in {
+                    "POSTGRESQL_APPLICATION_TABLES",
+                    "POSTGRESQL_INFERENCE_EFFECT_REGISTRY",
+                }
                 or self.database_instance_sha256 is None
             ):
                 raise ValueError("LIVE inference database exports require persisted provenance")
@@ -823,7 +828,9 @@ class InferenceHttpExchangeReceipt(StrictModel):
         default=None,
         pattern=r"^[0-9a-f]{64}$",
     )
-    http_status: int = Field(ge=200, le=299)
+    http_status: Annotated[int, Field(ge=200, le=299)] | Literal[
+        "NOT_EXPOSED_BY_SDK"
+    ]
     completed_at: datetime
     raw_response_retained: Literal[False] = False
 

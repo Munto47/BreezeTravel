@@ -27,8 +27,12 @@ from evals.trip_text_cards_agent_v2.split_loader import (
     AgentSplitValidationError,
     load_agent_split,
 )
-from evals.trip_text_cards_v1.contracts import TextCardPrediction, canonical_sha256
-from evals.trip_text_cards_v1.scorer import ScoringError
+from evals.trip_text_cards_v1.contracts import (
+    PredictedMention,
+    TextCardPrediction,
+    canonical_sha256,
+)
+from evals.trip_text_cards_v1.scorer import ScoringError, score_predictions
 from evals.trip_text_cards_v1.validator import load_cases
 from scripts.export_g01_amap_live_receipts import (
     _effect_models,
@@ -124,6 +128,77 @@ def _sha(path: Path) -> str:
 
 def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, ensure_ascii=False, sort_keys=True), encoding="utf-8")
+
+
+def test_non_place_reference_spans_do_not_count_as_missing_activity_roles() -> None:
+    source = load_cases(DATA_ROOT)["dev"][0]
+    place = "故宫博物院"
+    place_start = source.input_text.index(place)
+    url_start = source.input_text.index("https://")
+    url_end = source.input_text.index("，说明句", url_start)
+    destination_start = source.input_text.index("北京")
+    gold = AgentCaseAnnotation(
+        case_id=source.case_id,
+        source_sha256=source.normalized_input_sha256,
+        destination_name="北京",
+        destination_basis="EXPLICIT",
+        destination_evidence_span_start=destination_start,
+        destination_evidence_span_end=destination_start + 2,
+        destination_evidence_raw_text="北京",
+        mentions=[
+            AgentMentionAnnotation(
+                mention_id="place-optional",
+                span_start=place_start,
+                span_end=place_start + len(place),
+                raw_text=place,
+                semantic_kind="PLACE",
+                role="OPTIONAL",
+                place_boundary_status="VERIFIED_ATOMIC",
+                place_boundary_basis="SOURCE_VERBATIM_ATOMIC",
+                atomic_place_name=place,
+                executable_place=False,
+            ),
+            AgentMentionAnnotation(
+                mention_id="url-reference",
+                span_start=url_start,
+                span_end=url_end,
+                raw_text=source.input_text[url_start:url_end],
+                semantic_kind="URL",
+                role="REFERENCE",
+                place_boundary_status="NONE",
+                place_boundary_basis="NONE",
+                executable_place=False,
+            ),
+        ],
+    )
+    prediction = TextCardPrediction(
+        case_id=source.case_id,
+        source_sha256=source.normalized_input_sha256,
+        destination_name="北京",
+        provider_binding={},
+        mentions=[
+            PredictedMention(
+                span_start=place_start,
+                span_end=place_start + len(place),
+                raw_text=place,
+                role="OPTIONAL",
+                atomic_place_name=place,
+                eligible_for_place_search=False,
+                resolution_status="NOT_ELIGIBLE",
+            )
+        ],
+        public_result={},
+        measurement_scope="LOCAL_PIPELINE_ONLY",
+    )
+
+    score = score_predictions(
+        source_cases=[source],
+        gold_cases=[gold],
+        predictions=[prediction],
+    )
+
+    assert score["role_metrics"]["OPTIONAL"]["f1"] == 1
+    assert score["role_metrics"]["REFERENCE"]["fn"] == 0
 
 
 def _attestation(task_id: str, role: str, *, start_minute: int = 0) -> dict[str, object]:
@@ -662,8 +737,9 @@ def test_prediction_run_binds_candidate_model_config_provider_and_prediction_byt
     tmp_path: Path,
 ) -> None:
     source = load_cases(DATA_ROOT)["dev"][0]
-    provider_binding = {"provider": "AMAP", "binding": "fixture"}
-    provider_hash = canonical_sha256(provider_binding)
+    provider_binding_path = AGENT_ROOT / "provider_binding.json"
+    provider_binding = json.loads(provider_binding_path.read_text(encoding="utf-8"))
+    provider_hash = _sha(provider_binding_path)
     model_binding_path = tmp_path / "model-binding.json"
     prompt_path = tmp_path / "prompt.md"
     schema_path = tmp_path / "schema.json"

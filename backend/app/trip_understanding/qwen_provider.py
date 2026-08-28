@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -134,7 +135,22 @@ class QwenSemanticDraft(StrictModel):
 
 
 def qwen_semantic_schema() -> dict[str, Any]:
-    return QwenSemanticDraft.model_json_schema()
+    schema = QwenSemanticDraft.model_json_schema()
+
+    def preserve_literal_enum(value: object) -> None:
+        """Keep the frozen wire schema stable across Pydantic patch releases."""
+
+        if isinstance(value, dict):
+            if "const" in value and "enum" not in value:
+                value["enum"] = [value["const"]]
+            for child in value.values():
+                preserve_literal_enum(child)
+        elif isinstance(value, list):
+            for child in value:
+                preserve_literal_enum(child)
+
+    preserve_literal_enum(schema)
+    return schema
 
 
 def _sha256_text(value: str) -> str:
@@ -276,6 +292,7 @@ class QwenStructuredInferenceProvider:
             }
         )
         started = time.perf_counter()
+        started_at = datetime.now(UTC)
         receipt.update(
             {
                 "attempt": attempt,
@@ -293,6 +310,8 @@ class QwenStructuredInferenceProvider:
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "latency_ms": 0.0,
+                "started_at": started_at.isoformat().replace("+00:00", "Z"),
+                "completed_at": "NOT_COMPLETED",
                 "outcome": "NO_RESPONSE",
             }
         )
@@ -316,6 +335,9 @@ class QwenStructuredInferenceProvider:
             receipt["latency_ms"] = round(
                 (time.perf_counter() - started) * 1000,
                 3,
+            )
+            receipt["completed_at"] = datetime.now(UTC).isoformat().replace(
+                "+00:00", "Z"
             )
         content = response.choices[0].message.content
         if not isinstance(content, str) or not content.strip():

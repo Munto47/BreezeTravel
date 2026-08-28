@@ -185,7 +185,15 @@ def score_predictions(
             (mention.span_start, mention.span_end): mention.role
             for mention in prediction.mentions
         }
-        gold_roles = {span: mention.role for span, mention in gold_by_span.items()}
+        # The semantic reference deliberately annotates reservation notes,
+        # descriptions and URLs so they can prove the zero-POI-call boundary.
+        # They are not activity mentions and therefore must not count as
+        # missing role labels when the product correctly omits them.
+        gold_roles = {
+            span: mention.role
+            for span, mention in gold_by_span.items()
+            if mention.semantic_kind == "PLACE"
+        }
         for role in ROLES:
             predicted_set = {span for span, value in predicted_roles.items() if value == role}
             gold_set = {span for span, value in gold_roles.items() if value == role}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -318,6 +319,13 @@ async def test_qwen_provider_deadline_records_the_started_call_without_raw_text(
     assert binding["external_calls"] == 1
     assert binding["calls"][0]["outcome"] == "NO_RESPONSE"
     assert len(binding["calls"][0]["request_sha256"]) == 64
+    started_at = datetime.fromisoformat(
+        str(binding["calls"][0]["started_at"]).replace("Z", "+00:00")
+    )
+    completed_at = datetime.fromisoformat(
+        str(binding["calls"][0]["completed_at"]).replace("Z", "+00:00")
+    )
+    assert completed_at >= started_at
     assert binding["estimated_cost_cny"] is None
     assert binding["estimated_cost_status"] == (
         "NOT_EXPOSED_BY_PROVIDER_FOR_INCOMPLETE_CALL"

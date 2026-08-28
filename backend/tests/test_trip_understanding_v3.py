@@ -44,10 +44,11 @@ from app.trip_understanding.models import (
     AssumptionSetCommand,
     InferenceProposal,
     PlaceReplaceCommand,
+    PlaceResolutionOutcome,
     ProposedMention,
     ResolvedPlace,
 )
-from app.trip_understanding.pipeline import TripUnderstandingPipeline
+from app.trip_understanding.pipeline import TripUnderstandingPipeline, resolution_cities
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH, TripUnderstandingApplicationService
 from app.trip_understanding.source_crypto import SourceCipher
@@ -226,6 +227,99 @@ async def test_only_atomic_planned_mentions_reach_place_provider_or_public_cards
     public = json.dumps(output.public_result.model_dump(mode="json"), ensure_ascii=False)
     assert "预约说明" not in public
     assert "https://" not in public
+
+
+@pytest.mark.asyncio
+async def test_multi_city_text_searches_each_explicit_deep_city_and_only_adopts_one_match() -> None:
+    source = "北京、杭州三日行程。Day 1 北京西站、南宋御街、鼓楼。"
+    names = ("北京西站", "南宋御街", "鼓楼")
+
+    class MultiCityProvider:
+        async def propose(self, source_text: str):
+            mentions = []
+            for index, name in enumerate(names):
+                start = source_text.index(name)
+                mentions.append(
+                    ProposedMention(
+                        mention_id=f"multi-{index}",
+                        raw_text=name,
+                        span_start=start,
+                        span_end=start + len(name),
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=index,
+                        atomic_place_name=name,
+                    )
+                )
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="Beijing and Hangzhou",
+                destination_basis="SOFT_ASSUMPTION",
+                mentions=mentions,
+                binding={"provider": "multi-city-test", "external_calls": 0},
+            )
+
+    class MultiCityResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            matches = {
+                ("北京", "北京西站"),
+                ("杭州", "南宋御街"),
+                ("北京", "鼓楼"),
+                ("杭州", "鼓楼"),
+            }
+            if (city, atomic_place_name) not in matches:
+                return PlaceResolutionOutcome(
+                    receipt={
+                        "status": "NO_UNIQUE_MATCH",
+                        "city": city,
+                        "category_compatible_candidate_count": 0,
+                        "external_calls": 1,
+                    }
+                )
+            return ResolvedPlace(
+                canonical_place_id=f"{city}-{atomic_place_name}",
+                name=atomic_place_name,
+                category="交通节点" if "站" in atomic_place_name else "地点",
+                area_or_address=f"{city}·详情",
+                provider_binding={
+                    "status": "AUTO_MATCHED",
+                    "city": city,
+                    "category": "交通节点" if "站" in atomic_place_name else "地点",
+                    "external_calls": 1,
+                },
+            )
+
+    resolver = MultiCityResolver()
+    output = await TripUnderstandingPipeline(MultiCityProvider(), resolver).run(source)
+
+    assert set(resolver.calls) == {
+        (city, name) for city in ("北京", "杭州") for name in names
+    }
+    by_name = {
+        item.compiled.mention.atomic_place_name: item for item in output.activities
+    }
+    assert by_name["北京西站"].place is not None
+    assert by_name["南宋御街"].place is not None
+    assert by_name["鼓楼"].place is None
+    assert by_name["鼓楼"].resolution_status.value == "NEEDS_CONFIRMATION"
+    assert output.resolution_receipt["place_external_call_count"] == 6
+
+
+def test_non_deep_chinese_destination_does_not_inherit_reference_city_lane() -> None:
+    source = "南京两日攻略。参考北京玩法，但 Day 1 去中山陵。"
+
+    assert resolution_cities(source, "南京") == ("南京",)
 
 
 @pytest.mark.asyncio

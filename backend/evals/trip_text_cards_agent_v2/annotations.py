@@ -386,8 +386,19 @@ def validate_inference_runtime_receipt_assets(
             or artifact.execution_mode != "LIVE"
         ):
             raise AgentAnnotationValidationError("Qwen child receipt binding mismatch")
-    if database.source_registry != "POSTGRESQL_INFERENCE_EFFECT_REGISTRY":
+    expected_database_source = (
+        "POSTGRESQL_INFERENCE_EFFECT_REGISTRY"
+        if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE"
+        else "POSTGRESQL_APPLICATION_TABLES"
+    )
+    if database.source_registry != expected_database_source:
         raise AgentAnnotationValidationError("Qwen live database source registry mismatch")
+    if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE" and any(
+        exchange.http_status == "NOT_EXPOSED_BY_SDK" for exchange in http.exchanges
+    ):
+        raise AgentAnnotationValidationError(
+            "HARDENED Qwen receipts require observed HTTP status"
+        )
 
     database_by_id = {item.effect_id: item for item in database.effects}
     http_by_id = {item.effect_id: item for item in http.exchanges}

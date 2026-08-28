@@ -69,10 +69,18 @@
           "type": "string"
         },
         "http_status": {
-          "maximum": 299,
-          "minimum": 200,
-          "title": "Http Status",
-          "type": "integer"
+          "anyOf": [
+            {
+              "maximum": 299,
+              "minimum": 200,
+              "type": "integer"
+            },
+            {
+              "const": "NOT_EXPOSED_BY_SDK",
+              "type": "string"
+            }
+          ],
+          "title": "Http Status"
         },
         "provider_request_id_sha256": {
           "anyOf": [

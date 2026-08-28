@@ -17,7 +17,10 @@ from evals.agent_gate_v1.authority import (
     load_candidate_current_goal_binding,
 )
 from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
-from evals.trip_text_cards_agent_v2.annotations import verify_agent_adjudication
+from evals.trip_text_cards_agent_v2.annotations import (
+    validate_inference_runtime_receipt_assets,
+    verify_agent_adjudication,
+)
 from evals.trip_text_cards_agent_v2.contracts import (
     AgentPredictionRunEnvelope,
     AgentInferenceCaseOutputV2,
@@ -111,9 +114,18 @@ def validate_prediction_run(
     for combined, prediction in zip(inference_outputs, predictions, strict=True):
         if combined.text_card_prediction != prediction:
             raise ScoringError("combined inference prediction projection mismatch")
+    provider_binding_path = (
+        repository_root
+        / "backend"
+        / "eval_data"
+        / "trip_text_cards_agent_v2"
+        / "provider_binding.json"
+    )
+    if _sha256(provider_binding_path) != expected_bindings["provider_binding_sha256"]:
+        raise ScoringError("candidate provider binding artifact hash mismatch")
+    expected_provider_binding = json.loads(provider_binding_path.read_text(encoding="utf-8"))
     if any(
-        canonical_sha256(prediction.provider_binding)
-        != expected_bindings["provider_binding_sha256"]
+        prediction.provider_binding != expected_provider_binding
         for prediction in predictions
     ):
         raise ScoringError("prediction provider binding mismatch")
@@ -218,6 +230,19 @@ def validate_prediction_run(
             raise ScoringError("inference input receipt does not match prediction source")
         if effect.output_sha256 != canonical_sha256(combined.model_dump(mode="json")):
             raise ScoringError("inference effect does not bind the combined output")
+    try:
+        validated_inference, _verification = validate_inference_runtime_receipt_assets(
+            inference_runtime_receipt_bundle_path=inference_receipt_bundle_path,
+            repository_root=repository_root,
+            expected_candidate_commit=expected_bindings["candidate_commit"],
+            expected_candidate_tree=expected_bindings["candidate_tree"],
+            expected_goal_id="TC-VNEXT-G01-TEXT-CARDS",
+            require_live_provider_evidence=require_live_inference_evidence,
+        )
+    except ValueError as exc:
+        raise ScoringError(f"invalid Qwen runtime evidence assets: {exc}") from exc
+    if validated_inference != inference:
+        raise ScoringError("Qwen runtime evidence changed between validation reads")
     return envelope, predictions, inference, inference_outputs
 
 

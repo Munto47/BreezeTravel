@@ -34,6 +34,34 @@ from app.trip_understanding.models import (
 
 URL_RE = re.compile(r"https?://", re.IGNORECASE)
 SENTENCE_MARKERS = set("。！？；\n")
+DEEP_CITIES = ("北京", "上海", "杭州")
+
+
+def _ordered_deep_cities(value: str) -> tuple[str, ...]:
+    positions = [
+        (position, city)
+        for city in DEEP_CITIES
+        if (position := value.find(city)) >= 0
+    ]
+    return tuple(city for _position, city in sorted(positions))
+
+
+def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...]:
+    """Return conservative city-limited search lanes for one itinerary.
+
+    A multi-city destination is searched once per explicitly named deep city.
+    If a model translated or softened the destination, source-verbatim city
+    tokens recover the safe search boundary. Unknown cities remain a single
+    basic-only lane and are rejected by the live resolver without a call.
+    """
+
+    destination_cities = _ordered_deep_cities(destination_name)
+    if destination_cities:
+        return destination_cities
+    if re.search(r"[\u4e00-\u9fff]", destination_name):
+        return (destination_name,)
+    source_cities = _ordered_deep_cities(source_text)
+    return source_cities or (destination_name,)
 
 
 def canonical_sha256(value: object) -> str:
@@ -325,8 +353,92 @@ class TripUnderstandingPipeline:
             False,
         )
 
+    async def _resolve_place_across_cities(
+        self,
+        item: CompiledActivity,
+        *,
+        cities: tuple[str, ...],
+        semaphore: asyncio.Semaphore,
+    ) -> tuple[PlaceResolutionOutcome, bool]:
+        results = await asyncio.gather(
+            *(
+                self._resolve_place(item, city=city, semaphore=semaphore)
+                for city in cities
+            )
+        )
+        if len(results) == 1:
+            return results[0]
+
+        external_calls = sum(
+            int(outcome.receipt.get("external_calls", 0))
+            for outcome, _unavailable in results
+            if isinstance(outcome.receipt.get("external_calls", 0), int)
+        )
+        unavailable = any(value for _outcome, value in results)
+        ambiguous = any(
+            outcome.receipt.get("status") == "AMBIGUOUS"
+            or (
+                outcome.receipt.get("status") == "NO_UNIQUE_MATCH"
+                and isinstance(
+                    outcome.receipt.get("category_compatible_candidate_count"),
+                    int,
+                )
+                and int(outcome.receipt["category_compatible_candidate_count"]) > 1
+            )
+            for outcome, _unavailable in results
+        )
+        matches = [
+            (city, outcome)
+            for city, (outcome, _unavailable) in zip(cities, results, strict=True)
+            if outcome.place is not None
+        ]
+        receipt_hashes = [
+            canonical_sha256(
+                {
+                    "city": city,
+                    "receipt": outcome.receipt,
+                }
+            )
+            for city, (outcome, _unavailable) in zip(cities, results, strict=True)
+        ]
+        if not unavailable and not ambiguous and len(matches) == 1:
+            selected_city, selected = matches[0]
+            return (
+                PlaceResolutionOutcome(
+                    place=selected.place,
+                    receipt={
+                        **selected.receipt,
+                        "multi_city_resolution": True,
+                        "queried_cities": list(cities),
+                        "selected_city": selected_city,
+                        "city_receipt_sha256": receipt_hashes,
+                        "external_calls": external_calls,
+                    },
+                ),
+                False,
+            )
+
+        return (
+            PlaceResolutionOutcome(
+                receipt={
+                    "provider": "MULTI_CITY_CONSERVATIVE_RESOLUTION",
+                    "status": (
+                        "UNAVAILABLE"
+                        if unavailable
+                        else "NO_UNIQUE_MATCH"
+                    ),
+                    "multi_city_resolution": True,
+                    "queried_cities": list(cities),
+                    "city_receipt_sha256": receipt_hashes,
+                    "external_calls": external_calls,
+                }
+            ),
+            unavailable,
+        )
+
     async def run(self, source_text: str) -> PipelineOutput:
         proposal = await self.inference_provider.propose(source_text)
+        search_cities = resolution_cities(source_text, proposal.destination_name)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         resolved: list[ResolvedActivity] = []
         attempted_count = 0
@@ -335,7 +447,7 @@ class TripUnderstandingPipeline:
         deduplicated_count = 0
         semaphore = asyncio.Semaphore(self.max_place_concurrency)
         tasks_by_key: dict[
-            tuple[str, str, str],
+            tuple[tuple[str, ...], str, str],
             asyncio.Task[tuple[PlaceResolutionOutcome, bool]],
         ] = {}
         resolution_slots: list[
@@ -351,7 +463,7 @@ class TripUnderstandingPipeline:
                 continue
             attempted_count += 1
             resolution_key = (
-                proposal.destination_name.strip().casefold(),
+                tuple(city.strip().casefold() for city in search_cities),
                 (item.mention.atomic_place_name or "").strip().casefold(),
                 (item.mention.category_hint or "").strip().casefold(),
             )
@@ -359,9 +471,9 @@ class TripUnderstandingPipeline:
             is_owner = task is None
             if task is None:
                 task = asyncio.create_task(
-                    self._resolve_place(
+                    self._resolve_place_across_cities(
                         item,
-                        city=proposal.destination_name,
+                        cities=search_cities,
                         semaphore=semaphore,
                     )
                 )

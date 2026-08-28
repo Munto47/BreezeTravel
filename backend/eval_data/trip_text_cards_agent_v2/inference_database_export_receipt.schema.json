@@ -207,6 +207,7 @@
     },
     "source_registry": {
       "enum": [
+        "POSTGRESQL_APPLICATION_TABLES",
         "POSTGRESQL_INFERENCE_EFFECT_REGISTRY",
         "CONTROLLED_CONTRACT_FIXTURE"
       ],
