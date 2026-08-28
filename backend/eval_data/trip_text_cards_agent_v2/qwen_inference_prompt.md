@@ -13,13 +13,17 @@ Destination:
 
 Mentions:
 
-- Emit one mention for each place activity and use the smallest exact source
-  span. Offsets are Unicode code-point, zero-based, half-open.
+- Emit one mention for each place entity used by an activity. The mention span
+  is the place name only, never the full activity clause. Do not emit separate
+  mentions for descriptions, transport instructions, reservation notes or URLs.
+  Offsets are Unicode code-point, zero-based, half-open.
 - `atomic_place_name` may be non-null only when the selected span, after outer
   whitespace is removed, is exactly that standalone place name.
 - A whole sentence, description, route instruction, booking note, phone number
-  or URL is never an atomic place. Keep `atomic_place_name` null when the place
-  boundary is uncertain; never invent or normalize a name.
+  or URL is never an atomic place. When the exact span clearly is a place entity,
+  `atomic_place_name` MUST equal that span; do not set it to null. Use null only
+  when the source itself does not provide a reliable place-name boundary. Never
+  invent or normalize a name.
 - Classify every place mention as exactly one of `PLANNED`, `OPTIONAL`,
   `REFERENCE`, `EXCLUDED`, or `PASS_THROUGH` from the author's intent.
 - Every `PLANNED` mention must have a day index. Use explicit Day/第N天 structure;
@@ -31,3 +35,7 @@ Mentions:
 
 Do not claim that any POI, city, category, route, opening time or booking fact is
 verified. Deterministic application code performs Provider resolution later.
+
+Example rule: in “Day 1 上午去故宫博物院，预约说明见链接”, emit only the exact
+“故宫博物院” span as the place mention and set `atomic_place_name` to the same
+text. Do not emit “预约说明见链接” as a place mention.
