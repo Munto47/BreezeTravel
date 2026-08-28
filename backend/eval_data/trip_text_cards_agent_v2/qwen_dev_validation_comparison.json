@@ -1,0 +1,102 @@
+{
+  "schema_version": "g01-qwen-dev-validation-comparison-v1",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "generated_at": "2026-08-28T17:54:32.3941542Z",
+  "candidate_commit": "be96ca2b503c908c110645e824f2a99c04ae63bf",
+  "candidate_tree": "6d0c2664bd632f0f484fa67a4ad94ee21901e580",
+  "model_panel_sha256": "4bf2193df340ecf144990412f131bb9c20b67a7aef8ddd9176a18a4a87bed3f5",
+  "prompt_sha256": "4f7b1956c7a46fe3f3defd11fa73fd54156d377c0825596e46ab4c3c06a37449",
+  "schema_sha256": "87e9ef21736811e7ae084a17a2f6bd7d8f3b43428de413d932c1b5ea92a43f12",
+  "schema_canonical_sha256": "8c400261e5ce1a4b35d5ea0dc76791f797f0b153917daa2ee6a9b40e78713254",
+  "config_sha256": "f1d7377a395d1ae7e5a1e7dbb4589b8a463dbd87af2de596c6dd59830f4884c1",
+  "effective_config_sha256": "e33371d3af8d34449cd722db59984e0594713b6a463faab4ad51c8ba7fedc017",
+  "splits": {
+    "dev": {
+      "case_count": 54,
+      "artifact_sha256": "fb0a55eaae20f4a6ea6bbaee39a7ce6e81c673a43f294bb2953fdc0baf7c6118"
+    },
+    "validation": {
+      "case_count": 18,
+      "artifact_sha256": "1e550a45efe2cfa4efb178c624b677701b3f1edb834a696e39aca9a7226c8780"
+    }
+  },
+  "models": [
+    {
+      "model_role": "QUALITY_CEILING",
+      "exact_model_id": "qwen3.8-max",
+      "effective_snapshot_id": "qwen3.8-max",
+      "binding_mode": "PROVIDER_EXACT_ID_NO_EQUIVALENT_SNAPSHOT",
+      "schema_valid_model_output_count": 0,
+      "schema_valid_rate": 0.0,
+      "editable_partial_result_count": 72,
+      "runner_error_count": 0,
+      "external_call_count": 72,
+      "repair_call_count": 0,
+      "failure_categories": {
+        "DEADLINE_EXCEEDED": 72
+      },
+      "latency_ms_p50": 7010.215,
+      "latency_ms_p95": 7016.437,
+      "input_tokens_exposed": 0,
+      "output_tokens_exposed": 0,
+      "estimated_cost_cny": "NOT_EXPOSED_BY_PROVIDER_FOR_TIMED_OUT_CALLS",
+      "raw_predictions_sha256": "f31dfca6670c017fa20451c719cee428dffd0f79124a008e5617f7d03b9db941",
+      "summary_sha256": "e9ebbd4fbda50a802d4f3d38188fe06733d72ed31f81751a2d34bc7aa66aa1c2",
+      "provider_independent_status": "INELIGIBLE_DEADLINE"
+    },
+    {
+      "model_role": "PRODUCTION_CANDIDATE",
+      "exact_model_id": "qwen3.7-plus-2026-05-26",
+      "effective_snapshot_id": "qwen3.7-plus-2026-05-26",
+      "binding_mode": "EXACT_SNAPSHOT_ID",
+      "schema_valid_model_output_count": 0,
+      "schema_valid_rate": 0.0,
+      "editable_partial_result_count": 72,
+      "runner_error_count": 0,
+      "external_call_count": 72,
+      "repair_call_count": 0,
+      "failure_categories": {
+        "DEADLINE_EXCEEDED": 72
+      },
+      "latency_ms_p50": 7008.713,
+      "latency_ms_p95": 7015.527,
+      "input_tokens_exposed": 0,
+      "output_tokens_exposed": 0,
+      "estimated_cost_cny": "NOT_EXPOSED_BY_PROVIDER_FOR_TIMED_OUT_CALLS",
+      "raw_predictions_sha256": "a6630cdac1898171cc28a33c14e1c8c6225a0f3687203ac4cc85d261b5e66956",
+      "summary_sha256": "28144b0847082ff17656d1db373fc22c21c123a4f1e259807246fcdd0ae7bf8b",
+      "provider_independent_status": "INELIGIBLE_DEADLINE"
+    },
+    {
+      "model_role": "LOW_LATENCY_CANDIDATE",
+      "exact_model_id": "qwen3.7-flash-2026-07-15",
+      "effective_snapshot_id": "qwen3.7-flash-2026-07-15",
+      "binding_mode": "EXACT_SNAPSHOT_ID",
+      "schema_valid_model_output_count": 72,
+      "schema_valid_rate": 1.0,
+      "editable_partial_result_count": 0,
+      "runner_error_count": 0,
+      "external_call_count": 72,
+      "repair_call_count": 0,
+      "accepted_mention_count": 700,
+      "accepted_atomic_place_count": 700,
+      "accepted_forbidden_atomic_count": 0,
+      "accepted_sentence_atomic_count": 0,
+      "latency_ms_p50": 4466.232,
+      "latency_ms_p95": 5134.483,
+      "input_tokens": 54888,
+      "output_tokens": 62567,
+      "estimated_cost_cny": 0.0610312,
+      "raw_predictions_sha256": "5744301e462a6942ae57fc86b3cc28c530cea5e9ca295ad71cff98b0c550239a",
+      "summary_sha256": "e2aeb9adc3d77ad4c6826b5c01a29a809909ef4243b74509eb157b101bb7bdb9",
+      "provider_independent_status": "ELIGIBLE_FOR_REFERENCE_SCORING"
+    }
+  ],
+  "raw_predictions_storage": "REPOSITORY_EXTERNAL",
+  "raw_request_or_response_retained": false,
+  "blind_inputs_read": 0,
+  "blind_truth_read": 0,
+  "human_evidence": false,
+  "quality_metrics_requiring_reference": "NOT_SCORED",
+  "model_freeze_status": "NOT_FROZEN_PENDING_AMAP_AND_AGENT_REFERENCE"
+}
