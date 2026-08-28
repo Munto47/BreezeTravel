@@ -84,6 +84,12 @@ Git 只保存 schema、prompt、hash、聚合指标、脱敏发现和回执。�
 
 八个角色分别使用仓库外 Ed25519 私钥：sealed custody、AMap live exporter、Qwen live exporter、自动产品 Gate、live Provider Gate、多 Agent panel、sealed blind Gate 和最终 Gate。仓库只保存公钥与外部 registry 的身份/路径指纹，不保存、打印或搜索私钥和实际外部路径。候选checkout内的Python、CLI、环境、参数和stdin都不得获得私钥路径或私钥字节；正式签名由仓库外、不导入候选模块的authority signer通过受保护IPC完成。当前BOOTSTRAP内四个正式入口在读取任何密钥相关环境之前直接fail closed。四类组件回执使用不同 schema 和不同角色签名，不能用通用 `PASS` JSON 相互替代。
 
+持钥broker不得执行或复制候选Git中的signer模板，也不得开放接收`payload`、role、verdict、aggregate或expected hash的通用签名接口。它由authority supervisor在仓库外固定、分角色持钥并使用固定registry防重放，只暴露`PREPARE_ACTIVATION / MINT_LIVE / CAPTURE_AMAP_EFFECT / CAPTURE_QWEN_EFFECT / SIGN_AUTOMATED_COMPONENT / SIGN_LIVE_COMPONENT / SIGN_PANEL_COMPONENT / SIGN_SEALED_COMPONENT / SIGN_FINAL_GATE`九个目的专一操作；每个操作从canonical Git、固定外部snapshot和冻结prepare/verifier自行构造待签payload。conformance回执只是supervisor对进程、bundle、sanitized env、继承句柄、一次性状态和攻击测试的`process_isolation_only`证明，不能授权generic signing、不能替代Provider事实，也不构成人工证据。
+
+不可变协议代码既可以直接列入`program_core_paths / immutable_protocol_paths`，也可以由其中不可变的`protocol_contract.json`通过`contract_code_sha256`形成传递式hash闭包；后一类模块还必须进入final Gate运行时来源校验。任何只新增文件但未进入上述任一闭包的实现都不属于正式协议。BOOTSTRAP后不得通过修改policy路径集合来补录文件。
+
+`contract_code_sha256`的键必须是各合同固定source root下真实存在的相对文件名，不得为其他目录资产创建别名。跨目录的runner package、lockfile和旧Trip Card scorer/contract继续通过`program_core_paths / immutable_protocol_paths`中的真实路径直接冻结，不能重复放入会被验证器拼接到错误目录的合同代码映射。
+
 签名只证明“持有该角色私钥的隔离任务对这些规范化字段作出证明”，不自动证明 Provider 真实返回、组织独立性、真人参与或业务正确。四类组件只能由目的专一builder从原始artifact路径构造，builder API不接受调用者填写的verdict、计数或aggregate metrics；最终验证器仍会重新执行固定验证器，而不是相信builder摘要。自动产品组件从`current_goal_binding.json`推导唯一Gate合同并在fresh checkout实际重跑其中的pytest、Ruff和构建命令；live组件重读AMap/Qwen的HTTP、PostgreSQL effect、输出和exporter回执；panel重读三份review与裁决；sealed组件重读mint、score input、score、attempt和registry。主开发任务自行生成的新密钥、手写live JSON、手写PASS摘要或仅有签名而无上游事实的回执均不得晋级。
 
 跨代稳定的authority Program表固定G01～G07精确Goal ID、顺序、前驱、每个Goal专属自动Gate合同路径与SHA-256。`current_goal_binding.json`只能选择与当前authority generation同序的一项；候选不能新增弱合同、跳到G07或自填前驱。G01固定继承已完成Blueprint commit；G02～G07还必须从仓库外append-only `goal_gate_passes`登记表回读上一Goal的FINAL_GATE签名回执，且其候选commit必须等于当前绑定的`predecessor_completion_commit`并为当前候选祖先。每个最终PASS必须先物化为仓库外耐久、字节一致的回执，再写入外部登记，才可作为下一Goal的授权来源。Goal切换时必须在同一治理过渡commit原子替换当前绑定并创建下一代权限锚，由下一Goal的四组件重新证明新候选。

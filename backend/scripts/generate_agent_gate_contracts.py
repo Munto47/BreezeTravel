@@ -46,6 +46,7 @@ from evals.trip_text_cards_agent_v2.contracts import (
     SealedAgentReferenceBundle,
 )
 from evals.agent_gate_v1.host_tools import trusted_host_tool
+from evals.agent_gate_v1.external_authority import ExternalSignerConformanceReceipt
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -255,6 +256,9 @@ def generate(
         "sealed_agent_blind_thresholds.schema.json": (
             SealedAgentBlindThresholds.model_json_schema()
         ),
+        "external_signer_conformance_receipt.schema.json": (
+            ExternalSignerConformanceReceipt.model_json_schema()
+        ),
     }
     for filename, schema in general_schemas.items():
         _write_json(general_root / filename, schema)
@@ -289,6 +293,14 @@ def generate(
         "authority_activation_readiness_signature": "SEALED_CUSTODY",
         "authority_activation_external_signer": (
             "REPOSITORY_EXTERNAL_NO_CANDIDATE_IMPORT_NO_KEY_ENV"
+        ),
+        "external_signer_operation_surface": "PURPOSE_SPECIFIC_NO_CALLER_PAYLOAD",
+        "external_signer_supervision": (
+            "AUTHORITY_OWNED_SEPARATE_PROCESS_AND_DURABLE_REGISTRY"
+        ),
+        "external_signer_candidate_template": "FORBIDDEN_FOR_KEY_HOLDING_PROCESS",
+        "immutable_code_binding_closure": (
+            "DIRECT_PROGRAM_CORE_OR_TRANSITIVE_PROTOCOL_CONTRACT_SHA256"
         ),
         "authority_anchor_fact_source": "DERIVED_FROM_CANDIDATE_GIT_AND_REMOTE",
         "authority_canonical_candidate_ref": "POLICY_PINNED_NOT_CALLER_SUPPLIED",
@@ -377,6 +389,9 @@ def generate(
             "host_tools.py": _sha256(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "host_tools.py"
             ),
+            "external_authority.py": _sha256(
+                BACKEND_ROOT / "evals" / "agent_gate_v1" / "external_authority.py"
+            ),
             "live_export.py": _sha256(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "live_export.py"
             ),
@@ -390,18 +405,6 @@ def generate(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "signing.py"
             ),
             "validator.py": _sha256(BACKEND_ROOT / "evals" / "agent_gate_v1" / "validator.py"),
-            "automation_runner_browser_package.json": _sha256(
-                GENERAL_SOURCE_ROOT / "automation_runner_browser_package.json"
-            ),
-            "automation_runner_browser_package-lock.json": _sha256(
-                GENERAL_SOURCE_ROOT / "automation_runner_browser_package-lock.json"
-            ),
-            "trip_text_cards_v1_contracts.py": _sha256(
-                BACKEND_ROOT / "evals" / "trip_text_cards_v1" / "contracts.py"
-            ),
-            "trip_text_cards_v1_scorer.py": _sha256(
-                BACKEND_ROOT / "evals" / "trip_text_cards_v1" / "scorer.py"
-            ),
         },
     }
     _write_json(general_root / "protocol_contract.json", general_contract)

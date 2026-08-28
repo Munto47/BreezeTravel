@@ -22,6 +22,7 @@ from evals.agent_gate_v1.custody import (
     register_goal_gate_pass,
     require_predecessor_goal_pass,
 )
+from evals.agent_gate_v1 import external_authority as _external_authority
 from evals.agent_gate_v1.component_verifiers import (
     load_strict_component_receipt,
     verify_strict_component_receipt,
@@ -65,6 +66,9 @@ RUNTIME_MODULE_PATHS = {
     "evals.agent_gate_v1.contracts": "backend/evals/agent_gate_v1/contracts.py",
     "evals.agent_gate_v1.custody": "backend/evals/agent_gate_v1/custody.py",
     "evals.agent_gate_v1.final_gate": "backend/evals/agent_gate_v1/final_gate.py",
+    _external_authority.__name__: (
+        "backend/evals/agent_gate_v1/external_authority.py"
+    ),
     "evals.agent_gate_v1.host_tools": "backend/evals/agent_gate_v1/host_tools.py",
     "evals.agent_gate_v1.path_security": (
         "backend/evals/agent_gate_v1/path_security.py"
@@ -112,6 +116,15 @@ def _verify_runtime_provenance(
     repository_root: Path,
     candidate_commit: str,
 ) -> str:
+    try:
+        _external_authority.verify_candidate_protocol_schema_bindings(
+            repository_root=repository_root,
+            candidate_commit=candidate_commit,
+        )
+    except _external_authority.ExternalAuthorityError as exc:
+        raise AgentGatePassError(
+            "candidate protocol schema provenance is invalid"
+        ) from exc
     verifier_sha256 = ""
     for module_name, relative_path in RUNTIME_MODULE_PATHS.items():
         module = sys.modules.get(module_name)
