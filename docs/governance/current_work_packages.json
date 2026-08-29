@@ -16,7 +16,7 @@
         "governance unification is merged only at the serial integration window",
         "G02 is not activated before G01 archive and atomic binding transition"
       ],
-      "baseline_commit": "d35555787a6e3edfc7c18285f7bba0540a7f3acf",
+      "baseline_commit": "8aeb7554b8b5686897f4c8b1be0b7763c645c210",
       "branch": "codex/trip-check-product-reset",
       "dialogue_ref": "codex-task:primary-integrator",
       "dependencies": [],
