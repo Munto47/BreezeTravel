@@ -3,14 +3,25 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md Acceptance G01 exact candidate evidence",
-      "CURRENT_GOAL.md Checkpoint ledger latest remaining work"
+      "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
+      "CORE candidate context must bind the clean checkout and canonical remote to one exact commit"
     ],
     "allowed_paths": [
+      "backend/eval_data/agent_gate_v1/work_package_registry.schema.json",
+      "backend/evals/agent_gate_v1/contracts.py",
+      "backend/evals/agent_gate_v1/scope_guard.py",
+      "backend/tests/test_scope_guard.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "d8a54e1ba7e49abfbeff413390dec691ea222a8f",
-    "blocking_issue": null,
+    "base_commit": "a82e1f5b634b930ce166924ede5d9b489529dfdc",
+    "blocking_issue": {
+      "current_goal_acceptance_ref": "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
+      "impact_chain": "The registry can only record a frozen parent in a later commit while the scope guard and CORE Gate currently require that earlier parent to also be HEAD and the canonical remote, so no exact candidate can satisfy both checks.",
+      "minimum_fix": "Rename the marker to freeze_parent_commit, make the marker commit the sole formal candidate, and verify that its direct-parent diff changes only the active-slice freeze fields.",
+      "reproduction": "Create code candidate C, commit the registry freeze marker as F with frozen_candidate_commit=C, then run scope validation and CoreCandidateContext against the same clean checkout and canonical remote.",
+      "severity": "P1",
+      "stop_condition": "Stop when one combined test proves scope frozen validation and CORE candidate context both bind F, while C, non-marker diffs and post-F tracked changes are rejected."
+    },
     "evidence_invalidated": [
       "QWEN_EXACT",
       "AMAP_EXACT",
@@ -25,43 +36,14 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Create only repository-external same-candidate Qwen, AMap and performance receipts from the existing product runtime; declare a separate bounded Gate fix before any tracked code change.",
+    "minimum_change": "Repair only the freeze-parent versus formal-candidate contradiction in the existing scope contract; do not change CORE candidate equality or add durable state, cryptography, authority, custody or services.",
     "phase": "IMPLEMENTING",
-    "preflight_entrypoints": [
-      "backend/scripts/validate_work_packages.py",
-      "backend/scripts/run_qwen_model_predictions.py",
-      "backend/scripts/export_g01_amap_live_receipts.py",
-      "backend/scripts/export_g01_qwen_live_receipts.py",
-      "backend/scripts/score_g01_sealed_agent_blind.py",
-      "backend/scripts/build_agent_gate_pass.py"
-    ],
-    "preflight_required_tokens": {
-      "backend/scripts/build_agent_gate_pass.py": [
-        "verify_core_agent_gate_pass",
-        "verify_g07_candidate_gate_pass"
-      ],
-      "backend/scripts/export_g01_amap_live_receipts.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/export_g01_qwen_live_receipts.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/run_qwen_model_predictions.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/score_g01_sealed_agent_blind.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/validate_work_packages.py": [
-        "output.open(\"x\""
-      ]
-    },
-    "slice_id": "G01-EXACT-EVIDENCE-REBUILD",
-    "stop_condition": "Stop before tracked code changes, review or blind if synthetic preflight exposes an unconsumed input, default PASS, missing producer or missing upstream readback; hardening stays deferred to G07.",
-    "user_outcome": "The existing daily-card candidate obtains fresh same-candidate Qwen, AMap and performance evidence without another governance subsystem.",
-    "work_kind": "PRODUCT"
+    "preflight_entrypoints": [],
+    "preflight_required_tokens": {},
+    "slice_id": "G01-FREEZE-CANDIDATE-CONTEXT-FIX",
+    "stop_condition": "Stop if the fix needs CORE Gate relaxation, database state, a migration, HMAC, an authority protocol, custody, a new service, more than the declared paths or a higher budget.",
+    "user_outcome": "G01 can freeze one exact commit and run its final CORE Gate without an impossible candidate self-reference.",
+    "work_kind": "CURRENT_GATE_FIX"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
