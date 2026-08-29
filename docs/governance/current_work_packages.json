@@ -95,6 +95,6 @@
   ],
   "program_id": "TC-VNEXT-2026",
   "scope_guard_version": "scope-guard-v1",
-  "scope_policy_sha256": "89928d59d64cbac52a852975b3576d6a4c2290f0ea6fef6b4836bc7dc5b740cb",
+  "scope_policy_sha256": "eafa6950b0fce67e96312ca4fecc0136ff8b8c58b1d97540282c434b3aadabb5",
   "schema_version": "work-package-registry-v2"
 }

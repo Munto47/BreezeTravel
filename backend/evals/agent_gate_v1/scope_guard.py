@@ -408,7 +408,15 @@ def validate_mainline_scope(
     if dependency:
         mechanisms.add("dependency_change")
 
-    preflight = [] if audit_mode else _preflight_findings(target, active)
+    preflight_phase = active.phase in {"PREFLIGHT", "EVIDENCE_FROZEN", "GATE_RUNNING"}
+    preflight_phase = preflight_phase or requested_phase in {
+        "PREFLIGHT",
+        "EVIDENCE_FROZEN",
+        "GATE_RUNNING",
+    }
+    preflight = (
+        [] if audit_mode or not preflight_phase else _preflight_findings(target, active)
+    )
     if preflight:
         errors.add("STAGE_SCOPE_VIOLATION")
         mechanisms.update(preflight)

@@ -162,7 +162,7 @@ def _scope_repo(
     active = _active_slice(
         base_commit=base,
         work_kind=work_kind,
-        phase="IMPLEMENTING",
+        phase=phase if phase == "PREFLIGHT" else "IMPLEMENTING",
         preflight_entrypoints=preflight_entrypoints,
         preflight_required_tokens=preflight_required_tokens,
     )
@@ -314,6 +314,7 @@ def test_preflight_rejects_unconsumed_cli_and_true_pass_default(tmp_path: Path) 
     root, _base = _scope_repo(
         tmp_path,
         work_kind="EVAL_INFRA",
+        phase="PREFLIGHT",
         preflight_entrypoints=[entrypoint],
     )
     _write(
@@ -338,6 +339,7 @@ def test_preflight_requires_exclusive_output_and_upstream_readback(tmp_path: Pat
     root, _base = _scope_repo(
         tmp_path,
         work_kind="EVAL_INFRA",
+        phase="PREFLIGHT",
         preflight_entrypoints=[entrypoint],
         preflight_required_tokens={
             entrypoint: ["output.open(\"x\"", "read_upstream_receipt"],
