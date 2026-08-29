@@ -299,8 +299,10 @@ def _effect_models(
             raise ValueError("Provider catalog persisted a non-executable activity")
 
         external_calls = int(receipt.get("external_calls", detail.get("external_calls", 0)))
-        if external_calls not in {0, 1}:
-            raise ValueError("one catalog effect must make at most one Provider call")
+        if external_calls not in {0, 1, 2}:
+            raise ValueError(
+                "one catalog effect must make at most two deterministic Provider calls"
+            )
         request_sha256 = detail.get("request_sha256")
         if not isinstance(request_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", request_sha256):
             request_sha256 = canonical_sha256(
@@ -377,7 +379,11 @@ def _effect_models(
             r"[0-9a-f]{64}", provider_request_id
         ):
             provider_request_id = None
-        successful_call = external_calls == 1 and isinstance(detail.get("http_status"), int)
+        # A typed primary query may be followed by exactly one untyped rewrite.
+        # The combined resolver receipt binds both ordered request/response
+        # hashes while exposing the terminal 2xx status.  Keep one logical
+        # application effect and report the actual call count.
+        successful_call = external_calls > 0 and isinstance(detail.get("http_status"), int)
         exchanges.append(
             ProviderHttpExchangeReceipt.model_validate(
                 {

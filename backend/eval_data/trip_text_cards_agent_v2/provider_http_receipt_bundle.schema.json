@@ -64,7 +64,7 @@
           "type": "string"
         },
         "external_call_count": {
-          "maximum": 1,
+          "maximum": 2,
           "minimum": 0,
           "title": "External Call Count",
           "type": "integer"

@@ -448,6 +448,58 @@ def test_application_table_export_preserves_other_city_zero_call_as_unresolved()
     assert receipts[0].accepted_source_name is None
 
 
+def test_application_table_export_binds_one_typed_rewrite_as_two_calls() -> None:
+    completed = datetime(2026, 8, 28, 2, 0, tzinfo=UTC)
+    rows = [
+        {
+            "activity_id": "application-activity-0002",
+            "role": "PLANNED",
+            "eligible_for_place_search": True,
+            "atomic_place_name": "颐和园",
+            "resolution_status": "AUTO_MATCHED",
+            "canonical_place_id": "B000A00002",
+            "resolver_receipt_json": {
+                "provider": "AMAP_POI_V2",
+                "execution_mode": "LIVE",
+                "status": "AUTO_MATCHED",
+                "city": "北京",
+                "query_sha256": "1" * 64,
+                "endpoint_sha256": "2" * 64,
+                "request_sha256": "3" * 64,
+                "response_sha256": "4" * 64,
+                "provider_request_id_sha256": "5" * 64,
+                "http_status": 200,
+                "observed_at": (
+                    completed - timedelta(milliseconds=20)
+                ).isoformat(),
+                "latency_ms": 20,
+                "external_calls": 2,
+                "rewrite_count": 1,
+                "query_strategy": (
+                    "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK"
+                ),
+                "category_compatible_candidate_count": 1,
+                "typecode": "110000",
+                "raw_provider_response_retained": False,
+            },
+            "created_at": completed,
+        }
+    ]
+
+    database, http, runtime, receipts = _effect_models(
+        rows,
+        provider_binding_sha256=PROVIDER_BINDING,
+    )
+
+    assert database[0].external_call_count == 2
+    assert http[0].external_call_count == 2
+    assert http[0].provider_status == "SUCCESS"
+    assert http[0].http_status == 200
+    assert runtime[0].external_call_count == 2
+    assert runtime[0].resolution_status == "MATCHED"
+    assert receipts[0].accepted_source_name == "颐和园"
+
+
 def _provider_assets(
     tmp_path: Path,
     raw: str,

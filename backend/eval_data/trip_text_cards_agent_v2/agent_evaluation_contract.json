@@ -9,7 +9,7 @@
   "canonical_place_authority": "PROVIDER_BOUND_AGENT_REFERENCE",
   "contract_code_sha256": {
     "annotations.py": "6decdeb729920f8a2a090bcf0dd52eaf41ea189504d7df14b1baca928c49010e",
-    "contracts.py": "a87237f0fddbe5e7e7b8131502eb168db7d4e509545bc5f865788d6b466fb873",
+    "contracts.py": "9da2b33511b4f99ae5ef7a05c162c67ab334bc46a40348bd9d6a9750ab37edb2",
     "split_loader.py": "81730e7e12545dfcbba5b1cb26f14695db860b550c75b2369322bd276e4e24a5"
   },
   "dataset_version": "g01-text-card-dataset-v1",
@@ -75,10 +75,10 @@
     "inference_database_export_receipt.schema.json": "3199f6cba3e9db80c4c0ab63a479d404dcaa4cb92eca7ee3f7dde4cf6cd70b3a",
     "inference_http_receipt_bundle.schema.json": "30449ff0de2622d0fabc28d027fb4ec531dea809b66bc16375f9b6716e5639b1",
     "inference_runtime_receipt_bundle.schema.json": "9cb9e9988c2dcd5956456cbfb8b1dad7b1590a950d29b20289a74fecd6336a0f",
-    "provider_database_export_receipt.schema.json": "2ea7188b642cf5e92156dbf406fcb034a40110ec82cd4c0bba2bbc00e9b5f6e3",
-    "provider_http_receipt_bundle.schema.json": "a3f30987e814fcc6569dc8105cda3d0526d2060e7e590bec8fe4a11ee45e09ff",
+    "provider_database_export_receipt.schema.json": "3400ab47791444898f9d8a9a056e72941451d035be3a0d535a8a3046c29fdb1f",
+    "provider_http_receipt_bundle.schema.json": "068d9173b649e85fa4040e3e2bd092ef2dd8735c481f1a91c89e41e8842ca9a5",
     "provider_receipt_index.schema.json": "25f245e309cb961cb6bd691e9bbaf52e792b7f46511121e6fc519275bf172b06",
-    "provider_runtime_receipt_bundle.schema.json": "a8dbdb028112b86b0b75407902d259c30e482634a44f66d6248b558b02376a53",
+    "provider_runtime_receipt_bundle.schema.json": "c3fb47d94b8d1cde0eef7272b77e402b83b9f6c0ee73866b7b36c64cdfef6d3c",
     "sealed_agent_reference.schema.json": "80da05534f115e19eebfab03166f0783fa4d50cfae625b4219bd51bfb8a871c2"
   },
   "schema_version": "g01-text-card-agent-evaluation-contract-v2",

@@ -144,7 +144,7 @@ class ProviderRuntimeEffectReceipt(StrictModel):
     resolution_status: ProviderResolutionStatus
     queried_source_name: str = Field(min_length=1, max_length=100)
     queried_city: str = Field(min_length=1, max_length=80)
-    external_call_count: int = Field(ge=0, le=1)
+    external_call_count: int = Field(ge=0, le=2)
     place_id: str | None = Field(default=None, min_length=1, max_length=200)
     name: str | None = Field(default=None, min_length=1, max_length=100)
     city: str | None = Field(default=None, min_length=1, max_length=80)
@@ -177,7 +177,7 @@ class ProviderDatabaseEffectRecord(StrictModel):
     request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     resolution_status: ProviderResolutionStatus
-    external_call_count: int = Field(ge=0, le=1)
+    external_call_count: int = Field(ge=0, le=2)
     started_at: datetime
     completed_at: datetime
     persisted_status: Literal["SUCCEEDED"] = "SUCCEEDED"
@@ -257,7 +257,7 @@ class ProviderHttpExchangeReceipt(StrictModel):
     effect_id: str = Field(min_length=8, max_length=160)
     request_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     response_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    external_call_count: int = Field(ge=0, le=1)
+    external_call_count: int = Field(ge=0, le=2)
     http_status: int | None = Field(default=None, ge=200, le=299)
     provider_status: Literal["SUCCESS", "FAILED", "NOT_CALLED"]
     provider_request_id_sha256: str | None = Field(
