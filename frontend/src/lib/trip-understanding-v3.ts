@@ -149,6 +149,49 @@ export interface TravelDataDeletionStatusView {
   next_action: 'NONE' | 'RETRY'
 }
 
+export interface MaterializedTripView {
+  status: 'READY'
+  message: string
+  calendar: string
+  party_size: number
+  checks_available: boolean
+}
+
+export interface PublicTripCheckItem {
+  check_token: string
+  label: '必须调整' | '可以更好' | '需要确认'
+  title: string
+  message: string
+  affected_days: string[]
+  can_preview: boolean
+}
+
+export interface PublicTripChecksView {
+  status: 'READY' | 'STILL_NEEDS_CONFIRMATION'
+  message: string
+  items: PublicTripCheckItem[]
+  remaining_must_adjust: number
+  available_actions: Array<'PREVIEW_CHANGE'>
+}
+
+export interface PublicChangePreview {
+  change_token: string
+  title: string
+  summary: string
+  affected_days: string[]
+  before: string[]
+  after: string[]
+  available_actions: Array<'ADOPT_CHANGE'>
+}
+
+export interface PublicChangeAdopted {
+  status: 'APPLIED' | 'STILL_NEEDS_CONFIRMATION'
+  message: string
+  changed_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
+  checks: PublicTripChecksView
+}
+
 function requestKey(): string {
   const values = new Uint32Array(4)
   crypto.getRandomValues(values)
@@ -351,6 +394,104 @@ export async function selectTripUnderstandingStay(
   if (!nextEtag) throw new Error('STAY_SELECTION_ETAG_MISSING')
   const body = await response.json() as { selected_stay: string }
   return { selected_stay: body.selected_stay, etag: nextEtag }
+}
+
+export async function materializeTripUnderstanding(
+  publicResourceId: string,
+  etag: string,
+): Promise<{ body: MaterializedTripView; etag: string }> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/materialize`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Idempotency-Key': operationRequestKey(`materialize:${publicResourceId}:${etag}`),
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('TRIP_UPDATED')
+    throw new Error('MATERIALIZE_FAILED')
+  }
+  const currentEtag = response.headers.get('etag')
+  if (!currentEtag) throw new Error('MATERIALIZE_ETAG_MISSING')
+  return {
+    body: (await response.json()) as MaterializedTripView,
+    etag: currentEtag,
+  }
+}
+
+export async function readTripUnderstandingChecks(
+  publicResourceId: string,
+): Promise<PublicTripChecksView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/checks`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    },
+  )
+  if (!response.ok) throw new Error('CHECKS_UNAVAILABLE')
+  return response.json() as Promise<PublicTripChecksView>
+}
+
+export async function previewTripUnderstandingChange(
+  publicResourceId: string,
+  checkToken: string,
+): Promise<PublicChangePreview> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/preview`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': operationRequestKey(`change-preview:${checkToken}`),
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ check_token: checkToken }),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('CHECK_CHANGED')
+    throw new Error('CHANGE_PREVIEW_FAILED')
+  }
+  return response.json() as Promise<PublicChangePreview>
+}
+
+export async function adoptTripUnderstandingChange(
+  publicResourceId: string,
+  changeToken: string,
+  etag: string,
+): Promise<{ body: PublicChangeAdopted; etag: string }> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/adopt`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': operationRequestKey(`change-adopt:${changeToken}`),
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ change_token: changeToken }),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('TRIP_UPDATED')
+    throw new Error('CHANGE_ADOPT_FAILED')
+  }
+  const nextEtag = response.headers.get('etag')
+  if (!nextEtag) throw new Error('CHANGE_ADOPT_ETAG_MISSING')
+  return {
+    body: (await response.json()) as PublicChangeAdopted,
+    etag: nextEtag,
+  }
 }
 
 export async function claimTripUnderstanding(

@@ -10,6 +10,6 @@
   "predecessor_goal_id": "TC-VNEXT-G02-MAP-STAY",
   "program_id": "TC-VNEXT-2026",
   "schema_version": "current-goal-binding-v3",
-  "status": "APPROVED",
+  "status": "IN_PROGRESS",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

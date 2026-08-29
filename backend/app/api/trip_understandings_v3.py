@@ -24,10 +24,16 @@ from app.trip_understanding.errors import (
 from app.trip_understanding.map_render import MapRenderAcceptedView, MapRenderView
 from app.trip_understanding.models import (
     AccountTravelDataDeleteRequest,
+    ChangeAdoptRequest,
+    ChangePreviewRequest,
     ClaimedTripView,
     CommandAppliedView,
     CreateFullRequest,
     CreateTripUnderstandingRequest,
+    MaterializedTripView,
+    PublicChangeAdopted,
+    PublicChangePreview,
+    PublicTripChecksView,
     StaySelectionAppliedView,
     StaySelectionRequest,
     StaySuggestionView,
@@ -407,6 +413,199 @@ async def select_stay(
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"
     return outcome.applied
+
+
+@router.post(
+    "/{public_resource_id}/materialize",
+    response_model=MaterializedTripView,
+)
+async def materialize_trip_understanding(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    expected_etag = _require_if_match(if_match)
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(
+            repository
+        ).materialize_trip(
+            resource,
+            expected_etag=expected_etag,
+            idempotency_key=key,
+        )
+    except RevisionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "TRIP_UPDATED", "message": "行程已经更新，请刷新后再试"},
+        ) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CARDS_NOT_READY", "message": "卡片还在整理，请稍后再试"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_CHANGED", "message": "请重新准备这份行程"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "行程正在准备，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.view
+
+
+@router.get(
+    "/{public_resource_id}/checks",
+    response_model=PublicTripChecksView,
+)
+async def get_trip_understanding_checks(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+):
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        view = await TripUnderstandingApplicationService(repository).get_trip_checks(
+            resource
+        )
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CHECKS_NOT_READY", "message": "检查结果正在准备，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    return view
+
+
+@router.post(
+    "/{public_resource_id}/changes/preview",
+    response_model=PublicChangePreview,
+)
+async def preview_trip_understanding_change(
+    public_resource_id: str,
+    body: ChangePreviewRequest,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(
+            repository
+        ).preview_trip_change(
+            resource,
+            check_token=body.check_token,
+            idempotency_key=key,
+        )
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CHECK_CHANGED", "message": "这项检查已经变化，请刷新后再试"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_CHANGED", "message": "请重新预览这次调整"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在准备改动预览，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.preview
+
+
+@router.post(
+    "/{public_resource_id}/changes/adopt",
+    response_model=PublicChangeAdopted,
+)
+async def adopt_trip_understanding_change(
+    public_resource_id: str,
+    body: ChangeAdoptRequest,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    expected_etag = _require_if_match(if_match)
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(
+            repository
+        ).adopt_trip_change(
+            resource,
+            change_token=body.change_token,
+            expected_etag=expected_etag,
+            idempotency_key=key,
+        )
+    except RevisionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "TRIP_UPDATED", "message": "行程已经更新，请刷新后再试"},
+        ) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "CHANGE_CHANGED", "message": "这次改动已经变化，请重新预览"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_CHANGED", "message": "请重新采纳这次调整"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在保存改动，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.adopted
 
 
 @router.post(

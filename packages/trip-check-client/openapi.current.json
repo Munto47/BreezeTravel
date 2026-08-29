@@ -1504,6 +1504,38 @@
         "title": "CandidateTier",
         "type": "string"
       },
+      "ChangeAdoptRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "change_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Change Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_token"
+        ],
+        "title": "ChangeAdoptRequest",
+        "type": "object"
+      },
+      "ChangePreviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "check_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Check Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_token"
+        ],
+        "title": "ChangePreviewRequest",
+        "type": "object"
+      },
       "ChatRequest": {
         "properties": {
           "message": {
@@ -4848,6 +4880,43 @@
         "title": "MaterializationResult",
         "type": "object"
       },
+      "MaterializedTripView": {
+        "additionalProperties": false,
+        "properties": {
+          "calendar": {
+            "title": "Calendar",
+            "type": "string"
+          },
+          "checks_available": {
+            "default": true,
+            "title": "Checks Available",
+            "type": "boolean"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "party_size": {
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Party Size",
+            "type": "integer"
+          },
+          "status": {
+            "const": "READY",
+            "default": "READY",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "calendar",
+          "party_size"
+        ],
+        "title": "MaterializedTripView",
+        "type": "object"
+      },
       "MemberConstraint": {
         "properties": {
           "confirmation_status": {
@@ -7320,6 +7389,101 @@
         "title": "ProviderRecheckReceipt",
         "type": "object"
       },
+      "PublicChangeAdopted": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_days": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Days",
+            "type": "array"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/PublicTripChecksView"
+          },
+          "map_readiness": {
+            "const": "NEEDS_UPDATE",
+            "default": "NEEDS_UPDATE",
+            "title": "Map Readiness",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "APPLIED",
+              "STILL_NEEDS_CONFIRMATION"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "checks"
+        ],
+        "title": "PublicChangeAdopted",
+        "type": "object"
+      },
+      "PublicChangePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_days": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Days",
+            "type": "array"
+          },
+          "after": {
+            "items": {
+              "type": "string"
+            },
+            "title": "After",
+            "type": "array"
+          },
+          "available_actions": {
+            "items": {
+              "const": "ADOPT_CHANGE",
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "before": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Before",
+            "type": "array"
+          },
+          "change_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Change Token",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change_token",
+          "title",
+          "summary"
+        ],
+        "title": "PublicChangePreview",
+        "type": "object"
+      },
       "PublicMapDayView": {
         "additionalProperties": false,
         "properties": {
@@ -7445,6 +7609,100 @@
           "status"
         ],
         "title": "PublicRouteModeView",
+        "type": "object"
+      },
+      "PublicTripCheckItem": {
+        "additionalProperties": false,
+        "properties": {
+          "affected_days": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Days",
+            "type": "array"
+          },
+          "can_preview": {
+            "default": false,
+            "title": "Can Preview",
+            "type": "boolean"
+          },
+          "check_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Check Token",
+            "type": "string"
+          },
+          "label": {
+            "enum": [
+              "必须调整",
+              "可以更好",
+              "需要确认"
+            ],
+            "title": "Label",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "check_token",
+          "label",
+          "title",
+          "message"
+        ],
+        "title": "PublicTripCheckItem",
+        "type": "object"
+      },
+      "PublicTripChecksView": {
+        "additionalProperties": false,
+        "properties": {
+          "available_actions": {
+            "items": {
+              "const": "PREVIEW_CHANGE",
+              "type": "string"
+            },
+            "title": "Available Actions",
+            "type": "array"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicTripCheckItem"
+            },
+            "maxItems": 3,
+            "title": "Items",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "remaining_must_adjust": {
+            "minimum": 0.0,
+            "title": "Remaining Must Adjust",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "READY",
+              "STILL_NEEDS_CONFIRMATION"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "items",
+          "remaining_must_adjust"
+        ],
+        "title": "PublicTripChecksView",
         "type": "object"
       },
       "QuantifiedValue": {
@@ -11622,20 +11880,30 @@
       "TripDateRange": {
         "properties": {
           "end": {
-            "format": "date",
-            "title": "End",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End"
           },
           "start": {
-            "format": "date",
-            "title": "Start",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start"
           }
         },
-        "required": [
-          "start",
-          "end"
-        ],
         "title": "TripDateRange",
         "type": "object"
       },
@@ -20236,6 +20504,230 @@
         ]
       }
     },
+    "/api/v3/trip-understandings/{public_resource_id}/changes/adopt": {
+      "post": {
+        "operationId": "adopt_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_adopt_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeAdoptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangeAdopted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt Trip Understanding Change",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/changes/preview": {
+      "post": {
+        "operationId": "preview_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicChangePreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Trip Understanding Change",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/checks": {
+      "get": {
+        "operationId": "get_trip_understanding_checks_api_v3_trip_understandings__public_resource_id__checks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicTripChecksView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Trip Understanding Checks",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
     "/api/v3/trip-understandings/{public_resource_id}/claim": {
       "post": {
         "operationId": "claim_trip_understanding_api_v3_trip_understandings__public_resource_id__claim_post",
@@ -20626,6 +21118,90 @@
           }
         },
         "summary": "Get Latest Map Render",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/materialize": {
+      "post": {
+        "operationId": "materialize_trip_understanding_api_v3_trip_understandings__public_resource_id__materialize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaterializedTripView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Materialize Trip Understanding",
         "tags": [
           "trip-understandings-v3"
         ]

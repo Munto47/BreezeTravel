@@ -21,7 +21,7 @@
       "packages/trip-check-client/openapi.current.json",
       "packages/trip-check-client/src"
     ],
-    "base_commit": "1ef2e140cbafdef602a5a9a0fa824751b20b5bae",
+    "base_commit": "5a79c129f13914f4cd5a01789e641ada56d0b486",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "Agent Gate、blind、authority、custody、签名或 broker",
@@ -30,7 +30,7 @@
       "未在 Goal 激活时锁定的新验收项"
     ],
     "minimum_change": "先交付materialize、Top-3检查、preview/adopt和完整postcheck的最小端到端切片。",
-    "phase": "IMPLEMENTING",
+    "phase": "DELIVERY_VERIFY",
     "preflight_entrypoints": [
       "backend/tests/test_g03_*.py",
       "frontend/e2e/g03-product-delivery.spec.js"
@@ -58,7 +58,7 @@
         "全部硬Finding留存、公共Top-3稳定排序且Provider局部失败不假PASS",
         "preview/adopt/postcheck闭环可用，采纳零路线调用并令地图NEEDS_UPDATE"
       ],
-      "baseline_commit": "1ef2e140cbafdef602a5a9a0fa824751b20b5bae",
+      "baseline_commit": "5a79c129f13914f4cd5a01789e641ada56d0b486",
       "branch": "codex/g03-top3-audit",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",

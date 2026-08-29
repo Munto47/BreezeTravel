@@ -1913,6 +1913,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/changes/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Adopt Trip Understanding Change */
+        post: operations["adopt_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_adopt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/changes/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Trip Understanding Change */
+        post: operations["preview_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Trip Understanding Checks */
+        get: operations["get_trip_understanding_checks_api_v3_trip_understandings__public_resource_id__checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/claim": {
         parameters: {
             query?: never;
@@ -1992,6 +2043,23 @@ export interface paths {
         get: operations["get_latest_map_render_api_v3_trip_understandings__public_resource_id__map_renders_latest_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/materialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Materialize Trip Understanding */
+        post: operations["materialize_trip_understanding_api_v3_trip_understandings__public_resource_id__materialize_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2706,6 +2774,16 @@ export interface components {
          * @enum {string}
          */
         CandidateTier: "ON_THE_WAY" | "ACCEPTABLE" | "ANOTHER_DAY" | "NOT_FEASIBLE";
+        /** ChangeAdoptRequest */
+        ChangeAdoptRequest: {
+            /** Change Token */
+            change_token: string;
+        };
+        /** ChangePreviewRequest */
+        ChangePreviewRequest: {
+            /** Check Token */
+            check_token: string;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -3914,6 +3992,26 @@ export interface components {
             /** Resolution Dispatch */
             resolution_dispatch: string;
         };
+        /** MaterializedTripView */
+        MaterializedTripView: {
+            /** Calendar */
+            calendar: string;
+            /**
+             * Checks Available
+             * @default true
+             */
+            checks_available: boolean;
+            /** Message */
+            message: string;
+            /** Party Size */
+            party_size: number;
+            /**
+             * Status
+             * @default READY
+             * @constant
+             */
+            status: "READY";
+        };
         /** MemberConstraint */
         MemberConstraint: {
             /** @default PENDING */
@@ -4761,6 +4859,42 @@ export interface components {
             /** Subject Id */
             subject_id?: string | null;
         };
+        /** PublicChangeAdopted */
+        PublicChangeAdopted: {
+            /** Changed Days */
+            changed_days?: string[];
+            checks: components["schemas"]["PublicTripChecksView"];
+            /**
+             * Map Readiness
+             * @default NEEDS_UPDATE
+             * @constant
+             */
+            map_readiness: "NEEDS_UPDATE";
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "APPLIED" | "STILL_NEEDS_CONFIRMATION";
+        };
+        /** PublicChangePreview */
+        PublicChangePreview: {
+            /** Affected Days */
+            affected_days?: string[];
+            /** After */
+            after?: string[];
+            /** Available Actions */
+            available_actions?: "ADOPT_CHANGE"[];
+            /** Before */
+            before?: string[];
+            /** Change Token */
+            change_token: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
         /** PublicMapDayView */
         PublicMapDayView: {
             /** Label */
@@ -4796,6 +4930,43 @@ export interface components {
             status: "AVAILABLE" | "UNAVAILABLE";
             /** Transfer Count */
             transfer_count?: number | null;
+        };
+        /** PublicTripCheckItem */
+        PublicTripCheckItem: {
+            /** Affected Days */
+            affected_days?: string[];
+            /**
+             * Can Preview
+             * @default false
+             */
+            can_preview: boolean;
+            /** Check Token */
+            check_token: string;
+            /**
+             * Label
+             * @enum {string}
+             */
+            label: "必须调整" | "可以更好" | "需要确认";
+            /** Message */
+            message: string;
+            /** Title */
+            title: string;
+        };
+        /** PublicTripChecksView */
+        PublicTripChecksView: {
+            /** Available Actions */
+            available_actions?: "PREVIEW_CHANGE"[];
+            /** Items */
+            items: components["schemas"]["PublicTripCheckItem"][];
+            /** Message */
+            message: string;
+            /** Remaining Must Adjust */
+            remaining_must_adjust: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "READY" | "STILL_NEEDS_CONFIRMATION";
         };
         /** QuantifiedValue */
         QuantifiedValue: {
@@ -6295,16 +6466,10 @@ export interface components {
         TripCheckStage: "PARSE" | "WAIT_BRIEF_CONFIRMATION" | "RESOLVE_PLACES" | "COLLECT_EVIDENCE" | "AUDIT" | "BUILD_ADVICE" | "WAIT_ADOPTION" | "POSTCHECK";
         /** TripDateRange */
         TripDateRange: {
-            /**
-             * End
-             * Format: date
-             */
-            end: string;
-            /**
-             * Start
-             * Format: date
-             */
-            start: string;
+            /** End */
+            end?: string | null;
+            /** Start */
+            start?: string | null;
         };
         /** TripDayView */
         TripDayView: {
@@ -10690,6 +10855,116 @@ export interface operations {
             };
         };
     };
+    adopt_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_adopt_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeAdoptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicChangeAdopted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_trip_understanding_change_api_v3_trip_understandings__public_resource_id__changes_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicChangePreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trip_understanding_checks_api_v3_trip_understandings__public_resource_id__checks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTripChecksView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     claim_trip_understanding_api_v3_trip_understandings__public_resource_id__claim_post: {
         parameters: {
             query?: never;
@@ -10852,6 +11127,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MapRenderView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    materialize_trip_understanding_api_v3_trip_understandings__public_resource_id__materialize_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterializedTripView"];
                 };
             };
             /** @description Validation Error */
