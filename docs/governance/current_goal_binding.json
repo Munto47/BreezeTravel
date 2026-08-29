@@ -1,15 +1,15 @@
 {
   "automated_gate_contract_path": "docs/governance/product_delivery_gates.json",
   "automated_gate_contract_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
-  "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
+  "canonical_candidate_ref": "refs/heads/codex/g02-map-stay",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
-  "goal_sequence": 1,
+  "goal_id": "TC-VNEXT-G02-MAP-STAY",
+  "goal_sequence": 2,
   "mainline_phase": "CORE_MVP",
-  "predecessor_completion_commit": "f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
-  "predecessor_goal_id": "TC-BP-G00-BLUEPRINT",
+  "predecessor_completion_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
+  "predecessor_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
   "program_id": "TC-VNEXT-2026",
   "schema_version": "current-goal-binding-v3",
-  "status": "IN_PROGRESS",
+  "status": "APPROVED",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }
