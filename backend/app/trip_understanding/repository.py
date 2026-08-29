@@ -53,7 +53,16 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.route_geometry import (
+    InMemoryRouteGeometryCache,
+    RedisRouteGeometryCache,
+)
 from app.trip_understanding.source_crypto import SourceCipher
+from app.trip_understanding.stay_repository import (
+    InMemoryStayRecommendationRepositoryMixin,
+    PostgresStayRecommendationRepositoryMixin,
+    StayRecommendationRepository,
+)
 
 
 def _json_value(value: Any) -> Any:
@@ -152,7 +161,7 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
     }
 
 
-class TripUnderstandingRepository(MapRenderRepository, Protocol):
+class TripUnderstandingRepository(MapRenderRepository, StayRecommendationRepository, Protocol):
     async def create_demo(
         self,
         *,
@@ -303,10 +312,21 @@ class TripUnderstandingRepository(MapRenderRepository, Protocol):
     ) -> None: ...
 
 
-class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
-    def __init__(self, pool: Any | None = None, source_cipher: SourceCipher | None = None):
+class PostgresTripUnderstandingRepository(
+    PostgresStayRecommendationRepositoryMixin,
+    PostgresMapRenderRepositoryMixin,
+):
+    def __init__(
+        self,
+        pool: Any | None = None,
+        source_cipher: SourceCipher | None = None,
+        geometry_cache: Any | None = None,
+    ):
         self._pool = pool
         self._source_cipher = source_cipher
+        self._geometry_cache = geometry_cache or RedisRouteGeometryCache(
+            get_settings().redis_url
+        )
 
     async def _get_pool(self):
         return self._pool or await get_pool()
@@ -768,8 +788,13 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 resource.understanding_id,
                 int(row["revision"]),
             )
+            stay = await self._project_stay_view(
+                conn,
+                resource.understanding_id,
+                int(row["revision"]),
+            )
         return StoredResult(
-            result=result.model_copy(update={"map": readiness}),
+            result=result.model_copy(update={"map": readiness, "stay": stay}),
             opaque_etag=row["opaque_etag"],
         )
 
@@ -1035,6 +1060,13 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 result_revision,
                 result_id,
                 now,
+            )
+            await self._copy_stay_selection_to_revision(
+                conn,
+                resource.understanding_id,
+                parent_revision,
+                result_revision,
+                now=now,
             )
             applied = CommandAppliedView(changed_days=mutation.changed_days)
             await conn.execute(
@@ -2165,6 +2197,12 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 result_revision,
                 now=now,
             )
+            await self._enqueue_initial_stay_job(
+                conn,
+                job.understanding_id,
+                result_revision,
+                now=now,
+            )
             event_payload = PublicEventPayload(
                 status="READY",
                 message="卡片已可用",
@@ -2225,7 +2263,10 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                 )
 
 
-class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
+class InMemoryTripUnderstandingRepository(
+    InMemoryStayRecommendationRepositoryMixin,
+    InMemoryMapRenderRepositoryMixin,
+):
     def __init__(self) -> None:
         self.sessions: dict[str, dict[str, Any]] = {}
         self.resources: dict[str, dict[str, Any]] = {}
@@ -2246,7 +2287,9 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
         ] = {}
         self.tombstones: dict[str, dict[str, str | None]] = {}
         self.account_deletion_status: dict[str, TravelDataDeletionStatusView] = {}
+        self._geometry_cache = InMemoryRouteGeometryCache()
         self._init_map_store()
+        self._init_stay_store()
 
     async def create_demo(
         self,
@@ -2425,8 +2468,12 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
             resource.understanding_id,
             int(aggregate["current_revision"]),
         )
+        stay = self._memory_stay_view(
+            resource.understanding_id,
+            int(aggregate["current_revision"]),
+        )
         return stored.model_copy(
-            update={"result": stored.result.model_copy(update={"map": readiness})}
+            update={"result": stored.result.model_copy(update={"map": readiness, "stay": stay})}
         )
 
     async def apply_command(
@@ -2458,6 +2505,7 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
             raise ResourceNotReadyError("trip cards are not ready for editing")
         if not hmac.compare_digest(stored.opaque_etag, expected_etag):
             raise RevisionConflictError("command precondition does not match current result")
+        source_revision = int(aggregate["current_revision"])
         mutation = apply_public_command(stored.result, command)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
@@ -2473,6 +2521,11 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
                 "current_result_id": result_id,
                 "current_revision": aggregate["current_revision"] + 1,
             }
+        )
+        self._copy_stay_selection_memory(
+            resource.understanding_id,
+            source_revision,
+            int(aggregate["current_revision"]),
         )
         outcome = CommandOutcome(
             applied=CommandAppliedView(changed_days=mutation.changed_days),
@@ -2607,6 +2660,7 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
             authorization_kind = "ANONYMOUS"
             authorization_hash = capability_hash
         self._delete_map_memory(resource.understanding_id)
+        self._delete_stay_memory(resource.understanding_id)
         for result_id, understanding_id in list(self.result_owners.items()):
             if understanding_id == resource.understanding_id:
                 self.results.pop(result_id, None)
@@ -2874,6 +2928,11 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
             }
         )
         self._enqueue_initial_map_job_memory(
+            job.understanding_id,
+            2,
+            now=now,
+        )
+        self._enqueue_initial_stay_job_memory(
             job.understanding_id,
             2,
             now=now,

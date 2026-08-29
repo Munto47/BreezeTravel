@@ -10,7 +10,7 @@ from typing import Any, Literal
 import httpx
 
 from app.trip_understanding.errors import RouteProviderUnavailableError
-from app.trip_understanding.map_render import InternalRouteModeFact, MapStop
+from app.trip_understanding.map_render import InternalRouteModeFact, MapStop, RouteGeometryPoint
 from app.trip_understanding.pipeline import canonical_sha256
 
 
@@ -43,7 +43,7 @@ def _provider_request_id_hash(response: httpx.Response) -> str:
 def _parse_route(
     payload: dict[str, Any],
     mode: Literal["walking", "transit"],
-) -> tuple[int, int, int] | None:
+) -> tuple[int, int, int, list[RouteGeometryPoint]] | None:
     route = payload.get("route")
     if not isinstance(route, dict):
         return None
@@ -53,6 +53,7 @@ def _parse_route(
             return None
         first = paths[0]
         transfer_count = 0
+        geometry = _walking_geometry(first)
     else:
         transits = route.get("transits")
         if (
@@ -75,6 +76,7 @@ def _parse_route(
                 if (isinstance(buslines, list) and buslines) or railway_name:
                     ride_legs += 1
         transfer_count = max(0, ride_legs - 1)
+        geometry = _transit_geometry(first)
     try:
         duration_seconds = float(first.get("duration") or 0)
         distance_meters = float(first.get("distance") or route.get("distance") or 0)
@@ -86,7 +88,70 @@ def _parse_route(
         max(1, math.ceil(duration_seconds / 60)),
         max(1, round(distance_meters)),
         transfer_count,
+        geometry,
     )
+
+
+def _polyline_points(value: object) -> list[RouteGeometryPoint]:
+    if not isinstance(value, str):
+        return []
+    result: list[RouteGeometryPoint] = []
+    for raw_point in value.split(";"):
+        parts = raw_point.split(",")
+        if len(parts) != 2:
+            continue
+        try:
+            point = RouteGeometryPoint(
+                longitude=float(parts[0]),
+                latitude=float(parts[1]),
+            )
+        except (TypeError, ValueError):
+            continue
+        if not result or result[-1] != point:
+            result.append(point)
+    return result
+
+
+def _append_geometry(target: list[RouteGeometryPoint], points: list[RouteGeometryPoint]) -> None:
+    for point in points:
+        if not target or target[-1] != point:
+            target.append(point)
+
+
+def _walking_geometry(path: dict[str, Any]) -> list[RouteGeometryPoint]:
+    result: list[RouteGeometryPoint] = []
+    steps = path.get("steps")
+    if isinstance(steps, list):
+        for step in steps:
+            if isinstance(step, dict):
+                _append_geometry(result, _polyline_points(step.get("polyline")))
+    return result
+
+
+def _transit_geometry(transit: dict[str, Any]) -> list[RouteGeometryPoint]:
+    result: list[RouteGeometryPoint] = []
+    segments = transit.get("segments")
+    if not isinstance(segments, list):
+        return result
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        walking = segment.get("walking")
+        if isinstance(walking, dict):
+            _append_geometry(result, _walking_geometry(walking))
+        bus = segment.get("bus")
+        buslines = bus.get("buslines") if isinstance(bus, dict) else None
+        if isinstance(buslines, list):
+            for busline in buslines:
+                if isinstance(busline, dict):
+                    _append_geometry(result, _polyline_points(busline.get("polyline")))
+        railway = segment.get("railway")
+        if isinstance(railway, dict):
+            for key in ("departure_stop", "arrival_stop"):
+                stop = railway.get(key)
+                if isinstance(stop, dict):
+                    _append_geometry(result, _polyline_points(stop.get("location")))
+    return result
 
 
 class AmapRouteProvider:
@@ -254,13 +319,14 @@ class AmapRouteProvider:
                 provider_binding=binding,
                 external_call_count=1,
             )
-        duration_minutes, distance_meters, transfer_count = parsed
+        duration_minutes, distance_meters, transfer_count, geometry = parsed
         return InternalRouteModeFact(
             mode=mode,
             status="AVAILABLE",
             duration_minutes=duration_minutes,
             distance_meters=distance_meters,
             transfer_count=transfer_count,
+            geometry=geometry,
             response_hash=response_hash,
             request_hash=request_hash,
             provider_binding=binding,

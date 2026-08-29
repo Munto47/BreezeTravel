@@ -46,16 +46,23 @@ export interface UserFacingTripResult {
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
-    status: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+    status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
     message: string
+    area_summary: string | null
+    searched_scopes: string[]
     candidates: Array<{
+      candidate_token: string
       name: string
+      brand: string
       category: string
       area_or_address: string
       commute_summary: string
+      max_single_leg_minutes: number
+      transfer_count: number
       evidence_gap: string | null
       reason: string
       available_actions: Array<'CHOOSE_STAY'>
+      selected: boolean
     }>
     available_actions: Array<'CHOOSE_STAY'>
   }
@@ -67,6 +74,7 @@ export interface PublicRouteModeView {
   duration_minutes: number | null
   distance_meters: number | null
   transfer_count: number | null
+  geometry: Array<{ longitude: number; latitude: number }>
 }
 
 export interface MapRenderView {
@@ -89,4 +97,13 @@ export interface MapRenderView {
 export interface MapRenderAcceptedView {
   status: 'PREPARING' | 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
+}
+
+export type StaySuggestionView = UserFacingTripResult['stay']
+
+export interface StaySelectionAppliedView {
+  status: 'APPLIED'
+  selected_stay: string
+  overnight_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
 }

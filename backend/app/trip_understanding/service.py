@@ -9,6 +9,7 @@ from app.trip_understanding.models import (
     CreateOutcome,
     DeletionOutcome,
     PublicResourceRecord,
+    StaySelectionOutcome,
     TripUnderstandingCommand,
     TravelDataDeletionOutcome,
     TravelDataDeletionStatusView,
@@ -118,6 +119,31 @@ class TripUnderstandingApplicationService:
         )
         return await self.repository.request_map_render(
             resource,
+            expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def select_stay(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        candidate_token: str,
+        expected_etag: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> StaySelectionOutcome:
+        request_hash = canonical_sha256(
+            {
+                "action": "SELECT_STAY",
+                "candidate_token": candidate_token,
+                "if_match": expected_etag,
+            }
+        )
+        return await self.repository.select_stay(
+            resource,
+            candidate_token=candidate_token,
             expected_etag=expected_etag,
             idempotency_key=idempotency_key,
             request_hash=request_hash,

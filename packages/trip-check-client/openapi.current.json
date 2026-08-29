@@ -7414,6 +7414,13 @@
             ],
             "title": "Duration Minutes"
           },
+          "geometry": {
+            "items": {
+              "$ref": "#/components/schemas/RouteGeometryPoint"
+            },
+            "title": "Geometry",
+            "type": "array"
+          },
           "status": {
             "enum": [
               "AVAILABLE",
@@ -8719,6 +8726,29 @@
         "title": "RouteEstimate",
         "type": "object"
       },
+      "RouteGeometryPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "latitude": {
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "type": "number"
+          }
+        },
+        "required": [
+          "longitude",
+          "latitude"
+        ],
+        "title": "RouteGeometryPoint",
+        "type": "object"
+      },
       "RouteReceipt": {
         "additionalProperties": false,
         "description": "Immutable evidence for one Provider-computed route leg.",
@@ -10006,6 +10036,16 @@
             "title": "Available Actions",
             "type": "array"
           },
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "candidate_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Candidate Token",
+            "type": "string"
+          },
           "category": {
             "title": "Category",
             "type": "string"
@@ -10025,6 +10065,11 @@
             ],
             "title": "Evidence Gap"
           },
+          "max_single_leg_minutes": {
+            "minimum": 0.0,
+            "title": "Max Single Leg Minutes",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -10032,22 +10077,97 @@
           "reason": {
             "title": "Reason",
             "type": "string"
+          },
+          "selected": {
+            "default": false,
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "transfer_count": {
+            "minimum": 0.0,
+            "title": "Transfer Count",
+            "type": "integer"
           }
         },
         "required": [
+          "candidate_token",
           "name",
+          "brand",
           "category",
           "area_or_address",
           "commute_summary",
+          "max_single_leg_minutes",
+          "transfer_count",
           "reason",
           "available_actions"
         ],
         "title": "StayCandidateView",
         "type": "object"
       },
+      "StaySelectionAppliedView": {
+        "additionalProperties": false,
+        "properties": {
+          "map_readiness": {
+            "const": "NEEDS_UPDATE",
+            "default": "NEEDS_UPDATE",
+            "title": "Map Readiness",
+            "type": "string"
+          },
+          "overnight_days": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Overnight Days",
+            "type": "array"
+          },
+          "selected_stay": {
+            "title": "Selected Stay",
+            "type": "string"
+          },
+          "status": {
+            "const": "APPLIED",
+            "default": "APPLIED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "selected_stay",
+          "overnight_days"
+        ],
+        "title": "StaySelectionAppliedView",
+        "type": "object"
+      },
+      "StaySelectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_token": {
+            "maxLength": 100,
+            "minLength": 20,
+            "title": "Candidate Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_token"
+        ],
+        "title": "StaySelectionRequest",
+        "type": "object"
+      },
       "StaySuggestionView": {
         "additionalProperties": false,
         "properties": {
+          "area_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Area Summary"
+          },
           "available_actions": {
             "items": {
               "const": "CHOOSE_STAY",
@@ -10067,9 +10187,18 @@
             "title": "Message",
             "type": "string"
           },
+          "searched_scopes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Searched Scopes",
+            "type": "array"
+          },
           "status": {
             "enum": [
+              "PREPARING",
               "AVAILABLE",
+              "NEEDS_UPDATE",
               "LIMITED",
               "UNAVAILABLE"
             ],
@@ -20620,6 +20749,152 @@
           }
         },
         "summary": "Delete Trip Understanding Source",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/stay-selection": {
+      "post": {
+        "operationId": "select_stay_api_v3_trip_understandings__public_resource_id__stay_selection_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StaySelectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySelectionAppliedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Stay",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/stay-suggestions": {
+      "get": {
+        "operationId": "get_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StaySuggestionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Stay Suggestions",
         "tags": [
           "trip-understandings-v3"
         ]
