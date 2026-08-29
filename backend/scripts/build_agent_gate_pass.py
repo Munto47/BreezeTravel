@@ -22,6 +22,7 @@ def main() -> int:
     parser.add_argument("--live-score", type=Path)
     parser.add_argument("--panel-verification", type=Path)
     parser.add_argument("--sealed-receipt", type=Path)
+    parser.add_argument("--sealed-score-receipt", type=Path)
     args = parser.parse_args()
     binding = read_worktree_binding(REPOSITORY_ROOT)
     if binding.gate_profile == "CORE_AGENT_GATE":
@@ -32,6 +33,7 @@ def main() -> int:
             args.live_score,
             args.panel_verification,
             args.sealed_receipt,
+            args.sealed_score_receipt,
         )
         if any(path is None for path in core_paths):
             parser.error(
@@ -46,6 +48,7 @@ def main() -> int:
             live_score_path=args.live_score,
             panel_verification_path=args.panel_verification,
             sealed_receipt_path=args.sealed_receipt,
+            sealed_score_receipt_path=args.sealed_score_receipt,
             output_path=args.output,
         )
         return 0

@@ -21,7 +21,8 @@ def _poi(
     name: str = "故宫博物院",
     city: str = "北京市",
     typecode: str = "110202",
-) -> dict[str, str]:
+    **extra: object,
+) -> dict[str, object]:
     return {
         "id": provider_id,
         "name": name,
@@ -33,6 +34,7 @@ def _poi(
         "adname": "东城区",
         "address": "景山前街4号",
         "adcode": "110101",
+        **extra,
     }
 
 
@@ -90,7 +92,7 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
     ],
 )
 async def test_amap_wrong_city_category_or_ambiguous_name_stays_pending(
-    pois: list[dict[str, str]],
+    pois: list[dict[str, object]],
     category_hint: str,
 ) -> None:
     observed: list[httpx.Request] = []
@@ -106,6 +108,56 @@ async def test_amap_wrong_city_category_or_ambiguous_name_stays_pending(
     assert outcome.place is None
     assert outcome.receipt["status"] == "NO_UNIQUE_MATCH"
     assert outcome.receipt["external_calls"] == 1
+    assert len(observed) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("atomic", "poi", "alias_count"),
+    [
+        (
+            "故宫博物院",
+            _poi(name="北京市故宫博物院（暂停开放）"),
+            0,
+        ),
+        (
+            "故宫",
+            _poi(business={"alias": "紫禁城|故宫"}),
+            1,
+        ),
+        (
+            "午门",
+            _poi(name="故宫博物院-午门"),
+            0,
+        ),
+        (
+            "西湖",
+            _poi(name="西湖风景区", city="杭州市", provider_id="B0WESTLAKE"),
+            0,
+        ),
+    ],
+)
+async def test_amap_provider_name_variants_remain_unique_city_category_matches(
+    atomic: str,
+    poi: dict[str, object],
+    alias_count: int,
+) -> None:
+    city = "杭州" if atomic == "西湖" else "北京"
+    observed: list[httpx.Request] = []
+    payload = {"status": "1", "infocode": "10000", "count": "1", "pois": [poi]}
+    async with _client(payload, observed) as client:
+        outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city=city,
+            atomic_place_name=atomic,
+            category_hint="景点",
+        )
+
+    assert outcome.place is not None
+    assert outcome.receipt["provider_alias_candidate_count"] == alias_count
+    assert outcome.receipt["category_compatible_candidate_count"] == 1
+    assert outcome.receipt["name_match_policy"] == (
+        "PRIMARY_ALIAS_CITY_STATUS_HIERARCHY_V2"
+    )
     assert len(observed) == 1
 
 

@@ -12,6 +12,7 @@ from app.trip_understanding.errors import (
     IdempotencyConflictError,
     IdempotencyInProgressError,
     JobLeaseLostError,
+    ResourceAccessDeniedError,
     ResourceGoneError,
     ResourceNotFoundError,
     ResourceNotReadyError,
@@ -193,6 +194,14 @@ class MapRenderRepository(Protocol):
         now: datetime,
         lease_seconds: int,
     ) -> MapRenderJobRecord | None: ...
+
+    async def renew_map_lease(
+        self,
+        job: MapRenderJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool: ...
 
     async def load_map_plan(self, job: MapRenderJobRecord) -> MapRenderPlan: ...
 
@@ -526,6 +535,23 @@ class PostgresMapRenderRepositoryMixin:
         key_hash = _sha256_text(idempotency_key)
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            aggregate = await conn.fetchrow(
+                """
+                SELECT u.public_resource_id, u.state, u.current_revision, r.opaque_etag
+                FROM trip_understandings u
+                LEFT JOIN trip_understanding_results r ON r.result_id = u.current_result_id
+                WHERE u.understanding_id = $1 FOR UPDATE OF u
+                """,
+                resource.understanding_id,
+            )
+            if aggregate is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if aggregate["state"] == "DELETED":
+                raise ResourceGoneError("trip resource is no longer available")
+            if aggregate["public_resource_id"] != resource.public_resource_id:
+                raise ResourceAccessDeniedError("trip resource binding changed")
+            if aggregate["opaque_etag"] is None:
+                raise ResourceNotReadyError("trip cards are not ready for map rendering")
             claimed = await conn.fetchval(
                 """
                 INSERT INTO trip_understanding_idempotency_records (
@@ -559,21 +585,6 @@ class PostgresMapRenderRepositoryMixin:
                     ),
                     replayed=True,
                 )
-            aggregate = await conn.fetchrow(
-                """
-                SELECT u.state, u.current_revision, r.opaque_etag
-                FROM trip_understandings u
-                LEFT JOIN trip_understanding_results r ON r.result_id = u.current_result_id
-                WHERE u.understanding_id = $1 FOR UPDATE OF u
-                """,
-                resource.understanding_id,
-            )
-            if aggregate is None:
-                raise ResourceNotFoundError("trip resource does not exist")
-            if aggregate["state"] == "DELETED":
-                raise ResourceGoneError("trip resource is no longer available")
-            if aggregate["opaque_etag"] is None:
-                raise ResourceNotReadyError("trip cards are not ready for map rendering")
             if not hmac.compare_digest(aggregate["opaque_etag"], expected_etag):
                 raise RevisionConflictError("map render precondition does not match current result")
             job = await self._ensure_map_job(
@@ -679,6 +690,31 @@ class PostgresMapRenderRepositoryMixin:
         if plan.plan_ref != job.plan_ref or plan.route_config_hash != job.route_config_hash:
             raise ValueError("map job plan binding changed")
         return plan
+
+    async def renew_map_lease(
+        self,
+        job: MapRenderJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            renewed = await conn.fetchval(
+                """
+                UPDATE trip_map_render_jobs
+                SET lease_until = $4, updated_at = $3
+                WHERE map_job_id = $1 AND status = 'BUILDING'
+                  AND lease_owner = $2 AND attempt = $5 AND lease_until > $3
+                RETURNING lease_until
+                """,
+                job.map_job_id,
+                job.lease_owner,
+                now,
+                now + timedelta(seconds=lease_seconds),
+                job.attempt,
+            )
+        return renewed is not None
 
     async def complete_map_job(
         self,
@@ -1132,6 +1168,9 @@ class InMemoryMapRenderRepositoryMixin:
         request_hash: str,
         now: datetime,
     ) -> MapRenderRequestOutcome:
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        if public_id != resource.public_resource_id:
+            raise ResourceAccessDeniedError("trip resource binding changed")
         scope = f"understanding:{resource.understanding_id}:map-renders"
         key = (scope, _sha256_text(idempotency_key))
         existing = self.map_request_idempotency.get(key)
@@ -1139,7 +1178,6 @@ class InMemoryMapRenderRepositoryMixin:
             if existing[0] != request_hash:
                 raise IdempotencyConflictError("map render idempotency key was reused")
             return MapRenderRequestOutcome(accepted=existing[1], replayed=True)
-        public_id = self.resources_by_understanding[resource.understanding_id]
         aggregate = self.resources[public_id]
         stored = self.results.get(aggregate["current_result_id"] or "")
         if stored is None:
@@ -1208,6 +1246,26 @@ class InMemoryMapRenderRepositoryMixin:
         if item is None or item["plan"].plan_ref != job.plan_ref:
             raise ResourceNotFoundError("map plan does not exist")
         return item["plan"]
+
+    async def renew_map_lease(
+        self,
+        job: MapRenderJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        item = self.map_jobs.get(job.map_job_id)
+        if (
+            item is None
+            or item["status"] != "BUILDING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+            or item["lease_until"] is None
+            or item["lease_until"] <= now
+        ):
+            return False
+        item["lease_until"] = now + timedelta(seconds=lease_seconds)
+        return True
 
     async def complete_map_job(
         self,

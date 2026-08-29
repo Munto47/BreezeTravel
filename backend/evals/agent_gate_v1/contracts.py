@@ -891,14 +891,13 @@ class SealedAgentBlindReceipt(StrictModel):
         ]
         if self.error_taxonomy != expected_taxonomy:
             raise ValueError("sealed blind error taxonomy contradicts scorer counts")
-        hardened_values = (
+        hardened_custody_values = (
             self.tranche_commitment_sha256,
             self.one_shot_nonce_sha256,
             self.attempt_commitment_sha256,
             self.custody_registry_identity_sha256,
             self.authority_policy_sha256,
             self.mint_receipt_sha256,
-            self.deterministic_score_receipt_sha256,
             self.score_input_manifest_sha256,
             self.truth_bundle_commitment,
             self.case_set_commitment_sha256,
@@ -906,12 +905,18 @@ class SealedAgentBlindReceipt(StrictModel):
         if self.gate_profile == "CORE_AGENT_GATE":
             if not re.match(r"^TC-VNEXT-G0[1-6]-", self.goal_id):
                 raise ValueError("CORE sealed blind is restricted to G01-G06")
-            if any(value is not None for value in hardened_values):
+            if any(value is not None for value in hardened_custody_values):
                 raise ValueError("CORE sealed blind cannot claim HARDENED custody evidence")
             if self.authority_signature is not None:
                 raise ValueError("CORE sealed blind cannot carry an authority signature")
         elif (
-            any(value is None for value in hardened_values)
+            any(
+                value is None
+                for value in (
+                    *hardened_custody_values,
+                    self.deterministic_score_receipt_sha256,
+                )
+            )
             or self.authority_signature is None
             or self.authority_signature.authority_role != "SEALED_CUSTODY"
         ):

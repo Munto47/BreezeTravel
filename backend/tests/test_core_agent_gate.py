@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -11,6 +13,13 @@ from evals.agent_gate_v1.contracts import (
     AutomatedCheckExecution,
     AutomatedProductExecutionManifest,
     SealedAgentBlindReceipt,
+)
+from evals.agent_gate_v1.core_gate import (
+    CoreAgentGateError,
+    CoreCandidateContext,
+    read_worktree_binding,
+    verify_core_live_score,
+    verify_core_sealed,
 )
 
 
@@ -36,6 +45,9 @@ def _blind_metrics() -> dict[str, float | int | bool]:
         "day_assignment.f1": 1.0,
         "day_assignment.error_count": 0,
         "role_macro_f1": 1.0,
+        "deep_city_auto_match.coverage": 1.0,
+        "estimated_confirmation_required_count.median": 0,
+        "estimated_confirmation_required_count.p90": 0,
         "role_classification.error_count": 0,
         "provider_resolution.error_count": 0,
         "evidence_span_validity": 1.0,
@@ -48,6 +60,33 @@ def _blind_metrics() -> dict[str, float | int | bool]:
         "latency.violation_count": 0,
         "other_aggregated_error_count": 0,
     }
+
+
+def _core_sealed_receipt(**updates) -> SealedAgentBlindReceipt:
+    values = {
+        "gate_profile": "CORE_AGENT_GATE",
+        "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+        "candidate_commit": COMMIT,
+        "candidate_tree": TREE,
+        "prompt_sha256": SHA,
+        "schema_sha256": SHA,
+        "thresholds_sha256": SHA,
+        "config_sha256": SHA,
+        "provider_binding_sha256": SHA,
+        "scorer_sha256": SHA,
+        "input_bundle_sha256": SHA,
+        "prediction_bundle_sha256": SHA,
+        "scored_case_count": 18,
+        "custodian_task_id": "independent-core-blind",
+        "aggregate_metrics": _blind_metrics(),
+        "taxonomy_counts": {name: 0 for name in BLIND_ERROR_CATEGORY_ORDER},
+        "error_taxonomy": [],
+        "required_gate_metrics_passed": True,
+        "verdict": "PASS",
+        "completed_at": NOW,
+    }
+    values.update(updates)
+    return SealedAgentBlindReceipt.model_validate(values)
 
 
 def test_core_automation_pass_uses_clean_checkout_without_oci_claims() -> None:
@@ -91,28 +130,7 @@ def test_core_automation_pass_uses_clean_checkout_without_oci_claims() -> None:
 
 
 def test_core_sealed_receipt_never_requires_or_claims_hardened_custody() -> None:
-    receipt = SealedAgentBlindReceipt(
-        gate_profile="CORE_AGENT_GATE",
-        goal_id="TC-VNEXT-G01-TEXT-CARDS",
-        candidate_commit=COMMIT,
-        candidate_tree=TREE,
-        prompt_sha256=SHA,
-        schema_sha256=SHA,
-        thresholds_sha256=SHA,
-        config_sha256=SHA,
-        provider_binding_sha256=SHA,
-        scorer_sha256=SHA,
-        input_bundle_sha256=SHA,
-        prediction_bundle_sha256=SHA,
-        scored_case_count=18,
-        custodian_task_id="independent-core-blind",
-        aggregate_metrics=_blind_metrics(),
-        taxonomy_counts={name: 0 for name in BLIND_ERROR_CATEGORY_ORDER},
-        error_taxonomy=[],
-        required_gate_metrics_passed=True,
-        verdict="PASS",
-        completed_at=NOW,
-    )
+    receipt = _core_sealed_receipt()
     assert receipt.authority_signature is None
     assert receipt.custody_registry_identity_sha256 is None
     with pytest.raises(ValueError, match="cannot claim HARDENED"):
@@ -122,6 +140,70 @@ def test_core_sealed_receipt_never_requires_or_claims_hardened_custody() -> None
                 "authority_policy_sha256": SHA,
             }
         )
+
+
+def test_core_sealed_summary_must_derive_from_deterministic_score(
+    tmp_path: Path,
+) -> None:
+    binding = read_worktree_binding(ROOT)
+    frozen = {
+        name: SHA
+        for name in (
+            "model",
+            "prompt",
+            "schema",
+            "config",
+            "provider",
+            "thresholds",
+            "dev_validation_scorer",
+            "sealed_scorer",
+            "review_schema",
+            "adjudication_schema",
+        )
+    }
+    context = CoreCandidateContext(
+        repository_root=ROOT,
+        candidate_commit=COMMIT,
+        candidate_tree=TREE,
+        binding=binding,
+        config_sha256=SHA,
+        data_sha256=SHA,
+        frozen_binding_sha256=frozen,
+        current_goal_binding_sha256=SHA,
+        current_goal_document_sha256=SHA,
+    )
+    score = _core_sealed_receipt()
+    score_path = tmp_path / "deterministic-score.json"
+    score_bytes = (
+        json.dumps(
+            score.model_dump(mode="json", exclude_none=True),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    score_path.write_bytes(score_bytes)
+    summary = _core_sealed_receipt(
+        deterministic_score_receipt_sha256=hashlib.sha256(score_bytes).hexdigest()
+    )
+    summary_path = tmp_path / "sealed-summary.json"
+    summary_bytes = (
+        json.dumps(
+            summary.model_dump(mode="json", exclude_none=True),
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    summary_path.write_bytes(summary_bytes)
+
+    assert verify_core_sealed(summary_path, score_path, context) == hashlib.sha256(
+        summary_bytes
+    ).hexdigest()
+    self_report_path = tmp_path / "sealed-self-report.json"
+    self_report_path.write_bytes(score_bytes)
+    with pytest.raises(CoreAgentGateError, match="frozen thresholds"):
+        verify_core_sealed(self_report_path, score_path, context)
 
 
 def test_core_final_receipt_binds_four_components_without_authority() -> None:
@@ -185,3 +267,80 @@ def test_core_entrypoints_do_not_import_authority_or_custody() -> None:
     )
     assert "agent_gate_v1.authority" not in sources
     assert "agent_gate_v1.custody" not in sources
+
+
+def test_core_live_score_rejects_unreproducible_self_report(tmp_path: Path) -> None:
+    binding = read_worktree_binding(ROOT)
+    frozen = {
+        name: SHA
+        for name in (
+            "model",
+            "prompt",
+            "schema",
+            "config",
+            "provider",
+            "thresholds",
+            "dev_validation_scorer",
+            "sealed_scorer",
+            "review_schema",
+            "adjudication_schema",
+        )
+    }
+    context = CoreCandidateContext(
+        repository_root=ROOT,
+        candidate_commit=COMMIT,
+        candidate_tree=TREE,
+        binding=binding,
+        config_sha256=SHA,
+        data_sha256=SHA,
+        frozen_binding_sha256=frozen,
+        current_goal_binding_sha256=SHA,
+        current_goal_document_sha256=SHA,
+    )
+    fake = {
+        "schema_version": "g01-text-card-agent-scored-receipt-v2",
+        "goal_id": binding.goal_id,
+        "split": "validation",
+        "candidate_commit": COMMIT,
+        "candidate_tree": TREE,
+        "prediction_bindings": {
+            "model_binding_sha256": SHA,
+            "prompt_sha256": SHA,
+            "schema_sha256": SHA,
+            "config_sha256": SHA,
+            "provider_binding_sha256": SHA,
+        },
+        "inference_effect_count": 18,
+        "agent_adjudication": {
+            "human_evidence": False,
+            "live_provider_evidence_verified": True,
+            "canonical_provider_bound_mentions": 50,
+            "provider_binding_sha256": SHA,
+        },
+        "score": {
+            "case_count": 18,
+            "forbidden_content_as_place_count": 0,
+            "severe_wrong_auto_match_count": 0,
+            "wrong_city_auto_match_count": 0,
+            "wrong_category_auto_match_count": 0,
+            "auto_match": {"denominator": 50, "precision": 1.0},
+            "executable_mentions": {"precision": 1.0, "recall": 1.0},
+            "day_assignment": {"f1": 1.0},
+            "role_macro_f1": 1.0,
+            "deep_city_auto_match": {"coverage": 1.0},
+            "estimated_confirmation_required_count": {"median": 0, "p90": 0},
+            "evidence_span_validity": 1.0,
+            "scoring_coverage": 1.0,
+            "candidate_auto_selected_minimum_met": True,
+        },
+        "blind_inputs_read": 0,
+        "blind_truth_read": 0,
+        "human_usability_status": "NOT_RUN",
+        "production_status": "NOT_RUN",
+        "gate_claim": "VALIDATION_ONLY",
+    }
+    path = tmp_path / "self-reported-live-score.json"
+    path.write_text(json.dumps(fake), encoding="utf-8")
+
+    with pytest.raises(CoreAgentGateError, match="reproduction binding"):
+        verify_core_live_score(path, context)

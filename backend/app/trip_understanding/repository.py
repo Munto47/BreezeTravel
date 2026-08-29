@@ -278,6 +278,14 @@ class TripUnderstandingRepository(MapRenderRepository, Protocol):
         now: datetime,
     ) -> TripUnderstandingSourcePayload: ...
 
+    async def renew_lease(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool: ...
+
     async def complete_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -781,6 +789,18 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
         key_hash = _sha256_text(idempotency_key)
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            aggregate = await conn.fetchrow(
+                "SELECT * FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
+                resource.understanding_id,
+            )
+            if aggregate is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if aggregate["state"] == "DELETED":
+                raise ResourceGoneError("trip resource is no longer available")
+            if aggregate["public_resource_id"] != resource.public_resource_id:
+                raise ResourceAccessDeniedError("trip resource binding changed")
+            if aggregate["current_result_id"] is None:
+                raise ResourceNotReadyError("trip cards are not ready for editing")
             claimed = await conn.fetchval(
                 """
                 INSERT INTO trip_understanding_idempotency_records (
@@ -818,16 +838,6 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
                     replayed=True,
                 )
 
-            aggregate = await conn.fetchrow(
-                "SELECT * FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
-                resource.understanding_id,
-            )
-            if aggregate is None:
-                raise ResourceNotFoundError("trip resource does not exist")
-            if aggregate["state"] == "DELETED":
-                raise ResourceGoneError("trip resource is no longer available")
-            if aggregate["current_result_id"] is None:
-                raise ResourceNotReadyError("trip cards are not ready for editing")
             current = await conn.fetchrow(
                 """
                 SELECT r.source_id, r.destination_json, r.assumptions_json,
@@ -1887,6 +1897,31 @@ class PostgresTripUnderstandingRepository(PostgresMapRenderRepositoryMixin):
             raise ValueError("decrypted source hash mismatch")
         return TripUnderstandingSourcePayload(source_type="TEXT", text=text)
 
+    async def renew_lease(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            renewed = await conn.fetchval(
+                """
+                UPDATE trip_understanding_jobs
+                SET lease_until = $4, updated_at = $3
+                WHERE job_id = $1 AND status = 'RUNNING'
+                  AND lease_owner = $2 AND attempt = $5 AND lease_until > $3
+                RETURNING lease_until
+                """,
+                job.job_id,
+                job.lease_owner,
+                now,
+                now + timedelta(seconds=lease_seconds),
+                job.attempt,
+            )
+        return renewed is not None
+
     async def complete_job(
         self,
         job: TripUnderstandingJobRecord,
@@ -2383,6 +2418,8 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
         if stored is None:
             return None
         public_id = self.resources_by_understanding[resource.understanding_id]
+        if public_id != resource.public_resource_id:
+            raise ResourceAccessDeniedError("trip resource binding changed")
         aggregate = self.resources[public_id]
         readiness = self._project_map_readiness_memory(
             resource.understanding_id,
@@ -2403,6 +2440,9 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
         now: datetime,
     ) -> CommandOutcome:
         del now
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        if public_id != resource.public_resource_id:
+            raise ResourceAccessDeniedError("trip resource binding changed")
         scope = f"understanding:{resource.understanding_id}:command"
         key = (scope, _sha256_text(idempotency_key))
         existing = self.command_idempotency.get(key)
@@ -2412,7 +2452,6 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
                     "idempotency key was already used with a different request"
                 )
             return existing[1].model_copy(update={"replayed": True})
-        public_id = self.resources_by_understanding[resource.understanding_id]
         aggregate = self.resources[public_id]
         stored = self.results.get(aggregate["current_result_id"] or "")
         if stored is None:
@@ -2776,6 +2815,26 @@ class InMemoryTripUnderstandingRepository(InMemoryMapRenderRepositoryMixin):
         if source is None or _sha256_text(source.text) != job.input_hash:
             raise SourceUnavailableError("understanding source is unavailable")
         return source
+
+    async def renew_lease(
+        self,
+        job: TripUnderstandingJobRecord,
+        *,
+        now: datetime,
+        lease_seconds: int,
+    ) -> bool:
+        item = self.jobs.get(job.job_id)
+        if (
+            item is None
+            or item["status"] != "RUNNING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+            or item["lease_until"] is None
+            or item["lease_until"] <= now
+        ):
+            return False
+        item["lease_until"] = now + timedelta(seconds=lease_seconds)
+        return True
 
     async def complete_job(
         self,

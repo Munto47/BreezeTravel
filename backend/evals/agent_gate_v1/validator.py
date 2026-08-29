@@ -6,7 +6,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from evals.agent_gate_v1.authority import load_anchored_authority_policy
 from evals.agent_gate_v1.contracts import (
     AgentGateAdjudicationReceipt,
     AgentGateReviewReceipt,
@@ -18,13 +17,8 @@ from evals.agent_gate_v1.contracts import (
     SealedAgentBlindThresholds,
 )
 from evals.agent_gate_v1.host_tools import trusted_host_tool
-from evals.agent_gate_v1.custody import (
-    claim_attempt_receipt,
-    read_run_state,
-)
 from evals.agent_gate_v1.path_security import ArtifactSnapshot, read_external_snapshot
 from evals.agent_gate_v1.sealed_score import evaluate_frozen_thresholds
-from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
 
 
 class AgentGateValidationError(ValueError):
@@ -290,6 +284,10 @@ def verify_sealed_agent_blind(
     custody_registry_path: Path,
     mint_receipt_path: Path,
 ) -> dict[str, Any]:
+    from evals.agent_gate_v1.authority import load_anchored_authority_policy
+    from evals.agent_gate_v1.custody import claim_attempt_receipt, read_run_state
+    from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
+
     mint_preview = read_external_snapshot(mint_receipt_path, repository_root)
     try:
         from evals.agent_gate_v1.contracts import SealedAgentBlindMintReceipt

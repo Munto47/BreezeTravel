@@ -4,13 +4,18 @@ import asyncio
 import logging
 import os
 import socket
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from app.config import Settings, get_settings
 from app.db.connection import close_pool
 from app.trip_understanding.amap_place import AmapPlaceResolver
 from app.trip_understanding.demo import build_demo_pipeline
+from app.trip_understanding.errors import (
+    InferenceProviderUnavailableError,
+    JobLeaseLostError,
+)
 from app.trip_understanding.full_text import build_full_text_pipeline
 from app.trip_understanding.repository import (
     PostgresTripUnderstandingRepository,
@@ -20,6 +25,20 @@ from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
 
 
 logger = logging.getLogger(__name__)
+
+
+class _LeaseTakeoverInferenceProvider:
+    async def propose(self, source_text: str):
+        del source_text
+        raise InferenceProviderUnavailableError(
+            "LEASE_TAKEOVER_UNKNOWN_OUTCOME",
+            provider_binding={
+                "provider": "NOT_RETRIED_AFTER_LEASE_TAKEOVER",
+                "external_calls": 0,
+                "outcome": "UNKNOWN",
+            },
+            external_call_count=0,
+        )
 
 
 def build_configured_full_pipeline(settings: Settings):
@@ -63,9 +82,49 @@ class TripUnderstandingWorker:
         self.lease_seconds = lease_seconds
         self.demo_pipeline = build_demo_pipeline()
         self.full_pipeline = full_pipeline or build_full_text_pipeline()
+        self.lease_takeover_pipeline = build_full_text_pipeline(
+            _LeaseTakeoverInferenceProvider()
+        )
+
+    async def _heartbeat(self, job, now_provider) -> None:
+        interval_seconds = max(0.01, min(10.0, self.lease_seconds / 3))
+        while True:
+            await asyncio.sleep(interval_seconds)
+            renewed = await self.repository.renew_lease(
+                job,
+                now=now_provider(),
+                lease_seconds=self.lease_seconds,
+            )
+            if not renewed:
+                raise JobLeaseLostError("understanding job lease heartbeat was rejected")
+
+    async def _run_with_heartbeat(self, job, operation, now_provider):
+        operation_task = asyncio.create_task(operation)
+        heartbeat_task = asyncio.create_task(self._heartbeat(job, now_provider))
+        try:
+            done, _pending = await asyncio.wait(
+                {operation_task, heartbeat_task},
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            if heartbeat_task in done:
+                error = heartbeat_task.exception()
+                if error is None:
+                    raise JobLeaseLostError("understanding job heartbeat stopped")
+                raise error
+            return operation_task.result()
+        finally:
+            for task in (operation_task, heartbeat_task):
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(operation_task, heartbeat_task, return_exceptions=True)
 
     async def run_once(self, worker_id: str, *, now: datetime | None = None) -> bool:
         observed_at = now or datetime.now(timezone.utc)
+        monotonic_started = time.monotonic()
+
+        def operation_now() -> datetime:
+            return observed_at + timedelta(seconds=time.monotonic() - monotonic_started)
+
         job = await self.repository.claim_next(
             worker_id=worker_id,
             now=observed_at,
@@ -74,13 +133,25 @@ class TripUnderstandingWorker:
         if job is None:
             return False
         try:
-            source = await self.repository.load_source(job, now=observed_at)
-            pipeline = self.demo_pipeline if source.source_type == "FIXED_DEMO" else self.full_pipeline
-            output = await pipeline.run(source.text)
+            async def execute_pipeline():
+                source = await self.repository.load_source(job, now=observed_at)
+                if source.source_type == "FIXED_DEMO":
+                    pipeline = self.demo_pipeline
+                elif job.attempt > 1:
+                    pipeline = self.lease_takeover_pipeline
+                else:
+                    pipeline = self.full_pipeline
+                return await pipeline.run(source.text)
+
+            output = await self._run_with_heartbeat(
+                job,
+                execute_pipeline(),
+                operation_now,
+            )
             await self.repository.complete_job(
                 job,
                 output,
-                now=datetime.now(timezone.utc),
+                now=operation_now(),
             )
         except asyncio.CancelledError:
             raise
@@ -88,7 +159,7 @@ class TripUnderstandingWorker:
             await self.repository.fail_job(
                 job,
                 category="PIPELINE_ERROR",
-                now=datetime.now(timezone.utc),
+                now=operation_now(),
             )
             logger.exception("trip understanding job failed")
         return True

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import time
 import unicodedata
 from datetime import UTC, datetime
@@ -19,6 +20,11 @@ AMAP_POI_V2_ENDPOINT = "https://restapi.amap.com/v5/place/text"
 _DEEP_CITIES = frozenset({"北京", "上海", "杭州"})
 _FORBIDDEN_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
 _SENTENCE_MARKERS = frozenset("。！？；\n")
+_PROVIDER_STATUS_SUFFIX_RE = re.compile(
+    r"[（(](?:暂停开放|暂停营业|临时关闭|暂不开放|停止营业)[）)]$"
+)
+_PROVIDER_CATEGORY_SUFFIXES = ("博物馆", "风景区", "景区")
+_PROVIDER_HIERARCHY_SEPARATORS = ("-", "—")
 _CATEGORY_LABELS = {
     PlaceCategory.ATTRACTION: "景点",
     PlaceCategory.FOOD: "餐饮",
@@ -78,6 +84,66 @@ def _normalized_city(value: str) -> str:
         if normalized.endswith(suffix):
             return normalized[: -len(suffix)]
     return normalized
+
+
+def _provider_aliases(raw: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    for value in (raw.get("alias"),):
+        values.extend(_string_values(value))
+    business = raw.get("business")
+    if isinstance(business, dict):
+        values.extend(_string_values(business.get("alias")))
+    expanded: list[str] = []
+    for value in values:
+        expanded.extend(
+            item.strip()
+            for item in re.split(r"[|;/；]", value)
+            if item.strip()
+        )
+    return expanded
+
+
+def _name_variants(value: str, *, city: str, provider_name: bool) -> set[str]:
+    raw_values = {value.strip()}
+    if provider_name:
+        raw_values.add(_PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip())
+    variants: set[str] = set()
+    city_prefixes = (city, f"{_normalized_city(city)}市")
+    for raw in tuple(raw_values):
+        if not raw:
+            continue
+        raw_values.update(
+            raw[len(prefix) :]
+            for prefix in city_prefixes
+            if raw.startswith(prefix) and len(raw) > len(prefix)
+        )
+    if provider_name:
+        for raw in tuple(raw_values):
+            for separator in _PROVIDER_HIERARCHY_SEPARATORS:
+                if separator in raw:
+                    tail = raw.rsplit(separator, 1)[-1].strip()
+                    if len(tail) >= 2:
+                        raw_values.add(tail)
+            for suffix in _PROVIDER_CATEGORY_SUFFIXES:
+                if raw.endswith(suffix) and len(raw) > len(suffix) + 1:
+                    raw_values.add(raw[: -len(suffix)])
+    for raw in raw_values:
+        normalized = _normalized_name(raw)
+        if normalized:
+            variants.add(normalized)
+    return variants
+
+
+def _name_matches(raw: dict[str, Any], atomic: str, city: str) -> tuple[bool, bool]:
+    query_variants = _name_variants(atomic, city=city, provider_name=False)
+    primary = raw.get("name")
+    names = [primary] if isinstance(primary, str) else []
+    aliases = _provider_aliases(raw)
+    for index, name in enumerate([*names, *aliases]):
+        provider_variants = _name_variants(name, city=city, provider_name=True)
+        if query_variants & provider_variants:
+            return True, index >= len(names)
+    return False, False
 
 
 def _expected_category(category_hint: str | None) -> PlaceCategory | None:
@@ -215,9 +281,10 @@ class AmapPlaceResolver:
             "keywords_sha256": _sha256_text(atomic),
             "region": city,
             "city_limit": "true",
-            "page_size": 10,
+            "page_size": 25,
             "page_num": 1,
             "output": "json",
+            "show_fields": "business",
             "types": typecodes,
         }
         params: dict[str, object] = {
@@ -225,9 +292,10 @@ class AmapPlaceResolver:
             "keywords": atomic,
             "region": city,
             "city_limit": "true",
-            "page_size": 10,
+            "page_size": 25,
             "page_num": 1,
             "output": "json",
+            "show_fields": "business",
         }
         if typecodes:
             params["types"] = "|".join(typecodes)
@@ -310,13 +378,16 @@ class AmapPlaceResolver:
 
         raw_pois = payload.get("pois")
         pois = [item for item in raw_pois if isinstance(item, dict)] if isinstance(raw_pois, list) else []
-        exact = [
-            item
-            for item in pois
-            if isinstance(item.get("name"), str)
-            and _normalized_name(item["name"]) == _normalized_name(atomic)
-        ]
-        city_matches = [item for item in exact if _city_matches(item, city)]
+        name_matches: list[dict[str, Any]] = []
+        alias_match_ids: set[str] = set()
+        for item in pois:
+            matched, via_alias = _name_matches(item, atomic, city)
+            if not matched:
+                continue
+            name_matches.append(item)
+            if via_alias:
+                alias_match_ids.add(str(item.get("id") or ""))
+        city_matches = [item for item in name_matches if _city_matches(item, city)]
         compatible: list[tuple[dict[str, Any], PlaceCategory, tuple[float, float]]] = []
         seen_ids: set[str] = set()
         for item in city_matches:
@@ -336,9 +407,11 @@ class AmapPlaceResolver:
         decision_receipt = {
             **base_receipt,
             "provider_result_count": len(pois),
-            "exact_name_candidate_count": len(exact),
+            "exact_name_candidate_count": len(name_matches),
+            "provider_alias_candidate_count": len(alias_match_ids - {""}),
             "city_consistent_candidate_count": len(city_matches),
             "category_compatible_candidate_count": len(compatible),
+            "name_match_policy": "PRIMARY_ALIAS_CITY_STATUS_HIERARCHY_V2",
         }
         if len(compatible) != 1:
             return PlaceResolutionOutcome(

@@ -86,7 +86,7 @@
   "sealed_agent_reference_schema": "sealed_agent_reference.schema.json",
   "sealed_agent_reference_storage": "REPOSITORY_EXTERNAL",
   "sealed_blind_protocol": "agent-gate-protocol-contract-v2",
-  "sealed_blind_thresholds_sha256": "93f630bb1fccdb657ffa4012fed6dbdb73cb6ffbfbc2f595d644ce4280e9af7d",
+  "sealed_blind_thresholds_sha256": "6f93848f417024daee2bfa1e0a1f20d684b397a1b01f1a6f9db09e6f14b00337",
   "sealed_runtime_split": "frozen_blind",
   "sealed_scorer_accepts_aggregate_metrics": false,
   "sealed_scorer_path": "backend/scripts/score_g01_sealed_agent_blind.py"

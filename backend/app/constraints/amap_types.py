@@ -5,6 +5,7 @@ from app.schemas.place import PlaceCategory
 
 _TYPECODE_PREFIXES = {
     "05": PlaceCategory.FOOD,
+    "0610": PlaceCategory.ATTRACTION,  # visitor-facing tourist commercial street
     "10": PlaceCategory.HOTEL,
     "11": PlaceCategory.ATTRACTION,
     # 14 is the broad education/culture family and also includes schools and
@@ -34,7 +35,14 @@ _TYPE_LABELS = {
 _CATEGORY_TYPECODES = {
     PlaceCategory.FOOD: ("050000",),
     PlaceCategory.HOTEL: ("100000",),
-    PlaceCategory.ATTRACTION: ("110000", "140100", "140200", "140400", "140500"),
+    PlaceCategory.ATTRACTION: (
+        "061000",
+        "110000",
+        "140100",
+        "140200",
+        "140400",
+        "140500",
+    ),
     PlaceCategory.TRANSPORT: ("150000",),
 }
 

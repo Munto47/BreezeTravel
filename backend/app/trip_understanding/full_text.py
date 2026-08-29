@@ -40,11 +40,36 @@ _DAY_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
+_CLAUSE_BOUNDARIES = "，,。！？；;\n"
+_PLANNED_ATOMIC_RE = re.compile(
+    r"(?:去|游览|逛|参观|打卡|安排|前往)\s*(?P<names>[^，,。！？；;\n]+)"
+)
 _EXCLUDED_CUES = ("不去", "排除", "取消", "不要", "跳过", "不安排", "放弃")
 _OPTIONAL_CUES = ("可选", "备选", "有空", "时间允许", "如果有时间", "可以考虑", "顺路再去")
 _PASS_THROUGH_CUES = ("路过", "经过", "途经")
 _REFERENCE_CUES = ("听说", "据说", "参考", "攻略提到", "有人推荐")
+_META_REFERENCE_CUES = (
+    "模型举例",
+    "如果用户说",
+    "只是示例",
+    "仅作示例",
+    "不是地点",
+    "不要把这个例子",
+)
 _PLANNED_CUES = ("去", "游览", "逛", "参观", "打卡", "安排", "前往")
+_NON_PLACE_ATOMIC_MARKERS = (
+    "预约",
+    "说明",
+    "网址",
+    "链接",
+    "导航",
+    "路线",
+    "交通",
+    "内部",
+    "规则",
+    "卡片",
+    "表单",
+)
 _PUBLIC_CATEGORY_LABELS = {
     "attraction": "景点",
     "food": "餐饮",
@@ -123,19 +148,106 @@ def _inside_url(position: int, url_spans: list[tuple[int, int]]) -> bool:
     return any(start <= position < end for start, end in url_spans)
 
 
-def _role_for_context(source_text: str, start: int, *, has_day: bool) -> ActivityRole:
+def _clause_for_position(source_text: str, start: int, end: int) -> str:
+    left = max(source_text.rfind(marker, 0, start) for marker in _CLAUSE_BOUNDARIES) + 1
+    right_candidates = [
+        position
+        for marker in _CLAUSE_BOUNDARIES
+        if (position := source_text.find(marker, end)) >= 0
+    ]
+    right = min(right_candidates) if right_candidates else len(source_text)
+    return source_text[left:right]
+
+
+def _role_for_context(
+    source_text: str,
+    start: int,
+    end: int,
+    *,
+    has_day: bool,
+) -> ActivityRole:
+    clause = _clause_for_position(source_text, start, end)
     context = source_text[max(0, start - 24) : start]
-    if any(cue in context for cue in _EXCLUDED_CUES):
+    if any(cue in clause for cue in _META_REFERENCE_CUES):
+        return ActivityRole.REFERENCE
+    if any(cue in clause for cue in _EXCLUDED_CUES):
         return ActivityRole.EXCLUDED
-    if any(cue in context for cue in _OPTIONAL_CUES):
+    if any(cue in clause for cue in _OPTIONAL_CUES):
         return ActivityRole.OPTIONAL
-    if any(cue in context for cue in _PASS_THROUGH_CUES):
+    if any(cue in clause for cue in _PASS_THROUGH_CUES):
         return ActivityRole.PASS_THROUGH
-    if any(cue in context for cue in _REFERENCE_CUES):
+    if any(cue in clause for cue in _REFERENCE_CUES):
         return ActivityRole.REFERENCE
     if has_day or any(cue in context[-12:] for cue in _PLANNED_CUES):
         return ActivityRole.PLANNED
     return ActivityRole.REFERENCE
+
+
+def _atomic_category_hint(name: str) -> str | None:
+    if name.endswith(("站", "机场", "码头")):
+        return "交通节点"
+    if name.endswith(("酒店", "宾馆", "民宿")):
+        return "住宿"
+    if name.endswith(("餐厅", "饭店", "茶室", "酒楼", "小馆")):
+        return "餐饮"
+    if name.endswith(
+        (
+            "公园",
+            "博物馆",
+            "纪念馆",
+            "美术馆",
+            "展馆",
+            "书院",
+            "故居",
+            "景区",
+            "广场",
+            "古镇",
+            "老街",
+            "园",
+        )
+    ):
+        return "景点"
+    return None
+
+
+def _is_atomic_place_text(value: str) -> bool:
+    if not 1 < len(value) <= 40:
+        return False
+    if _URL_TOKEN_RE.search(value) or any(marker in value for marker in _CLAUSE_BOUNDARIES):
+        return False
+    if any(marker in value for marker in _NON_PLACE_ATOMIC_MARKERS):
+        return False
+    return re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+", value) is not None
+
+
+def _planned_atomic_candidates(
+    source_text: str,
+    *,
+    url_spans: list[tuple[int, int]],
+    occupied: list[tuple[int, int]],
+) -> list[tuple[int, int, str, set[str]]]:
+    candidates: list[tuple[int, int, str, set[str]]] = []
+    for match in _PLANNED_ATOMIC_RE.finditer(source_text):
+        names = match.group("names")
+        names_start = match.start("names")
+        for token in re.finditer(r"[^、]+", names):
+            raw = token.group(0)
+            leading = len(raw) - len(raw.lstrip())
+            trailing = len(raw.rstrip())
+            name = raw.strip()
+            start = names_start + token.start() + leading
+            end = names_start + token.start() + trailing
+            span = (start, end)
+            if (
+                not _is_atomic_place_text(name)
+                or _inside_url(start, url_spans)
+                or any(not (end <= old_start or start >= old_end) for old_start, old_end in occupied)
+            ):
+                continue
+            occupied.append(span)
+            cities = {city for city in _DEEP_CITIES if city in name}
+            candidates.append((start, end, name, cities))
+    return candidates
 
 
 def _destination(
@@ -158,6 +270,7 @@ def _destination(
         if _role_for_context(
             source_text,
             start,
+            _end,
             has_day=_day_for_position(start, headings) is not None,
         )
         == ActivityRole.PLANNED
@@ -171,7 +284,7 @@ def _destination(
 class DeterministicTextInferenceProvider:
     """Conservative local semantic proposal for the pre-live FULL lane.
 
-    Only names present verbatim in the controlled snapshot become mentions.
+    Controlled names and explicit cue-led atomic place text become mentions.
     Role and day assignment are explicit-rule based; ambiguous prose stays a
     reference and therefore never reaches automatic place resolution.
     """
@@ -192,6 +305,13 @@ class DeterministicTextInferenceProvider:
                     continue
                 occupied.append(span)
                 candidates.append((span[0], span[1], name, cities))
+        candidates.extend(
+            _planned_atomic_candidates(
+                source_text,
+                url_spans=url_spans,
+                occupied=occupied,
+            )
+        )
         candidates.sort(key=lambda item: (item[0], item[1]))
 
         destination, destination_basis = _destination(source_text, candidates, headings)
@@ -199,14 +319,23 @@ class DeterministicTextInferenceProvider:
         mentions: list[ProposedMention] = []
         for index, (start, end, name, _cities) in enumerate(candidates, start=1):
             explicit_day = _day_for_position(start, headings)
-            role = _role_for_context(source_text, start, has_day=explicit_day is not None)
+            role = _role_for_context(
+                source_text,
+                start,
+                end,
+                has_day=explicit_day is not None,
+            )
             day_index = explicit_day if role == ActivityRole.PLANNED else None
             if role == ActivityRole.PLANNED and day_index is None:
                 day_index = 1
             sequence_index = day_sequences.get(day_index or 0, 0)
             day_sequences[day_index or 0] = sequence_index + 1
-            facts = _PLACES_BY_NAME[name]
-            category = facts[0].category if len({item.category for item in facts}) == 1 else None
+            facts = _PLACES_BY_NAME.get(name, [])
+            category = (
+                facts[0].category
+                if facts and len({item.category for item in facts}) == 1
+                else _atomic_category_hint(name)
+            )
             mentions.append(
                 ProposedMention(
                     mention_id=f"mention-{index}",

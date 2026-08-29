@@ -51,6 +51,21 @@
       "value": 0.94
     },
     {
+      "metric": "deep_city_auto_match.coverage",
+      "operator": "GE",
+      "value": 0.8
+    },
+    {
+      "metric": "estimated_confirmation_required_count.median",
+      "operator": "LE",
+      "value": 1
+    },
+    {
+      "metric": "estimated_confirmation_required_count.p90",
+      "operator": "LE",
+      "value": 3
+    },
+    {
       "metric": "evidence_span_validity",
       "operator": "EQ",
       "value": 1.0
@@ -101,6 +116,9 @@
     "day_assignment.f1",
     "day_assignment.error_count",
     "role_macro_f1",
+    "deep_city_auto_match.coverage",
+    "estimated_confirmation_required_count.median",
+    "estimated_confirmation_required_count.p90",
     "role_classification.error_count",
     "provider_resolution.error_count",
     "evidence_span_validity",

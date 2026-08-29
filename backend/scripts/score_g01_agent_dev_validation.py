@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from evals.agent_gate_v1.path_security import (
@@ -12,11 +13,7 @@ from evals.agent_gate_v1.path_security import (
     require_canonical_data_root,
     write_external_bytes_exclusive,
 )
-from evals.agent_gate_v1.authority import (
-    load_anchored_authority_policy,
-    load_candidate_current_goal_binding,
-)
-from evals.agent_gate_v1.signing import unsigned_payload, verify_payload_signature
+from evals.agent_gate_v1.contracts import CurrentGoalBinding
 from evals.trip_text_cards_agent_v2.annotations import (
     validate_inference_runtime_receipt_assets,
     verify_agent_adjudication,
@@ -37,6 +34,30 @@ from evals.trip_text_cards_v1.scorer import ScoringError, score_predictions
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _candidate_goal_binding(
+    repository_root: Path,
+    candidate_commit: str,
+) -> CurrentGoalBinding:
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repository_root),
+            "show",
+            f"{candidate_commit}:docs/governance/current_goal_binding.json",
+        ],
+        check=False,
+        capture_output=True,
+        timeout=30,
+    )
+    if result.returncode != 0:
+        raise ScoringError("cannot read the candidate Goal binding")
+    try:
+        return CurrentGoalBinding.model_validate_json(result.stdout)
+    except ValueError as exc:
+        raise ScoringError(f"invalid candidate Goal binding: {exc}") from exc
 
 
 def _read_prediction_envelope(path: Path) -> AgentPredictionRunEnvelope:
@@ -179,12 +200,18 @@ def validate_prediction_run(
     if require_live_inference_evidence and inference.execution_mode != "LIVE":
         raise ScoringError("live Qwen inference evidence is required for this lane")
     if inference.execution_mode == "LIVE":
-        goal_binding = load_candidate_current_goal_binding(
+        goal_binding = _candidate_goal_binding(
             repository_root,
             expected_bindings["candidate_commit"],
         )
         expected_exporter_path = "backend/scripts/export_g01_qwen_live_receipts.py"
         if goal_binding.gate_profile == "HARDENED_CANDIDATE_GATE":
+            from evals.agent_gate_v1.authority import load_anchored_authority_policy
+            from evals.agent_gate_v1.signing import (
+                unsigned_payload,
+                verify_payload_signature,
+            )
+
             anchored = load_anchored_authority_policy(
                 repository_root,
                 expected_bindings["candidate_commit"],
@@ -411,6 +438,35 @@ def main() -> int:
         ],
         "limitations": ["PROCESS_ISOLATION_NOT_ORGANIZATIONAL_INDEPENDENCE"],
         "gate_claim": "NOT_RUN" if args.split == "dev" else "VALIDATION_ONLY",
+        "core_reproduction": {
+            "scorer_repository_path": (
+                "backend/scripts/score_g01_agent_dev_validation.py"
+            ),
+            "scorer_sha256": _sha256(Path(__file__).resolve(strict=True)),
+            "external_artifacts": {
+                name: {
+                    "path": str(path.resolve(strict=True)),
+                    "sha256": _sha256(path.resolve(strict=True)),
+                }
+                for name, path in {
+                    "reference_a": args.reference_a,
+                    "reference_b": args.reference_b,
+                    "adjudication": args.adjudication,
+                    "provider_receipt_index": args.provider_receipt_index,
+                    "provider_runtime_receipts": args.provider_runtime_receipts,
+                    "predictions": args.predictions,
+                    "inference_outputs": args.inference_outputs,
+                    "prediction_envelope": args.prediction_envelope,
+                    "inference_receipt_bundle": args.inference_receipt_bundle,
+                }.items()
+            },
+            "expected_database_export_receipt_sha256": (
+                args.expected_database_export_receipt_sha256
+            ),
+            "expected_provider_http_receipt_bundle_sha256": (
+                args.expected_provider_http_receipt_bundle_sha256
+            ),
+        },
     }
     output_bytes = (
         json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
