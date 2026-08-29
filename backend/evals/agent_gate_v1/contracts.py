@@ -72,6 +72,18 @@ WorkPackageExecutionMode = Literal[
     "PRIMARY_INTEGRATOR_DIALOGUE",
     "INDEPENDENT_FUNCTION_DIALOGUE",
 ]
+ScopeWorkKind = Literal["PRODUCT", "CURRENT_GATE_FIX", "EVAL_INFRA", "HARDENING"]
+ScopePhase = Literal["IMPLEMENTING", "PREFLIGHT", "EVIDENCE_FROZEN", "GATE_RUNNING"]
+ScopeIssueSeverity = Literal["P0", "P1", "P2_BLOCKING"]
+ScopeGuardVerdict = Literal["PASS", "SCOPE_REVIEW_REQUIRED", "DEFER_TO_G07", "REJECT"]
+ScopeGuardErrorCode = Literal[
+    "STAGE_SCOPE_VIOLATION",
+    "POLICY_SELF_MODIFICATION",
+    "NEW_DURABLE_EVAL_STATE",
+    "NEW_CRYPTO_PROTOCOL",
+    "BUDGET_EXCEEDED",
+    "EVIDENCE_FREEZE_BROKEN",
+]
 HardeningDecision = Literal["NOT_REQUIRED_WITH_RATIONALE", "REQUIRED"]
 HardeningControl = Literal[
     "EXTERNAL_AUTHORITY",
@@ -545,6 +557,76 @@ class WorkPackageBinding(StrictModel):
         return self
 
 
+class ScopeBlockingIssue(StrictModel):
+    severity: ScopeIssueSeverity
+    reproduction: str = Field(min_length=3, max_length=1000)
+    current_goal_acceptance_ref: str = Field(min_length=3, max_length=500)
+    impact_chain: str = Field(min_length=3, max_length=1000)
+    minimum_fix: str = Field(min_length=3, max_length=1000)
+    stop_condition: str = Field(min_length=3, max_length=1000)
+
+
+class ActiveSlice(StrictModel):
+    slice_id: str = Field(pattern=r"^G0[1-7]-[A-Z0-9-]{3,80}$")
+    base_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    work_kind: ScopeWorkKind
+    phase: ScopePhase
+    user_outcome: str = Field(min_length=3, max_length=1000)
+    acceptance_refs: list[str] = Field(min_length=1, max_length=20)
+    allowed_paths: list[str] = Field(min_length=1, max_length=80)
+    minimum_change: str = Field(min_length=3, max_length=1000)
+    forbidden_mechanisms: list[str] = Field(min_length=1, max_length=30)
+    evidence_invalidated: list[str] = Field(default_factory=list, max_length=30)
+    stop_condition: str = Field(min_length=3, max_length=1000)
+    blocking_issue: ScopeBlockingIssue | None = None
+    hardening_decision_ref: str | None = Field(default=None, min_length=3, max_length=500)
+    frozen_candidate_commit: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{40}$",
+    )
+    preflight_entrypoints: list[str] = Field(default_factory=list, max_length=20)
+    preflight_required_tokens: dict[str, list[str]] = Field(
+        default_factory=dict,
+        max_length=20,
+    )
+
+    @model_validator(mode="after")
+    def scope_contract_is_complete(self) -> "ActiveSlice":
+        self.allowed_paths = [
+            _normalize_repository_path(path) for path in self.allowed_paths
+        ]
+        self.preflight_entrypoints = [
+            _normalize_repository_path(path) for path in self.preflight_entrypoints
+        ]
+        self.preflight_required_tokens = {
+            _normalize_repository_path(path): tokens
+            for path, tokens in self.preflight_required_tokens.items()
+        }
+        if len(self.allowed_paths) != len(set(self.allowed_paths)):
+            raise ValueError("active slice allowed paths must be unique")
+        unknown_preflight_paths = set(self.preflight_required_tokens) - set(
+            self.preflight_entrypoints
+        )
+        if unknown_preflight_paths:
+            raise ValueError("preflight token paths must also be entrypoints")
+        if any(not token.strip() for tokens in self.preflight_required_tokens.values() for token in tokens):
+            raise ValueError("preflight tokens must not be blank")
+        if self.work_kind == "CURRENT_GATE_FIX" and self.blocking_issue is None:
+            raise ValueError("CURRENT_GATE_FIX requires a reproducible blocking issue")
+        if self.work_kind != "CURRENT_GATE_FIX" and self.blocking_issue is not None:
+            raise ValueError("only CURRENT_GATE_FIX may declare a blocking issue")
+        if self.work_kind == "HARDENING" and self.hardening_decision_ref is None:
+            raise ValueError("HARDENING requires an explicit G07 decision reference")
+        if self.work_kind != "HARDENING" and self.hardening_decision_ref is not None:
+            raise ValueError("only HARDENING may declare a hardening decision")
+        if self.phase in {"EVIDENCE_FROZEN", "GATE_RUNNING"}:
+            if self.frozen_candidate_commit is None:
+                raise ValueError("frozen scope phases require frozen_candidate_commit")
+        elif self.frozen_candidate_commit is not None:
+            raise ValueError("frozen_candidate_commit is only valid after freeze")
+        return self
+
+
 class WorkPackageRegistry(StrictModel):
     schema_version: Literal[
         "work-package-registry-v1",
@@ -561,6 +643,9 @@ class WorkPackageRegistry(StrictModel):
     max_prepared_next_goal_packages: Literal[2] = 2
     integration_order: list[str] = Field(default_factory=list, max_length=20)
     e2e_after_all_merges: bool | None = None
+    scope_guard_version: Literal["scope-guard-v1"] | None = None
+    scope_policy_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    active_slice: ActiveSlice | None = None
     packages: list[WorkPackageBinding] = Field(min_length=1, max_length=20)
 
     @model_validator(mode="after")
@@ -578,6 +663,10 @@ class WorkPackageRegistry(StrictModel):
         )
         if self.gate_profile != expected_profile:
             raise ValueError("work package registry uses the wrong Gate profile")
+        if (self.scope_guard_version is None) != (self.active_slice is None):
+            raise ValueError("scope guard version and active slice must be installed together")
+        if (self.scope_guard_version is None) != (self.scope_policy_sha256 is None):
+            raise ValueError("scope guard version and policy hash must be installed together")
 
         package_ids = [item.package_id for item in self.packages]
         branches = [item.branch for item in self.packages]

@@ -31,7 +31,7 @@
     "candidate_gate.py": "3d410b7e1359d5fe74bbdeea534edf1ed323e518c4e2aa3bafa2cec288938701",
     "component_builders.py": "ad784b32978acd0e43cbd2830f67ff38c4533922e4e795dddeac4da4fcae3e5a",
     "component_verifiers.py": "a6044789b0f5559daf23a44440817949363a106b82334236f69184e86da32996",
-    "contracts.py": "50fd5df49b207a7e33ffe435b5961ac10fe13aa29fb1255084ffa75ad867b9fa",
+    "contracts.py": "2a0a8ccf1b9b7296a956552e2e9f4cd5a757cc9ea32bc2cb7a1a4b534624d9cb",
     "core_gate.py": "1affb80826d12fd901456d290d79318fcebe3137b88bce36a51f801cba23ede5",
     "custody.py": "878d3c192b92b6b227a11f821607926f5ed5976c184f1ef221dac83b2b6fd599",
     "external_authority.py": "702d8d4a6b82162b9f8e99e568ad1a586dbcd92c190578d8d2558b72a7c357eb",
@@ -155,7 +155,7 @@
     "sealed_agent_blind_thresholds.schema.json": "334abe8bdf1b4eac850813e8259a6cb3dcbee5ba048aee05fc84cbf9f38f0383",
     "sealed_blind_verification_receipt.schema.json": "caf40922dd55bdddcfdaf47452c864f376f59e88e3e8ccbdb55535fd307e5d49",
     "sealed_score_input_manifest.schema.json": "f0841061e47c1d1ab41458443f4a5f3cd86fe225d8344b7a966121f593cbf0a9",
-    "work_package_registry.schema.json": "be88c445cef2fdd32514e16471b32bbe3beee0048ec730317f67a54ab1b9b8d8"
+    "work_package_registry.schema.json": "a460d0fce798a9d5d3ce36575da3ed11f986baf0dfb5cd0208c6253fe9b12b6f"
   },
   "schema_version": "agent-gate-protocol-contract-v2",
   "sealed_blind_nonce_registry": "REPOSITORY_EXTERNAL_SQLITE",

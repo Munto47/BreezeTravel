@@ -10,6 +10,7 @@ from evals.agent_gate_v1.core_gate import (
     read_worktree_binding,
     verify_core_agent_gate_pass,
 )
+from evals.agent_gate_v1.scope_guard import ScopeGuardError, validate_mainline_scope
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,19 @@ def main() -> int:
         help="selected G07 control receipt as CONTROL=PATH",
     )
     args = parser.parse_args()
+    try:
+        scope_report = validate_mainline_scope(
+            REPOSITORY_ROOT,
+            requested_phase="GATE_RUNNING",
+            expected_candidate_commit=args.candidate_commit,
+        )
+    except ScopeGuardError as exc:
+        parser.error(str(exc))
+    if scope_report.verdict != "PASS":
+        parser.error(
+            "scope guard rejected Gate entry: "
+            f"{scope_report.verdict} {scope_report.error_codes}"
+        )
     binding = read_worktree_binding(REPOSITORY_ROOT)
     if binding.gate_profile == "CORE_AGENT_GATE":
         if args.component:

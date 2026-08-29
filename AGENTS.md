@@ -117,6 +117,16 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 - 测试通过、审查通过、receipt或签名都不是用户结果；未运行的模型、Provider、blind、真人和生产证据必须继续写`NOT_RUN`。
 - checkpoint的“下一自主动作”必须优先指向当前Goal尚未完成的用户主链。只有一个可复现的当前版本P0/P1确实挡住该动作时，才允许继续做治理基础设施。
 
+每个实现切片开始前必须在`current_work_packages.json.active_slice`冻结用户结果、当前Goal验收引用、`PRODUCT / CURRENT_GATE_FIX / EVAL_INFRA / HARDENING`类型、最小改动、允许路径、禁止机制、证据失效范围和停止条件，并运行scope guard：
+
+- `CURRENT_GATE_FIX`必须提供P0/P1或blocking P2的复现、验收条款、影响链、最小修复和停止条件；严重性不能自行扩大实现权限；
+- `EVAL_INFRA`固定为`Product progress=NONE`。新增schema、runner、validator和测试数量不能算产品或质量进展；
+- G01～G06的Gate修复或评测基础设施不得新增数据库/持久化registry、migration、依赖、密码学协议、authority、broker或custody状态机；检测到后固定`DEFER_TO_G07`；
+- 超过5个非生成文件、300行手写新增代码或2个新schema只触发`SCOPE_REVIEW_REQUIRED`，Agent不得提高预算，只能缩减、拆分或延后；
+- scope policy已安装后，活动切片不得修改本规则、scope validator、预算、Gate profile或其机器schema；规则例外必须来自项目所有者明确批准；
+- 正式证据顺序固定为产品实现→dev/validation→无blind合成空跑→`EVIDENCE_FROZEN`→exact Provider/性能证据→复审→唯一sealed blind。exact evidence开始前必须运行`--scope-check --phase EVIDENCE_FROZEN`；冻结标记提交后任何tracked代码、配置、schema或治理变化都使冻结失效；
+- 同一问题两种实现仍只产生新的治理边缘条件时停止该策略，保留证据并回到当前Goal最短用户价值路径。
+
 并行开发必须读取`docs/governance/current_work_packages.json`并通过机器校验：
 
 - 主对话框是唯一集成者，负责版本化提示词、工作包登记、writer调度、验收、状态变更和串行合并；它不得在三个已登记贡献包之外再承担一个未登记功能包。长期功能开发只能由用户可见的独立功能对话承担，每个功能对话只拥有一个独立分支、一个独立worktree和一个已登记工作包。

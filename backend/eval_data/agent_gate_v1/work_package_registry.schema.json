@@ -1,5 +1,218 @@
 {
   "$defs": {
+    "ActiveSlice": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_refs": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Acceptance Refs",
+          "type": "array"
+        },
+        "allowed_paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 80,
+          "minItems": 1,
+          "title": "Allowed Paths",
+          "type": "array"
+        },
+        "base_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Base Commit",
+          "type": "string"
+        },
+        "blocking_issue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScopeBlockingIssue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence_invalidated": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "title": "Evidence Invalidated",
+          "type": "array"
+        },
+        "forbidden_mechanisms": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Forbidden Mechanisms",
+          "type": "array"
+        },
+        "frozen_candidate_commit": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Frozen Candidate Commit"
+        },
+        "hardening_decision_ref": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hardening Decision Ref"
+        },
+        "minimum_change": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Minimum Change",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "IMPLEMENTING",
+            "PREFLIGHT",
+            "EVIDENCE_FROZEN",
+            "GATE_RUNNING"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "preflight_entrypoints": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Preflight Entrypoints",
+          "type": "array"
+        },
+        "preflight_required_tokens": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxProperties": 20,
+          "title": "Preflight Required Tokens",
+          "type": "object"
+        },
+        "slice_id": {
+          "pattern": "^G0[1-7]-[A-Z0-9-]{3,80}$",
+          "title": "Slice Id",
+          "type": "string"
+        },
+        "stop_condition": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Stop Condition",
+          "type": "string"
+        },
+        "user_outcome": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "User Outcome",
+          "type": "string"
+        },
+        "work_kind": {
+          "enum": [
+            "PRODUCT",
+            "CURRENT_GATE_FIX",
+            "EVAL_INFRA",
+            "HARDENING"
+          ],
+          "title": "Work Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slice_id",
+        "base_commit",
+        "work_kind",
+        "phase",
+        "user_outcome",
+        "acceptance_refs",
+        "allowed_paths",
+        "minimum_change",
+        "forbidden_mechanisms",
+        "stop_condition"
+      ],
+      "title": "ActiveSlice",
+      "type": "object"
+    },
+    "ScopeBlockingIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "current_goal_acceptance_ref": {
+          "maxLength": 500,
+          "minLength": 3,
+          "title": "Current Goal Acceptance Ref",
+          "type": "string"
+        },
+        "impact_chain": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Impact Chain",
+          "type": "string"
+        },
+        "minimum_fix": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Minimum Fix",
+          "type": "string"
+        },
+        "reproduction": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Reproduction",
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2_BLOCKING"
+          ],
+          "title": "Severity",
+          "type": "string"
+        },
+        "stop_condition": {
+          "maxLength": 1000,
+          "minLength": 3,
+          "title": "Stop Condition",
+          "type": "string"
+        }
+      },
+      "required": [
+        "severity",
+        "reproduction",
+        "current_goal_acceptance_ref",
+        "impact_chain",
+        "minimum_fix",
+        "stop_condition"
+      ],
+      "title": "ScopeBlockingIssue",
+      "type": "object"
+    },
     "WorkPackageBinding": {
       "additionalProperties": false,
       "properties": {
@@ -236,6 +449,17 @@
       "title": "Active Goal Sequence",
       "type": "integer"
     },
+    "active_slice": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ActiveSlice"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
     "e2e_after_all_merges": {
       "anyOf": [
         {
@@ -319,6 +543,32 @@
       ],
       "title": "Schema Version",
       "type": "string"
+    },
+    "scope_guard_version": {
+      "anyOf": [
+        {
+          "const": "scope-guard-v1",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scope Guard Version"
+    },
+    "scope_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scope Policy Sha256"
     }
   },
   "required": [

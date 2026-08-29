@@ -4,6 +4,7 @@ import hashlib
 import json
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -417,6 +418,11 @@ def test_public_gate_entry_dispatches_g07_without_legacy_authority(
         work_package_registry_path="docs/governance/current_work_packages.json",
     )
     observed: dict[str, object] = {}
+    monkeypatch.setattr(
+        build_agent_gate_pass,
+        "validate_mainline_scope",
+        lambda *_args, **_kwargs: SimpleNamespace(verdict="PASS", error_codes=[]),
+    )
     monkeypatch.setattr(build_agent_gate_pass, "read_worktree_binding", lambda _root: binding)
     monkeypatch.setattr(
         build_agent_gate_pass,

@@ -42,6 +42,10 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 
 如果“用户结果”和“当前指标”都只能回答为治理机制本身，该切片默认不进入当前版本，除非它正在修复可复现的当前版本P0/P1。
 
+以上回答必须进入`current_work_packages.json.active_slice`，不能只出现在对话文字中。开始写入、提交前、exact evidence前和Gate入口都运行scope guard。机器结果只有`PASS / SCOPE_REVIEW_REQUIRED / DEFER_TO_G07 / REJECT`；Agent不能把告警改写为PASS。
+
+`CURRENT_GATE_FIX / EVAL_INFRA`的软预算固定为5个非生成文件、300行手写新增代码和2个新schema。超限不表示代码一定错误，但必须缩减、拆分或延后。G01～G06新增持久化评测状态、数据库、migration、依赖、密码学协议、authority、broker或custody状态机直接归G07，不使用软预算放行。
+
 ## 4. 版本与证据配比
 
 | 阶段 | 最小充分证据 | 不应成为前置条件 |
@@ -105,6 +109,8 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 - checkpoint的下一动作仍是建设更多门禁，而当前用户主链有明确未完成项。
 
 转向不是降低门槛。转向后的做法是：保留已完成资产，诚实写`DEFERRED/NOT_RUN`，回到当前版本的最短价值路径。
+
+scope guard从Git diff派生进展：产品运行时代码/API/UI可以形成产品进展；Provider或质量指标必须附同候选的仓库外真实回执；schema、runner、validator、测试和治理文档固定属于`EVAL_INFRA/GOVERNANCE`。policy安装后，同一活动切片修改scope validator、预算、Gate profile或规则文件固定`POLICY_SELF_MODIFICATION / REJECT`。
 
 ## 8. G01当前最短价值路径
 

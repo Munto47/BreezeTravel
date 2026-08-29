@@ -1,9 +1,61 @@
 {
   "active_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
   "active_goal_sequence": 1,
+  "active_slice": {
+    "acceptance_refs": [
+      "AGENTS.md section 6 product mainline and execution ratio",
+      "CURRENT_GOAL.md current execution directive items 5-7"
+    ],
+    "allowed_paths": [
+      ".github/workflows/ci.yml",
+      "AGENTS.md",
+      "backend/eval_data/agent_gate_v1/work_package_registry.schema.json",
+      "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/evals/agent_gate_v1/contracts.py",
+      "backend/evals/agent_gate_v1/scope_guard.py",
+      "backend/scripts/build_agent_gate_pass.py",
+      "backend/scripts/validate_work_packages.py",
+      "backend/tests/test_g07_candidate_gate.py",
+      "backend/tests/test_governance_agent_gate_transition.py",
+      "backend/tests/test_scope_guard.py",
+      "docs/governance/CURRENT_GOAL.md",
+      "docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md",
+      "docs/governance/current_work_packages.json"
+    ],
+    "base_commit": "708330b3e9c7d44128b6be186024674f6426123f",
+    "blocking_issue": null,
+    "evidence_invalidated": [
+      "G01 exact Gate binding after integration"
+    ],
+    "forbidden_mechanisms": [
+      "database or durable scope registry",
+      "migration or dependency",
+      "cryptographic or authority protocol",
+      "component-level evidence reuse framework"
+    ],
+    "minimum_change": "Extend the existing work-package contract and validator; add no service, database, dependency or cryptographic protocol.",
+    "phase": "IMPLEMENTING",
+    "preflight_entrypoints": [
+      "backend/scripts/validate_work_packages.py",
+      "backend/scripts/build_agent_gate_pass.py"
+    ],
+    "preflight_required_tokens": {
+      "backend/scripts/build_agent_gate_pass.py": [
+        "verify_core_agent_gate_pass",
+        "verify_g07_candidate_gate_pass"
+      ],
+      "backend/scripts/validate_work_packages.py": [
+        "output.open(\"x\""
+      ]
+    },
+    "slice_id": "G01-SCOPE-GUARD-BOOTSTRAP",
+    "stop_condition": "If enforcement needs durable state, cryptographic custody or a new service, defer that mechanism to G07.",
+    "user_outcome": "Future G01-G06 development is stopped before evaluation or governance infrastructure displaces the user-visible product mainline.",
+    "work_kind": "EVAL_INFRA"
+  },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
-  "guidance_sha256": "b564bf9577d2ba31b27a4309580ecc4618ab0ff74cf7eaf5398d2d808cf9fd54",
+  "guidance_sha256": "bb6d4724989283901865755640c12777695dc352a15ec84915658749bec16499",
   "integration_order": [],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -42,5 +94,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
+  "scope_guard_version": "scope-guard-v1",
+  "scope_policy_sha256": "89928d59d64cbac52a852975b3576d6a4c2290f0ea6fef6b4836bc7dc5b740cb",
   "schema_version": "work-package-registry-v2"
 }

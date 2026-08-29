@@ -14,6 +14,7 @@ from evals.agent_gate_v1.work_packages import (  # noqa: E402
     validate_package_checkout,
     validate_ready_to_merge_package,
 )
+from evals.agent_gate_v1.scope_guard import validate_mainline_scope  # noqa: E402
 
 
 REPOSITORY_ROOT = BACKEND_ROOT.parent
@@ -23,9 +24,48 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--package-id")
     parser.add_argument("--ready-package-id")
+    parser.add_argument("--scope-check", action="store_true")
+    parser.add_argument(
+        "--phase",
+        choices=("IMPLEMENTING", "PREFLIGHT", "EVIDENCE_FROZEN", "GATE_RUNNING"),
+    )
+    parser.add_argument("--audit-worktree", type=Path)
+    parser.add_argument("--evidence-receipt", action="append", type=Path, default=[])
+    parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    if args.package_id and args.ready_package_id:
+    modes = sum(bool(value) for value in (args.package_id, args.ready_package_id, args.scope_check))
+    if modes > 1:
         parser.error("choose only one package validation mode")
+    if not args.scope_check and any(
+        value for value in (args.phase, args.audit_worktree, args.evidence_receipt, args.output)
+    ):
+        parser.error("scope options require --scope-check")
+    if args.scope_check:
+        result = validate_mainline_scope(
+            REPOSITORY_ROOT,
+            target_root=args.audit_worktree,
+            requested_phase=args.phase,
+            evidence_receipts=args.evidence_receipt,
+        )
+        payload = result.model_dump(mode="json")
+        rendered = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        if args.output is not None:
+            output = args.output.resolve()
+            repository = REPOSITORY_ROOT.resolve()
+            if output == repository or repository in output.parents:
+                parser.error("scope report output must stay outside the repository")
+            output.parent.mkdir(parents=True, exist_ok=True)
+            with output.open("x", encoding="utf-8", newline="\n") as handle:
+                handle.write(rendered)
+        print(rendered, end="")
+        return 0 if result.verdict == "PASS" else 2
+    if args.package_id or args.ready_package_id:
+        scope = validate_mainline_scope(REPOSITORY_ROOT)
+        if scope.verdict != "PASS":
+            parser.error(
+                "scope guard rejected work-package transition: "
+                f"{scope.verdict} {scope.error_codes}"
+            )
     if args.ready_package_id:
         result = validate_ready_to_merge_package(
             REPOSITORY_ROOT,
