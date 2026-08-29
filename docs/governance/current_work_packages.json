@@ -1,27 +1,22 @@
 {
-  "active_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "active_goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
   "active_goal_sequence": 3,
   "active_slice": {
     "acceptance_refs": [
-      "ABSOLUTE_DATES与DAY_INDEX_ONLY都能物化为不可变行程revision并保存lineage",
-      "AuditEngine保留全部硬问题且公共Top-3稳定映射为必须调整、可以更好、需要确认",
-      "preview到adopt创建新revision，完整postcheck前不宣称解决，地图只进入NEEDS_UPDATE"
+      "G03产品回执、PR合并与远端readback均为PASS",
+      "唯一G03工作包已MERGED且没有活动writer",
+      "G04保持NOT_ACTIVATED并等待项目所有者体验验收"
     ],
     "allowed_paths": [
-      "backend/app",
-      "backend/app/db/migrations/031_day_index_trip_bridge.sql",
       "backend/governance/core_mainline.py",
-      "backend/tests/test_g03_*.py",
+      "backend/tests/test_product_delivery_governance.py",
+      "backend/tests/test_governance_agent_gate_transition.py",
       "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
-      "docs/governance/gate-results/G03.product-delivery.json",
-      "frontend/e2e/g03-product-delivery.spec.js",
-      "frontend/src",
-      "packages/trip-check-client/openapi.current.json",
-      "packages/trip-check-client/src"
+      "docs/governance/goals/completed/TC-VNEXT-G03-TOP3-AUDIT.md"
     ],
-    "base_commit": "5a79c129f13914f4cd5a01789e641ada56d0b486",
+    "base_commit": "3999ee583faf4c14ff5c16e2d573bf5cc12689cb",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "Agent Gate、blind、authority、custody、签名或 broker",
@@ -29,19 +24,19 @@
       "不影响当前用户结果的性能或可靠性加固",
       "未在 Goal 激活时锁定的新验收项"
     ],
-    "minimum_change": "先交付materialize、Top-3检查、preview/adopt和完整postcheck的最小端到端切片。",
-    "phase": "DELIVERY_VERIFY",
+    "minimum_change": "仅归档G03、关闭产品writer并建立owner-review终态校验。",
+    "phase": "GOAL_TRANSITION",
     "preflight_entrypoints": [
-      "backend/tests/test_g03_*.py",
-      "frontend/e2e/g03-product-delivery.spec.js"
+      "backend/tests/test_product_delivery_governance.py",
+      "backend/tests/test_governance_agent_gate_transition.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME",
+    "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G03-TOP3-REPAIR-PRODUCT",
-    "stop_condition": "局部证据失败保持UNKNOWN或UNAVAILABLE并继续可独立切片；不得转向G04、候选基础设施或新增验收项。",
-    "user_outcome": "用户可以看到最重要的三个问题、预览并采纳最小改动，在完整复检后得到诚实结果。",
-    "work_kind": "PRODUCT"
+    "slice_id": "G03-OWNER-REVIEW-HOLD",
+    "stop_condition": "不激活G04，不创建产品writer，不运行FUX-03、H1、公网、生产、商业、发布、部署或main合并。",
+    "user_outcome": "G01至G03核心主链已可体验，项目停在所有者体验验收点。",
+    "work_kind": "GOAL_TRANSITION"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
@@ -51,6 +46,8 @@
   "max_parallel_writers": 3,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
+  "next_goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "next_goal_status": "NOT_ACTIVATED",
   "packages": [
     {
       "acceptance": [
@@ -81,14 +78,18 @@
         "packages/trip-check-client/src"
       ],
       "package_id": "WP-G03-INTEGRATOR",
+      "ready_commit": "3009372c07fd5b82a76655b2df5c831f4698ec93",
       "remote_branch": "origin/codex/g03-top3-audit",
       "role": "INTEGRATOR",
-      "status": "IN_PROGRESS",
+      "status": "MERGED",
+      "merged_commit": "3999ee583faf4c14ff5c16e2d573bf5cc12689cb",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
     }
   ],
   "program_id": "TC-VNEXT-2026",
+  "program_state": "CORE_MVP_OWNER_REVIEW_PENDING",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
-  "schema_version": "work-package-registry-v3"
+  "schema_version": "work-package-registry-v3",
+  "writer_activation": "NONE"
 }
