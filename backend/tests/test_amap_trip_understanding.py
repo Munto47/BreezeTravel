@@ -225,7 +225,6 @@ async def test_amap_unique_primary_exact_name_wins_over_broader_provider_variant
         outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
             city="北京",
             atomic_place_name="颐和园",
-            category_hint="景点",
         )
 
     assert outcome.place is not None
@@ -233,7 +232,45 @@ async def test_amap_unique_primary_exact_name_wins_over_broader_provider_variant
     assert outcome.receipt["category_compatible_candidate_count"] == 2
     assert outcome.receipt["primary_exact_candidate_count"] == 1
     assert outcome.receipt["selection_tier"] == "UNIQUE_PRIMARY_EXACT"
+    assert outcome.receipt["category_basis"] == "ATOMIC_NAME_LEXICAL"
+    assert observed[0].url.params["types"].split("|") == [
+        "061000",
+        "110000",
+        "140100",
+        "140200",
+        "140400",
+        "140500",
+    ]
     assert len(observed) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("atomic", "expected_type"),
+    [
+        ("北京西站", "150000"),
+        ("全季酒店", "100000"),
+        ("南翔馒头店", "050000"),
+    ],
+)
+async def test_amap_missing_hint_uses_only_unambiguous_atomic_category_markers(
+    atomic: str,
+    expected_type: str,
+) -> None:
+    observed: list[httpx.Request] = []
+    payload = {"status": "1", "infocode": "10000", "count": "0", "pois": []}
+    async with _client(payload, observed) as client:
+        outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="北京",
+            atomic_place_name=atomic,
+        )
+
+    assert outcome.place is None
+    assert len(observed) == 2
+    assert observed[0].url.params["types"] == expected_type
+    assert "types" not in observed[1].url.params
+    assert outcome.receipt["category_basis"] == "ATOMIC_NAME_LEXICAL"
+    assert outcome.receipt["external_calls"] == 2
 
 
 @pytest.mark.asyncio

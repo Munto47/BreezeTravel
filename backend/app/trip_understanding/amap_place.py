@@ -26,6 +26,89 @@ _PROVIDER_STATUS_SUFFIX_RE = re.compile(
 _PROVIDER_CATEGORY_SUFFIXES = ("博物馆", "风景区", "景区")
 _PROVIDER_HIERARCHY_SEPARATORS = ("-", "—")
 _G01_ATTRACTION_ADDITIONAL_TYPECODES = ("061000",)
+_LEXICAL_CATEGORY_MARKERS = (
+    (
+        PlaceCategory.TRANSPORT,
+        ("地铁站", "火车站", "高铁站", "客运站", "汽车站", "机场", "码头"),
+    ),
+    (
+        PlaceCategory.HOTEL,
+        ("酒店", "宾馆", "旅馆", "民宿", "客栈", "度假村", "青旅"),
+    ),
+    (
+        PlaceCategory.FOOD,
+        (
+            "餐厅",
+            "饭店",
+            "菜馆",
+            "面馆",
+            "小吃",
+            "烧烤",
+            "火锅",
+            "咖啡",
+            "茶馆",
+            "馒头店",
+            "酒家",
+        ),
+    ),
+    (
+        PlaceCategory.ATTRACTION,
+        (
+            "博物馆",
+            "博物院",
+            "美术馆",
+            "纪念馆",
+            "科技馆",
+            "图书馆",
+            "水族馆",
+            "公园",
+            "植物园",
+            "湿地",
+            "风景",
+            "景区",
+            "长城",
+            "城墙",
+            "遗址",
+            "艺术区",
+            "古街",
+            "步行街",
+            "大街",
+            "斜街",
+            "步道",
+            "书院",
+            "故居",
+            "广场",
+            "体育场",
+            "文化街区",
+            "滨江",
+            "外滩",
+            "什刹海",
+        ),
+    ),
+)
+_LEXICAL_TRANSPORT_SUFFIXES = ("站",)
+_LEXICAL_ATTRACTION_SUFFIXES = (
+    "寺",
+    "宫",
+    "塔",
+    "陵",
+    "坛",
+    "祠",
+    "园",
+    "堤",
+    "峰",
+    "山",
+    "坞",
+    "村",
+    "小镇",
+    "大楼",
+    "鼓楼",
+    "钟楼",
+    "御街",
+    "坊",
+    "岛",
+    "桥",
+)
 _CATEGORY_LABELS = {
     PlaceCategory.ATTRACTION: "景点",
     PlaceCategory.FOOD: "餐饮",
@@ -173,6 +256,18 @@ def _expected_category(category_hint: str | None) -> PlaceCategory | None:
     return None
 
 
+def _lexical_category(atomic: str) -> PlaceCategory | None:
+    normalized = _normalized_name(atomic)
+    if normalized.endswith(_LEXICAL_TRANSPORT_SUFFIXES):
+        return PlaceCategory.TRANSPORT
+    for category, markers in _LEXICAL_CATEGORY_MARKERS:
+        if any(marker in normalized for marker in markers):
+            return category
+    if normalized.endswith(_LEXICAL_ATTRACTION_SUFFIXES):
+        return PlaceCategory.ATTRACTION
+    return None
+
+
 def _string_values(value: object) -> list[str]:
     if isinstance(value, str):
         return [value]
@@ -250,6 +345,7 @@ def _combine_rewrite_receipts(
     ]
     return {
         **rewrite,
+        "category_basis": primary.get("category_basis", "NOT_AVAILABLE"),
         "request_sha256": canonical_sha256(
             [str(call["request_sha256"]) for call in calls]
         ),
@@ -322,6 +418,7 @@ class AmapPlaceResolver:
         city: str,
         atomic_place_name: str,
         category_hint: str | None = None,
+        _allow_lexical_category: bool = True,
     ) -> PlaceResolutionOutcome:
         atomic = atomic_place_name.strip()
         if (
@@ -348,6 +445,13 @@ class AmapPlaceResolver:
             )
 
         expected_category = _expected_category(category_hint)
+        category_basis = "EXPLICIT_SEMANTIC_HINT"
+        if expected_category is None:
+            category_basis = "NOT_AVAILABLE"
+            if _allow_lexical_category and not category_hint:
+                expected_category = _lexical_category(atomic)
+                if expected_category is not None:
+                    category_basis = "ATOMIC_NAME_LEXICAL"
         typecodes = (
             typecodes_for_category(expected_category)
             if expected_category is not None
@@ -392,6 +496,7 @@ class AmapPlaceResolver:
             "query_sha256": _sha256_text(atomic),
             "city": city,
             "city_limit": True,
+            "category_basis": category_basis,
             "typecodes": typecodes,
             "raw_provider_response_retained": False,
         }
@@ -505,6 +610,7 @@ class AmapPlaceResolver:
                     city=city,
                     atomic_place_name=atomic,
                     category_hint=None,
+                    _allow_lexical_category=False,
                 )
             except PlaceProviderUnavailableError as exc:
                 failure = dict(exc.provider_binding)
