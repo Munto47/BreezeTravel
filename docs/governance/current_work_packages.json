@@ -3,29 +3,17 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "AGENTS.md section 6 product mainline and execution ratio",
-      "CURRENT_GOAL.md current execution directive items 5-7"
+      "AGENTS.md scope-guard rollout contract",
+      "CURRENT_GOAL.md owner-authorized scope-guard checkpoint"
     ],
     "allowed_paths": [
-      ".github/workflows/ci.yml",
-      "AGENTS.md",
-      "backend/eval_data/agent_gate_v1/work_package_registry.schema.json",
-      "backend/eval_data/agent_gate_v1/protocol_contract.json",
-      "backend/evals/agent_gate_v1/contracts.py",
-      "backend/evals/agent_gate_v1/scope_guard.py",
-      "backend/scripts/build_agent_gate_pass.py",
-      "backend/scripts/validate_work_packages.py",
-      "backend/tests/test_g07_candidate_gate.py",
       "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_scope_guard.py",
-      "docs/governance/CURRENT_GOAL.md",
-      "docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "708330b3e9c7d44128b6be186024674f6426123f",
+    "base_commit": "5e174c748301e44add2ab0f1e540bfd0c9dd0624",
     "blocking_issue": null,
     "evidence_invalidated": [
-      "G01 exact Gate binding after integration"
+      "GATE_BINDING"
     ],
     "forbidden_mechanisms": [
       "database or durable scope registry",
@@ -33,7 +21,7 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Extend the existing work-package contract and validator; add no service, database, dependency or cryptographic protocol.",
+    "minimum_change": "Align the existing governance assertion with the one-time owner-authorized bootstrap, then activate the first protected G01 product slice.",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
@@ -48,9 +36,9 @@
         "output.open(\"x\""
       ]
     },
-    "slice_id": "G01-SCOPE-GUARD-BOOTSTRAP",
-    "stop_condition": "If enforcement needs durable state, cryptographic custody or a new service, defer that mechanism to G07.",
-    "user_outcome": "Future G01-G06 development is stopped before evaluation or governance infrastructure displaces the user-visible product mainline.",
+    "slice_id": "G01-SCOPE-GUARD-ROLLOUT",
+    "stop_condition": "Stop after the first protected G01 product slice is active; do not add another governance mechanism.",
+    "user_outcome": "The installed scope guard becomes the enforced baseline for the next G01 product slice.",
     "work_kind": "EVAL_INFRA"
   },
   "e2e_after_all_merges": true,
