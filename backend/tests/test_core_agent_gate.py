@@ -12,13 +12,13 @@ from evals.agent_gate_v1.contracts import (
     AgentGatePassReceipt,
     AutomatedCheckExecution,
     AutomatedProductExecutionManifest,
+    CurrentGoalBinding,
     SealedAgentBlindReceipt,
 )
 from evals.agent_gate_v1.core_gate import (
     CoreAgentGateError,
     CoreCandidateContext,
     _thresholds_pass,
-    read_worktree_binding,
     verify_core_live_score,
     verify_core_sealed,
 )
@@ -29,6 +29,23 @@ COMMIT = "1" * 40
 TREE = "2" * 40
 SHA = "3" * 64
 NOW = datetime(2026, 8, 29, tzinfo=timezone.utc)
+
+
+def _legacy_core_binding() -> CurrentGoalBinding:
+    """Build the frozen Agent Gate view without consuming the active v3 binding."""
+
+    value = json.loads(
+        (ROOT / "docs/governance/current_goal_binding.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    value.update(
+        {
+            "schema_version": "current-goal-binding-v2",
+            "gate_profile": "CORE_AGENT_GATE",
+        }
+    )
+    return CurrentGoalBinding.model_validate(value)
 
 
 def _blind_metrics() -> dict[str, float | int | bool]:
@@ -175,7 +192,7 @@ def test_core_sealed_receipt_never_requires_or_claims_hardened_custody() -> None
 def test_core_sealed_summary_must_derive_from_deterministic_score(
     tmp_path: Path,
 ) -> None:
-    binding = read_worktree_binding(ROOT)
+    binding = _legacy_core_binding()
     frozen = {
         name: SHA
         for name in (
@@ -302,7 +319,7 @@ def test_core_entrypoints_do_not_import_authority_or_custody() -> None:
 
 
 def test_core_live_score_rejects_unreproducible_self_report(tmp_path: Path) -> None:
-    binding = read_worktree_binding(ROOT)
+    binding = _legacy_core_binding()
     frozen = {
         name: SHA
         for name in (

@@ -7,7 +7,6 @@ from pathlib import Path
 
 from evals.agent_gate_v1.contracts import (
     AutomatedProductGateContract,
-    WorkPackageRegistry,
 )
 
 
@@ -37,20 +36,25 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def test_authority_files_bind_the_same_agent_gate_evidence_levels() -> None:
+def test_authority_files_separate_delivery_and_candidate_evidence() -> None:
     for path in (
         ROOT / "AGENTS.md",
-        GOVERNANCE / "AGENT_GATE_PROTOCOL.md",
         GOVERNANCE / "PROGRAM.md",
         GOVERNANCE / "RELEASE_GATES.md",
     ):
         content = _text(path)
-        for level in EVIDENCE_LEVELS:
-            assert level in content, f"{path} does not bind {level}"
-        assert "AGENT_GATE_PASS" in content
+        assert "PRODUCT_DELIVERY_GATE" in content, path
+        assert "HARDENED_CANDIDATE_GATE" in content, path
+        assert "FROZEN_G07_ASSET" in content, path
+
+    protocol = _text(GOVERNANCE / "AGENT_GATE_PROTOCOL.md")
+    for level in EVIDENCE_LEVELS:
+        assert level in protocol
+    assert "FROZEN_G07_ASSET" in protocol
+    assert "适用范围：仅`TC-VNEXT-G07-CANDIDATE`" in protocol
 
 
-def test_every_pre_h1_goal_uses_agent_gate_and_keeps_human_boundary() -> None:
+def test_every_pre_h1_goal_uses_the_phase_appropriate_gate() -> None:
     goals = sorted(PLANNED.glob("TC-VNEXT-G*.md"))
     assert [path.stem.split("-")[2] for path in goals] == [
         "G01",
@@ -61,14 +65,19 @@ def test_every_pre_h1_goal_uses_agent_gate_and_keeps_human_boundary() -> None:
         "G06",
         "G07",
     ]
-    for path in goals:
+    for path in goals[:6]:
         content = _text(path)
-        assert "AGENT_GATE_PASS" in content, path
-        assert "Agent Gate Protocol" in content, path
+        assert "PRODUCT_DELIVERY_PASS" in content, path
+        assert "Gate profile：`PRODUCT_DELIVERY_GATE`" in content, path
+        assert "AGENT_GATE_PASS" not in content, path
         assert "ADR-013" in content, path
         assert "H1" in content and "NOT_RUN" in content, path
 
     g07 = _text(PLANNED / "TC-VNEXT-G07-CANDIDATE.md")
+    assert "HARDENED_CANDIDATE_GATE_PASS" in g07
+    assert "Gate profile：`HARDENED_CANDIDATE_GATE`" in g07
+    assert "Agent Gate Protocol" in g07
+    assert "H1" in g07 and "NOT_RUN" in g07
     assert "VNEXT_CANDIDATE_READY_AGENT_VERIFIED" in g07
     assert "Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`" in g07
 
@@ -105,17 +114,17 @@ def test_current_goal_is_the_only_active_goal_and_g02_is_not_activated() -> None
     assert re.search(r"^Status: IN_PROGRESS$", current, re.MULTILINE)
     for path in PLANNED.glob("TC-VNEXT-G*.md"):
         assert "- Status：`DRAFT`" in _text(path)
-    assert "AGENT_GATE_NOT_RUN" in current
+    assert "PRODUCT_DELIVERY_PASS" in current
     assert "H1、公网、生产、商业：`NOT_RUN`" in current
 
 
-def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
+def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
     current_binding = json.loads(
         _text(GOVERNANCE / "current_goal_binding.json")
     )
     assert current_binding["goal_sequence"] == 1
-    assert current_binding["gate_profile"] == "CORE_AGENT_GATE"
-    assert current_binding["schema_version"] == "current-goal-binding-v2"
+    assert current_binding["gate_profile"] == "PRODUCT_DELIVERY_GATE"
+    assert current_binding["schema_version"] == "current-goal-binding-v3"
     assert current_binding["mainline_phase"] == "CORE_MVP"
     assert current_binding["work_package_registry_path"] == (
         "docs/governance/current_work_packages.json"
@@ -124,29 +133,22 @@ def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
     work_packages = json.loads(
         _text(GOVERNANCE / "current_work_packages.json")
     )
-    assert work_packages["scope_guard_version"] == "scope-guard-v1"
+    assert work_packages["schema_version"] == "work-package-registry-v3"
+    assert work_packages["scope_guard_version"] == "core-mainline-v1"
     assert re.fullmatch(r"[0-9a-f]{64}", work_packages["scope_policy_sha256"])
-    assert work_packages["active_slice"]["work_kind"] in {
-        "PRODUCT",
-        "CURRENT_GATE_FIX",
-        "EVAL_INFRA",
-    }
-    assert work_packages["active_slice"]["work_kind"] != "HARDENING"
-    assert work_packages["active_slice"]["phase"] in {
-        "IMPLEMENTING",
-        "PREFLIGHT",
-        "EVIDENCE_FROZEN",
-        "GATE_RUNNING",
-    }
+    assert work_packages["active_slice"]["work_kind"] == "PRODUCT"
+    assert work_packages["active_slice"]["phase"] == "DELIVERY_VERIFY"
+    assert work_packages["active_slice"]["product_progress"] == "RUNTIME"
+    assert work_packages["active_slice"]["repair_review_cycle"] <= 2
 
     policy = json.loads(
         _text(ROOT / "backend/eval_data/agent_gate_v1/authority_policy.json")
     )
-    observed = {
+    frozen_candidate_policy = {
         item["goal_sequence"]: item["gate_profile"]
         for item in policy["goal_bindings"]
     }
-    assert observed == {
+    assert frozen_candidate_policy == {
         1: "CORE_AGENT_GATE",
         2: "CORE_AGENT_GATE",
         3: "CORE_AGENT_GATE",
@@ -173,7 +175,7 @@ def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() ->
         expected_profile = (
             "HARDENED_CANDIDATE_GATE"
             if sequence == 7
-            else "CORE_AGENT_GATE"
+            else "PRODUCT_DELIVERY_GATE"
         )
         assert f"Mainline phase：`{phase}`" in content
         assert f"Gate profile：`{expected_profile}`" in content
@@ -184,32 +186,35 @@ def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() ->
         _text(next(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md")))
         for sequence in range(1, 7)
     )
-    assert "登记到仓库外Goal pass ledger" not in core_goals
-    assert "创建generation" not in core_goals
+    assert "AGENT_GATE_PASS" not in core_goals
     g03 = _text(PLANNED / "TC-VNEXT-G03-TOP3-AUDIT.md")
-    assert "自动激活G04" in g03 and "不新增HITL" in g03
+    assert "CORE_MVP_OWNER_REVIEW_PENDING" in g03
+    assert "不得自动激活G04" in g03
 
 
 def test_checked_in_work_package_registry_binds_guidance_and_active_goal() -> None:
     path = GOVERNANCE / "current_work_packages.json"
-    registry = WorkPackageRegistry.model_validate_json(path.read_bytes())
-    assert registry.schema_version == "work-package-registry-v2"
-    assert registry.active_goal_id == "TC-VNEXT-G01-TEXT-CARDS"
-    assert registry.mainline_phase == "CORE_MVP"
-    assert registry.guidance_sha256 == _sha256(ROOT / "AGENTS.md")
+    registry = json.loads(path.read_text(encoding="utf-8"))
+    assert registry["schema_version"] == "work-package-registry-v3"
+    assert registry["active_goal_id"] == "TC-VNEXT-G01-TEXT-CARDS"
+    assert registry["mainline_phase"] == "CORE_MVP"
+    assert registry["gate_profile"] == "PRODUCT_DELIVERY_GATE"
+    assert registry["active_slice"]["work_kind"] == "PRODUCT"
+    assert registry["active_slice"]["phase"] == "DELIVERY_VERIFY"
+    assert registry["guidance_sha256"] == _sha256(ROOT / "AGENTS.md")
     assert len(
         [
             package
-            for package in registry.packages
-            if package.role == "INTEGRATOR"
-            and package.status in {"IN_PROGRESS", "READY_TO_MERGE"}
+            for package in registry["packages"]
+            if package["role"] == "INTEGRATOR"
+            and package["status"] in {"IN_PROGRESS", "READY_TO_MERGE"}
         ]
     ) == 1
-    integrator = registry.packages[0]
-    assert integrator.execution_mode == "PRIMARY_INTEGRATOR_DIALOGUE"
-    assert integrator.remote_branch == f"origin/{integrator.branch}"
-    assert integrator.worktree_path is not None
-    assert registry.e2e_after_all_merges is True
+    integrator = registry["packages"][0]
+    assert integrator["execution_mode"] == "PRIMARY_INTEGRATOR_DIALOGUE"
+    assert integrator["remote_branch"] == f"origin/{integrator['branch']}"
+    assert integrator["worktree_path"] is not None
+    assert registry["e2e_after_all_merges"] is True
 
 
 def test_function_dialogue_prompt_and_g02_writer_schedule_are_locked() -> None:

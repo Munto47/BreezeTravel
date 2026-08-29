@@ -17,15 +17,17 @@
 - `HUMAN_USABILITY`；
 - `PRODUCTION_EVIDENCE`。
 
-G01～G07必须按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
+G01～G06按`product_delivery_gates.json`取得`PRODUCT_DELIVERY_PASS`；G07才按`AGENT_GATE_PROTOCOL.md`取得`HARDENED_CANDIDATE_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
 
-G01～G06使用`CORE_AGENT_GATE`，只要求当前产品Goal的最小充分证据；G07使用`HARDENED_CANDIDATE_GATE`。后续候选/生产加固不得前置阻断G01～G06。连续两个纯治理checkpoint且没有产品、模型、Provider或产品评测指标进展时，Gate工作必须暂停并回到产品主线。
+G01～G06使用`PRODUCT_DELIVERY_GATE`，只检查当前用户旅程和针对性验证；G07使用`HARDENED_CANDIDATE_GATE`。90条完整统计、50次真实性能链、三角色复审、ultra裁决、sealed blind、exact commit全证据绑定、完整可靠性和供应链加固均不得前置。
 
-阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后不增加HITL；G07通过后停止。
+现有Agent Gate、blind、authority、custody、签名、broker和候选回执实现统一保留为`FROZEN_G07_ASSET`；G07前不得继续修改，也不得作为产品Goal依赖。
+
+阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后进入`CORE_MVP_OWNER_REVIEW_PENDING`并停止；G07通过后停止。
 
 ### 0.1 并行开发完整性
 
-每个Goal晋级前，v2 `current_work_packages.json`必须证明：主对话是唯一非终态集成者；每个长期功能绑定独立用户可见对话、branch、remote、worktree和完整prompt hash；集成者加最多两个`IN_PROGRESS/BLOCKED_EXTERNAL`贡献包；等待的第三包为`WAITING_FOR_WRITER_SLOT`；同一exact product baseline；branch/worktree/路径所有权不重复；普通包未触碰受保护文件；官方`READY_TO_MERGE`的tip、clean worktree和remote readback仍等于`ready_commit`；所有包按登记的领域→后端/API→UI顺序串行整合后才运行E2E。子Agent提交、功能对话自行合并/改状态、v1降级、指导/prompt/binding漂移、跨两级开发或`PREPARED_NOT_INTEGRATED`提前合并，任一项均阻断Gate。
+每个Goal晋级前，v3 `current_work_packages.json`必须证明：主对话是唯一非终态集成者；每个长期功能绑定独立用户可见对话、branch、remote、worktree和完整prompt hash；集成者加最多两个`IN_PROGRESS/BLOCKED_EXTERNAL`贡献包；等待的第三包为`WAITING_FOR_WRITER_SLOT`；同一product baseline；branch/worktree/路径所有权不重复；普通包未触碰受保护文件；官方`READY_TO_MERGE`的tip、clean worktree和remote readback仍等于`ready_commit`；所有包串行整合后才运行当前交付门。
 
 新版状态：
 
@@ -62,60 +64,28 @@ G00必须同时满足：
 
 ## 2. 全版本零容忍项
 
-以下任一非零即对应版本 `REJECT`：
+以下任一非零即所有版本`REJECT`：
 
-- 错城或错类别POI自动进入行程；
-- 描述句、URL、预约说明或模型举例成为地点卡片；
-- 原文映射、置信度、长ID或内部流程泄漏到普通用户界面；
-- LLM输出成为Provider事实、Finding或已解决状态；
-- HARD冲突漏检；
-- `UNKNOWN/UNAVAILABLE` 被展示为通过；
-- 旧revision地图被标记为当前地图；
+- 错城、错类别、描述句或URL被自动当成地点；
+- 越权访问，或原文、内部字段、capability泄漏；
+- 用户要求删除的数据无法确认删除；
 - 卡片编辑后隐藏触发路线Provider或自动重绘；
-- 虚构酒店价格、房态、星级或服务质量；
-- 原始截图终态未删除；
-- 未授权数据被持久化、训练或分享；
-- 修改sealed blind/oracle消除失败。
+- `UNKNOWN/UNAVAILABLE`被展示或统计为成功。
 
 ## 3. Text Card Gate — G01
 
-数据：
+固定输入只使用`G01-TC-001 / 013 / 025 / 037 / 046`。G01通过必须同时证明：
 
-- 90条family-isolated主集：54 dev / 18 validation / 18 sealed blind；
-- 北京/上海/杭州60条、其他城市15条、对抗15条；
-- 已删除的旧根`tests/`旅行文本不得作为regression、oracle或Gate证据；
-- 使用`trip_text_cards_agent_v2`：两个隔离的`gpt-5.6-sol / xhigh`任务独立生成`agent_reference`，新的`gpt-5.6-sol / ultra`任务在A/B冻结后进行`agent_adjudication`；历史human v1 schema与证据逐字节只读；
-- family不跨split。
+- 匿名体验和登录长文本都产生用户友好的逐日卡片；
+- 查看、插入、替换、移动、删除、刷新和幂等重放可用；
+- 首批卡片后实际启动同`PlanRevisionRef`的walking/transit后台地图任务；
+- 编辑后路线Provider调用为0，旧地图只显示`NEEDS_UPDATE`；
+- Qwen、地点或路线Provider故障返回可编辑卡片、地点待确认或`LIMITED/UNAVAILABLE`，不显示红色成功假象；
+- 公共JSON/DOM禁用字段命中0，匿名和登录越权请求被拒绝；
+- source、整程和账号旅行数据删除均有终态readback；
+- v3定向测试、PostgreSQL集成、frontend build和G01浏览器E2E通过。
 
-硬指标：
-
-- schema、评分覆盖和内部原文证据有效率100%；
-- 整句/URL/描述/预约成为地点0；
-- 错城、错类别严重自动匹配0；
-- 自动地点匹配precision = 正确canonical auto-selected实例数 / 全部auto-selected实例数，≥99%；validation与sealed blind分别要求分母≥50，分母不足即Gate无效而非PASS；
-- 可执行地点提及precision ≥98%、recall ≥95%；
-- day assignment F1 ≥97%；
-- `PLANNED/OPTIONAL/REFERENCE/EXCLUDED/PASS_THROUGH` macro-F1 ≥94%；
-- 三城自动匹配coverage ≥80%；
-- 每份输入需要用户地点确认中位数≤1，P90≤3；
-- 普通用户API/DOM中禁用字段命中0；
-- 首次进度≤500ms，首批卡片P95≤8s；
-- Qwen或AMap失败仍返回可编辑部分结果；
-- 登录、体验、编辑、刷新、并发和幂等浏览器场景通过。
-- `TripUnderstandingJob`在进程重启、lease接管和SSE重连后可恢复，重复事件副作用0；
-- FULL越权访问0，DEMO资源越权0，24小时TTL、一次性claim、source/行程/账号删除回执100%可回读；
-- 原始文本、PII、`public_resource_id`和匿名capability在日志、trace和分析事件中命中0；访问日志只记录路由模板或脱敏路径；
-- 首批卡片READY后自动创建并实际执行一次同`PlanRevisionRef`的walking/transit地图job；相同逻辑任务即使请求key不同也只有一次Provider副作用；
-- 地图job失败不影响卡片，迟到结果不更新current pointer；
-- 冻结标准负载（3～12个已映射地点、并发1；仅用于性能测量而非产品范围）下，从首批卡片READY到每条可解析相邻边至少有一种路线的snapshot，snapshot矩阵P95≤15秒、受控live dev矩阵P95≤20秒；Provider不可用单列，不混入成功延迟；
-- 地图正例集至少30份行程、120条已冻结为可成功的相邻边；fixture/snapshot中每条边至少一种模式成功率100%，受控live dev中≥95%，全局永远`UNAVAILABLE`或零可用边不能通过Gate；
-- 输入/活动/并发/模型/POI/路线预算均有边界，超限返回可编辑`LIMITED`而非静默截断。
-
-模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后由独立Codex任务对同一tranche运行sealed blind一次。
-
-Gate还必须并行完成`PRODUCT_UX / SEMANTIC_DOMAIN / RELIABILITY_SECURITY`三个隔离审查，新的ultra裁决任务确认无未处理的当前Goal P0/P1或blocking P2，并在干净checkout对同一commit fresh readback。P2只有在破坏G01用户Outcome、上述硬指标、隐私/安全不变量，或已在Goal激活时列为blocking时才阻断；其他P2记录后续归属。任何G01 required `NOT_RUN`或候选binding漂移都不得PASS。
-
-G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回执、Agent panel、sealed blind分别绑定同一candidate commit/config/data；sealed scorer直接从输入/预测/truth计算完整冻结指标；原始Agent输出与blind truth不进入Git；clean checkout回读同一候选并耐久保存结论。外部authority、八角色签名、activation-readiness、目的专一broker和隔离OCI属于G07候选加固，不是G01 required项，其`NOT_RUN`不得阻断Text Card Gate。
+90条统计、最小分母、50次链路、三角色复审、ultra裁决、sealed blind、完整性能与exact候选绑定均为G07 `NOT_RUN`，不得阻断G01。
 
 ## 4. Map & Stay Gate — G02
 
@@ -130,10 +100,10 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 - walking/transit独立保存成功/失败；
 - 差值≤10分钟时优先步行；
 - 地图失败不影响卡片；
-- fixture/snapshot重放hash一致率100%。
+- fixture/snapshot定向重放一致；
 - 普通API只返回 `PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`，内部job/freshness枚举泄漏0；
 - 卡片详情在stale时不把旧“到下一站”路线表达为当前事实。
-- 已有snapshot时地图首屏几何P95≤1.5秒；尚未完成时地图壳与用户状态≤500ms且不阻塞卡片。
+- 尚未完成时地图壳和用户状态不阻塞卡片。
 
 住宿：
 
@@ -147,12 +117,11 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 - 不展示价格、房态、星级或质量承诺；
 - 选择同店创建新revision并使地图stale；
 - 无候选为中性待选择，不阻断。
-- 住宿正例集至少30组锚点（北京/上海/杭州各10），冻结snapshot中每组已知存在≥3家同城注册连锁酒店；Top-3非空率100%、首位属于合格集100%，受控live dev非空率≥90%。失败/空候选case另测，不能替代正例覆盖。
+- 定向正例显示最多3家合格同城注册连锁酒店；失败或无候选中性显示“住宿待选择”。
 
 ## 5. Top-3 Audit Gate — G03
 
 - 地点、路线、营业/预约、日容量、酒店往返和用餐空档各有固定oracle；
-- 路线Finding precision/recall均≥90%；
 - HARD冲突漏检0；
 - 具体地点候选100%来自冻结CandidateSet并绑定地点/路线receipt；
 - 内部全部未解决HARD Finding保留；公共结果最多3个Finding，剩余队列显示数量且不得显示已通过，解决后按序补位；
@@ -162,6 +131,7 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 - Repair后新增BLOCKER/HIGH/UNKNOWN为0；
 - 无绝对日期时具体天气/闭馆日期硬结论0。
 - `calendar_basis=DAY_INDEX_ONLY`可materialize且不伪造日期/确认；ABSOLUTE与DAY_INDEX_ONLY lineage、ETag和map/stay current pointer回读100%一致。
+- G03通过后交付演示脚本、已知边界和验证结果，状态切换为`CORE_MVP_OWNER_REVIEW_PENDING`，不自动激活G04。
 
 ## 6. Screenshot Parity Gate — G04
 

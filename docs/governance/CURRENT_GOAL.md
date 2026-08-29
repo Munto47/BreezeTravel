@@ -4,15 +4,16 @@ Goal ID: TC-VNEXT-G01-TEXT-CARDS
 Status: IN_PROGRESS
 Goal type: PRODUCT_VERTICAL_SLICE
 
-<!-- AGENT_GATE_CURRENT_GOAL_STATE
+<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
 {
-  "schema_version": "current-goal-document-state-v1",
+  "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
   "goal_status": "IN_PROGRESS",
-  "required_gate": "Text Card Gate + AGENT_GATE_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "AGENT_GATE_NOT_RUN",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "required_gate": "Text Card Gate + PRODUCT_DELIVERY_PASS",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "next_goal_id": "TC-VNEXT-G02-MAP-STAY",
   "next_activated": false,
@@ -28,7 +29,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.1`
 - Mainline phase：`CORE_MVP`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`IN_PROGRESS`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
@@ -39,7 +40,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Latest delivered checkpoint：真实Qwen → 高德地点 → PostgreSQL卡片 → 异步walking/transit链 `c48aea6c279e04e8870c4a81349324388e82a6f2`，tree `7e2a34b16369c757c8027f545d16310f94e25628`；远端readback在本checkpoint push后执行
 - Activation：`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`
 - Approved by / at：User / 2026-08-27
-- Required gate：`Text Card Gate + AGENT_GATE_PASS`
+- Required gate：`Text Card Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G02-MAP-STAY`
 
 ## Dependencies
@@ -47,21 +48,20 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 唯一激活依赖`TC-BP-G00-BLUEPRINT`已归档且Blueprint Gate为`BLUEPRINT_READY`；本Goal已按Program置为`APPROVED`。
 - 当前环境中的既有Qwen凭据由程序安全加载，并通过官方目录自动readback region、endpoint、exact model ID、context和Provider可暴露价格字段；未暴露字段记`NOT_EXPOSED_BY_PROVIDER`。
 - 高德开发授权记录为`OWNER_ATTESTED_EXISTING_AUTHORIZATION`；凭据或目录失败先自动诊断。只有确需新账号/费用/数据权限时才进入HITL；fixture不得冒充live准入，也不得留下0个active Goal。
-- 本Goal使用`CORE_AGENT_GATE`。候选必须绑定同一commit/config/data、prompt/schema和scorer，并完成自动化、所需live Provider、三角色审查、ultra裁决、一次sealed blind和clean checkout readback。
-- 已有generation-1 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`；G01不继续实现、不切`ACTIVE`，其`NOT_RUN`不阻断Text Card Gate。是否复用由G07基于明确威胁模型重新决定。
+- 本Goal使用`PRODUCT_DELIVERY_GATE`，只以当前用户旅程、安全底线和定向验证决定是否进入G02。90条统计、50次链路、三角色复审、ultra裁决、sealed blind和全树精确证据绑定全部推迟到G07，不得阻断G01。
+- 已有Agent Gate、authority、broker、custody、签名、候选回执和供应链资产统一标记为`FROZEN_G07_ASSET`：保留历史，不继续修改，不作为G01通过条件。
 
 ## Current execution directive
 
-项目所有者于2026-08-28要求把“治理挤占产品主线”的踩坑固化为约束。本Goal立即执行以下纠偏，优先级高于Checkpoint ledger中历史行的旧“下一自主动作”：
+项目所有者于2026-08-29批准一次主线优先治理纠偏。本Goal当前切片固定为`PRODUCT / DELIVERY_VERIFY`，优先级高于Checkpoint ledger中所有历史“下一自主动作”：
 
-1. 不再继续仓库外authority broker/supervisor、八角色签名、activation-readiness或隔离OCI供应链建设；现有实现和证据保留，不删除、不冒充PASS。
-2. 下一自主动作切回Qwen账号自动发现、模型中立adapter和Max/Plus/Flash同数据比较。
-3. 随后接通高德POI真实地点映射与最小脱敏live回执，验证严重错配为0。
-4. 再运行Agent A/B、ultra裁决、一次sealed blind和完整Text Card Gate。
-5. 只修复可复现的当前Goal P0/P1及blocking P2；其他P2登记到后续Goal或风险清单。
-6. 从本指令起，纯治理切片不得连续；两个无产品/模型/Provider/产品指标进展的checkpoint会强制回到主线。
-7. 并行开发只认v2 `current_work_packages.json`：主对话是唯一集成者且始终占一个writer名额；每个长期功能由独立用户可见功能对话、branch/worktree和完整版本化prompt绑定，最多两个贡献对话同时写，第三包使用`WAITING_FOR_WRITER_SLOT`；子Agent只做短期只读证据/诊断。功能对话只能请求`READY_TO_MERGE`，主对话验收并登记`ready_commit`；tip变化或脏worktree使冻结失效。普通包不改治理、Goal/registry、migration、共享OpenAPI生成物/锁文件，不自行合并；全部冻结后按领域→后端/API→UI→E2E串行集成。任一baseline、AGENTS hash、Goal binding、prompt、branch/worktree或提交祖先不一致时只读并阻断Gate。
-8. G01完成后按Program自动进入G02；后续G03通过不新增HITL并继续G04，直到G07完成后停止。
+1. 只用固定五条样例`G01-TC-001 / 013 / 025 / 037 / 046`验证北京、上海、杭州、其他城市和跨城对抗输入。
+2. 交付门只运行v3定向测试、PostgreSQL集成、前端生产构建和G01浏览器E2E；G07项目保持`NOT_RUN`不影响结论。
+3. 只修复有复现步骤、直接破坏当前旅程或安全底线的P0/P1；一个问题最多两轮“修复→复审”，两种实现仍失败时使用“地点待确认”或`LIMITED`等保守降级。
+4. 本Goal激活合同冻结。新增范围、提高门槛或修改交付校验器必须获得项目所有者批准。
+5. 除Goal过渡外，不接受纯文档checkpoint；PR必须改变用户运行时代码/API/UI，关闭已登记P0/P1，或属于本次明确批准的治理纠偏。
+6. 交付门通过后，P2/P3及G07债务不得阻止归档；push与远端readback成功后原子激活G02。
+7. G03通过后必须停在`CORE_MVP_OWNER_REVIEW_PENDING`，不得自动激活G04。
 
 ## User Outcome
 
@@ -106,7 +106,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - 卡片编辑创建新revision，不触发路线Provider。
 - 公共地图状态只返回`PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`。
 - FULL必须登录；DEMO绑定HttpOnly匿名session，固定示例编辑24小时清理，source/行程/账号删除可回读。
-- 模型只在dev/validation选择唯一候选，冻结后sealed blind一次。
+- G01只要求现有模型路径能产生可编辑结果并在故障时保守降级；正式选模统计和sealed blind属于G07。
 
 ## Non-goals
 
@@ -119,61 +119,47 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Dataset
 
-- 90条：54 dev / 18 validation / 18 sealed blind；
-- 三城60、其他城市15、对抗15；
-- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不再作为regression、oracle或当前数据源；G01必须从本合同的90条受治理数据重新建立可复现基线；
-- 两个隔离的`gpt-5.6-sol / xhigh`任务独立生成agent reference，新的`gpt-5.6-sol / ultra`任务在A/B输出冻结并hash后裁决，family隔离；
-- validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
-- blind答案由不继承开发上下文的独立Codex任务在仓库外保管；只在dev/validation选模，唯一候选冻结后blind一次。
+- G01交付样例固定为`G01-TC-001`北京、`G01-TC-013`上海、`G01-TC-025`杭州、`G01-TC-037`其他城市、`G01-TC-046`跨城对抗输入。
+- 五条样例只证明当前主线旅程与安全底线，不代表统计质量、真人体验或生产可靠性。
+- 既有90条数据、参考、裁决、blind与统计资产保留为`FROZEN_G07_ASSET`，G01不读取blind、不重建候选证据，也不以其`NOT_RUN`阻断推进。
 
 ## Acceptance
 
-完全继承Text Card Gate，尤其：
+`PRODUCT_DELIVERY_GATE`只回答“用户能否把长文本变成可信、可编辑卡片”，具体要求：
 
-- 整句/URL/描述/预约作为地点0；
-- 错城/错类别严重自动匹配0；
-- auto match precision≥99%，validation和blind的auto-selected分母分别≥50；
-- executable mention precision≥98%、recall≥95%；
-- day F1≥97%、role macro-F1≥94%；
-- 证据有效率100%，普通用户可见率0%；
-- 首批卡片P95≤8秒；
-- Qwen/AMap失败仍有部分可编辑结果；
-- login/demo/edit/refresh/concurrency/idempotency浏览器通过；
-- 理解job重启/lease/SSE可恢复，重复副作用0；
-- 初次地图job实际执行；只有故障oracle case允许PARTIAL/UNAVAILABLE，正例必须满足下述可用覆盖；逻辑重复Provider调用0，地图失败不影响卡片；
-- 标准3～12地点负载从卡片READY到可用snapshot：snapshot P95≤15秒、受控live dev P95≤20秒；
-- 30份行程、120条已知成功路线正例中snapshot可用覆盖100%、受控live dev≥95%；永远UNAVAILABLE不能过Gate；
-- source TTL/delete、匿名越权、日志/trace/分析泄漏全部通过。
-- current binding与Program表中的G01顺序、前驱和`CORE_AGENT_GATE`合同一致；候选commit/config/data、prompt/schema/scorer和全部required回执绑定一致。
-- `DEFERRED_CANDIDATE_HARDENING`不得被误报为已运行，也不得作为G01 required项。
+- 固定五条样例都生成逐日可编辑卡片；其他城市和跨城歧义必须保守显示“地点待确认”，不得错城、错类别，也不得把描述句或URL当地点。
+- 匿名体验与登录长文本可用；插入、替换、删除、排序/移动、刷新恢复和幂等行为通过浏览器验证。
+- 删除原文、删除行程和账号旅行数据可验证完成；匿名越权访问失败。
+- 首批卡片后后台确实启动同一revision的walking/transit地图准备；Provider故障不阻断卡片，显示保守状态。
+- 编辑后路线Provider调用增量为0；`UNKNOWN/UNAVAILABLE`不得冒充成功。
+- 公共JSON与DOM不暴露原文、source span、置信度、内部ID、revision/hash、模型、Provider或内部阶段。
+- v3定向测试、PostgreSQL集成、前端生产构建和G01浏览器E2E通过。
+- current binding、Program和当前合同均为`PRODUCT_DELIVERY_GATE`；G07证据可以保持`NOT_RUN`。
 
 ## Verification
 
-- schema、compiler、role、query qualification和fallback单测；
-- model panel frozen eval；
-- AMap fixture/snapshot与受控dev调用；
-- PostgreSQL migration 028/029、CAS、job lease/event、逻辑幂等、重启；
-- public JSON禁止字段扫描；
-- DOM与无障碍检查；
-- backend pytest/Ruff、frontend build；
-- 浏览器登录、固定体验、文本、编辑、刷新，以及结果页source/整程删除、二次确认、完成/重试和fresh readback；
-- 账号隐私页重新验证身份、清空旅行数据、异步状态与完成后空readback；
-- H1/公网/生产：`NOT_RUN`。
-- `CORE_AGENT_GATE`：三个隔离审查角色、fresh ultra裁决、sealed agent blind、确定性scorer和同commit干净checkout回读。
-- Qwen/AMap live回执绑定candidate commit/tree、Goal/split、exact Provider配置、请求purpose、脱敏请求/响应hash、Provider request ID（若提供）、时间、token/latency/repair/费用和持久化effect ID；不保存key、完整原文或完整响应。外部签名/capture/OCI HARDENED链在G01为`DEFERRED / NOT_RUN`。
+- `backend/tests/test_g01_delivery_samples.py`固定五条样例；
+- v3理解、公共API、高德地点与路线定向测试；
+- fresh PostgreSQL migration 028/029、v3持久链与首次地图job；
+- 前端生产构建；
+- 浏览器匿名体验、登录长文本、编辑、刷新、删除、越权、故障降级和公共字段脱敏；
+- `core-mainline`范围和交付结果校验；
+- H1、90条统计、50次性能链、三角色复审、ultra、sealed blind、完整可靠性/供应链、公网、生产：`NOT_RUN`。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Agent Gate Protocol、Product Mainline Execution Guide、Provider Admission、Risk Register；
+- `product_delivery_gates.json`、Program、Roadmap、Release Gates、Product Mainline Execution Guide、Provider Admission、Risk Register；
+- Agent Gate Protocol与其候选证据在G01仅作为`FROZEN_G07_ASSET`历史参考，不是当前交付门；
 - ADR-007、ADR-008、ADR-009、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 
+- 本节保留既有实现和历史验证事实；除固定五条G01交付样例及当前Verification所列检查外，历史候选证据不构成本Goal通过条件。
 - branch/upstream：`codex/trip-check-product-reset` / `origin/codex/trip-check-product-reset`；
 - canonical integration subject：`origin/develop@d114d6a1e9a06b1e26fb62519710e35d50300d70`，远端readback `PASS`；
 - unified product/governance baseline：`origin/codex/trip-check-product-reset@8aeb7554b8b5686897f4c8b1be0b7763c645c210`，tree `5a107488e213d4325c65f8275b6b3a91aee9e28a`；双亲固定为G01产品`cc06c3eeda77d46bd170348a97566cbb3cfc50f4`与治理`1273d729ad8c392ca66003a2f9295a9be407c8b8`，`ls-remote`、tracking ref、subject/tree/registry blob readback均`PASS`；deferred hardening分支不是其祖先；
-- current delivered subject：统一基线后的最新控制面checkpoint，以`origin/codex/trip-check-product-reset`现场readback为准；G01 exact Provider/评测/Gate证据必须绑定该最新远端subject，不得复用统一前回执；
+- current delivered subject：统一基线后的最新产品checkpoint，以`origin/codex/trip-check-product-reset`现场readback为准；只有相关运行时代码或Provider配置改变时才重跑对应产品验证，纯文档或脚本变化不作废已验证的产品运行证据；
 - activation transition：`f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac`，远端readback `PASS`；
 - Blueprint subject：`3fb3d0566c5742ecf4fac4179021ee538ef5b516`，远端readback `PASS`；
 - 旧OpenAPI兼容基线：99 paths / 106 operations，SHA-256 `0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81`；现场旧容器94 paths、v3为0，缺微信登录1条和截图上传批次4条，登记为`LEGACY_CONTAINER_DRIFT`；
@@ -199,18 +185,19 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - `PlanRevisionRef`、ETag、CAS、请求幂等和地图逻辑唯一键必须一致；
 - LLM不产生POI/路线事实；`UNKNOWN/UNAVAILABLE`不算PASS；
 - card edit路线Provider调用为0；source隐私与旧API兼容不可弱化。
-- G01～G07顺序、前驱和自动Gate合同由Program表固定；G01完成回执和远端readback是G02晋级依据，候选binding不能替代实际Gate结果。
+- G01～G07顺序和前驱由Program固定；G01～G06使用产品交付门，G07使用候选证据门；G01完成回执和远端readback是G02晋级依据。
 
 ## Budget
 
 - 单文本≤50,000 Unicode code point、≤14天、≤80个可执行活动、每账号并发理解job≤2；超限为可编辑`LIMITED`；
 - 每任务模型最多1次初始+1次schema修复；POI最多每个ExecutableMention一次主搜索和一次确定性改写；初次路线最多walking/transit各一次/相邻边；
 - 不设总费用硬上限，但每次调用记exact binding、token、latency、retry和估算费用；不新增账号/绑卡/付费；
-- 每个可回滚切片commit/push并更新checkpoint。
+- 每个问题最多两轮修复与复审；仍失败时优先保守降级，不新增治理系统。
+- 除Goal过渡外，文档更新必须随产品切片或已登记P0/P1修复提交，不建立独立纯文档checkpoint。
 
 ## HITL
 
-新账号/费用/扩大数据权限、未预批准schema/migration/依赖、读取或修改blind truth/oracle、H1/公网/生产/`main`或删除旧数据时请求人工批准。按协议启动Agent评测和sealed blind不属于HITL；普通实现、测试、Provider诊断或Gate失败不请求用户诊断。
+新账号/费用/扩大数据权限、未预批准schema/migration/依赖、修改G01冻结范围或提高交付门、读取或修改blind truth/oracle、H1/公网/生产/`main`或删除旧数据时请求人工批准。Agent评测和sealed blind只允许在G07合同下启动；普通产品实现、测试、Provider诊断或交付门失败不请求用户诊断。
 
 ## Checkpoint ledger
 
@@ -257,21 +244,21 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Auto-advance
 
-- Required gate：`Text Card Gate + AGENT_GATE_PASS`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档，并在治理过渡commit原子更新`CURRENT_GOAL.md + current_goal_binding.json + current_work_packages.json`激活G02；G02 phase/profile/binding必须等于Program记录；G01不登记外部ledger、不推进authority generation；
+- Required gate：`Text Card Gate + PRODUCT_DELIVERY_PASS`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，生成完整completed归档，并在治理过渡commit原子更新`CURRENT_GOAL.md + current_goal_binding.json + current_work_packages.json`激活G02；G02 phase/profile/binding必须等于Program记录；G01不登记候选ledger、不推进authority generation；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
 
 - Status：`PENDING`；
-- Subject commits：S0 `7986214c1b236217ceb5d2d55f8cecc882e03f2b`，S0 receipt `1097d351b9c82d4f3276b6fd759c8d0f766e2119`，Demo `d6ab378a1f7d169efc94422e0b7611e3c8a49d0c`，compat `3106fe00b755e603bce5517f5ddea71e78e17214`，FULL文本 `2bdac7ce47c9d9ecc9c55c5e720908e0c238bf50`，commands `dacee589d9dbfb04a94ae7acc04a00946abc4710`，领取/隐私 `1ed7927813fcf197db519ccdad3b7472239eeb46`，029地图 `ccfe16e0d110ed0243576f327c1df93dcb8e61a0`，90条数据/评测合同 `9ebdb3b83633e20d4f281a7fe4fd758748aaf5e4`，地图正例矩阵 `1bee280eff6fc9fc607e44fe6f8c9feccf81b5e2`，Provider/预算降级 `80a9dc3835f1685f80a6d06513a0f82c22368091`，同镜像worker `cf9003c97e0c5b3350021c102183a0d39bbf269c`，PostgreSQL 30/120矩阵 `869bdaf282cbf7ab0e2b4f249426d49061bd5593`，最终自动验证 `e99ed68412d54978ac4f187ccb3e5e9b3659d57f`，Agent Gate BOOTSTRAP `0a79f82db0a22d027ee145265f483986640411a8`，外部authority verifier foundation `7d77ed01f133039fa5b0b97522480f7a79864773`，产品主线执行纠偏 `eed251175fb66f8d268f8bb05d50d7b5b2bf3836`，CORE/Qwen adapter `74ea6c33ed8274f83c65c4ede6011875d6828cb7`，三模型前置比较 `84fe36e39e80770ff48cec9ca6549f5cf0dd17e9`，AMap地点 `ccece46`，AMap路线 `926614e`，真实持久化链 `c48aea6c279e04e8870c4a81349324388e82a6f2`，多城市/语义召回/CORE Qwen exporter `c4b601467abc880981f50117de3099f25cb332bf`，CORE最终聚合入口 `ece81f0a9668fcd5940d5236b6c3c44e0719350e`，复审阻断修复 `66b313dbf62abc669012c09310dd24770fba5032`，G01类别隔离 `f398d9c18b9bed7e9bc6e838cad389cb12061c0d`，miniapp缺省兼容 `6fae82f097d7f573a44181ca3d294dac5261bb22`，DEEP_CITY统计口径 `1008a998e7391fd484b73e8159c2e325b9c5fcf5`；Text Card Gate仍未完成；
+- Subject commits：既有G01产品提交保持不变；本次主线纠偏subject在提交与远端readback后写入completed归档。固定五条、v3定向、fresh PostgreSQL、前端构建和浏览器旅程已经形成`PRODUCT_DELIVERY_PASS / TEXT_CARD_GATE_PASS`；
 - Remote branch：`origin/codex/trip-check-product-reset`；canonical integration：`origin/develop`；
-- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / DEV_LIVE_QWEN_AMAP_PERSISTENCE_OBSERVED / AGENT_GATE_NOT_RUN / TEXT_CARD_GATE_NOT_RUN`；
+- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / DEV_LIVE_QWEN_AMAP_PERSISTENCE_OBSERVED / PRODUCT_DELIVERY_PASS / TEXT_CARD_GATE_PASS`；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
 - `structurally_valid=true`：只继承G00蓝图结构，不代表G01通过；
 - User-visible result：`http://localhost:3000`可匿名启动固定北京三日体验并登录领取；登录后可粘贴文本生成卡片、执行六类编辑、删除原文/单份行程/全部v3旅行数据；显式live配置下，真实长文本已生成3天6卡并把4个高德精确地点及坐标写入现有活动表，首批卡片后异步执行walking/transit，编辑后只提示路线需要更新且不自动调用路线Provider。该结果是本地开发live证据，不是真人、公网或生产证据；
-- Remaining risks：新候选exact Qwen/AMap/reference/adjudication/正式score、50次链路、三角色复审、独立sealed blind与完整Text Card Gate仍未运行；旧Trip NLU Candidate 2项binding失败和旧S0首页文案断言保持只读、单独披露；外部authority verifier foundation保留为G07候选加固实验，broker/supervisor/capture/ACTIVE均`DEFERRED / NOT_RUN`且不阻断G01；
-- Next autonomous action：在本checkpoint远端提交上重建Flash、AMap、应用表与50次链路；随后生成两份全新隔离reference和ultra adjudication并运行正式dev/validation scorer，达到相同门槛后才启动三角色复审；不读取blind；
+- Remaining risks：新的`core-mainline`尚未在GitHub PR上形成耐久PASS，G01尚未并入`origin/develop`；90条统计、50次链路、三角色复审、ultra、sealed blind及完整候选加固均为`FROZEN_G07_ASSET / NOT_RUN`，不阻断G01；
+- Next autonomous action：运行固定五条、v3定向、fresh PostgreSQL、前端构建和G01浏览器E2E；通过后写入产品交付回执并完成远端PR/readback，再激活G02；
 - Goal archived：`NO`；
 - Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。

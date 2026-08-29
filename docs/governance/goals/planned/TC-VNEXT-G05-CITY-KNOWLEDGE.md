@@ -6,10 +6,10 @@
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.5`
 - Mainline phase：`PRODUCT_ENHANCEMENT`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G04 Screenshot Parity Gate通过并归档后
-- Required gate：`Knowledge Admission Gate + AGENT_GATE_PASS`
+- Required gate：`Knowledge Admission Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G06-MEMORY-SHARE`
 
 ## Dependencies
@@ -88,12 +88,12 @@
 - PostgreSQL 032；
 - three-city browser cases；
 - privacy/copyright scan；
-- 三角色Agent审查、ultra裁决、所需sealed agent blind与同commit fresh readback；
+- 当前知识用户旅程定向测试与浏览器E2E；候选复审和blind留到G07；
 - H1/商业：`NOT_RUN`。
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-011、ADR-012、ADR-013、ADR-014。
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Product Delivery Gate、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-011、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 
@@ -125,7 +125,7 @@
 ## Auto-advance
 
 - Required gate：`Knowledge Admission Gate`；Next template：`TC-VNEXT-G06-MEMORY-SHARE.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G06；不登记外部ledger、不创建authority generation；H1/商业不自动启动。
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G06；不登记外部ledger、不创建authority generation；H1/商业不自动启动。
 
 ## Completion record
 

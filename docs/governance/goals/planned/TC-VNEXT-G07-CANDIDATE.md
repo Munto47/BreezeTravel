@@ -9,7 +9,7 @@
 - Gate profile：`HARDENED_CANDIDATE_GATE`
 - Status：`DRAFT`
 - Activation：G06 Consent & Share Gate通过并归档后
-- Required gate：`Candidate Evidence Gate G0～G7 + AGENT_GATE_PASS`
+- Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
 - Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
 
 ## Dependencies
@@ -75,7 +75,7 @@
 
 完全继承Candidate Evidence Gate：
 
-- G0～G7同一subject全部PASS，并取得`AGENT_GATE_PASS`；
+- G0～G7同一subject全部PASS，并取得`HARDENED_CANDIDATE_GATE_PASS`；
 - 所有版本零容忍0；
 - browser主链、刷新、断线、并发、重启、partial和performance通过；
 - Provider许可与隐私无阻断；

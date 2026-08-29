@@ -6,10 +6,10 @@
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.1`
 - Mainline phase：`CORE_MVP`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G00 Blueprint Gate通过并归档后
-- Required gate：`Text Card Gate + AGENT_GATE_PASS`
+- Required gate：`Text Card Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G02-MAP-STAY`
 
 ## Dependencies
@@ -54,9 +54,9 @@
 
 ### Current G01 writer and evidence-task boundary
 
-G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-check-product-reset`及其独立worktree完成候选收口。Qwen/AMap回执、Agent A/B参考、ultra裁决、三角色复审和sealed blind属于短期只读证据任务，不是长期功能工作包：它们不拥有产品分支、不提交产品代码、不修改Goal/registry，也不形成官方`READY_TO_MERGE`。
+G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-check-product-reset`及其独立worktree完成产品交付。Agent Gate、blind、authority和候选回执平台统一为`FROZEN_G07_ASSET`，不属于G01工作包。
 
-唯一集成者串行完成Provider证据→候选冻结→参考/裁决→sealed blind→最终Gate；发现的代码问题仍由G01主对话修复。任何新的长期产品切片必须先登记完整v2提示词、独立用户可见功能对话、branch/worktree和writer名额，不能借证据子Agent绕过上限。
+唯一集成者串行完成固定五条样例→v3定向测试→PostgreSQL→前端构建→浏览器E2E→交付门。任何新的长期产品切片必须先登记完整v3提示词、独立用户可见功能对话、branch/worktree和writer名额。
 
 ## Decisions locked
 
@@ -69,7 +69,7 @@ G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-c
 - 卡片编辑创建新revision，不触发路线Provider。
 - 公共地图状态只返回`PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`。
 - FULL必须登录；DEMO绑定HttpOnly匿名session，固定示例编辑24小时清理，source/行程/账号删除可回读。
-- 模型只在dev/validation选择唯一候选，冻结后sealed blind一次。
+- 模型完整统计和sealed blind推迟到G07；G01只验证用户旅程与安全底线。
 
 ## Non-goals
 
@@ -81,12 +81,9 @@ G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-c
 
 ## Dataset
 
-- 90条：54 dev / 18 validation / 18 sealed blind；
-- 三城60、其他城市15、对抗15；
-- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不再作为regression、oracle或数据源；本Goal从90条受治理数据重新建立基线；
-- 两个隔离的`gpt-5.6-sol / xhigh`任务独立生成agent reference，新的`gpt-5.6-sol / ultra`任务在A/B冻结后裁决，family隔离；
-- validation与blind各至少65个gold executable mentions；结合coverage≥80%仍须直接验证auto-selected分母≥50，不能只按gold数量推断；
-- blind答案由不继承开发上下文的独立Codex任务在仓库外保管；只在dev/validation选模，唯一候选冻结后blind一次。
+- `G01-TC-001`北京、`G01-TC-013`上海、`G01-TC-025`杭州；
+- `G01-TC-037`其他城市、`G01-TC-046`跨城对抗输入；
+- 现有90条、Agent reference、ultra与sealed blind保持`FROZEN_G07_ASSET`，不阻断G01。
 
 ## Acceptance
 
@@ -94,37 +91,31 @@ G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-c
 
 - 整句/URL/描述/预约作为地点0；
 - 错城/错类别严重自动匹配0；
-- auto match precision≥99%，validation和blind的auto-selected分母分别≥50；
-- executable mention precision≥98%、recall≥95%；
-- day F1≥97%、role macro-F1≥94%；
-- 证据有效率100%，普通用户可见率0%；
-- 首批卡片P95≤8秒；
+- 固定五条样例执行并覆盖三城、其他城市和跨城对抗输入；
+- 普通用户API/DOM内部字段命中0；
 - Qwen/AMap失败仍有部分可编辑结果；
 - login/demo/edit/refresh/concurrency/idempotency浏览器通过；
 - 理解job重启/lease/SSE可恢复，重复副作用0；
 - 初次地图job实际执行；只有故障oracle case允许PARTIAL/UNAVAILABLE，正例必须满足下述可用覆盖；逻辑重复Provider调用0，地图失败不影响卡片；
-- 标准3～12地点负载从卡片READY到可用snapshot：snapshot P95≤15秒、受控live dev P95≤20秒；
-- 30份行程、120条已知成功路线正例中snapshot可用覆盖100%、受控live dev≥95%；永远UNAVAILABLE不能过Gate；
 - source TTL/delete、匿名越权、日志/trace/分析泄漏全部通过。
 
 ## Verification
 
 - schema、compiler、role、query qualification和fallback单测；
-- model panel frozen eval；
-- AMap fixture/snapshot与受控dev调用；
+- 固定五条样例与Provider故障降级；
 - PostgreSQL migration 028/029、CAS、job lease/event、逻辑幂等、重启；
 - public JSON禁止字段扫描；
 - DOM与无障碍检查；
-- backend pytest/Ruff、frontend build；
+- v3定向pytest、frontend build；
 - 浏览器登录、固定体验、文本、编辑、刷新，以及结果页source/整程删除、二次确认、完成/重试和fresh readback；
 - 账号隐私页重新验证身份、清空旅行数据、异步状态与完成后空readback；
 - H1/公网/生产：`NOT_RUN`。
-- Agent Gate：三个隔离审查角色、fresh ultra裁决、sealed agent blind与同commit干净checkout回读。
+- G07候选统计、三角色复审、ultra、sealed blind与exact binding：`NOT_RUN`且不阻断G01。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
+- Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register；
 - ADR-007、ADR-008、ADR-009、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
@@ -151,7 +142,7 @@ G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-c
 
 ## HITL
 
-新账号/费用/扩大数据权限、未预批准schema/migration/依赖、读取或修改blind truth/oracle、H1/公网/生产/`main`或删除旧数据时请求人工批准；按协议启动Agent评测和sealed blind不属于HITL，普通实现/测试/Gate失败不请求用户诊断。
+新账号/费用/扩大数据权限、未预批准schema/migration/依赖、读取或修改blind truth/oracle、提高当前交付门、H1/公网/生产/`main`或删除旧数据时请求人工批准；Agent评测和sealed blind只允许在G07激活后启动，普通产品实现/测试/Gate失败不请求用户诊断。
 
 ## Checkpoint ledger
 
@@ -162,7 +153,7 @@ G01当前只登记`WP-G01-INTEGRATOR`一个writer，由主对话在`codex/trip-c
 ## Auto-advance
 
 - Required gate：`Text Card Gate`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档，并原子更新Goal binding与work-package registry激活G02；不登记外部ledger、不创建authority generation；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，生成完整completed归档，并原子更新Goal binding与work-package registry激活G02；不登记外部ledger、不创建authority generation；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

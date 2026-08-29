@@ -390,15 +390,18 @@ def _synchronize_authority_files(
     if current_binding_path is None:
         return
     current_binding = json.loads(current_binding_path.read_text(encoding="utf-8"))
-    filename = Path(current_binding["automated_gate_contract_path"]).name
-    current_binding["automated_gate_contract_sha256"] = goal_hashes[filename]
-    current_binding["gate_profile"] = (
-        "HARDENED_CANDIDATE_GATE"
-        if current_binding["goal_sequence"] == 7
-        else "CORE_AGENT_GATE"
-    )
     sequence = current_binding["goal_sequence"]
-    current_binding["schema_version"] = "current-goal-binding-v2"
+    if current_binding.get("schema_version") == "current-goal-binding-v3" and sequence < 7:
+        # G01-G06 bind the independent product delivery contract. Candidate
+        # asset generation must never rewrite that active binding.
+        current_binding["gate_profile"] = "PRODUCT_DELIVERY_GATE"
+    else:
+        filename = Path(current_binding["automated_gate_contract_path"]).name
+        current_binding["automated_gate_contract_sha256"] = goal_hashes[filename]
+        current_binding["gate_profile"] = (
+            "HARDENED_CANDIDATE_GATE" if sequence == 7 else "CORE_AGENT_GATE"
+        )
+        current_binding.setdefault("schema_version", "current-goal-binding-v2")
     current_binding["mainline_phase"] = (
         "CORE_MVP"
         if sequence <= 3

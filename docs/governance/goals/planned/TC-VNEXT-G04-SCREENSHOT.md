@@ -6,10 +6,10 @@
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.4`
 - Mainline phase：`PRODUCT_ENHANCEMENT`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G03 Top-3 Audit Gate通过并归档后
-- Required gate：`Screenshot Parity Gate + AGENT_GATE_PASS`
+- Required gate：`Screenshot Parity Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G05-CITY-KNOWLEDGE`
 
 ## Dependencies
@@ -71,7 +71,7 @@
 完全继承Screenshot Parity Gate：
 
 - 格式/数量/大小/顺序正确；
-- 许可清晰的代表性截图集关键字段F1≥95%；参考转写由双Agent隔离生成并由fresh ultra任务裁决；
+- 固定的许可清晰代表性截图能提取用户旅程所需关键字段并生成可编辑卡片；候选级统计、复审和ultra裁决推迟到G07；
 - 低置信确认召回100%；
 - 最终卡片与文本parity达标；
 - reading-order adjacency-F1≥97%，地点precision/recall较同源文本下降各≤1个百分点，严重错误0；
@@ -92,7 +92,7 @@
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Agent Gate Protocol、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012、ADR-013、ADR-014。
+- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Product Delivery Gate、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-007、ADR-009、ADR-011、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
 
@@ -123,7 +123,7 @@
 ## Auto-advance
 
 - Required gate：`Screenshot Parity Gate`；Next template：`TC-VNEXT-G05-CITY-KNOWLEDGE.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G05；不登记外部ledger、不创建authority generation；H1/公网/生产不自动启动。
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G05；不登记外部ledger、不创建authority generation；H1/公网/生产不自动启动。
 
 ## Completion record
 

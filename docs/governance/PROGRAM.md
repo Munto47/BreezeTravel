@@ -65,13 +65,13 @@
 
 ### 3.1 产品主线比例
 
-每个切片必须推进用户可见主链或当前Goal硬指标。纯治理切片最多连续一个checkpoint；连续两个checkpoint均为`Product progress = NONE`时，必须按`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`停止治理扩展并回到产品实现。
+G01～G03每个活动切片只能是`PRODUCT / BLOCKING_DEFECT / GOAL_TRANSITION`。除Goal过渡外，纯治理、纯文档或`Product progress = NONE`切片不得通过`core-mainline`。
 
-版本证据采用比例原则：G01～G06只要求`CORE_AGENT_GATE`；G07才要求候选级`HARDENED_CANDIDATE_GATE`。任何后续版本或生产加固不得前置阻断早期产品Goal。
+版本证据采用阶段门：G01～G06只要求`PRODUCT_DELIVERY_GATE`；G07才要求候选级`HARDENED_CANDIDATE_GATE`。任何候选或生产加固不得前置阻断产品Goal。
 
-### 3.2 G01～G07 统一 Agent Gate
+### 3.2 交付门与候选门
 
-G01～G07 固定执行 `AGENT_GATE_PROTOCOL.md`，通过状态为 `AGENT_GATE_PASS`。证据等级只允许：
+G01～G06按`product_delivery_gates.json`执行当前用户旅程的最小充分检查，通过状态为`PRODUCT_DELIVERY_PASS`。G07才执行`AGENT_GATE_PROTOCOL.md`，通过状态为`HARDENED_CANDIDATE_GATE_PASS`。证据等级仍分开披露：
 
 - `AUTOMATED_TEST`；
 - `LIVE_PROVIDER_EVIDENCE`；
@@ -80,11 +80,11 @@ G01～G07 固定执行 `AGENT_GATE_PROTOCOL.md`，通过状态为 `AGENT_GATE_PA
 - `HUMAN_USABILITY`；
 - `PRODUCTION_EVIDENCE`。
 
-Agent 参考答案、裁决和审查不属于真人证据。每个候选必须绑定同一 commit/config/data，执行三个隔离审查角色和新的 ultra 裁决；可复现且属于当前Goal的P0/P1必须修复。P2只有在破坏当前用户Outcome、硬Gate指标、隐私/安全不变量，或在Goal激活时被显式列为blocking时才阻断，其余必须记录后续归属。需要blind的Gate必须由独立Codex任务执行。候选绑定改变时只让受影响结论失效。历史真人schema与历史证据只读保留。
+G01～G03只阻断直接破坏当前旅程或安全底线的可复现P0/P1；P2/P3记录后续归属。一个问题最多两轮修复复审，两种实现仍失败时优先诚实降级。脚本或文档变化不使已验证产品证据失效，相关运行时代码或Provider配置变化才改变产品指纹。
 
-`CORE_AGENT_GATE`固定候选commit/config/data、prompt/schema、确定性scorer、三角色审查、ultra裁决、Goal要求的sealed blind和clean checkout readback。仓库外保存原始Agent输出和blind truth，Git只保存hash、脱敏回执和聚合指标。G01～G06不要求角色私钥、外部broker、authority generation、activation-readiness或隔离OCI供应链证明。
+90条完整统计和最小分母、50次真实性能链、三角色复审、ultra裁决、sealed blind、exact commit全证据绑定、完整可靠性和供应链加固全部推迟到G07，不得出现在G01～G06的required checks中。
 
-现有G01 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`历史资产，不删除也不冒充PASS；在G07前不继续实现、不切`ACTIVE`、不阻断Goal。G07固定使用候选收口档位`HARDENED_CANDIDATE_GATE`，但必须先产生`HardeningDecision`：可选择`NOT_REQUIRED_WITH_RATIONALE`并记录残余风险，或在明确威胁模型证明价值时选择`REQUIRED`并只启用被点名的外部authority/OCI控制。任何签名只能证明对应执行事实，不能替代Provider事实、真人、生产或商业证据。
+现有Agent Gate、BOOTSTRAP、authority verifier、purpose-specific broker、blind与相关schema统一保留为`FROZEN_G07_ASSET`；在G07前机器拒绝修改，不切`ACTIVE`、不阻断Goal。G07可以先产生`HardeningDecision`，但任何签名仍不能替代Provider事实、真人、生产或商业证据。
 
 ### 3.3 并行工作包机器合同
 
@@ -93,14 +93,14 @@ Agent 参考答案、裁决和审查不属于真人证据。每个候选必须�
 - 主对话框是唯一`INTEGRATOR`，负责生成版本化提示词、登记/调度、验收、官方状态变更和串行合并；长期功能只能由用户可见的独立功能对话在独立branch/worktree承担，一个对话只对应一个包。主对话不得额外承担未登记功能包；
 - 子Agent只可短期标注、独立复核、反方审查和故障诊断，不拥有功能分支、不提交产品代码、不修改Goal/registry，也不能形成官方`READY_TO_MERGE`或绕过writer上限；
 - 一个active Goal、一个非终态`INTEGRATOR`；集成者始终占一个writer名额，因此当前Goal最多两个贡献对话处于`IN_PROGRESS/BLOCKED_EXTERNAL`。已生成提示词但尚未启动的当前包使用非写入状态`WAITING_FOR_WRITER_SLOT`；
-- v2贡献包在`IN_PROGRESS`前必须登记prompt path/hash、Goal activation commit、local/remote branch、独立worktree绝对路径、功能对话引用、完整owned/forbidden paths、验收和定向测试；提示词遵循`WORK_PACKAGE_PROMPT_TEMPLATE.md`。所有活动包使用同一exact product baseline，branch/worktree唯一，`owned_paths`不得按目录前缀重叠；任一指导hash、Goal binding、prompt或checkout绑定不一致时只能只读；
+- v3贡献包在`IN_PROGRESS`前必须登记prompt path/hash、Goal activation commit、local/remote branch、独立worktree绝对路径、功能对话引用、完整owned/forbidden paths、验收和定向测试；提示词遵循`WORK_PACKAGE_PROMPT_TEMPLATE.md`。所有活动包使用同一exact product baseline，branch/worktree唯一，`owned_paths`不得按目录前缀重叠；任一指导hash、Goal binding、prompt或checkout绑定不一致时只能只读；
 - 最多提前一个Goal且最多两个`PREPARED_NOT_INTEGRATED`贡献包；下一Goal不得登记集成者，当前Goal不得依赖下一Goal。准备不等于激活，不得提前合并、创建migration或改变公共API；
 - 普通贡献包必须把全部治理文件、Goal/work-package binding、migration目录、共享OpenAPI生成物和锁文件列入`forbidden_paths`；只能commit/push自己的分支，不得自行合并；
 - 功能对话的`READY_TO_MERGE`只是请求。集成者验收实际路径、commit、clean worktree、定向测试和remote readback后才登记`ready_commit`；冻结后tip变化、脏worktree或继续提交立即失效；
 - 贡献包并行实现和独立定向测试期间，集成者只写registry/checkpoint控制面。所有相关贡献包冻结后，集成者按registry的领域模型→持久化/API→前端→E2E顺序串行合并并接纳已登记路径；
 - 每个包最多两轮修复复审。未阻断当前用户Outcome的剩余P2/P3进入风险登记和明确后续Goal，不延长主线。
 
-历史`work-package-registry-v1`只读兼容；任何写入、状态推进和Gate证据必须使用v2。v2在`MERGED`状态登记`ready_commit/merged_commit`并验证提交祖先顺序，确保E2E只能发生在全部串行合并之后。
+历史`work-package-registry-v1/v2`只读兼容；任何当前写入、状态推进和交付门必须使用v3。v3继续在`MERGED`状态登记`ready_commit/merged_commit`并验证提交祖先顺序。
 
 ## 4. 预批准的公共合同与 migration
 
@@ -173,20 +173,15 @@ Agent 参考答案、裁决和审查不属于真人证据。每个候选必须�
 
 ## 6. 数据与评测
 
-G01新建语义/地点数据集：
+现有90条语义/地点数据、Agent标注、blind和历史结果全部保留为`FROZEN_G07_ASSET`。G01快速交付只固定执行以下五条样例：
 
-- 90 条 family-isolated 长文本；
-- 60 条北京/上海/杭州；
-- 15 条其他城市；
-- 15 条多城市、URL、描述、备选、否定和经过地点对抗样本；
-- 54 dev / 18 validation / 18 sealed blind；
-- 旧根目录`tests/`中的19条未完成旅行文本已按项目所有者要求删除，不进入regression、oracle或blind；G01的90条数据必须按本Program重新生成、双Agent独立标注并冻结；
-- 两个`gpt-5.6-sol / xhigh`隔离任务独立标注，新的`gpt-5.6-sol / ultra`任务在A/B输出冻结并计算hash后裁决；字段使用`agent_reference/agent_adjudication`，不得伪装真人；
-- blind schema/oracle冻结后禁止修改；答案由独立Codex任务在仓库外保管，开发任务和运行模型不可读；
-- Max/Plus/Flash只在dev/validation选择，唯一候选、prompt、schema、threshold和最小预测分母冻结后才运行sealed blind一次；
-- blind失败只生成独立dev/regression故障族，不回看标签调参；输入分布或schema实质变化时必须经独立批准创建新版blind，旧版只读。
+- `G01-TC-001`北京；
+- `G01-TC-013`上海；
+- `G01-TC-025`杭州；
+- `G01-TC-037`其他城市；
+- `G01-TC-046`跨城对抗输入。
 
-每个真实修复故障追加 regression。候选模型不能评价自己的输出；Agent裁决只接收可复现证据，确定性 scorer、live Provider回执和可执行行为共同构成门禁权威。
+五条样例与v3定向测试验证匿名体验、登录长文本、编辑、刷新、删除、后台地图启动、Provider故障降级、公共字段脱敏和越权拒绝。完整统计与候选评测留到G07。
 
 ### 可选形成性用户学习
 
@@ -197,7 +192,7 @@ G01、G02、G03通过工程Gate后分别预留 `FUX-01卡片理解`、`FUX-02地
 Goal完成后只有同时满足以下条件才能激活下一 Goal：
 
 - 当前 Goal 的用户 Outcome 已实现；
-- 对应 Gate 已绑定同一候选并取得 `AGENT_GATE_PASS`；
+- 当前Goal的`PRODUCT_DELIVERY_GATE`已通过，且产品指纹与交付回执一致；
 - 没有未披露的 required `NOT_RUN`；
 - working tree clean；
 - checkpoint commit 已推送；
@@ -206,9 +201,9 @@ Goal完成后只有同时满足以下条件才能激活下一 Goal：
 - 从current Goal完整内容生成最终completed归档，不删除字段或保留PENDING；
 - 下一 Goal合同与 Program模板一致。
 
-subject checkpoint先push/readback，并把Gate回执耐久物化；归档、下一Goal激活、`current_goal_binding.json`和`current_work_packages.json`在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash、阶段和Gate profile必须与Program表对应项完全一致，该commit也必须push/readback。G01～G06不登记外部Goal ledger、不推进authority generation；G07只有在`HardeningDecision=REQUIRED`时才处理被点名的外部anchor。transition commit不要求把自身未知hash写入自身。
+subject checkpoint先push/readback，并把交付回执耐久物化；归档、下一Goal激活、`current_goal_binding.json`和`current_work_packages.json`在同一个治理过渡commit中原子更新。下一Goal继续使用`PRODUCT_DELIVERY_GATE`，该commit也必须push/readback。G01～G06不登记外部Goal ledger、不推进authority generation；transition commit不要求把自身未知hash写入自身。
 
-G03完成后保存可体验里程碑并自动进入G04，不新增HITL。自动推进只到 G07；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。H1、生产、公网、商业、合并 `main` 始终需要人工批准。
+G03完成后状态固定为`CORE_MVP_OWNER_REVIEW_PENDING`并停止，不自动进入G04。项目所有者完成体验验收后才可激活细节阶段。G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；H1、生产、公网、商业、合并`main`始终需要人工批准。
 
 ## 8. Stop conditions
 

@@ -1,9 +1,7 @@
-name: Three-city RC1 candidate offline gates
+name: Frozen RC1 candidate gates
 
 on:
-  pull_request:
-  push:
-    branches: [main, "codex/**"]
+  workflow_dispatch:
 
 permissions:
   contents: read

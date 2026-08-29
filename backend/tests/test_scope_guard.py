@@ -496,10 +496,21 @@ def test_freeze_marker_commit_is_the_formal_core_candidate(
     assert wrong_candidate.verdict == "REJECT"
     assert "EVIDENCE_FREEZE_BROKEN" in wrong_candidate.error_codes
 
-    binding_bytes = (
-        REPOSITORY_ROOT / "docs/governance/current_goal_binding.json"
-    ).read_bytes()
-    automated_contract_sha256 = json.loads(binding_bytes)[
+    # The Agent Gate is a frozen G07 asset. Exercise its legacy v2 contract,
+    # never the active product-delivery v3 binding.
+    binding_payload = json.loads(
+        (
+            REPOSITORY_ROOT / "docs/governance/current_goal_binding.json"
+        ).read_text(encoding="utf-8")
+    )
+    binding_payload.update(
+        {
+            "schema_version": "current-goal-binding-v2",
+            "gate_profile": "CORE_AGENT_GATE",
+        }
+    )
+    binding_bytes = json.dumps(binding_payload).encode("utf-8")
+    automated_contract_sha256 = binding_payload[
         "automated_gate_contract_sha256"
     ]
     goal_bytes = (

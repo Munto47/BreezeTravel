@@ -1,0 +1,27 @@
+{
+  "schema_version": "product-delivery-result-v1",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "product_fingerprint": "40b64b17b8baeaca4f506b2f6670ed4ef782b1e9ad72d1173971902e4515fb4a",
+  "checks": {
+    "core_mainline_contract": "PASS",
+    "g01_fixed_samples_and_v3": "PASS",
+    "g01_postgresql": "PASS",
+    "frontend_build": "PASS",
+    "g01_browser_e2e": "PASS"
+  },
+  "verification": {
+    "governance_and_scope_tests": "20 PASS",
+    "fixed_samples_and_v3_targeted": "62 PASS",
+    "fresh_postgresql_integration": "2 PASS",
+    "frontend_production_build": "PASS",
+    "browser_journey": "4 PASS"
+  },
+  "runtime_defect_closed": "live Qwen default max_output_tokens now matches the frozen 768-token runtime contract",
+  "safety_floor": "PASS",
+  "g07_candidate_evidence": "NOT_RUN",
+  "human_usability": "NOT_RUN",
+  "production_evidence": "NOT_RUN",
+  "commercial_evidence": "NOT_RUN",
+  "verdict": "PASS"
+}

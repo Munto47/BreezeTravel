@@ -1,16 +1,18 @@
 # TC-VNEXT Agent Gate Protocol
 
-> 状态：`ACCEPTED`
+> 状态：`FROZEN_G07_ASSET`
 >
 > 版本：`agent-gate-v2.1 / proportionate profiles`
 >
-> 适用范围：`TC-VNEXT-G01`～`TC-VNEXT-G07`
+> 适用范围：仅`TC-VNEXT-G07-CANDIDATE`，且只允许手动触发
 >
-> 不适用范围：H1 真人可用性、生产、公网上线、商业证据和 `main` 合并
+> 不适用范围：G01～G06产品交付门、H1真人可用性、生产、公网上线、商业证据和`main`合并
+
+本文件完整保留旧候选门设计用于G07考古和复用。下文所有`CORE_AGENT_GATE`、G01～G06、统一Agent Gate或自动入口描述均为冻结历史，不再是当前执行指令；G01～G06唯一机器合同是`product_delivery_gates.json`，修改本资产会被`core-mainline`拒绝。
 
 ## 1. 目的与证据边界
 
-G01～G07 的开发门禁使用可复现、上下文隔离的多 Agent 模拟审查，不再把真人标注员、真人裁决员或组织外 blind custodian 作为版本晋级前提。该协议只提供工程过程隔离，不能冒充真人独立性、真人可用性或市场证据。
+G07候选门可以使用可复现、上下文隔离的多Agent模拟审查。该协议只提供工程过程隔离，不能冒充真人独立性、真人可用性或市场证据。
 
 证据等级固定为：
 

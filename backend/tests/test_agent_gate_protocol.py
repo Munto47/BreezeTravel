@@ -910,12 +910,51 @@ def test_current_goal_document_machine_state_rejects_false_completion_or_activat
     manifest = AgentGateAuthorityManifest.model_validate_json(
         (GENERAL_ROOT / "authority_policy.json").read_bytes()
     )
-    binding = CurrentGoalBinding.model_validate_json(
-        (REPOSITORY_ROOT / manifest.current_goal_binding_path).read_bytes()
+    product_binding = json.loads(
+        (REPOSITORY_ROOT / manifest.current_goal_binding_path).read_text(
+            encoding="utf-8"
+        )
     )
+    product_binding.update(
+        {
+            "schema_version": "current-goal-binding-v2",
+            "gate_profile": "CORE_AGENT_GATE",
+        }
+    )
+    binding = CurrentGoalBinding.model_validate(product_binding)
     current_goal_bytes = (
         REPOSITORY_ROOT / manifest.current_goal_document_path
     ).read_bytes()
+    current_goal_bytes = current_goal_bytes.replace(
+        b"PRODUCT_DELIVERY_CURRENT_GOAL_STATE",
+        b"AGENT_GATE_CURRENT_GOAL_STATE",
+    ).replace(
+        b"product-delivery-current-goal-state-v1",
+        b"current-goal-document-state-v1",
+    ).replace(
+        b"PRODUCT_DELIVERY_PASS",
+        b"AGENT_GATE_NOT_RUN",
+    ).replace(
+        b"PRODUCT_DELIVERY_NOT_RUN",
+        b"AGENT_GATE_NOT_RUN",
+    ).replace(
+        b"DELIVERY_VERIFIED_PENDING_INTEGRATION",
+        b"PENDING",
+    ).replace(
+        b"TEXT_CARD_GATE_PASS",
+        b"TEXT_CARD_GATE_NOT_RUN",
+    )
+    current_goal_bytes = current_goal_bytes.replace(
+        b'"gate_profile": "PRODUCT_DELIVERY_GATE",\n',
+        b"",
+    )
+    current_goal_bytes = current_goal_bytes.replace(
+        b'"required_gate": "Text Card Gate + AGENT_GATE_NOT_RUN"',
+        b'"required_gate": "Text Card Gate + AGENT_GATE_PASS"',
+    ).replace(
+        "- Required gate：`Text Card Gate + AGENT_GATE_NOT_RUN`".encode("utf-8"),
+        "- Required gate：`Text Card Gate + AGENT_GATE_PASS`".encode("utf-8"),
+    )
     monkeypatch.setattr(
         authority_module,
         "_git",

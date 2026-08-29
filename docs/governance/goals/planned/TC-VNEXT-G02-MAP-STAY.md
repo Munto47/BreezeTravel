@@ -6,10 +6,10 @@
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.2`
 - Mainline phase：`CORE_MVP`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G01 Text Card Gate通过并归档后
-- Required gate：`Map & Stay Gate + AGENT_GATE_PASS`
+- Required gate：`Map & Stay Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G03-TOP3-AUDIT`
 
 ## Dependencies
@@ -104,13 +104,13 @@ G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`�
 - stay scoring/property tests；
 - public result禁止内部字段；
 - 高德最小留存与owner attestation readback；
-- 三角色Agent审查、ultra裁决和同commit fresh readback；
+- 当前地图/住宿定向测试、PostgreSQL、frontend build与浏览器E2E；候选复审留到G07；
 - H1/生产：`NOT_RUN`。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
+- Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register；
 - ADR-007、ADR-008、ADR-010、ADR-012、ADR-013、ADR-014。
 
 ## Baseline
@@ -146,7 +146,7 @@ G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`�
 ## Auto-advance
 
 - Required gate：`Map & Stay Gate`；Next template：`TC-VNEXT-G03-TOP3-AUDIT.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G03；不登记外部ledger、不创建authority generation；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G03；不登记外部ledger、不创建authority generation；
 - FUX-02、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

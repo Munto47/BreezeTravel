@@ -2,9 +2,9 @@
 
 > 状态：`ACCEPTED`
 >
-> 日期：2026-08-28
+> 日期：2026-08-29
 >
-> 适用范围：`TC-VNEXT-G01`～`TC-VNEXT-G07`
+> 适用范围：`TC-VNEXT-G01`～`TC-VNEXT-G07`，其中G01～G03执行最严格的主线优先约束
 
 ## 1. 为什么有这份指南
 
@@ -42,20 +42,20 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 
 如果“用户结果”和“当前指标”都只能回答为治理机制本身，该切片默认不进入当前版本，除非它正在修复可复现的当前版本P0/P1。
 
-以上回答必须进入`current_work_packages.json.active_slice`，不能只出现在对话文字中。开始写入、提交前、exact evidence前和Gate入口都运行scope guard。机器结果只有`PASS / SCOPE_REVIEW_REQUIRED / DEFER_TO_G07 / REJECT`；Agent不能把告警改写为PASS。
+以上回答必须进入`current_work_packages.json.active_slice`，不能只出现在对话文字中。开始写入和提交前运行`python -m scripts.validate_core_mainline`；Agent不能把失败改写为PASS。
 
-`CURRENT_GATE_FIX / EVAL_INFRA`的软预算固定为5个非生成文件、300行手写新增代码和2个新schema。超限不表示代码一定错误，但必须缩减、拆分或延后。G01～G06新增持久化评测状态、数据库、migration、依赖、密码学协议、authority、broker或custody状态机直接归G07，不使用软预算放行。
+G01～G03只允许`PRODUCT / BLOCKING_DEFECT / GOAL_TRANSITION`。`BLOCKING_DEFECT`只接受有复现步骤和用户影响链的P0/P1；Agent Gate、blind、authority、custody、签名、broker、候选回执平台、通用评测基础设施和无当前用户影响的性能/可靠性加固直接拒绝并留到G07。
 
 ## 4. 版本与证据配比
 
 | 阶段 | 最小充分证据 | 不应成为前置条件 |
 |---|---|---|
-| G01～G06 | 自动测试、真实Provider回执、固定输入/prompt/schema、确定性scorer、三角色隔离审查、ultra裁决、Goal要求的一次sealed blind、clean checkout | 组织级custody、远端透明日志、硬件密钥、复杂broker、八角色签名、生产级供应链证明 |
-| G07 | 同commit完整候选回归、性能/隐私/可靠性、manifest、不可变readback；按威胁模型决定是否启用HARDENED profile | 真人可用性、生产SLO、商业付费证据 |
+| G01～G06 | 当前用户旅程、针对性自动测试、PostgreSQL、前端构建、当前浏览器E2E和始终安全底线 | 90条统计、50次链路、三角色复审、ultra、sealed blind、exact commit全证据绑定、完整候选加固 |
+| G07 | 完整质量统计、性能/隐私/可靠性、三角色复审、ultra、sealed blind、manifest、exact binding与供应链决策 | 真人可用性、生产SLO、商业付费证据 |
 | H1 | 经同意的真人可用性 | 用Agent审查冒充真人 |
 | 生产/商业 | 生产运行、真实许可、安全与商业数据 | 用本地/候选证据外推 |
 
-阶段不可重新排序：G01～G03为`CORE_MVP`，G04～G06为`PRODUCT_ENHANCEMENT`，G07为`CANDIDATE_HARDENING`。G03后只保存一次可体验里程碑并自动进入G04；G07后停止。
+阶段不可重新排序：G01～G03为`CORE_MVP`，G04～G06为`PRODUCT_ENHANCEMENT`，G07为`CANDIDATE_HARDENING`。G03后状态固定为`CORE_MVP_OWNER_REVIEW_PENDING`，项目所有者体验验收前不得进入G04；G07后停止。
 
 ### 4.1 并行而不偏航
 
@@ -83,50 +83,44 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 
 ## 6. 审查循环预算
 
-一个候选默认只允许：
+一个问题最多两轮“修复→受影响复审”。G01～G03不启动三角色候选审查或ultra裁决；这些在G07统一执行。
 
-1. 一轮三角色隔离审查；
-2. 一轮fresh ultra裁决；
-3. 最多两轮“修复→受影响复审”。
-
-进入第三轮前必须在`CURRENT_GOAL.md`回答：
+两轮仍失败时必须在`CURRENT_GOAL.md`回答：
 
 - 这是哪个可复现P0/P1？
 - 它如何直接破坏当前用户结果或硬指标？
 - 为什么不能登记到后续Goal？
 - 本轮最小修复和停止条件是什么？
 
-答不出来就停止继续加固，保留证据并回到产品主线。候选commit改变只使受影响的测试和审查失效，不得无理由重跑所有层级。
+若没有直接阻断安全底线的P0/P1，就采用“地点待确认”、`LIMITED`等诚实保守降级并继续主线。脚本和文档变化不作废产品证据；运行时代码或Provider配置变化才改变产品指纹并重跑对应验证。
 
 ## 7. 自动偏航探测
 
-出现任一条件时，下一自主动作必须改回产品主线：
+出现任一条件时，`core-mainline`直接拒绝或下一自主动作必须改回产品主线：
 
-- 连续两个checkpoint的产品代码/API/UI diff为0；
-- 连续两个checkpoint没有新增真实模型、Provider或产品质量指标；
+- 除Goal过渡外，PR没有产品运行时代码/API/UI变化，也没有关闭已登记P0/P1；
+- `product_progress=NONE`却试图获得产品切片PASS；
 - 新增治理代码量超过它所保护的产品切片，且没有当前P0/P1；
 - 同一问题经过两种实现仍只产生新的治理边缘条件；
 - checkpoint的下一动作仍是建设更多门禁，而当前用户主链有明确未完成项。
 
 转向不是降低门槛。转向后的做法是：保留已完成资产，诚实写`DEFERRED/NOT_RUN`，回到当前版本的最短价值路径。
 
-scope guard从Git diff派生进展：产品运行时代码/API/UI可以形成产品进展；Provider或质量指标必须附同候选的仓库外真实回执；schema、runner、validator、测试和治理文档固定属于`EVAL_INFRA/GOVERNANCE`。policy安装后，同一活动切片修改scope validator、预算、Gate profile或规则文件固定`POLICY_SELF_MODIFICATION / REJECT`。
+`core-mainline`从Git diff派生产品进展，并以产品指纹区分运行时变化和文档变化。G01～G03修改`FROZEN_G07_ASSET`或延后细节目录固定失败；治理规则和校验器由CODEOWNERS要求项目所有者审批。
 
 ## 8. G01当前最短价值路径
 
 G01后续顺序固定为：
 
-1. 安全发现现有Qwen账号可用的exact model/region/endpoint；
-2. 完成模型中立的Qwen adapter和严格结构化输出；
-3. 在同一dev/validation集比较Max、Plus、Flash，先清零严重错误，再比较precision/recall/P95；
-4. 接通高德POI真实地点映射和最小脱敏回执，验证错城/错类别/整句地点为0；
-5. 运行Agent A/B参考、ultra裁决并修复当前Goal P0/P1和blocking P2；
-6. 冻结唯一候选，运行一次独立sealed blind；
-7. 完成Text Card Gate、归档G01并原子切换G02。
+1. 对`G01-TC-001 / 013 / 025 / 037 / 046`运行快速样例；
+2. 验证匿名体验、登录长文本、编辑、刷新、删除、后台地图启动、Provider故障降级、公共字段脱敏和越权拒绝；
+3. 只运行v3定向测试、PostgreSQL集成、前端构建和G01浏览器E2E；
+4. 生成绑定产品指纹的`PRODUCT_DELIVERY_PASS`，通过PR进入`origin/develop`；
+5. 远端回读成功后归档G01并原子激活G02。
 
-外部authority broker、八角色签名、activation-readiness和完整OCI供应链验证在G01～G06均为`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不得插到上述顺序之前。
+Agent Gate、blind、authority broker、八角色签名、activation-readiness和完整OCI供应链统一为`FROZEN_G07_ASSET / NOT_RUN`，不得插到上述顺序之前。
 
-G02～G07随后按同一原则推进：G02并行地图UI/住宿领域/后端集成；G03并行事实编译/Audit规则/Top-3交互；G04并行临时上传/PaddleOCR/VL实验；G05并行来源准入/KnowledgeClaim/建议接入；G06并行consent记忆/分享/反馈；G07并行性能/可靠性/隐私材料并串行完成同commit Gate。详细路径和所有权以各Goal合同及`current_work_packages.json`为准。
+G02只接受地图/住宿产品包，G03只接受Top-3与最小修复产品包。G03完成后交付可运行主链、演示脚本、已知边界和验证结果并等待所有者体验验收。G04～G06再处理产品增强，G07统一完成候选细节和加固。
 
 ## 9. Checkpoint写法
 

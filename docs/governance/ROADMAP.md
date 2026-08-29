@@ -35,7 +35,7 @@ H1 真人可用性
 V1.1 商业探索
 ```
 
-路线不按日历时间自动推进，只按用户结果和证据门禁推进。G01～G07统一按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`后自动切换；G03后不增加HITL，直接进入G04。Agent证据不等于真人证据。G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，到H1前停止。
+路线不按日历时间自动推进，只按用户结果和阶段门推进。G01～G06使用`PRODUCT_DELIVERY_GATE`，G07使用`HARDENED_CANDIDATE_GATE`。G03完成后固定进入`CORE_MVP_OWNER_REVIEW_PENDING`并等待项目所有者体验验收，不自动进入G04。Agent证据不等于真人证据；G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
 
 每个Goal通过v2 `current_work_packages.json`拆分为主对话唯一集成者和独立功能对话工作包。长期功能一律使用独立branch/worktree和版本化prompt；子Agent只读复核/诊断。集成者始终占一个writer名额，最多两个功能对话同时写，第三个已生成提示词的当前包为`WAITING_FOR_WRITER_SLOT`。仅可为下一Goal提前准备最多两个`PREPARED_NOT_INTEGRATED`包；功能包验收冻结后按领域→后端/API→UI→E2E串行合并。完整机器规则见Program 3.3。
 
@@ -163,7 +163,7 @@ Qwen-VL只有在关键字段、阅读顺序、卡片结果、bbox和性能均满
 
 完成不等于H1、生产或商业验证。
 
-G07收口必须包含三个隔离审查角色、新的ultra裁决、所需sealed agent blind和同commit干净checkout回读。完成状态只能是`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
+90条完整统计与最小分母、50次真实性能链、三个隔离审查角色、ultra裁决、sealed agent blind、exact commit证据绑定、完整可靠性与供应链加固都在G07收口。完成状态只能是`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
 
 ## 10. V1.0 与 V1.1
 

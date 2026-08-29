@@ -3,83 +3,44 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md 50-run live persistence evidence",
-      "CURRENT_GOAL.md Acceptance exact candidate evidence"
+      "G01 五条固定样例",
+      "匿名体验、登录长文本、卡片编辑、刷新和删除",
+      "后台地图启动、Provider 故障降级、公共字段脱敏和越权拒绝"
     ],
     "allowed_paths": [
-      "backend/scripts/smoke_g01_live_persistence.py",
-      "docs/governance/CURRENT_GOAL.md",
-      "docs/governance/current_work_packages.json"
+      ".github",
+      "AGENTS.md",
+      "backend/app",
+      "backend/governance",
+      "backend/scripts/validate_core_mainline.py",
+      "backend/tests",
+      "docs/governance",
+      "frontend",
+      "miniapp/src",
+      "packages/trip-check-client/src"
     ],
-    "base_commit": "954a8cb83a5adf42766d892083f752d23865be0f",
-    "blocking_issue": {
-      "severity": "P1",
-      "reproduction": "At frozen candidate 954a8cb83a5adf42766d892083f752d23865be0f, smoke_g01_live_persistence.py exits before Provider use because it passes max_output_tokens=2048 while the frozen Qwen config requires 768.",
-      "current_goal_acceptance_ref": "CURRENT_GOAL.md requires 50 real persistence runs on the exact frozen candidate.",
-      "impact_chain": "The stale explicit limit prevents every live persistence run, so performance exact evidence and the complete CORE Gate cannot be produced.",
-      "minimum_fix": "Change the smoke script's explicit Qwen max_output_tokens from 2048 to the frozen value 768 and statically preflight that token.",
-      "stop_condition": "Stop if the fix needs any model, deadline, schema, product behavior, database lifecycle, threshold, retry, or infrastructure change."
-    },
-    "evidence_invalidated": [
-      "QWEN_EXACT",
-      "AMAP_EXACT",
-      "PERFORMANCE_EXACT",
-      "REVIEW",
-      "SEALED_BLIND",
-      "FINAL_GATE"
-    ],
+    "base_commit": "5f80fd1874c86a6d73e20b3b05a4c4c73a287153",
+    "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "database or durable scope registry",
-      "migration or dependency",
-      "cryptographic or authority protocol",
-      "component-level evidence reuse framework"
+      "Agent Gate、blind、authority、custody、签名或 broker",
+      "通用评测基础设施",
+      "不影响当前用户结果的性能或可靠性加固",
+      "未在 Goal 激活时锁定的新验收项"
     ],
-    "minimum_change": "Make the 50-run live persistence script use the frozen Qwen 768-token output limit and statically preflight that binding; change no product semantics or evidence threshold.",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "3b221a71da9561fec25d86b92e823a5ecc7e78b2",
-    "preflight_entrypoints": [
-      "backend/scripts/validate_work_packages.py",
-      "backend/scripts/run_qwen_model_predictions.py",
-      "backend/scripts/export_g01_amap_live_receipts.py",
-      "backend/scripts/export_g01_qwen_live_receipts.py",
-      "backend/scripts/smoke_g01_live_persistence.py",
-      "backend/scripts/score_g01_sealed_agent_blind.py",
-      "backend/scripts/build_agent_gate_pass.py"
-    ],
-    "preflight_required_tokens": {
-      "backend/scripts/build_agent_gate_pass.py": [
-        "verify_core_agent_gate_pass",
-        "verify_g07_candidate_gate_pass"
-      ],
-      "backend/scripts/export_g01_amap_live_receipts.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/export_g01_qwen_live_receipts.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/run_qwen_model_predictions.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/smoke_g01_live_persistence.py": [
-        "max_output_tokens=768"
-      ],
-      "backend/scripts/score_g01_sealed_agent_blind.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/validate_work_packages.py": [
-        "output.open(\"x\""
-      ]
-    },
-    "slice_id": "G01-QWEN-LIMIT-BINDING-GATE-FIX",
-    "stop_condition": "Stop if the fix changes the model, deadline, schema, product behavior, database lifecycle, evidence threshold, or adds a retry.",
-    "user_outcome": "The required 50 real persistence runs execute with exactly the same frozen Qwen limits as the 72-case candidate evidence.",
-    "work_kind": "CURRENT_GATE_FIX"
+    "minimum_change": "只完成 G01 当前用户旅程的交付验证和进入 develop 所需的最小治理纠偏。",
+    "phase": "DELIVERY_VERIFY",
+    "preflight_entrypoints": [],
+    "preflight_required_tokens": {},
+    "product_progress": "RUNTIME",
+    "repair_review_cycle": 1,
+    "slice_id": "G01-PRODUCT-DELIVERY-VERIFY",
+    "stop_condition": "交付门通过后立即推进；P2/P3 或 G07 候选债务不得继续阻断 G01。",
+    "user_outcome": "用户可以从长文本得到可信、可编辑、可刷新和可删除的逐日卡片，且安全底线不退化。",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
-  "gate_profile": "CORE_AGENT_GATE",
-  "guidance_sha256": "bb6d4724989283901865755640c12777695dc352a15ec84915658749bec16499",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
   "integration_order": [],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -88,14 +49,14 @@
   "packages": [
     {
       "acceptance": [
-        "G01 exact candidate evidence and Text Card Gate are completed",
-        "governance unification is merged only at the serial integration window",
-        "G02 is not activated before G01 archive and atomic binding transition"
+        "G01 PRODUCT_DELIVERY_GATE 通过",
+        "安全底线和固定五条样例通过",
+        "通过 PR 进入 origin/develop 后再激活 G02"
       ],
       "baseline_commit": "8aeb7554b8b5686897f4c8b1be0b7763c645c210",
       "branch": "codex/trip-check-product-reset",
-      "dialogue_ref": "codex-task:primary-integrator",
       "dependencies": [],
+      "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
       "forbidden_paths": [],
       "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
@@ -118,7 +79,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "scope_guard_version": "scope-guard-v1",
-  "scope_policy_sha256": "b6c828dbc4d1f067ba9d713eb3a4ad7d4aacd947227a33b2a116a88084d43f6a",
-  "schema_version": "work-package-registry-v2"
+  "scope_guard_version": "core-mainline-v1",
+  "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
+  "schema_version": "work-package-registry-v3"
 }

@@ -6,10 +6,10 @@
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.3`
 - Mainline phase：`CORE_MVP`
-- Gate profile：`CORE_AGENT_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G02 Map & Stay Gate通过并归档后
-- Required gate：`Top-3 Audit Gate + AGENT_GATE_PASS`
+- Required gate：`Top-3 Audit Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G04-SCREENSHOT`
 
 ## Dependencies
@@ -95,12 +95,12 @@
 - fault matrix和snapshot replay；
 - PostgreSQL 031 fresh/existing、ABSOLUTE/DAY_INDEX_ONLY和旧数据兼容；
 - H1/生产：`NOT_RUN`。
-- 三角色Agent审查、ultra裁决、所需sealed agent blind与同commit fresh readback。
+- 当前Top-3/最小修复定向测试、PostgreSQL、frontend build和浏览器E2E；候选复审与blind留到G07。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Agent Gate Protocol、Provider Admission、Risk Register；
+- Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register；
 - ADR-007、ADR-008、ADR-011、ADR-012、ADR-013、ADR-014及现有Audit/Repair ADR中未被取代的证据不变量。
 
 ## Baseline
@@ -136,7 +136,7 @@
 ## Auto-advance
 
 - Required gate：`Top-3 Audit Gate`；Next template：`TC-VNEXT-G04-SCREENSHOT.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，保存可体验里程碑并最终归档；原子更新Goal binding与work-package registry自动激活G04，不新增HITL、不登记外部ledger、不创建authority generation；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，保存可体验里程碑并切换为`CORE_MVP_OWNER_REVIEW_PENDING`；不得自动激活G04，需等待项目所有者体验验收；
 - FUX-03、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

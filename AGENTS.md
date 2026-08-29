@@ -99,7 +99,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 ## 6. 产品主线与执行比例
 
-治理、测试、审查和证据只用于保护产品结果，不能自行升级为产品目标。每个可回滚切片必须先写明它直接推进的用户结果或当前 Goal 硬指标；优先级固定为：
+治理、测试、审查和证据只用于保护产品结果，不能自行升级为产品目标。优先级固定为：
 
 1. 可运行、可查看的端到端用户主链；
 2. 真实模型/Provider效果、确定性质量指标和失败降级；
@@ -108,24 +108,18 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 执行时遵守以下硬规则：
 
-- G01～G03固定为`CORE_MVP`，优先把文本卡片、地图住宿和Top-3核验主链做完整；G04～G06固定为`PRODUCT_ENHANCEMENT`，依次自动继续截图、三城知识、记忆分享；G07固定为`CANDIDATE_HARDENING`。G03通过后只保存可体验里程碑，不新增人工停点，直接激活G04；G07完成后停止并等待H1/公网/生产批准。
-- 纯治理/审查切片最多连续一个 checkpoint。若连续两个切片的产品代码/API/UI diff 为0，且模型、Provider或产品评测指标也没有前进，必须停止治理扩展并回到产品主线。
-- G01～G06使用`CORE_AGENT_GATE`：固定输入、prompt、schema、候选commit/config/data、确定性scorer、三个隔离审查、一次ultra裁决、Goal要求的sealed blind和干净checkout回读。不得把远端透明日志、硬件密钥、组织级custody、复杂broker或完整供应链签名作为这些版本的前置条件。
-- G07才执行`HARDENED_CANDIDATE_GATE`，可以评估并启用外部authority、目的专一broker、角色签名、不可变远端ref和隔离OCI等候选加固。已有BOOTSTRAP/verifier代码保留为实验资产，在G07前不得继续成为关键路径或阻断G01～G06。
-- P0/P1在可复现且属于当前Goal时立即阻断。P2只有在会使当前用户Outcome、硬Gate指标、隐私/安全不变量失真，或在Goal激活时被显式列为blocking时才阻断；其他P2必须进入风险登记或明确的后续Goal，不能无限修复。P3只进入backlog。
-- 每个候选固定一轮三角色审查和一轮裁决；修复后只重跑受影响的检查，最多两轮“修复→复审”。第三轮必须在`CURRENT_GOAL.md`明确记录其直接阻断的P0/P1及用户影响，否则降级为后续加固。
-- 测试通过、审查通过、receipt或签名都不是用户结果；未运行的模型、Provider、blind、真人和生产证据必须继续写`NOT_RUN`。
-- checkpoint的“下一自主动作”必须优先指向当前Goal尚未完成的用户主链。只有一个可复现的当前版本P0/P1确实挡住该动作时，才允许继续做治理基础设施。
+- G01～G03固定为`CORE_MVP`，G04～G06固定为`PRODUCT_ENHANCEMENT`，六个Goal统一使用`PRODUCT_DELIVERY_GATE`；它只回答当前用户旅程是否可用以及安全底线是否保持。G07才使用`HARDENED_CANDIDATE_GATE`完成统计、性能、复审、blind、exact binding、可靠性和供应链收口。
+- 始终阻断的安全底线只有：错城/错类别/描述句或URL被当成地点；越权、原文或内部信息泄漏；数据删除失败；编辑后自动调用路线Provider；把`UNKNOWN/UNAVAILABLE`冒充成功。
+- G01～G03每个活动切片只能是`PRODUCT / BLOCKING_DEFECT / GOAL_TRANSITION`。`BLOCKING_DEFECT`必须有可复现且直接破坏当前旅程或安全底线的P0/P1；P2/P3登记后续归属，不得阻止已经通过的当前交付门。
+- G01～G03机器拒绝Agent Gate、blind、authority、custody、签名、broker、候选回执平台、通用评测基础设施以及不影响当前用户结果的性能/可靠性加固。已有实现统一标记为`FROZEN_G07_ASSET`，保留但不得继续修改或作为当前依赖。
+- 一个问题最多两轮“修复→复审”。两种实现仍失败时优先采用诚实的保守降级，例如“地点待确认”或`LIMITED`，不得继续建设新治理系统。
+- 除Goal过渡外，不允许独立纯文档checkpoint。普通PR必须改变产品运行时代码/API/UI，或关闭一个已登记P0/P1；`product_progress=NONE`不能获得`PASS`。
+- 当前Goal交付门通过后必须允许归档和推进，G07项目为`NOT_RUN`不得阻断。脚本、测试说明或文档变化不作废产品证据；只有相关运行时代码或Provider配置改变才改变产品指纹并重跑对应验证。
+- G01～G03合同激活后冻结；增加范围、提高门槛或修改校验器必须由项目所有者通过CODEOWNERS审批。`develop`只经PR和唯一必选检查`core-mainline`更新，不设置日常bypass。
+- G03通过后不得自动进入G04；状态固定切换为`CORE_MVP_OWNER_REVIEW_PENDING`，交付可运行主链、演示脚本、已知边界和验证结果，等待项目所有者体验验收。
+- 测试通过、receipt或签名都不是用户体验或真人证据；未运行的模型、Provider、blind、真人和生产证据继续如实写`NOT_RUN`。
 
-每个实现切片开始前必须在`current_work_packages.json.active_slice`冻结用户结果、当前Goal验收引用、`PRODUCT / CURRENT_GATE_FIX / EVAL_INFRA / HARDENING`类型、最小改动、允许路径、禁止机制、证据失效范围和停止条件，并运行scope guard：
-
-- `CURRENT_GATE_FIX`必须提供P0/P1或blocking P2的复现、验收条款、影响链、最小修复和停止条件；严重性不能自行扩大实现权限；
-- `EVAL_INFRA`固定为`Product progress=NONE`。新增schema、runner、validator和测试数量不能算产品或质量进展；
-- G01～G06的Gate修复或评测基础设施不得新增数据库/持久化registry、migration、依赖、密码学协议、authority、broker或custody状态机；检测到后固定`DEFER_TO_G07`；
-- 超过5个非生成文件、300行手写新增代码或2个新schema只触发`SCOPE_REVIEW_REQUIRED`，Agent不得提高预算，只能缩减、拆分或延后；
-- scope policy已安装后，活动切片不得修改本规则、scope validator、预算、Gate profile或其机器schema；规则例外必须来自项目所有者明确批准；
-- 正式证据顺序固定为产品实现→dev/validation→无blind合成空跑→`EVIDENCE_FROZEN`→exact Provider/性能证据→复审→唯一sealed blind。exact evidence开始前必须运行`--scope-check --phase EVIDENCE_FROZEN`；冻结标记提交后任何tracked代码、配置、schema或治理变化都使冻结失效；
-- 同一问题两种实现仍只产生新的治理边缘条件时停止该策略，保留证据并回到当前Goal最短用户价值路径。
+每个切片在`current_work_packages.json.active_slice`登记用户结果、当前Goal验收引用、工作类型、最小改动、允许路径、禁止机制、`repair_review_cycle`、产品进展和停止条件，并在提交前运行`python -m scripts.validate_core_mainline`。机器合同的唯一权威为`docs/governance/product_delivery_gates.json`。
 
 并行开发必须读取`docs/governance/current_work_packages.json`并通过机器校验：
 
@@ -137,7 +131,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 - 只可提前准备下一个Goal，最多两个`PREPARED_NOT_INTEGRATED`贡献工作包；下一Goal不得提前登记集成者，当前Goal不得依赖下一Goal；不得跨两级开发、提前合并、提前创建migration或改变公共合同。
 - `owned_paths`、branch和worktree不得重复或重叠。普通贡献任务不得修改治理文件、Goal/work-package binding、编号migration、共享OpenAPI/生成物和依赖锁文件；不得自行合并，只能commit/push自己的工作包分支并回报远端readback。
 - 功能对话报告`READY_TO_MERGE`不等于官方状态。主对话必须验收路径、commit、工作树、定向测试和远端readback后登记`ready_commit`；此后分支tip变化、worktree变脏或继续提交都会使冻结失效。
-- 贡献包运行期间，主对话只能提交registry/checkpoint等控制面变更；开始产品代码集成前，所有相关贡献包必须冻结。集成者随后按已登记的领域模型→持久化/API→前端→E2E顺序合并，候选冻结后再运行完整Gate。
+- 贡献包运行期间，主对话只能提交registry/checkpoint等控制面变更；开始产品代码集成前，所有相关贡献包必须冻结。集成者随后按已登记的领域模型→持久化/API→前端→E2E顺序合并，再运行当前Goal的`PRODUCT_DELIVERY_GATE`。
 
 具体执行模板和本次偏航复盘见`docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md`。
 
@@ -151,7 +145,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 4. `docs/product/TRIP_CHECK_API_CONTRACT.md`；
 5. `docs/ARCHITECTURE.md` 与 Accepted ADR；
 6. `docs/governance/PROGRAM.md`；
-7. `docs/governance/AGENT_GATE_PROTOCOL.md`与`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`；
+7. `docs/governance/product_delivery_gates.json`与`PRODUCT_MAINLINE_EXECUTION_GUIDE.md`；
 8. `docs/governance/CURRENT_GOAL.md`、`ROADMAP.md`、`RELEASE_GATES.md`；
 9. 当前 commit/config/dataset 对应的 evidence。
 
@@ -159,24 +153,24 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 - `origin/develop`是唯一集成基线；`main`保持受保护状态，未经人工批准不得合并。
 - 当前Goal的实现分支必须从现场fetch后的`origin/develop`创建，并在`CURRENT_GOAL.md`记录exact baseline、upstream和远端readback。当前允许继续使用的实现分支是Goal中声明的分支。
-- 并行worktree必须使用`current_work_packages.json`登记的同一baseline、branch、依赖、路径所有权和状态。工作包状态只允许`PREPARED_NOT_INTEGRATED / WAITING_FOR_WRITER_SLOT / IN_PROGRESS / READY_TO_MERGE / MERGED / DEFERRED / BLOCKED_EXTERNAL`；历史v1 registry只读兼容，写入和Gate必须使用v2。
+- 并行worktree必须使用`current_work_packages.json`登记的同一baseline、branch、依赖、路径所有权和状态。工作包状态只允许`PREPARED_NOT_INTEGRATED / WAITING_FOR_WRITER_SLOT / IN_PROGRESS / READY_TO_MERGE / MERGED / DEFERRED / BLOCKED_EXTERNAL`；历史v1/v2 registry只读兼容，当前写入和交付门必须使用v3。
 - 历史P0～P6、旧评测、旧产品实验和已完成专项分支只保留为只读历史。除非当前Goal显式列为可复用资产并经过差异审查，否则不得继续在这些分支开发或把其`AGENTS.md`、`CURRENT_GOAL.md`当作当前状态。
 - 分支内旧指导文件不得覆盖`origin/develop`当前版本。任何缺少当前`AGENTS.md + CURRENT_GOAL.md`的checkout只能做只读考古；写入前必须回到当前基线建立新分支。
 - “分支统一”只允许把已完成且仍适用的资产并入`develop`；不得为追求表面一致而合入失败实验、未提交草稿、过期Goal或修改历史证据，也不得force-push或重写历史。
 
 任何时刻 `CURRENT_GOAL.md` 只能有一个 `APPROVED` 或 `IN_PROGRESS` Goal。当前和可自动激活的planned Goal都必须写明用户Outcome、Dependencies、Scope、Non-goals、Authority、Baseline、Invariants、Acceptance/Gate、Verification、Budget、HITL、Stop conditions、Checkpoint、Auto-advance和Completion record；动态baseline可标记为“激活时填写”，其他字段不得省略。
 
-每个可回滚切片后必须更新Goal checkpoint：用户结果、commit、实际验证、证据等级、剩余工作、新风险和下一自主动作。完成时先push并readback subject checkpoint；随后在一个治理过渡commit中，以完整当前合同生成最终completed归档，把 `CURRENT_GOAL.md` 原子替换为下一份完整 `APPROVED`合同，并同步替换`docs/governance/current_goal_binding.json`，再push/readback。只有G07显式启用`HARDENED_CANDIDATE_GATE`时才推进authority generation、冻结对应协议并登记外部anchor。归档不得丢字段或保留PENDING；过渡commit不要求把自身未知hash写进自身。不得留下已完成Goal继续指挥开发，也不得跳过Program顺序。
+每个可回滚切片后必须更新Goal checkpoint：用户结果、commit、实际验证、证据等级、剩余工作、新风险和下一自主动作。完成时先push并readback subject checkpoint；随后在一个治理过渡commit中，以完整当前合同生成最终completed归档，把 `CURRENT_GOAL.md` 原子替换为下一份完整 `APPROVED`合同，并同步替换`docs/governance/current_goal_binding.json`，再push/readback。G01、G02通过后依序推进；G03只切换到`CORE_MVP_OWNER_REVIEW_PENDING`并停止。只有G07显式启用`HARDENED_CANDIDATE_GATE`时才推进authority generation、冻结对应协议并登记外部anchor。归档不得丢字段或保留PENDING；过渡commit不要求把自身未知hash写进自身。不得留下已完成Goal继续指挥开发，也不得跳过Program顺序。
 
 新组件固定执行“实验 → 同数据比较 → 达到预设门槛 → 进入运行时”。失败是调查证据，不能通过弱化测试、修改 blind/oracle、隐藏错误或缩小用户目标获得 PASS。
 
-G01～G07 必须执行 `docs/governance/AGENT_GATE_PROTOCOL.md`：隔离的 GPT-5.6-sol 任务只能形成 `MULTI_AGENT_SIMULATED_REVIEW` 或 `SEALED_AGENT_BLIND`，不得写成真人标注、真人验收或组织外独立证据。对应 Goal 的自动化、所需live Provider、三角色审查、ultra裁决、所需sealed blind和fresh readback全部通过，且没有未处理的当前版本P0/P1或blocking P2，才能标记 `AGENT_GATE_PASS`；候选绑定改变时只让受影响结论失效。G07 的最高自动状态是 `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，不得自动进入 H1。
+G01～G06只执行当前Goal的`PRODUCT_DELIVERY_GATE`；G07才执行`docs/governance/AGENT_GATE_PROTOCOL.md`并要求`HARDENED_CANDIDATE_GATE`。隔离Agent任务只能形成`MULTI_AGENT_SIMULATED_REVIEW`或`SEALED_AGENT_BLIND`，不得写成真人标注、真人验收或组织外独立证据。G07最高自动状态是`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，不得自动进入H1。
 
 现有`authority_policy.json`、BOOTSTRAP、外部signer/broker/verifier和隔离OCI设计属于`DEFERRED_CANDIDATE_HARDENING`。历史提交和测试保留，不删除、不伪称已运行；G01～G06不得继续实现这条链，也不得因其`NOT_RUN`阻断产品Goal。G07如确有候选篡改、供应链或组织隔离威胁需要，再按ADR-014显式激活、审查和验证。
 
 ## 8. 授权与证据边界
 
-Program/当前 Goal 明确预批准的开发分支、追加式 migration、v3 API、现有零增量费用 Provider 矩阵、离线测试、Agent Gate 任务、checkpoint commit/push 可自主执行。当前环境已有 Qwen/高德开发授权按 `AUTO_DISCOVERED_PROVIDER_BINDING` 和 `OWNER_ATTESTED_EXISTING_AUTHORIZATION` 记录；不得打印或提交密钥，也不得把 Provider 未暴露字段重新变成用户 HITL。
+Program/当前 Goal 明确预批准的开发分支、追加式 migration、v3 API、现有零增量费用 Provider 矩阵、定向离线测试、checkpoint commit/push 可自主执行；Agent Gate任务只在G07预批准。当前环境已有 Qwen/高德开发授权按 `AUTO_DISCOVERED_PROVIDER_BINDING` 和 `OWNER_ATTESTED_EXISTING_AUTHORIZATION` 记录；不得打印或提交密钥，也不得把 Provider 未暴露字段重新变成用户 HITL。
 
 以下必须人工批准：
 

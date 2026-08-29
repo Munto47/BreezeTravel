@@ -10,7 +10,7 @@
 - Status：`DRAFT / APPROVED / IN_PROGRESS / EVIDENCE_READY / COMPLETED / REJECTED`
 - Goal type：
 - Mainline phase：`CORE_MVP / PRODUCT_ENHANCEMENT / CANDIDATE_HARDENING`
-- Gate profile：`CORE_AGENT_GATE / HARDENED_CANDIDATE_GATE`
+- Gate profile：`PRODUCT_DELIVERY_GATE / HARDENED_CANDIDATE_GATE`
 - Branch：
 - Baseline commit：
 - Approved by / at：
@@ -19,7 +19,7 @@
 
 ## Dependencies
 
-- 唯一激活依赖是上一Goal已归档、同绑定`AGENT_GATE_PASS`已耐久物化并完成远端readback，且本Goal序号、前驱、阶段和自动Gate合同与Program一致；满足后按Program顺序置为`APPROVED`。G01～G06不依赖外部Goal ledger、authority generation、签名或OCI。
+- 唯一激活依赖是上一Goal已归档、`PRODUCT_DELIVERY_PASS`已耐久物化并完成远端readback，且本Goal序号、前驱、阶段和交付门合同与Program一致；满足后按Program顺序置为`APPROVED`。G03之后必须先取得项目所有者体验验收。
 - 当前环境已有Provider凭据由程序安全自动readback，未暴露字段写`NOT_EXPOSED_BY_PROVIDER`；缺失lane标记`NOT_READY`，不得伪造或fallback，但不阻止其他安全独立切片。
 - 只有新增账号/付费/数据权限、改变产品目标或Gate、H1/公网/生产等真实外部动作才按HITL/Stop请求；不得留下0个active Goal。
 
@@ -82,7 +82,7 @@
 
 ## Required Gate
 
-引用`RELEASE_GATES.md`的具体Gate，并写出本Goal的零容忍项、指标、数据split和性能目标。G01～G07必须引用`AGENT_GATE_PROTOCOL.md`并以`AGENT_GATE_PASS`作为自动晋级条件。
+引用`RELEASE_GATES.md`的具体Gate。G01～G06引用`product_delivery_gates.json`并以`PRODUCT_DELIVERY_PASS`作为工程晋级条件；G07引用`AGENT_GATE_PROTOCOL.md`和`HARDENED_CANDIDATE_GATE_PASS`。
 
 ## Verification
 
@@ -111,7 +111,7 @@
 
 ## HITL
 
-只列新账号/付费、扩大外部数据、未批准schema/migration/依赖、读取或修改blind truth/oracle、H1/真人/公网、`main`、release/deploy和破坏性数据操作。按协议启动隔离Agent审查和sealed blind任务不属于HITL。
+只列新账号/付费、扩大外部数据、未批准schema/migration/依赖、读取或修改blind truth/oracle、H1/真人/公网、`main`、release/deploy和破坏性数据操作。隔离Agent审查和sealed blind只在G07执行。
 
 ## Checkpoint ledger
 
