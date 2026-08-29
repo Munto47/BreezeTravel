@@ -26,7 +26,8 @@
       "component-level evidence reuse framework"
     ],
     "minimum_change": "Run the mandatory no-blind synthetic preflight and candidate regression checks without tracked product changes; freeze only after every preflight finding is empty.",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "64395e5a2801e44cccb8b6305afd2836c7cb1f3b",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
       "backend/scripts/run_qwen_model_predictions.py",
