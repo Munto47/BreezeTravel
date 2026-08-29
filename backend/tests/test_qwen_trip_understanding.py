@@ -56,8 +56,6 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
                     "span_end": place_start + len("故宫博物院"),
                     "role": "PLANNED",
                     "atomic_place_name": "故宫博物院",
-                    "category_hint": "景点",
-                    "time_hint": None,
                 }
             ],
         },
@@ -376,16 +374,12 @@ async def test_qwen_provider_does_not_relocate_planned_place_into_reference_name
                     "span_end": reference_start + len(reference_name),
                     "role": "REFERENCE",
                     "atomic_place_name": reference_name,
-                    "category_hint": "餐饮",
-                    "time_hint": None,
                 },
                 {
                     "span_start": nested_start,
                     "span_end": nested_start + len("豫园"),
                     "role": "PLANNED",
                     "atomic_place_name": "豫园",
-                    "category_hint": "景点",
-                    "time_hint": None,
                 },
             ],
         },
@@ -431,8 +425,6 @@ async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_opt
             "span_end": start + len(value),
             "role": role,
             "atomic_place_name": value,
-            "category_hint": None,
-            "time_hint": None,
         }
 
     output = json.dumps(
@@ -490,7 +482,9 @@ async def test_qwen_provider_derives_planned_day_from_source_heading() -> None:
     proposal = await provider.propose(source)
 
     assert proposal.mentions[0].day_index == 2
+    assert proposal.mentions[0].time_hint == "上午"
     assert proposal.binding["planned_day_fill_count"] == 1
+    assert proposal.binding["time_hint_derivation_count"] == 1
 
 
 @pytest.mark.asyncio
@@ -535,8 +529,6 @@ async def test_qwen_provider_rejects_non_atomic_planned_span_after_one_repair() 
                     "span_end": start + len("预约说明"),
                     "role": "PLANNED",
                     "atomic_place_name": "预约说明",
-                    "category_hint": None,
-                    "time_hint": None,
                 }
             ],
         },

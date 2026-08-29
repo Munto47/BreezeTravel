@@ -56,18 +56,6 @@
           ],
           "title": "Atomic Place Name"
         },
-        "category_hint": {
-          "anyOf": [
-            {
-              "maxLength": 40,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Category Hint"
-        },
         "role": {
           "$ref": "#/$defs/ActivityRole"
         },
@@ -80,27 +68,13 @@
           "minimum": 0,
           "title": "Span Start",
           "type": "integer"
-        },
-        "time_hint": {
-          "anyOf": [
-            {
-              "maxLength": 80,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Time Hint"
         }
       },
       "required": [
         "span_start",
         "span_end",
         "role",
-        "atomic_place_name",
-        "category_hint",
-        "time_hint"
+        "atomic_place_name"
       ],
       "title": "QwenMentionDraft",
       "type": "object"

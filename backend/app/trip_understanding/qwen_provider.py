@@ -78,6 +78,11 @@ _DAY_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _CLAUSE_BOUNDARIES = "。；;\n"
+_TIME_SEGMENT_BOUNDARIES = "。！？；;\n，,、"
+_TIME_HINT_RE = re.compile(
+    r"(?:清晨|早上|上午|中午|午后|下午|傍晚|晚上|夜间)"
+    r"|(?:[01]?\d|2[0-3])[:：][0-5]\d"
+)
 _FIXED_MAX_CONCURRENCY = 1
 
 
@@ -178,6 +183,15 @@ def _day_index_at(source_text: str, position: int) -> int:
         raw = match.group("zh") or match.group("num")
         day_index = int(raw) if raw.isdigit() else _DAY_NUMBER[raw]
     return day_index
+
+
+def _time_hint_at(source_text: str, position: int) -> str | None:
+    left = max(
+        source_text.rfind(marker, 0, position)
+        for marker in _TIME_SEGMENT_BOUNDARIES
+    )
+    matches = list(_TIME_HINT_RE.finditer(source_text[left + 1 : position]))
+    return matches[-1].group(0) if matches else None
 
 
 def _source_clause(source_text: str, position: int) -> str:
@@ -320,8 +334,6 @@ class QwenMentionDraft(StrictModel):
     span_end: int = Field(gt=0)
     role: ActivityRole
     atomic_place_name: str | None = Field(max_length=40)
-    category_hint: str | None = Field(max_length=40)
-    time_hint: str | None = Field(max_length=80)
 
 class QwenSemanticDraft(StrictModel):
     destination: QwenDestinationDraft
@@ -597,6 +609,7 @@ class QwenStructuredInferenceProvider:
             "conditional_optional_reclassification_count": 0,
             "non_activity_mention_drop_count": 0,
             "duplicate_mention_drop_count": 0,
+            "time_hint_derivation_count": 0,
         }
         if destination.basis == DestinationBasis.EXPLICIT:
             span_start = destination.evidence_span_start
@@ -718,6 +731,9 @@ class QwenStructuredInferenceProvider:
             elif not 0 <= span_start < span_end <= len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
             raw_text = source_text[span_start:span_end]
+            time_hint = _time_hint_at(source_text, span_start)
+            if time_hint is not None:
+                normalization_counts["time_hint_derivation_count"] += 1
             day_index = None
             if role == ActivityRole.PLANNED:
                 day_index = _day_index_at(source_text, span_start)
@@ -737,8 +753,8 @@ class QwenStructuredInferenceProvider:
                     day_index=day_index,
                     sequence_index=0,
                     atomic_place_name=atomic,
-                    category_hint=item.category_hint,
-                    time_hint=item.time_hint,
+                    category_hint=None,
+                    time_hint=time_hint,
                 )
             )
         mentions.sort(key=lambda item: (item.span_start, item.span_end, item.mention_id))

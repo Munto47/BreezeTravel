@@ -53,8 +53,9 @@ Mentions:
 - Do not return day or sequence indexes. Application code derives the day from
   the nearest preceding Day/第N天 heading (Day 1 when absent), sorts accepted
   mentions by source span, and assigns sequence indexes.
-- `category_hint` and `time_hint` are hints from the source, not verified
-  Provider facts.
+- Do not return category or time hints. Provider resolution supplies verified
+  categories later; application code copies only explicit local time markers
+  such as “上午” or “08:30” from the source.
 
 Do not claim that any POI, city, category, route, opening time or booking fact is
 verified. Deterministic application code performs Provider resolution later.
