@@ -1,21 +1,21 @@
-# IN_PROGRESS GOAL：V0.2 地图与整程住宿
+# APPROVED GOAL：V0.3 Top-3 核心行程查
 
-Goal ID: TC-VNEXT-G02-MAP-STAY
-Status: IN_PROGRESS
+Goal ID: TC-VNEXT-G03-TOP3-AUDIT
+Status: APPROVED
 Goal type: PRODUCT_VERTICAL_SLICE
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
 {
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
-  "goal_id": "TC-VNEXT-G02-MAP-STAY",
-  "goal_status": "IN_PROGRESS",
+  "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "goal_status": "APPROVED",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "required_gate": "Map & Stay Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
-  "gate_result": "PRODUCT_DELIVERY_PASS",
+  "required_gate": "Top-3 Audit Gate + PRODUCT_DELIVERY_PASS",
+  "completion_status": "PENDING",
+  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
   "goal_archived": false,
-  "next_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "next_goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
   "next_activated": false,
   "h1_status": "NOT_RUN",
   "production_status": "NOT_RUN",
@@ -25,162 +25,158 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Metadata
 
-- Goal ID：`TC-VNEXT-G02-MAP-STAY`
+- Goal ID：`TC-VNEXT-G03-TOP3-AUDIT`
 - Program ID：`TC-VNEXT-2026`
-- Product version：`V0.2`
+- Product version：`V0.3`
 - Mainline phase：`CORE_MVP`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
-- Status：`IN_PROGRESS`
+- Status：`APPROVED`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
-- Branch：`codex/g02-map-stay`
-- Canonical baseline/upstream：`origin/develop@4054bbf8164d1e56078ae4aa944b8b33e4178ac1`，G02治理过渡PR #6与远端readback `PASS`
-- Activation：G01已通过`PRODUCT_DELIVERY_PASS`、经PR #5进入`origin/develop`并归档
-- Required gate：`Map & Stay Gate + PRODUCT_DELIVERY_PASS`
-- Next Goal：`TC-VNEXT-G03-TOP3-AUDIT`
+- Branch：`codex/g03-top3-audit`
+- Canonical predecessor：`origin/develop@1ef2e140cbafdef602a5a9a0fa824751b20b5bae`，G02产品PR #9合并与远端readback `PASS`
+- Activation：G02已通过`PRODUCT_DELIVERY_PASS`、经PR #9进入`origin/develop`并完成归档
+- Required gate：`Top-3 Audit Gate + PRODUCT_DELIVERY_PASS`
+- Terminal state：`CORE_MVP_OWNER_REVIEW_PENDING`；G04：`NOT_ACTIVATED`
 
 ## Dependencies
 
-- 唯一激活依赖G01归档且Text Card Gate通过；该依赖已由PR #5、交付回执与远端readback满足，G02现为`APPROVED`。
-- 首个preflight填写branch/baseline、current OpenAPI、G01的029/worker/snapshot、`OWNER_ATTESTED_EXISTING_AUTHORIZATION`和未关闭风险；缺失lane标记`NOT_READY`，不伪装通过并继续其他安全独立切片。
+- 唯一激活依赖是G02归档且Map & Stay Gate通过；该依赖已由G02交付回执、PR #9和`origin/develop@1ef2e140cbafdef602a5a9a0fa824751b20b5bae`远端readback满足。
+- G03产品分支只能在本治理过渡PR合并后从新的`origin/develop`创建；首个preflight回读exact activation subject、PlanRevisionRef、map/stay pointer和旧TripBrief/Itinerary日期约束。缺失lane标记`NOT_READY`而不伪造确认，并继续可独立完成的安全切片。
 
 ## User Outcome
 
-用户打开地图模式时通常已经有真实路线；同一天地点同色，步行/公交可切换。编辑卡片后旧地图明确显示“行程已修改，地图尚未更新”，只有点击“重新渲染地图”才计算当前行程。
-
-原文没有酒店时，用户得到综合全程首末站往返成本的最多3家连锁酒店候选；选择后整程住同一家。
+用户只看到最值得处理的三个“必须调整 / 可以更好 / 需要确认”问题，并能预览、采纳最小修改。采纳后生成新行程版本，地图提示需要更新，完整复检后才显示已解决。
 
 ## Scope
 
-- 复用G01的`MapRenderJob/MapRenderSnapshot`、lease、逻辑幂等、迟到保护和walking/transit事实；
-- 地图剧场、日颜色、marker/line联动；
-- `NEEDS_UPDATE`用户投影和手动rerender；
-- `StayAreaPlanner / HotelBrandRegistry / StayRecommendationSnapshot`；
-- 2/4/8km与同城扩展；
-- 最多12家路线矩阵和Top-3；
-- 选择共享StayAnchor并创建新revision。
+- `031_day_index_trip_bridge.sql`、`MaterializationLineage`与正式materialize到首个ItineraryRevision；
+- 地点存在/城市归属；
+- 营业、闭馆、预约；
+- walking/transit路线耗时和日容量；
+- 酒店往返、午餐和晚餐空档；
+- 有日期时的天气和风险；
+- Top-3确定性排序；
+- 用户友好Finding/Advice投影；
+- Repair preview、EditCommand、新revision和postcheck。
+- 公共`GET checks`、`POST changes/preview`和`POST changes/adopt`，严格脱敏并使用不透明token；
+- 无真实日历日期的`DAY_INDEX_ONLY`和人数默认2的来源标记；
+- 采纳使用ETag、Idempotency-Key和所有权校验，零路线Provider调用并令地图进入`NEEDS_UPDATE`。
 
 ## Pre-approved actions
 
-- `030_stay_recommendation_snapshots.sql`；
-- v3 map-renders、stay-suggestions、stay-selection；
-- 当前已有无增量费用高德POI、walking和transit开发调用；
-- Redis短期geometry缓存；
-- 不引入消息队列。
+- v3 materialize和Top-3用户结果；
+- 复用现有Evidence/Audit/Advice/Repair；
+- 必需的`031_day_index_trip_bridge.sql`，支持`ABSOLUTE|DAY_INDEX_ONLY`、nullable calendar与软人数来源；
+- 现有高德/和风开发矩阵；
+- 不新增风险搜索Provider。
 
 ## Parallel work packages
 
-G02只保留一个主集成包`WP-G02-INTEGRATOR`，在`codex/g02-map-stay`和干净主线工作树中串行交付地图、住宿、公共接口与浏览器旅程。未创建并行功能分支、额外writer或运行时多Agent。旧排程`WP-G02-STAY-DOMAIN → WP-G02-MAP-STAY-BACKEND → WP-G02-MAP-THEATER-UI → E2E`及分支名`codex/wp-g02-stay-domain`、`codex/wp-g02-map-stay-backend`、`codex/wp-g02-map-theater-ui`仅作历史合同兼容，当前未激活、未创建这些writer。
+G03只保留一个主集成包`WP-G03-INTEGRATOR`。唯一总指挥在`codex/g03-top3-audit`和同一个干净主线工作树中串行完成物化与lineage → Evidence/Audit/Top-3 → preview/adopt/postcheck → 公共UI/E2E。不开启并行产品writer，不生成额外prompt/branch/worktree，不建设新的治理或运行时多Agent体系；短期只读诊断也不得修改产品或Goal状态。
 
 ## Decisions locked
 
-- 初次卡片READY自动创建一次地图任务。
-- 后续卡片编辑自动路线Provider调用为0。
-- 用户手动rerender。
-- 差值≤10分钟优先walking。
-- 驾车不是默认。
-- 迟到任务只属于旧`PlanRevisionRef`，内部freshness不进入普通API。
-- 酒店按Day1…DayN-1过夜日、酒店→首站和末站→酒店方向计算；整程同店，不自动选择。
-- `StayScoringPolicyVersion`冻结坐标、12家停止阈值、失败惩罚和tie-break。
-- 不显示价格、房态、星级和服务质量。
+- AuditEngine是Finding唯一权威。
+- 内部保留全部MUST_ADJUST；公共页只展示前三项，剩余数量可见并按解决顺序补位。
+- 无日期不生成具体天气/闭馆日期HARD。
+- 用户结果最多3个，内部报告可保留更多。
+- 具体地点候选必须来自冻结CandidateSet。
+- LLM只表达已选事实和建议。
+- 采纳后地图stale，不自动重算。
+- 完整postcheck前不能显示已解决。
+- 公共映射固定为：高严重度`VIOLATED`＝“必须调整”，中低严重度＝“可以更好”，`UNKNOWN`＝“需要确认”；内部保留全部未解决硬问题，公共层最多3条并返回剩余“必须调整”数量。
 
 ## Non-goals
 
-- Top-3 Audit、天气、预约和完整Repair；
-- 酒店档次、预算和库存；
-- 实时跟随卡片重绘；
-- 新地图Provider、地图长期geometry存储；
-- 公网和生产商业展示。
+- 截图；
+- 时段/热门/夜景知识库；
+- 用户记忆与分享；
+- 新风险搜索Provider；
+- 实时客流、医疗、订票、最低价。
 
 ## Acceptance
 
-完全继承Map & Stay Gate：
+完全继承Top-3 Audit Gate：
 
-- 编辑后自动路线调用0；
-- stale/revision绑定100%正确；
-- 幂等、迟到、并发、重启和config漂移通过；
-- walking/transit独立失败语义；
-- 地图失败不影响卡片；
-- 住宿扩圈、brand、城市、类别和评分可重放；
-- 错酒店严重项0；
-- 同店物化和stale完整回读；
-- 只有无合格酒店的负例oracle允许空候选并中性返回；
-- 30组已知存在至少3家合格连锁酒店的正例中，snapshot Top-3非空率100%、首位合格100%，受控live dev非空率≥90%；
-- 公共地图状态只使用用户枚举；stale卡片详情不把旧路线表达为当前；
-- 住宿用户卡片解释区域、通勤摘要、最差单程、换乘和证据缺口。
-- 已有snapshot时地图首屏几何P95≤1.5秒；未就绪时地图壳和用户状态≤500ms。
+- HARD漏检0；
+- route precision/recall≥90%；
+- CandidateSet/receipt绑定100%；
+- 用户结果≤3；
+- Repair后新增BLOCKER/HIGH/UNKNOWN为0；
+- postcheck前错误“已解决”为0；
+- 无日期的具体时效HARD为0；
+- Provider局部失败保留成功事实。
+- DAY_INDEX_ONLY可materialize且不伪造日期/确认；lineage、ETag、地图/住宿current pointer一致。
 
 ## Verification
 
-- map worker/service状态机；
-- route mode policy；
-- Postgres 029/030集成；
-- Redis丢失和geometry过期；
-- AMap fixture/snapshot/live dev matrix；
-- browser pre-ready/ready/stale/rerender/partial；
-- stay scoring/property tests；
-- public result禁止内部字段；
-- 高德最小留存与owner attestation readback；
-- 当前地图/住宿定向测试、PostgreSQL、frontend build与浏览器E2E；候选复审留到G07；
+- rule/oracle单测；
+- Evidence freshness和partial failure；
+- frozen CandidateSet；
+- PostgreSQL materialize/audit/repair/postcheck；
+- map stale联动；
+- browser Top-3/preview/adopt/refresh；
+- fault matrix和snapshot replay；
+- PostgreSQL 031 fresh/existing、ABSOLUTE/DAY_INDEX_ONLY和旧数据兼容；
 - H1/生产：`NOT_RUN`。
+- 当前Top-3/最小修复定向测试、PostgreSQL、frontend build和浏览器E2E；候选复审与blind留到G07。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
 - Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-010、ADR-012、ADR-013、ADR-014。
+- ADR-007、ADR-008、ADR-011、ADR-012、ADR-013、ADR-014及现有Audit/Repair ADR中未被取代的证据不变量。
 
 ## Baseline
 
-- Implementation branch：`codex/g02-map-stay`；activation baseline/upstream：`origin/develop@4054bbf8164d1e56078ae4aa944b8b33e4178ac1`；
-- G01 delivery subject：`8aebb6af9639ed5814e157a6f0de0b136e64a70e`；G01 integration subject：`59da74b51455dc224efbf95c0caea3240b70c80e`；
-- Goal transition subject在过渡PR合并后由远端readback记录；首个G02产品切片开始前再次fetch并确认无基线漂移；
-- 只接受G01同绑定地图后端证据，不以旧room driving地图或坐标虚线为当前能力；
-- H1、公网、生产、商业：`NOT_RUN`。
+- Implementation branch：`codex/g03-top3-audit`；治理过渡基线/upstream：`origin/develop@1ef2e140cbafdef602a5a9a0fa824751b20b5bae`；G03产品分支在过渡PR合并后从新的远端subject创建，并在首个checkpoint记录exact activation subject；
+- G02 product/delivery/integration：`c6e8b5ef248b9c0d0169bfe4088eac30ff5a26cd` / `19823105ed64403bdf8e2d6820ed839112ab5508` / `1ef2e140cbafdef602a5a9a0fa824751b20b5bae`；远端CI与readback `PASS`；
+- 现场记录旧TripBrief日期/人数硬约束、Audit规则、CandidateSet与Provider版本；
+- 历史Audit PASS不适用于新materialization lineage；H1/生产：`NOT_RUN`。
 
 ## Invariants
 
-- snapshot不可变，job可变，freshness由current `PlanRevisionRef`计算；
-- card edit自动路线调用为0，不同请求key命中同逻辑任务也复用；
-- 旧路线可以带提示查看，不能作为当前事实；
-- 酒店候选必须同城、酒店类别、注册连锁；无候选中性；
-- 不展示价格、房态、星级、内部评分或质量承诺；geometry遵守许可和TTL。
+- AuditEngine是Finding唯一权威，LLM只表达；CandidateSet/receipt不可由模型补造；
+- 所有HARD内部保留，公共Top-3不把剩余项显示为通过；
+- `DAY_INDEX_ONLY`不生成日期天气/临时闭馆HARD，不伪造用户确认；
+- materialize/repair使用CAS、幂等、lineage和新revision；postcheck前不得显示已解决；
+- 采纳后地图为`NEEDS_UPDATE`，不自动路线调用；partial/UNKNOWN不算PASS。
 
 ## Budget
 
-- 路线每条边walking/transit各至多一次；手动重复点击复用逻辑任务；最多12家酒店进入方向性路线矩阵；
-- 2/4/8km/同城按12家阈值停止；Provider retry/deadline按冻结config并记账；
-- 不新增账号、付费、地图Provider、消息队列或长期geometry存储；每切片checkpoint。
+- Audit规则与Provider调用按RunSpec固定deadline/retry；具体地点候选最多来自冻结CandidateSet，不允许模型扩展；
+- Top-3表达最多一次LLM调用且不得改变Finding/Repair；所有调用记账；
+- 只允许现有无增量费用且已准入高德/和风开发矩阵；每切片checkpoint。
 
 ## HITL
 
-新高德账号/费用/扩大数据权限、HotelBrandRegistry新增受限来源、未预批准migration/依赖、H1/公网/生产/`main`时请求批准；现有授权和可修复地图、评分故障由Codex继续诊断，候选Agent Gate问题冻结到G07。
+新风险Provider、031以外公共schema、费用/账号/数据扩大、sealed oracle、H1/公网/生产/`main`需要批准；普通规则/迁移/测试故障自主修复。
 
 ## Checkpoint ledger
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-08-29 | G01已并入`origin/develop`，G02地图与整程住宿主线已激活；尚未修改G02产品代码 | transition pending remote subject | G01 `core-mainline`、PR #5合并、`origin/develop@59da74b`远端readback `PASS` | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic transition only` | 地图剧场、手动更新、整程住宿产品实现与G02定向验证 | G07候选项目`NOT_RUN`且不得阻断 | 从当前基线开始最小G02产品切片 |
-| 2026-08-30 | 用户可查看步行/公交地图、选择最多3家整程住宿；选择与卡片编辑均不自动调路线，手动重绘会纳入酒店到首末站 | product `c6e8b5e` | G02 targeted `5 PASS`；fresh PostgreSQL `1 PASS`；既有v3/路线回归 `38 PASS`；frontend build、client build、OpenAPI check、G02 Playwright `1 PASS`；core-mainline `PASS` | `CONTROLLED_FIXTURE / REAL_POSTGRESQL / LOCAL_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI` | `Governance ratio=delivery receipt and checkpoint only` | 产品PR push、远端CI/readback与并入`develop`；随后独立治理PR激活G03 | Redis缺失会诚实降级为`LIMITED`；live Provider、H1、公网、生产、商业均`NOT_RUN` | 提交交付回执，push并读取远端subject/CI；合并G02后再创建治理过渡分支 |
+| 2026-08-30 | G02已并入`origin/develop`并完成归档，G03 Top-3核验与最小修复主线激活；尚未修改G03产品代码 | transition pending remote subject | G02 GitHub `core-mainline` run `33266880055 PASS`；PR #9合并；`origin/develop@1ef2e140cbafdef602a5a9a0fa824751b20b5bae` readback `PASS` | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic transition only` | `031`、materialize、Top-3、preview/adopt/postcheck和浏览器主链 | live Provider、H1、公网、生产、商业保持`NOT_RUN`；G04不得自动激活 | 合并本治理过渡PR后，从新的`origin/develop`创建`codex/g03-top3-audit`并实现最小纵向切片 |
 
 ## Auto-advance
 
-- Required gate：`Map & Stay Gate`；Next template：`TC-VNEXT-G03-TOP3-AUDIT.md`；
-- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G03；不登记外部ledger、不创建authority generation；
-- FUX-02、H1、公网、生产、商业和`main`不自动启动。
+- Required gate：`Top-3 Audit Gate + PRODUCT_DELIVERY_PASS`；terminal state：`CORE_MVP_OWNER_REVIEW_PENDING`；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，归档G03并把唯一工作包置为已合并且不激活新写入者；保存可体验里程碑并切换为`CORE_MVP_OWNER_REVIEW_PENDING`。G04固定`NOT_ACTIVATED`，不得自动激活G04，需等待项目所有者体验验收；
+- FUX-03、H1、公网、生产、商业和`main`不自动启动。
+- H1、公网、生产、商业：`NOT_RUN`。
 
 ## Completion record
 
-- Status：`IN_PROGRESS`；Subject commit：G02 product `c6e8b5e`；Remote branch：`origin/codex/g02-map-stay`，本次产品push/readback待执行；
-- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / CONTROLLED_FIXTURE + REAL_POSTGRESQL + LOCAL_BROWSER / PRODUCT_DELIVERY_PASS`；`structurally_valid=true`只表示当前合同结构有效；
+- Status：`APPROVED`；Subject commits：`PENDING`；Remote branch：`origin/codex/g03-top3-audit`；
+- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`；结构有效不代表产品交付；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；live Provider与公网也为`NOT_RUN`；
-- User-visible result：地图剧场支持日配色、步行/公交切换、摘要降级、手动重绘；住宿按全程首末站扩圈、最多12家评分并公开3家，选择后整程同店且地图进入需更新；
-- Remaining risks：产品PR尚未并入`origin/develop`；G03尚未激活；Goal archived：`NO`；Next activated：`NO`；
+- User-visible result：`PENDING`；Remaining risks：G03产品代码、PostgreSQL、frontend build与浏览器主链均尚未交付；Goal archived：`NO`；Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
 
-- 需要新账号/费用或扩大地图来源；
-- 无法保证编辑零自动调用；
-- 迟到任务可能覆盖current revision；
-- 酒店品牌来源无法建立；
-- 需要价格/房态/星级才能满足目标。
+- 需要新风险Provider或未准入数据；
+- 未解决MUST_ADJUST无法进入内部队列或公共剩余数量；
+- 现有Audit权威必须被LLM替代；
+- 需要降低HARD或receipt门禁；
+- 日期缺失无法通过明确桥接保持UNKNOWN且不伪造日期。

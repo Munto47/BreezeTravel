@@ -36,7 +36,11 @@ PRODUCT_CONFIG_PATHS = {
     "packages/trip-check-client/package.json",
 }
 GOVERNANCE_PREFIXES = ("docs/governance/", ".github/")
-GOVERNANCE_EXACT = {GUIDANCE_PATH}
+GOVERNANCE_EXACT = {
+    GUIDANCE_PATH,
+    "docs/product/PROJECT_CHARTER.md",
+    "docs/product/TRIP_CHECK_SPEC.md",
+}
 
 
 class CoreMainlineError(ValueError):

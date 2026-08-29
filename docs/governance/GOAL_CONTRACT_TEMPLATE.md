@@ -126,7 +126,7 @@
 - Next Goal template：
 - 条件：Outcome完成、同绑定候选取得`AGENT_GATE_PASS`、clean tree、subject checkpoint push/readback、无Stop condition。
 - 过渡：先耐久物化当前Gate PASS并push/readback，再从当前Goal完整内容生成最终completed归档；同一治理过渡commit把`CURRENT_GOAL.md`替换为下一完整`APPROVED`合同，并原子更新`current_goal_binding.json + current_work_packages.json`，冻结下一Goal专属scorer/threshold/schema。下一Goal的Goal序号、阶段、前驱、canonical ref和自动Gate合同路径/hash必须逐项等于Program；G01～G06不登记外部ledger、不推进authority generation。G07只有`HardeningDecision=REQUIRED`时处理被点名的外部控制。
-- G03通过后保存可体验里程碑并自动进入G04，不新增HITL；G07完成后停止。
+- G03通过后保存可体验里程碑并固定进入`CORE_MVP_OWNER_REVIEW_PENDING`；项目所有者体验验收前不得激活G04。G07完成后停止。
 - H1、生产、公网、商业和`main`永不自动推进。
 
 ## Stop conditions

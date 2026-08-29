@@ -1,15 +1,15 @@
 {
   "automated_gate_contract_path": "docs/governance/product_delivery_gates.json",
   "automated_gate_contract_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
-  "canonical_candidate_ref": "refs/heads/codex/g02-map-stay",
+  "canonical_candidate_ref": "refs/heads/codex/g03-top3-audit",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "goal_id": "TC-VNEXT-G02-MAP-STAY",
-  "goal_sequence": 2,
+  "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "goal_sequence": 3,
   "mainline_phase": "CORE_MVP",
-  "predecessor_completion_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
-  "predecessor_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "predecessor_completion_commit": "1ef2e140cbafdef602a5a9a0fa824751b20b5bae",
+  "predecessor_goal_id": "TC-VNEXT-G02-MAP-STAY",
   "program_id": "TC-VNEXT-2026",
   "schema_version": "current-goal-binding-v3",
-  "status": "IN_PROGRESS",
+  "status": "APPROVED",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }
