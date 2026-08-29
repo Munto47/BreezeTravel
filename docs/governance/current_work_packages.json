@@ -3,21 +3,14 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md Qwen fixed seven-second model contract",
-      "CURRENT_GOAL.md Acceptance Qwen dev/validation and exact evidence"
+      "CURRENT_GOAL.md 50-run live persistence evidence",
+      "CURRENT_GOAL.md Acceptance exact candidate evidence"
     ],
     "allowed_paths": [
-      "backend/app/trip_understanding/qwen_provider.py",
-      "backend/eval_data/trip_text_cards_agent_v2/agent_evaluation_contract.json",
-      "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
-      "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
-      "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
-      "backend/scripts/export_g01_qwen_live_receipts.py",
-      "backend/scripts/run_qwen_model_predictions.py",
-      "backend/tests/test_qwen_trip_understanding.py",
+      "backend/scripts/smoke_g01_live_persistence.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "4f1177eea27dcaab8551f85986865c3007e4e657",
+    "base_commit": "954a8cb83a5adf42766d892083f752d23865be0f",
     "blocking_issue": null,
     "evidence_invalidated": [
       "QWEN_EXACT",
@@ -33,14 +26,14 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "First make Qwen batch and in-process Provider concurrency exactly one and bind it into summaries and hashes; only if a full 72-case run still lacks latency margin, move mechanical output fields into deterministic code and trim duplicate prompt rules.",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "26e81ce0750706f7bc2459ded5092e7250ebe733",
+    "minimum_change": "Make the 50-run live persistence script use the frozen Qwen 768-token output limit and statically preflight that binding; change no product semantics or evidence threshold.",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
       "backend/scripts/run_qwen_model_predictions.py",
       "backend/scripts/export_g01_amap_live_receipts.py",
       "backend/scripts/export_g01_qwen_live_receipts.py",
+      "backend/scripts/smoke_g01_live_persistence.py",
       "backend/scripts/score_g01_sealed_agent_blind.py",
       "backend/scripts/build_agent_gate_pass.py"
     ],
@@ -59,6 +52,9 @@
       "backend/scripts/run_qwen_model_predictions.py": [
         "write_external_bytes_exclusive"
       ],
+      "backend/scripts/smoke_g01_live_persistence.py": [
+        "max_output_tokens=768"
+      ],
       "backend/scripts/score_g01_sealed_agent_blind.py": [
         "write_external_bytes_exclusive",
         "validate_provider_receipt_assets"
@@ -67,10 +63,10 @@
         "output.open(\"x\""
       ]
     },
-    "slice_id": "G01-QWEN-LATENCY",
-    "stop_condition": "Stop if the change raises the seven-second deadline, retries or races calls, splices batches, adds infrastructure, drops semantic boundaries, or reduces place/card quality.",
-    "user_outcome": "Long travel text produces the same accurate editable cards while Qwen leaves enough margin inside the fixed seven-second request budget.",
-    "work_kind": "PRODUCT"
+    "slice_id": "G01-QWEN-LIMIT-BINDING-GATE-FIX",
+    "stop_condition": "Stop if the fix changes the model, deadline, schema, product behavior, database lifecycle, evidence threshold, or adds a retry.",
+    "user_outcome": "The required 50 real persistence runs execute with exactly the same frozen Qwen limits as the 72-case candidate evidence.",
+    "work_kind": "EVAL_INFRA"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
