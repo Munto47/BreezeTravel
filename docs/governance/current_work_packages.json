@@ -1,25 +1,24 @@
 {
-  "active_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
-  "active_goal_sequence": 1,
+  "active_goal_id": "TC-VNEXT-G02-MAP-STAY",
+  "active_goal_sequence": 2,
   "active_slice": {
     "acceptance_refs": [
-      "G01 五条固定样例",
-      "匿名体验、登录长文本、卡片编辑、刷新和删除",
-      "后台地图启动、Provider 故障降级、公共字段脱敏和越权拒绝"
+      "地图剧场显示同日同色并允许walking/transit切换",
+      "卡片编辑后只显示NEEDS_UPDATE，用户手动更新才调用路线Provider",
+      "住宿按2/4/8公里扩圈、最多12家评分并向用户展示最多3家整程同店候选"
     ],
     "allowed_paths": [
-      ".github",
-      "AGENTS.md",
-      "backend/app",
-      "backend/governance",
-      "backend/scripts/validate_core_mainline.py",
-      "backend/tests",
-      "docs/governance",
-      "frontend",
-      "miniapp/src",
+      "backend/app/api",
+      "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
+      "backend/app/trip_understanding",
+      "backend/tests/test_g02_*.py",
+      "docs/governance/CURRENT_GOAL.md",
+      "docs/governance/current_work_packages.json",
+      "frontend/e2e/g02-product-delivery.spec.js",
+      "frontend/src",
       "packages/trip-check-client/src"
     ],
-    "base_commit": "5f80fd1874c86a6d73e20b3b05a4c4c73a287153",
+    "base_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "Agent Gate、blind、authority、custody、签名或 broker",
@@ -27,15 +26,18 @@
       "不影响当前用户结果的性能或可靠性加固",
       "未在 Goal 激活时锁定的新验收项"
     ],
-    "minimum_change": "只完成 G01 当前用户旅程的交付验证和进入 develop 所需的最小治理纠偏。",
-    "phase": "DELIVERY_VERIFY",
-    "preflight_entrypoints": [],
+    "minimum_change": "先交付地图可查看/手动更新和整程住宿可选择的最小端到端产品切片。",
+    "phase": "IMPLEMENTING",
+    "preflight_entrypoints": [
+      "backend/tests/test_g02_*.py",
+      "frontend/e2e/g02-product-delivery.spec.js"
+    ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "repair_review_cycle": 1,
-    "slice_id": "G01-PRODUCT-DELIVERY-VERIFY",
-    "stop_condition": "交付门通过后立即推进；P2/P3 或 G07 候选债务不得继续阻断 G01。",
-    "user_outcome": "用户可以从长文本得到可信、可编辑、可刷新和可删除的逐日卡片，且安全底线不退化。",
+    "repair_review_cycle": 0,
+    "slice_id": "G02-MAP-STAY-PRODUCT",
+    "stop_condition": "两种实现仍失败时使用LIMITED或中性空候选；不得转向候选基础设施或新增验收项。",
+    "user_outcome": "用户可以查看路线、在编辑后手动更新地图，并从最多三家候选中选择整程住宿。",
     "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
@@ -49,30 +51,31 @@
   "packages": [
     {
       "acceptance": [
-        "G01 PRODUCT_DELIVERY_GATE 通过",
-        "安全底线和固定五条样例通过",
-        "通过 PR 进入 origin/develop 后再激活 G02"
+        "G02地图剧场和手动更新旅程可用",
+        "编辑后路线Provider自动调用为0",
+        "住宿最多12家评分、展示最多3家并选择整程同店"
       ],
-      "baseline_commit": "8aeb7554b8b5686897f4c8b1be0b7763c645c210",
-      "branch": "codex/trip-check-product-reset",
+      "baseline_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
+      "branch": "codex/g02-map-stay",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
       "forbidden_paths": [],
-      "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+      "goal_id": "TC-VNEXT-G02-MAP-STAY",
       "merge_order": 1,
       "owned_paths": [
-        "AGENTS.md",
-        "CLAUDE.md",
-        "README.md",
-        "backend",
-        "docs",
-        "frontend",
-        "miniapp",
-        "packages"
+        "backend/app/api",
+        "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
+        "backend/app/trip_understanding",
+        "backend/tests/test_g02_*.py",
+        "docs/governance/CURRENT_GOAL.md",
+        "docs/governance/current_work_packages.json",
+        "frontend/e2e/g02-product-delivery.spec.js",
+        "frontend/src",
+        "packages/trip-check-client/src"
       ],
-      "package_id": "WP-G01-INTEGRATOR",
-      "remote_branch": "origin/codex/trip-check-product-reset",
+      "package_id": "WP-G02-INTEGRATOR",
+      "remote_branch": "origin/codex/g02-map-stay",
       "role": "INTEGRATOR",
       "status": "IN_PROGRESS",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
