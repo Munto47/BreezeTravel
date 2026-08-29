@@ -35,7 +35,8 @@
       "component-level evidence reuse framework"
     ],
     "minimum_change": "Make the 50-run live persistence script use the frozen Qwen 768-token output limit and statically preflight that binding; change no product semantics or evidence threshold.",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "3b221a71da9561fec25d86b92e823a5ecc7e78b2",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
       "backend/scripts/run_qwen_model_predictions.py",
