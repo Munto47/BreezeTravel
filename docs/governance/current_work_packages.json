@@ -34,7 +34,8 @@
       "component-level evidence reuse framework"
     ],
     "minimum_change": "First make Qwen batch and in-process Provider concurrency exactly one and bind it into summaries and hashes; only if a full 72-case run still lacks latency margin, move mechanical output fields into deterministic code and trim duplicate prompt rules.",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "26e81ce0750706f7bc2459ded5092e7250ebe733",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
       "backend/scripts/run_qwen_model_predictions.py",
