@@ -13,6 +13,7 @@ from evals.agent_gate_v1.contracts import (
 ROOT = Path(__file__).resolve().parents[2]
 GOVERNANCE = ROOT / "docs" / "governance"
 PLANNED = GOVERNANCE / "goals" / "planned"
+COMPLETED = GOVERNANCE / "goals" / "completed"
 CURRENT = GOVERNANCE / "CURRENT_GOAL.md"
 G01_AUTOMATED_GATE = (
     ROOT / "backend" / "eval_data" / "agent_gate_v1" / "g01_automated_product_gate.json"
@@ -36,6 +37,22 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _goal_contract(sequence: int) -> Path:
+    """Return the current/future contract without assuming G01 stays active."""
+    planned = list(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md"))
+    if planned:
+        assert len(planned) == 1, (sequence, planned)
+        return planned[0]
+    current = _text(CURRENT)
+    goal_marker = f"TC-VNEXT-G{sequence:02d}-"
+    current_goal = re.search(r"^Goal ID: (\S+)$", current, re.MULTILINE)
+    if current_goal and current_goal.group(1).startswith(goal_marker):
+        return CURRENT
+    candidates = list(COMPLETED.glob(f"TC-VNEXT-G{sequence:02d}-*.md"))
+    assert len(candidates) == 1, (sequence, candidates)
+    return candidates[0]
+
+
 def test_authority_files_separate_delivery_and_candidate_evidence() -> None:
     for path in (
         ROOT / "AGENTS.md",
@@ -55,16 +72,7 @@ def test_authority_files_separate_delivery_and_candidate_evidence() -> None:
 
 
 def test_every_pre_h1_goal_uses_the_phase_appropriate_gate() -> None:
-    goals = sorted(PLANNED.glob("TC-VNEXT-G*.md"))
-    assert [path.stem.split("-")[2] for path in goals] == [
-        "G01",
-        "G02",
-        "G03",
-        "G04",
-        "G05",
-        "G06",
-        "G07",
-    ]
+    goals = [_goal_contract(sequence) for sequence in range(1, 8)]
     for path in goals[:6]:
         content = _text(path)
         assert "PRODUCT_DELIVERY_PASS" in content, path
@@ -73,7 +81,7 @@ def test_every_pre_h1_goal_uses_the_phase_appropriate_gate() -> None:
         assert "ADR-013" in content, path
         assert "H1" in content and "NOT_RUN" in content, path
 
-    g07 = _text(PLANNED / "TC-VNEXT-G07-CANDIDATE.md")
+    g07 = _text(_goal_contract(7))
     assert "HARDENED_CANDIDATE_GATE_PASS" in g07
     assert "Gate profile：`HARDENED_CANDIDATE_GATE`" in g07
     assert "Agent Gate Protocol" in g07
@@ -108,10 +116,15 @@ def test_active_contract_no_longer_uses_deprecated_pre_h1_hitl_requirements() ->
     assert "NOT_EXPOSED_BY_PROVIDER" in active_contracts
 
 
-def test_current_goal_is_the_only_active_goal_and_g02_is_not_activated() -> None:
+def test_current_goal_is_the_only_active_goal() -> None:
+    binding = json.loads(_text(GOVERNANCE / "current_goal_binding.json"))
     current = _text(CURRENT)
-    assert re.search(r"^Goal ID: TC-VNEXT-G01-TEXT-CARDS$", current, re.MULTILINE)
-    assert re.search(r"^Status: IN_PROGRESS$", current, re.MULTILINE)
+    assert re.search(
+        rf"^Goal ID: {re.escape(binding['goal_id'])}$", current, re.MULTILINE
+    )
+    assert re.search(
+        rf"^Status: {re.escape(binding['status'])}$", current, re.MULTILINE
+    )
     for path in PLANNED.glob("TC-VNEXT-G*.md"):
         assert "- Status：`DRAFT`" in _text(path)
     assert "PRODUCT_DELIVERY_PASS" in current
@@ -122,10 +135,21 @@ def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
     current_binding = json.loads(
         _text(GOVERNANCE / "current_goal_binding.json")
     )
-    assert current_binding["goal_sequence"] == 1
-    assert current_binding["gate_profile"] == "PRODUCT_DELIVERY_GATE"
+    sequence = current_binding["goal_sequence"]
+    expected_profile = (
+        "HARDENED_CANDIDATE_GATE" if sequence == 7 else "PRODUCT_DELIVERY_GATE"
+    )
+    expected_phase = (
+        "CORE_MVP"
+        if sequence <= 3
+        else "PRODUCT_ENHANCEMENT"
+        if sequence <= 6
+        else "CANDIDATE_HARDENING"
+    )
+    assert 1 <= sequence <= 7
+    assert current_binding["gate_profile"] == expected_profile
     assert current_binding["schema_version"] == "current-goal-binding-v3"
-    assert current_binding["mainline_phase"] == "CORE_MVP"
+    assert current_binding["mainline_phase"] == expected_phase
     assert current_binding["work_package_registry_path"] == (
         "docs/governance/current_work_packages.json"
     )
@@ -136,10 +160,16 @@ def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
     assert work_packages["schema_version"] == "work-package-registry-v3"
     assert work_packages["scope_guard_version"] == "core-mainline-v1"
     assert re.fullmatch(r"[0-9a-f]{64}", work_packages["scope_policy_sha256"])
-    assert work_packages["active_slice"]["work_kind"] == "PRODUCT"
-    assert work_packages["active_slice"]["phase"] == "DELIVERY_VERIFY"
-    assert work_packages["active_slice"]["product_progress"] == "RUNTIME"
-    assert work_packages["active_slice"]["repair_review_cycle"] <= 2
+    assert work_packages["active_goal_sequence"] == sequence
+    assert work_packages["gate_profile"] == expected_profile
+    if sequence <= 3:
+        assert work_packages["active_slice"]["work_kind"] in {
+            "PRODUCT",
+            "BLOCKING_DEFECT",
+            "GOAL_TRANSITION",
+        }
+        assert work_packages["active_slice"]["product_progress"] != "NONE"
+        assert work_packages["active_slice"]["repair_review_cycle"] <= 2
 
     policy = json.loads(
         _text(ROOT / "backend/eval_data/agent_gate_v1/authority_policy.json")
@@ -160,6 +190,9 @@ def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
 
 
 def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() -> None:
+    active_sequence = json.loads(
+        _text(GOVERNANCE / "current_goal_binding.json")
+    )["goal_sequence"]
     expected_phases = {
         1: "CORE_MVP",
         2: "CORE_MVP",
@@ -170,7 +203,7 @@ def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() ->
         7: "CANDIDATE_HARDENING",
     }
     for sequence, phase in expected_phases.items():
-        path = next(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md"))
+        path = _goal_contract(sequence)
         content = _text(path)
         expected_profile = (
             "HARDENED_CANDIDATE_GATE"
@@ -179,15 +212,16 @@ def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() ->
         )
         assert f"Mainline phase：`{phase}`" in content
         assert f"Gate profile：`{expected_profile}`" in content
-        assert "## Parallel work packages" in content
-        assert "Product progress" in content and "Governance ratio" in content
+        if sequence >= active_sequence:
+            assert "## Parallel work packages" in content
+            assert "Product progress" in content and "Governance ratio" in content
 
     core_goals = "\n".join(
-        _text(next(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md")))
+        _text(_goal_contract(sequence))
         for sequence in range(1, 7)
     )
     assert "AGENT_GATE_PASS" not in core_goals
-    g03 = _text(PLANNED / "TC-VNEXT-G03-TOP3-AUDIT.md")
+    g03 = _text(_goal_contract(3))
     assert "CORE_MVP_OWNER_REVIEW_PENDING" in g03
     assert "不得自动激活G04" in g03
 
@@ -196,11 +230,11 @@ def test_checked_in_work_package_registry_binds_guidance_and_active_goal() -> No
     path = GOVERNANCE / "current_work_packages.json"
     registry = json.loads(path.read_text(encoding="utf-8"))
     assert registry["schema_version"] == "work-package-registry-v3"
-    assert registry["active_goal_id"] == "TC-VNEXT-G01-TEXT-CARDS"
-    assert registry["mainline_phase"] == "CORE_MVP"
-    assert registry["gate_profile"] == "PRODUCT_DELIVERY_GATE"
-    assert registry["active_slice"]["work_kind"] == "PRODUCT"
-    assert registry["active_slice"]["phase"] == "DELIVERY_VERIFY"
+    binding = json.loads(_text(GOVERNANCE / "current_goal_binding.json"))
+    assert registry["active_goal_id"] == binding["goal_id"]
+    assert registry["active_goal_sequence"] == binding["goal_sequence"]
+    assert registry["mainline_phase"] == binding["mainline_phase"]
+    assert registry["gate_profile"] == binding["gate_profile"]
     assert registry["guidance_sha256"] == _sha256(ROOT / "AGENTS.md")
     assert len(
         [
@@ -243,7 +277,7 @@ def test_function_dialogue_prompt_and_g02_writer_schedule_are_locked() -> None:
         assert "WAITING_FOR_WRITER_SLOT" in content, path
         assert "独立" in content and "worktree" in content, path
 
-    g02 = _text(PLANNED / "TC-VNEXT-G02-MAP-STAY.md")
+    g02 = _text(_goal_contract(2))
     expected = (
         "WP-G02-STAY-DOMAIN → WP-G02-MAP-STAY-BACKEND → "
         "WP-G02-MAP-THEATER-UI → E2E"

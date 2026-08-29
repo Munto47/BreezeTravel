@@ -407,6 +407,7 @@ def validate_core_mainline(
             and not path.startswith("backend/governance/")
             and path != "backend/scripts/validate_core_mainline.py"
             and not path.startswith("backend/tests/test_product_delivery_")
+            and path != "backend/tests/test_governance_agent_gate_transition.py"
         ]
         if illegal:
             errors.append("GOAL_TRANSITION_CHANGED_PRODUCT")
