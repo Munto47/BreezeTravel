@@ -239,4 +239,4 @@ G01即落实source隐私：`FULL`必须登录；`DEMO`只使用固定示例并�
 
 本文件定义目标行为，不表示当前实现已经具备。各能力只有通过 `../governance/RELEASE_GATES.md` 对应门禁后才能声明完成。
 
-版本阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后自动继续G04；G07通过后停止，H1、公网、生产和商业仍为`NOT_RUN`。
+版本阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后固定停在`CORE_MVP_OWNER_REVIEW_PENDING`，项目所有者体验验收前不得激活G04；G07通过后停止，H1、公网、生产和商业仍为`NOT_RUN`。

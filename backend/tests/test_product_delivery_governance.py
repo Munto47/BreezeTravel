@@ -278,12 +278,20 @@ def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_wor
             "verdict": "PASS",
         },
     )
+    for relative in (
+        "docs/product/PROJECT_CHARTER.md",
+        "docs/product/TRIP_CHECK_SPEC.md",
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("G03 stops for owner review.\n", encoding="utf-8")
     _commit(root, "archive G01 and activate G02")
 
     report = validate_core_mainline(root, base_ref=base)
 
     assert report.verdict == "PASS"
     assert report.work_kind == "GOAL_TRANSITION"
+    assert report.product_progress == ()
     assert report.goal_sequence == 2
     assert report.delivery_goal_sequence == 1
     assert validate_delivery_receipt(root, report.delivery_goal_sequence)["verdict"] == "PASS"

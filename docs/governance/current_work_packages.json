@@ -1,29 +1,27 @@
 {
-  "active_goal_id": "TC-VNEXT-G02-MAP-STAY",
-  "active_goal_sequence": 2,
+  "active_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+  "active_goal_sequence": 3,
   "active_slice": {
     "acceptance_refs": [
-      "地图剧场显示同日同色并允许walking/transit切换",
-      "卡片编辑后只显示NEEDS_UPDATE，用户手动更新才调用路线Provider",
-      "住宿按2/4/8公里扩圈、最多12家评分并向用户展示最多3家整程同店候选"
+      "ABSOLUTE_DATES与DAY_INDEX_ONLY都能物化为不可变行程revision并保存lineage",
+      "AuditEngine保留全部硬问题且公共Top-3稳定映射为必须调整、可以更好、需要确认",
+      "preview到adopt创建新revision，完整postcheck前不宣称解决，地图只进入NEEDS_UPDATE"
     ],
     "allowed_paths": [
-      "backend/app/api",
-      "backend/app/config.py",
-      "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
-      "backend/app/trip_understanding",
+      "backend/app",
+      "backend/app/db/migrations/031_day_index_trip_bridge.sql",
       "backend/governance/core_mainline.py",
-      "backend/tests/test_g02_*.py",
+      "backend/tests/test_g03_*.py",
       "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
-      "docs/governance/gate-results/G02.product-delivery.json",
-      "frontend/e2e/g02-product-delivery.spec.js",
+      "docs/governance/gate-results/G03.product-delivery.json",
+      "frontend/e2e/g03-product-delivery.spec.js",
       "frontend/src",
       "packages/trip-check-client/openapi.current.json",
       "packages/trip-check-client/src"
     ],
-    "base_commit": "4054bbf8164d1e56078ae4aa944b8b33e4178ac1",
+    "base_commit": "1ef2e140cbafdef602a5a9a0fa824751b20b5bae",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "Agent Gate、blind、authority、custody、签名或 broker",
@@ -31,18 +29,18 @@
       "不影响当前用户结果的性能或可靠性加固",
       "未在 Goal 激活时锁定的新验收项"
     ],
-    "minimum_change": "先交付地图可查看/手动更新和整程住宿可选择的最小端到端产品切片。",
-    "phase": "DELIVERY_VERIFY",
+    "minimum_change": "先交付materialize、Top-3检查、preview/adopt和完整postcheck的最小端到端切片。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "backend/tests/test_g02_*.py",
-      "frontend/e2e/g02-product-delivery.spec.js"
+      "backend/tests/test_g03_*.py",
+      "frontend/e2e/g03-product-delivery.spec.js"
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
     "repair_review_cycle": 0,
-    "slice_id": "G02-MAP-STAY-PRODUCT",
-    "stop_condition": "两种实现仍失败时使用LIMITED或中性空候选；不得转向候选基础设施或新增验收项。",
-    "user_outcome": "用户可以查看路线、在编辑后手动更新地图，并从最多三家候选中选择整程住宿。",
+    "slice_id": "G03-TOP3-REPAIR-PRODUCT",
+    "stop_condition": "局部证据失败保持UNKNOWN或UNAVAILABLE并继续可独立切片；不得转向G04、候选基础设施或新增验收项。",
+    "user_outcome": "用户可以看到最重要的三个问题、预览并采纳最小改动，在完整复检后得到诚实结果。",
     "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
@@ -56,36 +54,34 @@
   "packages": [
     {
       "acceptance": [
-        "G02地图剧场和手动更新旅程可用",
-        "编辑后路线Provider自动调用为0",
-        "住宿最多12家评分、展示最多3家并选择整程同店"
+        "两种日期模式、默认人数来源、lineage和current plan ref持久正确",
+        "全部硬Finding留存、公共Top-3稳定排序且Provider局部失败不假PASS",
+        "preview/adopt/postcheck闭环可用，采纳零路线调用并令地图NEEDS_UPDATE"
       ],
-      "baseline_commit": "4054bbf8164d1e56078ae4aa944b8b33e4178ac1",
-      "branch": "codex/g02-map-stay",
+      "baseline_commit": "1ef2e140cbafdef602a5a9a0fa824751b20b5bae",
+      "branch": "codex/g03-top3-audit",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
       "forbidden_paths": [],
-      "goal_id": "TC-VNEXT-G02-MAP-STAY",
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
       "merge_order": 1,
       "owned_paths": [
-        "backend/app/api",
-        "backend/app/config.py",
-        "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
-        "backend/app/trip_understanding",
+        "backend/app",
+        "backend/app/db/migrations/031_day_index_trip_bridge.sql",
         "backend/governance/core_mainline.py",
-        "backend/tests/test_g02_*.py",
+        "backend/tests/test_g03_*.py",
         "docs/governance/CURRENT_GOAL.md",
         "docs/governance/current_goal_binding.json",
         "docs/governance/current_work_packages.json",
-        "docs/governance/gate-results/G02.product-delivery.json",
-        "frontend/e2e/g02-product-delivery.spec.js",
+        "docs/governance/gate-results/G03.product-delivery.json",
+        "frontend/e2e/g03-product-delivery.spec.js",
         "frontend/src",
         "packages/trip-check-client/openapi.current.json",
         "packages/trip-check-client/src"
       ],
-      "package_id": "WP-G02-INTEGRATOR",
-      "remote_branch": "origin/codex/g02-map-stay",
+      "package_id": "WP-G03-INTEGRATOR",
+      "remote_branch": "origin/codex/g03-top3-audit",
       "role": "INTEGRATOR",
       "status": "IN_PROGRESS",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
