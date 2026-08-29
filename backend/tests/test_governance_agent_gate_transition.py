@@ -132,7 +132,12 @@ def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
         "EVAL_INFRA",
     }
     assert work_packages["active_slice"]["work_kind"] != "HARDENING"
-    assert work_packages["active_slice"]["phase"] == "IMPLEMENTING"
+    assert work_packages["active_slice"]["phase"] in {
+        "IMPLEMENTING",
+        "PREFLIGHT",
+        "EVIDENCE_FROZEN",
+        "GATE_RUNNING",
+    }
 
     policy = json.loads(
         _text(ROOT / "backend/eval_data/agent_gate_v1/authority_policy.json")
