@@ -201,6 +201,65 @@ def _provider_request_id_hash(response: httpx.Response) -> str:
     return "NOT_EXPOSED_BY_PROVIDER"
 
 
+def _minimal_call_receipt(
+    receipt: dict[str, object],
+    *,
+    purpose: str,
+) -> dict[str, object]:
+    return {
+        "purpose": purpose,
+        "request_sha256": receipt["request_sha256"],
+        "response_sha256": receipt.get("response_sha256", "NOT_RECEIVED"),
+        "provider_request_id_sha256": receipt.get(
+            "provider_request_id_sha256",
+            "NOT_RECEIVED",
+        ),
+        "http_status": receipt.get("http_status", "NOT_RECEIVED"),
+        "latency_ms": receipt.get("latency_ms", 0.0),
+        "observed_at": receipt.get("observed_at", "NOT_COMPLETED"),
+        "typecodes": receipt.get("typecodes", []),
+        "raw_provider_response_retained": False,
+    }
+
+
+def _combine_rewrite_receipts(
+    primary: dict[str, object],
+    rewrite: dict[str, object],
+    *,
+    accepted: bool,
+) -> dict[str, object]:
+    calls = [
+        _minimal_call_receipt(primary, purpose="CATEGORY_FILTERED_PRIMARY"),
+        _minimal_call_receipt(rewrite, purpose="UNTYPED_DETERMINISTIC_REWRITE"),
+    ]
+    return {
+        **rewrite,
+        "request_sha256": canonical_sha256(
+            [str(call["request_sha256"]) for call in calls]
+        ),
+        "response_sha256": canonical_sha256(
+            [str(call["response_sha256"]) for call in calls]
+        ),
+        "provider_request_id_sha256": canonical_sha256(
+            [str(call["provider_request_id_sha256"]) for call in calls]
+        ),
+        "latency_ms": round(
+            sum(float(call["latency_ms"]) for call in calls),
+            3,
+        ),
+        "external_calls": 2,
+        "rewrite_count": 1,
+        "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
+        "primary_typecodes": primary.get("typecodes", []),
+        "category_compatible_candidate_count": (
+            1 if accepted else 0
+        ),
+        "status": "AUTO_MATCHED" if accepted else "NO_UNIQUE_MATCH",
+        "calls": calls,
+        "raw_provider_response_retained": False,
+    }
+
+
 class AmapPlaceResolver:
     """Conservative POI 2.0 resolver for G01 executable place mentions."""
 
@@ -420,6 +479,53 @@ class AmapPlaceResolver:
             "category_compatible_candidate_count": len(compatible),
             "name_match_policy": "PRIMARY_ALIAS_CITY_STATUS_HIERARCHY_V2",
         }
+        if len(compatible) == 0 and typecodes:
+            try:
+                rewrite = await self.resolve(
+                    city=city,
+                    atomic_place_name=atomic,
+                    category_hint=None,
+                )
+            except PlaceProviderUnavailableError as exc:
+                failure = dict(exc.provider_binding)
+                raise PlaceProviderUnavailableError(
+                    exc.category,
+                    provider_binding={
+                        **failure,
+                        "primary_request_sha256": decision_receipt[
+                            "request_sha256"
+                        ],
+                        "primary_response_sha256": decision_receipt[
+                            "response_sha256"
+                        ],
+                        "external_calls": 1 + exc.external_call_count,
+                        "rewrite_count": 1,
+                        "query_strategy": (
+                            "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK"
+                        ),
+                        "raw_provider_response_retained": False,
+                    },
+                    external_call_count=1 + exc.external_call_count,
+                ) from exc
+            accepted_rewrite = (
+                rewrite.place is not None
+                and rewrite.place.category == _CATEGORY_LABELS[expected_category]
+            )
+            combined_receipt = _combine_rewrite_receipts(
+                decision_receipt,
+                rewrite.receipt,
+                accepted=accepted_rewrite,
+            )
+            if accepted_rewrite and rewrite.place is not None:
+                place = rewrite.place.model_copy(
+                    update={"provider_binding": combined_receipt}
+                )
+                return PlaceResolutionOutcome(
+                    place=place,
+                    receipt=combined_receipt,
+                )
+            return PlaceResolutionOutcome(receipt=combined_receipt)
+
         if len(compatible) != 1:
             return PlaceResolutionOutcome(
                 receipt={

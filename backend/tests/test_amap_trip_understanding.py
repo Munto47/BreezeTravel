@@ -92,16 +92,17 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("pois", "category_hint"),
+    ("pois", "category_hint", "expected_calls"),
     [
-        ([_poi(city="上海市")], "景点"),
-        ([_poi(typecode="100100")], "景点"),
-        ([_poi(), _poi(provider_id="B000A83M62")], "景点"),
+        ([_poi(city="上海市")], "景点", 2),
+        ([_poi(typecode="100100")], "景点", 2),
+        ([_poi(), _poi(provider_id="B000A83M62")], "景点", 1),
     ],
 )
 async def test_amap_wrong_city_category_or_ambiguous_name_stays_pending(
     pois: list[dict[str, object]],
     category_hint: str,
+    expected_calls: int,
 ) -> None:
     observed: list[httpx.Request] = []
     payload = {"status": "1", "infocode": "10000", "count": str(len(pois)), "pois": pois}
@@ -115,8 +116,47 @@ async def test_amap_wrong_city_category_or_ambiguous_name_stays_pending(
 
     assert outcome.place is None
     assert outcome.receipt["status"] == "NO_UNIQUE_MATCH"
-    assert outcome.receipt["external_calls"] == 1
-    assert len(observed) == 1
+    assert outcome.receipt["external_calls"] == expected_calls
+    assert len(observed) == expected_calls
+
+
+@pytest.mark.asyncio
+async def test_amap_rewrites_once_without_types_and_keeps_local_category_check() -> None:
+    observed: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        pois = [] if "types" in request.url.params else [_poi()]
+        return httpx.Response(
+            200,
+            json={"status": "1", "infocode": "10000", "pois": pois},
+            headers={"x-request-id": f"provider-request-{len(observed)}"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        outcome = await AmapPlaceResolver(
+            api_key="test-only",
+            client=client,
+        ).resolve(
+            city="北京",
+            atomic_place_name="故宫博物院",
+            category_hint="景点",
+        )
+
+    assert outcome.place is not None
+    assert outcome.place.category == "景点"
+    assert len(observed) == 2
+    assert "types" in observed[0].url.params
+    assert "types" not in observed[1].url.params
+    assert outcome.receipt["external_calls"] == 2
+    assert outcome.receipt["rewrite_count"] == 1
+    assert outcome.receipt["query_strategy"] == (
+        "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK"
+    )
+    assert len(outcome.receipt["calls"]) == 2
+    assert len(str(outcome.receipt["request_sha256"])) == 64
+    assert len(str(outcome.receipt["response_sha256"])) == 64
+    assert "test-only" not in str(outcome.receipt)
 
 
 @pytest.mark.asyncio
