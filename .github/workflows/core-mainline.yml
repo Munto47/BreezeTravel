@@ -161,6 +161,7 @@ jobs:
           python - <<'PY'
           import asyncio
           import asyncpg
+          from pathlib import Path
           async def main():
               connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
               try:
@@ -169,6 +170,11 @@ jobs:
                       await connection.execute("CREATE DATABASE travel_agent")
               finally:
                   await connection.close()
+              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
+              try:
+                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
+              finally:
+                  await bootstrap.close()
           asyncio.run(main())
           PY
           python -m scripts.migrate
