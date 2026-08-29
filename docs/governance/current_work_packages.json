@@ -3,13 +3,21 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md Acceptance G01 exact candidate evidence",
-      "CURRENT_GOAL.md Checkpoint ledger latest remaining work"
+      "CURRENT_GOAL.md Qwen fixed seven-second model contract",
+      "CURRENT_GOAL.md Acceptance Qwen dev/validation and exact evidence"
     ],
     "allowed_paths": [
+      "backend/app/trip_understanding/qwen_provider.py",
+      "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
+      "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+      "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+      "backend/scripts/export_g01_qwen_live_receipts.py",
+      "backend/scripts/run_qwen_model_predictions.py",
+      "backend/tests/test_qwen_trip_understanding.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "a6ac8b145148edf433c32690b2605e985193310f",
+    "base_commit": "4f1177eea27dcaab8551f85986865c3007e4e657",
     "blocking_issue": null,
     "evidence_invalidated": [
       "QWEN_EXACT",
@@ -25,43 +33,13 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Run the mandatory no-blind synthetic preflight and candidate regression checks without tracked product changes; freeze only after every preflight finding is empty.",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "6b1a6c7deb49e9b94888a6b4860e01ebcf67be57",
-    "preflight_entrypoints": [
-      "backend/scripts/validate_work_packages.py",
-      "backend/scripts/run_qwen_model_predictions.py",
-      "backend/scripts/export_g01_amap_live_receipts.py",
-      "backend/scripts/export_g01_qwen_live_receipts.py",
-      "backend/scripts/score_g01_sealed_agent_blind.py",
-      "backend/scripts/build_agent_gate_pass.py"
-    ],
-    "preflight_required_tokens": {
-      "backend/scripts/build_agent_gate_pass.py": [
-        "verify_core_agent_gate_pass",
-        "verify_g07_candidate_gate_pass"
-      ],
-      "backend/scripts/export_g01_amap_live_receipts.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/export_g01_qwen_live_receipts.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/run_qwen_model_predictions.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/score_g01_sealed_agent_blind.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/validate_work_packages.py": [
-        "output.open(\"x\""
-      ]
-    },
-    "slice_id": "G01-EXACT-EVIDENCE-REBUILD",
-    "stop_condition": "Stop before freeze, Provider calls, review or blind if preflight exposes an unconsumed input, default PASS, missing producer, missing upstream readback or a tracked code change; hardening stays deferred to G07.",
-    "user_outcome": "The existing daily-card candidate reaches one coherent exact evidence and CORE Gate run without another governance subsystem.",
+    "minimum_change": "First make Qwen batch and in-process Provider concurrency exactly one and bind it into summaries and hashes; only if a full 72-case run still lacks latency margin, move mechanical output fields into deterministic code and trim duplicate prompt rules.",
+    "phase": "IMPLEMENTING",
+    "preflight_entrypoints": [],
+    "preflight_required_tokens": {},
+    "slice_id": "G01-QWEN-LATENCY",
+    "stop_condition": "Stop if the change raises the seven-second deadline, retries or races calls, splices batches, adds infrastructure, drops semantic boundaries, or reduces place/card quality.",
+    "user_outcome": "Long travel text produces the same accurate editable cards while Qwen leaves enough margin inside the fixed seven-second request budget.",
     "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
