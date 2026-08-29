@@ -12,8 +12,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
   "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Top-3 Audit Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "next_goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
   "next_activated": false,
@@ -157,7 +157,7 @@ G03只保留一个主集成包`WP-G03-INTEGRATOR`。唯一总指挥在`codex/g03
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | G02已并入`origin/develop`并完成归档，G03 Top-3核验与最小修复主线激活；尚未修改G03产品代码 | transition pending remote subject | G02 GitHub `core-mainline` run `33266880055 PASS`；PR #9合并；`origin/develop@1ef2e140cbafdef602a5a9a0fa824751b20b5bae` readback `PASS` | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic transition only` | `031`、materialize、Top-3、preview/adopt/postcheck和浏览器主链 | live Provider、H1、公网、生产、商业保持`NOT_RUN`；G04不得自动激活 | 合并本治理过渡PR后，从新的`origin/develop`创建`codex/g03-top3-audit`并实现最小纵向切片 |
-| 2026-08-30 | G03最小纵向切片已实现：两种日期模式、物化lineage、冻结证据、公共Top-3、preview/adopt/postcheck与地图stale联动均可用；真实浏览器主链已跑通 | product checkpoint pending commit | exact activation `origin/develop@5a79c129f13914f4cd5a01789e641ada56d0b486`；G03 unit/API `2 PASS`；PostgreSQL old-data upgrade/reapply/concurrency/date modes `1 PASS`；frontend typecheck `PASS`；Playwright G03 `1 PASS` | `LOCAL_DETERMINISTIC / POSTGRESQL_INTEGRATION / BROWSER_E2E` | `Product progress=API+RUNTIME+UI / IMPLEMENTED` | `Governance ratio=minimal checkpoint only` | 最终targeted、fresh migration、frontend/client build、OpenAPI/core-mainline validator、交付指纹与远端集成 | 首轮浏览器暴露时间戳序列化和旧视图竞态，均已修复并回归；live Provider、H1、公网、生产、商业仍为`NOT_RUN` | 跑最小充分交付矩阵，创建产品checkpoint与G03 delivery receipt，push/readback后提交产品PR |
+| 2026-08-30 | 用户可在登录后查看稳定Top-3，预览并采纳安全的最小改动；两种日期模式、lineage、冻结证据、完整postcheck和地图需更新联动均已交付 | product `68f7f9e` | G03 targeted/G02-v3回归 `16 PASS`；G03 PostgreSQL与fresh/existing migration `3 PASS`；frontend build、client build、OpenAPI check、G03 Playwright `1 PASS`；core-mainline `PASS`；product fingerprint `0c09093bfa1eca32942bf68d3b5d665d0470604139d48968e127ff2cad9c54a1` | `CONTROLLED_FIXTURE / REAL_POSTGRESQL / LOCAL_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI` | `Governance ratio=delivery receipt and checkpoint only` | 产品PR push、远端CI/readback与并入`develop`；随后独立治理PR归档G03并停在owner review | 旧Docker worker竞争曾造成租约接管延迟，隔离旧worker后浏览器复验通过；live Provider、H1、公网、生产、商业仍为`NOT_RUN` | 提交交付回执，push并读取远端subject/CI；合并G03后执行最小终态治理切换，不激活G04 |
 
 ## Auto-advance
 
@@ -168,10 +168,10 @@ G03只保留一个主集成包`WP-G03-INTEGRATOR`。唯一总指挥在`codex/g03
 
 ## Completion record
 
-- Status：`APPROVED`；Subject commits：`PENDING`；Remote branch：`origin/codex/g03-top3-audit`；
-- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`；结构有效不代表产品交付；
+- Status：`IN_PROGRESS`；Subject commit：G03 product `68f7f9e`；Remote branch：`origin/codex/g03-top3-audit`，本次产品push/readback待执行；
+- Verification / Evidence / Gate result / `structurally_valid`：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / CONTROLLED_FIXTURE + REAL_POSTGRESQL + LOCAL_BROWSER / PRODUCT_DELIVERY_PASS / true`；结构有效不替代产品证据；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；live Provider与公网也为`NOT_RUN`；
-- User-visible result：`PENDING`；Remaining risks：G03产品代码、PostgreSQL、frontend build与浏览器主链均尚未交付；Goal archived：`NO`；Next activated：`NO`；
+- User-visible result：登录用户可查看最多三项“必须调整 / 可以更好 / 需要确认”，预览并采纳午餐停留，随后获得新版本与完整复核结果；Remaining risks：产品PR尚未并入`origin/develop`，owner体验验收尚未执行；Goal archived：`NO`；Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions

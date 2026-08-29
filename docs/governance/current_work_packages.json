@@ -30,7 +30,7 @@
       "未在 Goal 激活时锁定的新验收项"
     ],
     "minimum_change": "先交付materialize、Top-3检查、preview/adopt和完整postcheck的最小端到端切片。",
-    "phase": "IMPLEMENTING",
+    "phase": "DELIVERY_VERIFY",
     "preflight_entrypoints": [
       "backend/tests/test_g03_*.py",
       "frontend/e2e/g03-product-delivery.spec.js"
