@@ -1,0 +1,255 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "accepted_in_scope_p2_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted In Scope P2 Count",
+      "type": "integer"
+    },
+    "accepted_p0_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted P0 Count",
+      "type": "integer"
+    },
+    "accepted_p1_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Accepted P1 Count",
+      "type": "integer"
+    },
+    "adjudication_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Adjudication Path",
+      "type": "string"
+    },
+    "adjudication_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Adjudication Receipt Sha256",
+      "type": "string"
+    },
+    "adjudicator_task_count": {
+      "const": 1,
+      "default": 1,
+      "title": "Adjudicator Task Count",
+      "type": "integer"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "checks_not_run": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Checks Not Run",
+      "type": "array"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "component": {
+      "const": "MULTI_AGENT_PANEL",
+      "default": "MULTI_AGENT_PANEL",
+      "title": "Component",
+      "type": "string"
+    },
+    "evidence_level": {
+      "const": "MULTI_AGENT_SIMULATED_REVIEW",
+      "default": "MULTI_AGENT_SIMULATED_REVIEW",
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "expected_input_bundle_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "PRODUCT_UX",
+          "SEMANTIC_DOMAIN",
+          "RELIABILITY_SECURITY"
+        ]
+      },
+      "title": "Expected Input Bundle Sha256",
+      "type": "object"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "required_scenario_union_complete": {
+      "const": true,
+      "default": true,
+      "title": "Required Scenario Union Complete",
+      "type": "boolean"
+    },
+    "review_paths": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Review Paths",
+      "type": "array"
+    },
+    "review_receipt_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Review Receipt Sha256",
+      "type": "array"
+    },
+    "reviewer_task_count": {
+      "const": 3,
+      "default": 3,
+      "title": "Reviewer Task Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "multi-agent-panel-gate-receipt-v2",
+      "default": "multi-agent-panel-gate-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verification_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Verification Receipt Path",
+      "type": "string"
+    },
+    "verification_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verification Receipt Sha256",
+      "type": "string"
+    },
+    "verifier_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Verifier Path",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "authority_policy_sha256",
+    "verifier_path",
+    "verifier_sha256",
+    "verification_receipt_path",
+    "verification_receipt_sha256",
+    "checks_not_run",
+    "completed_at",
+    "authority_signature",
+    "review_paths",
+    "adjudication_path",
+    "expected_input_bundle_sha256",
+    "review_receipt_sha256",
+    "adjudication_receipt_sha256"
+  ],
+  "title": "MultiAgentPanelGateReceipt",
+  "type": "object"
+}

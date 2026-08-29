@@ -5,9 +5,11 @@
 - Goal ID：`TC-VNEXT-G03-TOP3-AUDIT`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.3`
+- Mainline phase：`CORE_MVP`
+- Gate profile：`PRODUCT_DELIVERY_GATE`
 - Status：`DRAFT`
 - Activation：G02 Map & Stay Gate通过并归档后
-- Required gate：`Top-3 Audit Gate`
+- Required gate：`Top-3 Audit Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G04-SCREENSHOT`
 
 ## Dependencies
@@ -38,6 +40,16 @@
 - 必需的`031_day_index_trip_bridge.sql`，支持`ABSOLUTE|DAY_INDEX_ONLY`、nullable calendar与软人数来源；
 - 现有高德/和风开发矩阵；
 - 不新增风险搜索Provider。
+
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G03-MATERIALIZE-EVIDENCE` | materialize、日期可空桥接、Evidence编译 | G02 revision/map/stay指针 | ABSOLUTE与DAY_INDEX_ONLY lineage正确 |
+| `WP-G03-AUDIT-RULES` | AuditEngine规则、Top-3排序、用餐空档 | 冻结Evidence schema | HARD漏检0、用户结果≤3 |
+| `WP-G03-REPAIR-UI` | 用户问题、修复预览和采纳交互 | 用户投影合同 | 仅三类自然表达，采纳创建新revision |
+
+激活时主对话为三包生成完整v1提示词并登记独立用户可见功能对话、branch/worktree、prompt hash与exact baseline；先启动两个包，第三包`WAITING_FOR_WRITER_SLOT`，有一个经集成者验收冻结后再启动。子Agent只读复核/诊断，不得写产品代码或改状态。全部冻结后，集成者串行完成领域/Evidence→031/API→Repair UI→postcheck/E2E。贡献包不得自行编号migration、修改治理/共享合同或合并；最多两轮修复复审。
 
 ## Decisions locked
 
@@ -83,12 +95,13 @@
 - fault matrix和snapshot replay；
 - PostgreSQL 031 fresh/existing、ABSOLUTE/DAY_INDEX_ONLY和旧数据兼容；
 - H1/生产：`NOT_RUN`。
+- 当前Top-3/最小修复定向测试、PostgreSQL、frontend build和浏览器E2E；候选复审与blind留到G07。
 
 ## Authority
 
 - `AGENTS.md`、Charter、Spec、v3 API、Architecture；
-- Program、Roadmap、Release Gates、Provider Admission、Risk Register；
-- ADR-007、ADR-008、ADR-011、ADR-012及现有Audit/Repair ADR中未被取代的证据不变量。
+- Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register；
+- ADR-007、ADR-008、ADR-011、ADR-012、ADR-013、ADR-014及现有Audit/Repair ADR中未被取代的证据不变量。
 
 ## Baseline
 
@@ -116,20 +129,21 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Top-3 Audit Gate`；Next template：`TC-VNEXT-G04-SCREENSHOT.md`；
-- subject push/readback、Gate PASS、clean tree、无Stop后，最终归档并原子激活G04；
+- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，保存可体验里程碑并切换为`CORE_MVP_OWNER_REVIEW_PENDING`；不得自动激活G04，需等待项目所有者体验验收；
 - FUX-03、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record
 
 - Status / Subject commits / Remote branch：激活后填写；
 - Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
+- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：激活后填写；
 - Promotion decision：`NOT_REQUESTED`。
 

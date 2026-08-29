@@ -1,0 +1,64 @@
+{
+  "browser": {
+    "final_result": "3 PASSED",
+    "initial_attempt": "FAILED_BEFORE_NAVIGATION_INVALID_BASE_URL",
+    "retry_change": "E2E_BASE_URL_EXPLICITLY_SET_TO_LOOPBACK",
+    "scope": "LOCAL_COMPOSE_PLAYWRIGHT"
+  },
+  "builds": {
+    "frontend_production": "PASS",
+    "shared_client_build": "PASS",
+    "shared_client_typecheck": "PASS"
+  },
+  "compose": {
+    "backend_health": 200,
+    "backend_image_reused_by_map_worker": true,
+    "backend_image_reused_by_understanding_worker": true,
+    "operational_commit": "cf9003c97e0c5b3350021c102183a0d39bbf269c",
+    "persistent_volumes_removed": false,
+    "recent_runtime_error_matches": 0,
+    "url": "http://localhost:3000"
+  },
+  "full_text_card_gate_claim": "NOT_RUN",
+  "legacy_openapi": {
+    "path_count": 99,
+    "sha256": "0a616cf711b260a232d20aca80d6904743327ff9dcbc2808356c62066fc55a81",
+    "status": "UNCHANGED"
+  },
+  "live_provider_claim": "NOT_RUN",
+  "offline_scenarios": {
+    "activity_budget": {
+      "cards_preserved": 81,
+      "place_resolution_attempts": 80,
+      "public_status": "LIMITED",
+      "silent_truncation": false
+    },
+    "inference_outage": {
+      "fallback": "LOCAL_DETERMINISTIC_PARTIAL_RESULT",
+      "historical_deepseek_fallback": false,
+      "public_status": "PARTIAL_RESULT"
+    },
+    "place_outage": {
+      "editable_cards_preserved": 6,
+      "provider_error_public_hits": 0,
+      "public_status": "PARTIAL_RESULT"
+    },
+    "route_mode_outage": {
+      "available_mode": "walking",
+      "snapshot_status": "READY",
+      "unavailable_mode": "transit"
+    }
+  },
+  "openapi": {
+    "current_path_count": 116,
+    "limited_result_enum": true,
+    "status": "PASS"
+  },
+  "schema_version": "g01-offline-runtime-receipt-v1",
+  "subject_commit": "80a9dc3835f1685f80a6d06513a0f82c22368091",
+  "tests": {
+    "backend_ruff": "PASS",
+    "postgres_fresh_database": "1 PASSED",
+    "targeted": "33 PASSED"
+  }
+}

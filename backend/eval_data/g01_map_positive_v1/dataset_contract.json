@@ -1,0 +1,17 @@
+{
+  "dataset_version": "g01-map-positive-v1",
+  "external_calls": 0,
+  "fixture_sha256": "7077f07d9d17b8cff4748d9b2272ef3b2dcac691ffa2f3f3c551c5adf6a40560",
+  "full_text_card_gate_claim": "NOT_RUN",
+  "generator_sha256": "23985d52250763bf93dfb982f56445a2bdd775a1ffe760d2223c1cdb864fd28b",
+  "live_provider_claim": "NOT_RUN",
+  "required_city_plan_counts": {
+    "上海": 10,
+    "北京": 10,
+    "杭州": 10
+  },
+  "required_edge_count": 120,
+  "required_plan_count": 30,
+  "required_usable_coverage": 1.0,
+  "schema_version": "g01-map-positive-dataset-contract-v1"
+}

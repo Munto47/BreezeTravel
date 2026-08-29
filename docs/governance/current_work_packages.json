@@ -1,0 +1,85 @@
+{
+  "active_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "active_goal_sequence": 1,
+  "active_slice": {
+    "acceptance_refs": [
+      "G01 五条固定样例",
+      "匿名体验、登录长文本、卡片编辑、刷新和删除",
+      "后台地图启动、Provider 故障降级、公共字段脱敏和越权拒绝"
+    ],
+    "allowed_paths": [
+      ".github",
+      "AGENTS.md",
+      "backend/app",
+      "backend/governance",
+      "backend/scripts/validate_core_mainline.py",
+      "backend/tests",
+      "docs/governance",
+      "frontend",
+      "miniapp/src",
+      "packages/trip-check-client/src"
+    ],
+    "base_commit": "5f80fd1874c86a6d73e20b3b05a4c4c73a287153",
+    "evidence_invalidated": [],
+    "forbidden_mechanisms": [
+      "Agent Gate、blind、authority、custody、签名或 broker",
+      "通用评测基础设施",
+      "不影响当前用户结果的性能或可靠性加固",
+      "未在 Goal 激活时锁定的新验收项"
+    ],
+    "minimum_change": "只完成 G01 当前用户旅程的交付验证和进入 develop 所需的最小治理纠偏。",
+    "phase": "DELIVERY_VERIFY",
+    "preflight_entrypoints": [],
+    "preflight_required_tokens": {},
+    "product_progress": "RUNTIME",
+    "repair_review_cycle": 1,
+    "slice_id": "G01-PRODUCT-DELIVERY-VERIFY",
+    "stop_condition": "交付门通过后立即推进；P2/P3 或 G07 候选债务不得继续阻断 G01。",
+    "user_outcome": "用户可以从长文本得到可信、可编辑、可刷新和可删除的逐日卡片，且安全底线不退化。",
+    "work_kind": "PRODUCT"
+  },
+  "e2e_after_all_merges": true,
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
+  "integration_order": [],
+  "mainline_phase": "CORE_MVP",
+  "max_parallel_writers": 3,
+  "max_prepared_next_goal_packages": 2,
+  "mismatch_policy": "READ_ONLY",
+  "packages": [
+    {
+      "acceptance": [
+        "G01 PRODUCT_DELIVERY_GATE 通过",
+        "安全底线和固定五条样例通过",
+        "通过 PR 进入 origin/develop 后再激活 G02"
+      ],
+      "baseline_commit": "8aeb7554b8b5686897f4c8b1be0b7763c645c210",
+      "branch": "codex/trip-check-product-reset",
+      "dependencies": [],
+      "dialogue_ref": "codex-task:primary-integrator",
+      "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
+      "forbidden_paths": [],
+      "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+      "merge_order": 1,
+      "owned_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "backend",
+        "docs",
+        "frontend",
+        "miniapp",
+        "packages"
+      ],
+      "package_id": "WP-G01-INTEGRATOR",
+      "remote_branch": "origin/codex/trip-check-product-reset",
+      "role": "INTEGRATOR",
+      "status": "IN_PROGRESS",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
+    }
+  ],
+  "program_id": "TC-VNEXT-2026",
+  "scope_guard_version": "core-mainline-v1",
+  "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
+  "schema_version": "work-package-registry-v3"
+}

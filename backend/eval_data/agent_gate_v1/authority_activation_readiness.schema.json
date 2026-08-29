@@ -1,0 +1,283 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    },
+    "ExternalSignerActivationReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "imports_candidate_code": {
+          "const": false,
+          "default": false,
+          "title": "Imports Candidate Code",
+          "type": "boolean"
+        },
+        "key_path_in_candidate_environment": {
+          "const": false,
+          "default": false,
+          "title": "Key Path In Candidate Environment",
+          "type": "boolean"
+        },
+        "private_key_in_candidate_process": {
+          "const": false,
+          "default": false,
+          "title": "Private Key In Candidate Process",
+          "type": "boolean"
+        },
+        "repository_external": {
+          "const": true,
+          "default": true,
+          "title": "Repository External",
+          "type": "boolean"
+        },
+        "signer_bundle_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signer Bundle Sha256",
+          "type": "string"
+        },
+        "signer_execution_receipt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signer Execution Receipt Sha256",
+          "type": "string"
+        },
+        "status": {
+          "const": "READY",
+          "default": "READY",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "signer_bundle_sha256",
+        "signer_execution_receipt_sha256"
+      ],
+      "title": "ExternalSignerActivationReadiness",
+      "type": "object"
+    },
+    "LiveCaptureActivationReadiness": {
+      "additionalProperties": false,
+      "properties": {
+        "amap_execution_receipt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Amap Execution Receipt Sha256",
+          "type": "string"
+        },
+        "capture_runner_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Capture Runner Sha256",
+          "type": "string"
+        },
+        "complete_coverage": {
+          "const": true,
+          "default": true,
+          "title": "Complete Coverage",
+          "type": "boolean"
+        },
+        "direct_https_capture": {
+          "const": true,
+          "default": true,
+          "title": "Direct Https Capture",
+          "type": "boolean"
+        },
+        "one_shot_mint": {
+          "const": true,
+          "default": true,
+          "title": "One Shot Mint",
+          "type": "boolean"
+        },
+        "qwen_execution_receipt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Qwen Execution Receipt Sha256",
+          "type": "string"
+        },
+        "registry_contract_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Registry Contract Sha256",
+          "type": "string"
+        },
+        "status": {
+          "const": "READY",
+          "default": "READY",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "amap_execution_receipt_sha256",
+        "qwen_execution_receipt_sha256",
+        "capture_runner_sha256",
+        "registry_contract_sha256"
+      ],
+      "title": "LiveCaptureActivationReadiness",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Custody-signed proof required before the G01 authority can become ACTIVE.",
+  "properties": {
+    "active_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Active Config Sha256",
+      "type": "string"
+    },
+    "active_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Active Data Sha256",
+      "type": "string"
+    },
+    "active_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Active Policy Sha256",
+      "type": "string"
+    },
+    "active_program_core_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Active Program Core Sha256",
+      "type": "string"
+    },
+    "active_tree_without_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Active Tree Without Receipt Sha256",
+      "type": "string"
+    },
+    "authority_generation": {
+      "const": 1,
+      "default": 1,
+      "title": "Authority Generation",
+      "type": "integer"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "bootstrap_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Bootstrap Commit",
+      "type": "string"
+    },
+    "bootstrap_core_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Bootstrap Core Sha256",
+      "type": "string"
+    },
+    "bootstrap_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Bootstrap Policy Sha256",
+      "type": "string"
+    },
+    "bootstrap_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Bootstrap Tree",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "external_signer": {
+      "$ref": "#/$defs/ExternalSignerActivationReadiness"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G01-TEXT-CARDS",
+      "default": "TC-VNEXT-G01-TEXT-CARDS",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "live_capture": {
+      "$ref": "#/$defs/LiveCaptureActivationReadiness"
+    },
+    "policy_id": {
+      "const": "TC-VNEXT-AGENT-GATE-V1",
+      "default": "TC-VNEXT-AGENT-GATE-V1",
+      "title": "Policy Id",
+      "type": "string"
+    },
+    "process_isolation_only": {
+      "const": true,
+      "default": true,
+      "title": "Process Isolation Only",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "authority-activation-readiness-v1",
+      "default": "authority-activation-readiness-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "const": "FORMAL_ACTIVATION_READY",
+      "default": "FORMAL_ACTIVATION_READY",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "bootstrap_commit",
+    "bootstrap_tree",
+    "bootstrap_policy_sha256",
+    "active_policy_sha256",
+    "bootstrap_core_sha256",
+    "active_tree_without_receipt_sha256",
+    "active_program_core_sha256",
+    "active_config_sha256",
+    "active_data_sha256",
+    "live_capture",
+    "external_signer",
+    "created_at",
+    "authority_signature"
+  ],
+  "title": "AuthorityActivationReadinessReceipt",
+  "type": "object"
+}

@@ -42,6 +42,7 @@ FULL_BACKEND_JUNIT = BACKEND / "results" / "closure_checkpoint_20260822" / "back
 P2_RELIABILITY_GATE = (
     BACKEND / "evidence" / "trip_check_v1" / "p2" / "reliability_gate_manifest.json"
 )
+P3_LATEST_MIGRATION = "027_trip_intake_revision_lineage.sql"
 
 
 def sha256_file(path: Path) -> str | None:
@@ -78,7 +79,7 @@ def config_summary() -> dict[str, object]:
         "reranker_enabled": os.getenv("RERANKER_ENABLED", "false").lower() == "true",
         "auto_migrate": os.getenv("AUTO_MIGRATE", "false").lower() == "true",
         "required_migration": os.getenv(
-            "REQUIRED_MIGRATION", "027_trip_intake_revision_lineage.sql"
+            "REQUIRED_MIGRATION", P3_LATEST_MIGRATION
         ),
     }
 
@@ -227,7 +228,20 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
         "G6_RELEASE_CANDIDATE_MANIFEST_NOT_APPROVED",
     ]
     release_id = f"{commit[:12]}-dirty-{tree_hash[:12]}" if dirty else commit
-    migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
+    all_migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
+    try:
+        p3_cutoff = next(
+            index
+            for index, migration in enumerate(all_migrations)
+            if migration.name == P3_LATEST_MIGRATION
+        )
+    except StopIteration as exc:
+        raise RuntimeError(
+            f"Trip Check V1 P3 manifest requires {P3_LATEST_MIGRATION}"
+        ) from exc
+    # This builder is the frozen P3 evidence surface. Later product migrations
+    # must not silently rewrite the historical manifest's authority boundary.
+    migrations = all_migrations[: p3_cutoff + 1]
     payload = {
         "schema_version": "4.0",
         "release_status": "trip_check_v1_p3_input_provider_draft",
@@ -248,7 +262,7 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
             "yjs_package_lock": sha256_file(ROOT / "y-websocket" / "package-lock.json"),
         },
         "migrations": [{"name": item.name, "sha256": sha256_file(item)} for item in migrations],
-        "latest_migration": migrations[-1].name if migrations else None,
+        "latest_migration": P3_LATEST_MIGRATION,
         "configuration": config_summary(),
         "evaluation_scope": {
             "supported_and_claimed_cities": ["北京", "上海", "杭州"],

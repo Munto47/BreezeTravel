@@ -1,0 +1,83 @@
+{
+  "$defs": {
+    "SealedBlindMetricThreshold": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "pattern": "^[a-z][a-z0-9_.]{2,119}$",
+          "title": "Metric",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "GE",
+            "LE",
+            "EQ"
+          ],
+          "title": "Operator",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "metric",
+        "operator",
+        "value"
+      ],
+      "title": "SealedBlindMetricThreshold",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "conditions": {
+      "items": {
+        "$ref": "#/$defs/SealedBlindMetricThreshold"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Conditions",
+      "type": "array"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "required_metric_names": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "minItems": 1,
+      "title": "Required Metric Names",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "sealed-agent-blind-thresholds-v1",
+      "default": "sealed-agent-blind-thresholds-v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "required_metric_names",
+    "conditions"
+  ],
+  "title": "SealedAgentBlindThresholds",
+  "type": "object"
+}

@@ -1,0 +1,314 @@
+{
+  "$defs": {
+    "AutomatedCheckExecution": {
+      "additionalProperties": false,
+      "properties": {
+        "argv_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Argv Sha256",
+          "type": "string"
+        },
+        "check_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{2,79}$",
+          "title": "Check Id",
+          "type": "string"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "exit_code": {
+          "const": 0,
+          "default": 0,
+          "title": "Exit Code",
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "stderr_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Stderr Sha256",
+          "type": "string"
+        },
+        "stdout_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Stdout Sha256",
+          "type": "string"
+        },
+        "verdict": {
+          "const": "PASS",
+          "default": "PASS",
+          "title": "Verdict",
+          "type": "string"
+        },
+        "workdir": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Workdir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check_id",
+        "argv_sha256",
+        "workdir",
+        "stdout_sha256",
+        "stderr_sha256",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "AutomatedCheckExecution",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_secret_mount_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Authority Secret Mount Count",
+      "type": "integer"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/AutomatedCheckExecution"
+      },
+      "maxItems": 30,
+      "title": "Checks",
+      "type": "array"
+    },
+    "checks_not_run": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 30,
+      "title": "Checks Not Run",
+      "type": "array"
+    },
+    "failure_stage": {
+      "anyOf": [
+        {
+          "enum": [
+            "OCI_RUNNER_UNAVAILABLE",
+            "OCI_BUILD_FAILED",
+            "OCI_ARCHIVE_FAILED",
+            "OCI_EXECUTION_FAILED"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Failure Stage"
+    },
+    "gate_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Gate Contract Sha256",
+      "type": "string"
+    },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "host_mount_count": {
+      "const": 0,
+      "default": 0,
+      "title": "Host Mount Count",
+      "type": "integer"
+    },
+    "host_pid_namespace": {
+      "const": false,
+      "default": false,
+      "title": "Host Pid Namespace",
+      "type": "boolean"
+    },
+    "isolation_mode": {
+      "enum": [
+        "FRESH_CLEAN_CHECKOUT",
+        "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+      ],
+      "title": "Isolation Mode",
+      "type": "string"
+    },
+    "network_access": {
+      "const": false,
+      "default": false,
+      "title": "Network Access",
+      "type": "boolean"
+    },
+    "runner_context_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Context Policy Sha256"
+    },
+    "runner_entrypoint_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Entrypoint Sha256"
+    },
+    "runner_image_archive_format": {
+      "anyOf": [
+        {
+          "const": "DOCKER_IMAGE_ARCHIVE_V1",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Image Archive Format"
+    },
+    "runner_image_archive_path": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Image Archive Path"
+    },
+    "runner_image_archive_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Image Archive Sha256"
+    },
+    "runner_image_archive_size": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Image Archive Size"
+    },
+    "runner_image_id": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Image Id"
+    },
+    "runner_recipe_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Runner Recipe Sha256"
+    },
+    "schema_version": {
+      "const": "automated-product-execution-manifest-v1",
+      "default": "automated-product-execution-manifest-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "synthetic_profile": {
+      "title": "Synthetic Profile",
+      "type": "boolean"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "NOT_RUN"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "gate_profile",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "gate_contract_sha256",
+    "isolation_mode",
+    "synthetic_profile",
+    "checks",
+    "checks_not_run",
+    "verdict"
+  ],
+  "title": "AutomatedProductExecutionManifest",
+  "type": "object"
+}

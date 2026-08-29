@@ -1,0 +1,46 @@
+{
+  "schema_version": "trip-understanding-route-fixture-v1",
+  "snapshot_id": "beijing-text-card-routes-2026-08-27-v1",
+  "execution_mode": "controlled_fixture",
+  "external_calls": 0,
+  "observed_at": "2026-08-27T00:00:00Z",
+  "selection_policy": "walking-within-10-minutes-v1",
+  "routes": [
+    {
+      "origin": "故宫博物院",
+      "destination": "景山公园",
+      "walking": {"duration_minutes": 16, "distance_meters": 1200, "transfer_count": 0},
+      "transit": {"duration_minutes": 24, "distance_meters": 2600, "transfer_count": 0}
+    },
+    {
+      "origin": "景山公园",
+      "destination": "故宫博物院",
+      "walking": {"duration_minutes": 15, "distance_meters": 1150, "transfer_count": 0},
+      "transit": {"duration_minutes": 24, "distance_meters": 2500, "transfer_count": 0}
+    },
+    {
+      "origin": "天坛公园",
+      "destination": "前门大街",
+      "walking": {"duration_minutes": 43, "distance_meters": 3300, "transfer_count": 0},
+      "transit": {"duration_minutes": 27, "distance_meters": 5100, "transfer_count": 0}
+    },
+    {
+      "origin": "前门大街",
+      "destination": "天坛公园",
+      "walking": {"duration_minutes": 44, "distance_meters": 3400, "transfer_count": 0},
+      "transit": {"duration_minutes": 28, "distance_meters": 5200, "transfer_count": 0}
+    },
+    {
+      "origin": "颐和园",
+      "destination": "圆明园",
+      "walking": {"duration_minutes": 38, "distance_meters": 3000, "transfer_count": 0},
+      "transit": {"duration_minutes": 26, "distance_meters": 4300, "transfer_count": 0}
+    },
+    {
+      "origin": "圆明园",
+      "destination": "颐和园",
+      "walking": {"duration_minutes": 39, "distance_meters": 3050, "transfer_count": 0},
+      "transit": {"duration_minutes": 27, "distance_meters": 4400, "transfer_count": 0}
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+# Product work remains mergeable after CI without a general review requirement.
+# Only the rules that define or enforce the mainline require the project owner.
+/AGENTS.md @Munto47
+/.github/CODEOWNERS @Munto47
+/.github/workflows/ci.yml @Munto47
+/.github/workflows/core-mainline.yml @Munto47
+/backend/eval_data/agent_gate_v1/ @Munto47
+/backend/eval_data/trip_text_cards_agent_v2/ @Munto47
+/backend/evals/agent_gate_v1/ @Munto47
+/backend/evals/trip_text_cards_agent_v2/ @Munto47
+/backend/governance/ @Munto47
+/backend/scripts/validate_core_mainline.py @Munto47
+/docs/governance/AGENT_GATE_PROTOCOL.md @Munto47
+/docs/governance/PROGRAM.md @Munto47
+/docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md @Munto47
+/docs/governance/RELEASE_GATES.md @Munto47
+/docs/governance/current_goal_binding.json @Munto47
+/docs/governance/current_work_packages.json @Munto47
+/docs/governance/product_delivery_gates.json @Munto47
+

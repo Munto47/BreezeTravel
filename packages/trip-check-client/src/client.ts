@@ -1,5 +1,12 @@
 import type { components } from './generated/schema'
 import { ensureSuccess, type JsonTransport, type TransportResponse, type UploadTransport } from './transport'
+import type {
+  MapRenderAcceptedView,
+  MapRenderView,
+  TripUnderstandingAcceptedView,
+  TripUnderstandingProgressView,
+  UserFacingTripResult,
+} from './v3'
 
 type Schemas = components['schemas']
 export type WechatLoginResponse = Schemas['WechatLoginResponse']
@@ -21,13 +28,16 @@ export type RunSpecContract = Schemas['RunSpec']
 
 export interface CommandOptions {
   idempotencyKey?: string
-  ifMatch?: number
+  ifMatch?: number | string
 }
 
 function commandHeaders(options: CommandOptions = {}): Record<string, string> {
   const headers: Record<string, string> = {}
   if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
-  if (options.ifMatch !== undefined) headers['If-Match'] = `"${options.ifMatch}"`
+  if (options.ifMatch !== undefined) {
+    const value = String(options.ifMatch)
+    headers['If-Match'] = value.startsWith('"') ? value : `"${value}"`
+  }
   return headers
 }
 
@@ -43,6 +53,50 @@ export class TripCheckClient {
 
   async loginWithWechat(code: string, nickname?: string): Promise<WechatLoginResponse> {
     return (await this.json<WechatLoginResponse>('POST', '/api/auth/wechat/login', { code, nickname })).data
+  }
+
+  async createDemoTripUnderstanding(idempotencyKey: string): Promise<TripUnderstandingAcceptedView> {
+    return (
+      await this.json<TripUnderstandingAcceptedView>(
+        'POST',
+        '/api/v3/trip-understandings',
+        { mode: 'DEMO' },
+        { idempotencyKey },
+      )
+    ).data
+  }
+
+  async getTripUnderstandingResult(
+    publicResourceId: string,
+  ): Promise<TransportResponse<TripUnderstandingProgressView | UserFacingTripResult>> {
+    return this.json<TripUnderstandingProgressView | UserFacingTripResult>(
+      'GET',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
+    )
+  }
+
+  async getTripUnderstandingMap(publicResourceId: string): Promise<MapRenderView> {
+    return (
+      await this.json<MapRenderView>(
+        'GET',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders/latest`,
+      )
+    ).data
+  }
+
+  async requestTripUnderstandingMap(
+    publicResourceId: string,
+    etag: string,
+    idempotencyKey: string,
+  ): Promise<MapRenderAcceptedView> {
+    return (
+      await this.json<MapRenderAcceptedView>(
+        'POST',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders`,
+        undefined,
+        { ifMatch: etag, idempotencyKey },
+      )
+    ).data
   }
 
   async createRoom(body: { room_id: string; thread_id: string; trip_city: string; trip_days: number; nickname?: string }): Promise<Record<string, unknown>> {

@@ -1,0 +1,23 @@
+{
+  "case_count": 90,
+  "cohort_counts": {
+    "ADVERSARIAL": 15,
+    "DEEP_CITY": 60,
+    "OTHER_CITY": 15
+  },
+  "data_origin": "HIGH_FIDELITY_SYNTHETIC",
+  "dataset_version": "g01-text-card-dataset-v1",
+  "family_count": 30,
+  "generated_at": "2026-08-28T00:00:00+08:00",
+  "generator_id": "g01-text-card-input-generator-v1",
+  "generator_sha256": "af01cfafd8b7cadad6f20119aaecafa9c79cbdd7042d8b27707f1e63a70539a0",
+  "historical_dataset_inputs_used": 0,
+  "human_annotations_created": 0,
+  "provider_calls": 0,
+  "schema_version": "g01-text-card-generation-receipt-v1",
+  "split_counts": {
+    "dev": 54,
+    "frozen_blind": 18,
+    "validation": 18
+  }
+}

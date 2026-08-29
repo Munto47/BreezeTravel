@@ -237,7 +237,7 @@ export default function TripPage() {
         <Picker disabled={brief.status === 'CONFIRMED'} mode='selector' range={TRAVELER_OPTIONS} value={Math.max(0, TRAVELER_OPTIONS.indexOf(travelerCount))} onChange={event => setTravelerCount(TRAVELER_OPTIONS[Number(event.detail.value)])}>
           <View className='field'>{travelerCount} 人</View>
         </Picker>
-        <Text className='copy'>节奏 {brief.daily_pace} · 强度 {brief.activity_intensity} · 交通 {brief.transport_modes.join('、') || '未提供'}</Text>
+        <Text className='copy'>节奏 {brief.daily_pace} · 强度 {brief.activity_intensity} · 交通 {(brief.transport_modes || []).join('、') || '未提供'}</Text>
         {brief.status !== 'CONFIRMED' ? <Button className='primary' loading={busy === 'brief'} onClick={saveAndConfirmBrief}>保存并确认 Brief</Button> : null}
       </View> : null}
 

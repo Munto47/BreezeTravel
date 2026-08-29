@@ -1,0 +1,356 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Authority-owned broker proof; candidate code never constructs this payload.",
+  "properties": {
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "authority_supervisor_separate": {
+      "const": true,
+      "default": true,
+      "title": "Authority Supervisor Separate",
+      "type": "boolean"
+    },
+    "broker_id": {
+      "pattern": "^BROKER-[A-Z0-9-]{8,100}$",
+      "title": "Broker Id",
+      "type": "string"
+    },
+    "broker_registry_identity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Broker Registry Identity Sha256",
+      "type": "string"
+    },
+    "broker_registry_path_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Broker Registry Path Sha256",
+      "type": "string"
+    },
+    "caller_payload_accepted": {
+      "const": false,
+      "default": false,
+      "title": "Caller Payload Accepted",
+      "type": "boolean"
+    },
+    "caller_role_accepted": {
+      "const": false,
+      "default": false,
+      "title": "Caller Role Accepted",
+      "type": "boolean"
+    },
+    "caller_verdict_accepted": {
+      "const": false,
+      "default": false,
+      "title": "Caller Verdict Accepted",
+      "type": "boolean"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "challenge_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Challenge Sha256",
+      "type": "string"
+    },
+    "child_process_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Child Process Manifest Sha256",
+      "type": "string"
+    },
+    "commit_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Commit Sha256",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "conflicting_request_rejected": {
+      "const": true,
+      "default": true,
+      "title": "Conflicting Request Rejected",
+      "type": "boolean"
+    },
+    "conformance_run_id": {
+      "pattern": "^SIGCONF-[0-9A-F]{32}$",
+      "title": "Conformance Run Id",
+      "type": "string"
+    },
+    "exact_retry_idempotent": {
+      "const": true,
+      "default": true,
+      "title": "Exact Retry Idempotent",
+      "type": "boolean"
+    },
+    "expired_request_rejected": {
+      "const": true,
+      "default": true,
+      "title": "Expired Request Rejected",
+      "type": "boolean"
+    },
+    "generic_signing_endpoint": {
+      "const": false,
+      "default": false,
+      "title": "Generic Signing Endpoint",
+      "type": "boolean"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "imports_candidate_code": {
+      "const": false,
+      "default": false,
+      "title": "Imports Candidate Code",
+      "type": "boolean"
+    },
+    "inherited_handle_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Inherited Handle Manifest Sha256",
+      "type": "string"
+    },
+    "key_path_in_candidate_environment": {
+      "const": false,
+      "default": false,
+      "title": "Key Path In Candidate Environment",
+      "type": "boolean"
+    },
+    "observed_exit_code": {
+      "const": 0,
+      "default": 0,
+      "title": "Observed Exit Code",
+      "type": "integer"
+    },
+    "operation_role_bindings_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Operation Role Bindings Sha256",
+      "type": "string"
+    },
+    "private_key_in_candidate_process": {
+      "const": false,
+      "default": false,
+      "title": "Private Key In Candidate Process",
+      "type": "boolean"
+    },
+    "process_isolation_only": {
+      "const": true,
+      "default": true,
+      "title": "Process Isolation Only",
+      "type": "boolean"
+    },
+    "purpose_specific_payload_construction": {
+      "const": true,
+      "default": true,
+      "title": "Purpose Specific Payload Construction",
+      "type": "boolean"
+    },
+    "replay_rejected": {
+      "const": true,
+      "default": true,
+      "title": "Replay Rejected",
+      "type": "boolean"
+    },
+    "repository_external": {
+      "const": true,
+      "default": true,
+      "title": "Repository External",
+      "type": "boolean"
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Request Sha256",
+      "type": "string"
+    },
+    "response_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Response Sha256",
+      "type": "string"
+    },
+    "role_private_key_count": {
+      "const": 8,
+      "default": 8,
+      "title": "Role Private Key Count",
+      "type": "integer"
+    },
+    "role_process_count": {
+      "const": 8,
+      "default": 8,
+      "title": "Role Process Count",
+      "type": "integer"
+    },
+    "sanitized_environment_keys_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sanitized Environment Keys Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "external-signer-conformance-receipt-v1",
+      "default": "external-signer-conformance-receipt-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "shared_private_key_process": {
+      "const": false,
+      "default": false,
+      "title": "Shared Private Key Process",
+      "type": "boolean"
+    },
+    "signer_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Signer Bundle Sha256",
+      "type": "string"
+    },
+    "signer_network_access": {
+      "const": false,
+      "default": false,
+      "title": "Signer Network Access",
+      "type": "boolean"
+    },
+    "started_at": {
+      "format": "date-time",
+      "title": "Started At",
+      "type": "string"
+    },
+    "status": {
+      "const": "CONFORMANCE_PASS",
+      "default": "CONFORMANCE_PASS",
+      "title": "Status",
+      "type": "string"
+    },
+    "supervisor_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Supervisor Bundle Sha256",
+      "type": "string"
+    },
+    "supported_operations": {
+      "items": {
+        "enum": [
+          "PREPARE_ACTIVATION",
+          "MINT_LIVE",
+          "CAPTURE_AMAP_EFFECT",
+          "CAPTURE_QWEN_EFFECT",
+          "SIGN_AUTOMATED_COMPONENT",
+          "SIGN_LIVE_COMPONENT",
+          "SIGN_PANEL_COMPONENT",
+          "SIGN_SEALED_COMPONENT",
+          "SIGN_FINAL_GATE"
+        ],
+        "type": "string"
+      },
+      "maxItems": 9,
+      "minItems": 9,
+      "title": "Supported Operations",
+      "type": "array"
+    },
+    "tamper_rejected": {
+      "const": true,
+      "default": true,
+      "title": "Tamper Rejected",
+      "type": "boolean"
+    },
+    "timed_out": {
+      "const": false,
+      "default": false,
+      "title": "Timed Out",
+      "type": "boolean"
+    },
+    "two_stage": {
+      "const": true,
+      "default": true,
+      "title": "Two Stage",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "broker_id",
+    "signer_bundle_sha256",
+    "supervisor_bundle_sha256",
+    "broker_registry_identity_sha256",
+    "broker_registry_path_sha256",
+    "operation_role_bindings_sha256",
+    "candidate_commit",
+    "candidate_tree",
+    "authority_policy_sha256",
+    "conformance_run_id",
+    "request_sha256",
+    "challenge_sha256",
+    "commit_sha256",
+    "response_sha256",
+    "supported_operations",
+    "sanitized_environment_keys_sha256",
+    "inherited_handle_manifest_sha256",
+    "child_process_manifest_sha256",
+    "started_at",
+    "completed_at",
+    "authority_signature"
+  ],
+  "title": "ExternalSignerConformanceReceipt",
+  "type": "object"
+}

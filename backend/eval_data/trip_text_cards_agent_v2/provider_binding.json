@@ -1,0 +1,22 @@
+{
+  "schema_version": "g01-provider-binding-v1",
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "amap_authorization_basis": "OWNER_ATTESTED_EXISTING_AUTHORIZATION",
+  "amap_place_search": "https://restapi.amap.com/v5/place/text",
+  "amap_walking": "https://restapi.amap.com/v3/direction/walking",
+  "amap_transit": "https://restapi.amap.com/v3/direction/transit/integrated",
+  "qwen": {
+    "provider": "DASHSCOPE_OPENAI_COMPATIBLE_MODE",
+    "region": "NOT_EXPOSED_BY_PROVIDER",
+    "workspace": "NOT_EXPOSED_BY_PROVIDER",
+    "inference_endpoint_sha256": "5891aed827c4e67b2d7c0c73ea819327ce3f2b6ef72213cd79669486a26b1ead",
+    "model_directory_endpoint_sha256": "748cac37d79609a8425d8a46f2536b3cbb880d87dc460da6fb480a42e418a1f2",
+    "account_directory_response_sha256": "e58f0a7c7095fbb3d9db36ee0137b72adf8c34b06003ce734b24076813b34e01",
+    "structured_output": "STRICT_JSON_SCHEMA_SUPPORTED",
+    "model_selection_binding": "QWEN_MODEL_PANEL"
+  },
+  "credential_storage": "ENVIRONMENT_ONLY",
+  "raw_provider_payload_in_git": false,
+  "retention": "REDACTED_MINIMAL",
+  "status": "FROZEN"
+}

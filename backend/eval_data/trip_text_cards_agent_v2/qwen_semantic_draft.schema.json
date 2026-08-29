@@ -1,0 +1,161 @@
+{
+  "$defs": {
+    "ActivityRole": {
+      "enum": [
+        "PLANNED",
+        "OPTIONAL",
+        "REFERENCE",
+        "EXCLUDED",
+        "PASS_THROUGH"
+      ],
+      "title": "ActivityRole",
+      "type": "string"
+    },
+    "QwenExplicitDestinationDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "const": "EXPLICIT",
+          "enum": [
+            "EXPLICIT"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "evidence_span_end": {
+          "exclusiveMinimum": 0,
+          "title": "Evidence Span End",
+          "type": "integer"
+        },
+        "evidence_span_start": {
+          "minimum": 0,
+          "title": "Evidence Span Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "basis",
+        "evidence_span_start",
+        "evidence_span_end"
+      ],
+      "title": "QwenExplicitDestinationDraft",
+      "type": "object"
+    },
+    "QwenMentionDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_place_name": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Atomic Place Name"
+        },
+        "role": {
+          "$ref": "#/$defs/ActivityRole"
+        },
+        "span_end": {
+          "exclusiveMinimum": 0,
+          "title": "Span End",
+          "type": "integer"
+        },
+        "span_start": {
+          "minimum": 0,
+          "title": "Span Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "span_start",
+        "span_end",
+        "role",
+        "atomic_place_name"
+      ],
+      "title": "QwenMentionDraft",
+      "type": "object"
+    },
+    "QwenSoftDestinationDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "const": "SOFT_ASSUMPTION",
+          "enum": [
+            "SOFT_ASSUMPTION"
+          ],
+          "title": "Basis",
+          "type": "string"
+        },
+        "evidence_span_end": {
+          "const": null,
+          "enum": [
+            null
+          ],
+          "title": "Evidence Span End",
+          "type": "null"
+        },
+        "evidence_span_start": {
+          "const": null,
+          "enum": [
+            null
+          ],
+          "title": "Evidence Span Start",
+          "type": "null"
+        },
+        "name": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "basis",
+        "evidence_span_start",
+        "evidence_span_end"
+      ],
+      "title": "QwenSoftDestinationDraft",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "destination": {
+      "discriminator": {
+        "mapping": {
+          "EXPLICIT": "#/$defs/QwenExplicitDestinationDraft",
+          "SOFT_ASSUMPTION": "#/$defs/QwenSoftDestinationDraft"
+        },
+        "propertyName": "basis"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/QwenExplicitDestinationDraft"
+        },
+        {
+          "$ref": "#/$defs/QwenSoftDestinationDraft"
+        }
+      ],
+      "title": "Destination"
+    },
+    "mentions": {
+      "items": {
+        "$ref": "#/$defs/QwenMentionDraft"
+      },
+      "maxItems": 160,
+      "title": "Mentions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "destination",
+    "mentions"
+  ],
+  "title": "QwenSemanticDraft",
+  "type": "object"
+}

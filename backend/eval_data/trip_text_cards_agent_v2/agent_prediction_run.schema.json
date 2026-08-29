@@ -1,0 +1,185 @@
+{
+  "$defs": {
+    "AgentDestinationPrediction": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "destination_basis": {
+          "enum": [
+            "EXPLICIT",
+            "SOFT_ASSUMPTION"
+          ],
+          "title": "Destination Basis",
+          "type": "string"
+        },
+        "destination_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Destination Name",
+          "type": "string"
+        },
+        "evidence_raw_text": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Raw Text"
+        },
+        "evidence_span_end": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Span End"
+        },
+        "evidence_span_start": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Span Start"
+        }
+      },
+      "required": [
+        "case_id",
+        "destination_name",
+        "destination_basis"
+      ],
+      "title": "AgentDestinationPrediction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Config Sha256",
+      "type": "string"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "destination_predictions": {
+      "items": {
+        "$ref": "#/$defs/AgentDestinationPrediction"
+      },
+      "minItems": 1,
+      "title": "Destination Predictions",
+      "type": "array"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G01-TEXT-CARDS",
+      "default": "TC-VNEXT-G01-TEXT-CARDS",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "inference_outputs_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Inference Outputs Sha256",
+      "type": "string"
+    },
+    "inference_receipt_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Inference Receipt Bundle Sha256",
+      "type": "string"
+    },
+    "model_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Model Binding Sha256",
+      "type": "string"
+    },
+    "predictions_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Predictions Sha256",
+      "type": "string"
+    },
+    "prompt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prompt Sha256",
+      "type": "string"
+    },
+    "provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Binding Sha256",
+      "type": "string"
+    },
+    "schema_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Schema Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-text-card-agent-prediction-run-v2",
+      "default": "g01-text-card-agent-prediction-run-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    }
+  },
+  "required": [
+    "split",
+    "candidate_commit",
+    "candidate_tree",
+    "predictions_sha256",
+    "inference_outputs_sha256",
+    "model_binding_sha256",
+    "prompt_sha256",
+    "schema_sha256",
+    "config_sha256",
+    "provider_binding_sha256",
+    "inference_receipt_bundle_sha256",
+    "generated_at",
+    "destination_predictions"
+  ],
+  "title": "AgentPredictionRunEnvelope",
+  "type": "object"
+}

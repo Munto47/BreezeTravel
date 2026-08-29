@@ -1,0 +1,191 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    },
+    "TruthBundleCommitment": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "HMAC-SHA256",
+          "default": "HMAC-SHA256",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "key_id": {
+          "pattern": "^CUSTODY-[A-Z0-9-]{6,100}$",
+          "title": "Key Id",
+          "type": "string"
+        },
+        "value": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key_id",
+        "value"
+      ],
+      "title": "TruthBundleCommitment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attempt_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Attempt Commitment Sha256",
+      "type": "string"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "case_set_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Case Set Commitment Sha256",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "input_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Bundle Sha256",
+      "type": "string"
+    },
+    "input_case_count": {
+      "minimum": 1,
+      "title": "Input Case Count",
+      "type": "integer"
+    },
+    "one_shot_nonce_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "One Shot Nonce Sha256",
+      "type": "string"
+    },
+    "prediction_bundle_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prediction Bundle Sha256",
+      "type": "string"
+    },
+    "prediction_case_count": {
+      "minimum": 1,
+      "title": "Prediction Case Count",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "sealed-score-input-manifest-v2",
+      "default": "sealed-score-input-manifest-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "scorer_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Scorer Sha256",
+      "type": "string"
+    },
+    "thresholds_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Thresholds Sha256",
+      "type": "string"
+    },
+    "tranche_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Tranche Commitment Sha256",
+      "type": "string"
+    },
+    "truth_bundle_commitment": {
+      "$ref": "#/$defs/TruthBundleCommitment"
+    },
+    "truth_case_count": {
+      "minimum": 1,
+      "title": "Truth Case Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "tranche_commitment_sha256",
+    "one_shot_nonce_sha256",
+    "attempt_commitment_sha256",
+    "input_bundle_sha256",
+    "prediction_bundle_sha256",
+    "truth_bundle_commitment",
+    "case_set_commitment_sha256",
+    "input_case_count",
+    "prediction_case_count",
+    "truth_case_count",
+    "scorer_sha256",
+    "thresholds_sha256",
+    "authority_policy_sha256",
+    "authority_signature"
+  ],
+  "title": "SealedScoreInputManifest",
+  "type": "object"
+}

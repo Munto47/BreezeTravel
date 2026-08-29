@@ -1,12 +1,33 @@
-# 「行程查」Blueprint 1.0 Release Gates
+# 「行程查」Blueprint 1.3 Release Gates
 
 > 状态：`ACCEPTED`
 >
 > Program：`TC-VNEXT-2026`
 >
-> 日期：2026-08-27
+> 日期：2026-08-28
 
 ## 0. 证据状态分层
+
+证据等级：
+
+- `AUTOMATED_TEST`；
+- `LIVE_PROVIDER_EVIDENCE`；
+- `MULTI_AGENT_SIMULATED_REVIEW`；
+- `SEALED_AGENT_BLIND`；
+- `HUMAN_USABILITY`；
+- `PRODUCTION_EVIDENCE`。
+
+G01～G06按`product_delivery_gates.json`取得`PRODUCT_DELIVERY_PASS`；G07才按`AGENT_GATE_PROTOCOL.md`取得`HARDENED_CANDIDATE_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
+
+G01～G06使用`PRODUCT_DELIVERY_GATE`，只检查当前用户旅程和针对性验证；G07使用`HARDENED_CANDIDATE_GATE`。90条完整统计、50次真实性能链、三角色复审、ultra裁决、sealed blind、exact commit全证据绑定、完整可靠性和供应链加固均不得前置。
+
+现有Agent Gate、blind、authority、custody、签名、broker和候选回执实现统一保留为`FROZEN_G07_ASSET`；G07前不得继续修改，也不得作为产品Goal依赖。
+
+阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后进入`CORE_MVP_OWNER_REVIEW_PENDING`并停止；G07通过后停止。
+
+### 0.1 并行开发完整性
+
+每个Goal晋级前，v3 `current_work_packages.json`必须证明：主对话是唯一非终态集成者；每个长期功能绑定独立用户可见对话、branch、remote、worktree和完整prompt hash；集成者加最多两个`IN_PROGRESS/BLOCKED_EXTERNAL`贡献包；等待的第三包为`WAITING_FOR_WRITER_SLOT`；同一product baseline；branch/worktree/路径所有权不重复；普通包未触碰受保护文件；官方`READY_TO_MERGE`的tip、clean worktree和remote readback仍等于`ready_commit`；所有包串行整合后才运行当前交付门。
 
 新版状态：
 
@@ -17,7 +38,7 @@
 - `SCREENSHOT_PARITY_READY`：V0.4截图一致性门禁通过。
 - `CITY_KNOWLEDGE_READY`：V0.5知识层准入通过。
 - `MEMORY_SHARE_READY`：V0.6 consent与分享门禁通过。
-- `VNEXT_CANDIDATE_READY`：G07同绑定Candidate Gate通过。
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`：G07同绑定Candidate Gate与Agent Gate通过；不含真人、生产或商业证据。
 - `HUMAN_USABILITY_READY`：经人工批准的H1通过。
 
 历史状态 `INTAKE_V2_DEVELOPMENT_READY` 和 `V1_CANDIDATE_READY` 保持只读，前者不得改写或替代后者，也都不能升级新版。历史 PASS、REJECT和NOT_RUN不得复制到新commit。
@@ -43,56 +64,28 @@ G00必须同时满足：
 
 ## 2. 全版本零容忍项
 
-以下任一非零即对应版本 `REJECT`：
+以下任一非零即所有版本`REJECT`：
 
-- 错城或错类别POI自动进入行程；
-- 描述句、URL、预约说明或模型举例成为地点卡片；
-- 原文映射、置信度、长ID或内部流程泄漏到普通用户界面；
-- LLM输出成为Provider事实、Finding或已解决状态；
-- HARD冲突漏检；
-- `UNKNOWN/UNAVAILABLE` 被展示为通过；
-- 旧revision地图被标记为当前地图；
+- 错城、错类别、描述句或URL被自动当成地点；
+- 越权访问，或原文、内部字段、capability泄漏；
+- 用户要求删除的数据无法确认删除；
 - 卡片编辑后隐藏触发路线Provider或自动重绘；
-- 虚构酒店价格、房态、星级或服务质量；
-- 原始截图终态未删除；
-- 未授权数据被持久化、训练或分享；
-- 修改sealed blind/oracle消除失败。
+- `UNKNOWN/UNAVAILABLE`被展示或统计为成功。
 
 ## 3. Text Card Gate — G01
 
-数据：
+固定输入只使用`G01-TC-001 / 013 / 025 / 037 / 046`。G01通过必须同时证明：
 
-- 90条family-isolated主集：54 dev / 18 validation / 18 sealed blind；
-- 北京/上海/杭州60条、其他城市15条、对抗15条；
-- 已删除的旧根`tests/`旅行文本不得作为regression、oracle或Gate证据；
-- 双人独立标注与冲突裁决；
-- family不跨split。
+- 匿名体验和登录长文本都产生用户友好的逐日卡片；
+- 查看、插入、替换、移动、删除、刷新和幂等重放可用；
+- 首批卡片后实际启动同`PlanRevisionRef`的walking/transit后台地图任务；
+- 编辑后路线Provider调用为0，旧地图只显示`NEEDS_UPDATE`；
+- Qwen、地点或路线Provider故障返回可编辑卡片、地点待确认或`LIMITED/UNAVAILABLE`，不显示红色成功假象；
+- 公共JSON/DOM禁用字段命中0，匿名和登录越权请求被拒绝；
+- source、整程和账号旅行数据删除均有终态readback；
+- v3定向测试、PostgreSQL集成、frontend build和G01浏览器E2E通过。
 
-硬指标：
-
-- schema、评分覆盖和内部原文证据有效率100%；
-- 整句/URL/描述/预约成为地点0；
-- 错城、错类别严重自动匹配0；
-- 自动地点匹配precision = 正确canonical auto-selected实例数 / 全部auto-selected实例数，≥99%；validation与sealed blind分别要求分母≥50，分母不足即Gate无效而非PASS；
-- 可执行地点提及precision ≥98%、recall ≥95%；
-- day assignment F1 ≥97%；
-- `PLANNED/OPTIONAL/REFERENCE/EXCLUDED/PASS_THROUGH` macro-F1 ≥94%；
-- 三城自动匹配coverage ≥80%；
-- 每份输入人工地点确认中位数≤1，P90≤3；
-- 普通用户API/DOM中禁用字段命中0；
-- 首次进度≤500ms，首批卡片P95≤8s；
-- Qwen或AMap失败仍返回可编辑部分结果；
-- 登录、体验、编辑、刷新、并发和幂等浏览器场景通过。
-- `TripUnderstandingJob`在进程重启、lease接管和SSE重连后可恢复，重复事件副作用0；
-- FULL越权访问0，DEMO资源越权0，24小时TTL、一次性claim、source/行程/账号删除回执100%可回读；
-- 原始文本、PII、`public_resource_id`和匿名capability在日志、trace和分析事件中命中0；访问日志只记录路由模板或脱敏路径；
-- 首批卡片READY后自动创建并实际执行一次同`PlanRevisionRef`的walking/transit地图job；相同逻辑任务即使请求key不同也只有一次Provider副作用；
-- 地图job失败不影响卡片，迟到结果不更新current pointer；
-- 冻结标准负载（3～12个已映射地点、并发1；仅用于性能测量而非产品范围）下，从首批卡片READY到每条可解析相邻边至少有一种路线的snapshot，snapshot矩阵P95≤15秒、受控live dev矩阵P95≤20秒；Provider不可用单列，不混入成功延迟；
-- 地图正例集至少30份行程、120条已冻结为可成功的相邻边；fixture/snapshot中每条边至少一种模式成功率100%，受控live dev中≥95%，全局永远`UNAVAILABLE`或零可用边不能通过Gate；
-- 输入/活动/并发/模型/POI/路线预算均有边界，超限返回可编辑`LIMITED`而非静默截断。
-
-模型比较只在dev/validation使用固定provider/region/endpoint/exact model ID、相同prompt/schema/config/dataset和确定性scorer。挑战模型只有全部Validation硬门禁通过、质量相对最佳下降≤0.5个百分点且P95改善≥20%才可替换默认候选；唯一候选冻结后sealed blind只运行一次。
+90条统计、最小分母、50次链路、三角色复审、ultra裁决、sealed blind、完整性能与exact候选绑定均为G07 `NOT_RUN`，不得阻断G01。
 
 ## 4. Map & Stay Gate — G02
 
@@ -107,10 +100,10 @@ G00必须同时满足：
 - walking/transit独立保存成功/失败；
 - 差值≤10分钟时优先步行；
 - 地图失败不影响卡片；
-- fixture/snapshot重放hash一致率100%。
+- fixture/snapshot定向重放一致；
 - 普通API只返回 `PREPARING/AVAILABLE/NEEDS_UPDATE/LIMITED/UNAVAILABLE`，内部job/freshness枚举泄漏0；
 - 卡片详情在stale时不把旧“到下一站”路线表达为当前事实。
-- 已有snapshot时地图首屏几何P95≤1.5秒；尚未完成时地图壳与用户状态≤500ms且不阻塞卡片。
+- 尚未完成时地图壳和用户状态不阻塞卡片。
 
 住宿：
 
@@ -124,12 +117,11 @@ G00必须同时满足：
 - 不展示价格、房态、星级或质量承诺；
 - 选择同店创建新revision并使地图stale；
 - 无候选为中性待选择，不阻断。
-- 住宿正例集至少30组锚点（北京/上海/杭州各10），冻结snapshot中每组已知存在≥3家同城注册连锁酒店；Top-3非空率100%、首位属于合格集100%，受控live dev非空率≥90%。失败/空候选case另测，不能替代正例覆盖。
+- 定向正例显示最多3家合格同城注册连锁酒店；失败或无候选中性显示“住宿待选择”。
 
 ## 5. Top-3 Audit Gate — G03
 
 - 地点、路线、营业/预约、日容量、酒店往返和用餐空档各有固定oracle；
-- 路线Finding precision/recall均≥90%；
 - HARD冲突漏检0；
 - 具体地点候选100%来自冻结CandidateSet并绑定地点/路线receipt；
 - 内部全部未解决HARD Finding保留；公共结果最多3个Finding，剩余队列显示数量且不得显示已通过，解决后按序补位；
@@ -139,18 +131,20 @@ G00必须同时满足：
 - Repair后新增BLOCKER/HIGH/UNKNOWN为0；
 - 无绝对日期时具体天气/闭馆日期硬结论0。
 - `calendar_basis=DAY_INDEX_ONLY`可materialize且不伪造日期/确认；ABSOLUTE与DAY_INDEX_ONLY lineage、ETag和map/stay current pointer回读100%一致。
+- G03通过后交付演示脚本、已知边界和验证结果，状态切换为`CORE_MVP_OWNER_REVIEW_PENDING`，不自动激活G04。
 
 ## 6. Screenshot Parity Gate — G04
 
 - PNG/JPEG/WebP、1～6张、单张≤10MB；
+- multipart批次返回owner-bound不透明引用；JSON Base64输入0，跨账号/过期/重复终态消费0；
 - 真实来源OCR关键字段F1≥95%；
 - 低置信关键字段确认召回100%；
 - 冻结paired set上阅读顺序adjacency-F1≥97%；
-- 使用人工校正转写作为同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；
-- 原图泄漏0，清理receipt 100%；
+- 使用两个隔离Agent转写和新的ultra裁决形成同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；Agent结果不得称为人工校正；
+- 原图泄漏0，成功/失败/取消/超时/TTL终态清理receipt 100%；OCR文本/bbox删除遵循SourceDocument合同；
 - 三张1080×1920图片在候选RunSpec冻结CPU/GPU/内存和并发1环境下P95≤12秒；
 - Qwen-VL若晋级，关键字段、阅读顺序、卡片结果、bbox来源追踪和P95均不得低于PaddleOCR，且至少一项错误率相对下降≥20%；
-- synthetic、自动视觉复核和真人OCR证据分别披露。
+- synthetic、自动视觉复核、`MULTI_AGENT_SIMULATED_REVIEW`分别披露；真人OCR只在另行批准并实际运行后记为`HUMAN_USABILITY`，不阻断G04。
 
 ## 7. Knowledge Admission Gate — G05
 
@@ -179,7 +173,10 @@ G00必须同时满足：
 - 查看、更改、清空和删除全部可回读；
 - 原文、截图、聊天默认长期留存0；
 - 训练/评测consent与产品记忆consent分离；
-- 分享token不可枚举、可撤销、过期并最小披露；
+- 分享token不可枚举、可撤销、过期并最小披露；链接fragment只能用于一次body交换，换得HttpOnly capability后立即清除；
+- 分享秘密进入服务端可见URL、访问日志、Referer或分析事件为0；
+- 删除行程/账号后分享仍可访问为0；
+- 反馈隐式开启训练/评测授权为0；清空全部旅行数据后偏好、反馈或分享残留为0；
 - 越权读取/修改0；
 - 分享页内部字段泄漏0。
 
@@ -194,10 +191,12 @@ G00必须同时满足：
 | G4 真实Provider | 高德POI/步行/公交、天气与许可范围的脱敏回执 |
 | G5 浏览器/性能 | 登录、体验、卡片、地图stale/rerender、住宿、Top-3、刷新、断线和P95 |
 | G6 Manifest | 同一commit/config/dataset/model/rule/provider的不可变汇总 |
+| G7 Agent Gate | 三角色隔离审查、ultra裁决、所需sealed blind与fresh readback |
+| G8 候选加固 | 生成`HardeningDecision`。`NOT_REQUIRED_WITH_RATIONALE`必须绑定威胁、替代控制和残余风险；`REQUIRED`只验证被点名的外部authority、不可变远端ref、角色签名或OCI控制。不得默认恢复整套旧链，也不得外推为H1或生产证明 |
 
 G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不同配置不能拼接。候选材料包括受控演示、90秒视频、5分钟完整演示、架构图、恢复时序图、模型消融和已知边界。
 
-`VNEXT_CANDIDATE_READY`不等于H1、生产、公开发布或商业验证。
+`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产、公开发布或商业验证。G07通过后停止自动推进。
 
 ## 10. Reliability Gate
 
@@ -234,4 +233,4 @@ H1只能表述为小样本真人可用性证据，不等于统计显著、生产
 
 ## 12. 禁止替代
 
-历史Intake/Builder、旧Candidate、测试数量、synthetic proxy、自动Judge、source prior、旧RAGAS、单个演示或计划文档不得替代任何新版Gate。
+历史Intake/Builder、旧Candidate、测试数量、synthetic proxy、未按Agent Gate Protocol隔离和绑定的自动Judge、source prior、旧RAGAS、单个演示或计划文档不得替代任何新版Gate。按协议形成的Agent证据仍不能替代H1、生产或商业证据。

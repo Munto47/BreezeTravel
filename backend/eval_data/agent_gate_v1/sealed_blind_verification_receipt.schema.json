@@ -1,0 +1,153 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "attempt_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Attempt Commitment Sha256",
+      "type": "string"
+    },
+    "authority_anchor_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Authority Anchor Commit",
+      "type": "string"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "custody_registry_identity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Custody Registry Identity Sha256",
+      "type": "string"
+    },
+    "deterministic_score_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Deterministic Score Receipt Path",
+      "type": "string"
+    },
+    "evidence_level": {
+      "const": "SEALED_AGENT_BLIND",
+      "default": "SEALED_AGENT_BLIND",
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "mint_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Mint Receipt Path",
+      "type": "string"
+    },
+    "mint_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Mint Receipt Sha256",
+      "type": "string"
+    },
+    "one_shot_nonce_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "One Shot Nonce Sha256",
+      "type": "string"
+    },
+    "receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Receipt Path",
+      "type": "string"
+    },
+    "receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Receipt Sha256",
+      "type": "string"
+    },
+    "registry_state": {
+      "const": "COMPLETED",
+      "default": "COMPLETED",
+      "title": "Registry State",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "sealed-agent-blind-verification-receipt-v2",
+      "default": "sealed-agent-blind-verification-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score_input_manifest_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Score Input Manifest Path",
+      "type": "string"
+    },
+    "score_input_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Score Input Manifest Sha256",
+      "type": "string"
+    },
+    "score_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Score Receipt Sha256",
+      "type": "string"
+    },
+    "scorer_repository_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Scorer Repository Path",
+      "type": "string"
+    },
+    "thresholds_repository_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Thresholds Repository Path",
+      "type": "string"
+    },
+    "tranche_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Tranche Commitment Sha256",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "authority_anchor_commit",
+    "authority_policy_sha256",
+    "receipt_path",
+    "receipt_sha256",
+    "thresholds_repository_path",
+    "score_input_manifest_path",
+    "score_input_manifest_sha256",
+    "deterministic_score_receipt_path",
+    "score_receipt_sha256",
+    "scorer_repository_path",
+    "mint_receipt_path",
+    "mint_receipt_sha256",
+    "custody_registry_identity_sha256",
+    "tranche_commitment_sha256",
+    "one_shot_nonce_sha256",
+    "attempt_commitment_sha256"
+  ],
+  "title": "SealedBlindVerificationReceipt",
+  "type": "object"
+}

@@ -1,0 +1,330 @@
+{
+  "$defs": {
+    "AdjudicationAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 120,
+          "minLength": 3,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "automated_adjudication_used": {
+          "const": false,
+          "title": "Automated Adjudication Used",
+          "type": "boolean"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "is_authorized_human": {
+          "const": true,
+          "title": "Is Authorized Human",
+          "type": "boolean"
+        },
+        "reviewed_both_independent_bundles": {
+          "const": true,
+          "title": "Reviewed Both Independent Bundles",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "completed_at",
+        "is_authorized_human",
+        "reviewed_both_independent_bundles",
+        "automated_adjudication_used"
+      ],
+      "title": "AdjudicationAttestation",
+      "type": "object"
+    },
+    "CanonicalPlaceLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "const": "HUMAN_VERIFIED_PROVIDER_RECEIPT",
+          "title": "Authority",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "city": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "City",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "place_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Place Id",
+          "type": "string"
+        },
+        "receipt_ref": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Receipt Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "place_id",
+        "name",
+        "city",
+        "category",
+        "authority",
+        "receipt_ref"
+      ],
+      "title": "CanonicalPlaceLabel",
+      "type": "object"
+    },
+    "CaseAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "destination_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Destination Name",
+          "type": "string"
+        },
+        "mentions": {
+          "items": {
+            "$ref": "#/$defs/MentionAnnotation"
+          },
+          "minItems": 1,
+          "title": "Mentions",
+          "type": "array"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "source_sha256",
+        "destination_name",
+        "mentions"
+      ],
+      "title": "CaseAnnotation",
+      "type": "object"
+    },
+    "ConflictResolution": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "conflict_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Conflict Sha256",
+          "type": "string"
+        },
+        "resolution_note": {
+          "maxLength": 1000,
+          "minLength": 12,
+          "title": "Resolution Note",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "conflict_sha256",
+        "resolution_note"
+      ],
+      "title": "ConflictResolution",
+      "type": "object"
+    },
+    "MentionAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_place_name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Atomic Place Name"
+        },
+        "canonical_place": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalPlaceLabel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "day_index": {
+          "anyOf": [
+            {
+              "maximum": 14,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day Index"
+        },
+        "executable_place": {
+          "title": "Executable Place",
+          "type": "boolean"
+        },
+        "mention_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Mention Id",
+          "type": "string"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "PLANNED",
+            "OPTIONAL",
+            "REFERENCE",
+            "EXCLUDED",
+            "PASS_THROUGH"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "semantic_kind": {
+          "enum": [
+            "PLACE",
+            "URL",
+            "DESCRIPTION",
+            "RESERVATION",
+            "OTHER"
+          ],
+          "title": "Semantic Kind",
+          "type": "string"
+        },
+        "span_end": {
+          "exclusiveMinimum": 0,
+          "title": "Span End",
+          "type": "integer"
+        },
+        "span_start": {
+          "minimum": 0,
+          "title": "Span Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mention_id",
+        "span_start",
+        "span_end",
+        "raw_text",
+        "semantic_kind",
+        "role",
+        "executable_place"
+      ],
+      "title": "MentionAnnotation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/AdjudicationAttestation"
+    },
+    "conflicts": {
+      "items": {
+        "$ref": "#/$defs/ConflictResolution"
+      },
+      "title": "Conflicts",
+      "type": "array"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "gold_cases": {
+      "items": {
+        "$ref": "#/$defs/CaseAnnotation"
+      },
+      "minItems": 1,
+      "title": "Gold Cases",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "g01-text-card-adjudication-bundle-v1",
+      "default": "g01-text-card-adjudication-bundle-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_assignment_ids": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Source Assignment Ids",
+      "type": "array"
+    },
+    "source_bundle_sha256": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "title": "Source Bundle Sha256",
+      "type": "array"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    }
+  },
+  "required": [
+    "split",
+    "source_assignment_ids",
+    "source_bundle_sha256",
+    "attestation",
+    "conflicts",
+    "gold_cases"
+  ],
+  "title": "AdjudicationBundle",
+  "type": "object"
+}

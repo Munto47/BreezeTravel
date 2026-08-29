@@ -1,0 +1,122 @@
+{
+  "checks": [
+    {
+      "argv": [
+        "python",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "check_id": "backend.ruff",
+      "timeout_seconds": 600,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "--ignore=tests/test_trip_nlu_v2_gate.py",
+        "--timeout=180"
+      ],
+      "check_id": "backend.current_suite",
+      "timeout_seconds": 3600,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_g06_memory_share_gate.py",
+        "tests/test_g06_memory_privacy.py",
+        "--timeout=180"
+      ],
+      "check_id": "g06.consent_memory_delete_share_gate",
+      "timeout_seconds": 1800,
+      "workdir": "backend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "check_id": "shared_client.typecheck",
+      "timeout_seconds": 600,
+      "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "check_id": "shared_client.build",
+      "timeout_seconds": 600,
+      "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "check_id": "frontend.production_build",
+      "timeout_seconds": 1200,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "test:e2e:memory-share"
+      ],
+      "check_id": "g06.browser_memory_controls_share",
+      "timeout_seconds": 1800,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "check_id": "miniapp.typecheck",
+      "timeout_seconds": 600,
+      "workdir": "miniapp"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "test"
+      ],
+      "check_id": "miniapp.tests",
+      "timeout_seconds": 900,
+      "workdir": "miniapp"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "build:weapp"
+      ],
+      "check_id": "miniapp.production_build",
+      "timeout_seconds": 1200,
+      "workdir": "miniapp"
+    }
+  ],
+  "gate_profile": "CORE_AGENT_GATE",
+  "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+  "isolation": {
+    "authority_secret_mount_count": 0,
+    "mode": "FRESH_CLEAN_CHECKOUT",
+    "network_access": false,
+    "synthetic_profile": false
+  },
+  "schema_version": "automated-product-gate-contract-v2"
+}

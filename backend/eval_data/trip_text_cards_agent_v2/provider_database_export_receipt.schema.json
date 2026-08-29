@@ -1,0 +1,248 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    },
+    "ProviderDatabaseEffectRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "effect_id": {
+          "maxLength": 160,
+          "minLength": 8,
+          "title": "Effect Id",
+          "type": "string"
+        },
+        "effect_key_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Effect Key Sha256",
+          "type": "string"
+        },
+        "external_call_count": {
+          "maximum": 2,
+          "minimum": 0,
+          "title": "External Call Count",
+          "type": "integer"
+        },
+        "persisted_status": {
+          "const": "SUCCEEDED",
+          "default": "SUCCEEDED",
+          "title": "Persisted Status",
+          "type": "string"
+        },
+        "provider_binding_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Provider Binding Sha256",
+          "type": "string"
+        },
+        "request_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Request Sha256",
+          "type": "string"
+        },
+        "resolution_status": {
+          "enum": [
+            "MATCHED",
+            "UNRESOLVED",
+            "AMBIGUOUS"
+          ],
+          "title": "Resolution Status",
+          "type": "string"
+        },
+        "response_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Response Sha256",
+          "type": "string"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "effect_id",
+        "effect_key_sha256",
+        "provider_binding_sha256",
+        "request_sha256",
+        "response_sha256",
+        "resolution_status",
+        "external_call_count",
+        "started_at",
+        "completed_at"
+      ],
+      "title": "ProviderDatabaseEffectRecord",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authority_policy_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Authority Policy Sha256"
+    },
+    "authority_signature": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DetachedAuthoritySignature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "database_instance_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Database Instance Sha256"
+    },
+    "effects": {
+      "items": {
+        "$ref": "#/$defs/ProviderDatabaseEffectRecord"
+      },
+      "minItems": 1,
+      "title": "Effects",
+      "type": "array"
+    },
+    "execution_mode": {
+      "enum": [
+        "LIVE",
+        "CONTROLLED_FIXTURE"
+      ],
+      "title": "Execution Mode",
+      "type": "string"
+    },
+    "exported_at": {
+      "format": "date-time",
+      "title": "Exported At",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G01-TEXT-CARDS",
+      "default": "TC-VNEXT-G01-TEXT-CARDS",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "provider_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Provider Binding Sha256",
+      "type": "string"
+    },
+    "query_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Query Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-amap-database-export-receipt-v2",
+      "default": "g01-amap-database-export-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "source_registry": {
+      "enum": [
+        "POSTGRESQL_APPLICATION_TABLES",
+        "POSTGRESQL_PROVIDER_EFFECT_REGISTRY",
+        "CONTROLLED_CONTRACT_FIXTURE"
+      ],
+      "title": "Source Registry",
+      "type": "string"
+    },
+    "transaction_snapshot_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Transaction Snapshot Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "provider_binding_sha256",
+    "execution_mode",
+    "source_registry",
+    "query_sha256",
+    "transaction_snapshot_sha256",
+    "exported_at",
+    "effects"
+  ],
+  "title": "ProviderDatabaseExportReceipt",
+  "type": "object"
+}

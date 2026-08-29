@@ -9,7 +9,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
-from app.api import audits, imports, repairs, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_workspaces, members
+from app.api import audits, imports, repairs, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_understandings_v3, trip_workspaces, members
 from app.api import auth as auth_api
 from app.api import e2e as e2e_api
 from app.api import user_profile
@@ -31,6 +31,10 @@ from app.importing.upload_batches import (
     PostgresScreenshotUploadBatchRepository,
     ScreenshotUploadBatchService,
 )
+from app.trip_understanding.access_log import install_trip_understanding_access_log_filter
+
+
+install_trip_understanding_access_log_filter()
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -135,6 +139,16 @@ app.include_router(repairs.router, prefix="/api", tags=["repairs"])
 app.include_router(members.router, prefix="/api", tags=["members"])
 app.include_router(templates.router, prefix="/api", tags=["route-templates"])
 app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
+app.include_router(
+    trip_understandings_v3.router,
+    prefix="/api",
+    tags=["trip-understandings-v3"],
+)
+app.include_router(
+    trip_understandings_v3.account_router,
+    prefix="/api",
+    tags=["trip-understandings-v3-account"],
+)
 
 
 # ── 运维端点 ──────────────────────────────────────────────────────────────

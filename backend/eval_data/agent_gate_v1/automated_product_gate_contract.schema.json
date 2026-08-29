@@ -1,0 +1,233 @@
+{
+  "$defs": {
+    "AutomatedCheckContract": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 3,
+          "title": "Argv",
+          "type": "array"
+        },
+        "check_id": {
+          "pattern": "^[a-z][a-z0-9_.-]{2,79}$",
+          "title": "Check Id",
+          "type": "string"
+        },
+        "timeout_seconds": {
+          "maximum": 3600,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "workdir": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Workdir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check_id",
+        "argv",
+        "workdir",
+        "timeout_seconds"
+      ],
+      "title": "AutomatedCheckContract",
+      "type": "object"
+    },
+    "AutomatedIsolationContract": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_secret_mount_count": {
+          "const": 0,
+          "default": 0,
+          "title": "Authority Secret Mount Count",
+          "type": "integer"
+        },
+        "host_mount_count": {
+          "const": 0,
+          "default": 0,
+          "title": "Host Mount Count",
+          "type": "integer"
+        },
+        "host_pid_namespace": {
+          "const": false,
+          "default": false,
+          "title": "Host Pid Namespace",
+          "type": "boolean"
+        },
+        "mode": {
+          "const": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
+          "default": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
+          "title": "Mode",
+          "type": "string"
+        },
+        "network_access": {
+          "const": false,
+          "default": false,
+          "title": "Network Access",
+          "type": "boolean"
+        },
+        "runner_context_policy_path": {
+          "const": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile.dockerignore",
+          "default": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile.dockerignore",
+          "title": "Runner Context Policy Path",
+          "type": "string"
+        },
+        "runner_context_policy_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Runner Context Policy Sha256",
+          "type": "string"
+        },
+        "runner_entrypoint_path": {
+          "const": "backend/eval_data/agent_gate_v1/automation_runner_entrypoint.sh",
+          "default": "backend/eval_data/agent_gate_v1/automation_runner_entrypoint.sh",
+          "title": "Runner Entrypoint Path",
+          "type": "string"
+        },
+        "runner_entrypoint_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Runner Entrypoint Sha256",
+          "type": "string"
+        },
+        "runner_recipe_path": {
+          "const": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile",
+          "default": "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile",
+          "title": "Runner Recipe Path",
+          "type": "string"
+        },
+        "runner_recipe_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Runner Recipe Sha256",
+          "type": "string"
+        },
+        "synthetic_profile": {
+          "const": true,
+          "default": true,
+          "title": "Synthetic Profile",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "runner_recipe_sha256",
+        "runner_entrypoint_sha256",
+        "runner_context_policy_sha256"
+      ],
+      "title": "AutomatedIsolationContract",
+      "type": "object"
+    },
+    "CoreAutomationIsolationContract": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_secret_mount_count": {
+          "const": 0,
+          "default": 0,
+          "title": "Authority Secret Mount Count",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "FRESH_CLEAN_CHECKOUT",
+          "default": "FRESH_CLEAN_CHECKOUT",
+          "title": "Mode",
+          "type": "string"
+        },
+        "network_access": {
+          "const": false,
+          "default": false,
+          "title": "Network Access",
+          "type": "boolean"
+        },
+        "synthetic_profile": {
+          "const": false,
+          "default": false,
+          "title": "Synthetic Profile",
+          "type": "boolean"
+        }
+      },
+      "title": "CoreAutomationIsolationContract",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gate_profile": {
+            "const": "CORE_AGENT_GATE"
+          },
+          "schema_version": {
+            "const": "automated-product-gate-contract-v2"
+          }
+        },
+        "required": [
+          "schema_version",
+          "gate_profile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "isolation": {
+            "$ref": "#/$defs/CoreAutomationIsolationContract"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/AutomatedCheckContract"
+      },
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Checks",
+      "type": "array"
+    },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "isolation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoreAutomationIsolationContract"
+        },
+        {
+          "$ref": "#/$defs/AutomatedIsolationContract"
+        }
+      ],
+      "title": "Isolation"
+    },
+    "schema_version": {
+      "default": "automated-product-gate-contract-v2",
+      "enum": [
+        "automated-product-gate-contract-v1",
+        "automated-product-gate-contract-v2"
+      ],
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "gate_profile",
+    "isolation",
+    "checks"
+  ],
+  "title": "AutomatedProductGateContract",
+  "type": "object"
+}

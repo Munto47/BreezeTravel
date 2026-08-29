@@ -1,0 +1,267 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attempt_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Attempt Commitment Sha256",
+      "type": "string"
+    },
+    "attempt_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Attempt Receipt Sha256",
+      "type": "string"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "checks_not_run": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 0,
+      "title": "Checks Not Run",
+      "type": "array"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "component": {
+      "const": "SEALED_AGENT_BLIND",
+      "default": "SEALED_AGENT_BLIND",
+      "title": "Component",
+      "type": "string"
+    },
+    "custody_registry_identity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Custody Registry Identity Sha256",
+      "type": "string"
+    },
+    "deterministic_score_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Deterministic Score Receipt Path",
+      "type": "string"
+    },
+    "evidence_level": {
+      "const": "SEALED_AGENT_BLIND",
+      "default": "SEALED_AGENT_BLIND",
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "mint_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Mint Receipt Path",
+      "type": "string"
+    },
+    "mint_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Mint Receipt Sha256",
+      "type": "string"
+    },
+    "one_shot_nonce_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "One Shot Nonce Sha256",
+      "type": "string"
+    },
+    "receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Receipt Path",
+      "type": "string"
+    },
+    "registry_state": {
+      "const": "COMPLETED",
+      "default": "COMPLETED",
+      "title": "Registry State",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "sealed-agent-blind-gate-receipt-v2",
+      "default": "sealed-agent-blind-gate-receipt-v2",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score_input_manifest_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Score Input Manifest Path",
+      "type": "string"
+    },
+    "score_input_manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Score Input Manifest Sha256",
+      "type": "string"
+    },
+    "score_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Score Receipt Sha256",
+      "type": "string"
+    },
+    "scorer_repository_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Scorer Repository Path",
+      "type": "string"
+    },
+    "thresholds_repository_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Thresholds Repository Path",
+      "type": "string"
+    },
+    "tranche_commitment_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Tranche Commitment Sha256",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verification_receipt_path": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Verification Receipt Path",
+      "type": "string"
+    },
+    "verification_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verification Receipt Sha256",
+      "type": "string"
+    },
+    "verifier_path": {
+      "maxLength": 300,
+      "minLength": 1,
+      "title": "Verifier Path",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "authority_policy_sha256",
+    "verifier_path",
+    "verifier_sha256",
+    "verification_receipt_path",
+    "verification_receipt_sha256",
+    "checks_not_run",
+    "completed_at",
+    "authority_signature",
+    "receipt_path",
+    "score_input_manifest_path",
+    "deterministic_score_receipt_path",
+    "mint_receipt_path",
+    "thresholds_repository_path",
+    "scorer_repository_path",
+    "custody_registry_identity_sha256",
+    "mint_receipt_sha256",
+    "attempt_receipt_sha256",
+    "score_input_manifest_sha256",
+    "score_receipt_sha256",
+    "one_shot_nonce_sha256",
+    "attempt_commitment_sha256",
+    "tranche_commitment_sha256"
+  ],
+  "title": "SealedAgentBlindGateReceipt",
+  "type": "object"
+}

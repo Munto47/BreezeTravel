@@ -1,0 +1,132 @@
+{
+  "$defs": {
+    "InputLineage": {
+      "additionalProperties": false,
+      "properties": {
+        "data_origin": {
+          "const": "HIGH_FIDELITY_SYNTHETIC",
+          "title": "Data Origin",
+          "type": "string"
+        },
+        "generator_id": {
+          "const": "g01-text-card-input-generator-v1",
+          "title": "Generator Id",
+          "type": "string"
+        },
+        "mutation_parent_case_id": {
+          "anyOf": [
+            {
+              "pattern": "^G01-TC-\\d{3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mutation Parent Case Id"
+        },
+        "template_family_id": {
+          "pattern": "^g01-template-[a-z0-9-]+$",
+          "title": "Template Family Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data_origin",
+        "generator_id",
+        "template_family_id"
+      ],
+      "title": "InputLineage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "pattern": "^G01-TC-\\d{3}$",
+      "title": "Case Id",
+      "type": "string"
+    },
+    "city_scope": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "title": "City Scope",
+      "type": "array"
+    },
+    "cohort": {
+      "enum": [
+        "DEEP_CITY",
+        "OTHER_CITY",
+        "ADVERSARIAL"
+      ],
+      "title": "Cohort",
+      "type": "string"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "family_id": {
+      "pattern": "^G01-F\\d{3}$",
+      "title": "Family Id",
+      "type": "string"
+    },
+    "input_text": {
+      "maxLength": 50000,
+      "minLength": 240,
+      "title": "Input Text",
+      "type": "string"
+    },
+    "lineage": {
+      "$ref": "#/$defs/InputLineage"
+    },
+    "normalized_input_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Normalized Input Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-text-card-input-v1",
+      "default": "g01-text-card-input-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    },
+    "variant_id": {
+      "enum": [
+        "A",
+        "B",
+        "C"
+      ],
+      "title": "Variant Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "case_id",
+    "family_id",
+    "variant_id",
+    "split",
+    "cohort",
+    "city_scope",
+    "input_text",
+    "normalized_input_sha256",
+    "lineage"
+  ],
+  "title": "TextCardInputCase",
+  "type": "object"
+}

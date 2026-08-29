@@ -1,0 +1,390 @@
+{
+  "$defs": {
+    "AgentFinding": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "maxLength": 120,
+          "minLength": 3,
+          "title": "Category",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "expected": {
+          "maxLength": 2000,
+          "minLength": 8,
+          "title": "Expected",
+          "type": "string"
+        },
+        "finding_id": {
+          "pattern": "^AGF-[A-Z0-9-]{4,80}$",
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "observed": {
+          "maxLength": 2000,
+          "minLength": 8,
+          "title": "Observed",
+          "type": "string"
+        },
+        "reproduction_steps": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Reproduction Steps",
+          "type": "array"
+        },
+        "severity": {
+          "enum": [
+            "P0",
+            "P1",
+            "P2",
+            "P3"
+          ],
+          "title": "Severity",
+          "type": "string"
+        }
+      },
+      "required": [
+        "finding_id",
+        "severity",
+        "category",
+        "expected",
+        "observed",
+        "reproduction_steps",
+        "evidence"
+      ],
+      "title": "AgentFinding",
+      "type": "object"
+    },
+    "AgentTaskAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "context_fork": {
+          "const": "none",
+          "default": "none",
+          "title": "Context Fork",
+          "type": "string"
+        },
+        "frozen_at": {
+          "format": "date-time",
+          "title": "Frozen At",
+          "type": "string"
+        },
+        "human_evidence": {
+          "const": false,
+          "default": false,
+          "title": "Human Evidence",
+          "type": "boolean"
+        },
+        "input_bundle_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Input Bundle Sha256",
+          "type": "string"
+        },
+        "isolated_context": {
+          "const": true,
+          "default": true,
+          "title": "Isolated Context",
+          "type": "boolean"
+        },
+        "model": {
+          "const": "gpt-5.6-sol",
+          "default": "gpt-5.6-sol",
+          "title": "Model",
+          "type": "string"
+        },
+        "output_schema_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "prompt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Prompt Sha256",
+          "type": "string"
+        },
+        "reasoning_effort": {
+          "enum": [
+            "xhigh",
+            "ultra"
+          ],
+          "title": "Reasoning Effort",
+          "type": "string"
+        },
+        "saw_prior_verdict": {
+          "const": false,
+          "default": false,
+          "title": "Saw Prior Verdict",
+          "type": "boolean"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "subject_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Subject Commit",
+          "type": "string"
+        },
+        "subject_tree": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Subject Tree",
+          "type": "string"
+        },
+        "task_id": {
+          "maxLength": 160,
+          "minLength": 8,
+          "title": "Task Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "task_id",
+        "reasoning_effort",
+        "prompt_sha256",
+        "input_bundle_sha256",
+        "output_schema_sha256",
+        "subject_commit",
+        "subject_tree",
+        "started_at",
+        "completed_at",
+        "frozen_at"
+      ],
+      "title": "AgentTaskAttestation",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_path": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Path",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "COMMAND",
+            "TEST",
+            "SCREENSHOT",
+            "LOG",
+            "FILE",
+            "PROVIDER_RECEIPT"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "storage": {
+          "enum": [
+            "REPOSITORY",
+            "REPOSITORY_EXTERNAL"
+          ],
+          "title": "Storage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "artifact_path",
+        "storage",
+        "sha256"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "ScenarioCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/EvidenceRef"
+          },
+          "maxItems": 20,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "not_run_reason": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "minLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Not Run Reason"
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "FAIL",
+            "NOT_RUN"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "evidence"
+      ],
+      "title": "ScenarioCheck",
+      "type": "object"
+    },
+    "ScenarioCoverage": {
+      "additionalProperties": false,
+      "properties": {
+        "adversarial": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "ambiguous": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "boundary": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "concurrency": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "normal": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "privacy": {
+          "$ref": "#/$defs/ScenarioCheck"
+        },
+        "provider_failure": {
+          "$ref": "#/$defs/ScenarioCheck"
+        }
+      },
+      "required": [
+        "normal",
+        "ambiguous",
+        "boundary",
+        "adversarial",
+        "provider_failure",
+        "privacy",
+        "concurrency"
+      ],
+      "title": "ScenarioCoverage",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "attestation": {
+      "$ref": "#/$defs/AgentTaskAttestation"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "checks_not_run": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Checks Not Run",
+      "type": "array"
+    },
+    "evidence_level": {
+      "const": "MULTI_AGENT_SIMULATED_REVIEW",
+      "default": "MULTI_AGENT_SIMULATED_REVIEW",
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/AgentFinding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "goal_id": {
+      "pattern": "^TC-[A-Z0-9-]+$",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "reviewer_role": {
+      "enum": [
+        "PRODUCT_UX",
+        "SEMANTIC_DOMAIN",
+        "RELIABILITY_SECURITY"
+      ],
+      "title": "Reviewer Role",
+      "type": "string"
+    },
+    "scenario_coverage": {
+      "$ref": "#/$defs/ScenarioCoverage"
+    },
+    "schema_version": {
+      "const": "agent-gate-review-v1",
+      "default": "agent-gate-review-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCOMPLETE"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    }
+  },
+  "required": [
+    "goal_id",
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "reviewer_role",
+    "attestation",
+    "scenario_coverage",
+    "findings",
+    "checks_not_run",
+    "verdict"
+  ],
+  "title": "AgentGateReviewReceipt",
+  "type": "object"
+}

@@ -1,450 +1,226 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { v4 as uuidv4 } from 'uuid'
-import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight, CheckCircle2, Compass, FileText, Map, ShieldCheck, Sparkles } from 'lucide-react'
+
 import {
-  Compass, Users, Copy, Check, ArrowRight, Sparkles,
-  Map, History, LogOut, MapPin, Calendar,
-  FileText, ShieldCheck,
-} from 'lucide-react'
+  clearTripUnderstandingSession,
+  createDemoTripUnderstanding,
+  createFullTripUnderstanding,
+} from '@/lib/trip-understanding-v3'
 import { useAuthStore } from '@/stores/authStore'
-import { useToastStore } from '@/stores/toastStore'
-import { api } from '@/lib/api'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
-
-const SUPPORTED_CITY_CARDS: { city: string; emoji: string; gradient: string; tagline: string }[] = [
-  { city: '北京', emoji: '🏛️', gradient: 'from-amber-400 via-orange-400 to-rose-500',  tagline: '故宫 · 胡同 · 烤鸭' },
-  { city: '上海', emoji: '🌃', gradient: 'from-sky-400 via-indigo-400 to-violet-500',  tagline: '外滩 · 梧桐 · 小资' },
-  { city: '杭州', emoji: '🌊', gradient: 'from-cyan-400 via-blue-400 to-indigo-500',   tagline: '西湖 · 宋韵 · 茶香' },
-]
-
-interface RoomRecord {
-  room_id: string
-  city: string
-  trip_days: number
-  phase: string
-  place_count: number
-  created_at: string
-}
 
 export default function HomePage() {
   const router = useRouter()
-  const { user, token, isHydrated, hydrate, logout } = useAuthStore()
-  const toast = useToastStore(s => s.toast)
-
-  const [joinRoomId, setJoinRoomId] = useState('')
-  const [city, setCity] = useState('北京')
-  const [days, setDays] = useState(3)
-  const [cityPickerOpen, setCityPickerOpen] = useState(false)
+  const { user, isHydrated, hydrate } = useAuthStore()
+  const [isStarting, setIsStarting] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
-  const [isJoining, setIsJoining] = useState(false)
-  const [createdRoomInfo, setCreatedRoomInfo] = useState<{ roomId: string; threadId: string } | null>(null)
-  const [copyTip, setCopyTip] = useState(false)
-  const [recentRooms, setRecentRooms] = useState<RoomRecord[]>([])
-  // 当前固定范围只支持北京、上海、杭州。
-  const pickCity = (c: string) => {
-    setCity(c)
-    setCityPickerOpen(false)
+  const [sourceText, setSourceText] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    hydrate()
+  }, [hydrate])
+
+  const rememberAcceptedResource = (publicResourceId: string, mode: 'DEMO' | 'FULL') => {
+    clearTripUnderstandingSession()
+    sessionStorage.setItem('bt_active_trip_ref', publicResourceId)
+    sessionStorage.setItem('bt_active_trip_mode', mode)
   }
 
-  // 恢复 auth 状态
-  useEffect(() => { hydrate() }, [hydrate])
+  const startDemo = async () => {
+    if (isStarting) return
+    setIsStarting(true)
+    setError('')
+    try {
+      const accepted = await createDemoTripUnderstanding()
+      rememberAcceptedResource(accepted.public_resource_id, 'DEMO')
+      router.push('/trip/result')
+    } catch {
+      setError('暂时没有启动成功，请稍后再试。')
+      setIsStarting(false)
+    }
+  }
 
-  // 未登录跳转
-  useEffect(() => {
-    if (isHydrated && !user) router.replace('/login')
-  }, [isHydrated, user, router])
-
-  // 加载最近房间（最多 3 个）
-  useEffect(() => {
-    if (!user || !token) return
-    api.get<RoomRecord[]>('/api/user/rooms')
-      .then(rooms => setRecentRooms(rooms.slice(0, 3)))
-      .catch(() => {})
-  }, [user, token])
-
-  if (!isHydrated || !user) return null
-
-  const handleCreateRoom = async () => {
+  const createFromText = async () => {
+    if (isCreating) return
+    if (!user) {
+      router.push('/login')
+      return
+    }
+    const text = sourceText.trim()
+    if (!text) {
+      setError('请先粘贴攻略或行程文字。')
+      return
+    }
     setIsCreating(true)
-    const roomId = String(Math.floor(100000 + Math.random() * 900000))
-    const threadId = uuidv4()
-
+    setError('')
     try {
-      await fetch(`${API_BASE}/api/room`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          room_id: roomId,
-          thread_id: threadId,
-          trip_city: city,
-          trip_days: days,
-          user_id: user.userId,
-          nickname: user.nickname,
-        }),
-      })
-    } catch (e) {
-      console.warn('创建房间失败，继续本地流程', e)
-    }
-
-    setIsCreating(false)
-    setCreatedRoomInfo({ roomId, threadId })
-  }
-
-  const handleEnterRoom = () => {
-    if (!createdRoomInfo) return
-    router.push(
-      `/intake?roomId=${createdRoomInfo.roomId}`
-    )
-  }
-
-  const handleCopyRoomId = async () => {
-    if (!createdRoomInfo) return
-    try { await navigator.clipboard.writeText(createdRoomInfo.roomId) }
-    catch {
-      const input = document.createElement('input')
-      input.value = createdRoomInfo.roomId
-      document.body.appendChild(input); input.select()
-      document.execCommand('copy'); document.body.removeChild(input)
-    }
-    setCopyTip(true)
-    setTimeout(() => setCopyTip(false), 2000)
-  }
-
-  const handleJoinRoom = async () => {
-    if (!joinRoomId.trim()) { toast('请输入 6 位房间号', 'warning'); return }
-    setIsJoining(true)
-    const trimmedRoomId = joinRoomId.trim()
-    try {
-      const res = await fetch(`${API_BASE}/api/room/${trimmedRoomId}/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ user_id: user.userId, nickname: user.nickname }),
-      })
-      if (!res.ok && res.status === 404) {
-        toast(`房间 ${trimmedRoomId} 不存在，请检查房间号`, 'error')
-        setIsJoining(false); return
+      const accepted = await createFullTripUnderstanding(text)
+      rememberAcceptedResource(accepted.public_resource_id, 'FULL')
+      setSourceText('')
+      router.push('/trip/result')
+    } catch (createError) {
+      if (createError instanceof Error && createError.message === 'ACTIVE_LIMIT_REACHED') {
+        setError('已有两份行程正在整理，请稍后再试。')
+      } else if (createError instanceof Error && createError.message === 'LOGIN_REQUIRED') {
+        setError('登录状态已失效，请重新登录。')
+      } else {
+        setError('暂时没有整理成功，文字仍保留在当前页面，可以稍后重试。')
       }
-      const data = await res.json()
-      const threadId = data.thread_id || trimmedRoomId
-      const roomCity = data.trip_city || ''
-      const roomDays = data.trip_days || 3
-      router.push(
-        `/room/${trimmedRoomId}?threadId=${threadId}${roomCity ? `&city=${encodeURIComponent(roomCity)}` : ''}&days=${roomDays}`
-      )
-    } catch (e) {
-      console.warn('加入房间失败，继续本地流程', e)
-      router.push(`/room/${trimmedRoomId}`)
+      setIsCreating(false)
     }
-    setIsJoining(false)
-  }
-
-  const phaseLabel: Record<string, string> = {
-    exploring: '探索中', selecting: '选择中', optimizing: '排线中', planned: '已排线',
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center p-4 overflow-auto">
-      {/* 背景装饰 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-coral-100/30 rounded-full blur-3xl" />
-        <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-blue-100/30 rounded-full blur-3xl" />
+    <main className="min-h-screen overflow-hidden bg-[#f8f7f2] text-slate-900">
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute -right-24 -top-28 h-96 w-96 rounded-full bg-amber-200/40 blur-3xl" />
+        <div className="absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-emerald-200/35 blur-3xl" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
-      >
-        {/* Logo + 用户信息行 */}
-        <div className="flex items-center justify-between mb-6">
+      <div className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-12">
+        <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-coral-500 flex items-center justify-center shadow-md shadow-coral-200">
-              <Compass className="w-5 h-5 text-white" strokeWidth={2} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-300/60">
+              <Compass className="h-5 w-5" aria-hidden="true" />
             </div>
             <div>
-              <h1 className="text-base font-bold text-gray-900">BreezeTravel</h1>
-              <p className="text-[11px] text-gray-400">你好，{user.nickname} 👋</p>
+              <p className="text-sm font-semibold tracking-tight">BreezeTravel</p>
+              <p className="text-xs text-slate-500">行程查</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => router.push('/history')}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-coral-500 transition-colors px-3 py-1.5 rounded-xl hover:bg-coral-50 border border-gray-200"
-            >
-              <History className="w-3.5 h-3.5" />
-              历史
+          <nav className="flex items-center gap-2 text-sm" aria-label="辅助导航">
+            <button type="button" onClick={() => router.push('/about')} className="rounded-full px-4 py-2 text-slate-600 transition hover:bg-white hover:text-slate-900">
+              关于
             </button>
-            <button
-              onClick={logout}
-              className="p-1.5 rounded-xl text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors border border-gray-200"
-              title="退出登录"
-            >
-              <LogOut className="w-3.5 h-3.5" />
+            <button type="button" onClick={() => router.push(user ? '/profile' : '/login')} className="rounded-full border border-slate-300 bg-white/80 px-4 py-2 font-medium text-slate-700 transition hover:border-slate-500">
+              {isHydrated && user ? user.nickname : '登录'}
             </button>
-          </div>
-        </div>
+          </nav>
+        </header>
 
-        {/* 特性标签 */}
-        <div className="flex items-center gap-2 mb-6">
-          {[
-            { icon: <FileText className="w-3 h-3" />, label: '导入已有行程' },
-            { icon: <ShieldCheck className="w-3 h-3" />, label: '证据化排雷' },
-            { icon: <Users className="w-3 h-3" />, label: '2～5 人约束核验' },
-          ].map((f) => (
-            <span
-              key={f.label}
-              className="pointer-events-none inline-flex items-center gap-1 text-[10px] text-gray-400 bg-gray-50 px-2 py-1 rounded-full border border-gray-100"
-            >
-              {f.icon}{f.label}
-            </span>
-          ))}
-        </div>
-
-        {!createdRoomInfo && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-coral-400" /> 当前支持城市
-              </p>
-              <span className="text-[10px] text-gray-400">固定范围，不扩城</span>
+        <section className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:py-16">
+          <div className="max-w-2xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              不填表，先看看行程卡片
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              {SUPPORTED_CITY_CARDS.map((c) => {
-                const selected = city === c.city
-                return (
+            <h1 className="text-4xl font-semibold leading-[1.12] tracking-[-0.04em] text-slate-950 sm:text-5xl lg:text-6xl">
+              把攻略变成
+              <span className="block text-emerald-700">每天都能照着走的卡片</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
+              登录后直接粘贴长攻略，我们会整理成逐日卡片；没有把握的地点会留给你确认。未登录也可以先体验固定的北京三日示例。
+            </p>
+
+            {isHydrated && user && (
+              <div className="mt-7 rounded-3xl border border-slate-200 bg-white/85 p-4 shadow-lg shadow-slate-200/40 backdrop-blur">
+                <label htmlFor="trip-source" className="text-sm font-semibold text-slate-800">粘贴攻略或行程文字</label>
+                <p className="mt-1 text-xs leading-5 text-slate-500">不需要先选城市、日期或人数；最多 50,000 个字符。</p>
+                <textarea
+                  id="trip-source"
+                  data-testid="trip-source-text"
+                  value={sourceText}
+                  onChange={(event) => setSourceText(event.target.value)}
+                  maxLength={50_000}
+                  rows={7}
+                  placeholder={'例如：\nDay 1 去故宫博物院、景山公园\nDay 2 去天坛公园、前门大街'}
+                  className="mt-3 w-full resize-y rounded-2xl border border-slate-200 bg-[#fbfaf7] px-4 py-3 text-sm leading-6 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                />
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-xs text-slate-400">{sourceText.length.toLocaleString()} / 50,000</span>
                   <button
-                    key={c.city}
+                    data-testid="create-full-trip"
                     type="button"
-                    onClick={() => pickCity(c.city)}
-                    title={`${c.city} · 当前支持的单城市行程核验`}
-                    className={`group relative aspect-square rounded-xl overflow-hidden text-left bg-gradient-to-br ${c.gradient} shadow-glass transition-transform hover:scale-[1.03] active:scale-[0.97] ${selected ? 'ring-2 ring-coral-500 ring-offset-1' : ''}`}
+                    onClick={createFromText}
+                    disabled={isCreating}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-wait disabled:opacity-70"
                   >
-                    {/* 内层蒙层增加文字对比 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-black/0" />
-                    <span className="absolute top-1.5 right-1.5 text-[9px] bg-white/85 text-emerald-700 px-1.5 py-0.5 rounded-full font-medium leading-none">核验</span>
-                    {/* emoji */}
-                    <span className="absolute top-1/4 left-1/2 -translate-x-1/2 text-3xl select-none drop-shadow-sm">{c.emoji}</span>
-                    {/* 文字 */}
-                    <div className="absolute bottom-0 inset-x-0 p-2">
-                      <p className="text-white text-sm font-semibold leading-tight drop-shadow">{c.city}</p>
-                      <p className="text-white/85 text-[10px] leading-tight drop-shadow truncate">{c.tagline}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 主卡片 */}
-        <div className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass mb-4">
-          {/* 创建成功后显示房间号 */}
-          <AnimatePresence mode="wait">
-            {createdRoomInfo ? (
-              <motion.div
-                key="created"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="p-6"
-              >
-                <div className="bg-emerald-50/80 rounded-xl p-5 border border-emerald-100">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                    <span className="text-sm font-medium text-emerald-800">房间已创建</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mb-1.5 uppercase tracking-wider">房间号</p>
-                  <div className="flex items-center gap-2 mb-4">
-                    <code className="flex-1 bg-white rounded-xl px-4 py-3 text-2xl font-mono font-bold text-gray-900 tracking-[0.2em] text-center border border-gray-100 shadow-sm">
-                      {createdRoomInfo.roomId}
-                    </code>
-                    <button
-                      onClick={handleCopyRoomId}
-                      className="btn-glass text-xs px-3 py-3 flex items-center gap-1"
-                    >
-                      {copyTip ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-400 mb-4 text-center">
-                    {city} · {days} 天 · 分享房间号邀请朋友
-                  </p>
-                  <button data-testid="enter-created-room" onClick={handleEnterRoom} className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2">
-                    导入行程并核验 <ArrowRight className="w-4 h-4" />
+                    {isCreating ? '正在整理你的行程…' : '生成逐日卡片'}
+                    {!isCreating && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                   </button>
                 </div>
-              </motion.div>
-            ) : (
-              <motion.div key="form" className="p-6 pb-4">
-                <div className="flex gap-3 mb-4">
-                  <div className="flex-1">
-                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5 uppercase tracking-wider">目的地</label>
-                    <div className="relative">
-                      <Map className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none z-10" />
-                      <button
-                        type="button"
-                        onClick={() => setCityPickerOpen(open => !open)}
-                        className="input-glass pl-8 w-full text-left truncate"
-                      >
-                        {city}
-                      </button>
-                      {/* 主界面只展示当前固定范围内的三座城市。 */}
-                      {cityPickerOpen && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-2 rounded-xl border border-gray-100 bg-white p-2 shadow-xl">
-                          {SUPPORTED_CITY_CARDS.map(c => (
-                            <button
-                              key={c.city}
-                              type="button"
-                              onClick={() => pickCity(c.city)}
-                              className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${city === c.city ? 'bg-coral-50 font-medium text-coral-600' : 'text-gray-700 hover:bg-gray-50'}`}
-                            >
-                              <span>{c.emoji} {c.city}</span>
-                              <span className="text-[10px] text-emerald-600">行程核验</span>
-                            </button>
-                          ))}
-                            </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="w-24">
-                    <label className="block text-[11px] font-medium text-gray-500 mb-1.5 uppercase tracking-wider">天数</label>
-                    <select value={days} onChange={(e) => setDays(Number(e.target.value))} className="input-glass appearance-none text-center">
-                      {[2, 3, 4, 5].map((d) => <option key={d} value={d}>{d} 天</option>)}
-                    </select>
-                  </div>
-                </div>
-                <button
-                  data-testid="create-room"
-                  onClick={handleCreateRoom}
-                  disabled={isCreating}
-                  className="btn-coral w-full py-3 text-sm flex items-center justify-center gap-2"
-                >
-                  {isCreating ? (
-                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />创建中...</>
-                  ) : (
-                    <>创建并导入行程 <ArrowRight className="w-4 h-4" /></>
-                  )}
-                </button>
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
 
-          {/* 分割线 */}
-          <div className="mx-6 border-t border-gray-100/60" />
-
-          {/* 加入已有房间 */}
-          <div className="px-6 py-5">
-            <p className="text-[11px] font-medium text-gray-500 mb-2.5 uppercase tracking-wider">加入房间</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={joinRoomId}
-                onChange={(e) => setJoinRoomId(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
-                placeholder="6 位房间号"
-                maxLength={6}
-                className="input-glass flex-1 font-mono tracking-wider text-center"
-              />
-              <button
-                onClick={handleJoinRoom}
-                disabled={isJoining}
-                className="btn-glass px-5 py-2.5 text-sm font-medium"
-              >
-                {isJoining
-                  ? <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin block" />
-                  : '加入'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 最近的行程工作区（最多 3 个） */}
-        {recentRooms.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <div className="flex items-center justify-between mb-2 px-1">
-              <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider">继续上次核验</p>
-              <button onClick={() => router.push('/history')} className="text-[11px] text-coral-500 hover:underline">
-                查看全部
-              </button>
-            </div>
-            <div className="space-y-2">
-              {recentRooms.map((room) => (
-                <button
-                  key={room.room_id}
-                  onClick={() => router.push(`/room/${room.room_id}`)}
-                  className="w-full glass-panel-solid rounded-xl px-4 py-3 flex items-center gap-3 hover:shadow-md transition-shadow text-left"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-coral-50 flex items-center justify-center flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-coral-400" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{room.city || '未知目的地'}</p>
-                    <div className="flex items-center gap-2 text-[11px] text-gray-400">
-                      <span className="flex items-center gap-0.5">
-                        <Calendar className="w-2.5 h-2.5" />{room.trip_days} 天
-                      </span>
-                      <span>·</span>
-                      <span>{room.place_count} 个景点</span>
-                      <span>·</span>
-                      <span className={room.phase === 'planned' ? 'text-emerald-500' : 'text-blue-400'}>
-                        {phaseLabel[room.phase] || room.phase}
-                      </span>
-                    </div>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                </button>
+            <div data-testid="home-no-prerequisites" className="mt-7 flex flex-wrap gap-2">
+              {['不用先选城市', '不用填写日期', '不用填写人数', '不用创建房间'].map((label) => (
+                <span key={label} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs text-slate-600 shadow-sm ring-1 ring-slate-200">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+                  {label}
+                </span>
               ))}
             </div>
-          </motion.div>
-        )}
 
-        <div className="text-center mt-6 space-y-1">
-          <p className="text-[11px] text-gray-300">
-            BreezeTravel · 行程查
-          </p>
-          <button
-            onClick={() => router.push('/about')}
-            className="text-[11px] text-gray-400 hover:text-coral-500 transition-colors underline-offset-2 hover:underline"
-          >
-            关于我们 · 开发主体与备案信息
-          </button>
-          <div className="pt-1 flex flex-col items-center gap-1">
-            <a
-              href="https://beian.mps.gov.cn/#/query/webSearch?code=36010802001383"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-gray-300 hover:text-coral-500 hover:underline"
-            >
-              <img src="/beian-icon.png" alt="公安备案" className="w-4 h-4 flex-shrink-0" />
-              赣公网安备36010802001383号
-            </a>
-            <a
-              href="https://beian.miit.gov.cn/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-gray-300 hover:text-coral-500 hover:underline"
-            >
-              赣ICP备2026008973号-2
-            </a>
+            <div className="mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+              <button
+                data-testid="start-demo"
+                type="button"
+                onClick={startDemo}
+                disabled={isStarting}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-xl shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-wait disabled:opacity-70"
+              >
+                {isStarting ? '正在准备北京示例…' : '体验北京三日卡片'}
+                {!isStarting && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+              </button>
+              <p className="text-xs leading-5 text-slate-500">匿名体验仅保留 24 小时 · 不调用真实地图服务</p>
+            </div>
+            {error && <p role="alert" className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
           </div>
-        </div>
-      </motion.div>
-    </div>
+
+          <div className="relative mx-auto w-full max-w-lg">
+            <div className="absolute -inset-5 rounded-[2.5rem] bg-gradient-to-br from-amber-200/45 to-emerald-200/45 blur-2xl" />
+            <div className="relative rounded-[2rem] border border-white/80 bg-white/90 p-5 shadow-2xl shadow-slate-300/45 backdrop-blur sm:p-7">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">北京 · 三日示例</p>
+                  <p className="mt-1 text-lg font-semibold">先看清每天去哪里</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                  <FileText className="h-5 w-5" aria-hidden="true" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  ['Day 1', '故宫博物院', '景山公园'],
+                  ['Day 2', '天坛公园', '前门大街'],
+                  ['Day 3', '颐和园', '圆明园'],
+                ].map(([day, first, second]) => (
+                  <div key={day} className="rounded-2xl border border-slate-100 bg-[#fbfaf7] p-4">
+                    <p className="mb-3 text-xs font-semibold text-emerald-700">{day}</p>
+                    <div className="flex items-center gap-2 text-sm text-slate-700">
+                      <span className="rounded-lg bg-white px-3 py-2 shadow-sm">{first}</span>
+                      <ArrowRight className="h-3.5 w-3.5 text-slate-300" aria-hidden="true" />
+                      <span className="rounded-lg bg-white px-3 py-2 shadow-sm">{second}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-500">
+                <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+                  <Map className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  地图状态如实显示
+                </div>
+                <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+                  <ShieldCheck className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                  不确定就请你确认
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer className="flex flex-col gap-2 border-t border-slate-200/70 py-5 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 BreezeTravel · 新余高新区微风软件工作室</p>
+          <div className="flex gap-4">
+            <button type="button" onClick={() => router.push('/about#privacy')} className="hover:text-slate-900">隐私与数据</button>
+            <button type="button" onClick={() => router.push('/about')} className="hover:text-slate-900">产品说明</button>
+          </div>
+        </footer>
+      </div>
+    </main>
   )
 }

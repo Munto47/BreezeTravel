@@ -1,0 +1,137 @@
+{
+  "$defs": {
+    "DetachedAuthoritySignature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "const": "ED25519",
+          "default": "ED25519",
+          "title": "Algorithm",
+          "type": "string"
+        },
+        "authority_id": {
+          "pattern": "^AUTH-[A-Z0-9-]{6,100}$",
+          "title": "Authority Id",
+          "type": "string"
+        },
+        "authority_role": {
+          "enum": [
+            "SEALED_CUSTODY",
+            "AMAP_LIVE_EXPORTER",
+            "QWEN_LIVE_EXPORTER",
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+            "FINAL_GATE"
+          ],
+          "title": "Authority Role",
+          "type": "string"
+        },
+        "signature_base64": {
+          "maxLength": 100,
+          "minLength": 80,
+          "title": "Signature Base64",
+          "type": "string"
+        },
+        "signed_payload_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Signed Payload Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority_role",
+        "authority_id",
+        "signed_payload_sha256",
+        "signature_base64"
+      ],
+      "title": "DetachedAuthoritySignature",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "activated_at": {
+      "format": "date-time",
+      "title": "Activated At",
+      "type": "string"
+    },
+    "anchor_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Anchor Commit",
+      "type": "string"
+    },
+    "anchor_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Anchor Tree",
+      "type": "string"
+    },
+    "authority_generation": {
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Authority Generation",
+      "type": "integer"
+    },
+    "authority_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Authority Policy Sha256",
+      "type": "string"
+    },
+    "authority_signature": {
+      "$ref": "#/$defs/DetachedAuthoritySignature"
+    },
+    "canonical_candidate_ref": {
+      "const": "refs/heads/codex/trip-check-product-reset",
+      "default": "refs/heads/codex/trip-check-product-reset",
+      "title": "Canonical Candidate Ref",
+      "type": "string"
+    },
+    "custody_registry_identity_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Custody Registry Identity Sha256",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "immutable_protocol_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Immutable Protocol Sha256",
+      "type": "string"
+    },
+    "program_core_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Program Core Sha256",
+      "type": "string"
+    },
+    "public_key_set_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Public Key Set Sha256",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "agent-gate-authority-anchor-receipt-v1",
+      "default": "agent-gate-authority-anchor-receipt-v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority_generation",
+    "anchor_commit",
+    "anchor_tree",
+    "authority_policy_sha256",
+    "program_core_sha256",
+    "immutable_protocol_sha256",
+    "public_key_set_sha256",
+    "custody_registry_identity_sha256",
+    "activated_at",
+    "authority_signature"
+  ],
+  "title": "AuthorityAnchorReceipt",
+  "type": "object"
+}

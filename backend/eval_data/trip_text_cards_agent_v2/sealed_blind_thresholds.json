@@ -1,0 +1,135 @@
+{
+  "conditions": [
+    {
+      "metric": "forbidden_content_as_place_count",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "severe_wrong_auto_match_count",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "wrong_city_auto_match_count",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "wrong_category_auto_match_count",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "auto_match.precision",
+      "operator": "GE",
+      "value": 0.99
+    },
+    {
+      "metric": "auto_match.denominator",
+      "operator": "GE",
+      "value": 50
+    },
+    {
+      "metric": "executable_mentions.precision",
+      "operator": "GE",
+      "value": 0.98
+    },
+    {
+      "metric": "executable_mentions.recall",
+      "operator": "GE",
+      "value": 0.95
+    },
+    {
+      "metric": "day_assignment.f1",
+      "operator": "GE",
+      "value": 0.97
+    },
+    {
+      "metric": "role_macro_f1",
+      "operator": "GE",
+      "value": 0.94
+    },
+    {
+      "metric": "deep_city_auto_match.coverage",
+      "operator": "GE",
+      "value": 0.8
+    },
+    {
+      "metric": "estimated_confirmation_required_count.median",
+      "operator": "LE",
+      "value": 1
+    },
+    {
+      "metric": "estimated_confirmation_required_count.p90",
+      "operator": "LE",
+      "value": 3
+    },
+    {
+      "metric": "evidence_span_validity",
+      "operator": "EQ",
+      "value": 1.0
+    },
+    {
+      "metric": "destination.exact_name_accuracy",
+      "operator": "GE",
+      "value": 0.99
+    },
+    {
+      "metric": "destination.basis_accuracy",
+      "operator": "GE",
+      "value": 0.99
+    },
+    {
+      "metric": "destination.explicit_evidence_validity",
+      "operator": "EQ",
+      "value": 1.0
+    },
+    {
+      "metric": "public_projection.forbidden_key_hits",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "public_projection.full_source_leak_hits",
+      "operator": "EQ",
+      "value": 0
+    },
+    {
+      "metric": "public_api_latency.cards_ready_p95_ms",
+      "operator": "LE",
+      "value": 8000
+    }
+  ],
+  "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "required_metric_names": [
+    "forbidden_content_as_place_count",
+    "severe_wrong_auto_match_count",
+    "wrong_city_auto_match_count",
+    "wrong_category_auto_match_count",
+    "auto_match.precision",
+    "auto_match.denominator",
+    "executable_mentions.precision",
+    "executable_mentions.recall",
+    "executable_mentions.fp",
+    "executable_mentions.fn",
+    "day_assignment.f1",
+    "day_assignment.error_count",
+    "role_macro_f1",
+    "deep_city_auto_match.coverage",
+    "estimated_confirmation_required_count.median",
+    "estimated_confirmation_required_count.p90",
+    "role_classification.error_count",
+    "provider_resolution.error_count",
+    "evidence_span_validity",
+    "destination.exact_name_accuracy",
+    "destination.basis_accuracy",
+    "destination.explicit_evidence_validity",
+    "public_projection.forbidden_key_hits",
+    "public_projection.full_source_leak_hits",
+    "public_api_latency.cards_ready_p95_ms",
+    "latency.violation_count",
+    "other_aggregated_error_count"
+  ],
+  "schema_version": "sealed-agent-blind-thresholds-v1"
+}

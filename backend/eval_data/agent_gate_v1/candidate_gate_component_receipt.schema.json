@@ -1,0 +1,125 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "automated_gate_contract_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Automated Gate Contract Sha256",
+      "type": "string"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "component": {
+      "enum": [
+        "AUTOMATED_PRODUCT_GATE",
+        "LIVE_PROVIDER_GATE",
+        "MULTI_AGENT_PANEL",
+        "SEALED_AGENT_BLIND"
+      ],
+      "title": "Component",
+      "type": "string"
+    },
+    "evidence_level": {
+      "enum": [
+        "AUTOMATED_TEST",
+        "LIVE_PROVIDER_EVIDENCE",
+        "MULTI_AGENT_SIMULATED_REVIEW",
+        "SEALED_AGENT_BLIND",
+        "HUMAN_USABILITY",
+        "PRODUCTION_EVIDENCE"
+      ],
+      "title": "Evidence Level",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G07-CANDIDATE",
+      "default": "TC-VNEXT-G07-CANDIDATE",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "isolation_mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "FRESH_CLEAN_CHECKOUT",
+            "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Isolation Mode"
+    },
+    "production_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Production Evidence",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "candidate-gate-component-receipt-v1",
+      "default": "candidate-gate-component-receipt-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "upstream_artifact_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 100,
+      "minProperties": 1,
+      "title": "Upstream Artifact Sha256",
+      "type": "object"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "automated_gate_contract_sha256",
+    "component",
+    "evidence_level",
+    "upstream_artifact_sha256",
+    "verifier_sha256"
+  ],
+  "title": "CandidateGateComponentReceipt",
+  "type": "object"
+}

@@ -1,0 +1,111 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "alternative_controls": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Alternative Controls",
+      "type": "array"
+    },
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "NOT_REQUIRED_WITH_RATIONALE",
+        "REQUIRED"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G07-CANDIDATE",
+      "default": "TC-VNEXT-G07-CANDIDATE",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "identified_threats": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Identified Threats",
+      "type": "array"
+    },
+    "production_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Production Evidence",
+      "type": "boolean"
+    },
+    "rationale": {
+      "maxLength": 4000,
+      "minLength": 20,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "residual_risks": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Residual Risks",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": "hardening-decision-receipt-v1",
+      "default": "hardening-decision-receipt-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_controls": {
+      "items": {
+        "enum": [
+          "EXTERNAL_AUTHORITY",
+          "PURPOSE_SPECIFIC_BROKER",
+          "ROLE_SIGNATURES",
+          "IMMUTABLE_REMOTE_REF",
+          "ISOLATED_OCI"
+        ],
+        "type": "string"
+      },
+      "title": "Selected Controls",
+      "type": "array"
+    },
+    "threat_model_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Threat Model Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "threat_model_sha256",
+    "decision",
+    "identified_threats",
+    "alternative_controls",
+    "residual_risks",
+    "rationale"
+  ],
+  "title": "HardeningDecisionReceipt",
+  "type": "object"
+}

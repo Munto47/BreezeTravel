@@ -4,7 +4,7 @@
 >
 > 版本：`trip-check-api-v3`
 >
-> 实现状态：`NOT_IMPLEMENTED`
+> 实现状态：`G01_DEMO_AND_CONSERVATIVE_FULL_VERTICAL_SLICES_IMPLEMENTED / LIVE_MODEL_AND_AMAP_NOT_READY`
 >
 > 日期：2026-08-27
 
@@ -112,10 +112,27 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
 
 所有路径使用现有 `/api` 前缀。
 
+### 3.0 G01 当前公共边界
+
+S0首先冻结DEMO边界；随后FULL文本纵向切片在同一持久链上开放。未列出的目标合同仍保持`NOT_IMPLEMENTED`：
+
+- create请求是严格的`mode` discriminated union，未知字段拒绝：
+  - `{"mode":"DEMO"}`使用服务端固定示例并绑定匿名capability；
+  - `{"mode":"FULL","source":{"type":"TEXT","text":"..."}}`必须登录，`text`为1～50,000 Unicode code point且不得仅含空白；
+- FULL文本由加密Source、持久job/lease/event、模型中立proposal、证据编译、原子`PLANNED`资格判断、受控地点snapshot和公共projector贯穿；当前在live候选未准入前只采用保守确定性语义和fixture POI，无法确认时返回`BASIC_ONLY/PARTIAL_RESULT`，超过已冻结活动预算且仍保留可编辑卡片时返回`LIMITED`，不伪装Qwen或高德已调用；
+- create响应为`202 TripUnderstandingAcceptedView`：`public_resource_id`、`status`、`message`、`result_url`、`events_url`；资源ID是路由值，不承担授权，也不得渲染到DOM或分析事件；
+- 匿名capability是独立随机秘密，经服务端签名后只写`HttpOnly`、`SameSite=Lax`、`Path=/api/v3/trip-understandings` cookie；数据库只保存不可逆摘要，公共响应和日志均不含秘密；public profile额外要求`Secure`；
+- result处理中返回`202 TripUnderstandingProgressView`，只含`status / message / retry_after_ms`；卡片可用后返回`200 UserFacingTripResult`和不可逆opaque ETag；
+- `UserFacingTripResult`顶层严格为`status / assumptions / days / map / stay / available_actions`；activity严格为`activity_token / name / category / area_or_address / time_hint / status / available_actions`；
+- events持久化单调游标并接受`Last-Event-ID`，首切片事件类型allowlist为`progress / result_available`，文案allowlist为“正在整理每天行程”“正在核对地点”“卡片已可用”；
+- 首切片的`map.status`与`stay.status`均可诚实返回`UNAVAILABLE`，不得返回内部job/freshness枚举，也不得伪装成Provider正在执行。
+
+首切片不改变后续commands union：写命令仍要求`If-Match + Idempotency-Key`，成功创建新revision和新ETag，并把已有地图公共投影改为`NEEDS_UPDATE`；旧API不成为v3权威。
+
 ### 3.1 创建与结果
 
 - `POST /api/v3/trip-understandings`
-  - 输入：文本来源、`FULL/DEMO` 模式；`FULL`必须登录，`DEMO`只使用固定北京示例；
+  - 接受3.0定义的严格`DEMO | FULL` union；FULL只接受TEXT且必须登录，截图分支尚未开放；
   - 要求 `Idempotency-Key`；
   - 返回 `202`、随机非秘密`public_resource_id`、用户状态与events URL；它不含内部UID且不承担授权，不能进入用户文案或分析事件。访问日志必须记录路由模板或脱敏值，不能记录实际路径ID。
 - `GET /api/v3/trip-understandings/{id}/result`
@@ -126,6 +143,15 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
   - 只发送“正在整理每天行程 / 正在核对地点 / 卡片已可用 / 地图准备中”等用户事件；
   - 不发送模型、Provider、Run stage 或错误详情。
 
+### 3.1a G04 截图输入扩展
+
+G01的`FULL + TEXT`边界保持不变。G04只以追加方式开放：
+
+- `POST /api/v3/screenshot-batches`：登录态multipart上传1～6张PNG/JPEG/WebP，单张≤10MB；禁止JSON Base64；返回短期、不透明、绑定owner且不可跨账号使用的`batch_ref`和过期时间；
+- `POST /api/v3/trip-understandings`增加`{"mode":"FULL","source":{"type":"SCREENSHOT_BATCH","batch_ref":"..."}}`分支；理解任务只能消费有效、未终态的owner批次；
+- 成功、失败、取消、超时和未消费TTL到期都删除原始像素；清理失败内部为`PRIVACY_BLOCKED`，任务不得宣称成功；
+- OCR文本、阅读顺序和bbox映射作为加密`SourceDocument`继承文本source的30天上限和主动删除；普通结果、DOM与日志不返回OCR框、原文映射或模型信息。
+
 `POST 202 + SSE` 必须由持久化 `TripUnderstandingJob`、lease、attempt、event游标和终态结果指针支撑；不得依赖进程内临时任务。`DEMO`绑定HttpOnly、SameSite匿名capability，秘密值永不进入URL/JSON/日志；result/events/commands仍做资源级授权，未claim内容24小时后清除。G01必须实现一次性 `POST /api/v3/trip-understandings/{id}/claim`：用户登录后原子转移体验内容所有权、轮换resource ID并废止匿名capability；成功`200`返回新`public_resource_id`和不透明ETag，并用`Location`指向新资源，旧ID随后返回`410`。materialize、audit和share必须登录。
 
 ### 3.2 卡片命令
@@ -134,14 +160,14 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
 
 命令 union：
 
-- `ACTIVITY_INSERT`；
-- `ACTIVITY_DELETE`；
-- `ACTIVITY_MOVE`；
-- `ACTIVITY_TEXT_EDIT`；
-- `PLACE_REPLACE`；
-- `ASSUMPTION_SET`。
+- `ACTIVITY_INSERT`：`day_index / position / name / category? / area_or_address? / time_hint?`；用户输入的新地点保持`NEEDS_CONFIRMATION`，不自动查询Provider；
+- `ACTIVITY_DELETE`：`activity_token`；
+- `ACTIVITY_MOVE`：`activity_token / target_day_index / target_position`；
+- `ACTIVITY_TEXT_EDIT`：`activity_token`加`name / time_hint`至少一项；名称变化会撤销旧地点匹配，只有时间变化保留地点身份；
+- `PLACE_REPLACE`：`activity_token / replacement{name,category,area_or_address}`；在候选选择合同接入前仍保持`NEEDS_CONFIRMATION`；
+- `ASSUMPTION_SET`：`key=destination|calendar|party_size / value`。
 
-成功返回新的用户结果 ETag、changed days 和 `map_readiness=NEEDS_UPDATE`；不得返回内部freshness，也不得自动调用路线 Provider。
+请求对象以`command_type`为discriminator并拒绝未知字段。成功严格返回`status=APPLIED / changed_days / map_readiness=NEEDS_UPDATE`及响应头中的新ETag；卡片token随revision轮换，客户端必须回读新结果。不得返回内部freshness，也不得自动调用路线 Provider。相同幂等键和相同请求重放原响应，即使其原If-Match此时已过期；新幂等键携带旧ETag则返回`409 REVISION_CONFLICT`。
 
 ### 3.3 地图
 
@@ -173,6 +199,20 @@ materialize前v3命令只写understanding revision；materialize原子写 `Mater
 - `GET /api/v3/me/travel-data-deletion`：只返回`IN_PROGRESS / COMPLETED / RETRY_REQUIRED`及稳定下一动作，不返回内部表、job或receipt。完成后fresh readback不得出现业务值；最小审计tombstone不可包含原文、地点或可还原身份内容。
 
 三类删除都必须做资源级授权、幂等、失败重试和缓存清理。用户看到“已删除”只允许在事务/级联完成后；内部删除receipt不进入公共API。
+
+### 3.7 G05 知识建议边界
+
+G05不新增“RAG权威结果”公共接口。已准入、未过期的`KnowledgeClaim`只通过现有地点详情、卡片提示或Top-3建议投影为带自然语言依据的建议；不得改变POI身份、路线事实、营业硬事实或Finding权威。来源导入、撤回和版本化是内部受权入口，不向普通用户暴露receipt或内部评分。
+
+### 3.8 G06 记忆、反馈与分享方向
+
+- `GET/PATCH/DELETE /api/v3/me/travel-preferences`：查看、显式启用/修改、清空allowlist结构化偏好；默认关闭；
+- `POST /api/v3/trip-understandings/{id}/feedback`：只记录地点纠正、卡片删除/替换、建议采纳/拒绝和主动行后反馈；提交反馈永不隐含训练或评测授权；
+- `GET/PATCH/DELETE /api/v3/me/data-use-consent`：独立查看、启用和撤销训练/评测数据用途同意，默认关闭且不与产品记忆consent复用；
+- `POST /api/v3/trip-understandings/{id}/shares`与`DELETE /api/v3/trip-understandings/{id}/shares/{share_ref}`：创建和撤销最小披露分享投影；`share_ref`是非秘密路由值且不承担授权；
+- 创建分享只返回一次高熵secret及`/share/{share_ref}#s=<secret>`。fragment不发送给服务端；前端必须在启动日志/分析前调用`POST /api/v3/shares/{share_ref}/sessions`，以请求体secret换取短期HttpOnly capability，随后立即清除fragment；`GET /api/v3/shares/{share_ref}`只在该capability有效时返回只读`ShareProjection`；
+- 服务端只存secret不可逆摘要；secret不得进入服务端可见路径/查询、访问日志、Referer或分析事件。撤销、过期、删除行程或清空账号旅行数据必须使session与缓存立即失效；
+- “清空全部旅行数据”固定清除结构化偏好和反馈并撤销全部分享；选择性清空仅由偏好专用接口执行。分享页不含内部ID、原文、私人偏好或权限能力。
 
 ## 4. 通用响应与错误
 
@@ -209,6 +249,7 @@ Program 预批准的附加式目标：
 - 日志：不记录原始文本、原图、完整 prompt、Authorization、密钥或可还原身份字段。
 - Demo：精确示例 hash 可使用冻结回执；匿名编辑短期存在，保存前要求登录。
 - 登录用户原始文本和可还原SourceClaim：加密保存，默认最长30天或直到用户删除行程/账号，以先到者为准；到期后保留不可逆hash、结构化结果、版本和删除回执。
+- 截图OCR文本、阅读顺序和bbox来源映射适用同一30天上限和主动删除；原始像素只在短期上传存储中存在并在所有终态清理。
 - G01必须提供source主动删除、行程删除和账号删除的级联清理与可回读删除回执；G06只新增偏好和反馈consent，不延后source隐私。
 
 本合同是目标接口，不代表当前分支已实现。

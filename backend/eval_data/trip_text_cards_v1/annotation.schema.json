@@ -1,0 +1,287 @@
+{
+  "$defs": {
+    "CanonicalPlaceLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "const": "HUMAN_VERIFIED_PROVIDER_RECEIPT",
+          "title": "Authority",
+          "type": "string"
+        },
+        "category": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Category",
+          "type": "string"
+        },
+        "city": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "City",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "place_id": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Place Id",
+          "type": "string"
+        },
+        "receipt_ref": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Receipt Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "place_id",
+        "name",
+        "city",
+        "category",
+        "authority",
+        "receipt_ref"
+      ],
+      "title": "CanonicalPlaceLabel",
+      "type": "object"
+    },
+    "CaseAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "pattern": "^G01-TC-\\d{3}$",
+          "title": "Case Id",
+          "type": "string"
+        },
+        "destination_name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Destination Name",
+          "type": "string"
+        },
+        "mentions": {
+          "items": {
+            "$ref": "#/$defs/MentionAnnotation"
+          },
+          "minItems": 1,
+          "title": "Mentions",
+          "type": "array"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "case_id",
+        "source_sha256",
+        "destination_name",
+        "mentions"
+      ],
+      "title": "CaseAnnotation",
+      "type": "object"
+    },
+    "HumanAttestation": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 120,
+          "minLength": 3,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "automated_suggestions_used": {
+          "const": false,
+          "title": "Automated Suggestions Used",
+          "type": "boolean"
+        },
+        "completed_at": {
+          "format": "date-time",
+          "title": "Completed At",
+          "type": "string"
+        },
+        "is_authorized_human": {
+          "const": true,
+          "title": "Is Authorized Human",
+          "type": "boolean"
+        },
+        "saw_peer_labels_before_submission": {
+          "const": false,
+          "title": "Saw Peer Labels Before Submission",
+          "type": "boolean"
+        },
+        "worked_independently": {
+          "const": true,
+          "title": "Worked Independently",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "actor_id",
+        "completed_at",
+        "is_authorized_human",
+        "worked_independently",
+        "saw_peer_labels_before_submission",
+        "automated_suggestions_used"
+      ],
+      "title": "HumanAttestation",
+      "type": "object"
+    },
+    "MentionAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "atomic_place_name": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Atomic Place Name"
+        },
+        "canonical_place": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CanonicalPlaceLabel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "day_index": {
+          "anyOf": [
+            {
+              "maximum": 14,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Day Index"
+        },
+        "executable_place": {
+          "title": "Executable Place",
+          "type": "boolean"
+        },
+        "mention_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Mention Id",
+          "type": "string"
+        },
+        "raw_text": {
+          "minLength": 1,
+          "title": "Raw Text",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "PLANNED",
+            "OPTIONAL",
+            "REFERENCE",
+            "EXCLUDED",
+            "PASS_THROUGH"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "semantic_kind": {
+          "enum": [
+            "PLACE",
+            "URL",
+            "DESCRIPTION",
+            "RESERVATION",
+            "OTHER"
+          ],
+          "title": "Semantic Kind",
+          "type": "string"
+        },
+        "span_end": {
+          "exclusiveMinimum": 0,
+          "title": "Span End",
+          "type": "integer"
+        },
+        "span_start": {
+          "minimum": 0,
+          "title": "Span Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mention_id",
+        "span_start",
+        "span_end",
+        "raw_text",
+        "semantic_kind",
+        "role",
+        "executable_place"
+      ],
+      "title": "MentionAnnotation",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "assignment_id": {
+      "maxLength": 120,
+      "minLength": 8,
+      "title": "Assignment Id",
+      "type": "string"
+    },
+    "attestation": {
+      "$ref": "#/$defs/HumanAttestation"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/CaseAnnotation"
+      },
+      "minItems": 1,
+      "title": "Cases",
+      "type": "array"
+    },
+    "dataset_version": {
+      "const": "g01-text-card-dataset-v1",
+      "default": "g01-text-card-dataset-v1",
+      "title": "Dataset Version",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g01-text-card-annotation-bundle-v1",
+      "default": "g01-text-card-annotation-bundle-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "split": {
+      "enum": [
+        "dev",
+        "validation",
+        "frozen_blind"
+      ],
+      "title": "Split",
+      "type": "string"
+    }
+  },
+  "required": [
+    "assignment_id",
+    "split",
+    "attestation",
+    "cases"
+  ],
+  "title": "AnnotationBundle",
+  "type": "object"
+}
