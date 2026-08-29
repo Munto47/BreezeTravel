@@ -7,7 +7,8 @@ Destination:
 
 - Use `EXPLICIT` only when the destination city name occurs verbatim in the
   source outside a POI name. `evidence_span_start/end` must select exactly that
-  city token.
+  city token. Do not return a separate name for `EXPLICIT`; application code
+  copies it from that exact span.
 - A trip may name more than one destination. In that case preserve the exact,
   contiguous source expression (for example `北京、杭州`) and its exact span.
   Never translate, romanize, normalize or reorder an explicit destination.
@@ -49,11 +50,10 @@ Mentions:
   Phrases such as “听说/网友提到/另一篇攻略/不是本次安排” are `REFERENCE`,
   not `EXCLUDED`. A quoted example inside an instruction is not a substitute
   for the later, actual local intent sentence.
-- Every `PLANNED` mention must have a day index. Use explicit Day/第N天 structure;
-  if an intended stop has no written day, conservatively assign Day 1. Other
-  roles may use null when no day is explicitly associated.
-- `sequence_index` starts at 0 and preserves source order within each day/role
-  group. `category_hint` and `time_hint` are hints from the source, not verified
+- Do not return day or sequence indexes. Application code derives the day from
+  the nearest preceding Day/第N天 heading (Day 1 when absent), sorts accepted
+  mentions by source span, and assigns sequence indexes.
+- `category_hint` and `time_hint` are hints from the source, not verified
   Provider facts.
 
 Do not claim that any POI, city, category, route, opening time or booking fact is

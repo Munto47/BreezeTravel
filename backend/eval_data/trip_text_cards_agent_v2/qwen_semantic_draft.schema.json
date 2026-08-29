@@ -31,16 +31,9 @@
           "minimum": 0,
           "title": "Evidence Span Start",
           "type": "integer"
-        },
-        "name": {
-          "maxLength": 40,
-          "minLength": 1,
-          "title": "Name",
-          "type": "string"
         }
       },
       "required": [
-        "name",
         "basis",
         "evidence_span_start",
         "evidence_span_end"
@@ -75,26 +68,8 @@
           ],
           "title": "Category Hint"
         },
-        "day_index": {
-          "anyOf": [
-            {
-              "maximum": 14,
-              "minimum": 1,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "title": "Day Index"
-        },
         "role": {
           "$ref": "#/$defs/ActivityRole"
-        },
-        "sequence_index": {
-          "minimum": 0,
-          "title": "Sequence Index",
-          "type": "integer"
         },
         "span_end": {
           "exclusiveMinimum": 0,
@@ -123,8 +98,6 @@
         "span_start",
         "span_end",
         "role",
-        "day_index",
-        "sequence_index",
         "atomic_place_name",
         "category_hint",
         "time_hint"

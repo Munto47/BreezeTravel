@@ -41,11 +41,12 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
     city_start = source.index("北京")
     place_start = source.index("故宫博物院")
     destination = {
-        "name": "北京",
         "basis": basis,
         "evidence_span_start": city_start if basis == "EXPLICIT" else None,
         "evidence_span_end": city_start + 2 if basis == "EXPLICIT" else None,
     }
+    if basis == "SOFT_ASSUMPTION":
+        destination["name"] = "北京"
     return json.dumps(
         {
             "destination": destination,
@@ -54,8 +55,6 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
                     "span_start": place_start,
                     "span_end": place_start + len("故宫博物院"),
                     "role": "PLANNED",
-                    "day_index": 1,
-                    "sequence_index": 0,
                     "atomic_place_name": "故宫博物院",
                     "category_hint": "景点",
                     "time_hint": None,
@@ -367,7 +366,6 @@ async def test_qwen_provider_does_not_relocate_planned_place_into_reference_name
     output = json.dumps(
         {
             "destination": {
-                "name": "上海",
                 "basis": "EXPLICIT",
                 "evidence_span_start": city_start,
                 "evidence_span_end": city_start + 2,
@@ -377,8 +375,6 @@ async def test_qwen_provider_does_not_relocate_planned_place_into_reference_name
                     "span_start": reference_start,
                     "span_end": reference_start + len(reference_name),
                     "role": "REFERENCE",
-                    "day_index": None,
-                    "sequence_index": 1,
                     "atomic_place_name": reference_name,
                     "category_hint": "餐饮",
                     "time_hint": None,
@@ -387,8 +383,6 @@ async def test_qwen_provider_does_not_relocate_planned_place_into_reference_name
                     "span_start": nested_start,
                     "span_end": nested_start + len("豫园"),
                     "role": "PLANNED",
-                    "day_index": 2,
-                    "sequence_index": 0,
                     "atomic_place_name": "豫园",
                     "category_hint": "景点",
                     "time_hint": None,
@@ -431,15 +425,11 @@ async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_opt
         start: int,
         value: str,
         role: str,
-        sequence_index: int,
-        day_index: int | None = None,
     ) -> dict[str, object]:
         return {
             "span_start": start,
             "span_end": start + len(value),
             "role": role,
-            "day_index": day_index,
-            "sequence_index": sequence_index,
             "atomic_place_name": value,
             "category_hint": None,
             "time_hint": None,
@@ -448,18 +438,17 @@ async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_opt
     output = json.dumps(
         {
             "destination": {
-                "name": "上海",
                 "basis": "EXPLICIT",
                 "evidence_span_start": first_shanghai,
                 "evidence_span_end": first_shanghai + 2,
             },
             "mentions": [
-                mention(first_shanghai, "上海", "PLANNED", 0, 1),
-                mention(first_bund, "外滩", "PLANNED", 1, 1),
-                mention(planned_bund, "外滩", "PLANNED", 2, 1),
-                mention(meta_reference, "中国国家博物馆", "REFERENCE", 3),
-                mention(actual_reference, "中国国家博物馆", "REFERENCE", 4),
-                mention(optional, "田子坊", "EXCLUDED", 5),
+                mention(first_shanghai, "上海", "PLANNED"),
+                mention(first_bund, "外滩", "PLANNED"),
+                mention(planned_bund, "外滩", "PLANNED"),
+                mention(meta_reference, "中国国家博物馆", "REFERENCE"),
+                mention(actual_reference, "中国国家博物馆", "REFERENCE"),
+                mention(optional, "田子坊", "EXCLUDED"),
             ],
         },
         ensure_ascii=False,
@@ -487,10 +476,9 @@ async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_opt
 
 
 @pytest.mark.asyncio
-async def test_qwen_provider_fills_missing_planned_day_from_source_heading() -> None:
+async def test_qwen_provider_derives_planned_day_from_source_heading() -> None:
     source = "北京 Day 1 休息。Day 2 上午去故宫博物院。"
     output = json.loads(_valid_output(source))
-    output["mentions"][0]["day_index"] = None
     client = _FakeClient([json.dumps(output, ensure_ascii=False)])
     provider = QwenStructuredInferenceProvider(
         api_key="test-only",
@@ -506,13 +494,37 @@ async def test_qwen_provider_fills_missing_planned_day_from_source_heading() -> 
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_derives_sequence_from_source_order() -> None:
+    source = "北京 Day 1 先去故宫博物院，再去天坛。"
+    output = json.loads(_valid_output(source))
+    second_start = source.index("天坛")
+    second = {
+        **output["mentions"][0],
+        "span_start": second_start,
+        "span_end": second_start + 2,
+        "atomic_place_name": "天坛",
+    }
+    output["mentions"] = [second, output["mentions"][0]]
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=_FakeClient([json.dumps(output, ensure_ascii=False)]),
+    )
+
+    proposal = await provider.propose(source)
+
+    assert [item.raw_text for item in proposal.mentions] == ["故宫博物院", "天坛"]
+    assert [item.sequence_index for item in proposal.mentions] == [0, 1]
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_rejects_non_atomic_planned_span_after_one_repair() -> None:
     source = "北京 Day 1 预约说明：https://example.invalid。"
     start = source.index("预约说明")
     invalid = json.dumps(
         {
             "destination": {
-                "name": "北京",
                 "basis": "EXPLICIT",
                 "evidence_span_start": 0,
                 "evidence_span_end": 2,
@@ -522,8 +534,6 @@ async def test_qwen_provider_rejects_non_atomic_planned_span_after_one_repair() 
                     "span_start": start,
                     "span_end": start + len("预约说明"),
                     "role": "PLANNED",
-                    "day_index": 1,
-                    "sequence_index": 0,
                     "atomic_place_name": "预约说明",
                     "category_hint": None,
                     "time_hint": None,

@@ -298,7 +298,6 @@ def _safe_atomic_source_span(
 
 
 class QwenExplicitDestinationDraft(StrictModel):
-    name: str = Field(min_length=1, max_length=40)
     basis: Literal[DestinationBasis.EXPLICIT]
     evidence_span_start: int = Field(ge=0)
     evidence_span_end: int = Field(gt=0)
@@ -320,8 +319,6 @@ class QwenMentionDraft(StrictModel):
     span_start: int = Field(ge=0)
     span_end: int = Field(gt=0)
     role: ActivityRole
-    day_index: int | None = Field(ge=1, le=14)
-    sequence_index: int = Field(ge=0)
     atomic_place_name: str | None = Field(max_length=40)
     category_hint: str | None = Field(max_length=40)
     time_hint: str | None = Field(max_length=80)
@@ -602,21 +599,21 @@ class QwenStructuredInferenceProvider:
             "duplicate_mention_drop_count": 0,
         }
         if destination.basis == DestinationBasis.EXPLICIT:
-            destination_span = (
-                destination.evidence_span_start,
-                destination.evidence_span_end,
-            )
-            destination_offsets = _verbatim_offsets_outside_urls(
-                source_text,
-                destination.name,
-            )
-            if not destination_offsets:
+            span_start = destination.evidence_span_start
+            span_end = destination.evidence_span_end
+            if not 0 <= span_start < span_end <= len(source_text):
                 raise ValueError("DESTINATION_SPAN_MISMATCH")
+            destination_name = source_text[span_start:span_end]
             if (
-                source_text[slice(*destination_span)] != destination.name
-                or destination_span[0] not in destination_offsets
+                destination_name != destination_name.strip()
+                or not destination_name
+                or len(destination_name) > 40
+                or span_start
+                not in _verbatim_offsets_outside_urls(source_text, destination_name)
             ):
-                normalization_counts["destination_span_relocation_count"] = 1
+                raise ValueError("DESTINATION_SPAN_MISMATCH")
+        else:
+            destination_name = destination.name
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()
@@ -721,8 +718,8 @@ class QwenStructuredInferenceProvider:
             elif not 0 <= span_start < span_end <= len(source_text):
                 raise ValueError("MENTION_SPAN_OUT_OF_RANGE")
             raw_text = source_text[span_start:span_end]
-            day_index = item.day_index
-            if role == ActivityRole.PLANNED and day_index is None:
+            day_index = None
+            if role == ActivityRole.PLANNED:
                 day_index = _day_index_at(source_text, span_start)
                 normalization_counts["planned_day_fill_count"] += 1
             span = (span_start, span_end)
@@ -738,13 +735,28 @@ class QwenStructuredInferenceProvider:
                     span_end=span_end,
                     role=role,
                     day_index=day_index,
-                    sequence_index=item.sequence_index,
+                    sequence_index=0,
                     atomic_place_name=atomic,
                     category_hint=item.category_hint,
                     time_hint=item.time_hint,
                 )
             )
-        return mentions, destination.name, normalization_counts
+        mentions.sort(key=lambda item: (item.span_start, item.span_end, item.mention_id))
+        day_sequences: dict[int, int] = {}
+        normalized_mentions: list[ProposedMention] = []
+        for index, mention in enumerate(mentions, start=1):
+            sequence_group = mention.day_index or 0
+            sequence_index = day_sequences.get(sequence_group, 0)
+            day_sequences[sequence_group] = sequence_index + 1
+            normalized_mentions.append(
+                mention.model_copy(
+                    update={
+                        "mention_id": f"mention-{index}",
+                        "sequence_index": sequence_index,
+                    }
+                )
+            )
+        return normalized_mentions, destination_name, normalization_counts
 
     async def propose(self, source_text: str) -> InferenceProposal:
         # Queueing is backpressure, not Provider execution. Acquire before the
