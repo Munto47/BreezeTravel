@@ -3,23 +3,14 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
-      "CURRENT_GOAL.md Verification synthetic preflight before exact Provider evidence"
+      "CURRENT_GOAL.md Acceptance G01 exact candidate evidence",
+      "CURRENT_GOAL.md Checkpoint ledger latest remaining work"
     ],
     "allowed_paths": [
-      "backend/eval_data/trip_text_cards_agent_v2/agent_evaluation_contract.json",
-      "backend/scripts/score_g01_sealed_agent_blind.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "ac132667fdd21438f9b04a6f24f660d68006118f",
-    "blocking_issue": {
-      "current_goal_acceptance_ref": "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
-      "impact_chain": "The sealed scorer advertises two CLI inputs that are never read, so the mandatory synthetic preflight rejects the candidate before exact Qwen, AMap and performance evidence can begin.",
-      "minimum_fix": "Remove only --mint-receipt and --truth-hmac-key-id from the CORE sealed scorer CLI, then verify that generated contracts remain exact and static preflight has no findings.",
-      "reproduction": "Run scope_guard._preflight_findings for the active G01 entrypoints at ac132667fdd21438f9b04a6f24f660d68006118f and observe unconsumed_cli_argument for --mint-receipt and --truth-hmac-key-id.",
-      "severity": "P1",
-      "stop_condition": "Stop when both unconsumed arguments disappear and the generated evaluation contract remains an exact deterministic regeneration."
-    },
+    "base_commit": "f4c2c6e7b93ff5f94e2dca905fd7272b83ddf98c",
+    "blocking_issue": null,
     "evidence_invalidated": [
       "QWEN_EXACT",
       "AMAP_EXACT",
@@ -34,21 +25,43 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Delete two unused argparse declarations and make no scoring, threshold, receipt, blind, custody or product-runtime change.",
-    "phase": "IMPLEMENTING",
+    "minimum_change": "Run the mandatory no-blind synthetic preflight and candidate regression checks without tracked product changes; freeze only after every preflight finding is empty.",
+    "phase": "PREFLIGHT",
     "preflight_entrypoints": [
-      "backend/scripts/score_g01_sealed_agent_blind.py"
+      "backend/scripts/validate_work_packages.py",
+      "backend/scripts/run_qwen_model_predictions.py",
+      "backend/scripts/export_g01_amap_live_receipts.py",
+      "backend/scripts/export_g01_qwen_live_receipts.py",
+      "backend/scripts/score_g01_sealed_agent_blind.py",
+      "backend/scripts/build_agent_gate_pass.py"
     ],
     "preflight_required_tokens": {
+      "backend/scripts/build_agent_gate_pass.py": [
+        "verify_core_agent_gate_pass",
+        "verify_g07_candidate_gate_pass"
+      ],
+      "backend/scripts/export_g01_amap_live_receipts.py": [
+        "write_external_bytes_exclusive"
+      ],
+      "backend/scripts/export_g01_qwen_live_receipts.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ],
+      "backend/scripts/run_qwen_model_predictions.py": [
+        "write_external_bytes_exclusive"
+      ],
       "backend/scripts/score_g01_sealed_agent_blind.py": [
         "write_external_bytes_exclusive",
         "validate_provider_receipt_assets"
+      ],
+      "backend/scripts/validate_work_packages.py": [
+        "output.open(\"x\""
       ]
     },
-    "slice_id": "G01-SEALED-SCORER-PREFLIGHT-FIX",
-    "stop_condition": "Stop if the repair requires implementing custody, HMAC, a durable registry, a new service, changing the blind oracle or changing scoring thresholds.",
-    "user_outcome": "The existing G01 card candidate can pass its mandatory no-blind synthetic preflight and proceed to exact product evidence.",
-    "work_kind": "CURRENT_GATE_FIX"
+    "slice_id": "G01-EXACT-EVIDENCE-REBUILD",
+    "stop_condition": "Stop before freeze, Provider calls, review or blind if preflight exposes an unconsumed input, default PASS, missing producer, missing upstream readback or a tracked code change; hardening stays deferred to G07.",
+    "user_outcome": "The existing daily-card candidate reaches one coherent exact evidence and CORE Gate run without another governance subsystem.",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
