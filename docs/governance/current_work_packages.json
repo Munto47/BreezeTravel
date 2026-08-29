@@ -8,10 +8,18 @@
     ],
     "allowed_paths": [
       "backend/scripts/smoke_g01_live_persistence.py",
+      "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_work_packages.json"
     ],
     "base_commit": "954a8cb83a5adf42766d892083f752d23865be0f",
-    "blocking_issue": null,
+    "blocking_issue": {
+      "severity": "P1",
+      "reproduction": "At frozen candidate 954a8cb83a5adf42766d892083f752d23865be0f, smoke_g01_live_persistence.py exits before Provider use because it passes max_output_tokens=2048 while the frozen Qwen config requires 768.",
+      "current_goal_acceptance_ref": "CURRENT_GOAL.md requires 50 real persistence runs on the exact frozen candidate.",
+      "impact_chain": "The stale explicit limit prevents every live persistence run, so performance exact evidence and the complete CORE Gate cannot be produced.",
+      "minimum_fix": "Change the smoke script's explicit Qwen max_output_tokens from 2048 to the frozen value 768 and statically preflight that token.",
+      "stop_condition": "Stop if the fix needs any model, deadline, schema, product behavior, database lifecycle, threshold, retry, or infrastructure change."
+    },
     "evidence_invalidated": [
       "QWEN_EXACT",
       "AMAP_EXACT",
@@ -27,7 +35,7 @@
       "component-level evidence reuse framework"
     ],
     "minimum_change": "Make the 50-run live persistence script use the frozen Qwen 768-token output limit and statically preflight that binding; change no product semantics or evidence threshold.",
-    "phase": "IMPLEMENTING",
+    "phase": "PREFLIGHT",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
       "backend/scripts/run_qwen_model_predictions.py",
@@ -66,7 +74,7 @@
     "slice_id": "G01-QWEN-LIMIT-BINDING-GATE-FIX",
     "stop_condition": "Stop if the fix changes the model, deadline, schema, product behavior, database lifecycle, evidence threshold, or adds a retry.",
     "user_outcome": "The required 50 real persistence runs execute with exactly the same frozen Qwen limits as the 72-case candidate evidence.",
-    "work_kind": "EVAL_INFRA"
+    "work_kind": "CURRENT_GATE_FIX"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
