@@ -3,17 +3,21 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "AGENTS.md scope-guard rollout contract",
-      "CURRENT_GOAL.md owner-authorized scope-guard checkpoint"
+      "CURRENT_GOAL.md Acceptance G01 exact candidate evidence",
+      "CURRENT_GOAL.md Checkpoint ledger latest remaining work"
     ],
     "allowed_paths": [
-      "backend/tests/test_governance_agent_gate_transition.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "5e174c748301e44add2ab0f1e540bfd0c9dd0624",
+    "base_commit": "d8a54e1ba7e49abfbeff413390dec691ea222a8f",
     "blocking_issue": null,
     "evidence_invalidated": [
-      "GATE_BINDING"
+      "QWEN_EXACT",
+      "AMAP_EXACT",
+      "PERFORMANCE_EXACT",
+      "REVIEW",
+      "SEALED_BLIND",
+      "FINAL_GATE"
     ],
     "forbidden_mechanisms": [
       "database or durable scope registry",
@@ -21,10 +25,14 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Align the existing governance assertion with the one-time owner-authorized bootstrap, then activate the first protected G01 product slice.",
+    "minimum_change": "Create only repository-external same-candidate Qwen, AMap and performance receipts from the existing product runtime; declare a separate bounded Gate fix before any tracked code change.",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/scripts/validate_work_packages.py",
+      "backend/scripts/run_qwen_model_predictions.py",
+      "backend/scripts/export_g01_amap_live_receipts.py",
+      "backend/scripts/export_g01_qwen_live_receipts.py",
+      "backend/scripts/score_g01_sealed_agent_blind.py",
       "backend/scripts/build_agent_gate_pass.py"
     ],
     "preflight_required_tokens": {
@@ -32,14 +40,28 @@
         "verify_core_agent_gate_pass",
         "verify_g07_candidate_gate_pass"
       ],
+      "backend/scripts/export_g01_amap_live_receipts.py": [
+        "write_external_bytes_exclusive"
+      ],
+      "backend/scripts/export_g01_qwen_live_receipts.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ],
+      "backend/scripts/run_qwen_model_predictions.py": [
+        "write_external_bytes_exclusive"
+      ],
+      "backend/scripts/score_g01_sealed_agent_blind.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ],
       "backend/scripts/validate_work_packages.py": [
         "output.open(\"x\""
       ]
     },
-    "slice_id": "G01-SCOPE-GUARD-ROLLOUT",
-    "stop_condition": "Stop after the first protected G01 product slice is active; do not add another governance mechanism.",
-    "user_outcome": "The installed scope guard becomes the enforced baseline for the next G01 product slice.",
-    "work_kind": "EVAL_INFRA"
+    "slice_id": "G01-EXACT-EVIDENCE-REBUILD",
+    "stop_condition": "Stop before tracked code changes, review or blind if synthetic preflight exposes an unconsumed input, default PASS, missing producer or missing upstream readback; hardening stays deferred to G07.",
+    "user_outcome": "The existing daily-card candidate obtains fresh same-candidate Qwen, AMap and performance evidence without another governance subsystem.",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
