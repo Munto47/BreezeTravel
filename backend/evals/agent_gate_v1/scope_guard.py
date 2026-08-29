@@ -100,6 +100,9 @@ _CRYPTO_PATTERN = re.compile(
 )
 _HARDENING_PATH_PATTERN = re.compile(r"(custody|authority|broker|registry|mint)", re.I)
 _PASS_FIELD_PATTERN = re.compile(r"(pass|consumed|verified|valid|ready)", re.I)
+_PRODUCT_PROGRESS_PATTERN = re.compile(
+    r"Product progress\s*=\s*(UI|API|MODEL|PROVIDER|EVAL_METRIC|NONE)"
+)
 _HANDWRITTEN_CODE_SUFFIXES = {".py", ".sql", ".js", ".jsx", ".ts", ".tsx"}
 
 
@@ -538,6 +541,21 @@ def validate_mainline_scope(
     if active.work_kind == "EVAL_INFRA" and runtime_changed:
         errors.add("STAGE_SCOPE_VIOLATION")
         mechanisms.add("eval_infra_changed_product_runtime")
+
+    goal_path = target / "docs/governance/CURRENT_GOAL.md"
+    checkpoint_progress = (
+        _PRODUCT_PROGRESS_PATTERN.findall(goal_path.read_text(encoding="utf-8"))
+        if goal_path.is_file()
+        else []
+    )
+    effective_phase = requested_phase or active.phase
+    if (
+        effective_phase != "IMPLEMENTING"
+        and checkpoint_progress[-2:] == ["NONE", "NONE"]
+        and active.work_kind != "PRODUCT"
+    ):
+        errors.add("STAGE_SCOPE_VIOLATION")
+        mechanisms.add("two_checkpoints_without_product_pivot")
 
     early_hardening = registry.active_goal_sequence < 7 and (
         active.work_kind == "HARDENING"

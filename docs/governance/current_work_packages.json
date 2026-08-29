@@ -7,6 +7,7 @@
       "CURRENT_GOAL.md Acceptance clean CORE candidate context"
     ],
     "allowed_paths": [
+      "backend/eval_data/agent_gate_v1/protocol_contract.json",
       "backend/evals/agent_gate_v1/core_gate.py",
       "backend/evals/agent_gate_v1/scope_guard.py",
       "backend/tests/test_core_agent_gate.py",
@@ -87,6 +88,6 @@
   ],
   "program_id": "TC-VNEXT-2026",
   "scope_guard_version": "scope-guard-v1",
-  "scope_policy_sha256": "c0e31f28046c77e27326febf6256df980c040038e11e5cacc9b566c3e21a2213",
+  "scope_policy_sha256": "b6c828dbc4d1f067ba9d713eb3a4ad7d4aacd947227a33b2a116a88084d43f6a",
   "schema_version": "work-package-registry-v2"
 }

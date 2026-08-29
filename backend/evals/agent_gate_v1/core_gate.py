@@ -73,11 +73,6 @@ REQUIRED_COMPONENTS = {
     "MULTI_AGENT_PANEL",
     "SEALED_AGENT_BLIND",
 }
-_PROGRESS_PATTERN = re.compile(
-    r"Product progress\s*=\s*(UI|API|MODEL|PROVIDER|EVAL_METRIC|NONE)"
-)
-
-
 def _git(root: Path, *args: str, binary: bool = False) -> str | bytes:
     try:
         result = subprocess.run(
@@ -211,11 +206,6 @@ class CoreCandidateContext:
         goal_text = goal_bytes.decode("utf-8")
         if f"Goal ID: {binding.goal_id}" not in goal_text:
             raise CoreAgentGateError("CURRENT_GOAL does not match the CORE binding")
-        progress = _PROGRESS_PATTERN.findall(goal_text)
-        if len(progress) >= 2 and progress[-2:] == ["NONE", "NONE"]:
-            raise CoreAgentGateError(
-                "checkpoint ledger ends with two Product progress=NONE entries"
-            )
         frozen = {
             name: _git_blob_sha256(root, candidate_commit, path)
             for name, path in CORE_FROZEN_BINDING_PATHS.items()

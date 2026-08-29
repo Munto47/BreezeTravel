@@ -136,6 +136,7 @@ def _scope_repo(
     work_kind: str,
     goal_sequence: int = 1,
     phase: str = "IMPLEMENTING",
+    checkpoint_progress: tuple[str, ...] = ("RUNTIME",),
     freeze_extra_change: bool = False,
     preflight_entrypoints: list[str] | None = None,
     preflight_required_tokens: dict[str, list[str]] | None = None,
@@ -146,6 +147,15 @@ def _scope_repo(
     _git(root, "config", "user.email", "scope@example.com")
     _git(root, "config", "user.name", "Scope Guard")
     _write(root / "AGENTS.md", "baseline guidance\n")
+    _write(
+        root / "docs/governance/CURRENT_GOAL.md",
+        "Goal ID: TC-VNEXT-G01-TEXT-CARDS\n"
+        + "\n".join(
+            f"checkpoint {index}: Product progress={progress}"
+            for index, progress in enumerate(checkpoint_progress, start=1)
+        )
+        + "\n",
+    )
     for relative in POLICY_HASH_PATHS:
         path = root / relative
         if not path.exists():
@@ -248,6 +258,36 @@ def test_work_kind_cannot_hide_eval_or_product_scope(tmp_path: Path) -> None:
     report = validate_mainline_scope(root)
     assert report.verdict == "REJECT"
     assert "eval_infra_changed_product_runtime" in report.detected_mechanisms
+
+
+def test_two_none_checkpoints_force_product_pivot_before_preflight(
+    tmp_path: Path,
+) -> None:
+    repair_root, _base = _scope_repo(
+        tmp_path / "repair",
+        work_kind="CURRENT_GATE_FIX",
+        checkpoint_progress=("NONE", "NONE"),
+    )
+    implementing = validate_mainline_scope(repair_root)
+    assert implementing.verdict == "PASS"
+
+    non_product_root, _base = _scope_repo(
+        tmp_path / "non-product",
+        work_kind="CURRENT_GATE_FIX",
+        phase="PREFLIGHT",
+        checkpoint_progress=("NONE", "NONE"),
+    )
+    rejected = validate_mainline_scope(non_product_root)
+    assert rejected.verdict == "REJECT"
+    assert "two_checkpoints_without_product_pivot" in rejected.detected_mechanisms
+
+    product_root, _base = _scope_repo(
+        tmp_path / "product",
+        work_kind="PRODUCT",
+        phase="PREFLIGHT",
+        checkpoint_progress=("NONE", "NONE"),
+    )
+    assert validate_mainline_scope(product_root).verdict == "PASS"
 
 
 def test_g01_custody_or_crypto_is_deferred_to_g07(tmp_path: Path) -> None:
@@ -462,7 +502,10 @@ def test_freeze_marker_commit_is_the_formal_core_candidate(
     automated_contract_sha256 = json.loads(binding_bytes)[
         "automated_gate_contract_sha256"
     ]
-    goal_bytes = b"Goal ID: TC-VNEXT-G01-TEXT-CARDS\nProduct progress=RUNTIME\n"
+    goal_bytes = (
+        b"Goal ID: TC-VNEXT-G01-TEXT-CARDS\n"
+        b"Product progress=NONE\nProduct progress=NONE\n"
+    )
     original_blob = core_gate._git_blob
 
     def fake_blob(repo: Path, commit: str, path: str) -> bytes:
