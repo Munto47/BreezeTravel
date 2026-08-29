@@ -53,7 +53,7 @@
     "AMBIGUOUS"
   ],
   "qwen_candidate_artifact_sha256": {
-    "qwen_inference_config.json": "1a543ff87a925626d539f7fbb0a5f11c8ac8282e45880981d5f4f544526c084f",
+    "qwen_inference_config.json": "a2e73a5e6c1213987cd24abbf697bda2956f8723cfb8e9c215a5cfd792d65625",
     "qwen_inference_prompt.md": "552ce7d2e8de7bf277713d0ab0f7d8ca2dc099c99ba549b302728d366911a945",
     "qwen_model_panel.json": "91bf4fec50601d56cfe907d82f48c3879b2f0084df19a576e945f03c3207d8e4",
     "qwen_semantic_draft.schema.json": "094963ca885078a79e0cebfd4472b800d21ea26861f05a3e258f6a13efa38d5b"

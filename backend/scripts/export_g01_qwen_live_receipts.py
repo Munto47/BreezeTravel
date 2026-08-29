@@ -324,7 +324,7 @@ def _load_raw_prediction_rows(
         summary.get("batch_concurrency") != 1
         or summary.get("provider_max_concurrency") != 1
         or summary.get("deadline_ms") != 7000
-        or summary.get("max_output_tokens") != 2048
+        or summary.get("max_output_tokens") != 768
         or not isinstance(requested_splits, list)
         or not all(isinstance(value, str) for value in requested_splits)
         or not isinstance(provider_effective_config_sha256, str)
@@ -385,7 +385,7 @@ def _load_raw_prediction_rows(
             != provider_effective_config_sha256
             or runtime_binding.get("max_concurrency") != 1
             or runtime_binding.get("deadline_ms") != 7000
-            or runtime_binding.get("max_output_tokens") != 2048
+            or runtime_binding.get("max_output_tokens") != 768
             or runtime_binding.get("fallback_used") is True
             or runtime_binding.get("raw_request_or_response_retained") is not False
             or not isinstance(calls, list)

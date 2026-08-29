@@ -156,7 +156,7 @@ async def test_qwen_provider_returns_model_neutral_proposal_and_redacted_receipt
     assert proposal.mentions[0].raw_text == "故宫博物院"
     assert proposal.binding["external_calls"] == 1
     assert proposal.binding["max_concurrency"] == 1
-    assert proposal.binding["max_output_tokens"] == 2048
+    assert proposal.binding["max_output_tokens"] == 768
     assert proposal.binding["repair_call_count"] == 0
     assert proposal.binding["estimated_cost_status"] == (
         "CALCULATED_FROM_PROVIDER_FIELDS"

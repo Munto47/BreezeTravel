@@ -115,8 +115,8 @@ def _output_targets(
 async def _run(args: argparse.Namespace) -> tuple[dict[str, object], bytes]:
     if args.concurrency != 1:
         raise ValueError("Qwen exact evidence requires serial concurrency=1")
-    if args.deadline_seconds != 7.0 or args.max_output_tokens != 2048:
-        raise ValueError("Qwen exact evidence requires the frozen 7s/2048 limits")
+    if args.deadline_seconds != 7.0 or args.max_output_tokens != 768:
+        raise ValueError("Qwen exact evidence requires the frozen 7s/768 limits")
     if _git("status", "--porcelain"):
         raise ValueError("Qwen prediction runner requires a clean candidate checkout")
     candidate_commit = _git("rev-parse", "HEAD")
@@ -366,12 +366,12 @@ def main() -> int:
     )
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--deadline-seconds", type=float, default=7.0)
-    parser.add_argument("--max-output-tokens", type=int, default=2048)
+    parser.add_argument("--max-output-tokens", type=int, default=768)
     args = parser.parse_args()
     if args.concurrency != 1:
         parser.error("concurrency must be exactly 1 for Qwen exact evidence")
-    if args.deadline_seconds != 7.0 or args.max_output_tokens != 2048:
-        parser.error("Qwen exact evidence requires deadline=7.0 and max tokens=2048")
+    if args.deadline_seconds != 7.0 or args.max_output_tokens != 768:
+        parser.error("Qwen exact evidence requires deadline=7.0 and max tokens=768")
     candidate_commit = _git("rev-parse", "HEAD")
     prediction_path, summary_path = _output_targets(
         args.output_dir,

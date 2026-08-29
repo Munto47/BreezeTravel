@@ -393,7 +393,7 @@ class QwenStructuredInferenceProvider:
         base_url: str,
         model: str,
         deadline_seconds: float = 7.0,
-        max_output_tokens: int = 2048,
+        max_output_tokens: int = 768,
         max_concurrency: int = _FIXED_MAX_CONCURRENCY,
         temperature: float = 0.1,
         input_cny_per_million: float | None = None,
