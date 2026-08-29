@@ -186,6 +186,76 @@ class UserFacingTripResult(StrictModel):
     available_actions: list[Literal["EDIT_ASSUMPTIONS", "EDIT_CARDS"]]
 
 
+class MaterializedTripView(StrictModel):
+    status: Literal["READY"] = "READY"
+    message: str
+    calendar: str
+    party_size: int = Field(ge=1, le=50)
+    checks_available: bool = True
+
+
+class PublicTripCheckItem(StrictModel):
+    check_token: str = Field(min_length=20, max_length=100)
+    label: Literal["必须调整", "可以更好", "需要确认"]
+    title: str
+    message: str
+    affected_days: list[str] = Field(default_factory=list)
+    can_preview: bool = False
+
+
+class PublicTripChecksView(StrictModel):
+    status: Literal["READY", "STILL_NEEDS_CONFIRMATION"]
+    message: str
+    items: list[PublicTripCheckItem] = Field(max_length=3)
+    remaining_must_adjust: int = Field(ge=0)
+    available_actions: list[Literal["PREVIEW_CHANGE"]] = Field(default_factory=list)
+
+
+class ChangePreviewRequest(StrictModel):
+    check_token: str = Field(min_length=20, max_length=100)
+
+
+class PublicChangePreview(StrictModel):
+    change_token: str = Field(min_length=20, max_length=100)
+    title: str
+    summary: str
+    affected_days: list[str] = Field(default_factory=list)
+    before: list[str] = Field(default_factory=list)
+    after: list[str] = Field(default_factory=list)
+    available_actions: list[Literal["ADOPT_CHANGE"]] = Field(
+        default_factory=lambda: ["ADOPT_CHANGE"]
+    )
+
+
+class ChangeAdoptRequest(StrictModel):
+    change_token: str = Field(min_length=20, max_length=100)
+
+
+class PublicChangeAdopted(StrictModel):
+    status: Literal["APPLIED", "STILL_NEEDS_CONFIRMATION"]
+    message: str
+    changed_days: list[str] = Field(default_factory=list)
+    map_readiness: Literal["NEEDS_UPDATE"] = "NEEDS_UPDATE"
+    checks: PublicTripChecksView
+
+
+class MaterializationOutcome(StrictModel):
+    view: MaterializedTripView
+    opaque_etag: str
+    replayed: bool = False
+
+
+class ChangePreviewOutcome(StrictModel):
+    preview: PublicChangePreview
+    replayed: bool = False
+
+
+class ChangeAdoptOutcome(StrictModel):
+    adopted: PublicChangeAdopted
+    opaque_etag: str
+    replayed: bool = False
+
+
 class CreateDemoRequest(StrictModel):
     mode: Literal["DEMO"]
 

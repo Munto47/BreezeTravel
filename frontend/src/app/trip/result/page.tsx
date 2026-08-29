@@ -29,14 +29,20 @@ import {
 import {
   type ActivityCardView,
   type MapRenderView,
+  type PublicChangePreview,
+  type PublicTripChecksView,
   type StaySuggestionView,
   type TripUnderstandingCommand,
   type UserFacingTripResult,
   applyTripUnderstandingCommand,
+  adoptTripUnderstandingChange,
   claimTripUnderstanding,
   clearTripUnderstandingSession,
   deleteTripUnderstanding,
   deleteTripUnderstandingSource,
+  materializeTripUnderstanding,
+  previewTripUnderstandingChange,
+  readTripUnderstandingChecks,
   readTripUnderstandingResult,
   readTripUnderstandingMap,
   readTripUnderstandingStay,
@@ -92,7 +98,13 @@ export default function TripResultPage() {
   const [mapView, setMapView] = useState<MapRenderView | null>(null)
   const [stayView, setStayView] = useState<StaySuggestionView | null>(null)
   const [enhancementBusy, setEnhancementBusy] = useState<'MAP' | 'STAY' | null>(null)
+  const [checksView, setChecksView] = useState<PublicTripChecksView | null>(null)
+  const [changePreview, setChangePreview] = useState<PublicChangePreview | null>(null)
+  const [checkBusy, setCheckBusy] = useState<'PREPARE' | 'PREVIEW' | 'ADOPT' | null>(null)
+  const [checkMessage, setCheckMessage] = useState('')
   const activeResourceRef = useRef<string | null>(null)
+  const checksAttemptedKey = useRef<string | null>(null)
+  const resultAvailable = result !== null
 
   useEffect(() => {
     hydrate()
@@ -133,14 +145,48 @@ export default function TripResultPage() {
   }, [refreshEnhancements])
 
   useEffect(() => {
-    if (!resourceRef || !result) return
+    if (!resourceRef || !resultAvailable) return
     const preparing = mapView?.status === 'PREPARING' || stayView?.status === 'PREPARING'
     if (!preparing) return
     const timer = window.setInterval(() => {
       void refreshEnhancements(resourceRef)
     }, 800)
     return () => window.clearInterval(timer)
-  }, [mapView?.status, refreshEnhancements, resourceRef, result, stayView?.status])
+  }, [mapView?.status, refreshEnhancements, resourceRef, resultAvailable, stayView?.status])
+
+  useEffect(() => {
+    if (!resourceRef || !resultAvailable || !etag || !mapView || !stayView) return
+    if (mapView.status === 'PREPARING' || stayView.status === 'PREPARING') return
+    const attemptKey = `${resourceRef}:${etag}`
+    if (checksAttemptedKey.current === attemptKey) return
+    checksAttemptedKey.current = attemptKey
+    let disposed = false
+    setCheckBusy('PREPARE')
+    setCheckMessage('')
+    void (async () => {
+      try {
+        const prepared = await materializeTripUnderstanding(resourceRef, etag)
+        const checks = await readTripUnderstandingChecks(resourceRef)
+        if (disposed || activeResourceRef.current !== resourceRef) return
+        setEtag(prepared.etag)
+        sessionStorage.setItem('bt_active_trip_etag', prepared.etag)
+        setChecksView(checks)
+      } catch (checksFailure) {
+        if (disposed || activeResourceRef.current !== resourceRef) return
+        if (checksFailure instanceof Error && checksFailure.message === 'TRIP_UPDATED') {
+          setCheckMessage('行程刚刚有更新，正在读取最新内容。')
+          await refresh(resourceRef)
+        } else {
+          setCheckMessage('优先检查暂时没有准备好，不影响查看和调整行程。')
+        }
+      } finally {
+        if (!disposed) setCheckBusy(null)
+      }
+    })()
+    return () => {
+      disposed = true
+    }
+  }, [etag, mapView?.status, refresh, resourceRef, resultAvailable, stayView?.status])
 
   const handleMapRender = useCallback(async () => {
     if (!resourceRef || !etag || enhancementBusy) return
@@ -167,7 +213,11 @@ export default function TripResultPage() {
     setCommandError('')
     try {
       const selectedStay = await selectTripUnderstandingStay(resourceRef, candidateToken, etag)
+      setMapView(null)
+      setStayView(null)
       setEtag(selectedStay.etag)
+      setChecksView(null)
+      setChangePreview(null)
       sessionStorage.setItem('bt_active_trip_etag', selectedStay.etag)
       await refresh(resourceRef)
     } catch (stayFailure) {
@@ -182,13 +232,61 @@ export default function TripResultPage() {
     }
   }, [enhancementBusy, etag, refresh, resourceRef])
 
+  const handleChangePreview = useCallback(async (checkToken: string) => {
+    if (!resourceRef || checkBusy) return
+    setCheckBusy('PREVIEW')
+    setCheckMessage('')
+    try {
+      setChangePreview(await previewTripUnderstandingChange(resourceRef, checkToken))
+    } catch {
+      setChangePreview(null)
+      setCheckMessage('这项建议已经变化，请刷新后再试。')
+    } finally {
+      setCheckBusy(null)
+    }
+  }, [checkBusy, resourceRef])
+
+  const handleChangeAdopt = useCallback(async () => {
+    if (!resourceRef || !etag || !changePreview || checkBusy) return
+    setCheckBusy('ADOPT')
+    setCheckMessage('')
+    try {
+      const adopted = await adoptTripUnderstandingChange(
+        resourceRef,
+        changePreview.change_token,
+        etag,
+      )
+      setEtag(adopted.etag)
+      sessionStorage.setItem('bt_active_trip_etag', adopted.etag)
+      checksAttemptedKey.current = `${resourceRef}:${adopted.etag}`
+      setChecksView(adopted.body.checks)
+      setChangePreview(null)
+      setCheckMessage(adopted.body.message)
+      await refresh(resourceRef)
+    } catch (adoptFailure) {
+      setChangePreview(null)
+      if (adoptFailure instanceof Error && adoptFailure.message === 'TRIP_UPDATED') {
+        setCheckMessage('行程刚刚有更新，已读取最新内容，请重新预览。')
+        await refresh(resourceRef)
+      } else {
+        setCheckMessage('这次改动暂时没有保存，行程保持原样。')
+      }
+    } finally {
+      setCheckBusy(null)
+    }
+  }, [changePreview, checkBusy, etag, refresh, resourceRef])
+
   const runCommand = useCallback(async (command: TripUnderstandingCommand) => {
     if (!resourceRef || !etag || isApplying) return
     setIsApplying(true)
     setCommandError('')
     try {
       const applied = await applyTripUnderstandingCommand(resourceRef, etag, command)
+      setMapView(null)
+      setStayView(null)
       setEtag(applied.etag)
+      setChecksView(null)
+      setChangePreview(null)
       sessionStorage.setItem('bt_active_trip_etag', applied.etag)
       await refresh(resourceRef)
       setSelected(null)
@@ -597,6 +695,16 @@ export default function TripResultPage() {
             />
           </div>
 
+          <TripCheckPanel
+            view={checksView}
+            preview={changePreview}
+            busy={checkBusy}
+            message={checkMessage}
+            onPreview={(checkToken) => void handleChangePreview(checkToken)}
+            onAdopt={() => void handleChangeAdopt()}
+            onClosePreview={() => setChangePreview(null)}
+          />
+
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
             <div className="flex items-start gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
@@ -786,6 +894,124 @@ export default function TripResultPage() {
 
 
 const DAY_COLORS = ['#047857', '#2563eb', '#7c3aed', '#d97706', '#0f766e', '#be185d']
+
+
+function TripCheckPanel({
+  view,
+  preview,
+  busy,
+  message,
+  onPreview,
+  onAdopt,
+  onClosePreview,
+}: {
+  view: PublicTripChecksView | null
+  preview: PublicChangePreview | null
+  busy: 'PREPARE' | 'PREVIEW' | 'ADOPT' | null
+  message: string
+  onPreview: (checkToken: string) => void
+  onAdopt: () => void
+  onClosePreview: () => void
+}) {
+  const labelClass = {
+    必须调整: 'bg-rose-50 text-rose-700',
+    可以更好: 'bg-blue-50 text-blue-700',
+    需要确认: 'bg-amber-50 text-amber-800',
+  }
+  return (
+    <section
+      data-testid="trip-checks"
+      className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
+      aria-labelledby="trip-checks-title"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-700">
+          <Sparkles className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="trip-checks-title" className="font-semibold">优先检查</h2>
+          <p role="status" className="mt-1 text-xs leading-5 text-slate-500">
+            {message || view?.message || (busy === 'PREPARE' ? '正在准备最值得处理的三项…' : '路线和住宿准备后会自动检查。')}
+          </p>
+        </div>
+      </div>
+
+      {view && (
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {view.items.map((item) => (
+            <article key={item.check_token} data-testid="trip-check-item" className="rounded-2xl border border-slate-200 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${labelClass[item.label]}`}>
+                  {item.label}
+                </span>
+                {item.affected_days.map((day) => (
+                  <span key={day} className="text-xs text-slate-400">{day}</span>
+                ))}
+              </div>
+              <h3 className="mt-3 font-semibold text-slate-800">{item.title}</h3>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{item.message}</p>
+              {item.can_preview && (
+                <button
+                  data-testid="preview-change"
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() => onPreview(item.check_token)}
+                  className="mt-4 w-full rounded-xl bg-violet-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {busy === 'PREVIEW' ? '正在准备预览…' : '预览怎么调整'}
+                </button>
+              )}
+            </article>
+          ))}
+          {view.items.length === 0 && (
+            <div className="rounded-2xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 lg:col-span-3">
+              当前没有需要优先处理的问题。
+            </div>
+          )}
+        </div>
+      )}
+      {view && view.remaining_must_adjust > 0 && (
+        <p className="mt-3 text-xs text-slate-500">
+          另外还有 {view.remaining_must_adjust} 项必须调整，可在处理后继续查看。
+        </p>
+      )}
+
+      {preview && (
+        <div data-testid="change-preview" className="mt-5 rounded-2xl border border-violet-200 bg-violet-50/60 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold text-violet-700">改动预览</p>
+              <h3 className="mt-1 font-semibold text-slate-800">{preview.title}</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">{preview.summary}</p>
+            </div>
+            <button type="button" onClick={onClosePreview} className="rounded-full bg-white p-2 text-slate-500" aria-label="关闭改动预览">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-white/80 p-3">
+              <p className="text-xs font-semibold text-slate-500">现在</p>
+              {preview.before.map((item) => <p key={item} className="mt-1 text-xs leading-5 text-slate-600">{item}</p>)}
+            </div>
+            <div className="rounded-xl bg-white/80 p-3">
+              <p className="text-xs font-semibold text-violet-700">采纳后</p>
+              {preview.after.map((item) => <p key={item} className="mt-1 text-xs leading-5 text-slate-600">{item}</p>)}
+            </div>
+          </div>
+          <button
+            data-testid="adopt-change"
+            type="button"
+            disabled={busy !== null}
+            onClick={onAdopt}
+            className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy === 'ADOPT' ? '正在保存并重新检查…' : '采纳这次改动'}
+          </button>
+        </div>
+      )}
+    </section>
+  )
+}
 
 
 function MapTheater({

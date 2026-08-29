@@ -3,11 +3,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from app.trip_understanding.models import (
+    ChangeAdoptOutcome,
+    ChangePreviewOutcome,
     ClaimOutcome,
     CommandOutcome,
     CreateFullRequest,
     CreateOutcome,
     DeletionOutcome,
+    MaterializationOutcome,
+    PublicTripChecksView,
     PublicResourceRecord,
     StaySelectionOutcome,
     TripUnderstandingCommand,
@@ -144,6 +148,75 @@ class TripUnderstandingApplicationService:
         return await self.repository.select_stay(
             resource,
             candidate_token=candidate_token,
+            expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def materialize_trip(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        expected_etag: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> MaterializationOutcome:
+        request_hash = canonical_sha256(
+            {"action": "MATERIALIZE_TRIP", "if_match": expected_etag}
+        )
+        return await self.repository.materialize_trip(
+            resource,
+            expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def get_trip_checks(
+        self,
+        resource: PublicResourceRecord,
+    ) -> PublicTripChecksView:
+        return await self.repository.get_trip_checks(resource)
+
+    async def preview_trip_change(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        check_token: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> ChangePreviewOutcome:
+        request_hash = canonical_sha256(
+            {"action": "PREVIEW_CHANGE", "check_token": check_token}
+        )
+        return await self.repository.preview_trip_change(
+            resource,
+            check_token=check_token,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def adopt_trip_change(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        change_token: str,
+        expected_etag: str,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> ChangeAdoptOutcome:
+        request_hash = canonical_sha256(
+            {
+                "action": "ADOPT_CHANGE",
+                "change_token": change_token,
+                "if_match": expected_etag,
+            }
+        )
+        return await self.repository.adopt_trip_change(
+            resource,
+            change_token=change_token,
             expected_etag=expected_etag,
             idempotency_key=idempotency_key,
             request_hash=request_hash,

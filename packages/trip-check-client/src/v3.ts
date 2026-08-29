@@ -107,3 +107,46 @@ export interface StaySelectionAppliedView {
   overnight_days: string[]
   map_readiness: 'NEEDS_UPDATE'
 }
+
+export interface MaterializedTripView {
+  status: 'READY'
+  message: string
+  calendar: string
+  party_size: number
+  checks_available: boolean
+}
+
+export interface PublicTripCheckItem {
+  check_token: string
+  label: '必须调整' | '可以更好' | '需要确认'
+  title: string
+  message: string
+  affected_days: string[]
+  can_preview: boolean
+}
+
+export interface PublicTripChecksView {
+  status: 'READY' | 'STILL_NEEDS_CONFIRMATION'
+  message: string
+  items: PublicTripCheckItem[]
+  remaining_must_adjust: number
+  available_actions: Array<'PREVIEW_CHANGE'>
+}
+
+export interface PublicChangePreview {
+  change_token: string
+  title: string
+  summary: string
+  affected_days: string[]
+  before: string[]
+  after: string[]
+  available_actions: Array<'ADOPT_CHANGE'>
+}
+
+export interface PublicChangeAdopted {
+  status: 'APPLIED' | 'STILL_NEEDS_CONFIRMATION'
+  message: string
+  changed_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
+  checks: PublicTripChecksView
+}

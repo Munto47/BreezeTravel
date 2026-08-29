@@ -3,6 +3,10 @@ import { ensureSuccess, type JsonTransport, type TransportResponse, type UploadT
 import type {
   MapRenderAcceptedView,
   MapRenderView,
+  MaterializedTripView,
+  PublicChangeAdopted,
+  PublicChangePreview,
+  PublicTripChecksView,
   StaySelectionAppliedView,
   StaySuggestionView,
   TripUnderstandingAcceptedView,
@@ -122,6 +126,59 @@ export class TripCheckClient {
       'POST',
       `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-selection`,
       { candidate_token: candidateToken },
+      { ifMatch: etag, idempotencyKey },
+    )
+  }
+
+  async materializeTripUnderstanding(
+    publicResourceId: string,
+    etag: string,
+    idempotencyKey: string,
+  ): Promise<TransportResponse<MaterializedTripView>> {
+    return this.json<MaterializedTripView>(
+      'POST',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/materialize`,
+      undefined,
+      { ifMatch: etag, idempotencyKey },
+    )
+  }
+
+  async getTripUnderstandingChecks(
+    publicResourceId: string,
+  ): Promise<PublicTripChecksView> {
+    return (
+      await this.json<PublicTripChecksView>(
+        'GET',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/checks`,
+      )
+    ).data
+  }
+
+  async previewTripUnderstandingChange(
+    publicResourceId: string,
+    checkToken: string,
+    idempotencyKey: string,
+  ): Promise<PublicChangePreview> {
+    return (
+      await this.json<PublicChangePreview>(
+        'POST',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/preview`,
+        { check_token: checkToken },
+        { idempotencyKey },
+      )
+    ).data
+  }
+
+  async adoptTripUnderstandingChange(
+    publicResourceId: string,
+    changeToken: string,
+    etag: string,
+    idempotencyKey: string,
+  ): Promise<TransportResponse<PublicChangeAdopted>> {
+    return this.json<PublicChangeAdopted>(
+      'POST',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/adopt`,
+      { change_token: changeToken },
       { ifMatch: etag, idempotencyKey },
     )
   }

@@ -26,6 +26,11 @@ from app.trip_understanding.errors import (
     RevisionConflictError,
     SourceUnavailableError,
 )
+from app.trip_understanding.g03_repository import (
+    G03Repository,
+    InMemoryG03RepositoryMixin,
+    PostgresG03RepositoryMixin,
+)
 from app.trip_understanding.map_repository import (
     InMemoryMapRenderRepositoryMixin,
     MapRenderRepository,
@@ -90,6 +95,20 @@ def _account_subject_hash(user_id: str) -> str:
 
 async def _delete_understanding_business_rows(conn: Any, understanding_id: str) -> None:
     """Delete one v3 aggregate in FK-safe order inside the caller transaction."""
+    internal_room_id = await conn.fetchval(
+        """
+        SELECT tw.room_id
+        FROM trip_materialized_trips mt
+        JOIN trip_workspaces tw ON tw.workspace_id = mt.workspace_id
+        WHERE mt.understanding_id = $1
+        """,
+        understanding_id,
+    )
+    if internal_room_id is not None:
+        # The room is an internal compatibility record.  Removing it first
+        # cascades the workspace, immutable audit history and its plan pointer,
+        # avoiding a restrictive cycle when the v3 aggregate is removed.
+        await conn.execute("DELETE FROM rooms WHERE room_id = $1", internal_room_id)
     await conn.execute(
         "UPDATE trip_understandings SET current_result_id = NULL WHERE understanding_id = $1",
         understanding_id,
@@ -127,6 +146,17 @@ async def _delete_understanding_business_rows(conn: Any, understanding_id: str) 
         f"understanding:{understanding_id}:map-renders",
     )
     await conn.execute(
+        """
+        DELETE FROM trip_understanding_idempotency_records
+        WHERE scope = ANY($1::text[])
+        """,
+        [
+            f"understanding:{understanding_id}:g03-materialize",
+            f"understanding:{understanding_id}:g03-preview",
+            f"understanding:{understanding_id}:g03-adopt",
+        ],
+    )
+    await conn.execute(
         "DELETE FROM trip_understanding_revisions WHERE understanding_id = $1",
         understanding_id,
     )
@@ -161,7 +191,12 @@ def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
     }
 
 
-class TripUnderstandingRepository(MapRenderRepository, StayRecommendationRepository, Protocol):
+class TripUnderstandingRepository(
+    MapRenderRepository,
+    StayRecommendationRepository,
+    G03Repository,
+    Protocol,
+):
     async def create_demo(
         self,
         *,
@@ -313,6 +348,7 @@ class TripUnderstandingRepository(MapRenderRepository, StayRecommendationReposit
 
 
 class PostgresTripUnderstandingRepository(
+    PostgresG03RepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
     PostgresMapRenderRepositoryMixin,
 ):
@@ -2264,6 +2300,7 @@ class PostgresTripUnderstandingRepository(
 
 
 class InMemoryTripUnderstandingRepository(
+    InMemoryG03RepositoryMixin,
     InMemoryStayRecommendationRepositoryMixin,
     InMemoryMapRenderRepositoryMixin,
 ):
@@ -2290,6 +2327,7 @@ class InMemoryTripUnderstandingRepository(
         self._geometry_cache = InMemoryRouteGeometryCache()
         self._init_map_store()
         self._init_stay_store()
+        self._init_g03_store()
 
     async def create_demo(
         self,
@@ -2522,6 +2560,35 @@ class InMemoryTripUnderstandingRepository(
                 "current_revision": aggregate["current_revision"] + 1,
             }
         )
+        previous_input = self.g03_pipeline_inputs.get(
+            (resource.understanding_id, source_revision), {}
+        )
+        prior_assumptions = {
+            str(item.get("key")): dict(item)
+            for item in previous_input.get("assumptions", [])
+            if isinstance(item, dict) and item.get("key")
+        }
+        self.g03_pipeline_inputs[
+            (resource.understanding_id, int(aggregate["current_revision"]))
+        ] = {
+            "destination": dict(previous_input.get("destination") or {}),
+            "assumptions": [
+                {
+                    **prior_assumptions.get(item.key, {}),
+                    "key": item.key,
+                    "value": item.value,
+                    "source": (
+                        "USER_EDIT"
+                        if command.command_type == "ASSUMPTION_SET"
+                        and item.key == command.key
+                        else prior_assumptions.get(item.key, {}).get(
+                            "source", "SOFT_ASSUMPTION"
+                        )
+                    ),
+                }
+                for item in mutation.result.assumptions
+            ],
+        }
         self._copy_stay_selection_memory(
             resource.understanding_id,
             source_revision,
@@ -2661,6 +2728,7 @@ class InMemoryTripUnderstandingRepository(
             authorization_hash = capability_hash
         self._delete_map_memory(resource.understanding_id)
         self._delete_stay_memory(resource.understanding_id)
+        self._delete_g03_memory(resource.understanding_id)
         for result_id, understanding_id in list(self.result_owners.items()):
             if understanding_id == resource.understanding_id:
                 self.results.pop(result_id, None)
@@ -2927,6 +2995,21 @@ class InMemoryTripUnderstandingRepository(
                 "current_revision": 2,
             }
         )
+        self.g03_pipeline_inputs[(job.understanding_id, 2)] = {
+            "destination": dict(output.destination),
+            "assumptions": [dict(item) for item in output.assumptions],
+            "bindings": {
+                activity.compiled.public_activity_token: {
+                    "canonical_place_id": (
+                        activity.place.canonical_place_id if activity.place else None
+                    ),
+                    "resolution_status": activity.resolution_status.value,
+                    "resolver_receipt": dict(activity.resolver_receipt),
+                }
+                for activity in output.activities
+                if activity.compiled.mention.role.value == "PLANNED"
+            },
+        }
         self._enqueue_initial_map_job_memory(
             job.understanding_id,
             2,

@@ -61,12 +61,14 @@ class EditOperation(str, Enum):
 class TripDateRange(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    start: Date
-    end: Date
+    start: Date | None = None
+    end: Date | None = None
 
     @model_validator(mode="after")
     def validate_scope(self) -> "TripDateRange":
-        if self.end < self.start:
+        if (self.start is None) != (self.end is None):
+            raise ValueError("trip date range must provide both dates or neither")
+        if self.start is not None and self.end is not None and self.end < self.start:
             raise ValueError("trip date range end cannot be before start")
         return self
 
