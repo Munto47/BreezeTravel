@@ -1,5 +1,7 @@
 # BreezeTravel「行程查」
 
+<!-- ruleset negative probe: intentionally contains no product progress -->
+
 BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图，系统先生成高准确率逐日卡片并后台准备路线，再用最多三个用户友好的重点问题帮助用户把计划变得可执行。北京、上海、杭州提供深度核验；其他国内城市先提供基础整理并明确边界。
 
 ```text
