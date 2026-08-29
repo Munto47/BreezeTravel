@@ -1,5 +1,6 @@
 # Product work remains mergeable after CI without a general review requirement.
 # Only the rules that define or enforce the mainline require the project owner.
+# Ruleset code-owner probe: this branch is intentionally never merged.
 /AGENTS.md @Munto47
 /.github/CODEOWNERS @Munto47
 /.github/workflows/ci.yml @Munto47
@@ -17,4 +18,3 @@
 /docs/governance/current_goal_binding.json @Munto47
 /docs/governance/current_work_packages.json @Munto47
 /docs/governance/product_delivery_gates.json @Munto47
-
