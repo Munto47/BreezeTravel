@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G05-CITY-KNOWLEDGE`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.5`
+- Mainline phase：`PRODUCT_ENHANCEMENT`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G04 Screenshot Parity Gate通过并归档后
 - Required gate：`Knowledge Admission Gate + AGENT_GATE_PASS`
@@ -37,6 +39,16 @@
 - 授权创作者内容；
 - PostgreSQL检索；pgvector只有消融证明必要且经依赖审查后另行批准；
 - 不授权抓取小红书。
+
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G05-SOURCE-ADMISSION` | 来源准入、授权、导入与过期策略 | Provider/Data Admission | 未授权来源0，撤回可回读 |
+| `WP-G05-KNOWLEDGE-CLAIMS` | KnowledgeClaim存储、检索和版本化 | 032由集成者编号 | 来源/条件/时效/许可100% |
+| `WP-G05-ADVICE-INTEGRATION` | 时长/时段/夜景/季节/预约建议 | 已准入claim | RAG只建议，unsupported=0 |
+
+集成者串行确认许可→执行032/API内部接入→建议消融与浏览器Gate；不新增公共“RAG权威接口”。贡献包最多两轮修复复审。
 
 ## Decisions locked
 
@@ -106,14 +118,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Knowledge Admission Gate`；Next template：`TC-VNEXT-G06-MEMORY-SHARE.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G06并创建generation 6权限锚；H1/商业不自动启动。
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G06；不登记外部ledger、不创建authority generation；H1/商业不自动启动。
 
 ## Completion record
 

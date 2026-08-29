@@ -2,7 +2,7 @@
 
 > 状态：`ACCEPTED_BLUEPRINT`
 >
-> 架构版本：`Blueprint 1.1 / Agent Gate Transition`
+> 架构版本：`Blueprint 1.3 / Unified Mainline and Parallel Delivery`
 >
 > 实现状态：`INCREMENTAL`
 >
@@ -224,7 +224,7 @@ Top-3排序由确定性 severity、confidence tier、actionability 和 itinerary
 
 - PostgreSQL：understanding/itinerary revision、run、lease、幂等命令、map/stay snapshot、receipt、evidence、finding、advice、lineage。
 - Redis：缓存、限流、短期路线几何和可重建协调；丢失不能改变权威结论。
-- 临时文件：原始截图；所有终态删除。
+- 临时文件：原始截图；所有终态删除。OCR文本、阅读顺序和bbox映射进入加密`SourceDocument`并继承source TTL/主动删除，原始像素不得进入PostgreSQL。
 - SSE：用户进度投影；断线不取消后台工作。
 - LangGraph checkpoint：可恢复计算进度，不是业务状态或 exactly-once 证明。
 
@@ -259,6 +259,8 @@ Provider副作用使用稳定幂等键。调用前先在PostgreSQL持久化`STAR
 
 版本实施顺序与门禁以 `governance/PROGRAM.md` 和 `governance/RELEASE_GATES.md` 为准。
 
+开发控制面按`CORE_MVP(G01～G03) → PRODUCT_ENHANCEMENT(G04～G06) → CANDIDATE_HARDENING(G07)`推进。它使用一个集成者、最多三个同时可写且路径互不重叠的工作包、同一exact baseline和串行合并；集成者写入时也计入三个上限，最多提前准备下一Goal的两个包。该并行机制只影响开发组织，不进入BreezeTravel运行时架构。
+
 ## 14. 评测控制面
 
 G01～G07 的评测不进入产品运行时。Agent参考标注、三角色审查、ultra裁决和sealed blind由仓库外任务编排，产品代码只消费冻结schema、hash、脱敏回执和聚合指标。
@@ -273,11 +275,12 @@ G01～G06 CORE_AGENT_GATE
 → deterministic score + clean checkout readback
 → durable AGENT_GATE_PASS / FAIL
 
-G07 HARDENED_CANDIDATE_GATE (only after threat-model review)
-→ evaluate deferred BOOTSTRAP / authority / purpose-specific broker assets
-→ optional role signatures + immutable remote ref + isolated OCI
+G07 HARDENED_CANDIDATE_GATE
+→ produce HardeningDecision from a concrete threat model
+→ NOT_REQUIRED_WITH_RATIONALE: local candidate assurance + residual-risk record
+→ REQUIRED: enable only the named authority / broker / signature / OCI controls
 → candidate evidence manifest and fresh readback
 → VNEXT_CANDIDATE_READY_AGENT_VERIFIED
 ```
 
-原始Agent输出和blind truth不进入Git。CORE回执必须绑定候选字节和上游事实；HARDENED签名也只能证明对应执行事实。sealed scorer不接受调用者手填聚合指标。`MULTI_AGENT_SIMULATED_REVIEW`和`SEALED_AGENT_BLIND`必须标记`human_evidence=false`；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。完整合同见`governance/AGENT_GATE_PROTOCOL.md`、ADR-013和ADR-014。
+原始Agent输出和blind truth不进入Git。CORE回执必须绑定候选字节和上游事实；HARDENED的外部签名/OCI不是默认要求，只有`HardeningDecision=REQUIRED`时才启用，且仍只能证明对应执行事实。sealed scorer不接受调用者手填聚合指标。`MULTI_AGENT_SIMULATED_REVIEW`和`SEALED_AGENT_BLIND`必须标记`human_evidence=false`；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。完整合同见`governance/AGENT_GATE_PROTOCOL.md`、ADR-013和ADR-014。

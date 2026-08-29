@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G03-TOP3-AUDIT`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.3`
+- Mainline phase：`CORE_MVP`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G02 Map & Stay Gate通过并归档后
 - Required gate：`Top-3 Audit Gate + AGENT_GATE_PASS`
@@ -38,6 +40,16 @@
 - 必需的`031_day_index_trip_bridge.sql`，支持`ABSOLUTE|DAY_INDEX_ONLY`、nullable calendar与软人数来源；
 - 现有高德/和风开发矩阵；
 - 不新增风险搜索Provider。
+
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G03-MATERIALIZE-EVIDENCE` | materialize、日期可空桥接、Evidence编译 | G02 revision/map/stay指针 | ABSOLUTE与DAY_INDEX_ONLY lineage正确 |
+| `WP-G03-AUDIT-RULES` | AuditEngine规则、Top-3排序、用餐空档 | 冻结Evidence schema | HARD漏检0、用户结果≤3 |
+| `WP-G03-REPAIR-UI` | 用户问题、修复预览和采纳交互 | 用户投影合同 | 仅三类自然表达，采纳创建新revision |
+
+集成者串行完成031/API→materialize→revision写入→postcheck→浏览器联调。贡献包不得自行编号migration或修改共享合同；最多两轮修复复审。
 
 ## Decisions locked
 
@@ -117,14 +129,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Top-3 Audit Gate`；Next template：`TC-VNEXT-G04-SCREENSHOT.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G04并创建generation 4权限锚；
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，保存可体验里程碑并最终归档；原子更新Goal binding与work-package registry自动激活G04，不新增HITL、不登记外部ledger、不创建authority generation；
 - FUX-03、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

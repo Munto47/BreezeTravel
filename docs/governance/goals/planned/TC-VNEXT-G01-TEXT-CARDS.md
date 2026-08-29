@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G01-TEXT-CARDS`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.1`
+- Mainline phase：`CORE_MVP`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G00 Blueprint Gate通过并归档后
 - Required gate：`Text Card Gate + AGENT_GATE_PASS`
@@ -47,6 +49,16 @@
 - 新首页和结果页；
 - 结果页隐私操作与账号旅行数据隐私页；
 - 旧room/v2 API保持可读。
+
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G01-PROVIDER-EVIDENCE` | Qwen adapter/AMap receipt与定向测试 | 当前候选和冻结配置 | exact模型/地点/路线live证据可回读 |
+| `WP-G01-AGENT-REFERENCE` | agent reference/adjudication临时输出与聚合回执 | 冻结Provider index | A/B隔离、ultra裁决、无候选泄漏 |
+| `WP-G01-GATE-REVIEW` | 产品/语义/可靠性审查回执 | 候选冻结 | P0/P1/blocking P2有复现和归属 |
+
+唯一集成者串行完成候选冻结→裁决→sealed blind→最终Gate。现有G01候选对话独占其worktree；其他任务不得写入。普通包统一禁止修改治理binding、migration、共享OpenAPI和锁文件；最多两轮修复复审。
 
 ## Decisions locked
 
@@ -145,14 +157,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Text Card Gate`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，生成完整completed归档，按Program稳定binding原子激活G02并创建generation 2权限锚；
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档，并原子更新Goal binding与work-package registry激活G02；不登记外部ledger、不创建authority generation；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

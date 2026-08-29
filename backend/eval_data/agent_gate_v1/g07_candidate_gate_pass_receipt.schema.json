@@ -1,0 +1,153 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_config_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Config Sha256",
+      "type": "string"
+    },
+    "candidate_data_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Candidate Data Sha256",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "component_receipt_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "AUTOMATED_PRODUCT_GATE",
+          "LIVE_PROVIDER_GATE",
+          "MULTI_AGENT_PANEL",
+          "SEALED_AGENT_BLIND"
+        ]
+      },
+      "title": "Component Receipt Sha256",
+      "type": "object"
+    },
+    "current_goal_binding_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Current Goal Binding Sha256",
+      "type": "string"
+    },
+    "gate_profile": {
+      "const": "HARDENED_CANDIDATE_GATE",
+      "default": "HARDENED_CANDIDATE_GATE",
+      "title": "Gate Profile",
+      "type": "string"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G07-CANDIDATE",
+      "default": "TC-VNEXT-G07-CANDIDATE",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "hardening_decision": {
+      "enum": [
+        "NOT_REQUIRED_WITH_RATIONALE",
+        "REQUIRED"
+      ],
+      "title": "Hardening Decision",
+      "type": "string"
+    },
+    "hardening_decision_receipt_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Hardening Decision Receipt Sha256",
+      "type": "string"
+    },
+    "human_usability_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Human Usability Status",
+      "type": "string"
+    },
+    "production_status": {
+      "const": "NOT_RUN",
+      "default": "NOT_RUN",
+      "title": "Production Status",
+      "type": "string"
+    },
+    "remote_ref": {
+      "pattern": "^refs/heads/[A-Za-z0-9._/-]+$",
+      "title": "Remote Ref",
+      "type": "string"
+    },
+    "remote_subject": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Remote Subject",
+      "type": "string"
+    },
+    "remote_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Remote Tree",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "g07-candidate-agent-gate-pass-v1",
+      "default": "g07-candidate-agent-gate-pass-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "selected_control_receipt_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "enum": [
+          "EXTERNAL_AUTHORITY",
+          "PURPOSE_SPECIFIC_BROKER",
+          "ROLE_SIGNATURES",
+          "IMMUTABLE_REMOTE_REF",
+          "ISOLATED_OCI"
+        ]
+      },
+      "title": "Selected Control Receipt Sha256",
+      "type": "object"
+    },
+    "verdict": {
+      "const": "AGENT_GATE_PASS",
+      "default": "AGENT_GATE_PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "work_package_registry_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Work Package Registry Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "current_goal_binding_sha256",
+    "work_package_registry_sha256",
+    "candidate_config_sha256",
+    "candidate_data_sha256",
+    "hardening_decision",
+    "hardening_decision_receipt_sha256",
+    "component_receipt_sha256",
+    "selected_control_receipt_sha256",
+    "remote_ref",
+    "remote_subject",
+    "remote_tree",
+    "completed_at"
+  ],
+  "title": "G07CandidateGatePassReceipt",
+  "type": "object"
+}

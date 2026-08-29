@@ -27,6 +27,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Goal ID：`TC-VNEXT-G01-TEXT-CARDS`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.1`
+- Mainline phase：`CORE_MVP`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`IN_PROGRESS`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/trip-check-product-reset`
@@ -58,6 +60,8 @@ Goal type: PRODUCT_VERTICAL_SLICE
 4. 再运行Agent A/B、ultra裁决、一次sealed blind和完整Text Card Gate。
 5. 只修复可复现的当前Goal P0/P1及blocking P2；其他P2登记到后续Goal或风险清单。
 6. 从本指令起，纯治理切片不得连续；两个无产品/模型/Provider/产品指标进展的checkpoint会强制回到主线。
+7. 并行开发只认`current_work_packages.json`：一个非终态集成者、所有同时可写包合计最多三个、同一exact baseline、owned paths不重叠、普通包不改治理binding/migration/OpenAPI生成物/锁文件；`READY_TO_MERGE`冻结后不可再写，不一致的worktree只读。
+8. G01完成后按Program自动进入G02；后续G03通过不新增HITL并继续G04，直到G07完成后停止。
 
 ## User Outcome
 
@@ -247,7 +251,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 ## Auto-advance
 
 - Required gate：`Text Card Gate + AGENT_GATE_PASS`；Next template：`TC-VNEXT-G02-MAP-STAY.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档并在治理过渡commit原子激活G02；G02 binding必须等于Program记录；G01不推进authority generation；
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，生成完整completed归档，并在治理过渡commit原子更新`CURRENT_GOAL.md + current_goal_binding.json + current_work_packages.json`激活G02；G02 phase/profile/binding必须等于Program记录；G01不登记外部ledger、不推进authority generation；
 - FUX-01、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

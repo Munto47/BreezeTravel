@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G04-SCREENSHOT`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.4`
+- Mainline phase：`PRODUCT_ENHANCEMENT`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G03 Top-3 Audit Gate通过并归档后
 - Required gate：`Screenshot Parity Gate + AGENT_GATE_PASS`
@@ -21,7 +23,7 @@
 
 ## Scope
 
-- PNG/JPEG/WebP批次、顺序和大小校验；
+- 登录态multipart `SCREENSHOT_BATCH`、owner-bound不透明引用、顺序和大小校验；禁止Base64 JSON；
 - 临时文件生命周期；
 - PaddleOCR 3.x基线；
 - OCR box/read order到SourceDocument；
@@ -32,10 +34,20 @@
 
 ## Pre-approved actions
 
-- 复用现有截图API/上传批次和PaddleOCR依赖；
+- 追加v3截图批次API并复用PaddleOCR依赖；不得接回旧房间截图入口；
 - Qwen-VL只在账号/区域/exact binding现场readback后作受控实验；
 - 不预批准新对象存储、付费OCR或长期原图留存；
 - 未证明必要时不新增migration。
+
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G04-EPHEMERAL-UPLOAD` | 临时multipart上传、hash、状态和清理 | G01 source删除合同 | 1～6张、终态清理、跨账号拒绝 |
+| `WP-G04-PADDLE-OCR` | PaddleOCR、阅读顺序、bbox追踪 | 许可清晰截图集 | 稳定baseline与可回读source映射 |
+| `WP-G04-VL-PARITY` | Qwen-VL实验与截图结果页 | 冻结OCR/文本paired set | 不胜出不晋级，普通页零内部泄漏 |
+
+集成者串行选择OCR方案→接入统一语义编译器→截图E2E；贡献包不得改共享输入schema，最多两轮修复复审。
 
 ## Decisions locked
 
@@ -43,6 +55,7 @@
 - PaddleOCR是默认Baseline。
 - Qwen-VL必须同时在关键字段、阅读顺序、最终卡片、bbox和性能胜出。
 - 原图不入数据库、日志、Git或长期缓存。
+- OCR文本、阅读顺序和bbox映射进入加密SourceDocument并继承30天TTL/主动删除；Qwen-VL外发前必须本地遮蔽敏感信息。
 - 清理失败为PRIVACY_BLOCKED。
 - OCR证据对用户隐藏。
 
@@ -103,14 +116,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Screenshot Parity Gate`；Next template：`TC-VNEXT-G05-CITY-KNOWLEDGE.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G05并创建generation 5权限锚；H1/公网/生产不自动启动。
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G05；不登记外部ledger、不创建authority generation；H1/公网/生产不自动启动。
 
 ## Completion record
 

@@ -51,6 +51,17 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 | H1 | 经同意的真人可用性 | 用Agent审查冒充真人 |
 | 生产/商业 | 生产运行、真实许可、安全与商业数据 | 用本地/候选证据外推 |
 
+阶段不可重新排序：G01～G03为`CORE_MVP`，G04～G06为`PRODUCT_ENHANCEMENT`，G07为`CANDIDATE_HARDENING`。G03后只保存一次可体验里程碑并自动进入G04；G07后停止。
+
+### 4.1 并行而不偏航
+
+- 一个非终态集成者负责Goal/binding/migration编号/共享生成物和串行合并；所有同时可写任务合计最多三个，集成者写入时也计入上限，贡献任务只写各自`owned_paths`。
+- `READY_TO_MERGE`表示内容已冻结，不得继续写；进入串行合并时贡献包冻结，集成者才切到写入状态并接纳已登记路径。
+- 所有可写worktree使用同一exact baseline和同一指导版本；不一致立即转只读，不靠人工口头同步。
+- 只可提前准备下一个Goal的两个贡献包，状态必须为`PREPARED_NOT_INTEGRATED`；下一Goal不得提前登记集成者，当前Goal不得反向依赖下一Goal；不得跨两级、提前合并或提前改公共合同。
+- 每个包先交付主路径与当前硬门禁。P0/P1和blocking P2修复；其他P2/P3进入风险登记。每包最多两轮修复复审。
+- 定向测试在工作包内运行；完整后端、浏览器和可靠性套件只在串行集成后的冻结候选运行一次。
+
 ## 5. 问题分级和处置
 
 | 级别 | 当前版本处理 |
@@ -105,6 +116,8 @@ G01后续顺序固定为：
 7. 完成Text Card Gate、归档G01并原子切换G02。
 
 外部authority broker、八角色签名、activation-readiness和完整OCI供应链验证在G01～G06均为`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不得插到上述顺序之前。
+
+G02～G07随后按同一原则推进：G02并行地图UI/住宿领域/后端集成；G03并行事实编译/Audit规则/Top-3交互；G04并行临时上传/PaddleOCR/VL实验；G05并行来源准入/KnowledgeClaim/建议接入；G06并行consent记忆/分享/反馈；G07并行性能/可靠性/隐私材料并串行完成同commit Gate。详细路径和所有权以各Goal合同及`current_work_packages.json`为准。
 
 ## 9. Checkpoint写法
 

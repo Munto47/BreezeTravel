@@ -27,6 +27,10 @@ from evals.agent_gate_v1.path_security import (
     write_external_bytes_exclusive,
 )
 from evals.agent_gate_v1.validator import AgentGateValidationError, verify_review_panel
+from evals.agent_gate_v1.work_packages import (
+    WorkPackageValidationError,
+    load_candidate_work_package_registry,
+)
 
 
 class CoreAgentGateError(ValueError):
@@ -61,6 +65,7 @@ CORE_FROZEN_BINDING_PATHS = {
     "sealed_scorer": "backend/scripts/score_g01_sealed_agent_blind.py",
     "review_schema": "backend/eval_data/agent_gate_v1/review.schema.json",
     "adjudication_schema": "backend/eval_data/agent_gate_v1/adjudication.schema.json",
+    "work_packages": "docs/governance/current_work_packages.json",
 }
 REQUIRED_COMPONENTS = {
     "AUTOMATED_PRODUCT_GATE",
@@ -185,6 +190,17 @@ class CoreCandidateContext:
             raise CoreAgentGateError(f"invalid candidate Goal binding: {exc}") from exc
         if binding.gate_profile != "CORE_AGENT_GATE" or not 1 <= binding.goal_sequence <= 6:
             raise CoreAgentGateError("CORE Agent Gate is restricted to G01-G06")
+        try:
+            load_candidate_work_package_registry(
+                root,
+                candidate_commit,
+                binding,
+                require_gate_ready=True,
+            )
+        except WorkPackageValidationError as exc:
+            raise CoreAgentGateError(
+                f"invalid CORE work package governance: {exc}"
+            ) from exc
         contract_sha = _git_blob_sha256(
             root, candidate_commit, binding.automated_gate_contract_path
         )

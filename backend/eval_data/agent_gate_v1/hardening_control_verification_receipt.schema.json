@@ -1,0 +1,79 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "candidate_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Commit",
+      "type": "string"
+    },
+    "candidate_tree": {
+      "pattern": "^[0-9a-f]{40}$",
+      "title": "Candidate Tree",
+      "type": "string"
+    },
+    "control": {
+      "enum": [
+        "EXTERNAL_AUTHORITY",
+        "PURPOSE_SPECIFIC_BROKER",
+        "ROLE_SIGNATURES",
+        "IMMUTABLE_REMOTE_REF",
+        "ISOLATED_OCI"
+      ],
+      "title": "Control",
+      "type": "string"
+    },
+    "evidence_sha256": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "maxProperties": 30,
+      "minProperties": 1,
+      "title": "Evidence Sha256",
+      "type": "object"
+    },
+    "goal_id": {
+      "const": "TC-VNEXT-G07-CANDIDATE",
+      "default": "TC-VNEXT-G07-CANDIDATE",
+      "title": "Goal Id",
+      "type": "string"
+    },
+    "human_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Human Evidence",
+      "type": "boolean"
+    },
+    "production_evidence": {
+      "const": false,
+      "default": false,
+      "title": "Production Evidence",
+      "type": "boolean"
+    },
+    "schema_version": {
+      "const": "hardening-control-verification-receipt-v1",
+      "default": "hardening-control-verification-receipt-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "verdict": {
+      "const": "PASS",
+      "default": "PASS",
+      "title": "Verdict",
+      "type": "string"
+    },
+    "verifier_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Verifier Sha256",
+      "type": "string"
+    }
+  },
+  "required": [
+    "candidate_commit",
+    "candidate_tree",
+    "control",
+    "verifier_sha256",
+    "evidence_sha256"
+  ],
+  "title": "HardeningControlVerificationReceipt",
+  "type": "object"
+}

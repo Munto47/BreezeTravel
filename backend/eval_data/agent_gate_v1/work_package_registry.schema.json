@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "WorkPackageBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "minItems": 1,
+          "title": "Acceptance",
+          "type": "array"
+        },
+        "baseline_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Baseline Commit",
+          "type": "string"
+        },
+        "branch": {
+          "pattern": "^codex/[A-Za-z0-9._/-]+$",
+          "title": "Branch",
+          "type": "string"
+        },
+        "dependencies": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Dependencies",
+          "type": "array"
+        },
+        "forbidden_paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 80,
+          "title": "Forbidden Paths",
+          "type": "array"
+        },
+        "goal_id": {
+          "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
+          "title": "Goal Id",
+          "type": "string"
+        },
+        "merge_order": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Merge Order",
+          "type": "integer"
+        },
+        "owned_paths": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 80,
+          "minItems": 1,
+          "title": "Owned Paths",
+          "type": "array"
+        },
+        "package_id": {
+          "pattern": "^WP-G0[1-7]-[A-Z0-9-]{3,80}$",
+          "title": "Package Id",
+          "type": "string"
+        },
+        "role": {
+          "enum": [
+            "INTEGRATOR",
+            "CONTRIBUTOR"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "PREPARED_NOT_INTEGRATED",
+            "IN_PROGRESS",
+            "READY_TO_MERGE",
+            "MERGED",
+            "DEFERRED",
+            "BLOCKED_EXTERNAL"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "package_id",
+        "goal_id",
+        "baseline_commit",
+        "branch",
+        "role",
+        "owned_paths",
+        "acceptance",
+        "merge_order",
+        "status"
+      ],
+      "title": "WorkPackageBinding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "active_goal_id": {
+      "pattern": "^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$",
+      "title": "Active Goal Id",
+      "type": "string"
+    },
+    "active_goal_sequence": {
+      "maximum": 7,
+      "minimum": 1,
+      "title": "Active Goal Sequence",
+      "type": "integer"
+    },
+    "gate_profile": {
+      "enum": [
+        "CORE_AGENT_GATE",
+        "HARDENED_CANDIDATE_GATE"
+      ],
+      "title": "Gate Profile",
+      "type": "string"
+    },
+    "guidance_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Guidance Sha256",
+      "type": "string"
+    },
+    "mainline_phase": {
+      "enum": [
+        "CORE_MVP",
+        "PRODUCT_ENHANCEMENT",
+        "CANDIDATE_HARDENING"
+      ],
+      "title": "Mainline Phase",
+      "type": "string"
+    },
+    "max_parallel_writers": {
+      "const": 3,
+      "default": 3,
+      "title": "Max Parallel Writers",
+      "type": "integer"
+    },
+    "max_prepared_next_goal_packages": {
+      "const": 2,
+      "default": 2,
+      "title": "Max Prepared Next Goal Packages",
+      "type": "integer"
+    },
+    "mismatch_policy": {
+      "const": "READ_ONLY",
+      "default": "READ_ONLY",
+      "title": "Mismatch Policy",
+      "type": "string"
+    },
+    "packages": {
+      "items": {
+        "$ref": "#/$defs/WorkPackageBinding"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Packages",
+      "type": "array"
+    },
+    "program_id": {
+      "const": "TC-VNEXT-2026",
+      "default": "TC-VNEXT-2026",
+      "title": "Program Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "work-package-registry-v1",
+      "default": "work-package-registry-v1",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "active_goal_sequence",
+    "active_goal_id",
+    "mainline_phase",
+    "gate_profile",
+    "guidance_sha256",
+    "packages"
+  ],
+  "title": "WorkPackageRegistry",
+  "type": "object"
+}

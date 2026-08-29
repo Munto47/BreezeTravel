@@ -55,9 +55,12 @@ V0.4 开放：
 - PNG/JPEG/WebP；
 - 单次最多 6 张；
 - 每张不超过 10MB；
+- 图片通过短期multipart上传批次进入，理解任务只消费绑定当前用户的不透明`batch_ref`；禁止把Base64图片塞进现有JSON；
 - PaddleOCR 是基线，Qwen-VL 只在冻结消融胜出后晋级；
 - 原图在成功、失败、取消或超时终态删除；
-- 数据库只保存 hash、OCR box、版本、置信度和清理回执。
+- OCR文本、阅读顺序和bbox来源映射进入加密`SourceDocument`，继承文本source的30天上限与主动删除合同；source删除后不得保留可还原OCR文本或映射；
+- 终态只长期保存不可逆hash、结构化卡片、OCR/模型版本和清理回执；清理失败为内部`PRIVACY_BLOCKED`，不得宣称任务成功；
+- Qwen-VL外发前必须完成本地敏感信息遮蔽，否则保持实验状态。
 
 ## 3. 语义理解合同
 
@@ -235,3 +238,5 @@ G01即落实source隐私：`FULL`必须登录；`DEMO`只使用固定示例并�
 - Top-3 基础核验 P95 ≤30 秒。
 
 本文件定义目标行为，不表示当前实现已经具备。各能力只有通过 `../governance/RELEASE_GATES.md` 对应门禁后才能声明完成。
+
+版本阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后自动继续G04；G07通过后停止，H1、公网、生产和商业仍为`NOT_RUN`。

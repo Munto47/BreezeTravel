@@ -2,7 +2,7 @@
 
 > 状态：`APPROVED`
 >
-> Program 版本：`Blueprint 1.2 / Product Mainline Correction`
+> Program 版本：`Blueprint 1.3 / Unified Mainline and Parallel Delivery`
 >
 > 授权日期：2026-08-27
 >
@@ -25,18 +25,18 @@
 
 ## 2. 固定版本和 Goal 顺序
 
-| 顺序 | 版本 | Goal ID | 用户结果 | 依赖 | 退出 Gate |
-|---:|---|---|---|---|---|
-| 0 | Blueprint 1.0 | `TC-BP-G00-BLUEPRINT` | 项目方向、架构、接口、版本和门禁可执行 | 当前远端基线 | Blueprint Gate |
-| 1 | V0.1 可信卡片 | `TC-VNEXT-G01-TEXT-CARDS` | 长文本直接生成可编辑逐日卡片 | G00 | Text Card Gate |
-| 2 | V0.2 地图与住宿 | `TC-VNEXT-G02-MAP-STAY` | 打开地图即看步行/公交；修改后手动更新；选择整程酒店 | G01 | Map & Stay Gate |
-| 3 | V0.3 核心行程查 | `TC-VNEXT-G03-TOP3-AUDIT` | 只看到最重要三个问题并可修复 | G02 | Top-3 Audit Gate |
-| 4 | V0.4 截图一致性 | `TC-VNEXT-G04-SCREENSHOT` | 截图得到与文本同等级卡片 | G03 | Screenshot Parity Gate |
-| 5 | V0.5 三城知识层 | `TC-VNEXT-G05-CITY-KNOWLEDGE` | 更可靠的时长、时段、夜景、季节和预约建议 | G04 | Knowledge Admission Gate |
-| 6 | V0.6 个性化与分享 | `TC-VNEXT-G06-MEMORY-SHARE` | 显式记忆偏好并分享用户友好行程 | G05 | Consent & Share Gate |
-| 7 | V0.9 候选版 | `TC-VNEXT-G07-CANDIDATE` | 稳定、快速、隐私合规、可演示 | G06 | Candidate G0～G6 |
-| 8 | V1.0 真人版 | `TC-H1-G01-HUMAN-USABILITY` | 证明真实用户能独立完成主链 | G07 + 人工批准 | H1 |
-| 9 | V1.1 商业探索 | 新 Program | 验证单次深核验付费与创作者工具 | H1 + 人工批准 | Commercial Evidence |
+| 顺序 | 阶段 | 版本 | Goal ID | 用户结果 | 依赖 | 退出 Gate |
+|---:|---|---|---|---|---|---|
+| 0 | Blueprint | Blueprint 1.0 | `TC-BP-G00-BLUEPRINT` | 项目方向、架构、接口、版本和门禁可执行 | 当前远端基线 | Blueprint Gate |
+| 1 | `CORE_MVP` | V0.1 可信卡片 | `TC-VNEXT-G01-TEXT-CARDS` | 长文本直接生成可编辑逐日卡片 | G00 | Text Card Gate |
+| 2 | `CORE_MVP` | V0.2 地图与住宿 | `TC-VNEXT-G02-MAP-STAY` | 打开地图即看步行/公交；修改后手动更新；选择整程酒店 | G01 | Map & Stay Gate |
+| 3 | `CORE_MVP` | V0.3 核心行程查 | `TC-VNEXT-G03-TOP3-AUDIT` | 只看到最重要三个问题并可修复 | G02 | Top-3 Audit Gate |
+| 4 | `PRODUCT_ENHANCEMENT` | V0.4 截图一致性 | `TC-VNEXT-G04-SCREENSHOT` | 截图得到与文本同等级卡片 | G03 | Screenshot Parity Gate |
+| 5 | `PRODUCT_ENHANCEMENT` | V0.5 三城知识层 | `TC-VNEXT-G05-CITY-KNOWLEDGE` | 更可靠的时长、时段、夜景、季节和预约建议 | G04 | Knowledge Admission Gate |
+| 6 | `PRODUCT_ENHANCEMENT` | V0.6 个性化与分享 | `TC-VNEXT-G06-MEMORY-SHARE` | 显式记忆偏好并分享用户友好行程 | G05 | Consent & Share Gate |
+| 7 | `CANDIDATE_HARDENING` | V0.9 候选版 | `TC-VNEXT-G07-CANDIDATE` | 稳定、快速、隐私合规、可演示 | G06 | Candidate G0～G7 |
+| 8 | Human | V1.0 真人版 | `TC-H1-G01-HUMAN-USABILITY` | 证明真实用户能独立完成主链 | G07 + 人工批准 | H1 |
+| 9 | Commercial | V1.1 商业探索 | 新 Program | 验证单次深核验付费与创作者工具 | H1 + 人工批准 | Commercial Evidence |
 
 任何时刻 `CURRENT_GOAL.md` 只允许一个 `APPROVED` 或 `IN_PROGRESS` Goal。不得并行激活两个产品 Goal，也不得跳过依赖。
 
@@ -84,7 +84,18 @@ Agent 参考答案、裁决和审查不属于真人证据。每个候选必须�
 
 `CORE_AGENT_GATE`固定候选commit/config/data、prompt/schema、确定性scorer、三角色审查、ultra裁决、Goal要求的sealed blind和clean checkout readback。仓库外保存原始Agent输出和blind truth，Git只保存hash、脱敏回执和聚合指标。G01～G06不要求角色私钥、外部broker、authority generation、activation-readiness或隔离OCI供应链证明。
 
-现有G01 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`历史资产，不删除也不冒充PASS；在G07前不继续实现、不切`ACTIVE`、不阻断Goal。G07只有在明确威胁模型和成本收益审查后才可启用`HARDENED_CANDIDATE_GATE`。任何签名只能证明对应执行事实，不能替代Provider事实、真人、生产或商业证据。
+现有G01 `BOOTSTRAP`、authority verifier、purpose-specific broker设计和相关schema保留为`DEFERRED_CANDIDATE_HARDENING`历史资产，不删除也不冒充PASS；在G07前不继续实现、不切`ACTIVE`、不阻断Goal。G07固定使用候选收口档位`HARDENED_CANDIDATE_GATE`，但必须先产生`HardeningDecision`：可选择`NOT_REQUIRED_WITH_RATIONALE`并记录残余风险，或在明确威胁模型证明价值时选择`REQUIRED`并只启用被点名的外部authority/OCI控制。任何签名只能证明对应执行事实，不能替代Provider事实、真人、生产或商业证据。
+
+### 3.3 并行工作包机器合同
+
+`docs/governance/current_work_packages.json`是当前并行开发清单，字段和状态由生成schema约束。固定规则：
+
+- 一个active Goal、一个非终态`INTEGRATOR`；所有可写包合计最多三个，集成者处于写入状态时也计入上限；`READY_TO_MERGE`必须冻结；
+- 所有可写包使用同一exact baseline，`owned_paths`不得按目录前缀重叠；指导文件或Goal binding不一致的checkout只能只读；
+- 最多提前一个Goal且最多两个`PREPARED_NOT_INTEGRATED`贡献包；下一Goal不得登记集成者，当前Goal不得依赖下一Goal。准备不等于激活，不得提前合并、创建migration或改变公共API；
+- 普通贡献包必须把AGENTS、CURRENT_GOAL、Goal/work-package binding、migration目录、共享OpenAPI生成物和锁文件列入`forbidden_paths`；
+- 工作包并行实现、独立定向测试和独立commit；贡献包冻结为`READY_TO_MERGE`后，唯一集成者按领域模型→持久化/API→前端→E2E串行合并并接纳已登记路径；
+- 每个包最多两轮修复复审。未阻断当前用户Outcome的剩余P2/P3进入风险登记和明确后续Goal，不延长主线。
 
 ## 4. 预批准的公共合同与 migration
 
@@ -117,7 +128,8 @@ Agent 参考答案、裁决和审查不属于真人证据。每个候选必须�
 
 ### G04
 
-- 复用现有截图、PaddleOCR 和清理合同；
+- 追加登录态multipart `POST /api/v3/screenshot-batches`和`source.type=SCREENSHOT_BATCH`；返回短期owner-bound不透明引用，禁止Base64 JSON；
+- 复用PaddleOCR基线和统一语义编译器，原图所有终态清理；OCR文本/bbox映射继承SourceDocument TTL和主动删除；
 - Qwen-VL只作消融实验，不因模型存在自动晋级；
 - 不预批准新对象存储或付费 OCR。
 
@@ -131,7 +143,9 @@ Agent 参考答案、裁决和审查不属于真人证据。每个候选必须�
 
 - 仅在 consent/delete 合同通过后执行 `033_user_memory_and_feedback.sql`；
 - 记忆只保存结构化偏好；
-- 分享使用不可枚举、可撤销 token，不恢复房间号作为入口。
+- 预批准偏好查看/更新/清空、最小反馈事件、分享创建/撤销/只读投影v3合同；
+- 分享使用摘要存储、不可枚举、可撤销、可过期的秘密；可点击链接只把secret放在fragment，前端以body换取HttpOnly capability后立即清除，secret不进入服务端可见URL/日志/Referer/分析，不恢复房间号作为入口。
+- 反馈不隐含训练/评测授权；独立数据用途consent默认关闭、可撤销。清空全部旅行数据必须清除偏好和反馈并撤销分享。
 
 ### G07
 
@@ -187,9 +201,9 @@ Goal完成后只有同时满足以下条件才能激活下一 Goal：
 - 从current Goal完整内容生成最终completed归档，不删除字段或保留PENDING；
 - 下一 Goal合同与 Program模板一致。
 
-subject checkpoint先push/readback，并把Gate回执耐久物化；归档、下一Goal激活和`current_goal_binding.json`在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash必须与Program表对应项完全一致，该commit也必须push/readback。只有G07显式启用`HARDENED_CANDIDATE_GATE`时才同时处理authority generation和外部anchor。transition commit不要求把自身未知hash写入自身。
+subject checkpoint先push/readback，并把Gate回执耐久物化；归档、下一Goal激活、`current_goal_binding.json`和`current_work_packages.json`在同一个治理过渡commit中原子更新。下一Goal的合同路径/hash、阶段和Gate profile必须与Program表对应项完全一致，该commit也必须push/readback。G01～G06不登记外部Goal ledger、不推进authority generation；G07只有在`HardeningDecision=REQUIRED`时才处理被点名的外部anchor。transition commit不要求把自身未知hash写入自身。
 
-自动推进只到 G07。G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；H1、生产、公网、商业、合并 `main` 始终需要人工批准。
+G03完成后保存可体验里程碑并自动进入G04，不新增HITL。自动推进只到 G07；G07最高状态为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。H1、生产、公网、商业、合并 `main` 始终需要人工批准。
 
 ## 8. Stop conditions
 

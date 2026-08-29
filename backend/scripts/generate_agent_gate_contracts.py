@@ -17,8 +17,12 @@ from evals.agent_gate_v1.contracts import (
     AutomatedProductGateContract,
     AutomatedProductGateReceipt,
     AutomatedProductVerificationReceipt,
+    CandidateGateComponentReceipt,
     CurrentGoalBinding,
     CurrentGoalDocumentState,
+    G07CandidateGatePassReceipt,
+    HardeningControlVerificationReceipt,
+    HardeningDecisionReceipt,
     LiveProviderGateReceipt,
     LiveProviderVerificationReceipt,
     MultiAgentPanelGateReceipt,
@@ -30,6 +34,7 @@ from evals.agent_gate_v1.contracts import (
     SealedAgentBlindThresholds,
     SealedBlindVerificationReceipt,
     SealedScoreInputManifest,
+    WorkPackageRegistry,
 )
 from evals.trip_text_cards_agent_v2.contracts import (
     AgentAdjudicationBundle,
@@ -128,6 +133,21 @@ _PROPERTY_NAME_ENUMS = {
             "OTHER_AGGREGATED",
         ]
     },
+    "g07_candidate_gate_pass_receipt.schema.json": {
+        "component_receipt_sha256": [
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+        ],
+        "selected_control_receipt_sha256": [
+            "EXTERNAL_AUTHORITY",
+            "PURPOSE_SPECIFIC_BROKER",
+            "ROLE_SIGNATURES",
+            "IMMUTABLE_REMOTE_REF",
+            "ISOLATED_OCI",
+        ],
+    },
 }
 
 
@@ -162,6 +182,41 @@ def _stable_schema(filename: str, schema: dict[str, object]) -> dict[str, object
             field_schema = properties.get(field)
             if isinstance(field_schema, dict):
                 field_schema["propertyNames"] = {"enum": allowed}
+    if filename == "current_goal_binding.schema.json":
+        schema.setdefault("allOf", []).append(
+            {
+                "if": {
+                    "properties": {
+                        "schema_version": {"const": "current-goal-binding-v2"}
+                    },
+                    "required": ["schema_version"],
+                },
+                "then": {
+                    "required": ["mainline_phase", "work_package_registry_path"]
+                },
+            }
+        )
+    if filename == "automated_product_gate_contract.schema.json":
+        schema.setdefault("allOf", []).append(
+            {
+                "if": {
+                    "properties": {
+                        "schema_version": {
+                            "const": "automated-product-gate-contract-v2"
+                        },
+                        "gate_profile": {"const": "CORE_AGENT_GATE"},
+                    },
+                    "required": ["schema_version", "gate_profile"],
+                },
+                "then": {
+                    "properties": {
+                        "isolation": {
+                            "$ref": "#/$defs/CoreAutomationIsolationContract"
+                        }
+                    }
+                },
+            }
+        )
     return schema
 
 
@@ -181,7 +236,13 @@ def _synchronize_authority_files(
     if not policy_path.exists():
         return
 
-    runner = {
+    core_runner = {
+        "mode": "FRESH_CLEAN_CHECKOUT",
+        "network_access": False,
+        "synthetic_profile": False,
+        "authority_secret_mount_count": 0,
+    }
+    isolated_runner = {
         "mode": "OCI_EPHEMERAL_NO_HOST_MOUNTS",
         "runner_recipe_path": (
             "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile"
@@ -196,7 +257,8 @@ def _synchronize_authority_files(
             GENERAL_SOURCE_ROOT / "automation_runner_entrypoint.sh"
         ),
         "runner_context_policy_path": (
-            "backend/eval_data/agent_gate_v1/automation_runner.Dockerfile.dockerignore"
+            "backend/eval_data/agent_gate_v1/"
+            "automation_runner.Dockerfile.dockerignore"
         ),
         "runner_context_policy_sha256": _sha256(
             GENERAL_SOURCE_ROOT / "automation_runner.Dockerfile.dockerignore"
@@ -217,7 +279,18 @@ def _synchronize_authority_files(
             if sequence == 7
             else "CORE_AGENT_GATE"
         )
-        value["isolation"] = runner
+        value["schema_version"] = "automated-product-gate-contract-v2"
+        selected_isolation = value.get("isolation", {})
+        selected_mode = (
+            selected_isolation.get("mode")
+            if isinstance(selected_isolation, dict)
+            else None
+        )
+        value["isolation"] = (
+            isolated_runner
+            if sequence == 7 and selected_mode == "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+            else core_runner
+        )
         AutomatedProductGateContract.model_validate(value)
         _write_json(path, value)
         goal_hashes[filename] = _sha256(path)
@@ -240,6 +313,28 @@ def _synchronize_authority_files(
                 "backend/eval_data/agent_gate_v1/"
                 "current_goal_document_state.schema.json"
             ),
+            (
+                "backend/eval_data/agent_gate_v1/"
+                "work_package_registry.schema.json"
+            ),
+            (
+                "backend/eval_data/agent_gate_v1/"
+                "hardening_decision_receipt.schema.json"
+            ),
+            (
+                "backend/eval_data/agent_gate_v1/"
+                "hardening_control_verification_receipt.schema.json"
+            ),
+            (
+                "backend/eval_data/agent_gate_v1/"
+                "candidate_gate_component_receipt.schema.json"
+            ),
+            (
+                "backend/eval_data/agent_gate_v1/"
+                "g07_candidate_gate_pass_receipt.schema.json"
+            ),
+            "backend/evals/agent_gate_v1/candidate_gate.py",
+            "backend/evals/agent_gate_v1/work_packages.py",
             (
                 "backend/eval_data/agent_gate_v1/"
                 "automation_runner_requirements.lock"
@@ -302,6 +397,18 @@ def _synchronize_authority_files(
         if current_binding["goal_sequence"] == 7
         else "CORE_AGENT_GATE"
     )
+    sequence = current_binding["goal_sequence"]
+    current_binding["schema_version"] = "current-goal-binding-v2"
+    current_binding["mainline_phase"] = (
+        "CORE_MVP"
+        if sequence <= 3
+        else "PRODUCT_ENHANCEMENT"
+        if sequence <= 6
+        else "CANDIDATE_HARDENING"
+    )
+    current_binding["work_package_registry_path"] = (
+        "docs/governance/current_work_packages.json"
+    )
     CurrentGoalBinding.model_validate(current_binding)
     _write_json(current_binding_path, current_binding)
 
@@ -319,6 +426,19 @@ def generate(
         "authority_policy.schema.json": AgentGateAuthorityManifest.model_json_schema(),
         "authority_anchor_receipt.schema.json": AuthorityAnchorReceipt.model_json_schema(),
         "current_goal_binding.schema.json": CurrentGoalBinding.model_json_schema(),
+        "hardening_decision_receipt.schema.json": (
+            HardeningDecisionReceipt.model_json_schema()
+        ),
+        "hardening_control_verification_receipt.schema.json": (
+            HardeningControlVerificationReceipt.model_json_schema()
+        ),
+        "candidate_gate_component_receipt.schema.json": (
+            CandidateGateComponentReceipt.model_json_schema()
+        ),
+        "g07_candidate_gate_pass_receipt.schema.json": (
+            G07CandidateGatePassReceipt.model_json_schema()
+        ),
+        "work_package_registry.schema.json": WorkPackageRegistry.model_json_schema(),
         "current_goal_document_state.schema.json": (
             CurrentGoalDocumentState.model_json_schema()
         ),
@@ -398,7 +518,7 @@ def generate(
         "scenario_evidence_hash_readback_required": True,
         "sealed_blind_nonce_registry": "REPOSITORY_EXTERNAL_SQLITE",
         "sealed_blind_replay_rejected": True,
-        "authority_policy_anchor": "PRE_ANCHOR_BOOTSTRAP_THEN_GOAL_GENERATION_ACTIVE_ANCHOR",
+        "authority_policy_anchor": "G07_OPTIONAL_HARDENING_ONLY",
         "authority_bootstrap_gate_evidence": "FORBIDDEN",
         "authority_activation_requires_complete_live_capture_chain": True,
         "authority_activation_readiness_schema": (
@@ -418,19 +538,21 @@ def generate(
         ),
         "authority_anchor_fact_source": "DERIVED_FROM_CANDIDATE_GIT_AND_REMOTE",
         "authority_canonical_candidate_ref": "POLICY_PINNED_NOT_CALLER_SUPPLIED",
-        "authority_generation": "MATCHES_ACTIVE_GOAL_SEQUENCE",
+        "authority_generation": "NOT_APPLICABLE_TO_CORE_G01_G06",
         "immutable_protocol_bytes": "IMMUTABLE_WITHIN_EACH_GOAL_GENERATION",
         "program_trust_core_bytes": "IMMUTABLE_ACROSS_G01_G07",
         "next_generation_launcher": "PREVIOUS_ANCHORED_CLEAN_CHECKOUT",
         "full_candidate_tree_binding": True,
-        "future_goal_binding": "IMMUTABLE_G01_G07_TRANSITION_AND_CONTRACT_TABLE",
-        "goal_transition_authority": "EXTERNAL_APPEND_ONLY_PREDECESSOR_PASS_REGISTRY",
+        "future_goal_binding": "ATOMIC_CURRENT_GOAL_AND_MACHINE_BINDING_TRANSITION",
+        "goal_transition_authority": "DURABLE_GATE_PASS_AND_REMOTE_READBACK",
         "authority_signature_algorithm": "ED25519_DOMAIN_SEPARATED",
         "authority_private_keys": "REPOSITORY_EXTERNAL_ROLE_SEPARATED",
         "authority_policy_mutation_after_anchor": (
             "REJECT_WITHIN_GOAL_ALLOW_EXACT_NEXT_GENERATION_AFTER_PREDECESSOR_PASS"
         ),
-        "live_provider_component_before_capture_chain": "FAIL_CLOSED_NOT_RUN",
+        "live_provider_component_before_capture_chain": (
+            "CORE_TYPED_RUNTIME_RECEIPTS_OR_HARDENED_CAPTURE_IF_SELECTED"
+        ),
         "strict_component_receipts": True,
         "strict_component_raw_revalidation": True,
         "automated_component_fresh_command_rerun": True,
@@ -453,9 +575,7 @@ def generate(
         "sealed_score_source": "PURPOSE_SPECIFIC_RAW_INPUT_PREDICTION_TRUTH_SCORER",
         "sealed_score_caller_supplied_aggregate_metrics": False,
         "sealed_truth_commitment": "HMAC_SHA256_EXTERNAL_KEY",
-        "live_provider_exporters": (
-            "FAIL_CLOSED_PENDING_CUSTODY_REGISTRY_MINT_AND_SIGNED_HTTPS_CAPTURE"
-        ),
+        "live_provider_exporters": "CORE_RUNTIME_RECEIPTS_HARDENED_CAPTURE_DEFERRED",
         "live_provider_payload_source": (
             "CUSTODY_PINNED_REGISTRY_AND_PURPOSE_SIGNED_TYPED_EFFECTS"
         ),
@@ -472,6 +592,19 @@ def generate(
         "immutable_candidate_ref_per_goal_commit": True,
         "blocking_findings": ["P0", "P1", "P2_IN_CURRENT_GOAL"],
         "required_clean_checkout_fresh_readback": True,
+        "mainline_phase_mapping": {
+            "G01_G03": "CORE_MVP",
+            "G04_G06": "PRODUCT_ENHANCEMENT",
+            "G07": "CANDIDATE_HARDENING",
+        },
+        "parallel_development": {
+            "single_integrator": True,
+            "max_parallel_writers": 3,
+            "max_goal_ahead": 1,
+            "max_prepared_next_goal_packages": 2,
+            "non_matching_guidance_or_binding": "READ_ONLY",
+            "parallel_development_serial_integration": True,
+        },
         "required_scenarios": [
             "normal",
             "ambiguous",
@@ -524,6 +657,12 @@ def generate(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "signing.py"
             ),
             "validator.py": _sha256(BACKEND_ROOT / "evals" / "agent_gate_v1" / "validator.py"),
+            "work_packages.py": _sha256(
+                BACKEND_ROOT / "evals" / "agent_gate_v1" / "work_packages.py"
+            ),
+            "candidate_gate.py": _sha256(
+                BACKEND_ROOT / "evals" / "agent_gate_v1" / "candidate_gate.py"
+            ),
         },
     }
     _write_json(general_root / "protocol_contract.json", general_contract)

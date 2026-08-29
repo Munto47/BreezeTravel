@@ -10,7 +10,7 @@ BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图�
 
 ## 当前状态
 
-当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。Blueprint 1.0是目标合同，v3能力目前标记为`NOT_IMPLEMENTED`；现有文本导入、revision、EvidenceSnapshot、Audit、Repair/EditCommand和PostgreSQL恢复只是可复用底座。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01文本卡片主链已进入实现与Gate收口，准确状态和`NOT_RUN`项以当前Goal为准；G02～G07仍是已批准但未激活的目标合同，不能把计划当成已实现。
 
 `origin/develop`是唯一集成基线；当前分支收口、已合并资产和冻结分支见[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)。新开发不得从历史实验分支继续生长。
 
@@ -34,8 +34,9 @@ BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图�
 4. [目标架构](docs/ARCHITECTURE.md) 与已接受ADR
 5. [作品集使命](docs/governance/PORTFOLIO_MISSION.md)
 6. [Blueprint Program](docs/governance/PROGRAM.md)
-7. [当前唯一Goal](docs/governance/CURRENT_GOAL.md)、[Roadmap](docs/governance/ROADMAP.md) 与 [Release Gates](docs/governance/RELEASE_GATES.md)
-8. 当前commit/config/dataset对应的证据；[历史能力状态](docs/dual-entry/capability-status.md)不能晋级新版
+7. [Agent Gate协议](docs/governance/AGENT_GATE_PROTOCOL.md)、[产品主线执行指南](docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md)
+8. [当前唯一Goal](docs/governance/CURRENT_GOAL.md)、[并行工作包清单](docs/governance/current_work_packages.json)、[Roadmap](docs/governance/ROADMAP.md) 与 [Release Gates](docs/governance/RELEASE_GATES.md)
+9. 当前commit/config/dataset对应的证据；[历史能力状态](docs/dual-entry/capability-status.md)不能晋级新版
 
 旧双入口 Final 2.0 已移入 [历史方案目录](docs/archive/plans/)，仅供追溯。
 

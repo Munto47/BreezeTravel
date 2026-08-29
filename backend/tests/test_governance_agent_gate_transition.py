@@ -5,6 +5,11 @@ import json
 import re
 from pathlib import Path
 
+from evals.agent_gate_v1.contracts import (
+    AutomatedProductGateContract,
+    WorkPackageRegistry,
+)
+
 
 ROOT = Path(__file__).resolve().parents[2]
 GOVERNANCE = ROOT / "docs" / "governance"
@@ -110,6 +115,11 @@ def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
     )
     assert current_binding["goal_sequence"] == 1
     assert current_binding["gate_profile"] == "CORE_AGENT_GATE"
+    assert current_binding["schema_version"] == "current-goal-binding-v2"
+    assert current_binding["mainline_phase"] == "CORE_MVP"
+    assert current_binding["work_package_registry_path"] == (
+        "docs/governance/current_work_packages.json"
+    )
 
     policy = json.loads(
         _text(ROOT / "backend/eval_data/agent_gate_v1/authority_policy.json")
@@ -127,6 +137,78 @@ def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
         6: "CORE_AGENT_GATE",
         7: "HARDENED_CANDIDATE_GATE",
     }
+
+
+def test_goal_phases_parallel_contracts_and_core_transitions_are_consistent() -> None:
+    expected_phases = {
+        1: "CORE_MVP",
+        2: "CORE_MVP",
+        3: "CORE_MVP",
+        4: "PRODUCT_ENHANCEMENT",
+        5: "PRODUCT_ENHANCEMENT",
+        6: "PRODUCT_ENHANCEMENT",
+        7: "CANDIDATE_HARDENING",
+    }
+    for sequence, phase in expected_phases.items():
+        path = next(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md"))
+        content = _text(path)
+        expected_profile = (
+            "HARDENED_CANDIDATE_GATE"
+            if sequence == 7
+            else "CORE_AGENT_GATE"
+        )
+        assert f"Mainline phase：`{phase}`" in content
+        assert f"Gate profile：`{expected_profile}`" in content
+        assert "## Parallel work packages" in content
+        assert "Product progress" in content and "Governance ratio" in content
+
+    core_goals = "\n".join(
+        _text(next(PLANNED.glob(f"TC-VNEXT-G{sequence:02d}-*.md")))
+        for sequence in range(1, 7)
+    )
+    assert "登记到仓库外Goal pass ledger" not in core_goals
+    assert "创建generation" not in core_goals
+    g03 = _text(PLANNED / "TC-VNEXT-G03-TOP3-AUDIT.md")
+    assert "自动激活G04" in g03 and "不新增HITL" in g03
+
+
+def test_checked_in_work_package_registry_binds_guidance_and_active_goal() -> None:
+    path = GOVERNANCE / "current_work_packages.json"
+    registry = WorkPackageRegistry.model_validate_json(path.read_bytes())
+    assert registry.active_goal_id == "TC-VNEXT-G01-TEXT-CARDS"
+    assert registry.mainline_phase == "CORE_MVP"
+    assert registry.guidance_sha256 == _sha256(ROOT / "AGENTS.md")
+    assert len(
+        [
+            package
+            for package in registry.packages
+            if package.role == "INTEGRATOR"
+            and package.status in {"IN_PROGRESS", "READY_TO_MERGE"}
+        ]
+    ) == 1
+
+
+def test_checked_in_gate_contracts_default_to_clean_checkout() -> None:
+    root = ROOT / "backend/eval_data/agent_gate_v1"
+    for sequence in range(1, 8):
+        contract = AutomatedProductGateContract.model_validate_json(
+            (root / f"g{sequence:02d}_automated_product_gate.json").read_bytes()
+        )
+        assert contract.isolation.mode == "FRESH_CLEAN_CHECKOUT"
+
+
+def test_future_product_contracts_keep_the_approved_boundaries() -> None:
+    api = _text(ROOT / "docs/product/TRIP_CHECK_API_CONTRACT.md")
+    g04 = _text(PLANNED / "TC-VNEXT-G04-SCREENSHOT.md")
+    g05 = _text(PLANNED / "TC-VNEXT-G05-CITY-KNOWLEDGE.md")
+    g06 = _text(PLANNED / "TC-VNEXT-G06-MEMORY-SHARE.md")
+    g07 = _text(PLANNED / "TC-VNEXT-G07-CANDIDATE.md")
+    assert "SCREENSHOT_BATCH" in api and "禁止JSON Base64" in api
+    assert "SCREENSHOT_BATCH" in g04 and "禁止Base64 JSON" in g04
+    assert "不授权抓取小红书" in g05
+    assert "记忆默认关闭" in g06 and "训练/eval consent" in g06
+    assert "NOT_REQUIRED_WITH_RATIONALE" in g07
+    assert "不得因为旧代码存在默认恢复" in g07
 
 
 def test_checkpoint_ledger_never_has_two_consecutive_none_progress_rows() -> None:

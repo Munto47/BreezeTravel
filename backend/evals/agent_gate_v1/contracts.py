@@ -53,6 +53,49 @@ AuthorityRole = Literal[
 ]
 
 GateProfile = Literal["CORE_AGENT_GATE", "HARDENED_CANDIDATE_GATE"]
+MainlinePhase = Literal[
+    "CORE_MVP",
+    "PRODUCT_ENHANCEMENT",
+    "CANDIDATE_HARDENING",
+]
+WorkPackageStatus = Literal[
+    "PREPARED_NOT_INTEGRATED",
+    "IN_PROGRESS",
+    "READY_TO_MERGE",
+    "MERGED",
+    "DEFERRED",
+    "BLOCKED_EXTERNAL",
+]
+WorkPackageRole = Literal["INTEGRATOR", "CONTRIBUTOR"]
+HardeningDecision = Literal["NOT_REQUIRED_WITH_RATIONALE", "REQUIRED"]
+HardeningControl = Literal[
+    "EXTERNAL_AUTHORITY",
+    "PURPOSE_SPECIFIC_BROKER",
+    "ROLE_SIGNATURES",
+    "IMMUTABLE_REMOTE_REF",
+    "ISOLATED_OCI",
+]
+
+WORK_PACKAGE_PROTECTED_PATHS: tuple[str, ...] = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/governance/CURRENT_GOAL.md",
+    "docs/governance/current_goal_binding.json",
+    "docs/governance/current_work_packages.json",
+    "backend/app/db/migrations",
+    "packages/trip-check-client/openapi.json",
+    "packages/trip-check-client/openapi.current.json",
+    "packages/trip-check-client/src/generated",
+    "frontend/package-lock.json",
+    "miniapp/package-lock.json",
+    "packages/trip-check-client/package-lock.json",
+    "y-websocket/package-lock.json",
+    "backend/eval_data/agent_gate_v1/automation_runner_requirements.lock",
+    (
+        "backend/eval_data/agent_gate_v1/"
+        "automation_runner_browser_package-lock.json"
+    ),
+)
 BlindErrorCategory = Literal[
     "WRONG_CITY",
     "WRONG_CATEGORY",
@@ -378,8 +421,342 @@ class AgentGateAuthorityManifest(StrictModel):
         return self
 
 
+def _mainline_phase_for_sequence(sequence: int) -> MainlinePhase:
+    if sequence <= 3:
+        return "CORE_MVP"
+    if sequence <= 6:
+        return "PRODUCT_ENHANCEMENT"
+    return "CANDIDATE_HARDENING"
+
+
+def _normalize_repository_path(path: str) -> str:
+    if not path or "\\" in path or path.startswith("/"):
+        raise ValueError("work package paths must be repository-relative")
+    parts = path.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("work package paths contain an unsafe segment")
+    return "/".join(parts)
+
+
+def _paths_overlap(left: str, right: str) -> bool:
+    return left == right or left.startswith(f"{right}/") or right.startswith(f"{left}/")
+
+
+class WorkPackageBinding(StrictModel):
+    package_id: str = Field(pattern=r"^WP-G0[1-7]-[A-Z0-9-]{3,80}$")
+    goal_id: str = Field(pattern=r"^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$")
+    baseline_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    branch: str = Field(pattern=r"^codex/[A-Za-z0-9._/-]+$")
+    role: WorkPackageRole
+    dependencies: list[str] = Field(default_factory=list, max_length=20)
+    owned_paths: list[str] = Field(min_length=1, max_length=80)
+    forbidden_paths: list[str] = Field(default_factory=list, max_length=80)
+    acceptance: list[str] = Field(min_length=1, max_length=40)
+    merge_order: int = Field(ge=1, le=100)
+    status: WorkPackageStatus
+
+    @model_validator(mode="after")
+    def paths_and_dependencies_are_safe(self) -> "WorkPackageBinding":
+        owned = [_normalize_repository_path(path) for path in self.owned_paths]
+        forbidden = [_normalize_repository_path(path) for path in self.forbidden_paths]
+        if len(owned) != len(set(owned)) or len(forbidden) != len(set(forbidden)):
+            raise ValueError("work package paths must be unique")
+        if len(self.dependencies) != len(set(self.dependencies)):
+            raise ValueError("work package dependencies must be unique")
+        if self.package_id in self.dependencies:
+            raise ValueError("work package cannot depend on itself")
+        if any(
+            _paths_overlap(left, right)
+            for index, left in enumerate(owned)
+            for right in owned[index + 1 :]
+        ):
+            raise ValueError("work package owned paths overlap internally")
+        if any(_paths_overlap(left, right) for left in owned for right in forbidden):
+            raise ValueError("work package owned and forbidden paths overlap")
+        if self.role == "CONTRIBUTOR" and not set(WORK_PACKAGE_PROTECTED_PATHS).issubset(
+            forbidden
+        ):
+            raise ValueError("contributor must forbid every integrator-owned path")
+        self.owned_paths = owned
+        self.forbidden_paths = forbidden
+        return self
+
+
+class WorkPackageRegistry(StrictModel):
+    schema_version: Literal["work-package-registry-v1"] = "work-package-registry-v1"
+    program_id: Literal["TC-VNEXT-2026"] = "TC-VNEXT-2026"
+    active_goal_sequence: int = Field(ge=1, le=7)
+    active_goal_id: str = Field(pattern=r"^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$")
+    mainline_phase: MainlinePhase
+    gate_profile: GateProfile
+    guidance_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    mismatch_policy: Literal["READ_ONLY"] = "READ_ONLY"
+    max_parallel_writers: Literal[3] = 3
+    max_prepared_next_goal_packages: Literal[2] = 2
+    packages: list[WorkPackageBinding] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def execution_topology_is_safe(self) -> "WorkPackageRegistry":
+        expected_prefix = f"TC-VNEXT-G{self.active_goal_sequence:02d}-"
+        if not self.active_goal_id.startswith(expected_prefix):
+            raise ValueError("work package registry active Goal sequence disagrees")
+        expected_phase = _mainline_phase_for_sequence(self.active_goal_sequence)
+        if self.mainline_phase != expected_phase:
+            raise ValueError("work package registry uses the wrong mainline phase")
+        expected_profile = (
+            "HARDENED_CANDIDATE_GATE"
+            if self.active_goal_sequence == 7
+            else "CORE_AGENT_GATE"
+        )
+        if self.gate_profile != expected_profile:
+            raise ValueError("work package registry uses the wrong Gate profile")
+
+        package_ids = [item.package_id for item in self.packages]
+        branches = [item.branch for item in self.packages]
+        merge_orders = [item.merge_order for item in self.packages]
+        if len(package_ids) != len(set(package_ids)):
+            raise ValueError("work package IDs must be unique")
+        if len(branches) != len(set(branches)):
+            raise ValueError("work package branches must be unique")
+        if len(merge_orders) != len(set(merge_orders)):
+            raise ValueError("work package merge order must be unique")
+
+        known = {item.package_id: item for item in self.packages}
+        prepared_next = 0
+        active_baselines: set[str] = set()
+        coordinated = {
+            "PREPARED_NOT_INTEGRATED",
+            "IN_PROGRESS",
+            "READY_TO_MERGE",
+            "BLOCKED_EXTERNAL",
+        }
+        for item in self.packages:
+            sequence = int(item.goal_id.split("-G", maxsplit=1)[1][:2])
+            if sequence not in {
+                self.active_goal_sequence,
+                self.active_goal_sequence + 1,
+            }:
+                raise ValueError("work packages may cover only the active or next Goal")
+            if sequence == self.active_goal_sequence + 1:
+                if item.role != "CONTRIBUTOR":
+                    raise ValueError("next Goal packages must be contributors")
+                if item.status not in {"PREPARED_NOT_INTEGRATED", "DEFERRED"}:
+                    raise ValueError("next Goal work packages may only be prepared")
+                if item.status == "PREPARED_NOT_INTEGRATED":
+                    prepared_next += 1
+            if item.status in coordinated:
+                active_baselines.add(item.baseline_commit)
+            for dependency in item.dependencies:
+                dependency_item = known.get(dependency)
+                if dependency_item is None:
+                    raise ValueError("work package dependency is absent")
+                dependency_sequence = int(
+                    dependency_item.goal_id.split("-G", maxsplit=1)[1][:2]
+                )
+                if (
+                    sequence == self.active_goal_sequence
+                    and dependency_sequence > sequence
+                ):
+                    raise ValueError("current Goal cannot depend on the next Goal")
+                if dependency_item.merge_order >= item.merge_order:
+                    raise ValueError("work package dependency must merge earlier")
+        if prepared_next > self.max_prepared_next_goal_packages:
+            raise ValueError("too many next Goal work packages were prepared")
+
+        writable_statuses = {"PREPARED_NOT_INTEGRATED", "IN_PROGRESS"}
+        active_writers = [
+            item for item in self.packages if item.status in writable_statuses
+        ]
+        if len(active_writers) > self.max_parallel_writers:
+            raise ValueError("too many parallel writable work packages")
+
+        terminal = {"MERGED", "DEFERRED"}
+        active_integrators = [
+            item
+            for item in self.packages
+            if item.role == "INTEGRATOR" and item.status not in terminal
+        ]
+        if len(active_integrators) != 1:
+            raise ValueError("exactly one active work package integrator is required")
+        if active_integrators[0].goal_id != self.active_goal_id:
+            raise ValueError("the active integrator must belong to the active Goal")
+        if len(active_baselines) != 1:
+            raise ValueError("all active work packages must share one exact baseline")
+
+        visiting: set[str] = set()
+        visited: set[str] = set()
+
+        def visit(package_id: str) -> None:
+            if package_id in visiting:
+                raise ValueError("work package dependency graph contains a cycle")
+            if package_id in visited:
+                return
+            visiting.add(package_id)
+            for dependency in known[package_id].dependencies:
+                visit(dependency)
+            visiting.remove(package_id)
+            visited.add(package_id)
+
+        for package_id in known:
+            visit(package_id)
+
+        coordinated_packages = [
+            item for item in self.packages if item.status in coordinated
+        ]
+        for index, left in enumerate(coordinated_packages):
+            for right in coordinated_packages[index + 1 :]:
+                if any(
+                    _paths_overlap(left_path, right_path)
+                    for left_path in left.owned_paths
+                    for right_path in right.owned_paths
+                ):
+                    raise ValueError("parallel work package owned paths overlap")
+        return self
+
+
+class HardeningDecisionReceipt(StrictModel):
+    schema_version: Literal["hardening-decision-receipt-v1"] = (
+        "hardening-decision-receipt-v1"
+    )
+    goal_id: Literal["TC-VNEXT-G07-CANDIDATE"] = "TC-VNEXT-G07-CANDIDATE"
+    candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
+    threat_model_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    decision: HardeningDecision
+    identified_threats: list[str] = Field(min_length=1, max_length=30)
+    selected_controls: list[HardeningControl] = Field(default_factory=list)
+    alternative_controls: list[str] = Field(min_length=1, max_length=30)
+    residual_risks: list[str] = Field(min_length=1, max_length=30)
+    rationale: str = Field(min_length=20, max_length=4000)
+    human_evidence: Literal[False] = False
+    production_evidence: Literal[False] = False
+
+    @model_validator(mode="after")
+    def decision_and_controls_are_consistent(self) -> "HardeningDecisionReceipt":
+        if len(self.selected_controls) != len(set(self.selected_controls)):
+            raise ValueError("hardening controls must be unique")
+        if self.decision == "NOT_REQUIRED_WITH_RATIONALE" and self.selected_controls:
+            raise ValueError("non-required hardening cannot enable legacy controls")
+        if self.decision == "REQUIRED" and not self.selected_controls:
+            raise ValueError("required hardening must name at least one control")
+        return self
+
+
+class HardeningControlVerificationReceipt(StrictModel):
+    schema_version: Literal["hardening-control-verification-receipt-v1"] = (
+        "hardening-control-verification-receipt-v1"
+    )
+    goal_id: Literal["TC-VNEXT-G07-CANDIDATE"] = "TC-VNEXT-G07-CANDIDATE"
+    candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
+    control: HardeningControl
+    verifier_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_sha256: dict[str, str] = Field(min_length=1, max_length=30)
+    human_evidence: Literal[False] = False
+    production_evidence: Literal[False] = False
+    verdict: Literal["PASS"] = "PASS"
+
+    @model_validator(mode="after")
+    def evidence_hashes_are_safe(self) -> "HardeningControlVerificationReceipt":
+        if any(
+            not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", key)
+            or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for key, value in self.evidence_sha256.items()
+        ):
+            raise ValueError("hardening control evidence bindings are invalid")
+        return self
+
+
+class CandidateGateComponentReceipt(StrictModel):
+    schema_version: Literal["candidate-gate-component-receipt-v1"] = (
+        "candidate-gate-component-receipt-v1"
+    )
+    goal_id: Literal["TC-VNEXT-G07-CANDIDATE"] = "TC-VNEXT-G07-CANDIDATE"
+    candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
+    candidate_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_data_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    component: AgentGateComponent
+    evidence_level: EvidenceLevel
+    upstream_artifact_sha256: dict[str, str] = Field(min_length=1, max_length=100)
+    verifier_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    isolation_mode: Literal[
+        "FRESH_CLEAN_CHECKOUT", "OCI_EPHEMERAL_NO_HOST_MOUNTS"
+    ] | None = None
+    human_evidence: Literal[False] = False
+    production_evidence: Literal[False] = False
+    verdict: Literal["PASS"] = "PASS"
+
+    @model_validator(mode="after")
+    def component_evidence_is_consistent(self) -> "CandidateGateComponentReceipt":
+        expected_level: dict[AgentGateComponent, EvidenceLevel] = {
+            "AUTOMATED_PRODUCT_GATE": "AUTOMATED_TEST",
+            "LIVE_PROVIDER_GATE": "LIVE_PROVIDER_EVIDENCE",
+            "MULTI_AGENT_PANEL": "MULTI_AGENT_SIMULATED_REVIEW",
+            "SEALED_AGENT_BLIND": "SEALED_AGENT_BLIND",
+        }
+        if self.evidence_level != expected_level[self.component]:
+            raise ValueError("candidate component uses the wrong evidence level")
+        if self.component == "AUTOMATED_PRODUCT_GATE":
+            if self.isolation_mode is None:
+                raise ValueError("automated candidate component requires isolation mode")
+        elif self.isolation_mode is not None:
+            raise ValueError("only automated candidate evidence may claim isolation")
+        if any(
+            not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", key)
+            or not re.fullmatch(r"[0-9a-f]{64}", value)
+            for key, value in self.upstream_artifact_sha256.items()
+        ):
+            raise ValueError("candidate component evidence bindings are invalid")
+        return self
+
+
+class G07CandidateGatePassReceipt(StrictModel):
+    schema_version: Literal["g07-candidate-agent-gate-pass-v1"] = (
+        "g07-candidate-agent-gate-pass-v1"
+    )
+    goal_id: Literal["TC-VNEXT-G07-CANDIDATE"] = "TC-VNEXT-G07-CANDIDATE"
+    gate_profile: Literal["HARDENED_CANDIDATE_GATE"] = "HARDENED_CANDIDATE_GATE"
+    candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    candidate_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
+    current_goal_binding_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    work_package_registry_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_data_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    hardening_decision: HardeningDecision
+    hardening_decision_receipt_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    component_receipt_sha256: dict[AgentGateComponent, str]
+    selected_control_receipt_sha256: dict[HardeningControl, str]
+    remote_ref: str = Field(pattern=r"^refs/heads/[A-Za-z0-9._/-]+$")
+    remote_subject: str = Field(pattern=r"^[0-9a-f]{40}$")
+    remote_tree: str = Field(pattern=r"^[0-9a-f]{40}$")
+    human_usability_status: Literal["NOT_RUN"] = "NOT_RUN"
+    production_status: Literal["NOT_RUN"] = "NOT_RUN"
+    verdict: Literal["AGENT_GATE_PASS"] = "AGENT_GATE_PASS"
+    completed_at: datetime
+
+    @model_validator(mode="after")
+    def all_candidate_evidence_is_present(self) -> "G07CandidateGatePassReceipt":
+        if set(self.component_receipt_sha256) != {
+            "AUTOMATED_PRODUCT_GATE",
+            "LIVE_PROVIDER_GATE",
+            "MULTI_AGENT_PANEL",
+            "SEALED_AGENT_BLIND",
+        }:
+            raise ValueError("G07 candidate Gate requires all four evidence components")
+        selected = set(self.selected_control_receipt_sha256)
+        if self.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE" and selected:
+            raise ValueError("non-required hardening cannot carry control receipts")
+        if self.hardening_decision == "REQUIRED" and not selected:
+            raise ValueError("required hardening must verify selected controls")
+        return self
+
+
 class CurrentGoalBinding(StrictModel):
-    schema_version: Literal["current-goal-binding-v1"] = "current-goal-binding-v1"
+    schema_version: Literal[
+        "current-goal-binding-v1", "current-goal-binding-v2"
+    ] = "current-goal-binding-v1"
     program_id: Literal["TC-VNEXT-2026"] = "TC-VNEXT-2026"
     goal_sequence: int = Field(ge=1, le=7)
     goal_id: str = Field(pattern=r"^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$")
@@ -392,6 +769,10 @@ class CurrentGoalBinding(StrictModel):
     automated_gate_contract_path: str = Field(min_length=1, max_length=300)
     automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     gate_profile: GateProfile
+    mainline_phase: MainlinePhase | None = None
+    work_package_registry_path: Literal[
+        "docs/governance/current_work_packages.json"
+    ] | None = None
 
     @model_validator(mode="after")
     def sequence_matches_goal(self) -> "CurrentGoalBinding":
@@ -408,6 +789,18 @@ class CurrentGoalBinding(StrictModel):
         )
         if self.gate_profile != expected_profile:
             raise ValueError("current Goal uses the wrong Agent Gate profile")
+        expected_phase = _mainline_phase_for_sequence(self.goal_sequence)
+        if self.schema_version == "current-goal-binding-v2":
+            if self.mainline_phase != expected_phase:
+                raise ValueError("current Goal uses the wrong mainline phase")
+            if self.work_package_registry_path is None:
+                raise ValueError("current Goal v2 must bind the work package registry")
+        else:
+            # Historical commits remain readable without rewriting their v1 bytes.
+            self.mainline_phase = expected_phase
+            self.work_package_registry_path = (
+                "docs/governance/current_work_packages.json"
+            )
         return self
 
 
@@ -1129,13 +1522,21 @@ class AutomatedIsolationContract(StrictModel):
     authority_secret_mount_count: Literal[0] = 0
 
 
+class CoreAutomationIsolationContract(StrictModel):
+    mode: Literal["FRESH_CLEAN_CHECKOUT"] = "FRESH_CLEAN_CHECKOUT"
+    network_access: Literal[False] = False
+    synthetic_profile: Literal[False] = False
+    authority_secret_mount_count: Literal[0] = 0
+
+
 class AutomatedProductGateContract(StrictModel):
-    schema_version: Literal["automated-product-gate-contract-v1"] = (
-        "automated-product-gate-contract-v1"
-    )
+    schema_version: Literal[
+        "automated-product-gate-contract-v1",
+        "automated-product-gate-contract-v2",
+    ] = "automated-product-gate-contract-v2"
     goal_id: str = Field(pattern=r"^TC-[A-Z0-9-]+$")
     gate_profile: GateProfile
-    isolation: AutomatedIsolationContract
+    isolation: CoreAutomationIsolationContract | AutomatedIsolationContract
     checks: list[AutomatedCheckContract] = Field(min_length=1, max_length=30)
 
     @model_validator(mode="after")
@@ -1152,6 +1553,11 @@ class AutomatedProductGateContract(StrictModel):
         )
         if self.gate_profile != expected_profile:
             raise ValueError("automated Gate contract uses the wrong profile")
+        if self.schema_version == "automated-product-gate-contract-v2":
+            if self.gate_profile == "CORE_AGENT_GATE" and not isinstance(
+                self.isolation, CoreAutomationIsolationContract
+            ):
+                raise ValueError("CORE automated Gate must use a fresh clean checkout")
         return self
 
 
@@ -1231,11 +1637,13 @@ class AutomatedProductExecutionManifest(StrictModel):
         ids = [item.check_id for item in self.checks]
         if len(ids) != len(set(ids)):
             raise ValueError("automated execution check IDs must be unique")
-        if self.gate_profile == "CORE_AGENT_GATE":
-            if self.isolation_mode != "FRESH_CLEAN_CHECKOUT":
-                raise ValueError("CORE automation must use a fresh clean checkout")
+        if self.gate_profile == "CORE_AGENT_GATE" and self.isolation_mode != (
+            "FRESH_CLEAN_CHECKOUT"
+        ):
+            raise ValueError("CORE automation must use a fresh clean checkout")
+        if self.isolation_mode == "FRESH_CLEAN_CHECKOUT":
             if self.synthetic_profile:
-                raise ValueError("CORE automation cannot claim the OCI synthetic profile")
+                raise ValueError("fresh checkout automation cannot claim OCI synthesis")
             if any(
                 value is not None
                 for value in (
@@ -1250,9 +1658,9 @@ class AutomatedProductExecutionManifest(StrictModel):
                     self.failure_stage,
                 )
             ):
-                raise ValueError("CORE automation cannot claim OCI runner evidence")
+                raise ValueError("fresh checkout automation cannot claim OCI evidence")
             if self.verdict != "PASS" or not self.checks or self.checks_not_run:
-                raise ValueError("CORE automation requires every configured check to pass")
+                raise ValueError("fresh checkout automation requires all checks to pass")
             return self
         if self.isolation_mode != "OCI_EPHEMERAL_NO_HOST_MOUNTS":
             raise ValueError("HARDENED automation must use the isolated OCI runner")
@@ -1506,6 +1914,7 @@ class AgentGatePassReceipt(StrictModel):
                 "sealed_scorer",
                 "review_schema",
                 "adjudication_schema",
+                "work_packages",
             }
             if set(self.frozen_binding_sha256) != required_bindings:
                 raise ValueError("CORE_AGENT_GATE frozen binding set is incomplete")

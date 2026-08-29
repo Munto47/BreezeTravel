@@ -12,8 +12,9 @@
 6. [`governance/PORTFOLIO_MISSION.md`](governance/PORTFOLIO_MISSION.md)：面试证据目标与禁止包装边界；
 7. [`governance/PROGRAM.md`](governance/PROGRAM.md)：预批准阶段、自动推进和仍需现场HITL的事项；
 8. [`governance/AGENT_GATE_PROTOCOL.md`](governance/AGENT_GATE_PROTOCOL.md)：G01～G07隔离审查、裁决、sealed blind和证据命名；
-9. [`governance/CURRENT_GOAL.md`](governance/CURRENT_GOAL.md) / [`governance/ROADMAP.md`](governance/ROADMAP.md) / [`governance/RELEASE_GATES.md`](governance/RELEASE_GATES.md)：唯一开发切片、阶段顺序和放行合同；
-10. 当前commit/config/dataset对应的evidence。
+9. [`governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md`](governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md)：主线优先、P2延期与两轮复审上限；
+10. [`governance/CURRENT_GOAL.md`](governance/CURRENT_GOAL.md) / [`governance/current_work_packages.json`](governance/current_work_packages.json) / [`governance/ROADMAP.md`](governance/ROADMAP.md) / [`governance/RELEASE_GATES.md`](governance/RELEASE_GATES.md)：唯一开发切片、并行工作包、阶段顺序和放行合同；
+11. 当前commit/config/dataset对应的evidence。
 
 [`dual-entry/capability-status.md`](dual-entry/capability-status.md) 只报告证据状态，不改变产品范围。根 [`README.md`](../README.md) 是项目入口，不高于产品权威文件。
 
@@ -28,7 +29,7 @@
 - `archive/`：被取代的方案和 Review，只供追溯，不驱动当前开发；
 - `interview-review/`：面试复习资料，不参与产品门禁。
 
-分支与worktree的统一边界见[`governance/BRANCH_CONSOLIDATION.md`](governance/BRANCH_CONSOLIDATION.md)。只有从当前`origin/develop`创建、并携带同一份根`AGENTS.md`与`CURRENT_GOAL.md`的分支可以继续写入。
+分支与worktree的统一边界见[`governance/BRANCH_CONSOLIDATION.md`](governance/BRANCH_CONSOLIDATION.md)。只有从当前登记的exact baseline创建、携带同一份`AGENTS.md`、Goal binding和work-package registry，且通过路径所有权校验的分支可以继续写入；不一致时只读。
 
 ## 历史方案
 

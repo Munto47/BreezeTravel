@@ -1,0 +1,40 @@
+{
+  "active_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "active_goal_sequence": 1,
+  "gate_profile": "CORE_AGENT_GATE",
+  "guidance_sha256": "14f62685e847c8923f476121b8ff12e7bf3f518ac0c56ee9ae4f53ac0b50c986",
+  "mainline_phase": "CORE_MVP",
+  "max_parallel_writers": 3,
+  "max_prepared_next_goal_packages": 2,
+  "mismatch_policy": "READ_ONLY",
+  "packages": [
+    {
+      "acceptance": [
+        "G01 exact candidate evidence and Text Card Gate are completed",
+        "governance unification is merged only at the serial integration window",
+        "G02 is not activated before G01 archive and atomic binding transition"
+      ],
+      "baseline_commit": "d35555787a6e3edfc7c18285f7bba0540a7f3acf",
+      "branch": "codex/trip-check-product-reset",
+      "dependencies": [],
+      "forbidden_paths": [],
+      "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+      "merge_order": 1,
+      "owned_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "backend",
+        "docs",
+        "frontend",
+        "miniapp",
+        "packages"
+      ],
+      "package_id": "WP-G01-INTEGRATOR",
+      "role": "INTEGRATOR",
+      "status": "IN_PROGRESS"
+    }
+  ],
+  "program_id": "TC-VNEXT-2026",
+  "schema_version": "work-package-registry-v1"
+}
