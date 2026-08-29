@@ -8,7 +8,7 @@
     ],
     "allowed_paths": [
       "backend/app/trip_understanding/qwen_provider.py",
-      "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/eval_data/trip_text_cards_agent_v2/agent_evaluation_contract.json",
       "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
       "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
       "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",

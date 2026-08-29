@@ -26,6 +26,7 @@ from app.trip_understanding.models import (
     ResolvedPlace,
 )
 from app.trip_understanding.pipeline import TripUnderstandingPipeline, canonical_sha256
+from app.trip_understanding.qwen_provider import qwen_effective_run_config_sha256
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.source_crypto import SourceCipher
 from evals.agent_gate_v1.authority import load_worktree_current_goal_binding
@@ -317,6 +318,25 @@ def _load_raw_prediction_rows(
         or summary.get("raw_request_or_response_retained") is not False
     ):
         raise ValueError("Qwen prediction summary candidate or privacy binding mismatch")
+    requested_splits = summary.get("requested_splits")
+    provider_effective_config_sha256 = summary.get("effective_config_sha256")
+    if (
+        summary.get("batch_concurrency") != 1
+        or summary.get("provider_max_concurrency") != 1
+        or summary.get("deadline_ms") != 7000
+        or summary.get("max_output_tokens") != 2048
+        or not isinstance(requested_splits, list)
+        or not all(isinstance(value, str) for value in requested_splits)
+        or not isinstance(provider_effective_config_sha256, str)
+        or summary.get("effective_run_config_sha256")
+        != qwen_effective_run_config_sha256(
+            model_role=str(summary.get("model_role")),
+            splits=requested_splits,
+            batch_concurrency=1,
+            provider_effective_config_sha256=provider_effective_config_sha256,
+        )
+    ):
+        raise ValueError("Qwen prediction summary is not bound to serial execution")
     try:
         all_rows = [
             json.loads(line)
@@ -361,6 +381,11 @@ def _load_raw_prediction_rows(
             or runtime_binding.get("prompt_sha256") != expected_artifacts["prompt_sha256"]
             or runtime_binding.get("schema_sha256") != expected_artifacts["schema_sha256"]
             or runtime_binding.get("config_sha256") != expected_artifacts["config_sha256"]
+            or runtime_binding.get("effective_config_sha256")
+            != provider_effective_config_sha256
+            or runtime_binding.get("max_concurrency") != 1
+            or runtime_binding.get("deadline_ms") != 7000
+            or runtime_binding.get("max_output_tokens") != 2048
             or runtime_binding.get("fallback_used") is True
             or runtime_binding.get("raw_request_or_response_retained") is not False
             or not isinstance(calls, list)

@@ -9,7 +9,10 @@ import pytest
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.models import DestinationBasis
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.qwen_provider import (
+    QwenStructuredInferenceProvider,
+    qwen_effective_run_config_sha256,
+)
 
 
 class _FakeCompletions:
@@ -64,6 +67,79 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_serializes_concurrent_callers() -> None:
+    source = "北京三日攻略。Day 1 去故宫博物院。"
+
+    class _ConcurrencyProbe:
+        def __init__(self) -> None:
+            self.active = 0
+            self.peak = 0
+
+        async def create(self, **_kwargs):
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            try:
+                await asyncio.sleep(0.01)
+                return SimpleNamespace(
+                    id="provider-request",
+                    _request_id="http-request",
+                    model="qwen-exact-snapshot",
+                    choices=[
+                        SimpleNamespace(
+                            message=SimpleNamespace(content=_valid_output(source))
+                        )
+                    ],
+                    usage=SimpleNamespace(prompt_tokens=120, completion_tokens=40),
+                )
+            finally:
+                self.active -= 1
+
+    completions = _ConcurrencyProbe()
+    client = SimpleNamespace(chat=SimpleNamespace(completions=completions))
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposals = await asyncio.gather(*(provider.propose(source) for _ in range(3)))
+
+    assert len(proposals) == 3
+    assert completions.peak == 1
+    assert all(proposal.binding["max_concurrency"] == 1 for proposal in proposals)
+
+
+def test_qwen_provider_rejects_non_serial_configuration() -> None:
+    with pytest.raises(ValueError, match="max_concurrency must remain exactly 1"):
+        QwenStructuredInferenceProvider(
+            api_key="test-only",
+            base_url="https://provider.example/v1",
+            model="qwen-exact-snapshot",
+            client=_FakeClient([]),
+            max_concurrency=2,
+        )
+
+
+def test_qwen_effective_run_config_binds_serial_batch_contract() -> None:
+    serial = qwen_effective_run_config_sha256(
+        model_role="PRODUCTION_CANDIDATE",
+        splits=["dev", "validation"],
+        batch_concurrency=1,
+        provider_effective_config_sha256="a" * 64,
+    )
+    parallel = qwen_effective_run_config_sha256(
+        model_role="PRODUCTION_CANDIDATE",
+        splits=["dev", "validation"],
+        batch_concurrency=2,
+        provider_effective_config_sha256="a" * 64,
+    )
+
+    assert len(serial) == 64
+    assert serial != parallel
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_returns_model_neutral_proposal_and_redacted_receipt() -> None:
     source = "北京三日攻略。Day 1 去故宫博物院。"
     client = _FakeClient([_valid_output(source)])
@@ -82,6 +158,8 @@ async def test_qwen_provider_returns_model_neutral_proposal_and_redacted_receipt
     assert proposal.destination_basis == DestinationBasis.EXPLICIT
     assert proposal.mentions[0].raw_text == "故宫博物院"
     assert proposal.binding["external_calls"] == 1
+    assert proposal.binding["max_concurrency"] == 1
+    assert proposal.binding["max_output_tokens"] == 2048
     assert proposal.binding["repair_call_count"] == 0
     assert proposal.binding["estimated_cost_status"] == (
         "CALCULATED_FROM_PROVIDER_FIELDS"

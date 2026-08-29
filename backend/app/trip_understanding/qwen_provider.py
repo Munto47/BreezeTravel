@@ -78,6 +78,25 @@ _DAY_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _CLAUSE_BOUNDARIES = "。；;\n"
+_FIXED_MAX_CONCURRENCY = 1
+
+
+def qwen_effective_run_config_sha256(
+    *,
+    model_role: str,
+    splits: list[str] | tuple[str, ...],
+    batch_concurrency: int,
+    provider_effective_config_sha256: str,
+) -> str:
+    """Bind a prediction batch to the fixed serial Provider contract."""
+    return canonical_sha256(
+        {
+            "model_role": model_role,
+            "splits": list(splits),
+            "batch_concurrency": batch_concurrency,
+            "provider_effective_config_sha256": provider_effective_config_sha256,
+        }
+    )
 _META_ACTIVITY_MARKERS = (
     "不要因为",
     "不要把",
@@ -366,6 +385,7 @@ class QwenStructuredInferenceProvider:
         model: str,
         deadline_seconds: float = 7.0,
         max_output_tokens: int = 2048,
+        max_concurrency: int = _FIXED_MAX_CONCURRENCY,
         temperature: float = 0.1,
         input_cny_per_million: float | None = None,
         output_cny_per_million: float | None = None,
@@ -378,10 +398,14 @@ class QwenStructuredInferenceProvider:
             raise ValueError("Qwen base URL must use HTTPS")
         if not model:
             raise ValueError("an exact Qwen model ID is required")
+        if max_concurrency != _FIXED_MAX_CONCURRENCY:
+            raise ValueError("Qwen Provider max_concurrency must remain exactly 1")
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.deadline_seconds = deadline_seconds
         self.max_output_tokens = max_output_tokens
+        self.max_concurrency = max_concurrency
+        self._request_slots = asyncio.Semaphore(max_concurrency)
         self.temperature = temperature
         self.input_cny_per_million = input_cny_per_million
         self.output_cny_per_million = output_cny_per_million
@@ -395,6 +419,15 @@ class QwenStructuredInferenceProvider:
         if canonical_sha256(stored_schema) != canonical_sha256(generated_schema):
             raise ValueError("frozen Qwen schema disagrees with adapter models")
         self.schema = stored_schema
+        config_bytes = _CONFIG_PATH.read_bytes()
+        frozen_config = json.loads(config_bytes)
+        if frozen_config.get("max_concurrency") != max_concurrency:
+            raise ValueError("frozen Qwen config disagrees with max_concurrency")
+        if client is None and (
+            frozen_config.get("deadline_ms") != round(deadline_seconds * 1000)
+            or frozen_config.get("max_output_tokens") != max_output_tokens
+        ):
+            raise ValueError("live Qwen runtime disagrees with frozen limits")
         self.client = client or AsyncOpenAI(
             api_key=api_key,
             base_url=self.base_url,
@@ -405,9 +438,7 @@ class QwenStructuredInferenceProvider:
         self.prompt_artifact_sha256 = hashlib.sha256(prompt_bytes).hexdigest()
         self.schema_canonical_sha256 = canonical_sha256(self.schema)
         self.schema_artifact_sha256 = hashlib.sha256(stored_schema_bytes).hexdigest()
-        self.config_artifact_sha256 = hashlib.sha256(
-            _CONFIG_PATH.read_bytes()
-        ).hexdigest()
+        self.config_artifact_sha256 = hashlib.sha256(config_bytes).hexdigest()
         self.model_panel_sha256 = hashlib.sha256(
             _MODEL_PANEL_PATH.read_bytes()
         ).hexdigest()
@@ -418,6 +449,7 @@ class QwenStructuredInferenceProvider:
                 "deadline_ms": round(deadline_seconds * 1000),
                 "maximum_repair_calls": 1,
                 "max_output_tokens": max_output_tokens,
+                "max_concurrency": max_concurrency,
             }
         )
         self.schema_sha256 = self.schema_artifact_sha256
@@ -715,6 +747,12 @@ class QwenStructuredInferenceProvider:
         return mentions, destination.name, normalization_counts
 
     async def propose(self, source_text: str) -> InferenceProposal:
+        # Queueing is backpressure, not Provider execution. Acquire before the
+        # fixed per-request deadline so waiting callers do not consume it.
+        async with self._request_slots:
+            return await self._propose_with_deadline(source_text)
+
+    async def _propose_with_deadline(self, source_text: str) -> InferenceProposal:
         calls: list[dict[str, object]] = []
         last_output: str | None = None
         validation_category: str | None = None
@@ -777,10 +815,12 @@ class QwenStructuredInferenceProvider:
                         "config_sha256": self.config_sha256,
                         "config_artifact_sha256": self.config_artifact_sha256,
                         "effective_config_sha256": self.effective_config_sha256,
+                        "max_concurrency": self.max_concurrency,
                         "model_panel_sha256": self.model_panel_sha256,
                         "thinking": False,
                         "temperature": self.temperature,
                         "deadline_ms": round(self.deadline_seconds * 1000),
+                        "max_output_tokens": self.max_output_tokens,
                         "external_calls": len(calls),
                         "repair_call_count": max(0, len(calls) - 1),
                         **normalization_counts,
@@ -866,11 +906,13 @@ class QwenStructuredInferenceProvider:
             "config_sha256": self.config_sha256,
             "config_artifact_sha256": self.config_artifact_sha256,
             "effective_config_sha256": self.effective_config_sha256,
+            "max_concurrency": self.max_concurrency,
             "model_panel_sha256": self.model_panel_sha256,
             "failure_category": category,
             "thinking": False,
             "temperature": self.temperature,
             "deadline_ms": round(self.deadline_seconds * 1000),
+            "max_output_tokens": self.max_output_tokens,
             "external_calls": len(calls),
             "repair_call_count": max(0, len(calls) - 1),
             "input_tokens": input_tokens,

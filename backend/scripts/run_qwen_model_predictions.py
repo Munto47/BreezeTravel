@@ -12,7 +12,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.trip_understanding.full_text import build_full_text_pipeline
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.qwen_provider import (
+    QwenStructuredInferenceProvider,
+    qwen_effective_run_config_sha256,
+)
 from evals.agent_gate_v1.path_security import (
     require_external_target,
     write_external_bytes_exclusive,
@@ -110,6 +113,10 @@ def _output_targets(
 
 
 async def _run(args: argparse.Namespace) -> tuple[dict[str, object], bytes]:
+    if args.concurrency != 1:
+        raise ValueError("Qwen exact evidence requires serial concurrency=1")
+    if args.deadline_seconds != 7.0 or args.max_output_tokens != 2048:
+        raise ValueError("Qwen exact evidence requires the frozen 7s/2048 limits")
     if _git("status", "--porcelain"):
         raise ValueError("Qwen prediction runner requires a clean candidate checkout")
     candidate_commit = _git("rev-parse", "HEAD")
@@ -139,6 +146,7 @@ async def _run(args: argparse.Namespace) -> tuple[dict[str, object], bytes]:
         model=model,
         deadline_seconds=args.deadline_seconds,
         max_output_tokens=args.max_output_tokens,
+        max_concurrency=args.concurrency,
         input_cny_per_million=_price(candidate, "input_token"),
         output_cny_per_million=_price(candidate, "output_token"),
     )
@@ -276,6 +284,17 @@ async def _run(args: argparse.Namespace) -> tuple[dict[str, object], bytes]:
         "schema_canonical_sha256": provider.schema_canonical_sha256,
         "config_sha256": provider.config_sha256,
         "effective_config_sha256": provider.effective_config_sha256,
+        "batch_concurrency": args.concurrency,
+        "provider_max_concurrency": provider.max_concurrency,
+        "deadline_ms": round(args.deadline_seconds * 1000),
+        "max_output_tokens": args.max_output_tokens,
+        "requested_splits": list(args.splits),
+        "effective_run_config_sha256": qwen_effective_run_config_sha256(
+            model_role=args.role,
+            splits=args.splits,
+            batch_concurrency=args.concurrency,
+            provider_effective_config_sha256=provider.effective_config_sha256,
+        ),
         "splits": split_receipts,
         "case_count": len(results),
         "schema_valid_model_output_count": model_valid,
@@ -345,12 +364,14 @@ def main() -> int:
         choices=("dev", "validation"),
         default=["dev", "validation"],
     )
-    parser.add_argument("--concurrency", type=int, default=3)
+    parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--deadline-seconds", type=float, default=7.0)
     parser.add_argument("--max-output-tokens", type=int, default=2048)
     args = parser.parse_args()
-    if args.concurrency < 1 or args.concurrency > 8:
-        parser.error("concurrency must be between 1 and 8")
+    if args.concurrency != 1:
+        parser.error("concurrency must be exactly 1 for Qwen exact evidence")
+    if args.deadline_seconds != 7.0 or args.max_output_tokens != 2048:
+        parser.error("Qwen exact evidence requires deadline=7.0 and max tokens=2048")
     candidate_commit = _git("rev-parse", "HEAD")
     prediction_path, summary_path = _output_targets(
         args.output_dir,
