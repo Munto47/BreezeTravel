@@ -206,7 +206,7 @@ async def _run(args: argparse.Namespace) -> dict[str, object]:
             ),
             model=model,
             deadline_seconds=7.0,
-            max_output_tokens=2048,
+            max_output_tokens=768,
             input_cny_per_million=_price(candidate, "input_token"),
             output_cny_per_million=_price(candidate, "output_token"),
         )
