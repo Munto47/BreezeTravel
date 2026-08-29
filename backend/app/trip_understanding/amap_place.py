@@ -79,6 +79,8 @@ _LEXICAL_CATEGORY_MARKERS = (
             "故居",
             "广场",
             "体育场",
+            "体育馆",
+            "运动中心",
             "文化街区",
             "滨江",
             "外滩",
@@ -87,6 +89,24 @@ _LEXICAL_CATEGORY_MARKERS = (
     ),
 )
 _LEXICAL_TRANSPORT_SUFFIXES = ("站",)
+_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY = (
+    (
+        PlaceCategory.ATTRACTION,
+        ("0801",),
+        ("体育场", "体育馆", "运动中心"),
+    ),
+    (
+        PlaceCategory.ATTRACTION,
+        ("1903",),
+        (
+            "御街",
+            "古街",
+            "步行街",
+            "斜街",
+            "文化街区",
+        ),
+    ),
+)
 _LEXICAL_ATTRACTION_SUFFIXES = (
     "寺",
     "宫",
@@ -266,6 +286,22 @@ def _lexical_category(atomic: str) -> PlaceCategory | None:
     if normalized.endswith(_LEXICAL_ATTRACTION_SUFFIXES):
         return PlaceCategory.ATTRACTION
     return None
+
+
+def _product_semantic_technical_category_is_compatible(
+    receipt: dict[str, object],
+    *,
+    atomic: str,
+    expected_category: PlaceCategory,
+) -> bool:
+    typecode = str(receipt.get("typecode") or "").strip()
+    normalized = _normalized_name(atomic)
+    return any(
+        expected_category == category
+        and typecode.startswith(prefixes)
+        and any(marker in normalized for marker in markers)
+        for category, prefixes, markers in _PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY
+    )
 
 
 def _string_values(value: object) -> list[str]:
@@ -635,7 +671,14 @@ class AmapPlaceResolver:
                 ) from exc
             accepted_rewrite = (
                 rewrite.place is not None
-                and rewrite.place.category == _CATEGORY_LABELS[expected_category]
+                and (
+                    rewrite.place.category == _CATEGORY_LABELS[expected_category]
+                    or _product_semantic_technical_category_is_compatible(
+                        rewrite.receipt,
+                        atomic=atomic,
+                        expected_category=expected_category,
+                    )
+                )
             )
             combined_receipt = _combine_rewrite_receipts(
                 decision_receipt,
@@ -643,8 +686,22 @@ class AmapPlaceResolver:
                 accepted=accepted_rewrite,
             )
             if accepted_rewrite and rewrite.place is not None:
+                resolved_category = _CATEGORY_LABELS[expected_category]
+                compatibility_basis = (
+                    "PROVIDER_TYPE_CLASSIFICATION"
+                    if rewrite.place.category == resolved_category
+                    else "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
+                )
+                combined_receipt = {
+                    **combined_receipt,
+                    "resolved_category": resolved_category,
+                    "category_compatibility_basis": compatibility_basis,
+                }
                 place = rewrite.place.model_copy(
-                    update={"provider_binding": combined_receipt}
+                    update={
+                        "category": resolved_category,
+                        "provider_binding": combined_receipt,
+                    }
                 )
                 return PlaceResolutionOutcome(
                     place=place,
@@ -683,6 +740,8 @@ class AmapPlaceResolver:
             **decision_receipt,
             "status": "AUTO_MATCHED",
             "selection_tier": selection_tier,
+            "resolved_category": _CATEGORY_LABELS[category],
+            "category_compatibility_basis": "PROVIDER_TYPE_CLASSIFICATION",
             "adcode": str(raw.get("adcode") or "NOT_EXPOSED_BY_PROVIDER"),
             "typecode": str(raw.get("typecode") or "NOT_EXPOSED_BY_PROVIDER"),
             "coordinates": {

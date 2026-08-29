@@ -480,6 +480,8 @@ def test_application_table_export_binds_one_typed_rewrite_as_two_calls() -> None
                 ),
                 "category_compatible_candidate_count": 1,
                 "typecode": "110000",
+                "resolved_category": "景点",
+                "category_compatibility_basis": "PROVIDER_TYPE_CLASSIFICATION",
                 "raw_provider_response_retained": False,
             },
             "created_at": completed,
@@ -497,6 +499,7 @@ def test_application_table_export_binds_one_typed_rewrite_as_two_calls() -> None
     assert http[0].http_status == 200
     assert runtime[0].external_call_count == 2
     assert runtime[0].resolution_status == "MATCHED"
+    assert runtime[0].category == "景点"
     assert receipts[0].accepted_source_name == "颐和园"
 
 

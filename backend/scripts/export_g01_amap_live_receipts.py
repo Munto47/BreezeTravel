@@ -57,6 +57,12 @@ _CATEGORY_LABELS = {
     PlaceCategory.TRANSPORT: "交通节点",
     PlaceCategory.UNKNOWN: "地点",
 }
+_RESOLVED_CATEGORY_BASES = frozenset(
+    {
+        "PROVIDER_TYPE_CLASSIFICATION",
+        "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY",
+    }
+)
 _CATALOG_PATTERNS = (
     re.compile(r"第1天上午先到(?P<a>[^，。；]+)，午后步行到(?P<b>[^，。；]+)，"),
     re.compile(r"第2天安排(?P<a>[^，。；]+)和(?P<b>[^，。；]+)，"),
@@ -260,6 +266,12 @@ def _as_datetime(value: object, fallback: datetime) -> datetime:
 
 
 def _category(receipt: dict[str, Any]) -> str:
+    resolved = receipt.get("resolved_category")
+    if (
+        resolved in set(_CATEGORY_LABELS.values())
+        and receipt.get("category_compatibility_basis") in _RESOLVED_CATEGORY_BASES
+    ):
+        return str(resolved)
     return _CATEGORY_LABELS[classify_amap_type(str(receipt.get("typecode") or ""), "")]
 
 

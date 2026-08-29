@@ -161,6 +161,99 @@ async def test_amap_rewrites_once_without_types_and_keeps_local_category_check()
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("city", "atomic", "typecode", "type_label"),
+    [
+        ("上海", "江湾体育场", "080101", "体育休闲服务;运动场馆;综合体育馆"),
+        ("杭州", "南宋御街", "190301", "地名地址信息;交通地名;道路名"),
+    ],
+)
+async def test_amap_accepts_exact_product_attraction_with_technical_provider_type(
+    city: str,
+    atomic: str,
+    typecode: str,
+    type_label: str,
+) -> None:
+    observed: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        pois = (
+            []
+            if "types" in request.url.params
+            else [
+                _poi(
+                    provider_id=f"technical-{typecode}",
+                    name=atomic,
+                    city=f"{city}市",
+                    typecode=typecode,
+                    type=type_label,
+                )
+            ]
+        )
+        return httpx.Response(
+            200,
+            json={"status": "1", "infocode": "10000", "pois": pois},
+            headers={"x-request-id": f"provider-request-{len(observed)}"},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        outcome = await AmapPlaceResolver(
+            api_key="test-only",
+            client=client,
+        ).resolve(
+            city=city,
+            atomic_place_name=atomic,
+        )
+
+    assert outcome.place is not None
+    assert outcome.place.category == "景点"
+    assert outcome.receipt["resolved_category"] == "景点"
+    assert outcome.receipt["category_compatibility_basis"] == (
+        "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
+    )
+    assert outcome.receipt["external_calls"] == 2
+    assert len(observed) == 2
+
+
+@pytest.mark.asyncio
+async def test_amap_does_not_apply_technical_type_override_to_unrelated_name() -> None:
+    observed: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        pois = (
+            []
+            if "types" in request.url.params
+            else [
+                _poi(
+                    name="故宫博物院",
+                    typecode="190301",
+                    type="地名地址信息;交通地名;道路名",
+                )
+            ]
+        )
+        return httpx.Response(
+            200,
+            json={"status": "1", "infocode": "10000", "pois": pois},
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        outcome = await AmapPlaceResolver(
+            api_key="test-only",
+            client=client,
+        ).resolve(
+            city="北京",
+            atomic_place_name="故宫博物院",
+        )
+
+    assert outcome.place is None
+    assert outcome.receipt["status"] == "NO_UNIQUE_MATCH"
+    assert outcome.receipt["external_calls"] == 2
+    assert len(observed) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     ("atomic", "poi", "alias_count"),
     [
         (
