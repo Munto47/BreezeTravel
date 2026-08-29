@@ -204,8 +204,35 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
     assert outcome.receipt["name_match_policy"] == (
-        "PRIMARY_ALIAS_CITY_STATUS_HIERARCHY_V2"
+        "UNIQUE_PRIMARY_EXACT_THEN_UNIQUE_VARIANT_V3"
     )
+    assert len(observed) == 1
+
+
+@pytest.mark.asyncio
+async def test_amap_unique_primary_exact_name_wins_over_broader_provider_variant() -> None:
+    observed: list[httpx.Request] = []
+    payload = {
+        "status": "1",
+        "infocode": "10000",
+        "count": "2",
+        "pois": [
+            _poi(provider_id="B0PALACE", name="颐和园"),
+            _poi(provider_id="B0MUSEUM", name="颐和园博物馆", typecode="140100"),
+        ],
+    }
+    async with _client(payload, observed) as client:
+        outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="北京",
+            atomic_place_name="颐和园",
+            category_hint="景点",
+        )
+
+    assert outcome.place is not None
+    assert outcome.place.canonical_place_id == "B0PALACE"
+    assert outcome.receipt["category_compatible_candidate_count"] == 2
+    assert outcome.receipt["primary_exact_candidate_count"] == 1
+    assert outcome.receipt["selection_tier"] == "UNIQUE_PRIMARY_EXACT"
     assert len(observed) == 1
 
 

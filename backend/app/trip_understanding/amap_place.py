@@ -147,6 +147,22 @@ def _name_matches(raw: dict[str, Any], atomic: str, city: str) -> tuple[bool, bo
     return False, False
 
 
+def _primary_name_is_exact(raw: dict[str, Any], atomic: str, city: str) -> bool:
+    primary = raw.get("name")
+    if not isinstance(primary, str):
+        return False
+    provider_name = _PROVIDER_STATUS_SUFFIX_RE.sub("", primary).strip()
+    provider_values = {provider_name}
+    city_prefixes = (city, f"{_normalized_city(city)}市")
+    provider_values.update(
+        provider_name[len(prefix) :]
+        for prefix in city_prefixes
+        if provider_name.startswith(prefix) and len(provider_name) > len(prefix)
+    )
+    query = _normalized_name(atomic)
+    return any(_normalized_name(value) == query for value in provider_values)
+
+
 def _expected_category(category_hint: str | None) -> PlaceCategory | None:
     if not category_hint:
         return None
@@ -477,7 +493,11 @@ class AmapPlaceResolver:
             "provider_alias_candidate_count": len(alias_match_ids - {""}),
             "city_consistent_candidate_count": len(city_matches),
             "category_compatible_candidate_count": len(compatible),
-            "name_match_policy": "PRIMARY_ALIAS_CITY_STATUS_HIERARCHY_V2",
+            "primary_exact_candidate_count": sum(
+                _primary_name_is_exact(item, atomic, city)
+                for item, _category, _coordinates_value in compatible
+            ),
+            "name_match_policy": "UNIQUE_PRIMARY_EXACT_THEN_UNIQUE_VARIANT_V3",
         }
         if len(compatible) == 0 and typecodes:
             try:
@@ -526,15 +546,27 @@ class AmapPlaceResolver:
                 )
             return PlaceResolutionOutcome(receipt=combined_receipt)
 
-        if len(compatible) != 1:
+        selected = compatible
+        selection_tier = "UNIQUE_VARIANT"
+        if len(compatible) > 1:
+            primary_exact = [
+                item
+                for item in compatible
+                if _primary_name_is_exact(item[0], atomic, city)
+            ]
+            if len(primary_exact) == 1:
+                selected = primary_exact
+                selection_tier = "UNIQUE_PRIMARY_EXACT"
+        if len(selected) != 1:
             return PlaceResolutionOutcome(
                 receipt={
                     **decision_receipt,
+                    "selection_tier": "AMBIGUOUS",
                     "status": "NO_UNIQUE_MATCH",
                 }
             )
 
-        raw, category, (longitude, latitude) = compatible[0]
+        raw, category, (longitude, latitude) = selected[0]
         address = raw.get("address")
         if isinstance(address, list):
             address = "".join(str(item) for item in address)
@@ -544,6 +576,7 @@ class AmapPlaceResolver:
         provider_binding = {
             **decision_receipt,
             "status": "AUTO_MATCHED",
+            "selection_tier": selection_tier,
             "adcode": str(raw.get("adcode") or "NOT_EXPOSED_BY_PROVIDER"),
             "typecode": str(raw.get("typecode") or "NOT_EXPOSED_BY_PROVIDER"),
             "coordinates": {

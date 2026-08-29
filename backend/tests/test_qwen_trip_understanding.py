@@ -276,6 +276,66 @@ async def test_qwen_provider_prefers_role_context_over_wrong_model_offset() -> N
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_does_not_relocate_planned_place_into_reference_name() -> None:
+    source = (
+        "上海。第2天安排豫园和田子坊。"
+        "南翔馒头店（豫园店）只是从另一篇攻略里听说的参考项，不表示已经安排。"
+    )
+    city_start = source.index("上海")
+    reference_name = "南翔馒头店（豫园店）"
+    reference_start = source.index(reference_name)
+    planned_start = source.index("豫园")
+    nested_start = source.rindex("豫园")
+    output = json.dumps(
+        {
+            "destination": {
+                "name": "上海",
+                "basis": "EXPLICIT",
+                "evidence_span_start": city_start,
+                "evidence_span_end": city_start + 2,
+            },
+            "mentions": [
+                {
+                    "span_start": reference_start,
+                    "span_end": reference_start + len(reference_name),
+                    "role": "REFERENCE",
+                    "day_index": None,
+                    "sequence_index": 1,
+                    "atomic_place_name": reference_name,
+                    "category_hint": "餐饮",
+                    "time_hint": None,
+                },
+                {
+                    "span_start": nested_start,
+                    "span_end": nested_start + len("豫园"),
+                    "role": "PLANNED",
+                    "day_index": 2,
+                    "sequence_index": 0,
+                    "atomic_place_name": "豫园",
+                    "category_hint": "景点",
+                    "time_hint": None,
+                },
+            ],
+        },
+        ensure_ascii=False,
+    )
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=_FakeClient([output]),
+    )
+
+    proposal = await provider.propose(source)
+
+    planned = next(item for item in proposal.mentions if item.role.value == "PLANNED")
+    assert planned.span_start == planned_start
+    assert planned.raw_text == "豫园"
+    assert proposal.binding["atomic_span_disambiguation_count"] == 1
+    assert proposal.binding["role_context_relocation_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_drops_meta_occurrences_and_corrects_conditional_option() -> None:
     source = (
         "上海主题是外滩。Day 1 去外滩。"

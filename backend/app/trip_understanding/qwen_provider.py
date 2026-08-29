@@ -183,7 +183,20 @@ def _role_context_score(source_text: str, position: int, role: ActivityRole) -> 
         and any(marker in clause for marker in ("路线", "笔记", "攻略", "主题"))
     ):
         meta += 1
-    score = positive * 20 - meta * 100
+    # A repeated place name can occur once in the itinerary and again inside a
+    # recommendation, exclusion or pass-through sentence.  Model offsets are
+    # proposals, so a negated phrase such as "不表示已经安排" must not make the
+    # nested occurrence look as suitable for a PLANNED mention as the actual
+    # day clause merely because both contain the word "安排".
+    competing_role_markers = 0
+    if role == ActivityRole.PLANNED:
+        competing_role_markers = sum(
+            marker in clause
+            for competing_role, markers in _ROLE_CONTEXT_MARKERS.items()
+            if competing_role != ActivityRole.PLANNED
+            for marker in markers
+        )
+    score = positive * 20 - meta * 100 - competing_role_markers * 60
     if role == ActivityRole.EXCLUDED and any(
         marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.OPTIONAL]
     ):
