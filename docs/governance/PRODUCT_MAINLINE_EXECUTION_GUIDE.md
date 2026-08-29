@@ -51,6 +51,20 @@ G01 已经具备本地文本卡片、编辑、隐私删除和后台地图快照�
 | H1 | 经同意的真人可用性 | 用Agent审查冒充真人 |
 | 生产/商业 | 生产运行、真实许可、安全与商业数据 | 用本地/候选证据外推 |
 
+阶段不可重新排序：G01～G03为`CORE_MVP`，G04～G06为`PRODUCT_ENHANCEMENT`，G07为`CANDIDATE_HARDENING`。G03后只保存一次可体验里程碑并自动进入G04；G07后停止。
+
+### 4.1 并行而不偏航
+
+- 主对话框是唯一集成者，负责提示词、registry、writer调度、验收和串行合并；每个长期功能放入一个用户可见的独立功能对话、独立branch和独立worktree。主对话不得承担未登记的第四个功能包。
+- 子Agent只提供短期只读标注、复核、反方审查和诊断；不得拥有功能分支、提交产品代码、更新Goal/registry或报告官方`READY_TO_MERGE`。
+- 集成者始终占一个writer名额，最多两个功能对话同时`IN_PROGRESS`。已生成完整提示词但等待名额的包使用`WAITING_FOR_WRITER_SLOT`，它不能写入。
+- 每个贡献包启动前按`WORK_PACKAGE_PROMPT_TEMPLATE.md`登记prompt hash、Goal activation commit、branch/remote、独立worktree、功能对话引用、owned/forbidden paths、目标/非目标、锁定接口、验收和定向测试。
+- 功能对话报告`READY_TO_MERGE`后先停止写入；集成者验收路径、commit、clean worktree、测试和remote readback后才登记`ready_commit`。冻结后tip变化或worktree变脏即失效。
+- 所有功能worktree使用同一exact product baseline和同一指导/Goal binding；不一致立即转只读，不靠人工口头同步。
+- 只可提前准备下一个Goal的两个贡献包，状态必须为`PREPARED_NOT_INTEGRATED`；下一Goal不得提前登记集成者，当前Goal不得反向依赖下一Goal；不得跨两级、提前合并或提前改公共合同。
+- 每个包先交付主路径与当前硬门禁。P0/P1和blocking P2修复；其他P2/P3进入风险登记。每包最多两轮修复复审。
+- 贡献包运行期间，集成者只提交registry/checkpoint控制面；所有相关包冻结后才开始产品合并。定向测试在工作包内运行，完整后端、浏览器和可靠性套件只在按领域→后端/API→UI顺序串行集成后的冻结候选运行一次。
+
 ## 5. 问题分级和处置
 
 | 级别 | 当前版本处理 |
@@ -105,6 +119,8 @@ G01后续顺序固定为：
 7. 完成Text Card Gate、归档G01并原子切换G02。
 
 外部authority broker、八角色签名、activation-readiness和完整OCI供应链验证在G01～G06均为`DEFERRED_CANDIDATE_HARDENING / NOT_RUN`，不得插到上述顺序之前。
+
+G02～G07随后按同一原则推进：G02并行地图UI/住宿领域/后端集成；G03并行事实编译/Audit规则/Top-3交互；G04并行临时上传/PaddleOCR/VL实验；G05并行来源准入/KnowledgeClaim/建议接入；G06并行consent记忆/分享/反馈；G07并行性能/可靠性/隐私材料并串行完成同commit Gate。详细路径和所有权以各Goal合同及`current_work_packages.json`为准。
 
 ## 9. Checkpoint写法
 

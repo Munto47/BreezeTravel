@@ -119,9 +119,65 @@
       ],
       "title": "AutomatedIsolationContract",
       "type": "object"
+    },
+    "CoreAutomationIsolationContract": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_secret_mount_count": {
+          "const": 0,
+          "default": 0,
+          "title": "Authority Secret Mount Count",
+          "type": "integer"
+        },
+        "mode": {
+          "const": "FRESH_CLEAN_CHECKOUT",
+          "default": "FRESH_CLEAN_CHECKOUT",
+          "title": "Mode",
+          "type": "string"
+        },
+        "network_access": {
+          "const": false,
+          "default": false,
+          "title": "Network Access",
+          "type": "boolean"
+        },
+        "synthetic_profile": {
+          "const": false,
+          "default": false,
+          "title": "Synthetic Profile",
+          "type": "boolean"
+        }
+      },
+      "title": "CoreAutomationIsolationContract",
+      "type": "object"
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gate_profile": {
+            "const": "CORE_AGENT_GATE"
+          },
+          "schema_version": {
+            "const": "automated-product-gate-contract-v2"
+          }
+        },
+        "required": [
+          "schema_version",
+          "gate_profile"
+        ]
+      },
+      "then": {
+        "properties": {
+          "isolation": {
+            "$ref": "#/$defs/CoreAutomationIsolationContract"
+          }
+        }
+      }
+    }
+  ],
   "properties": {
     "checks": {
       "items": {
@@ -146,11 +202,22 @@
       "type": "string"
     },
     "isolation": {
-      "$ref": "#/$defs/AutomatedIsolationContract"
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CoreAutomationIsolationContract"
+        },
+        {
+          "$ref": "#/$defs/AutomatedIsolationContract"
+        }
+      ],
+      "title": "Isolation"
     },
     "schema_version": {
-      "const": "automated-product-gate-contract-v1",
-      "default": "automated-product-gate-contract-v1",
+      "default": "automated-product-gate-contract-v2",
+      "enum": [
+        "automated-product-gate-contract-v1",
+        "automated-product-gate-contract-v2"
+      ],
       "title": "Schema Version",
       "type": "string"
     }

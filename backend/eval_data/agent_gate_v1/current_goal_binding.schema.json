@@ -1,5 +1,25 @@
 {
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "current-goal-binding-v2"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "mainline_phase",
+          "work_package_registry_path"
+        ]
+      }
+    }
+  ],
   "properties": {
     "automated_gate_contract_path": {
       "maxLength": 300,
@@ -37,6 +57,23 @@
       "title": "Goal Sequence",
       "type": "integer"
     },
+    "mainline_phase": {
+      "anyOf": [
+        {
+          "enum": [
+            "CORE_MVP",
+            "PRODUCT_ENHANCEMENT",
+            "CANDIDATE_HARDENING"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mainline Phase"
+    },
     "predecessor_completion_commit": {
       "pattern": "^[0-9a-f]{40}$",
       "title": "Predecessor Completion Commit",
@@ -53,8 +90,11 @@
       "type": "string"
     },
     "schema_version": {
-      "const": "current-goal-binding-v1",
       "default": "current-goal-binding-v1",
+      "enum": [
+        "current-goal-binding-v1",
+        "current-goal-binding-v2"
+      ],
       "title": "Schema Version",
       "type": "string"
     },
@@ -65,6 +105,19 @@
       ],
       "title": "Status",
       "type": "string"
+    },
+    "work_package_registry_path": {
+      "anyOf": [
+        {
+          "const": "docs/governance/current_work_packages.json",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Work Package Registry Path"
     }
   },
   "required": [

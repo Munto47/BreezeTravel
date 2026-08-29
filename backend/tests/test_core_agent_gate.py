@@ -189,6 +189,7 @@ def test_core_sealed_summary_must_derive_from_deterministic_score(
             "sealed_scorer",
             "review_schema",
             "adjudication_schema",
+            "work_packages",
         )
     }
     context = CoreCandidateContext(
@@ -248,6 +249,7 @@ def test_core_final_receipt_binds_four_components_without_authority() -> None:
         "sealed_scorer",
         "review_schema",
         "adjudication_schema",
+        "work_packages",
     }
     receipt = AgentGatePassReceipt(
         gate_profile="CORE_AGENT_GATE",
@@ -314,6 +316,7 @@ def test_core_live_score_rejects_unreproducible_self_report(tmp_path: Path) -> N
             "sealed_scorer",
             "review_schema",
             "adjudication_schema",
+            "work_packages",
         )
     }
     context = CoreCandidateContext(

@@ -62,7 +62,7 @@ HTTP ETag只能是不可逆、不透明的CAS validator，不能编码可恢复r
 - `ItineraryRevision` 不可变；任何有语义的编辑或建议采纳创建新 revision。
 - `AuditEngine` 是 Finding 唯一权威。`UNKNOWN`、`UNAVAILABLE` 和局部失败不得计为 PASS。
 - 确定性事实与建议性判断分开。热门、时段、典型时长、餐饮和酒店偏好必须以建议性语气展示依据。
-- 原始截图不得进入数据库、日志或 Git；所有终态都删除，只保存 hash、OCR box、版本和清理回执。
+- 原始截图只进入短期临时存储，不得进入数据库、日志或 Git，成功、失败、取消和超时终态都删除。OCR文本、阅读顺序和bbox来源映射作为加密`SourceDocument`继承30天上限和主动删除；删除后只保留不可逆hash、结构化结果、版本和清理回执。
 
 采用 Next.js/React + FastAPI/Pydantic + PostgreSQL 的模块化单体。不得为技术关键词新增微服务、消息队列、Kafka、Temporal、Kubernetes、GraphRAG 或运行时多 Agent。
 
@@ -93,7 +93,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 固定 model snapshot、schema、prompt、deadline 和失败策略。每次模型调用记录 token、延迟、修复调用、fallback 和估算费用，不记录密钥、完整原文或未脱敏响应。模型晋级必须通过同一冻结数据和确定性 scorer。
 
-高德、天气、搜索、知识和社交内容必须先通过数据留存、来源、成本、过期和许可准入。未取得保存权的响应只能短期使用。暂不抓取小红书；RAG 只允许检索有来源和时效的建议性 `KnowledgeClaim`，不得决定地点身份、路线或硬事实。
+暂不抓取小红书；RAG 只允许检索有来源和时效的建议性 `KnowledgeClaim`，不得决定地点身份、路线或硬事实。
 
 用户记忆必须显式开启、结构化、可查看、可更改、可删除。原始攻略、截图和聊天默认不进入长期记忆，训练或评测使用需要单独同意。
 
@@ -108,6 +108,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 执行时遵守以下硬规则：
 
+- G01～G03固定为`CORE_MVP`，优先把文本卡片、地图住宿和Top-3核验主链做完整；G04～G06固定为`PRODUCT_ENHANCEMENT`，依次自动继续截图、三城知识、记忆分享；G07固定为`CANDIDATE_HARDENING`。G03通过后只保存可体验里程碑，不新增人工停点，直接激活G04；G07完成后停止并等待H1/公网/生产批准。
 - 纯治理/审查切片最多连续一个 checkpoint。若连续两个切片的产品代码/API/UI diff 为0，且模型、Provider或产品评测指标也没有前进，必须停止治理扩展并回到产品主线。
 - G01～G06使用`CORE_AGENT_GATE`：固定输入、prompt、schema、候选commit/config/data、确定性scorer、三个隔离审查、一次ultra裁决、Goal要求的sealed blind和干净checkout回读。不得把远端透明日志、硬件密钥、组织级custody、复杂broker或完整供应链签名作为这些版本的前置条件。
 - G07才执行`HARDENED_CANDIDATE_GATE`，可以评估并启用外部authority、目的专一broker、角色签名、不可变远端ref和隔离OCI等候选加固。已有BOOTSTRAP/verifier代码保留为实验资产，在G07前不得继续成为关键路径或阻断G01～G06。
@@ -115,6 +116,18 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 - 每个候选固定一轮三角色审查和一轮裁决；修复后只重跑受影响的检查，最多两轮“修复→复审”。第三轮必须在`CURRENT_GOAL.md`明确记录其直接阻断的P0/P1及用户影响，否则降级为后续加固。
 - 测试通过、审查通过、receipt或签名都不是用户结果；未运行的模型、Provider、blind、真人和生产证据必须继续写`NOT_RUN`。
 - checkpoint的“下一自主动作”必须优先指向当前Goal尚未完成的用户主链。只有一个可复现的当前版本P0/P1确实挡住该动作时，才允许继续做治理基础设施。
+
+并行开发必须读取`docs/governance/current_work_packages.json`并通过机器校验：
+
+- 主对话框是唯一集成者，负责版本化提示词、工作包登记、writer调度、验收、状态变更和串行合并；它不得在三个已登记贡献包之外再承担一个未登记功能包。长期功能开发只能由用户可见的独立功能对话承担，每个功能对话只拥有一个独立分支、一个独立worktree和一个已登记工作包。
+- 子Agent只可做短期标注、独立复核、反方审查和故障诊断；不得拥有功能分支、提交产品代码、修改Goal/registry状态或形成官方`READY_TO_MERGE`。功能修复必须由对应功能对话完成，不能用子Agent绕过writer上限。
+- 任一时刻只有一个非终态集成者；集成者始终占一个writer名额，当前Goal最多两个贡献对话为`IN_PROGRESS/BLOCKED_EXTERNAL`。已生成完整提示词但尚未启动的当前Goal包使用非写入状态`WAITING_FOR_WRITER_SLOT`；开发可并行，产品合并必须串行。
+- 每个贡献包在`IN_PROGRESS`前必须绑定版本化提示词路径/hash、Goal激活commit、local/remote branch、独立worktree绝对路径、用户可见功能对话引用、完整`owned_paths/forbidden_paths`、验收和定向测试。提示词合同以`docs/governance/WORK_PACKAGE_PROMPT_TEMPLATE.md`为准。
+- 所有功能worktree从同一exact product baseline建立并读取同一版本`AGENTS.md`、`current_goal_binding.json`和registry activation；任一hash、binding、branch、worktree或prompt不一致时只能只读。
+- 只可提前准备下一个Goal，最多两个`PREPARED_NOT_INTEGRATED`贡献工作包；下一Goal不得提前登记集成者，当前Goal不得依赖下一Goal；不得跨两级开发、提前合并、提前创建migration或改变公共合同。
+- `owned_paths`、branch和worktree不得重复或重叠。普通贡献任务不得修改治理文件、Goal/work-package binding、编号migration、共享OpenAPI/生成物和依赖锁文件；不得自行合并，只能commit/push自己的工作包分支并回报远端readback。
+- 功能对话报告`READY_TO_MERGE`不等于官方状态。主对话必须验收路径、commit、工作树、定向测试和远端readback后登记`ready_commit`；此后分支tip变化、worktree变脏或继续提交都会使冻结失效。
+- 贡献包运行期间，主对话只能提交registry/checkpoint等控制面变更；开始产品代码集成前，所有相关贡献包必须冻结。集成者随后按已登记的领域模型→持久化/API→前端→E2E顺序合并，候选冻结后再运行完整Gate。
 
 具体执行模板和本次偏航复盘见`docs/governance/PRODUCT_MAINLINE_EXECUTION_GUIDE.md`。
 
@@ -136,6 +149,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 - `origin/develop`是唯一集成基线；`main`保持受保护状态，未经人工批准不得合并。
 - 当前Goal的实现分支必须从现场fetch后的`origin/develop`创建，并在`CURRENT_GOAL.md`记录exact baseline、upstream和远端readback。当前允许继续使用的实现分支是Goal中声明的分支。
+- 并行worktree必须使用`current_work_packages.json`登记的同一baseline、branch、依赖、路径所有权和状态。工作包状态只允许`PREPARED_NOT_INTEGRATED / WAITING_FOR_WRITER_SLOT / IN_PROGRESS / READY_TO_MERGE / MERGED / DEFERRED / BLOCKED_EXTERNAL`；历史v1 registry只读兼容，写入和Gate必须使用v2。
 - 历史P0～P6、旧评测、旧产品实验和已完成专项分支只保留为只读历史。除非当前Goal显式列为可复用资产并经过差异审查，否则不得继续在这些分支开发或把其`AGENTS.md`、`CURRENT_GOAL.md`当作当前状态。
 - 分支内旧指导文件不得覆盖`origin/develop`当前版本。任何缺少当前`AGENTS.md + CURRENT_GOAL.md`的checkout只能做只读考古；写入前必须回到当前基线建立新分支。
 - “分支统一”只允许把已完成且仍适用的资产并入`develop`；不得为追求表面一致而合入失败实验、未提交草稿、过期Goal或修改历史证据，也不得force-push或重写历史。

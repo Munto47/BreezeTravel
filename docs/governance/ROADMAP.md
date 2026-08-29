@@ -4,7 +4,7 @@
 >
 > Program：`TC-VNEXT-2026`
 >
-> 版本：`Blueprint 1.1 / Agent Gate Transition`
+> 版本：`Blueprint 1.3 / Unified Mainline and Parallel Delivery`
 >
 > 日期：2026-08-27
 
@@ -13,18 +13,21 @@
 ```text
 G00 Blueprint
   ↓
+CORE_MVP
 G01 可信文本卡片 + 初次后台地图准备
   ↓
 G02 地图剧场 + 手动更新 + 整程住宿
   ↓
 G03 Top-3 行程核验 + 最小修改
   ↓
+PRODUCT_ENHANCEMENT
 G04 截图与文本结果一致
   ↓
 G05 三城有来源知识层
   ↓
 G06 显式记忆与分享
   ↓
+CANDIDATE_HARDENING
 G07 候选版收口
   ↓ 人工批准
 H1 真人可用性
@@ -32,7 +35,9 @@ H1 真人可用性
 V1.1 商业探索
 ```
 
-路线不按日历时间自动推进，只按用户结果和证据门禁推进。G01～G07统一按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`后自动切换；Agent证据不等于真人证据。G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，到H1前停止。
+路线不按日历时间自动推进，只按用户结果和证据门禁推进。G01～G07统一按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`后自动切换；G03后不增加HITL，直接进入G04。Agent证据不等于真人证据。G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`，到H1前停止。
+
+每个Goal通过v2 `current_work_packages.json`拆分为主对话唯一集成者和独立功能对话工作包。长期功能一律使用独立branch/worktree和版本化prompt；子Agent只读复核/诊断。集成者始终占一个writer名额，最多两个功能对话同时写，第三个已生成提示词的当前包为`WAITING_FOR_WRITER_SLOT`。仅可为下一Goal提前准备最多两个`PREPARED_NOT_INTEGRATED`包；功能包验收冻结后按领域→后端/API→UI→E2E串行合并。完整机器规则见Program 3.3。
 
 ## 2. Blueprint 1.0 — G00
 
@@ -103,11 +108,11 @@ V1.1 商业探索
 
 切片：
 
-1. 输入校验、顺序和临时资产；
+1. multipart截图批次、不透明owner-bound引用、输入校验、顺序和临时资产；
 2. PaddleOCR baseline；
 3. Qwen-VL离线消融；
 4. OCR box到同一语义编译器；
-5. 原图所有终态清理；
+5. 原图所有终态清理，OCR文本/bbox映射继承SourceDocument TTL和主动删除；
 6. 文本/截图 parity浏览器验证。
 
 Qwen-VL只有在关键字段、阅读顺序、卡片结果、bbox和性能均满足门禁时才晋级。
@@ -154,6 +159,7 @@ Qwen-VL只有在关键字段、阅读顺序、卡片结果、bbox和性能均满
 - 运行G0～G6；
 - 生成受控演示、架构/恢复时序、模型消融和manifest；
 - 明确所有 `NOT_RUN`。
+- 先形成`HardeningDecision`：没有明确威胁收益时记录`NOT_REQUIRED_WITH_RATIONALE`；只有`REQUIRED`时启用被点名的authority/OCI控制，不默认恢复整套旧加固链。
 
 完成不等于H1、生产或商业验证。
 

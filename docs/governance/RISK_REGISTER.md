@@ -4,7 +4,7 @@
 >
 > Program：`TC-VNEXT-2026`
 >
-> 日期：2026-08-28
+> 日期：2026-08-29
 
 | ID | 风险 | 用户影响 | 预防/缓解 | 监测与Gate | 当前状态 |
 |---|---|---|---|---|---|
@@ -48,7 +48,7 @@
 | R-38 | 过早冻结authority generation使后续Goal无法定义专属Gate | 后续版本被早期治理合同锁死 | ADR-014取消G01～G06 authority generation前置；每Goal独立冻结自己的CORE scorer/threshold | Goal contract transition测试 | SUPERSEDED_BY_ADR_014 |
 | R-39 | 长耗时验证期间远端开发分支被移动 | 最终回执可能指向不同候选 | CORE以subject/tree再次回读；G07再评估唯一不可变ref与双readback | remote mismatch回归；G07 ref审查 | OPEN，CORE readback；immutable ref DEFERRED |
 | R-40 | G02～G07自动合同只有通用测试 | 版本Outcome未被浏览器/PostgreSQL场景证明 | 七份合同各自冻结至少一个Goal后端检查和一个浏览器检查；缺文件或未运行即fail closed | Goal-specific contract覆盖测试 | MITIGATED_IN_CODE，未来Goal未运行 |
-| R-41 | PASS先写ledger后写回执文件 | 磁盘失败却已授权下一Goal | 先独占写入、fsync并回读相同字节，再在外部事务登记 | write-before-register回归 | MITIGATED_IN_CODE，正式PASS未运行 |
+| R-41 | G07若启用外部ledger时先登记PASS、后写回执文件 | 磁盘失败却留下错误HARDENED授权 | 只在`HardeningDecision=REQUIRED`时使用；先独占写入、fsync并回读相同字节，再在外部事务登记 | G07 write-before-register回归 | DEFERRED_CANDIDATE_HARDENING；CORE不依赖ledger |
 | R-42 | 前端/小程序锁文件含已知npm audit告警及Node engine边界告警 | 供应链漏洞或未来构建漂移 | 不在治理切片中自动升级；G01后建立独立依赖审计、可达性分析、升级与浏览器回归切片 | 当前重建记录frontend 10项、miniapp 41项；生产前必须分级处置 | OPEN，既有依赖风险 |
 | R-43 | OCI镜像无法可靠绑定候选或携带多余Git历史 | 候选加固证据错误或泄露历史对象 | 现有object-pack方案保留实验；G07根据威胁模型复审 | G07 clean OCI readback | DEFERRED_CANDIDATE_HARDENING |
 | R-44 | 联网/root镜像构建执行候选依赖脚本 | 候选污染验证环境 | G01～G06不以HARDENED OCI作为Gate；G07启用时使用无特权、锁定依赖构建 | G07 Dockerfile反例 | DEFERRED_CANDIDATE_HARDENING |
@@ -56,5 +56,9 @@
 | R-46 | canonical远端分支缺少服务端不可变保护 | 长验证期间候选被移动 | CORE checkpoint使用subject/tree回读；G07或对外候选再要求不可变ref/服务端保护 | remote mismatch；G07仓库设置审计 | ACCEPTED PROCESS RESIDUAL，G07评估 |
 | R-47 | 类型化数据库行被误当作Provider真实调用证明 | 任意成功状态/hash被包装成live证据 | G01 CORE要求HTTP/runtime/effect交叉回读和fixture显式隔离；外部逐effect签名在G07评估 | live source/config/hash反例 | OPEN，G01 CORE live待运行；HARDENED exporter DEFERRED |
 | R-48 | 治理、安全或审查基础设施反客为主 | 用户主链长期无进展，真实模型/Provider/Gate继续NOT_RUN | 纯治理最多连续一个checkpoint；两次`Product progress = NONE`强制转向；P2分级和两轮复审上限 | CURRENT_GOAL Product progress/Governance ratio；每checkpoint检查下一动作 | ACTIVE，所有Goal |
+| R-49 | 独立功能对话的baseline、prompt、branch/worktree、指导版本、writer名额或owned paths漂移 | 合并覆盖他人改动、冻结后继续写、子Agent绕过上限、证据绑定错误或重复开发 | v2 registry、主对话唯一集成、同baseline、完整prompt hash、branch/worktree唯一、`WAITING_FOR_WRITER_SLOT`、ready tip/clean/remote校验、提交祖先顺序和只读降级 | work package registry/Git validator + 串行合并回读 | OPEN，G01～G07 |
+| R-50 | 截图孤儿文件、OCR映射残留或敏感图片直接外发VL | 隐私泄漏且用户无法删除 | multipart临时批次、所有终态清理、OCR SourceDocument TTL/delete、本地敏感遮蔽 | G04 cleanup/TTL/delete/VL redaction矩阵 | OPEN，G04 |
+| R-51 | 分享fragment未及时清除、秘密进入服务端URL/日志/Referer，或撤销后缓存仍可访问 | 私人行程被未授权查看 | token摘要、fragment在分析启动前经body换HttpOnly capability并清除、撤销/过期缓存失效和账号删除级联 | G06 token/IDOR/cache/delete浏览器矩阵 | OPEN，G06 |
+| R-52 | G07因历史加固代码存在而默认恢复整套authority/OCI链 | 候选收口再次被治理工程拖住 | 先产出`HardeningDecision`；无明确威胁收益时`NOT_REQUIRED_WITH_RATIONALE`，只处理blocking风险 | G07威胁模型、成本收益和决策回执 | OPEN，G07 |
 
 风险状态只能通过对应Goal的实际证据关闭。文档、计划或单次测试不能把OPEN改为CLOSED。

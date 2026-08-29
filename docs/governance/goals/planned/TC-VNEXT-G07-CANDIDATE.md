@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G07-CANDIDATE`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.9`
+- Mainline phase：`CANDIDATE_HARDENING`
+- Gate profile：`HARDENED_CANDIDATE_GATE`
 - Status：`DRAFT`
 - Activation：G06 Consent & Share Gate通过并归档后
 - Required gate：`Candidate Evidence Gate G0～G7 + AGENT_GATE_PASS`
@@ -39,6 +41,16 @@
 - 允许受控demo artifact、视频脚本和manifest；
 - 公网部署本身仍需人工批准。
 
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G07-PERFORMANCE` | 性能、资源预算和基准回执 | G01～G06冻结候选 | 主链P95与资源预算通过 |
+| `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 |
+| `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 |
+
+激活时主对话为三包生成完整v1提示词并登记独立用户可见功能对话、branch/worktree、prompt hash与exact baseline；先启动两个包，第三包`WAITING_FOR_WRITER_SLOT`，有一个经集成者验收冻结后再启动。子Agent只读复核/诊断，不得写产品代码或改状态。全部冻结后，集成者按可靠性/隐私材料→性能收口→同commit全量E2E/Gate串行整合，再执行`HardeningDecision`、manifest和远端readback。不得在贡献包内增加产品功能、改治理或自行合并；最多两轮修复复审，非阻断项按风险排序披露。
+
 ## Decisions locked
 
 - 候选commit上重新运行G0～G7。
@@ -47,6 +59,7 @@
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
 - 新功能请求进入未来Program，不在收口Goal扩展。
 - 所有`NOT_RUN`明确列出。
+- `HardeningDecision`只有两种：`NOT_REQUIRED_WITH_RATIONALE`记录威胁、替代控制和残余风险；`REQUIRED`只启用威胁模型点名的控制。不得因为旧代码存在默认恢复八角色签名、broker、远端anchor或OCI。
 
 ## Non-goals
 
@@ -69,6 +82,7 @@
 - 受控demo、90秒视频、5分钟脚本、架构图、恢复图、消融和manifest可回读；
 - final disclosure准确列出candidate、NOT_RUN和风险；
 - clean tree、push和远端readback。
+- `HardeningDecision`与候选commit绑定；所选控制全部实际验证，未选控制明确为`NOT_REQUIRED_WITH_RATIONALE`而非伪装PASS。
 
 ## Verification
 
@@ -112,9 +126,9 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 

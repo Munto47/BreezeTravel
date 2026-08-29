@@ -4,7 +4,7 @@
 >
 > Program：`TC-VNEXT-2026`
 >
-> 日期：2026-08-28
+> 日期：2026-08-29
 
 ## 1. 准入状态
 
@@ -14,8 +14,8 @@
 | 文本语义生产候选 | Qwen Plus exact binding | G01预批准；从现有凭据自动目录readback | Validation达标后可成为唯一候选 | 同上 | 与Max同dev/validation比较，不能用于blind选模 |
 | 文本低延迟候选 | Qwen Flash exact binding | G01预批准；从现有凭据自动目录readback | 否 | 同上 | dev/validation的schema、质量和P95均达标 |
 | 历史语义Baseline | DeepSeek固定版本 | 只读/消融 | 否 | 复用历史receipt，不作fallback | 不得晋级新版证据 |
-| OCR基线 | 本地PaddleOCR | 已有资产，G04适配 | G04候选 | OCR box/hash；原图终态删除 | 真实来源OCR Gate |
-| 视觉模型 | Qwen-VL固定snapshot | G04实验 | 否 | 不保存未脱敏模型响应 | bbox/顺序/卡片/性能消融胜出 |
+| OCR基线 | 本地PaddleOCR | 已有资产，G04适配 | G04候选 | 原图终态删除；加密OCR文本/bbox映射继承SourceDocument TTL/delete | 真实来源OCR Gate |
+| 视觉模型 | Qwen-VL固定snapshot | G04实验 | 否 | 本地敏感遮蔽；不保存未脱敏模型响应 | bbox/顺序/卡片/性能消融胜出，否则保持实验 |
 | POI搜索 | 高德Web Service | `OWNER_ATTESTED_EXISTING_AUTHORIZATION`，G01可开发 | G01候选 | 只保留最小规范化地点事实与脱敏回执 | 生产/公开展示前核对数据留存范围 |
 | 路线 | 高德步行/公交 | `OWNER_ATTESTED_EXISTING_AUTHORIZATION`，G01可开发 | G01后台/G02展示候选 | 规范化事实最小留存；geometry默认短期缓存 | 商业展示、长期缓存和域名许可 |
 | 天气/预警 | 和风天气 | 历史已有，G03使用 | G03候选 | observed/effective/expires和receipt | 当前套餐、归因和使用范围核对 |
@@ -92,6 +92,6 @@ G01/G02只在现有开发授权和无增量费用范围调用，授权依据记�
 
 ## 6. 隐私与区域
 
-模型启用前固定账号方案、访问区域和数据使用条款。发送模型前本地遮蔽手机号、证件号、订单号等高风险字段。登录用户原始文本与可还原SourceClaim加密保存，默认最长30天或直到删除行程/账号；到期只保留不可逆hash、结构化结果、版本和删除回执。它们不进入应用日志、trace、分析事件或模型receipt。DEMO固定示例的匿名编辑24小时清理。
+模型启用前固定账号方案、访问区域和数据使用条款。发送模型前本地遮蔽手机号、证件号、订单号等高风险字段。登录用户原始文本、截图OCR文本、阅读顺序、bbox映射与可还原SourceClaim加密保存，默认最长30天或直到删除行程/账号；原始截图只进短期存储并在所有终态清理。到期只保留不可逆hash、结构化结果、版本和删除回执。它们不进入应用日志、trace、分析事件或模型receipt。DEMO固定示例的匿名编辑24小时清理。
 
 任何Provider条款变化、区域迁移、新账号/套餐或付费升级都需要更新本表和对应Goal。

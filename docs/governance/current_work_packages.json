@@ -1,0 +1,46 @@
+{
+  "active_goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+  "active_goal_sequence": 1,
+  "e2e_after_all_merges": true,
+  "gate_profile": "CORE_AGENT_GATE",
+  "guidance_sha256": "b564bf9577d2ba31b27a4309580ecc4618ab0ff74cf7eaf5398d2d808cf9fd54",
+  "integration_order": [],
+  "mainline_phase": "CORE_MVP",
+  "max_parallel_writers": 3,
+  "max_prepared_next_goal_packages": 2,
+  "mismatch_policy": "READ_ONLY",
+  "packages": [
+    {
+      "acceptance": [
+        "G01 exact candidate evidence and Text Card Gate are completed",
+        "governance unification is merged only at the serial integration window",
+        "G02 is not activated before G01 archive and atomic binding transition"
+      ],
+      "baseline_commit": "d35555787a6e3edfc7c18285f7bba0540a7f3acf",
+      "branch": "codex/trip-check-product-reset",
+      "dialogue_ref": "codex-task:primary-integrator",
+      "dependencies": [],
+      "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
+      "forbidden_paths": [],
+      "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
+      "merge_order": 1,
+      "owned_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "backend",
+        "docs",
+        "frontend",
+        "miniapp",
+        "packages"
+      ],
+      "package_id": "WP-G01-INTEGRATOR",
+      "remote_branch": "origin/codex/trip-check-product-reset",
+      "role": "INTEGRATOR",
+      "status": "IN_PROGRESS",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
+    }
+  ],
+  "program_id": "TC-VNEXT-2026",
+  "schema_version": "work-package-registry-v2"
+}

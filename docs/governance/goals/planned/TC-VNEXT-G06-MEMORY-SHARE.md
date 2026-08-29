@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G06-MEMORY-SHARE`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.6`
+- Mainline phase：`PRODUCT_ENHANCEMENT`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G05 Knowledge Admission Gate通过并归档后
 - Required gate：`Consent & Share Gate + AGENT_GATE_PASS`
@@ -37,6 +39,16 @@
 - 现有认证与PostgreSQL；
 - 不新增第三方CRM、analytics或数据仓库。
 
+## Parallel work packages
+
+| Package | Owned paths（激活时精确化） | Dependencies | Acceptance |
+|---|---|---|---|
+| `WP-G06-CONSENT-MEMORY` | consent、结构化偏好、查看/修改/清空 | G01删除合同 + 033由集成者编号 | default-off、删除fresh readback |
+| `WP-G06-SHARE-PROJECTION` | 分享投影、创建/撤销/只读访问 | UserFacingTripResult | token摘要、不可枚举、撤销后不可访问 |
+| `WP-G06-FEEDBACK` | 地点纠正、删除/替换、建议反馈事件 | 独立训练consent | 最小事件且无原文/聊天长期留存 |
+
+激活时主对话为三包生成完整v1提示词并登记独立用户可见功能对话、branch/worktree、prompt hash与exact baseline；先启动两个包，第三包`WAITING_FOR_WRITER_SLOT`，有一个经集成者验收冻结后再启动。子Agent只读复核/诊断，不得写产品代码或改状态。全部冻结后，集成者串行完成consent/权限领域→API/持久化→分享UI→隐私E2E。贡献包不得修改治理、migration、共享OpenAPI生成物或锁文件，不得自行合并；最多两轮修复复审。
+
 ## Decisions locked
 
 - 记忆默认关闭。
@@ -47,6 +59,8 @@
 - 分享只使用用户投影，不含内部字段。
 - 不恢复六位房间号作为入口。
 - 分享接收者默认只读。
+- 分享链接使用`/share/{share_ref}#s=<secret>`：fragment只在浏览器内使用，页面在任何日志/分析启动前以请求体换取短期HttpOnly capability并立即清除fragment。secret不得进入服务端可见URL、访问日志、Referer或分析事件；删除行程/清空账号旅行数据必须撤销相关分享并清理session与缓存。
+- 提交反馈不代表训练/评测授权；数据用途同意是独立、默认关闭且可撤销的资源。“清空全部旅行数据”固定清除偏好和反馈并撤销全部分享。
 
 ## Non-goals
 
@@ -66,7 +80,7 @@
 - 原文/截图/聊天长期留存0；
 - consent分离；
 - 越权0；
-- token不可枚举、撤销/过期有效；
+- token不可枚举、fragment交换后立即清除、撤销/过期有效；
 - 分享页内部字段0；
 - 删除后fresh readback无残留业务值。
 
@@ -74,7 +88,7 @@
 
 - consent状态机；
 - PostgreSQL 033；
-- access control、IDOR和token；
+- access control、IDOR、fragment-to-cookie交换和token；
 - deletion/recovery；
 - public payload/DOM scan；
 - browser memory/share/revoke；
@@ -109,14 +123,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Consent & Share Gate`；Next template：`TC-VNEXT-G07-CANDIDATE.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G07并创建generation 7权限锚；H1/商业不自动启动。
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G07；不登记外部ledger、不预创建authority generation；H1/商业不自动启动。
 
 ## Completion record
 

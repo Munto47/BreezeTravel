@@ -5,6 +5,8 @@
 - Goal ID：`TC-VNEXT-G02-MAP-STAY`
 - Program ID：`TC-VNEXT-2026`
 - Product version：`V0.2`
+- Mainline phase：`CORE_MVP`
+- Gate profile：`CORE_AGENT_GATE`
 - Status：`DRAFT`
 - Activation：G01 Text Card Gate通过并归档后
 - Required gate：`Map & Stay Gate + AGENT_GATE_PASS`
@@ -38,6 +40,20 @@
 - 当前已有无增量费用高德POI、walking和transit开发调用；
 - Redis短期geometry缓存；
 - 不引入消息队列。
+
+## Parallel work packages
+
+G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`编号和exact product baseline，再按`WORK_PACKAGE_PROMPT_TEMPLATE.md`生成并登记三份完整提示词。每包由一个用户可见的独立功能对话承担；子Agent只可短期只读复核或诊断。
+
+| Package | Branch | Worktree | 初始状态 | Owned paths（激活时精确化） | Acceptance |
+|---|---|---|---|---|---|
+| `WP-G02-MAP-THEATER-UI` | `codex/wp-g02-map-theater-ui` | `D:/munto/code/claudeProject/agentTravel-wp-g02-map-theater-ui` | `IN_PROGRESS` | 地图剧场前端及定向浏览器测试 | 同日同色、walking/transit切换、NEEDS_UPDATE |
+| `WP-G02-STAY-DOMAIN` | `codex/wp-g02-stay-domain` | `D:/munto/code/claudeProject/agentTravel-wp-g02-stay-domain` | `IN_PROGRESS` | 住宿区域/品牌/评分纯领域模块及测试 | 2/4/8km、最多12→3、整程同店可重放 |
+| `WP-G02-MAP-STAY-BACKEND` | `codex/wp-g02-map-stay-backend` | `D:/munto/code/claudeProject/agentTravel-wp-g02-map-stay-backend` | `WAITING_FOR_WRITER_SLOT` | map/stay service、API和持久化集成 | 手动更新只算current revision，编辑调用0 |
+
+集成者始终占一个writer名额，因此先启动地图UI和住宿领域两个功能对话。A或B经主对话验收、登记`ready_commit`并冻结为官方`READY_TO_MERGE`后，才把后端包切为`IN_PROGRESS`并启动第三个功能对话。功能对话只能请求冻结，不得自行改registry、创建migration编号、改共享OpenAPI或合并。
+
+三个包全部验收冻结后停止贡献分支写入。主对话严格按`WP-G02-STAY-DOMAIN → WP-G02-MAP-STAY-BACKEND → WP-G02-MAP-THEATER-UI → E2E`串行合并；`ready_commit/merged_commit`祖先顺序不符时Gate失败。集成故障优先交回原功能对话修复，主对话只处理最小冲突和登记路径内胶水；每包最多两轮修复复审。
 
 ## Decisions locked
 
@@ -123,14 +139,14 @@
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next autonomous action |
-|---|---|---|---|---|---|---|---|
-| 激活时填写 |  |  |  |  |  |  |  |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 激活时填写 |  |  |  |  |  |  |  |  |  |
 
 ## Auto-advance
 
 - Required gate：`Map & Stay Gate`；Next template：`TC-VNEXT-G03-TOP3-AUDIT.md`；
-- subject push/readback、耐久`AGENT_GATE_PASS`登记到仓库外Goal pass ledger、clean tree、无Stop后，最终归档，按Program稳定binding原子激活G03并创建generation 3权限锚；
+- subject push/readback、耐久`AGENT_GATE_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G03；不登记外部ledger、不创建authority generation；
 - FUX-02、H1、公网、生产、商业和`main`不自动启动。
 
 ## Completion record

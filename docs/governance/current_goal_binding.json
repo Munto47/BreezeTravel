@@ -1,13 +1,15 @@
 {
   "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g01_automated_product_gate.json",
-  "automated_gate_contract_sha256": "8b19ee96e92a180ff0de9fa5308874b78cbefbc1828fb328571178aaf508888c",
+  "automated_gate_contract_sha256": "7eba7a296c08d76e01ea43b4bbab4b40b2e28923792417979618d9ac8a2df9d4",
   "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
   "gate_profile": "CORE_AGENT_GATE",
   "goal_id": "TC-VNEXT-G01-TEXT-CARDS",
   "goal_sequence": 1,
+  "mainline_phase": "CORE_MVP",
   "predecessor_completion_commit": "f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
   "predecessor_goal_id": "TC-BP-G00-BLUEPRINT",
   "program_id": "TC-VNEXT-2026",
-  "schema_version": "current-goal-binding-v1",
-  "status": "IN_PROGRESS"
+  "schema_version": "current-goal-binding-v2",
+  "status": "IN_PROGRESS",
+  "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

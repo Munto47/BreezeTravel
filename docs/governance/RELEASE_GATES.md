@@ -1,4 +1,4 @@
-# 「行程查」Blueprint 1.1 Release Gates
+# 「行程查」Blueprint 1.3 Release Gates
 
 > 状态：`ACCEPTED`
 >
@@ -20,6 +20,12 @@
 G01～G07必须按`AGENT_GATE_PROTOCOL.md`取得`AGENT_GATE_PASS`。多Agent模拟审查和sealed agent blind均不是人类证据；H1、生产和商业未实际运行时保持`NOT_RUN`。
 
 G01～G06使用`CORE_AGENT_GATE`，只要求当前产品Goal的最小充分证据；G07使用`HARDENED_CANDIDATE_GATE`。后续候选/生产加固不得前置阻断G01～G06。连续两个纯治理checkpoint且没有产品、模型、Provider或产品评测指标进展时，Gate工作必须暂停并回到产品主线。
+
+阶段固定为G01～G03 `CORE_MVP`、G04～G06 `PRODUCT_ENHANCEMENT`、G07 `CANDIDATE_HARDENING`。G03通过后不增加HITL；G07通过后停止。
+
+### 0.1 并行开发完整性
+
+每个Goal晋级前，v2 `current_work_packages.json`必须证明：主对话是唯一非终态集成者；每个长期功能绑定独立用户可见对话、branch、remote、worktree和完整prompt hash；集成者加最多两个`IN_PROGRESS/BLOCKED_EXTERNAL`贡献包；等待的第三包为`WAITING_FOR_WRITER_SLOT`；同一exact product baseline；branch/worktree/路径所有权不重复；普通包未触碰受保护文件；官方`READY_TO_MERGE`的tip、clean worktree和remote readback仍等于`ready_commit`；所有包按登记的领域→后端/API→UI顺序串行整合后才运行E2E。子Agent提交、功能对话自行合并/改状态、v1降级、指导/prompt/binding漂移、跨两级开发或`PREPARED_NOT_INTEGRATED`提前合并，任一项均阻断Gate。
 
 新版状态：
 
@@ -160,11 +166,12 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 ## 6. Screenshot Parity Gate — G04
 
 - PNG/JPEG/WebP、1～6张、单张≤10MB；
+- multipart批次返回owner-bound不透明引用；JSON Base64输入0，跨账号/过期/重复终态消费0；
 - 真实来源OCR关键字段F1≥95%；
 - 低置信关键字段确认召回100%；
 - 冻结paired set上阅读顺序adjacency-F1≥97%；
 - 使用两个隔离Agent转写和新的ultra裁决形成同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；Agent结果不得称为人工校正；
-- 原图泄漏0，清理receipt 100%；
+- 原图泄漏0，成功/失败/取消/超时/TTL终态清理receipt 100%；OCR文本/bbox删除遵循SourceDocument合同；
 - 三张1080×1920图片在候选RunSpec冻结CPU/GPU/内存和并发1环境下P95≤12秒；
 - Qwen-VL若晋级，关键字段、阅读顺序、卡片结果、bbox来源追踪和P95均不得低于PaddleOCR，且至少一项错误率相对下降≥20%；
 - synthetic、自动视觉复核、`MULTI_AGENT_SIMULATED_REVIEW`分别披露；真人OCR只在另行批准并实际运行后记为`HUMAN_USABILITY`，不阻断G04。
@@ -196,7 +203,10 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 - 查看、更改、清空和删除全部可回读；
 - 原文、截图、聊天默认长期留存0；
 - 训练/评测consent与产品记忆consent分离；
-- 分享token不可枚举、可撤销、过期并最小披露；
+- 分享token不可枚举、可撤销、过期并最小披露；链接fragment只能用于一次body交换，换得HttpOnly capability后立即清除；
+- 分享秘密进入服务端可见URL、访问日志、Referer或分析事件为0；
+- 删除行程/账号后分享仍可访问为0；
+- 反馈隐式开启训练/评测授权为0；清空全部旅行数据后偏好、反馈或分享残留为0；
 - 越权读取/修改0；
 - 分享页内部字段泄漏0。
 
@@ -212,7 +222,7 @@ G01正式`AGENT_GATE_PASS`还要求：自动测试、真实Qwen/高德脱敏回�
 | G5 浏览器/性能 | 登录、体验、卡片、地图stale/rerender、住宿、Top-3、刷新、断线和P95 |
 | G6 Manifest | 同一commit/config/dataset/model/rule/provider的不可变汇总 |
 | G7 Agent Gate | 三角色隔离审查、ultra裁决、所需sealed blind与fresh readback |
-| G8 候选加固 | 根据已批准威胁模型验证或明确豁免外部authority、不可变远端ref、角色签名与隔离执行；不得把它外推为H1或生产证明 |
+| G8 候选加固 | 生成`HardeningDecision`。`NOT_REQUIRED_WITH_RATIONALE`必须绑定威胁、替代控制和残余风险；`REQUIRED`只验证被点名的外部authority、不可变远端ref、角色签名或OCI控制。不得默认恢复整套旧链，也不得外推为H1或生产证明 |
 
 G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不同配置不能拼接。候选材料包括受控演示、90秒视频、5分钟完整演示、架构图、恢复时序图、模型消融和已知边界。
 
