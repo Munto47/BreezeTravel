@@ -34,9 +34,38 @@
       "component-level evidence reuse framework"
     ],
     "minimum_change": "First make Qwen batch and in-process Provider concurrency exactly one and bind it into summaries and hashes; only if a full 72-case run still lacks latency margin, move mechanical output fields into deterministic code and trim duplicate prompt rules.",
-    "phase": "IMPLEMENTING",
-    "preflight_entrypoints": [],
-    "preflight_required_tokens": {},
+    "phase": "PREFLIGHT",
+    "preflight_entrypoints": [
+      "backend/scripts/validate_work_packages.py",
+      "backend/scripts/run_qwen_model_predictions.py",
+      "backend/scripts/export_g01_amap_live_receipts.py",
+      "backend/scripts/export_g01_qwen_live_receipts.py",
+      "backend/scripts/score_g01_sealed_agent_blind.py",
+      "backend/scripts/build_agent_gate_pass.py"
+    ],
+    "preflight_required_tokens": {
+      "backend/scripts/build_agent_gate_pass.py": [
+        "verify_core_agent_gate_pass",
+        "verify_g07_candidate_gate_pass"
+      ],
+      "backend/scripts/export_g01_amap_live_receipts.py": [
+        "write_external_bytes_exclusive"
+      ],
+      "backend/scripts/export_g01_qwen_live_receipts.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ],
+      "backend/scripts/run_qwen_model_predictions.py": [
+        "write_external_bytes_exclusive"
+      ],
+      "backend/scripts/score_g01_sealed_agent_blind.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ],
+      "backend/scripts/validate_work_packages.py": [
+        "output.open(\"x\""
+      ]
+    },
     "slice_id": "G01-QWEN-LATENCY",
     "stop_condition": "Stop if the change raises the seven-second deadline, retries or races calls, splices batches, adds infrastructure, drops semantic boundaries, or reduces place/card quality.",
     "user_outcome": "Long travel text produces the same accurate editable cards while Qwen leaves enough margin inside the fixed seven-second request budget.",
