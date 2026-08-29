@@ -4,25 +4,21 @@
   "active_slice": {
     "acceptance_refs": [
       "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
-      "CORE candidate context must bind the clean checkout and canonical remote to one exact commit"
+      "CURRENT_GOAL.md Verification synthetic preflight before exact Provider evidence"
     ],
     "allowed_paths": [
-      "backend/eval_data/agent_gate_v1/protocol_contract.json",
-      "backend/eval_data/agent_gate_v1/work_package_registry.schema.json",
-      "backend/evals/agent_gate_v1/contracts.py",
-      "backend/evals/agent_gate_v1/scope_guard.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_scope_guard.py",
+      "backend/eval_data/trip_text_cards_agent_v2/agent_evaluation_contract.json",
+      "backend/scripts/score_g01_sealed_agent_blind.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "a82e1f5b634b930ce166924ede5d9b489529dfdc",
+    "base_commit": "ac132667fdd21438f9b04a6f24f660d68006118f",
     "blocking_issue": {
       "current_goal_acceptance_ref": "CURRENT_GOAL.md Acceptance Text Card Gate + AGENT_GATE_PASS",
-      "impact_chain": "The registry can only record a frozen parent in a later commit while the scope guard and CORE Gate currently require that earlier parent to also be HEAD and the canonical remote, so no exact candidate can satisfy both checks.",
-      "minimum_fix": "Rename the marker to freeze_parent_commit, make the marker commit the sole formal candidate, and verify that its direct-parent diff changes only the active-slice freeze fields.",
-      "reproduction": "Create code candidate C, commit the registry freeze marker as F with frozen_candidate_commit=C, then run scope validation and CoreCandidateContext against the same clean checkout and canonical remote.",
+      "impact_chain": "The sealed scorer advertises two CLI inputs that are never read, so the mandatory synthetic preflight rejects the candidate before exact Qwen, AMap and performance evidence can begin.",
+      "minimum_fix": "Remove only --mint-receipt and --truth-hmac-key-id from the CORE sealed scorer CLI, then verify that generated contracts remain exact and static preflight has no findings.",
+      "reproduction": "Run scope_guard._preflight_findings for the active G01 entrypoints at ac132667fdd21438f9b04a6f24f660d68006118f and observe unconsumed_cli_argument for --mint-receipt and --truth-hmac-key-id.",
       "severity": "P1",
-      "stop_condition": "Stop when one combined test proves scope frozen validation and CORE candidate context both bind F, while C, non-marker diffs and post-F tracked changes are rejected."
+      "stop_condition": "Stop when both unconsumed arguments disappear and the generated evaluation contract remains an exact deterministic regeneration."
     },
     "evidence_invalidated": [
       "QWEN_EXACT",
@@ -38,13 +34,20 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Repair only the freeze-parent versus formal-candidate contradiction in the existing scope contract; do not change CORE candidate equality or add durable state, cryptography, authority, custody or services.",
+    "minimum_change": "Delete two unused argparse declarations and make no scoring, threshold, receipt, blind, custody or product-runtime change.",
     "phase": "IMPLEMENTING",
-    "preflight_entrypoints": [],
-    "preflight_required_tokens": {},
-    "slice_id": "G01-FREEZE-CANDIDATE-CONTEXT-FIX",
-    "stop_condition": "Stop if the fix needs CORE Gate relaxation, database state, a migration, HMAC, an authority protocol, custody, a new service, more than the declared paths or a higher budget.",
-    "user_outcome": "G01 can freeze one exact commit and run its final CORE Gate without an impossible candidate self-reference.",
+    "preflight_entrypoints": [
+      "backend/scripts/score_g01_sealed_agent_blind.py"
+    ],
+    "preflight_required_tokens": {
+      "backend/scripts/score_g01_sealed_agent_blind.py": [
+        "write_external_bytes_exclusive",
+        "validate_provider_receipt_assets"
+      ]
+    },
+    "slice_id": "G01-SEALED-SCORER-PREFLIGHT-FIX",
+    "stop_condition": "Stop if the repair requires implementing custody, HMAC, a durable registry, a new service, changing the blind oracle or changing scoring thresholds.",
+    "user_outcome": "The existing G01 card candidate can pass its mandatory no-blind synthetic preflight and proceed to exact product evidence.",
     "work_kind": "CURRENT_GATE_FIX"
   },
   "e2e_after_all_merges": true,
