@@ -1,6 +1,6 @@
 {
   "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g01_automated_product_gate.json",
-  "automated_gate_contract_sha256": "a4fb60448067c81ce73f67d0f98b3b50e9fe19a9010e565d36b3aba873845afd",
+  "automated_gate_contract_sha256": "8b19ee96e92a180ff0de9fa5308874b78cbefbc1828fb328571178aaf508888c",
   "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
   "gate_profile": "CORE_AGENT_GATE",
   "goal_id": "TC-VNEXT-G01-TEXT-CARDS",

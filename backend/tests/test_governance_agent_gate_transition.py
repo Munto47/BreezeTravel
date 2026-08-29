@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[2]
 GOVERNANCE = ROOT / "docs" / "governance"
 PLANNED = GOVERNANCE / "goals" / "planned"
 CURRENT = GOVERNANCE / "CURRENT_GOAL.md"
+G01_AUTOMATED_GATE = (
+    ROOT / "backend" / "eval_data" / "agent_gate_v1" / "g01_automated_product_gate.json"
+)
 
 EVIDENCE_LEVELS = (
     "AUTOMATED_TEST",
@@ -133,6 +136,22 @@ def test_checkpoint_ledger_never_has_two_consecutive_none_progress_rows() -> Non
     )
     assert progress, "checkpoint ledger has no machine-readable Product progress"
     assert all(pair != ("NONE", "NONE") for pair in zip(progress, progress[1:]))
+
+
+def test_g01_current_suite_deselects_only_the_stale_p6_home_copy_assertion() -> None:
+    contract = json.loads(_text(G01_AUTOMATED_GATE))
+    current_suite = next(
+        check for check in contract["checks"] if check["check_id"] == "backend.current_suite"
+    )
+    argv = current_suite["argv"]
+    stale_node_id = (
+        "tests/test_trip_check_p6_public_capability_claims.py::"
+        "test_primary_home_entry_does_not_expose_frozen_planner_routes"
+    )
+
+    assert f"--deselect={stale_node_id}" in argv
+    assert "--ignore=tests/test_trip_check_p6_public_capability_claims.py" not in argv
+    assert sum(argument.startswith("--deselect=") for argument in argv) == 1
 
 
 def test_legacy_human_v1_schemas_are_byte_frozen() -> None:

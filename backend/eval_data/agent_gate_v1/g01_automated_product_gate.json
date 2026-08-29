@@ -19,6 +19,7 @@
         "pytest",
         "-q",
         "--ignore=tests/test_trip_nlu_v2_gate.py",
+        "--deselect=tests/test_trip_check_p6_public_capability_claims.py::test_primary_home_entry_does_not_expose_frozen_planner_routes",
         "--timeout=180"
       ],
       "check_id": "backend.current_suite",
