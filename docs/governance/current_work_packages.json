@@ -9,16 +9,21 @@
     ],
     "allowed_paths": [
       "backend/app/api",
+      "backend/app/config.py",
       "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
       "backend/app/trip_understanding",
+      "backend/governance/core_mainline.py",
       "backend/tests/test_g02_*.py",
       "docs/governance/CURRENT_GOAL.md",
+      "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
+      "docs/governance/gate-results/G02.product-delivery.json",
       "frontend/e2e/g02-product-delivery.spec.js",
       "frontend/src",
+      "packages/trip-check-client/openapi.current.json",
       "packages/trip-check-client/src"
     ],
-    "base_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
+    "base_commit": "4054bbf8164d1e56078ae4aa944b8b33e4178ac1",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "Agent Gate、blind、authority、custody、签名或 broker",
@@ -27,7 +32,7 @@
       "未在 Goal 激活时锁定的新验收项"
     ],
     "minimum_change": "先交付地图可查看/手动更新和整程住宿可选择的最小端到端产品切片。",
-    "phase": "IMPLEMENTING",
+    "phase": "DELIVERY_VERIFY",
     "preflight_entrypoints": [
       "backend/tests/test_g02_*.py",
       "frontend/e2e/g02-product-delivery.spec.js"
@@ -55,7 +60,7 @@
         "编辑后路线Provider自动调用为0",
         "住宿最多12家评分、展示最多3家并选择整程同店"
       ],
-      "baseline_commit": "59da74b51455dc224efbf95c0caea3240b70c80e",
+      "baseline_commit": "4054bbf8164d1e56078ae4aa944b8b33e4178ac1",
       "branch": "codex/g02-map-stay",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
@@ -65,13 +70,18 @@
       "merge_order": 1,
       "owned_paths": [
         "backend/app/api",
+        "backend/app/config.py",
         "backend/app/db/migrations/030_stay_recommendation_snapshots.sql",
         "backend/app/trip_understanding",
+        "backend/governance/core_mainline.py",
         "backend/tests/test_g02_*.py",
         "docs/governance/CURRENT_GOAL.md",
+        "docs/governance/current_goal_binding.json",
         "docs/governance/current_work_packages.json",
+        "docs/governance/gate-results/G02.product-delivery.json",
         "frontend/e2e/g02-product-delivery.spec.js",
         "frontend/src",
+        "packages/trip-check-client/openapi.current.json",
         "packages/trip-check-client/src"
       ],
       "package_id": "WP-G02-INTEGRATOR",
