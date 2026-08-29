@@ -36,7 +36,6 @@ _CATEGORY_TYPECODES = {
     PlaceCategory.FOOD: ("050000",),
     PlaceCategory.HOTEL: ("100000",),
     PlaceCategory.ATTRACTION: (
-        "061000",
         "110000",
         "140100",
         "140200",

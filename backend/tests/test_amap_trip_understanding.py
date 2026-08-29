@@ -78,6 +78,14 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
     assert request.url.params["region"] == "北京"
     assert request.url.params["city_limit"] == "true"
     assert request.url.params["keywords"] == "故宫博物院"
+    assert request.url.params["types"].split("|") == [
+        "061000",
+        "110000",
+        "140100",
+        "140200",
+        "140400",
+        "140500",
+    ]
     assert "key=test-only" in str(request.url)
     assert "test-only" not in str(outcome.receipt)
 

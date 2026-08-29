@@ -25,6 +25,7 @@ _PROVIDER_STATUS_SUFFIX_RE = re.compile(
 )
 _PROVIDER_CATEGORY_SUFFIXES = ("博物馆", "风景区", "景区")
 _PROVIDER_HIERARCHY_SEPARATORS = ("-", "—")
+_G01_ATTRACTION_ADDITIONAL_TYPECODES = ("061000",)
 _CATEGORY_LABELS = {
     PlaceCategory.ATTRACTION: "景点",
     PlaceCategory.FOOD: "餐饮",
@@ -277,6 +278,12 @@ class AmapPlaceResolver:
             if expected_category is not None
             else []
         )
+        # Tourist commercial streets are useful for text-card resolution, but
+        # the shared category list is also part of older suggestion query
+        # contracts. Keep the G01 expansion local so those frozen contracts do
+        # not drift.
+        if expected_category == PlaceCategory.ATTRACTION:
+            typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
         safe_params: dict[str, object] = {
             "keywords_sha256": _sha256_text(atomic),
             "region": city,
