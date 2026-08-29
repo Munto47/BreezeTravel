@@ -199,7 +199,18 @@ def test_validation_thresholds_fail_closed_on_small_auto_match_denominator() -> 
         "day_assignment": {"f1": 1.0},
         "role_macro_f1": 1.0,
         "deep_city_auto_match": {"coverage": 1.0},
-        "human_confirmation_count": {"median": 0, "p90": 0},
+        "human_confirmation_count": {
+            "population": "DEEP_CITY",
+            "median": 0,
+            "p90": 0,
+        },
+        "other_city_confirmation_required_count": {
+            "population": "OTHER_CITY",
+            "case_count": 1,
+            "gold_executable_count": 1,
+            "auto_match_count": 0,
+            "total": 1,
+        },
         "public_projection": {"forbidden_key_hits": 0, "full_source_leak_hits": 0},
     }
 
@@ -208,6 +219,42 @@ def test_validation_thresholds_fail_closed_on_small_auto_match_denominator() -> 
     assert assessment["passed"] is False
     denominator = next(item for item in assessment["checks"] if item["name"] == "auto_match_denominator")
     assert denominator["passed"] is False
+
+
+def test_semantic_gate_rejects_other_city_auto_matching() -> None:
+    score = {
+        "scoring_coverage": 1.0,
+        "evidence_span_validity": 1.0,
+        "eligibility_rule_consistency": 1.0,
+        "forbidden_content_as_place_count": 0,
+        "severe_wrong_auto_match_count": 0,
+        "auto_match": {"precision": 1.0, "denominator": 50},
+        "executable_mentions": {"precision": 1.0, "recall": 1.0},
+        "day_assignment": {"f1": 1.0},
+        "role_macro_f1": 1.0,
+        "deep_city_auto_match": {"coverage": 1.0},
+        "human_confirmation_count": {
+            "population": "DEEP_CITY",
+            "median": 0,
+            "p90": 0,
+        },
+        "other_city_confirmation_required_count": {
+            "population": "OTHER_CITY",
+            "case_count": 1,
+            "gold_executable_count": 1,
+            "auto_match_count": 1,
+            "total": 0,
+        },
+        "public_projection": {"forbidden_key_hits": 0, "full_source_leak_hits": 0},
+    }
+
+    assessment = assess_semantic_score(score, split="validation")
+
+    assert assessment["passed"] is False
+    check = next(
+        item for item in assessment["checks"] if item["name"] == "other_city_auto_matches"
+    )
+    assert check["passed"] is False
 
 
 def test_current_gate_readiness_is_honestly_hitl_pending() -> None:

@@ -17,6 +17,7 @@ from evals.agent_gate_v1.contracts import (
 from evals.agent_gate_v1.core_gate import (
     CoreAgentGateError,
     CoreCandidateContext,
+    _thresholds_pass,
     read_worktree_binding,
     verify_core_live_score,
     verify_core_sealed,
@@ -48,6 +49,15 @@ def _blind_metrics() -> dict[str, float | int | bool]:
         "deep_city_auto_match.coverage": 1.0,
         "estimated_confirmation_required_count.median": 0,
         "estimated_confirmation_required_count.p90": 0,
+        "estimated_confirmation_required_count.population_is_deep_city": True,
+        "other_city.case_count": 3,
+        "other_city.gold_executable_count": 18,
+        "other_city.auto_match_count": 0,
+        "other_city.confirmation_required_count.total": 18,
+        "other_city.confirmation_required_count.median": 6,
+        "other_city.confirmation_required_count.p90": 6,
+        "other_city.confirmation_required_count.max": 6,
+        "other_city.population_is_other_city": True,
         "role_classification.error_count": 0,
         "provider_resolution.error_count": 0,
         "evidence_span_validity": 1.0,
@@ -87,6 +97,26 @@ def _core_sealed_receipt(**updates) -> SealedAgentBlindReceipt:
     }
     values.update(updates)
     return SealedAgentBlindReceipt.model_validate(values)
+
+
+def test_core_sealed_metrics_require_deep_scope_and_other_city_zero_auto() -> None:
+    metrics = _blind_metrics()
+    assert _thresholds_pass(metrics) is True
+
+    wrong_population = {**metrics}
+    wrong_population[
+        "estimated_confirmation_required_count.population_is_deep_city"
+    ] = False
+    assert _thresholds_pass(wrong_population) is False
+
+    other_city_auto = {**metrics}
+    other_city_auto["other_city.auto_match_count"] = 1
+    other_city_auto["other_aggregated_error_count"] = 1
+    assert _thresholds_pass(other_city_auto) is False
+
+    hidden_burden = {**metrics}
+    hidden_burden["other_city.confirmation_required_count.total"] = 0
+    assert _thresholds_pass(hidden_burden) is False
 
 
 def test_core_automation_pass_uses_clean_checkout_without_oci_claims() -> None:
@@ -328,7 +358,19 @@ def test_core_live_score_rejects_unreproducible_self_report(tmp_path: Path) -> N
             "day_assignment": {"f1": 1.0},
             "role_macro_f1": 1.0,
             "deep_city_auto_match": {"coverage": 1.0},
-            "estimated_confirmation_required_count": {"median": 0, "p90": 0},
+            "estimated_confirmation_required_count": {
+                "population": "DEEP_CITY",
+                "median": 0,
+                "p90": 0,
+            },
+            "other_city_confirmation_required_count": {
+                "population": "OTHER_CITY",
+                "case_count": 3,
+                "gold_executable_count": 18,
+                "auto_match_count": 0,
+                "correct_auto_match_count": 0,
+                "total": 18,
+            },
             "evidence_span_validity": 1.0,
             "scoring_coverage": 1.0,
             "candidate_auto_selected_minimum_met": True,

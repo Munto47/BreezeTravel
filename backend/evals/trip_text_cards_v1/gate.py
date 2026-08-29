@@ -24,6 +24,7 @@ def assess_semantic_score(score: dict[str, Any], *, split: str) -> dict[str, Any
     day = score["day_assignment"]
     deep = score["deep_city_auto_match"]
     confirmation = score["human_confirmation_count"]
+    other_city_confirmation = score["other_city_confirmation_required_count"]
     public = score["public_projection"]
     checks = [
         _check("scoring_coverage", score["scoring_coverage"], "= 1.0", score["scoring_coverage"] == 1.0),
@@ -43,8 +44,40 @@ def assess_semantic_score(score: dict[str, Any], *, split: str) -> dict[str, Any
         _check("day_assignment_f1", day["f1"], ">= 0.97", day["f1"] >= 0.97),
         _check("role_macro_f1", score["role_macro_f1"], ">= 0.94", score["role_macro_f1"] >= 0.94),
         _check("deep_city_auto_match_coverage", deep["coverage"], ">= 0.80", deep["coverage"] >= 0.80),
+        _check(
+            "confirmation_population",
+            confirmation.get("population"),
+            "= DEEP_CITY",
+            confirmation.get("population") == "DEEP_CITY",
+        ),
         _check("confirmation_median", confirmation["median"], "<= 1", confirmation["median"] is not None and confirmation["median"] <= 1),
         _check("confirmation_p90", confirmation["p90"], "<= 3", confirmation["p90"] is not None and confirmation["p90"] <= 3),
+        _check(
+            "other_city_population",
+            other_city_confirmation.get("population"),
+            "= OTHER_CITY",
+            other_city_confirmation.get("population") == "OTHER_CITY",
+        ),
+        _check(
+            "other_city_auto_matches",
+            other_city_confirmation.get("auto_match_count"),
+            "= 0",
+            other_city_confirmation.get("auto_match_count") == 0,
+        ),
+        _check(
+            "other_city_pending_burden_report",
+            {
+                "case_count": other_city_confirmation.get("case_count"),
+                "gold_executable_count": other_city_confirmation.get(
+                    "gold_executable_count"
+                ),
+                "total": other_city_confirmation.get("total"),
+            },
+            "case_count > 0 and total = gold executable count",
+            other_city_confirmation.get("case_count", 0) > 0
+            and other_city_confirmation.get("total")
+            == other_city_confirmation.get("gold_executable_count"),
+        ),
         _check("public_forbidden_keys", public["forbidden_key_hits"], "= 0", public["forbidden_key_hits"] == 0),
         _check("public_source_leaks", public["full_source_leak_hits"], "= 0", public["full_source_leak_hits"] == 0),
     ]

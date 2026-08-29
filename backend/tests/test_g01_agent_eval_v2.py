@@ -29,6 +29,9 @@ from evals.trip_text_cards_agent_v2.split_loader import (
     load_agent_split,
 )
 from evals.trip_text_cards_v1.contracts import (
+    CanonicalPlaceLabel,
+    CaseAnnotation,
+    MentionAnnotation,
     PredictedMention,
     TextCardPrediction,
     canonical_sha256,
@@ -237,6 +240,128 @@ def test_non_place_reference_spans_do_not_count_as_missing_activity_roles() -> N
 
     assert score["role_metrics"]["OPTIONAL"]["f1"] == 1
     assert score["role_metrics"]["REFERENCE"]["fn"] == 0
+
+
+def test_confirmation_threshold_uses_deep_city_and_reports_other_city_burden() -> None:
+    cases = load_cases(DATA_ROOT)["dev"]
+    deep_source = next(case for case in cases if case.cohort == "DEEP_CITY")
+    other_source = next(case for case in cases if case.cohort == "OTHER_CITY")
+
+    def annotation(source, names: list[str], city: str) -> CaseAnnotation:
+        mentions = []
+        for index, name in enumerate(names, start=1):
+            start = source.input_text.index(name)
+            mentions.append(
+                MentionAnnotation(
+                    mention_id=f"gold-{index}",
+                    span_start=start,
+                    span_end=start + len(name),
+                    raw_text=name,
+                    semantic_kind="PLACE",
+                    role="PLANNED",
+                    day_index=1,
+                    atomic_place_name=name,
+                    executable_place=True,
+                    canonical_place=CanonicalPlaceLabel(
+                        place_id=f"provider-place-{city}-{index}",
+                        name=name,
+                        city=city,
+                        category="景点",
+                        authority="HUMAN_VERIFIED_PROVIDER_RECEIPT",
+                        receipt_ref=f"external-provider-receipt-{city}-{index}",
+                    ),
+                )
+            )
+        return CaseAnnotation(
+            case_id=source.case_id,
+            source_sha256=source.normalized_input_sha256,
+            destination_name=city,
+            mentions=mentions,
+        )
+
+    deep_gold = annotation(deep_source, ["故宫博物院"], "北京")
+    other_names = [
+        "武侯祠",
+        "锦里古街",
+        "人民公园",
+        "宽窄巷子",
+        "成都博物馆",
+        "东郊记忆",
+    ]
+    other_gold = annotation(other_source, other_names, "成都")
+    deep_label = deep_gold.mentions[0].canonical_place
+    assert deep_label is not None
+    deep_prediction = TextCardPrediction(
+        case_id=deep_source.case_id,
+        source_sha256=deep_source.normalized_input_sha256,
+        destination_name="北京",
+        provider_binding={},
+        mentions=[
+            PredictedMention(
+                span_start=deep_gold.mentions[0].span_start,
+                span_end=deep_gold.mentions[0].span_end,
+                raw_text="故宫博物院",
+                role="PLANNED",
+                day_index=1,
+                atomic_place_name="故宫博物院",
+                eligible_for_place_search=True,
+                resolution_status="AUTO_MATCHED",
+                canonical_place_id=deep_label.place_id,
+                canonical_city=deep_label.city,
+                canonical_category=deep_label.category,
+            )
+        ],
+        public_result={},
+        measurement_scope="LOCAL_PIPELINE_ONLY",
+    )
+    other_prediction = TextCardPrediction(
+        case_id=other_source.case_id,
+        source_sha256=other_source.normalized_input_sha256,
+        destination_name="成都",
+        provider_binding={},
+        mentions=[
+            PredictedMention(
+                span_start=mention.span_start,
+                span_end=mention.span_end,
+                raw_text=mention.raw_text,
+                role="PLANNED",
+                day_index=1,
+                atomic_place_name=mention.raw_text,
+                eligible_for_place_search=True,
+                resolution_status="NEEDS_CONFIRMATION",
+            )
+            for mention in other_gold.mentions
+        ],
+        public_result={},
+        measurement_scope="LOCAL_PIPELINE_ONLY",
+    )
+
+    score = score_predictions(
+        source_cases=[deep_source, other_source],
+        gold_cases=[deep_gold, other_gold],
+        predictions=[deep_prediction, other_prediction],
+    )
+
+    assert score["human_confirmation_count"] == {
+        "population": "DEEP_CITY",
+        "case_count": 1,
+        "gold_executable_count": 1,
+        "total": 0,
+        "median": 0.0,
+        "p90": 0.0,
+        "max": 0,
+    }
+    assert score["other_city_confirmation_required_count"] == {
+        "population": "OTHER_CITY",
+        "case_count": 1,
+        "gold_executable_count": 6,
+        "auto_match_count": 0,
+        "correct_auto_match_count": 0,
+        "total": 6,
+        "median": 6.0,
+        "p90": 6.0,
+        "max": 6,
+    }
 
 
 def _attestation(task_id: str, role: str, *, start_minute: int = 0) -> dict[str, object]:

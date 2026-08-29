@@ -81,6 +81,7 @@ def _flatten_score(score: dict[str, object], predictions) -> dict[str, float | i
     auto = score["auto_match"]
     deep = score["deep_city_auto_match"]
     confirmation = score["estimated_confirmation_required_count"]
+    other_city_confirmation = score["other_city_confirmation_required_count"]
     destination = score["destination"]
     projection = score["public_projection"]
     latency = score["public_api_latency"]
@@ -90,6 +91,7 @@ def _flatten_score(score: dict[str, object], predictions) -> dict[str, float | i
     assert isinstance(auto, dict)
     assert isinstance(deep, dict)
     assert isinstance(confirmation, dict)
+    assert isinstance(other_city_confirmation, dict)
     assert isinstance(destination, dict)
     assert isinstance(projection, dict)
     assert isinstance(latency, dict)
@@ -113,6 +115,24 @@ def _flatten_score(score: dict[str, object], predictions) -> dict[str, float | i
     wrong_category = int(score["wrong_category_auto_match_count"])
     provider_resolution_errors = max(0, severe - wrong_city - wrong_category)
     cards_p95 = latency.get("cards_ready_p95_ms")
+    confirmation_population_valid = confirmation.get("population") == "DEEP_CITY"
+    other_city_population_valid = (
+        other_city_confirmation.get("population") == "OTHER_CITY"
+    )
+    other_city_auto_matches = int(other_city_confirmation.get("auto_match_count", -1))
+    other_city_total = int(other_city_confirmation.get("total", -1))
+    other_city_gold = int(
+        other_city_confirmation.get("gold_executable_count", -2)
+    )
+    other_city_case_count = int(other_city_confirmation.get("case_count", 0))
+    other_city_scope_errors = sum(
+        (
+            not confirmation_population_valid,
+            not other_city_population_valid,
+            other_city_case_count <= 0,
+            other_city_total != other_city_gold,
+        )
+    )
     return {
         "forbidden_content_as_place_count": int(
             score["forbidden_content_as_place_count"]
@@ -134,6 +154,23 @@ def _flatten_score(score: dict[str, object], predictions) -> dict[str, float | i
             confirmation["median"]
         ),
         "estimated_confirmation_required_count.p90": float(confirmation["p90"]),
+        "estimated_confirmation_required_count.population_is_deep_city": (
+            confirmation_population_valid
+        ),
+        "other_city.case_count": other_city_case_count,
+        "other_city.gold_executable_count": other_city_gold,
+        "other_city.auto_match_count": other_city_auto_matches,
+        "other_city.confirmation_required_count.total": other_city_total,
+        "other_city.confirmation_required_count.median": float(
+            other_city_confirmation["median"]
+        ),
+        "other_city.confirmation_required_count.p90": float(
+            other_city_confirmation["p90"]
+        ),
+        "other_city.confirmation_required_count.max": int(
+            other_city_confirmation["max"]
+        ),
+        "other_city.population_is_other_city": other_city_population_valid,
         "role_classification.error_count": role_errors,
         "provider_resolution.error_count": provider_resolution_errors,
         "evidence_span_validity": float(score["evidence_span_validity"]),
@@ -152,7 +189,9 @@ def _flatten_score(score: dict[str, object], predictions) -> dict[str, float | i
             float(cards_p95) if cards_p95 is not None else 1_000_000_000.0
         ),
         "latency.violation_count": latency_violations,
-        "other_aggregated_error_count": 0,
+        "other_aggregated_error_count": (
+            other_city_auto_matches + other_city_scope_errors
+        ),
     }
 
 
@@ -160,6 +199,19 @@ def _thresholds_pass(
     metrics: dict[str, float | int | bool],
     thresholds: SealedAgentBlindThresholds,
 ) -> bool:
+    if (
+        metrics.get(
+            "estimated_confirmation_required_count.population_is_deep_city"
+        )
+        is not True
+        or metrics.get("other_city.population_is_other_city") is not True
+        or int(metrics.get("other_city.case_count", 0)) <= 0
+        or int(metrics.get("other_city.auto_match_count", -1)) != 0
+        or int(metrics.get("other_city.confirmation_required_count.total", -1))
+        != int(metrics.get("other_city.gold_executable_count", -2))
+        or int(metrics.get("other_aggregated_error_count", -1)) != 0
+    ):
+        return False
     for condition in thresholds.conditions:
         value = metrics.get(condition.metric)
         if value is None:

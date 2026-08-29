@@ -122,7 +122,12 @@ def score_predictions(
     role_counts = {role: Counter(tp=0, fp=0, fn=0) for role in ROLES}
     deep_gold_executable = 0
     deep_correct_auto = 0
-    confirmations: list[float] = []
+    deep_city_confirmations: list[float] = []
+    other_city_confirmations: list[float] = []
+    other_city_case_count = 0
+    other_city_gold_executable = 0
+    other_city_auto_matches = 0
+    other_city_correct_auto = 0
     public_forbidden_key_hits = 0
     public_source_leak_hits = 0
     public_api_ready_ms: list[float] = []
@@ -203,6 +208,11 @@ def score_predictions(
 
         correct_auto_for_case = 0
         for mention in prediction.mentions:
+            if (
+                source.cohort == "OTHER_CITY"
+                and mention.resolution_status == "AUTO_MATCHED"
+            ):
+                other_city_auto_matches += 1
             if not mention.eligible_for_place_search and mention.resolution_status != "AUTO_MATCHED":
                 continue
             span = (mention.span_start, mention.span_end)
@@ -237,10 +247,18 @@ def score_predictions(
             else:
                 severe_wrong_matches += 1
 
-        confirmations.append(float(max(0, len(gold_executable) - correct_auto_for_case)))
+        confirmation_count = float(
+            max(0, len(gold_executable) - correct_auto_for_case)
+        )
         if source.cohort == "DEEP_CITY":
             deep_gold_executable += len(gold_executable)
             deep_correct_auto += correct_auto_for_case
+            deep_city_confirmations.append(confirmation_count)
+        elif source.cohort == "OTHER_CITY":
+            other_city_case_count += 1
+            other_city_gold_executable += len(gold_executable)
+            other_city_correct_auto += correct_auto_for_case
+            other_city_confirmations.append(confirmation_count)
 
         public_keys = _walk_keys(prediction.public_result)
         public_forbidden_key_hits += sum(key in FORBIDDEN_PUBLIC_KEYS for key in public_keys)
@@ -289,8 +307,32 @@ def score_predictions(
             "coverage": deep_coverage,
         },
         "human_confirmation_count": {
-            "median": median(confirmations) if confirmations else None,
-            "p90": _nearest_rank(confirmations, 0.90),
+            "population": "DEEP_CITY",
+            "case_count": len(deep_city_confirmations),
+            "gold_executable_count": deep_gold_executable,
+            "total": int(sum(deep_city_confirmations)),
+            "median": median(deep_city_confirmations)
+            if deep_city_confirmations
+            else None,
+            "p90": _nearest_rank(deep_city_confirmations, 0.90),
+            "max": int(max(deep_city_confirmations))
+            if deep_city_confirmations
+            else None,
+        },
+        "other_city_confirmation_required_count": {
+            "population": "OTHER_CITY",
+            "case_count": other_city_case_count,
+            "gold_executable_count": other_city_gold_executable,
+            "auto_match_count": other_city_auto_matches,
+            "correct_auto_match_count": other_city_correct_auto,
+            "total": int(sum(other_city_confirmations)),
+            "median": median(other_city_confirmations)
+            if other_city_confirmations
+            else None,
+            "p90": _nearest_rank(other_city_confirmations, 0.90),
+            "max": int(max(other_city_confirmations))
+            if other_city_confirmations
+            else None,
         },
         "public_projection": {
             "forbidden_key_hits": public_forbidden_key_hits,

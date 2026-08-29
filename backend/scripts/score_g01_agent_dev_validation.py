@@ -407,6 +407,9 @@ def main() -> int:
     score["estimated_confirmation_required_count"]["evidence_basis"] = (
         "AUTOMATED_ESTIMATE"
     )
+    score["other_city_confirmation_required_count"]["evidence_basis"] = (
+        "AUTOMATED_ESTIMATE"
+    )
     score["destination"] = _validate_destination_predictions(
         envelope=envelope,
         source_cases=source_cases,

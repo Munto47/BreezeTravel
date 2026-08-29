@@ -494,6 +494,9 @@ def verify_core_live_score(path: Path, context: CoreCandidateContext) -> str:
     adjudication = value.get("agent_adjudication", {})
     prediction_bindings = value.get("prediction_bindings", {})
     confirmation = score.get("estimated_confirmation_required_count", {})
+    other_city_confirmation = score.get(
+        "other_city_confirmation_required_count", {}
+    )
     checks = (
         score.get("forbidden_content_as_place_count") == 0,
         score.get("severe_wrong_auto_match_count") == 0,
@@ -506,8 +509,15 @@ def verify_core_live_score(path: Path, context: CoreCandidateContext) -> str:
         score.get("day_assignment", {}).get("f1", 0) >= 0.97,
         score.get("role_macro_f1", 0) >= 0.94,
         score.get("deep_city_auto_match", {}).get("coverage", 0) >= 0.80,
+        confirmation.get("population") == "DEEP_CITY",
         confirmation.get("median", math.inf) <= 1,
         confirmation.get("p90", math.inf) <= 3,
+        other_city_confirmation.get("population") == "OTHER_CITY",
+        other_city_confirmation.get("case_count", 0) > 0,
+        other_city_confirmation.get("auto_match_count") == 0,
+        other_city_confirmation.get("correct_auto_match_count") == 0,
+        other_city_confirmation.get("total")
+        == other_city_confirmation.get("gold_executable_count"),
         score.get("evidence_span_validity", 0) == 1.0,
         score.get("scoring_coverage", 0) == 1.0,
         score.get("candidate_auto_selected_minimum_met") is True,
@@ -604,6 +614,16 @@ def _thresholds_pass(metrics: dict[str, float | int | bool]) -> bool:
         float(metrics.get("deep_city_auto_match.coverage", 0)) >= 0.80,
         float(metrics.get("estimated_confirmation_required_count.median", math.inf)) <= 1,
         float(metrics.get("estimated_confirmation_required_count.p90", math.inf)) <= 3,
+        metrics.get(
+            "estimated_confirmation_required_count.population_is_deep_city"
+        )
+        is True,
+        metrics.get("other_city.population_is_other_city") is True,
+        int(metrics.get("other_city.case_count", 0)) > 0,
+        int(metrics.get("other_city.auto_match_count", -1)) == 0,
+        int(metrics.get("other_city.confirmation_required_count.total", -1))
+        == int(metrics.get("other_city.gold_executable_count", -2)),
+        int(metrics.get("other_aggregated_error_count", -1)) == 0,
         metrics.get("evidence_span_validity") == 1.0,
         float(metrics.get("destination.exact_name_accuracy", 0)) >= 0.99,
         float(metrics.get("destination.basis_accuracy", 0)) >= 0.99,
