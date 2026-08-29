@@ -2032,6 +2032,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/stay-selection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Select Stay */
+        post: operations["select_stay_api_v3_trip_understandings__public_resource_id__stay_selection_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/stay-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Stay Suggestions */
+        get: operations["get_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/weather": {
         parameters: {
             query?: never;
@@ -4753,6 +4787,8 @@ export interface components {
             distance_meters?: number | null;
             /** Duration Minutes */
             duration_minutes?: number | null;
+            /** Geometry */
+            geometry?: components["schemas"]["RouteGeometryPoint"][];
             /**
              * Status
              * @enum {string}
@@ -5204,6 +5240,13 @@ export interface components {
              * @default unavailable
              */
             source: string;
+        };
+        /** RouteGeometryPoint */
+        RouteGeometryPoint: {
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
         };
         /**
          * RouteReceipt
@@ -5677,30 +5720,71 @@ export interface components {
             area_or_address: string;
             /** Available Actions */
             available_actions: "CHOOSE_STAY"[];
+            /** Brand */
+            brand: string;
+            /** Candidate Token */
+            candidate_token: string;
             /** Category */
             category: string;
             /** Commute Summary */
             commute_summary: string;
             /** Evidence Gap */
             evidence_gap?: string | null;
+            /** Max Single Leg Minutes */
+            max_single_leg_minutes: number;
             /** Name */
             name: string;
             /** Reason */
             reason: string;
+            /**
+             * Selected
+             * @default false
+             */
+            selected: boolean;
+            /** Transfer Count */
+            transfer_count: number;
+        };
+        /** StaySelectionAppliedView */
+        StaySelectionAppliedView: {
+            /**
+             * Map Readiness
+             * @default NEEDS_UPDATE
+             * @constant
+             */
+            map_readiness: "NEEDS_UPDATE";
+            /** Overnight Days */
+            overnight_days: string[];
+            /** Selected Stay */
+            selected_stay: string;
+            /**
+             * Status
+             * @default APPLIED
+             * @constant
+             */
+            status: "APPLIED";
+        };
+        /** StaySelectionRequest */
+        StaySelectionRequest: {
+            /** Candidate Token */
+            candidate_token: string;
         };
         /** StaySuggestionView */
         StaySuggestionView: {
+            /** Area Summary */
+            area_summary?: string | null;
             /** Available Actions */
             available_actions?: "CHOOSE_STAY"[];
             /** Candidates */
             candidates?: components["schemas"]["StayCandidateView"][];
             /** Message */
             message: string;
+            /** Searched Scopes */
+            searched_scopes?: string[];
             /**
              * Status
              * @enum {string}
              */
-            status: "AVAILABLE" | "LIMITED" | "UNAVAILABLE";
+            status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
         };
         /**
          * SuggestionAuditGateReceipt
@@ -10843,6 +10927,78 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    select_stay_api_v3_trip_understandings__public_resource_id__stay_selection_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string | null;
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaySelectionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySelectionAppliedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_stay_suggestions_api_v3_trip_understandings__public_resource_id__stay_suggestions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaySuggestionView"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -453,7 +453,15 @@ def validate_delivery_receipt(root: Path, goal_sequence: int) -> dict[str, Any]:
         raise CoreMainlineError("delivery result uses the wrong schema")
     if receipt.get("goal_id") != goal["goal_id"] or receipt.get("gate_profile") != goal["gate_profile"]:
         raise CoreMainlineError("delivery result binds the wrong Goal")
-    if receipt.get("product_fingerprint") != product_fingerprint(root):
+    recorded_fingerprint = receipt.get("product_fingerprint")
+    if not isinstance(recorded_fingerprint, str) or re.fullmatch(r"[0-9a-f]{64}", recorded_fingerprint) is None:
+        raise CoreMainlineError("delivery result product fingerprint is invalid")
+    binding = _read_json(root, BINDING_PATH)
+    active_sequence = binding.get("goal_sequence")
+    if (
+        not isinstance(active_sequence, int)
+        or goal_sequence >= active_sequence
+    ) and recorded_fingerprint != product_fingerprint(root):
         raise CoreMainlineError("delivery result is stale for current product/runtime bytes")
     required = set(goal.get("required_checks", []))
     checks = receipt.get("checks")

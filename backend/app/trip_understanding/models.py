@@ -137,20 +137,44 @@ class MapReadinessView(StrictModel):
 
 
 class StayCandidateView(StrictModel):
+    candidate_token: str = Field(min_length=20, max_length=100)
     name: str
+    brand: str
     category: str
     area_or_address: str
     commute_summary: str
+    max_single_leg_minutes: int = Field(ge=0)
+    transfer_count: int = Field(ge=0)
     evidence_gap: str | None = None
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
+    selected: bool = False
 
 
 class StaySuggestionView(StrictModel):
-    status: Literal["AVAILABLE", "LIMITED", "UNAVAILABLE"]
+    status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
     message: str
+    area_summary: str | None = None
+    searched_scopes: list[str] = Field(default_factory=list)
     candidates: list[StayCandidateView] = Field(default_factory=list)
     available_actions: list[Literal["CHOOSE_STAY"]] = Field(default_factory=list)
+
+
+class StaySelectionRequest(StrictModel):
+    candidate_token: str = Field(min_length=20, max_length=100)
+
+
+class StaySelectionAppliedView(StrictModel):
+    status: Literal["APPLIED"] = "APPLIED"
+    selected_stay: str
+    overnight_days: list[str]
+    map_readiness: Literal["NEEDS_UPDATE"] = "NEEDS_UPDATE"
+
+
+class StaySelectionOutcome(StrictModel):
+    applied: StaySelectionAppliedView
+    opaque_etag: str
+    replayed: bool = False
 
 
 class UserFacingTripResult(StrictModel):

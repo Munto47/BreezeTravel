@@ -84,6 +84,8 @@ class _PlaceFact:
     category: str
     address: str
     city: str
+    longitude: float
+    latitude: float
 
 
 def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
@@ -101,6 +103,8 @@ def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
                 ),
                 address=str(entry["address"]),
                 city=str(city),
+                longitude=float(entry["coords"]["lng"]),
+                latitude=float(entry["coords"]["lat"]),
             )
             by_name.setdefault(fact.name, []).append(fact)
     for fact in (
@@ -110,6 +114,8 @@ def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
             category="街区",
             address="东城区·前门大街",
             city="北京",
+            longitude=116.3936,
+            latitude=39.8992,
         ),
         _PlaceFact(
             place_id="fixture-bj-old-summer-palace",
@@ -117,6 +123,8 @@ def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
             category="公园",
             address="海淀区·清华西路28号",
             city="北京",
+            longitude=116.3039,
+            latitude=40.0081,
         ),
     ):
         by_name.setdefault(fact.name, []).append(fact)
@@ -388,6 +396,10 @@ class ControlledSnapshotPlaceResolver:
                 "provider": "controlled_fixture_snapshot",
                 "snapshot_sha256": CONTROLLED_PLACE_SNAPSHOT_SHA256,
                 "external_calls": 0,
+                "coordinates": {
+                    "longitude": fact.longitude,
+                    "latitude": fact.latitude,
+                },
             },
         )
 

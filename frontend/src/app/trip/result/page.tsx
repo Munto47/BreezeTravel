@@ -6,26 +6,30 @@ import {
   ArrowLeft,
   ArrowRight,
   BedDouble,
+  BusFront,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
   Compass,
+  Footprints,
   Map,
   MapPin,
   Pencil,
   Plus,
   Replace,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Trash2,
   Users,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 
 import {
   type ActivityCardView,
+  type MapRenderView,
+  type StaySuggestionView,
   type TripUnderstandingCommand,
   type UserFacingTripResult,
   applyTripUnderstandingCommand,
@@ -34,6 +38,10 @@ import {
   deleteTripUnderstanding,
   deleteTripUnderstandingSource,
   readTripUnderstandingResult,
+  readTripUnderstandingMap,
+  readTripUnderstandingStay,
+  requestTripUnderstandingMap,
+  selectTripUnderstandingStay,
   streamTripUnderstandingEvents,
 } from '@/lib/trip-understanding-v3'
 import { useAuthStore } from '@/stores/authStore'
@@ -81,11 +89,24 @@ export default function TripResultPage() {
   const [privacyMessage, setPrivacyMessage] = useState('')
   const [sourceDeleted, setSourceDeleted] = useState(false)
   const [tripDeleted, setTripDeleted] = useState(false)
+  const [mapView, setMapView] = useState<MapRenderView | null>(null)
+  const [stayView, setStayView] = useState<StaySuggestionView | null>(null)
+  const [enhancementBusy, setEnhancementBusy] = useState<'MAP' | 'STAY' | null>(null)
   const activeResourceRef = useRef<string | null>(null)
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  const refreshEnhancements = useCallback(async (reference: string) => {
+    const [mapResult, stayResult] = await Promise.allSettled([
+      readTripUnderstandingMap(reference),
+      readTripUnderstandingStay(reference),
+    ])
+    if (activeResourceRef.current !== reference) return
+    if (mapResult.status === 'fulfilled') setMapView(mapResult.value)
+    if (stayResult.status === 'fulfilled') setStayView(stayResult.value)
+  }, [])
 
   const refresh = useCallback(async (reference: string) => {
     try {
@@ -98,6 +119,7 @@ export default function TripResultPage() {
           sessionStorage.setItem('bt_active_trip_etag', response.etag)
         }
         setMessage('卡片已可用')
+        void refreshEnhancements(reference)
         return true
       }
       setMessage(response.body.message)
@@ -108,7 +130,57 @@ export default function TripResultPage() {
       }
       return false
     }
-  }, [])
+  }, [refreshEnhancements])
+
+  useEffect(() => {
+    if (!resourceRef || !result) return
+    const preparing = mapView?.status === 'PREPARING' || stayView?.status === 'PREPARING'
+    if (!preparing) return
+    const timer = window.setInterval(() => {
+      void refreshEnhancements(resourceRef)
+    }, 800)
+    return () => window.clearInterval(timer)
+  }, [mapView?.status, refreshEnhancements, resourceRef, result, stayView?.status])
+
+  const handleMapRender = useCallback(async () => {
+    if (!resourceRef || !etag || enhancementBusy) return
+    setEnhancementBusy('MAP')
+    setCommandError('')
+    try {
+      await requestTripUnderstandingMap(resourceRef, etag)
+      await refreshEnhancements(resourceRef)
+    } catch (mapFailure) {
+      if (mapFailure instanceof Error && mapFailure.message === 'REVISION_CONFLICT') {
+        setCommandError('行程刚刚有更新，已为你读取最新版本。')
+        await refresh(resourceRef)
+      } else {
+        setCommandError('路线暂时没有开始更新，卡片仍可正常查看。')
+      }
+    } finally {
+      setEnhancementBusy(null)
+    }
+  }, [enhancementBusy, etag, refresh, refreshEnhancements, resourceRef])
+
+  const handleStaySelection = useCallback(async (candidateToken: string) => {
+    if (!resourceRef || !etag || enhancementBusy) return
+    setEnhancementBusy('STAY')
+    setCommandError('')
+    try {
+      const selectedStay = await selectTripUnderstandingStay(resourceRef, candidateToken, etag)
+      setEtag(selectedStay.etag)
+      sessionStorage.setItem('bt_active_trip_etag', selectedStay.etag)
+      await refresh(resourceRef)
+    } catch (stayFailure) {
+      if (stayFailure instanceof Error && stayFailure.message === 'REVISION_CONFLICT') {
+        setCommandError('住宿候选已经变化，已为你读取最新版本。')
+        await refresh(resourceRef)
+      } else {
+        setCommandError('这次住宿选择暂时没有保存，请稍后再试。')
+      }
+    } finally {
+      setEnhancementBusy(null)
+    }
+  }, [enhancementBusy, etag, refresh, resourceRef])
 
   const runCommand = useCallback(async (command: TripUnderstandingCommand) => {
     if (!resourceRef || !etag || isApplying) return
@@ -507,9 +579,22 @@ export default function TripResultPage() {
             ))}
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <StatusCard icon={Map} title="路线地图" message={result.map.message} />
-            <StatusCard icon={BedDouble} title="住宿" message={result.stay.message} />
+          <div className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+            <MapTheater
+              view={mapView || {
+                status: result.map.status,
+                message: result.map.message,
+                days: [],
+                available_actions: result.map.available_actions,
+              }}
+              busy={enhancementBusy === 'MAP'}
+              onRender={() => void handleMapRender()}
+            />
+            <StayPanel
+              view={stayView || result.stay}
+              busy={enhancementBusy === 'STAY'}
+              onChoose={(candidateToken) => void handleStaySelection(candidateToken)}
+            />
           </div>
 
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
@@ -700,18 +785,210 @@ export default function TripResultPage() {
 }
 
 
-function StatusCard({ icon: Icon, title, message }: { icon: LucideIcon; title: string; message: string }) {
+const DAY_COLORS = ['#047857', '#2563eb', '#7c3aed', '#d97706', '#0f766e', '#be185d']
+
+
+function MapTheater({
+  view,
+  busy,
+  onRender,
+}: {
+  view: MapRenderView
+  busy: boolean
+  onRender: () => void
+}) {
+  const [mode, setMode] = useState<'walking' | 'transit'>('walking')
+  const allPoints = view.days.flatMap((day) => day.routes.flatMap((route) => route[mode].geometry))
+  const longitudes = allPoints.map((point) => point.longitude)
+  const latitudes = allPoints.map((point) => point.latitude)
+  const minimumLongitude = Math.min(...longitudes)
+  const maximumLongitude = Math.max(...longitudes)
+  const minimumLatitude = Math.min(...latitudes)
+  const maximumLatitude = Math.max(...latitudes)
+  const width = 640
+  const height = 300
+  const padding = 28
+  const svgPoint = (longitude: number, latitude: number) => {
+    const longitudeRange = Math.max(0.0001, maximumLongitude - minimumLongitude)
+    const latitudeRange = Math.max(0.0001, maximumLatitude - minimumLatitude)
+    const x = padding + ((longitude - minimumLongitude) / longitudeRange) * (width - padding * 2)
+    const y = padding + ((maximumLatitude - latitude) / latitudeRange) * (height - padding * 2)
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }
+  const renderAction = view.available_actions.includes('RENDER_MAP') || ['NEEDS_UPDATE', 'LIMITED', 'UNAVAILABLE'].includes(view.status)
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-          <Icon className="h-5 w-5" aria-hidden="true" />
+    <section data-testid="map-theater" className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm" aria-labelledby="map-theater-title">
+      <div className="flex flex-col gap-4 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+            <Map className="h-5 w-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 id="map-theater-title" className="font-semibold">路线地图</h2>
+            <p role="status" className="mt-1 text-xs leading-5 text-slate-500">{view.message}</p>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-semibold">{title}</p>
-          <p className="mt-1 text-xs text-slate-500">{message}</p>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-xl bg-slate-100 p-1" aria-label="路线方式">
+            <button
+              data-testid="map-mode-walking"
+              type="button"
+              onClick={() => setMode('walking')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium ${mode === 'walking' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              <Footprints className="h-3.5 w-3.5" aria-hidden="true" />步行
+            </button>
+            <button
+              data-testid="map-mode-transit"
+              type="button"
+              onClick={() => setMode('transit')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium ${mode === 'transit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              <BusFront className="h-3.5 w-3.5" aria-hidden="true" />公交
+            </button>
+          </div>
+          {renderAction && (
+            <button
+              data-testid="render-map"
+              type="button"
+              disabled={busy || view.status === 'PREPARING'}
+              onClick={onRender}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden="true" />
+              重新渲染地图
+            </button>
+          )}
         </div>
       </div>
-    </div>
+
+      <div className="bg-[#f4f1e8] p-4">
+        {allPoints.length >= 2 ? (
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full rounded-2xl bg-[#eef2e9]" role="img" aria-label={`${mode === 'walking' ? '步行' : '公交'}路线图`}>
+            <defs>
+              <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
+                <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#dbe3d5" strokeWidth="1" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#map-grid)" />
+            {view.days.map((day, dayIndex) => day.routes.map((route, routeIndex) => {
+              const points = route[mode].geometry
+              if (points.length < 2) return null
+              const color = DAY_COLORS[dayIndex % DAY_COLORS.length]
+              return (
+                <g key={`${day.label}-${routeIndex}`}>
+                  <polyline
+                    points={points.map((point) => svgPoint(point.longitude, point.latitude)).join(' ')}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray={mode === 'walking' ? '3 10' : undefined}
+                  />
+                  {points.filter((_point, index) => index === 0 || index === points.length - 1).map((point, pointIndex) => {
+                    const [x, y] = svgPoint(point.longitude, point.latitude).split(',')
+                    return <circle key={pointIndex} cx={x} cy={y} r="7" fill="white" stroke={color} strokeWidth="4" />
+                  })}
+                </g>
+              )
+            }))}
+          </svg>
+        ) : (
+          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-8 text-center text-sm leading-6 text-slate-500">
+            {view.status === 'PREPARING' ? '路线正在后台准备，卡片可以先查看和调整。' : '地图线条暂不可用，下面的路线摘要仍然有效。'}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4 p-5">
+        {view.days.map((day, dayIndex) => (
+          <div key={day.label}>
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DAY_COLORS[dayIndex % DAY_COLORS.length] }} />
+              {day.label}
+            </div>
+            <div className="space-y-2">
+              {day.routes.map((route, routeIndex) => (
+                <div key={`${route.from_name}-${route.to_name}-${routeIndex}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs">
+                  <span className="min-w-0 truncate text-slate-600">{route.from_name} → {route.to_name}</span>
+                  <span className="shrink-0 font-medium text-slate-700">
+                    {route[mode].status === 'AVAILABLE' ? `${route[mode].duration_minutes} 分钟` : '暂不可用'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+
+function StayPanel({
+  view,
+  busy,
+  onChoose,
+}: {
+  view: StaySuggestionView
+  busy: boolean
+  onChoose: (candidateToken: string) => void
+}) {
+  return (
+    <section data-testid="stay-panel" className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="stay-panel-title">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
+          <BedDouble className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 id="stay-panel-title" className="font-semibold">整程住宿</h2>
+          <p role="status" className="mt-1 text-xs leading-5 text-slate-500">{view.message}</p>
+        </div>
+      </div>
+      {view.area_summary && (
+        <div className="mt-4 rounded-2xl bg-blue-50/70 p-3 text-xs leading-5 text-blue-900">
+          建议区域：{view.area_summary}
+          {view.searched_scopes.length > 0 && <span className="block text-blue-700">已比较：{view.searched_scopes.join('、')}</span>}
+        </div>
+      )}
+      <div className="mt-4 space-y-3">
+        {view.candidates.map((candidate, index) => (
+          <article key={candidate.candidate_token} data-testid="stay-candidate" className="rounded-2xl border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-blue-700">候选 {index + 1} · {candidate.brand}</p>
+                <h3 className="mt-1 truncate font-semibold text-slate-800">{candidate.name}</h3>
+                <p className="mt-1 text-xs leading-5 text-slate-400">{candidate.area_or_address}</p>
+              </div>
+              {candidate.selected && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-label="已选择" />}
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
+              <span className="rounded-xl bg-slate-50 px-2.5 py-2">最久约 {candidate.max_single_leg_minutes} 分钟</span>
+              <span className="rounded-xl bg-slate-50 px-2.5 py-2">共 {candidate.transfer_count} 次换乘</span>
+            </div>
+            <p className="mt-3 text-xs leading-5 text-slate-500">{candidate.reason}</p>
+            {candidate.evidence_gap && <p className="mt-2 text-xs leading-5 text-amber-700">{candidate.evidence_gap}</p>}
+            {!candidate.selected && candidate.available_actions.includes('CHOOSE_STAY') && (
+              <button
+                data-testid="choose-stay"
+                type="button"
+                disabled={busy}
+                onClick={() => onChoose(candidate.candidate_token)}
+                className="mt-3 w-full rounded-xl bg-blue-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {busy ? '正在保存…' : '整程住这里'}
+              </button>
+            )}
+          </article>
+        ))}
+        {view.candidates.length === 0 && view.status !== 'PREPARING' && (
+          <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500">
+            当前没有合格候选，不影响继续查看和调整行程。
+          </div>
+        )}
+      </div>
+    </section>
   )
 }

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -30,7 +31,7 @@ ROUTE_CONFIG_SHA256 = canonical_sha256(
         "walking_endpoint": "https://restapi.amap.com/v3/direction/walking",
         "transit_endpoint": "https://restapi.amap.com/v3/direction/transit/integrated",
         "route_deadline_ms": 6000,
-        "geometry_persistence": "DISABLED",
+        "geometry_persistence": "REDIS_TTL_24H_REFERENCE_ONLY",
     }
 )
 
@@ -75,6 +76,11 @@ class MapRenderJobRecord(StrictModel):
     started_at: datetime
 
 
+class RouteGeometryPoint(StrictModel):
+    longitude: float = Field(ge=-180, le=180)
+    latitude: float = Field(ge=-90, le=90)
+
+
 class InternalRouteModeFact(StrictModel):
     mode: Literal["walking", "transit"]
     status: Literal["AVAILABLE", "UNAVAILABLE"]
@@ -83,6 +89,7 @@ class InternalRouteModeFact(StrictModel):
     transfer_count: int | None = Field(default=None, ge=0)
     response_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     geometry_ref: str | None = None
+    geometry: list[RouteGeometryPoint] = Field(default_factory=list)
     request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     provider_binding: dict[str, object]
     external_call_count: int = Field(ge=0)
@@ -133,6 +140,7 @@ class PublicRouteModeView(StrictModel):
     duration_minutes: int | None = None
     distance_meters: int | None = None
     transfer_count: int | None = None
+    geometry: list[RouteGeometryPoint] = Field(default_factory=list)
 
 
 class PublicMapEdgeView(StrictModel):
@@ -258,20 +266,73 @@ class ControlledFixtureRouteProvider:
         }
         record = self._routes.get((origin.name, destination.name))
         if record is None:
-            return _unavailable_fact(
-                origin,
-                destination,
-                mode,
-                reason="FIXTURE_ROUTE_NOT_AVAILABLE",
-                observed_at=observed_at,
+            is_stay_edge = any(
+                marker in stop.name
+                for stop in (origin, destination)
+                for marker in ("酒店", "饭店", "宾馆", "旅馆")
             )
+            if (
+                not is_stay_edge
+                or
+                origin.longitude is None
+                or origin.latitude is None
+                or destination.longitude is None
+                or destination.latitude is None
+            ):
+                return _unavailable_fact(
+                    origin,
+                    destination,
+                    mode,
+                    reason="FIXTURE_ROUTE_NOT_AVAILABLE",
+                    observed_at=observed_at,
+                )
+            latitude_1 = math.radians(origin.latitude)
+            latitude_2 = math.radians(destination.latitude)
+            delta_latitude = latitude_2 - latitude_1
+            delta_longitude = math.radians(destination.longitude - origin.longitude)
+            haversine = (
+                math.sin(delta_latitude / 2) ** 2
+                + math.cos(latitude_1)
+                * math.cos(latitude_2)
+                * math.sin(delta_longitude / 2) ** 2
+            )
+            straight_line_meters = int(
+                2 * 6_371_000 * math.asin(min(1.0, math.sqrt(haversine)))
+            )
+            if mode == "walking":
+                distance_meters = max(100, int(straight_line_meters * 1.2))
+                duration_minutes = max(2, math.ceil(distance_meters / 75))
+                transfer_count = 0
+            else:
+                distance_meters = max(200, int(straight_line_meters * 1.35))
+                duration_minutes = max(8, math.ceil(distance_meters / 300) + 6)
+                transfer_count = 0 if distance_meters < 2_500 else 1
+            record = {
+                mode: {
+                    "duration_minutes": duration_minutes,
+                    "distance_meters": distance_meters,
+                    "transfer_count": transfer_count,
+                }
+            }
         response = {"status": "AVAILABLE", **record[mode]}
+        geometry = []
+        if (
+            origin.longitude is not None
+            and origin.latitude is not None
+            and destination.longitude is not None
+            and destination.latitude is not None
+        ):
+            geometry = [
+                RouteGeometryPoint(longitude=origin.longitude, latitude=origin.latitude),
+                RouteGeometryPoint(longitude=destination.longitude, latitude=destination.latitude),
+            ]
         return InternalRouteModeFact(
             mode=mode,
             status="AVAILABLE",
             duration_minutes=int(record[mode]["duration_minutes"]),
             distance_meters=int(record[mode]["distance_meters"]),
             transfer_count=int(record[mode]["transfer_count"]),
+            geometry=geometry,
             response_hash=canonical_sha256(response),
             request_hash=canonical_sha256(request),
             provider_binding={
@@ -419,4 +480,5 @@ def mode_public_view(fact: InternalRouteModeFact) -> PublicRouteModeView:
         duration_minutes=fact.duration_minutes,
         distance_meters=fact.distance_meters,
         transfer_count=fact.transfer_count,
+        geometry=fact.geometry,
     )

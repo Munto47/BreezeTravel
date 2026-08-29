@@ -172,12 +172,12 @@ class FixedBeijingDemoInferenceProvider:
 
 class FixedBeijingPlaceResolver:
     _PLACES = {
-        "故宫博物院": ("fixture-bj-palace-museum", "文化古迹", "东城区·景山前街4号"),
-        "景山公园": ("fixture-bj-jingshan", "公园", "东城区·景山西街44号"),
-        "天坛公园": ("fixture-bj-temple-of-heaven", "公园", "东城区·天坛路甲1号"),
-        "前门大街": ("fixture-bj-qianmen", "街区", "东城区·前门大街"),
-        "颐和园": ("fixture-bj-summer-palace", "公园", "海淀区·新建宫门路19号"),
-        "圆明园": ("fixture-bj-old-summer-palace", "公园", "海淀区·清华西路28号"),
+        "故宫博物院": ("fixture-bj-palace-museum", "文化古迹", "东城区·景山前街4号", 116.3913, 39.9163),
+        "景山公园": ("fixture-bj-jingshan", "公园", "东城区·景山西街44号", 116.3974, 39.9254),
+        "天坛公园": ("fixture-bj-temple-of-heaven", "公园", "东城区·天坛路甲1号", 116.4071, 39.8822),
+        "前门大街": ("fixture-bj-qianmen", "街区", "东城区·前门大街", 116.3936, 39.8992),
+        "颐和园": ("fixture-bj-summer-palace", "公园", "海淀区·新建宫门路19号", 116.2755, 39.9999),
+        "圆明园": ("fixture-bj-old-summer-palace", "公园", "海淀区·清华西路28号", 116.3039, 40.0081),
     }
 
     async def resolve(
@@ -193,7 +193,7 @@ class FixedBeijingPlaceResolver:
         value = self._PLACES.get(atomic_place_name)
         if value is None:
             return None
-        canonical_place_id, category, address = value
+        canonical_place_id, category, address, longitude, latitude = value
         return ResolvedPlace(
             canonical_place_id=canonical_place_id,
             name=atomic_place_name,
@@ -203,6 +203,10 @@ class FixedBeijingPlaceResolver:
                 "provider": "frozen_beijing_fixture",
                 "snapshot": "beijing-poi-demo-2026-08-27-v1",
                 "external_calls": 0,
+                "coordinates": {
+                    "longitude": longitude,
+                    "latitude": latitude,
+                },
             },
         )
 

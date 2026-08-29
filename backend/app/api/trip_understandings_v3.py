@@ -28,6 +28,9 @@ from app.trip_understanding.models import (
     CommandAppliedView,
     CreateFullRequest,
     CreateTripUnderstandingRequest,
+    StaySelectionAppliedView,
+    StaySelectionRequest,
+    StaySuggestionView,
     TripUnderstandingAcceptedView,
     TripUnderstandingCommand,
     TripUnderstandingProgressView,
@@ -327,6 +330,83 @@ async def request_map_render(
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"
     return outcome.accepted
+
+
+@router.get(
+    "/{public_resource_id}/stay-suggestions",
+    response_model=StaySuggestionView,
+)
+async def get_stay_suggestions(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+):
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return await repository.get_stay_view(resource)
+
+
+@router.post(
+    "/{public_resource_id}/stay-selection",
+    response_model=StaySelectionAppliedView,
+)
+async def select_stay(
+    public_resource_id: str,
+    body: StaySelectionRequest,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+):
+    expected_etag = _require_if_match(if_match)
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(repository).select_stay(
+            resource,
+            candidate_token=body.candidate_token,
+            expected_etag=expected_etag,
+            idempotency_key=key,
+        )
+    except RevisionConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REVISION_CONFLICT", "message": "行程已经更新，请刷新后再试"},
+        ) from exc
+    except ResourceNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STAY_NOT_READY", "message": "住宿候选已变化，请刷新后重试"},
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "请重新选择住宿"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在保存住宿，请稍后查看"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.applied
 
 
 @router.post(

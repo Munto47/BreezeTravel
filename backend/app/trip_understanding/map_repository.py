@@ -5,6 +5,7 @@ import hmac
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -31,6 +32,7 @@ from app.trip_understanding.map_render import (
     PublicMapDayView,
     PublicMapEdgeView,
     PublicRouteModeView,
+    RouteGeometryPoint,
 )
 from app.trip_understanding.models import (
     MapReadinessView,
@@ -38,6 +40,31 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
+
+
+_CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
+_CONTROLLED_PLACE_PAYLOAD = json.loads(_CONTROLLED_PLACE_PATH.read_text(encoding="utf-8"))
+
+
+def _controlled_coordinates(name: str, city: str | None) -> dict[str, float] | None:
+    if not city:
+        return None
+    matches = [
+        item
+        for item in _CONTROLLED_PLACE_PAYLOAD.get(city, [])
+        if isinstance(item, dict) and item.get("name") == name and isinstance(item.get("coords"), dict)
+    ]
+    if len(matches) != 1:
+        manual = {
+            "前门大街": {"longitude": 116.3936, "latitude": 39.8992},
+            "圆明园": {"longitude": 116.3039, "latitude": 40.0081},
+        }
+        return manual.get(name) if city == "北京" else None
+    return {
+        "longitude": float(matches[0]["coords"]["lng"]),
+        "latitude": float(matches[0]["coords"]["lat"]),
+    }
 
 
 def _json_value(value: Any) -> Any:
@@ -127,6 +154,69 @@ def _plan_for_result(
     )
 
 
+def plan_with_stay_anchor(
+    plan: MapRenderPlan,
+    *,
+    selected_place_id: str,
+    selected_name: str,
+    selected_city: str,
+    longitude: float,
+    latitude: float,
+    overnight_days: list[int],
+) -> MapRenderPlan:
+    by_day: dict[int, list[MapStop]] = defaultdict(list)
+    for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
+        by_day[stop.day_index].append(stop)
+    expanded: list[MapStop] = []
+    overnight = set(overnight_days)
+    for day_index in sorted(by_day):
+        day_stops = by_day[day_index]
+        if day_index in overnight and day_stops:
+            hotel = MapStop(
+                day_index=day_index,
+                day_label=day_stops[0].day_label,
+                sequence_index=0,
+                name=selected_name,
+                canonical_place_id=selected_place_id,
+                resolution_status="AUTO_MATCHED",
+                city=selected_city,
+                longitude=longitude,
+                latitude=latitude,
+            )
+            expanded.append(hotel)
+            expanded.extend(
+                stop.model_copy(update={"sequence_index": index})
+                for index, stop in enumerate(day_stops, start=1)
+            )
+            expanded.append(hotel.model_copy(update={"sequence_index": len(day_stops) + 1}))
+        else:
+            expanded.extend(
+                stop.model_copy(update={"sequence_index": index})
+                for index, stop in enumerate(day_stops)
+            )
+    stop_set_hash = canonical_sha256(
+        [
+            {
+                "day_index": stop.day_index,
+                "sequence_index": stop.sequence_index,
+                "name": stop.name,
+                "canonical_place_id": stop.canonical_place_id,
+                "resolution_status": stop.resolution_status,
+                "city": stop.city,
+                "longitude": stop.longitude,
+                "latitude": stop.latitude,
+            }
+            for stop in expanded
+        ]
+    )
+    return plan.model_copy(
+        update={
+            "plan_ref": plan.plan_ref.model_copy(update={"stop_set_hash": stop_set_hash}),
+            "stops": expanded,
+        }
+    )
+
+
 def _logical_key(plan: MapRenderPlan) -> str:
     return canonical_sha256(
         {
@@ -150,7 +240,11 @@ def _accepted_for_job_status(status: str) -> MapRenderAcceptedView:
     return MapRenderAcceptedView(status="UNAVAILABLE", message="路线暂不可用，不影响查看卡片")
 
 
-def _mode_view_from_row(row: Any | None) -> PublicRouteModeView:
+def _mode_view_from_row(
+    row: Any | None,
+    *,
+    geometry: list[RouteGeometryPoint] | None = None,
+) -> PublicRouteModeView:
     if row is None or row["status"] != "AVAILABLE":
         return PublicRouteModeView(status="UNAVAILABLE")
     return PublicRouteModeView(
@@ -158,6 +252,7 @@ def _mode_view_from_row(row: Any | None) -> PublicRouteModeView:
         duration_minutes=row["duration_minutes"],
         distance_meters=row["distance_meters"],
         transfer_count=row["transfer_count"],
+        geometry=geometry or [],
     )
 
 
@@ -223,6 +318,24 @@ class MapRenderRepository(Protocol):
 
 
 class PostgresMapRenderRepositoryMixin:
+    def _get_geometry_cache(self):
+        cache = getattr(self, "_geometry_cache", None)
+        if cache is None:
+            cache = InMemoryRouteGeometryCache()
+            self._geometry_cache = cache
+        return cache
+
+    async def _mode_view_with_geometry(
+        self,
+        row: Any | None,
+    ) -> tuple[PublicRouteModeView, bool]:
+        if row is None or row["status"] != "AVAILABLE":
+            return PublicRouteModeView(status="UNAVAILABLE"), False
+        reference = row.get("geometry_ref") if hasattr(row, "get") else row["geometry_ref"]
+        raw_points = await self._get_geometry_cache().get(reference) if reference else None
+        points = [RouteGeometryPoint.model_validate(point) for point in (raw_points or [])]
+        return _mode_view_from_row(row, geometry=points), len(points) < 2
+
     async def _read_map_plan(
         self,
         conn: Any,
@@ -263,12 +376,33 @@ class PostgresMapRenderRepositoryMixin:
         }
         destination = _json_value(result_row["destination_json"])
         city = destination.get("name") if isinstance(destination, dict) else None
-        return _plan_for_result(
+        plan = _plan_for_result(
             understanding_id,
             revision,
             UserFacingTripResult.model_validate(_json_value(result_row["public_json"])),
             bindings,
             city=city if isinstance(city, str) else None,
+        )
+        selection = await conn.fetchrow(
+            """
+            SELECT s.* FROM trip_stay_selections s
+            JOIN trip_plan_revision_refs p ON p.plan_ref_id = s.target_plan_ref_id
+            WHERE p.understanding_id = $1 AND p.revision_kind = 'UNDERSTANDING'
+              AND p.aggregate_id = $1 AND p.revision = $2
+            """,
+            understanding_id,
+            revision,
+        )
+        if selection is None:
+            return plan
+        return plan_with_stay_anchor(
+            plan,
+            selected_place_id=selection["selected_place_id"],
+            selected_name=selection["selected_name"],
+            selected_city=selection["selected_city"],
+            longitude=float(selection["longitude"]),
+            latitude=float(selection["latitude"]),
+            overnight_days=list(selection["overnight_days"]),
         )
 
     async def _ensure_map_job(
@@ -366,7 +500,7 @@ class PostgresMapRenderRepositoryMixin:
         edge_rows = await conn.fetch(
             """
             SELECT e.*, f.mode, f.status AS mode_status, f.duration_minutes,
-                   f.distance_meters, f.transfer_count
+                   f.distance_meters, f.transfer_count, f.geometry_ref
             FROM trip_map_route_edges e
             LEFT JOIN trip_map_route_mode_facts f ON f.edge_id = e.edge_id
             WHERE e.snapshot_id = $1
@@ -393,33 +527,45 @@ class PostgresMapRenderRepositoryMixin:
                     "duration_minutes": row["duration_minutes"],
                     "distance_meters": row["distance_meters"],
                     "transfer_count": row["transfer_count"],
+                    "geometry_ref": row["geometry_ref"],
                 }
         by_day: dict[int, list[PublicMapEdgeView]] = defaultdict(list)
+        geometry_limited = False
         for item in sorted(
             grouped.values(), key=lambda value: (value["day_index"], value["sequence_index"])
         ):
             walking = item["modes"].get("walking")
             transit = item["modes"].get("transit")
+            walking_view, walking_missing = await self._mode_view_with_geometry(walking)
+            transit_view, transit_missing = await self._mode_view_with_geometry(transit)
+            geometry_limited = geometry_limited or walking_missing or transit_missing
             by_day[item["day_index"]].append(
                 PublicMapEdgeView(
                     from_name=item["origin_name"],
                     to_name=item["destination_name"],
                     selected_mode=item["selected_mode"],
                     message=_edge_message(item["selected_mode"], walking, transit),
-                    walking=_mode_view_from_row(walking),
-                    transit=_mode_view_from_row(transit),
+                    walking=walking_view,
+                    transit=transit_view,
                 )
             )
         days = [
             PublicMapDayView(label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
-        if snapshot["status"] == "READY":
+        if snapshot["status"] == "READY" and not geometry_limited:
             return MapRenderView(
                 status="AVAILABLE",
                 message="步行和公交路线已准备，出发前请再核对实时情况",
                 days=days,
                 available_actions=["VIEW_MAP"],
+            )
+        if snapshot["status"] == "READY":
+            return MapRenderView(
+                status="LIMITED",
+                message="路线摘要仍可查看，地图线条需要重新准备",
+                days=days,
+                available_actions=["VIEW_MAP", "RENDER_MAP"],
             )
         if snapshot["status"] == "PARTIAL":
             return MapRenderView(
@@ -725,6 +871,13 @@ class PostgresMapRenderRepositoryMixin:
     ) -> bool:
         if output.plan_ref != job.plan_ref or output.route_config_hash != job.route_config_hash:
             raise ValueError("map output is not bound to the claimed plan")
+        geometry_cache = self._get_geometry_cache()
+        for edge in output.edges:
+            for fact in (edge.walking, edge.transit):
+                if fact.geometry:
+                    fact.geometry_ref = await geometry_cache.put(
+                        [point.model_dump(mode="json") for point in fact.geometry]
+                    )
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
             current = await conn.fetchrow(
@@ -969,17 +1122,6 @@ class InMemoryMapRenderRepositoryMixin:
         stored = self.results.get(result_id or "")
         if stored is None:
             raise ResourceNotReadyError("trip result is unavailable for map rendering")
-        bindings: dict[str, tuple[str | None, str, dict[str, Any]]] = {}
-        for day in stored.result.days:
-            for card in day.activities:
-                if card.status == "READY":
-                    bindings[card.activity_token] = (
-                        f"fixture:{card.name}",
-                        "AUTO_MATCHED",
-                        {},
-                    )
-                else:
-                    bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION", {})
         destination = next(
             (
                 assumption.value.removeprefix("暂按 ")
@@ -988,12 +1130,37 @@ class InMemoryMapRenderRepositoryMixin:
             ),
             None,
         )
-        return _plan_for_result(
+        bindings: dict[str, tuple[str | None, str, dict[str, Any]]] = {}
+        for day in stored.result.days:
+            for card in day.activities:
+                if card.status == "READY":
+                    coordinates = _controlled_coordinates(card.name, destination)
+                    bindings[card.activity_token] = (
+                        f"fixture:{card.name}",
+                        "AUTO_MATCHED",
+                        {"coordinates": coordinates} if coordinates else {},
+                    )
+                else:
+                    bindings[card.activity_token] = (None, "NEEDS_CONFIRMATION", {})
+        plan = _plan_for_result(
             understanding_id,
             revision,
             stored.result,
             bindings,
             city=destination,
+        )
+        selection = getattr(self, "stay_selections", {}).get((understanding_id, revision))
+        if selection is None:
+            return plan
+        view = selection["view"]
+        return plan_with_stay_anchor(
+            plan,
+            selected_place_id=selection["selected_place_id"],
+            selected_name=view.name,
+            selected_city=selection["selected_city"],
+            longitude=selection["longitude"],
+            latitude=selection["latitude"],
+            overnight_days=selection["overnight_days"],
         )
 
     def _ensure_memory_map_job(
@@ -1064,8 +1231,8 @@ class InMemoryMapRenderRepositoryMixin:
                     to_name=edge.destination_name,
                     selected_mode=edge.selected_mode,
                     message=_edge_message(edge.selected_mode, walking, transit),
-                    walking=_mode_view_from_row(walking),
-                    transit=_mode_view_from_row(transit),
+                    walking=_mode_view_from_row(walking, geometry=edge.walking.geometry),
+                    transit=_mode_view_from_row(transit, geometry=edge.transit.geometry),
                 )
             )
         days = [

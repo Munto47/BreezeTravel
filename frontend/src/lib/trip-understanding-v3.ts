@@ -29,6 +29,55 @@ export interface ActivityCardView {
   available_actions: Array<'VIEW_DETAILS' | 'REPLACE' | 'DELETE' | 'MOVE'>
 }
 
+export interface PublicRouteModeView {
+  status: 'AVAILABLE' | 'UNAVAILABLE'
+  duration_minutes: number | null
+  distance_meters: number | null
+  transfer_count: number | null
+  geometry: Array<{ longitude: number; latitude: number }>
+}
+
+export interface MapRenderView {
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+  message: string
+  days: Array<{
+    label: string
+    routes: Array<{
+      from_name: string
+      to_name: string
+      selected_mode: 'walking' | 'transit' | null
+      message: string
+      walking: PublicRouteModeView
+      transit: PublicRouteModeView
+    }>
+  }>
+  available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
+}
+
+export interface StayCandidateView {
+  candidate_token: string
+  name: string
+  brand: string
+  category: string
+  area_or_address: string
+  commute_summary: string
+  max_single_leg_minutes: number
+  transfer_count: number
+  evidence_gap: string | null
+  reason: string
+  available_actions: Array<'CHOOSE_STAY'>
+  selected: boolean
+}
+
+export interface StaySuggestionView {
+  status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+  message: string
+  area_summary: string | null
+  searched_scopes: string[]
+  candidates: StayCandidateView[]
+  available_actions: Array<'CHOOSE_STAY'>
+}
+
 export interface UserFacingTripResult {
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
@@ -39,9 +88,11 @@ export interface UserFacingTripResult {
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
   stay: {
-    status: 'AVAILABLE' | 'LIMITED' | 'UNAVAILABLE'
+    status: StaySuggestionView['status']
     message: string
-    candidates: unknown[]
+    area_summary: string | null
+    searched_scopes: string[]
+    candidates: StayCandidateView[]
     available_actions: Array<'CHOOSE_STAY'>
   }
   available_actions: Array<'EDIT_ASSUMPTIONS' | 'EDIT_CARDS'>
@@ -219,6 +270,87 @@ export async function applyTripUnderstandingCommand(
     body: (await response.json()) as CommandAppliedView,
     etag: nextEtag,
   }
+}
+
+export async function readTripUnderstandingMap(
+  publicResourceId: string,
+): Promise<MapRenderView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders/latest`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    },
+  )
+  if (!response.ok) throw new Error('MAP_UNAVAILABLE')
+  return response.json() as Promise<MapRenderView>
+}
+
+export async function requestTripUnderstandingMap(
+  publicResourceId: string,
+  etag: string,
+): Promise<void> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Idempotency-Key': requestKey(),
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    throw new Error('MAP_RENDER_FAILED')
+  }
+}
+
+export async function readTripUnderstandingStay(
+  publicResourceId: string,
+): Promise<StaySuggestionView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`,
+    {
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authorizationHeaders(),
+    },
+  )
+  if (!response.ok) throw new Error('STAY_UNAVAILABLE')
+  return response.json() as Promise<StaySuggestionView>
+}
+
+export async function selectTripUnderstandingStay(
+  publicResourceId: string,
+  candidateToken: string,
+  etag: string,
+): Promise<{ selected_stay: string; etag: string }> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-selection`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': requestKey(),
+        'If-Match': etag,
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ candidate_token: candidateToken }),
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    throw new Error('STAY_SELECTION_FAILED')
+  }
+  const nextEtag = response.headers.get('etag')
+  if (!nextEtag) throw new Error('STAY_SELECTION_ETAG_MISSING')
+  const body = await response.json() as { selected_stay: string }
+  return { selected_stay: body.selected_stay, etag: nextEtag }
 }
 
 export async function claimTripUnderstanding(

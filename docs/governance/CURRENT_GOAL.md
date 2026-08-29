@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.2 地图与整程住宿
+# IN_PROGRESS GOAL：V0.2 地图与整程住宿
 
 Goal ID: TC-VNEXT-G02-MAP-STAY
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: PRODUCT_VERTICAL_SLICE
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
@@ -9,11 +9,11 @@ Goal type: PRODUCT_VERTICAL_SLICE
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G02-MAP-STAY",
-  "goal_status": "APPROVED",
+  "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Map & Stay Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "next_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "next_activated": false,
@@ -30,10 +30,10 @@ Goal type: PRODUCT_VERTICAL_SLICE
 - Product version：`V0.2`
 - Mainline phase：`CORE_MVP`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Goal type：`PRODUCT_VERTICAL_SLICE`
 - Branch：`codex/g02-map-stay`
-- Canonical baseline/upstream：`origin/develop@59da74b51455dc224efbf95c0caea3240b70c80e`，PR #5与远端readback `PASS`
+- Canonical baseline/upstream：`origin/develop@4054bbf8164d1e56078ae4aa944b8b33e4178ac1`，G02治理过渡PR #6与远端readback `PASS`
 - Activation：G01已通过`PRODUCT_DELIVERY_PASS`、经PR #5进入`origin/develop`并归档
 - Required gate：`Map & Stay Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G03-TOP3-AUDIT`
@@ -69,17 +69,7 @@ Goal type: PRODUCT_VERTICAL_SLICE
 
 ## Parallel work packages
 
-G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`编号和exact product baseline，再按`WORK_PACKAGE_PROMPT_TEMPLATE.md`生成并登记三份完整提示词。每包由一个用户可见的独立功能对话承担；子Agent只可短期只读复核或诊断。
-
-| Package | Branch | Worktree | 初始状态 | Owned paths（激活时精确化） | Acceptance |
-|---|---|---|---|---|---|
-| `WP-G02-MAP-THEATER-UI` | `codex/wp-g02-map-theater-ui` | `D:/munto/code/claudeProject/agentTravel-wp-g02-map-theater-ui` | `IN_PROGRESS` | 地图剧场前端及定向浏览器测试 | 同日同色、walking/transit切换、NEEDS_UPDATE |
-| `WP-G02-STAY-DOMAIN` | `codex/wp-g02-stay-domain` | `D:/munto/code/claudeProject/agentTravel-wp-g02-stay-domain` | `IN_PROGRESS` | 住宿区域/品牌/评分纯领域模块及测试 | 2/4/8km、最多12→3、整程同店可重放 |
-| `WP-G02-MAP-STAY-BACKEND` | `codex/wp-g02-map-stay-backend` | `D:/munto/code/claudeProject/agentTravel-wp-g02-map-stay-backend` | `WAITING_FOR_WRITER_SLOT` | map/stay service、API和持久化集成 | 手动更新只算current revision，编辑调用0 |
-
-集成者始终占一个writer名额，因此先启动地图UI和住宿领域两个功能对话。A或B经主对话验收、登记`ready_commit`并冻结为官方`READY_TO_MERGE`后，才把后端包切为`IN_PROGRESS`并启动第三个功能对话。功能对话只能请求冻结，不得自行改registry、创建migration编号、改共享OpenAPI或合并。
-
-三个包全部验收冻结后停止贡献分支写入。主对话严格按`WP-G02-STAY-DOMAIN → WP-G02-MAP-STAY-BACKEND → WP-G02-MAP-THEATER-UI → E2E`串行合并；`ready_commit/merged_commit`祖先顺序不符时Gate失败。集成故障优先交回原功能对话修复，主对话只处理最小冲突和登记路径内胶水；每包最多两轮修复复审。
+G02只保留一个主集成包`WP-G02-INTEGRATOR`，在`codex/g02-map-stay`和干净主线工作树中串行交付地图、住宿、公共接口与浏览器旅程。未创建并行功能分支、额外writer或运行时多Agent。旧排程`WP-G02-STAY-DOMAIN → WP-G02-MAP-STAY-BACKEND → WP-G02-MAP-THEATER-UI → E2E`及分支名`codex/wp-g02-stay-domain`、`codex/wp-g02-map-stay-backend`、`codex/wp-g02-map-theater-ui`仅作历史合同兼容，当前未激活、未创建这些writer。
 
 ## Decisions locked
 
@@ -141,7 +131,7 @@ G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`�
 
 ## Baseline
 
-- Implementation branch：`codex/g02-map-stay`；activation baseline/upstream：`origin/develop@59da74b51455dc224efbf95c0caea3240b70c80e`；
+- Implementation branch：`codex/g02-map-stay`；activation baseline/upstream：`origin/develop@4054bbf8164d1e56078ae4aa944b8b33e4178ac1`；
 - G01 delivery subject：`8aebb6af9639ed5814e157a6f0de0b136e64a70e`；G01 integration subject：`59da74b51455dc224efbf95c0caea3240b70c80e`；
 - Goal transition subject在过渡PR合并后由远端readback记录；首个G02产品切片开始前再次fetch并确认无基线漂移；
 - 只接受G01同绑定地图后端证据，不以旧room driving地图或坐标虚线为当前能力；
@@ -170,6 +160,7 @@ G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`�
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-29 | G01已并入`origin/develop`，G02地图与整程住宿主线已激活；尚未修改G02产品代码 | transition pending remote subject | G01 `core-mainline`、PR #5合并、`origin/develop@59da74b`远端readback `PASS` | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic transition only` | 地图剧场、手动更新、整程住宿产品实现与G02定向验证 | G07候选项目`NOT_RUN`且不得阻断 | 从当前基线开始最小G02产品切片 |
+| 2026-08-30 | 用户可查看步行/公交地图、选择最多3家整程住宿；选择与卡片编辑均不自动调路线，手动重绘会纳入酒店到首末站 | product `c6e8b5e` | G02 targeted `5 PASS`；fresh PostgreSQL `1 PASS`；既有v3/路线回归 `38 PASS`；frontend build、client build、OpenAPI check、G02 Playwright `1 PASS`；core-mainline `PASS` | `CONTROLLED_FIXTURE / REAL_POSTGRESQL / LOCAL_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI` | `Governance ratio=delivery receipt and checkpoint only` | 产品PR push、远端CI/readback与并入`develop`；随后独立治理PR激活G03 | Redis缺失会诚实降级为`LIMITED`；live Provider、H1、公网、生产、商业均`NOT_RUN` | 提交交付回执，push并读取远端subject/CI；合并G02后再创建治理过渡分支 |
 
 ## Auto-advance
 
@@ -179,10 +170,11 @@ G01归档并原子激活G02后，主对话先冻结公共/内部接口、`030`�
 
 ## Completion record
 
-- Status：`APPROVED`；Subject commits：G01 delivery `8aebb6a`、integration `59da74b`，G02 transition待远端readback；Remote branch：`origin/codex/g02-map-stay`；
-- Verification / Evidence / Gate result / `structurally_valid`：激活后填写；
-- H1 / production / commercial：激活时固定为`NOT_RUN / NOT_RUN / NOT_RUN`；
-- User-visible result / Remaining risks / Goal archived / Next activated：激活后填写；
+- Status：`IN_PROGRESS`；Subject commit：G02 product `c6e8b5e`；Remote branch：`origin/codex/g02-map-stay`，本次产品push/readback待执行；
+- Verification / Evidence / Gate result：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / CONTROLLED_FIXTURE + REAL_POSTGRESQL + LOCAL_BROWSER / PRODUCT_DELIVERY_PASS`；`structurally_valid=true`只表示当前合同结构有效；
+- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；live Provider与公网也为`NOT_RUN`；
+- User-visible result：地图剧场支持日配色、步行/公交切换、摘要降级、手动重绘；住宿按全程首末站扩圈、最多12家评分并公开3家，选择后整程同店且地图进入需更新；
+- Remaining risks：产品PR尚未并入`origin/develop`；G03尚未激活；Goal archived：`NO`；Next activated：`NO`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions

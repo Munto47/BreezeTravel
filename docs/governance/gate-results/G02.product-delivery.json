@@ -1,0 +1,28 @@
+{
+  "schema_version": "product-delivery-result-v1",
+  "goal_id": "TC-VNEXT-G02-MAP-STAY",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "product_fingerprint": "5e26cd5480a5a1702418b3772fed4fec2e867fbfafb5eb5a4cd90d4a534fbdbe",
+  "checks": {
+    "core_mainline_contract": "PASS",
+    "g02_map_stay_targeted": "PASS",
+    "g02_postgresql": "PASS",
+    "frontend_build": "PASS",
+    "g02_browser_e2e": "PASS"
+  },
+  "verification": {
+    "g02_targeted": "5 PASS",
+    "fresh_postgresql_integration": "1 PASS",
+    "existing_v3_and_route_regression": "38 PASS",
+    "frontend_production_build": "PASS",
+    "trip_check_client_build": "PASS",
+    "openapi_contract": "PASS",
+    "browser_journey": "1 PASS"
+  },
+  "safety_floor": "PASS",
+  "live_provider_evidence": "NOT_RUN",
+  "human_usability": "NOT_RUN",
+  "production_evidence": "NOT_RUN",
+  "commercial_evidence": "NOT_RUN",
+  "verdict": "PASS"
+}

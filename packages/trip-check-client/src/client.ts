@@ -3,6 +3,8 @@ import { ensureSuccess, type JsonTransport, type TransportResponse, type UploadT
 import type {
   MapRenderAcceptedView,
   MapRenderView,
+  StaySelectionAppliedView,
+  StaySuggestionView,
   TripUnderstandingAcceptedView,
   TripUnderstandingProgressView,
   UserFacingTripResult,
@@ -97,6 +99,31 @@ export class TripCheckClient {
         { ifMatch: etag, idempotencyKey },
       )
     ).data
+  }
+
+  async getTripUnderstandingStaySuggestions(
+    publicResourceId: string,
+  ): Promise<StaySuggestionView> {
+    return (
+      await this.json<StaySuggestionView>(
+        'GET',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`,
+      )
+    ).data
+  }
+
+  async selectTripUnderstandingStay(
+    publicResourceId: string,
+    candidateToken: string,
+    etag: string,
+    idempotencyKey: string,
+  ): Promise<TransportResponse<StaySelectionAppliedView>> {
+    return this.json<StaySelectionAppliedView>(
+      'POST',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-selection`,
+      { candidate_token: candidateToken },
+      { ifMatch: etag, idempotencyKey },
+    )
   }
 
   async createRoom(body: { room_id: string; thread_id: string; trip_city: string; trip_days: number; nickname?: string }): Promise<Record<string, unknown>> {

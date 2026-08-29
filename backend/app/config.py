@@ -97,7 +97,7 @@ class Settings(BaseSettings):
 
     # ── 数据库 ────────────────────────────────────────────────────────
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/travel_agent"
-    redis_url: str = "redis://localhost:6379"
+    redis_url: str = "redis://127.0.0.1:6379"
 
     # ── Sprint 3：微调 Router 分类器 ──────────────────────────────────
     # 启用后：用户查询先经本地 Qwen2.5 LoRA 分类，再决定是否调 DeepSeek
@@ -147,7 +147,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "029_map_render_snapshots.sql"
+    required_migration: str = "030_stay_recommendation_snapshots.sql"
 
     # Trip Understanding v3 anonymous-demo boundary.  The signing key falls
     # back to the existing JWT secret so local fixture stacks need no new

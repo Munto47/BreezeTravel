@@ -1,0 +1,28 @@
+{
+  "schema_version": "hotel-brand-registry-v1",
+  "source_policy": "versioned-product-curation-no-price-or-quality-claims",
+  "brands": [
+    {"brand": "亚朵", "aliases": ["亚朵"]},
+    {"brand": "桔子", "aliases": ["桔子水晶", "桔子酒店"]},
+    {"brand": "汉庭", "aliases": ["汉庭"]},
+    {"brand": "全季", "aliases": ["全季"]},
+    {"brand": "如家", "aliases": ["如家"]},
+    {"brand": "和颐", "aliases": ["和颐"]},
+    {"brand": "宜必思", "aliases": ["宜必思"]},
+    {"brand": "城市便捷", "aliases": ["城市便捷"]},
+    {"brand": "洲际", "aliases": ["洲际"]},
+    {"brand": "万豪", "aliases": ["万豪"]},
+    {"brand": "希尔顿", "aliases": ["希尔顿"]},
+    {"brand": "开元", "aliases": ["开元"]},
+    {"brand": "维景", "aliases": ["维景"]},
+    {"brand": "华尔道夫", "aliases": ["华尔道夫"]},
+    {"brand": "瑰丽", "aliases": ["瑰丽"]},
+    {"brand": "瑜舍", "aliases": ["瑜舍"]},
+    {"brand": "W酒店", "aliases": ["W酒店", "万象城W"]},
+    {"brand": "瑞吉", "aliases": ["瑞吉"]},
+    {"brand": "香格里拉", "aliases": ["香格里拉"]},
+    {"brand": "君悦", "aliases": ["君悦"]},
+    {"brand": "北京饭店", "aliases": ["北京饭店"]},
+    {"brand": "西湖国宾馆", "aliases": ["西湖国宾馆"]}
+  ]
+}
