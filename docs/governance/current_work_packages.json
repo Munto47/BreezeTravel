@@ -3,14 +3,25 @@
   "active_goal_sequence": 1,
   "active_slice": {
     "acceptance_refs": [
-      "CURRENT_GOAL.md Acceptance G01 exact candidate evidence",
-      "CURRENT_GOAL.md Checkpoint ledger latest remaining work"
+      "CURRENT_GOAL.md anti-over-governance pivot rule",
+      "CURRENT_GOAL.md Acceptance clean CORE candidate context"
     ],
     "allowed_paths": [
+      "backend/evals/agent_gate_v1/core_gate.py",
+      "backend/evals/agent_gate_v1/scope_guard.py",
+      "backend/tests/test_core_agent_gate.py",
+      "backend/tests/test_scope_guard.py",
       "docs/governance/current_work_packages.json"
     ],
-    "base_commit": "3e308dc606a4b1096dbb96e77b8f27d2fde7a533",
-    "blocking_issue": null,
+    "base_commit": "218f0ca516c9f5ec53bcf6ac49bf053c4b3a862c",
+    "blocking_issue": {
+      "severity": "P1",
+      "reproduction": "CoreCandidateContext.load at candidate 218f0ca rejects before live evidence because the last two historical checkpoint markers are Product progress=NONE",
+      "current_goal_acceptance_ref": "CURRENT_GOAL.md Required gate Text Card Gate + AGENT_GATE_PASS",
+      "impact_chain": "The frozen candidate can produce exact live evidence after F but CORE rejects before reading that evidence, so G01 can never reach its required Gate.",
+      "minimum_fix": "Enforce the two-NONE pivot before freeze in scope_guard and remove the stale pre-evidence rejection from CoreCandidateContext; keep final live score mandatory.",
+      "stop_condition": "Stop when a PRODUCT preflight can proceed after two NONE checkpoints, a non-product preflight is rejected, and CoreCandidateContext accepts the same clean frozen candidate."
+    },
     "evidence_invalidated": [
       "QWEN_EXACT",
       "AMAP_EXACT",
@@ -25,44 +36,14 @@
       "cryptographic or authority protocol",
       "component-level evidence reuse framework"
     ],
-    "minimum_change": "Run the mandatory no-blind synthetic preflight and candidate regression checks without tracked product changes; freeze only after every preflight finding is empty.",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "64395e5a2801e44cccb8b6305afd2836c7cb1f3b",
-    "preflight_entrypoints": [
-      "backend/scripts/validate_work_packages.py",
-      "backend/scripts/run_qwen_model_predictions.py",
-      "backend/scripts/export_g01_amap_live_receipts.py",
-      "backend/scripts/export_g01_qwen_live_receipts.py",
-      "backend/scripts/score_g01_sealed_agent_blind.py",
-      "backend/scripts/build_agent_gate_pass.py"
-    ],
-    "preflight_required_tokens": {
-      "backend/scripts/build_agent_gate_pass.py": [
-        "verify_core_agent_gate_pass",
-        "verify_g07_candidate_gate_pass"
-      ],
-      "backend/scripts/export_g01_amap_live_receipts.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/export_g01_qwen_live_receipts.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/run_qwen_model_predictions.py": [
-        "write_external_bytes_exclusive"
-      ],
-      "backend/scripts/score_g01_sealed_agent_blind.py": [
-        "write_external_bytes_exclusive",
-        "validate_provider_receipt_assets"
-      ],
-      "backend/scripts/validate_work_packages.py": [
-        "output.open(\"x\""
-      ]
-    },
-    "slice_id": "G01-EXACT-EVIDENCE-REBUILD",
-    "stop_condition": "Stop before freeze, Provider calls, review or blind if preflight exposes an unconsumed input, default PASS, missing producer, missing upstream readback or a tracked code change; hardening stays deferred to G07.",
-    "user_outcome": "The existing daily-card candidate reaches one coherent exact evidence and CORE Gate run without another governance subsystem.",
-    "work_kind": "PRODUCT"
+    "minimum_change": "Move the existing anti-over-governance checkpoint test to the pre-freeze scope boundary without weakening the final live-score requirement.",
+    "phase": "IMPLEMENTING",
+    "preflight_entrypoints": [],
+    "preflight_required_tokens": {},
+    "slice_id": "G01-CORE-PROGRESS-LIFECYCLE-FIX",
+    "stop_condition": "Stop if the fix requires a database, registry, cryptography, new service, changed product behavior, relaxed live evidence, or more than the declared files.",
+    "user_outcome": "The G01 candidate can prove post-freeze Provider and evaluation progress in CORE without allowing consecutive governance-only work to bypass the product pivot.",
+    "work_kind": "CURRENT_GATE_FIX"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "CORE_AGENT_GATE",
