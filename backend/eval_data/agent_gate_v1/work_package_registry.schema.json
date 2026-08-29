@@ -54,7 +54,7 @@
           "title": "Forbidden Mechanisms",
           "type": "array"
         },
-        "frozen_candidate_commit": {
+        "freeze_parent_commit": {
           "anyOf": [
             {
               "pattern": "^[0-9a-f]{40}$",
@@ -65,7 +65,7 @@
             }
           ],
           "default": null,
-          "title": "Frozen Candidate Commit"
+          "title": "Freeze Parent Commit"
         },
         "hardening_decision_ref": {
           "anyOf": [

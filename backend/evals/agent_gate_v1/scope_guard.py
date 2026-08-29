@@ -74,6 +74,11 @@ POLICY_HASH_PATHS = tuple(
         }
     )
 )
+CURRENT_GATE_POLICY_FIX_PATHS = {
+    "backend/evals/agent_gate_v1/contracts.py",
+    "backend/evals/agent_gate_v1/scope_guard.py",
+    "backend/eval_data/agent_gate_v1/work_package_registry.schema.json",
+}
 DEPENDENCY_PATHS = {
     "backend/requirements-base.txt",
     "backend/requirements-dev.txt",
@@ -141,6 +146,7 @@ def scope_policy_digest(root: Path) -> str:
 def _is_generated(path: str) -> bool:
     return (
         path.endswith(".schema.json")
+        or path == "backend/eval_data/agent_gate_v1/protocol_contract.json"
         or "/src/generated/" in f"/{path}"
         or path.endswith("openapi.json")
         or path.endswith("openapi.current.json")
@@ -247,27 +253,57 @@ def _registry_policy_changed(root: Path, base: str) -> bool:
     return before != after
 
 
-def _freeze_marker_only(root: Path, candidate_commit: str) -> bool:
-    frozen_stats, _ = _diff_stats(root, candidate_commit)
-    if not frozen_stats:
-        return True
+def _freeze_marker_only(
+    root: Path,
+    *,
+    freeze_parent_commit: str,
+    formal_candidate_commit: str,
+) -> bool:
+    observed_parent = _git(
+        root,
+        "rev-parse",
+        f"{formal_candidate_commit}^",
+        check=False,
+    )
+    if observed_parent != freeze_parent_commit:
+        return False
     registry_path = "docs/governance/current_work_packages.json"
-    if set(frozen_stats) != {registry_path}:
+    changed_paths = {
+        path.replace("\\", "/")
+        for path in _git(
+            root,
+            "diff",
+            "--name-only",
+            freeze_parent_commit,
+            formal_candidate_commit,
+            "--",
+        ).splitlines()
+        if path.strip()
+    }
+    if changed_paths != {registry_path}:
         return False
     try:
-        before = json.loads(_git(root, "show", f"{candidate_commit}:{registry_path}"))
-        after = json.loads((root / registry_path).read_text(encoding="utf-8"))
+        before = json.loads(
+            _git(root, "show", f"{freeze_parent_commit}:{registry_path}")
+        )
+        after = json.loads(
+            _git(root, "show", f"{formal_candidate_commit}:{registry_path}")
+        )
         before_slice = before["active_slice"]
         after_slice = after["active_slice"]
-    except (KeyError, OSError, json.JSONDecodeError):
+    except (KeyError, json.JSONDecodeError, ScopeGuardError):
         return False
-    if after_slice.get("frozen_candidate_commit") != candidate_commit:
+    if before_slice.get("phase") != "PREFLIGHT":
+        return False
+    if after_slice.get("phase") not in {"EVIDENCE_FROZEN", "GATE_RUNNING"}:
+        return False
+    if after_slice.get("freeze_parent_commit") != freeze_parent_commit:
         return False
     after_slice["phase"] = before_slice.get("phase")
-    if "frozen_candidate_commit" in before_slice:
-        after_slice["frozen_candidate_commit"] = before_slice["frozen_candidate_commit"]
+    if "freeze_parent_commit" in before_slice:
+        after_slice["freeze_parent_commit"] = before_slice["freeze_parent_commit"]
     else:
-        after_slice.pop("frozen_candidate_commit", None)
+        after_slice.pop("freeze_parent_commit", None)
     return before == after
 
 
@@ -372,7 +408,16 @@ def validate_mainline_scope(
         policy_changed = bool((changed & POLICY_PATHS) - {"docs/governance/current_work_packages.json"})
         if "docs/governance/current_work_packages.json" in changed:
             policy_changed = policy_changed or _registry_policy_changed(target, active.base_commit)
-        if policy_changed:
+        registered_policy_fix = (
+            active.work_kind == "CURRENT_GATE_FIX"
+            and bool(changed & POLICY_PATHS)
+            and all(
+                any(_contains(allowed, path) for allowed in active.allowed_paths)
+                for path in changed & POLICY_PATHS
+            )
+            and (changed & POLICY_PATHS).issubset(CURRENT_GATE_POLICY_FIX_PATHS)
+        )
+        if policy_changed and not registered_policy_fix:
             errors.add("POLICY_SELF_MODIFICATION")
 
     executable_paths = {
@@ -432,10 +477,15 @@ def validate_mainline_scope(
         mechanisms.add("requested_phase_differs")
 
     if active.phase in {"EVIDENCE_FROZEN", "GATE_RUNNING"}:
-        assert active.frozen_candidate_commit is not None
-        if expected_candidate_commit and active.frozen_candidate_commit != expected_candidate_commit:
+        assert active.freeze_parent_commit is not None
+        formal_candidate_commit = head
+        if expected_candidate_commit and formal_candidate_commit != expected_candidate_commit:
             errors.add("EVIDENCE_FREEZE_BROKEN")
-        if not _freeze_marker_only(target, active.frozen_candidate_commit):
+        if not _freeze_marker_only(
+            target,
+            freeze_parent_commit=active.freeze_parent_commit,
+            formal_candidate_commit=formal_candidate_commit,
+        ):
             errors.add("EVIDENCE_FREEZE_BROKEN")
         if _git(target, "status", "--porcelain"):
             errors.add("EVIDENCE_FREEZE_BROKEN")
@@ -473,8 +523,6 @@ def validate_mainline_scope(
         if classifications.get("product_runtime"):
             product_progress.add("RUNTIME")
         valid_commits = {head, active.base_commit}
-        if active.frozen_candidate_commit:
-            valid_commits.add(active.frozen_candidate_commit)
         product_progress |= _receipt_progress(
             evidence_receipts or [], target, valid_commits
         )

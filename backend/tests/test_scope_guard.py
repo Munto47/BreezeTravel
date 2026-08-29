@@ -6,8 +6,17 @@ from pathlib import Path
 
 import pytest
 
+from evals.agent_gate_v1 import core_gate
 from evals.agent_gate_v1.contracts import ActiveSlice
-from evals.agent_gate_v1.scope_guard import POLICY_HASH_PATHS, scope_policy_digest, validate_mainline_scope
+from evals.agent_gate_v1.core_gate import CoreCandidateContext, _read_remote_candidate
+from evals.agent_gate_v1.scope_guard import (
+    POLICY_HASH_PATHS,
+    scope_policy_digest,
+    validate_mainline_scope,
+)
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _git(root: Path, *args: str) -> str:
@@ -30,7 +39,7 @@ def _active_slice(
     base_commit: str,
     work_kind: str,
     phase: str = "IMPLEMENTING",
-    frozen_candidate_commit: str | None = None,
+    freeze_parent_commit: str | None = None,
     preflight_entrypoints: list[str] | None = None,
     preflight_required_tokens: dict[str, list[str]] | None = None,
 ) -> dict[str, object]:
@@ -65,8 +74,8 @@ def _active_slice(
         }
     if work_kind == "HARDENING":
         value["hardening_decision_ref"] = "G07 approved hardening decision"
-    if frozen_candidate_commit is not None:
-        value["frozen_candidate_commit"] = frozen_candidate_commit
+    if freeze_parent_commit is not None:
+        value["freeze_parent_commit"] = freeze_parent_commit
     return value
 
 
@@ -127,6 +136,7 @@ def _scope_repo(
     work_kind: str,
     goal_sequence: int = 1,
     phase: str = "IMPLEMENTING",
+    freeze_extra_change: bool = False,
     preflight_entrypoints: list[str] | None = None,
     preflight_required_tokens: dict[str, list[str]] | None = None,
 ) -> tuple[Path, str]:
@@ -159,10 +169,15 @@ def _scope_repo(
     _git(root, "add", "--all")
     _git(root, "commit", "-m", "install scope policy")
     base = _git(root, "rev-parse", "HEAD")
+    activation_phase = (
+        "PREFLIGHT"
+        if phase in {"PREFLIGHT", "EVIDENCE_FROZEN", "GATE_RUNNING"}
+        else "IMPLEMENTING"
+    )
     active = _active_slice(
         base_commit=base,
         work_kind=work_kind,
-        phase=phase if phase == "PREFLIGHT" else "IMPLEMENTING",
+        phase=activation_phase,
         preflight_entrypoints=preflight_entrypoints,
         preflight_required_tokens=preflight_required_tokens,
     )
@@ -177,12 +192,12 @@ def _scope_repo(
     _git(root, "add", "--all")
     _git(root, "commit", "-m", "activate slice")
     if phase in {"EVIDENCE_FROZEN", "GATE_RUNNING"}:
-        candidate = _git(root, "rev-parse", "HEAD")
+        freeze_parent = _git(root, "rev-parse", "HEAD")
         active = _active_slice(
             base_commit=base,
             work_kind=work_kind,
             phase=phase,
-            frozen_candidate_commit=candidate,
+            freeze_parent_commit=freeze_parent,
             preflight_entrypoints=preflight_entrypoints,
             preflight_required_tokens=preflight_required_tokens,
         )
@@ -194,6 +209,8 @@ def _scope_repo(
             )
             + "\n",
         )
+        if freeze_extra_change:
+            _write(root / "backend/evals/freeze_extra.py", "VALUE = 'not a marker'\n")
         _git(root, "add", "--all")
         _git(root, "commit", "-m", "freeze candidate")
     return root, base
@@ -267,6 +284,37 @@ def test_same_hardening_mechanism_is_allowed_in_g07(tmp_path: Path) -> None:
 def test_policy_self_modification_is_rejected(tmp_path: Path) -> None:
     root, _base = _scope_repo(tmp_path, work_kind="PRODUCT")
     _write(root / "AGENTS.md", "weakened policy\n")
+
+    report = validate_mainline_scope(root)
+
+    assert report.verdict == "REJECT"
+    assert "POLICY_SELF_MODIFICATION" in report.error_codes
+
+
+def test_registered_gate_fix_can_update_only_declared_guard_policy(tmp_path: Path) -> None:
+    root, _base = _scope_repo(tmp_path, work_kind="CURRENT_GATE_FIX")
+    _write(
+        root / "backend/evals/agent_gate_v1/scope_guard.py",
+        "VALUE = 'bounded current Gate fix'\n",
+    )
+    registry_path = root / "docs/governance/current_work_packages.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["scope_policy_sha256"] = scope_policy_digest(root)
+    _write(registry_path, json.dumps(registry, indent=2) + "\n")
+
+    report = validate_mainline_scope(root)
+
+    assert report.verdict == "PASS"
+    assert "POLICY_SELF_MODIFICATION" not in report.error_codes
+
+
+def test_registered_gate_fix_cannot_rewrite_agents_policy(tmp_path: Path) -> None:
+    root, _base = _scope_repo(tmp_path, work_kind="CURRENT_GATE_FIX")
+    _write(root / "AGENTS.md", "weakened even though the path was declared\n")
+    registry_path = root / "docs/governance/current_work_packages.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["scope_policy_sha256"] = scope_policy_digest(root)
+    _write(registry_path, json.dumps(registry, indent=2) + "\n")
 
     report = validate_mainline_scope(root)
 
@@ -373,6 +421,147 @@ def test_tracked_change_after_freeze_is_rejected(tmp_path: Path) -> None:
 
     assert report.verdict == "REJECT"
     assert "EVIDENCE_FREEZE_BROKEN" in report.error_codes
+
+    _git(root, "add", "--all")
+    _git(root, "commit", "-m", "change after freeze")
+    committed = validate_mainline_scope(root, requested_phase="EVIDENCE_FROZEN")
+    assert committed.verdict == "REJECT"
+    assert "EVIDENCE_FREEZE_BROKEN" in committed.error_codes
+
+
+def test_freeze_marker_commit_is_the_formal_core_candidate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, _base = _scope_repo(
+        tmp_path,
+        work_kind="EVAL_INFRA",
+        phase="EVIDENCE_FROZEN",
+    )
+    candidate = _git(root, "rev-parse", "HEAD")
+    freeze_parent = _git(root, "rev-parse", "HEAD^")
+    candidate_tree = _git(root, "show", "-s", "--format=%T", candidate)
+
+    frozen = validate_mainline_scope(
+        root,
+        requested_phase="GATE_RUNNING",
+        expected_candidate_commit=candidate,
+    )
+    assert frozen.verdict == "PASS"
+    wrong_candidate = validate_mainline_scope(
+        root,
+        requested_phase="GATE_RUNNING",
+        expected_candidate_commit=freeze_parent,
+    )
+    assert wrong_candidate.verdict == "REJECT"
+    assert "EVIDENCE_FREEZE_BROKEN" in wrong_candidate.error_codes
+
+    binding_bytes = (
+        REPOSITORY_ROOT / "docs/governance/current_goal_binding.json"
+    ).read_bytes()
+    automated_contract_sha256 = json.loads(binding_bytes)[
+        "automated_gate_contract_sha256"
+    ]
+    goal_bytes = b"Goal ID: TC-VNEXT-G01-TEXT-CARDS\nProduct progress=RUNTIME\n"
+    original_blob = core_gate._git_blob
+
+    def fake_blob(repo: Path, commit: str, path: str) -> bytes:
+        if path == "docs/governance/current_goal_binding.json":
+            return binding_bytes
+        if path == "docs/governance/CURRENT_GOAL.md":
+            return goal_bytes
+        return original_blob(repo, commit, path)
+
+    monkeypatch.setattr(core_gate, "_git_blob", fake_blob)
+    monkeypatch.setattr(
+        core_gate,
+        "load_candidate_work_package_registry",
+        lambda *_args, **_kwargs: (object(), "0" * 64),
+    )
+    monkeypatch.setattr(
+        core_gate,
+        "_git_blob_sha256",
+        lambda *_args: automated_contract_sha256,
+    )
+    monkeypatch.setattr(core_gate, "_git_bundle_sha256", lambda *_args: "0" * 64)
+
+    context = CoreCandidateContext.load(
+        repository_root=root,
+        candidate_commit=candidate,
+        candidate_tree=candidate_tree,
+    )
+    assert context.candidate_commit == candidate
+
+    original_git = core_gate._git
+
+    def fake_remote_git(repo: Path, *args: str, **kwargs: object) -> str | bytes:
+        if args[:3] == ("ls-remote", "--refs", "origin"):
+            return f"{candidate}\t{context.binding.canonical_candidate_ref}"
+        if args and args[0] == "fetch":
+            return ""
+        if args[:3] == ("show", "-s", "--format=%T"):
+            return candidate_tree
+        if args == ("remote", "get-url", "origin"):
+            return "https://github.com/Munto47/BreezeTravel.git"
+        return original_git(repo, *args, **kwargs)
+
+    monkeypatch.setattr(core_gate, "_git", fake_remote_git)
+    remote_subject, remote_tree, _remote_ref = _read_remote_candidate(context=context)
+    assert (remote_subject, remote_tree) == (candidate, candidate_tree)
+
+
+def test_checkout_at_freeze_parent_cannot_enter_gate(tmp_path: Path) -> None:
+    root, _base = _scope_repo(
+        tmp_path,
+        work_kind="EVAL_INFRA",
+        phase="EVIDENCE_FROZEN",
+    )
+    candidate = _git(root, "rev-parse", "HEAD")
+    freeze_parent = _git(root, "rev-parse", "HEAD^")
+    old_checkout = tmp_path / "freeze-parent-checkout"
+    _git(root, "worktree", "add", "--detach", str(old_checkout), freeze_parent)
+
+    report = validate_mainline_scope(
+        root,
+        target_root=old_checkout,
+        requested_phase="GATE_RUNNING",
+        expected_candidate_commit=candidate,
+    )
+
+    assert report.verdict == "REJECT"
+    assert "EVIDENCE_FREEZE_BROKEN" in report.error_codes
+
+
+def test_freeze_commit_with_non_registry_change_is_rejected(tmp_path: Path) -> None:
+    root, _base = _scope_repo(
+        tmp_path,
+        work_kind="EVAL_INFRA",
+        phase="EVIDENCE_FROZEN",
+        freeze_extra_change=True,
+    )
+    candidate = _git(root, "rev-parse", "HEAD")
+
+    report = validate_mainline_scope(
+        root,
+        requested_phase="GATE_RUNNING",
+        expected_candidate_commit=candidate,
+    )
+
+    assert report.verdict == "REJECT"
+    assert "EVIDENCE_FREEZE_BROKEN" in report.error_codes
+
+
+def test_legacy_frozen_candidate_field_is_rejected() -> None:
+    value = _active_slice(
+        base_commit="1" * 40,
+        work_kind="EVAL_INFRA",
+        phase="EVIDENCE_FROZEN",
+        freeze_parent_commit="2" * 40,
+    )
+    value["frozen_candidate_commit"] = value.pop("freeze_parent_commit")
+
+    with pytest.raises(ValueError, match="frozen_candidate_commit"):
+        ActiveSlice.model_validate(value)
 
 
 def test_large_custody_subsystem_cannot_pass_g01(tmp_path: Path) -> None:

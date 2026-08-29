@@ -126,7 +126,11 @@ def test_g01_to_g06_use_core_and_only_g07_uses_hardened_gate() -> None:
     )
     assert work_packages["scope_guard_version"] == "scope-guard-v1"
     assert re.fullmatch(r"[0-9a-f]{64}", work_packages["scope_policy_sha256"])
-    assert work_packages["active_slice"]["work_kind"] in {"PRODUCT", "EVAL_INFRA"}
+    assert work_packages["active_slice"]["work_kind"] in {
+        "PRODUCT",
+        "CURRENT_GATE_FIX",
+        "EVAL_INFRA",
+    }
     assert work_packages["active_slice"]["work_kind"] != "HARDENING"
     assert work_packages["active_slice"]["phase"] == "IMPLEMENTING"
 

@@ -580,7 +580,7 @@ class ActiveSlice(StrictModel):
     stop_condition: str = Field(min_length=3, max_length=1000)
     blocking_issue: ScopeBlockingIssue | None = None
     hardening_decision_ref: str | None = Field(default=None, min_length=3, max_length=500)
-    frozen_candidate_commit: str | None = Field(
+    freeze_parent_commit: str | None = Field(
         default=None,
         pattern=r"^[0-9a-f]{40}$",
     )
@@ -620,10 +620,10 @@ class ActiveSlice(StrictModel):
         if self.work_kind != "HARDENING" and self.hardening_decision_ref is not None:
             raise ValueError("only HARDENING may declare a hardening decision")
         if self.phase in {"EVIDENCE_FROZEN", "GATE_RUNNING"}:
-            if self.frozen_candidate_commit is None:
-                raise ValueError("frozen scope phases require frozen_candidate_commit")
-        elif self.frozen_candidate_commit is not None:
-            raise ValueError("frozen_candidate_commit is only valid after freeze")
+            if self.freeze_parent_commit is None:
+                raise ValueError("frozen scope phases require freeze_parent_commit")
+        elif self.freeze_parent_commit is not None:
+            raise ValueError("freeze_parent_commit is only valid after freeze")
         return self
 
 
