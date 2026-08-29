@@ -15,6 +15,10 @@ BINDING_PATH = "docs/governance/current_goal_binding.json"
 REGISTRY_PATH = "docs/governance/current_work_packages.json"
 GUIDANCE_PATH = "AGENTS.md"
 CURRENT_GOAL_PATH = "docs/governance/CURRENT_GOAL.md"
+OWNER_REVIEW_STATE = "CORE_MVP_OWNER_REVIEW_PENDING"
+OWNER_REVIEW_STATUS = "OWNER_REVIEW_PENDING"
+G03_GOAL_ID = "TC-VNEXT-G03-TOP3-AUDIT"
+G04_GOAL_ID = "TC-VNEXT-G04-SCREENSHOT"
 
 PRODUCT_ROOTS = (
     "backend/app/",
@@ -250,9 +254,13 @@ def _validate_active_files(
     sequence = binding.get("goal_sequence")
     if not isinstance(sequence, int) or not 1 <= sequence <= 7:
         raise CoreMainlineError("active Goal sequence is invalid")
+    owner_review_hold = binding.get("program_state") == OWNER_REVIEW_STATE
+    if owner_review_hold and sequence != 3:
+        raise CoreMainlineError("owner review hold must remain bound to completed G03")
     goal_contract = contract["goals"][sequence - 1]
+    expected_goal_id = OWNER_REVIEW_STATE if owner_review_hold else goal_contract.get("goal_id")
     facts = (
-        (binding.get("goal_id"), goal_contract.get("goal_id"), "Goal ID"),
+        (binding.get("goal_id"), expected_goal_id, "Goal ID"),
         (binding.get("gate_profile"), goal_contract.get("gate_profile"), "Gate profile"),
         (registry.get("active_goal_id"), binding.get("goal_id"), "registry Goal"),
         (registry.get("active_goal_sequence"), sequence, "registry sequence"),
@@ -303,12 +311,42 @@ def _validate_active_files(
                 raise CoreMainlineError(f"{label} binding disagrees")
         gate_result = goal_state.get("gate_result")
         completion_status = goal_state.get("completion_status")
-        valid_states = {
-            "PRODUCT_DELIVERY_NOT_RUN": "PENDING",
-            "PRODUCT_DELIVERY_PASS": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
-        }
-        if valid_states.get(gate_result) != completion_status:
-            raise CoreMainlineError("product delivery document state is inconsistent")
+        if owner_review_hold:
+            terminal_facts = (
+                (binding.get("status"), OWNER_REVIEW_STATUS, "owner review binding status"),
+                (binding.get("last_completed_goal_id"), G03_GOAL_ID, "last completed Goal"),
+                (binding.get("next_goal_id"), G04_GOAL_ID, "owner review next Goal"),
+                (binding.get("next_goal_status"), "NOT_ACTIVATED", "next Goal status"),
+                (registry.get("program_state"), OWNER_REVIEW_STATE, "registry program state"),
+                (registry.get("writer_activation"), "NONE", "writer activation"),
+                (registry.get("next_goal_id"), G04_GOAL_ID, "registry next Goal"),
+                (registry.get("next_goal_status"), "NOT_ACTIVATED", "registry next status"),
+                (gate_result, "PRODUCT_DELIVERY_PASS", "owner review gate result"),
+                (completion_status, "DELIVERY_INTEGRATED", "owner review completion"),
+                (goal_state.get("goal_archived"), True, "G03 archive state"),
+                (goal_state.get("last_completed_goal_id"), G03_GOAL_ID, "document completed Goal"),
+                (goal_state.get("next_goal_id"), G04_GOAL_ID, "document next Goal"),
+                (goal_state.get("next_activated"), False, "document next activation"),
+                (goal_state.get("g04_status"), "NOT_ACTIVATED", "G04 status"),
+                (goal_state.get("fux03_status"), "NOT_RUN", "FUX-03 status"),
+                (goal_state.get("h1_status"), "NOT_RUN", "H1 status"),
+                (goal_state.get("public_network_status"), "NOT_RUN", "public network status"),
+                (goal_state.get("production_status"), "NOT_RUN", "production status"),
+                (goal_state.get("commercial_status"), "NOT_RUN", "commercial status"),
+                (goal_state.get("release_status"), "NOT_REQUESTED", "release status"),
+                (goal_state.get("deployment_status"), "NOT_REQUESTED", "deployment status"),
+                (goal_state.get("main_merge_status"), "NOT_REQUESTED", "main merge status"),
+            )
+            for observed, expected, label in terminal_facts:
+                if observed != expected:
+                    raise CoreMainlineError(f"{label} disagrees with owner review hold")
+        else:
+            valid_states = {
+                "PRODUCT_DELIVERY_NOT_RUN": "PENDING",
+                "PRODUCT_DELIVERY_PASS": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+            }
+            if valid_states.get(gate_result) != completion_status:
+                raise CoreMainlineError("product delivery document state is inconsistent")
         required_gate = str(goal_state.get("required_gate", ""))
         if "PRODUCT_DELIVERY_PASS" not in required_gate:
             raise CoreMainlineError("current Goal does not require product delivery PASS")
@@ -325,6 +363,31 @@ def _validate_active_files(
         raise CoreMainlineError("active work package slice is missing")
     if registry.get("scope_guard_version") != "core-mainline-v1":
         raise CoreMainlineError("active registry does not use core-mainline-v1")
+    if owner_review_hold:
+        terminal_slice = (
+            (active.get("work_kind"), "GOAL_TRANSITION", "owner review work kind"),
+            (active.get("phase"), "GOAL_TRANSITION", "owner review phase"),
+            (active.get("product_progress"), "NONE", "owner review product progress"),
+        )
+        for observed, expected, label in terminal_slice:
+            if observed != expected:
+                raise CoreMainlineError(f"{label} is invalid")
+        packages = registry.get("packages")
+        if not isinstance(packages, list) or len(packages) != 1:
+            raise CoreMainlineError("owner review hold must retain exactly one completed G03 package")
+        package = packages[0]
+        package_facts = (
+            (package.get("goal_id"), G03_GOAL_ID, "owner review package Goal"),
+            (package.get("role"), "INTEGRATOR", "owner review package role"),
+            (package.get("status"), "MERGED", "owner review package status"),
+        )
+        for observed, expected, label in package_facts:
+            if observed != expected:
+                raise CoreMainlineError(f"{label} is invalid")
+        for field in ("ready_commit", "merged_commit"):
+            value = package.get(field)
+            if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{40}", value) is None:
+                raise CoreMainlineError(f"owner review package {field} is invalid")
     if sequence <= 3:
         allowed = {"PRODUCT", "BLOCKING_DEFECT", "GOAL_TRANSITION"}
         if active.get("work_kind") not in allowed:
@@ -368,10 +431,16 @@ def validate_core_mainline(
     bootstrap = not base_has_contract
     base_binding = _read_json_at_ref(root, base_ref, BINDING_PATH)
     base_sequence = base_binding.get("goal_sequence") if base_binding else None
+    owner_review_transition = (
+        binding.get("program_state") == OWNER_REVIEW_STATE
+        and base_sequence == 3
+        and base_binding is not None
+        and base_binding.get("goal_id") == G03_GOAL_ID
+    )
     goal_transition = (
         base_has_contract
         and isinstance(base_sequence, int)
-        and sequence == base_sequence + 1
+        and (sequence == base_sequence + 1 or owner_review_transition)
     )
     errors: list[str] = []
 

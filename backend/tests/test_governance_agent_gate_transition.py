@@ -129,6 +129,12 @@ def test_current_goal_is_the_only_active_goal() -> None:
         assert "- Status：`DRAFT`" in _text(path)
     assert "PRODUCT_DELIVERY_PASS" in current
     assert "H1、公网、生产、商业：`NOT_RUN`" in current
+    if binding.get("program_state") == "CORE_MVP_OWNER_REVIEW_PENDING":
+        assert binding["goal_id"] == "CORE_MVP_OWNER_REVIEW_PENDING"
+        assert binding["status"] == "OWNER_REVIEW_PENDING"
+        assert "Status: APPROVED" not in current
+        assert "Status: IN_PROGRESS" not in current
+        assert "G04：`NOT_ACTIVATED`" in current
 
 
 def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
@@ -162,7 +168,18 @@ def test_g01_to_g06_use_delivery_and_only_g07_uses_hardened_gate() -> None:
     assert re.fullmatch(r"[0-9a-f]{64}", work_packages["scope_policy_sha256"])
     assert work_packages["active_goal_sequence"] == sequence
     assert work_packages["gate_profile"] == expected_profile
-    if sequence <= 3:
+    owner_review_hold = (
+        current_binding.get("program_state") == "CORE_MVP_OWNER_REVIEW_PENDING"
+    )
+    if owner_review_hold:
+        assert sequence == 3
+        assert current_binding["goal_id"] == "CORE_MVP_OWNER_REVIEW_PENDING"
+        assert current_binding["next_goal_id"] == "TC-VNEXT-G04-SCREENSHOT"
+        assert current_binding["next_goal_status"] == "NOT_ACTIVATED"
+        assert work_packages["active_slice"]["work_kind"] == "GOAL_TRANSITION"
+        assert work_packages["active_slice"]["product_progress"] == "NONE"
+        assert work_packages["writer_activation"] == "NONE"
+    elif sequence <= 3:
         assert work_packages["active_slice"]["work_kind"] in {
             "PRODUCT",
             "BLOCKING_DEFECT",
@@ -236,19 +253,58 @@ def test_checked_in_work_package_registry_binds_guidance_and_active_goal() -> No
     assert registry["mainline_phase"] == binding["mainline_phase"]
     assert registry["gate_profile"] == binding["gate_profile"]
     assert registry["guidance_sha256"] == _sha256(ROOT / "AGENTS.md")
-    assert len(
-        [
-            package
-            for package in registry["packages"]
-            if package["role"] == "INTEGRATOR"
-            and package["status"] in {"IN_PROGRESS", "READY_TO_MERGE"}
-        ]
-    ) == 1
     integrator = registry["packages"][0]
     assert integrator["execution_mode"] == "PRIMARY_INTEGRATOR_DIALOGUE"
     assert integrator["remote_branch"] == f"origin/{integrator['branch']}"
     assert integrator["worktree_path"] is not None
     assert registry["e2e_after_all_merges"] is True
+    active_integrators = [
+        package
+        for package in registry["packages"]
+        if package["role"] == "INTEGRATOR"
+        and package["status"] in {"IN_PROGRESS", "READY_TO_MERGE"}
+    ]
+    if registry.get("program_state") == "CORE_MVP_OWNER_REVIEW_PENDING":
+        assert active_integrators == []
+        assert len(registry["packages"]) == 1
+        assert integrator["goal_id"] == "TC-VNEXT-G03-TOP3-AUDIT"
+        assert integrator["status"] == "MERGED"
+        assert re.fullmatch(r"[0-9a-f]{40}", integrator["ready_commit"])
+        assert re.fullmatch(r"[0-9a-f]{40}", integrator["merged_commit"])
+        assert registry["next_goal_id"] == "TC-VNEXT-G04-SCREENSHOT"
+        assert registry["next_goal_status"] == "NOT_ACTIVATED"
+        assert registry["writer_activation"] == "NONE"
+    else:
+        assert len(active_integrators) == 1
+
+
+def test_g03_owner_review_hold_keeps_external_evidence_and_release_not_run() -> None:
+    binding = json.loads(_text(GOVERNANCE / "current_goal_binding.json"))
+    if binding.get("program_state") != "CORE_MVP_OWNER_REVIEW_PENDING":
+        return
+
+    current = _text(CURRENT)
+    match = re.search(
+        r"<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE\n(?P<payload>\{.*?\})\n-->",
+        current,
+        re.DOTALL,
+    )
+    assert match is not None
+    state = json.loads(match.group("payload"))
+    assert state["last_completed_goal_id"] == "TC-VNEXT-G03-TOP3-AUDIT"
+    assert state["next_goal_id"] == "TC-VNEXT-G04-SCREENSHOT"
+    assert state["next_activated"] is False
+    assert state["g04_status"] == "NOT_ACTIVATED"
+    for field in (
+        "fux03_status",
+        "h1_status",
+        "public_network_status",
+        "production_status",
+        "commercial_status",
+    ):
+        assert state[field] == "NOT_RUN"
+    for field in ("release_status", "deployment_status", "main_merge_status"):
+        assert state[field] == "NOT_REQUESTED"
 
 
 def test_function_dialogue_prompt_and_g02_writer_schedule_are_locked() -> None:
