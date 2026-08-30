@@ -183,3 +183,56 @@ G03只使用一个主集成包`WP-G03-INTEGRATOR`。唯一总指挥在`codex/g03
 - 任何尝试把自动化结果表述为真人、生产或商业证据；
 - 任何尝试自动激活G04、创建新writer、部署、发布或合并`main`；
 - 任何需要降低G03 Gate、修改sealed oracle或扩大外部数据/费用的提案。
+
+---
+
+# COMPLETED ADDENDUM：G03R 语义、地点与结果页 P1 返修
+
+Goal ID：`TC-VNEXT-G03-TOP3-AUDIT`；repair slice：`G03R-SEMANTIC-PLACE-UI-P1`；Status：`COMPLETED / ARCHIVED`；完成日期：`2026-08-30`。
+
+## User outcome
+
+用户粘贴攻略后，逐日卡片只保留真正计划到访的原子地点并保持日序与日内顺序；推荐、经过、排除、描述、URL和预约噪声不进入行程。北京、上海、杭州使用版本化900地点词典形成检索候选，但只有通过城市、类别、行政区和唯一性校验的Provider结果才能自动匹配，证据不足时保守显示“地点待确认”。结果页稳定保留Top-3，支持桌面拖拽、键盘和移动端等价编辑，并以服务端回读处理失败和409。
+
+## Dependencies and scope
+
+- 精确基线：`origin/develop@8a33a4b22a405135f310376d8766d9170d80097d`；所有者授权：`OWNER_APPROVED_G03_P1_REPAIR_2026-08-30`与`OWNER_APPROVED_G03_PLACE_REPAIR_2026-08-30`；
+- 语义包：`dd26967ea3d04453a7aac2e52017088d4b7c829b`，集成为`a16e3a93a4a56ff2a81fce4cde1332885c46afd6`；
+- 地点包：`d554b0d73c2b8d2ce93bf1adb93ab6412904536d`，集成为`6149f51ef8d13025846b50c329f174b31288c3ef`；
+- UI累计候选：原UI `994ac8557f1d507787b9ca26e724d7df684d3faa`、稳定性`030d2129736ac354a4febe6631e8141098e70a75`、增强恢复`7fb559d071f03da940c398f1dafc0372f1bb9a48`、最终证据`791fe1a7135256ac205790dccff980291c237195`，最终集成映射`93e8a466f0409ae9e898a906c9d101012b656c88`；
+- delivery checkpoint：`2d74a88ffd97988f50fbaa271b5d66f7411c2155`；PR #13 integration：`origin/develop@1f5a93c62aeeefc83486778d446780710977529d`；产品指纹：`aa76dbafb3fe48d28f4e54efcbac1530aa2bf0c706c86a6e8facbf6d7b5079ee`。
+
+## Non-goals and authority
+
+本返修未新增公共API、migration、依赖、媒体代理、运行时多Agent或自动地图重绘；未修改sealed blind/oracle；未激活G04。权限来自项目`AGENTS.md`、产品合同、Program、当前Goal以及上述所有者授权。部署、发布、`main`合并、新账号、费用、FUX-03/H1、公网、生产和商业均不在授权内。
+
+## Invariants and acceptance
+
+- 只有有原子地点的`PLANNED`提及可自动搜索POI；错城、错类别、行政区冲突、同层歧义与Provider不足必须待确认；
+- 卡片编辑只产生新revision并令旧地图`NEEDS_UPDATE`，不得自动请求`map-renders`；
+- 地图/住宿增强读取真实可取消、单飞、单请求3秒、总预算10秒、最多8轮；失败端诚实降级且成功端保留；
+- 同日、跨日、空日移动每个有效操作只发送一个命令；无变化不发送；失败与409以权威结果复原；
+- 公共JSON与DOM不出现Provider URL、内部revision、hash、receipt、模型、置信度或原文映射；
+- PostgreSQL继续作为revision、run、幂等、receipt和lineage唯一事实源。
+
+## Gate and verification
+
+- 固定72条Qwen开发比较每版本只运行一次；最终`72/72`可比较、0禁入、0额外PLANNED、432/432计划召回、720/720五角色、432/432日序顺序；这是`LIVE_QWEN_NONBLIND_DEVELOPMENT_DIAGNOSTIC`，不是sealed blind；
+- 语义、地点和既有v3组合回归：`131 PASS`；Top-3非数据库：`3 PASS`；G03 PostgreSQL隔离链：`1 PASS`；固定数据：`90 VALID / blind Gate NOT_RUN`；
+- frontend production build、OpenAPI drift、trip-check client build：`PASS`；结果页E2E：`29/29`；默认3 workers、retries=0的repeat3：`87/87`；
+- 清空真实Qwen/高德密钥的`local_fixture`完整旅程：`1/1 PASS`；GitHub PR #13 `core-mainline` run `33307676730 PASS`；PR状态`MERGED`；
+- 交付结果：`PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS`；live AMap矩阵因零增量额度未证明保持`NOT_RUN / 0 calls`。
+
+首次主集成repeat3曾得到`86/87`：trace显示Next dev bundle语法错误、DOM停在SSR loading且0次fixture API请求。清理并重建缓存、预热bundle后完整87项通过；该环境诊断保留，未用retry或单worker掩盖。
+
+## Budget, HITL and stop conditions
+
+模型、schema、deadline、token、temperature和retry保持冻结；没有新增Provider费用。sealed blind、FUX-03、H1、公网、生产、商业、发布、部署与`main`均为`NOT_RUN/NOT_REQUESTED`。只有项目所有者完成体验验收并明确批准进入G04，才可从届时最新`origin/develop`激活新Goal；否则停止所有产品writer和自动推进。
+
+## Checkpoint and completion record
+
+| 用户结果 | Subject / integration | 自动验证 | 证据边界 | 下一状态 |
+|---|---|---|---|---|
+| 准确语义、保守地点与稳定结果页返修已进入`develop` | `2d74a88ffd97988f50fbaa271b5d66f7411c2155` / `1f5a93c62aeeefc83486778d446780710977529d` | local全矩阵PASS；GitHub run `33307676730 PASS`；PR #13 MERGED | live AMap、sealed blind、H1、公网、生产、商业未运行 | `CORE_MVP_OWNER_REVIEW_PENDING`；G04 `NOT_ACTIVATED` |
+
+Auto-advance：`DISABLED`；Goal archived：`YES`；writer activation：`NONE`；release/deployment/main merge：`NOT_REQUESTED`。返修后的用户可见结果已完成，剩余工作只有项目所有者体验验收；这不能由自动化测试替代。
