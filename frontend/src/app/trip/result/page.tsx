@@ -73,6 +73,12 @@ type EditorState = {
   card?: ActivityCardView
 }
 
+type ActiveChecksRequest = {
+  id: number
+  resourceRef: string
+  key: string
+}
+
 
 export default function TripResultPage() {
   const router = useRouter()
@@ -102,13 +108,29 @@ export default function TripResultPage() {
   const [changePreview, setChangePreview] = useState<PublicChangePreview | null>(null)
   const [checkBusy, setCheckBusy] = useState<'PREPARE' | 'PREVIEW' | 'ADOPT' | null>(null)
   const [checkMessage, setCheckMessage] = useState('')
+  const [checksRetryGeneration, setChecksRetryGeneration] = useState(0)
   const activeResourceRef = useRef<string | null>(null)
-  const checksAttemptedKey = useRef<string | null>(null)
+  const mountedRef = useRef(false)
+  const checksRequestSequence = useRef(0)
+  const activeChecksRequest = useRef<ActiveChecksRequest | null>(null)
+  const completedChecksKey = useRef<string | null>(null)
   const resultAvailable = result !== null
+  const currentChecksKey = resourceRef && etag ? `${resourceRef}:${etag}` : null
+  const currentChecksKeyRef = useRef<string | null>(currentChecksKey)
+  currentChecksKeyRef.current = currentChecksKey
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      checksRequestSequence.current += 1
+      activeChecksRequest.current = null
+    }
+  }, [])
 
   const refreshEnhancements = useCallback(async (reference: string) => {
     const [mapResult, stayResult] = await Promise.allSettled([
@@ -158,35 +180,89 @@ export default function TripResultPage() {
     if (!resourceRef || !resultAvailable || !etag || !mapView || !stayView) return
     if (mapView.status === 'PREPARING' || stayView.status === 'PREPARING') return
     const attemptKey = `${resourceRef}:${etag}`
-    if (checksAttemptedKey.current === attemptKey) return
-    checksAttemptedKey.current = attemptKey
-    let disposed = false
+    if (completedChecksKey.current === attemptKey && checksView) return
+    if (activeChecksRequest.current?.resourceRef === resourceRef) return
+    const requestId = checksRequestSequence.current + 1
+    checksRequestSequence.current = requestId
+    activeChecksRequest.current = { id: requestId, resourceRef, key: attemptKey }
+    let queueCurrentGeneration = false
     setCheckBusy('PREPARE')
     setCheckMessage('')
     void (async () => {
       try {
         const prepared = await materializeTripUnderstanding(resourceRef, etag)
+        const preparedKey = `${resourceRef}:${prepared.etag}`
+        const currentKey = currentChecksKeyRef.current
+        const activeRequest = activeChecksRequest.current
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeRequest?.id !== requestId
+          || (currentKey !== attemptKey && currentKey !== preparedKey)
+        ) {
+          queueCurrentGeneration = activeRequest?.id === requestId
+          return
+        }
+        activeChecksRequest.current = { id: requestId, resourceRef, key: preparedKey }
+        if (etag !== prepared.etag) {
+          setEtag(prepared.etag)
+          sessionStorage.setItem('bt_active_trip_etag', prepared.etag)
+        }
         const checks = await readTripUnderstandingChecks(resourceRef)
-        if (disposed || activeResourceRef.current !== resourceRef) return
-        setEtag(prepared.etag)
-        sessionStorage.setItem('bt_active_trip_etag', prepared.etag)
+        const settledKey = currentChecksKeyRef.current
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeChecksRequest.current?.id !== requestId
+          || (settledKey !== attemptKey && settledKey !== preparedKey)
+        ) {
+          queueCurrentGeneration = activeChecksRequest.current?.id === requestId
+          return
+        }
+        completedChecksKey.current = preparedKey
         setChecksView(checks)
       } catch (checksFailure) {
-        if (disposed || activeResourceRef.current !== resourceRef) return
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeChecksRequest.current?.id !== requestId
+        ) return
         if (checksFailure instanceof Error && checksFailure.message === 'TRIP_UPDATED') {
           setCheckMessage('行程刚刚有更新，正在读取最新内容。')
           await refresh(resourceRef)
+          queueCurrentGeneration = true
         } else {
           setCheckMessage('优先检查暂时没有准备好，不影响查看和调整行程。')
         }
       } finally {
-        if (!disposed) setCheckBusy(null)
+        if (activeChecksRequest.current?.id === requestId) {
+          activeChecksRequest.current = null
+          if (mountedRef.current) {
+            setCheckBusy(null)
+            if (queueCurrentGeneration) {
+              setChecksRetryGeneration((generation) => generation + 1)
+            }
+          }
+        }
       }
     })()
-    return () => {
-      disposed = true
-    }
-  }, [etag, mapView?.status, refresh, resourceRef, resultAvailable, stayView?.status])
+  }, [
+    checksRetryGeneration,
+    checksView,
+    etag,
+    mapView?.status,
+    refresh,
+    resourceRef,
+    resultAvailable,
+    stayView?.status,
+  ])
+
+  const retryChecks = useCallback(() => {
+    if (checkBusy || !resourceRef || !etag) return
+    completedChecksKey.current = null
+    setCheckMessage('')
+    setChecksRetryGeneration((generation) => generation + 1)
+  }, [checkBusy, etag, resourceRef])
 
   const handleMapRender = useCallback(async () => {
     if (!resourceRef || !etag || enhancementBusy) return
@@ -258,7 +334,7 @@ export default function TripResultPage() {
       )
       setEtag(adopted.etag)
       sessionStorage.setItem('bt_active_trip_etag', adopted.etag)
-      checksAttemptedKey.current = `${resourceRef}:${adopted.etag}`
+      completedChecksKey.current = `${resourceRef}:${adopted.etag}`
       setChecksView(adopted.body.checks)
       setChangePreview(null)
       setCheckMessage(adopted.body.message)
@@ -703,6 +779,7 @@ export default function TripResultPage() {
             onPreview={(checkToken) => void handleChangePreview(checkToken)}
             onAdopt={() => void handleChangeAdopt()}
             onClosePreview={() => setChangePreview(null)}
+            onRetry={retryChecks}
           />
 
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
@@ -904,6 +981,7 @@ function TripCheckPanel({
   onPreview,
   onAdopt,
   onClosePreview,
+  onRetry,
 }: {
   view: PublicTripChecksView | null
   preview: PublicChangePreview | null
@@ -912,6 +990,7 @@ function TripCheckPanel({
   onPreview: (checkToken: string) => void
   onAdopt: () => void
   onClosePreview: () => void
+  onRetry: () => void
 }) {
   const labelClass = {
     必须调整: 'bg-rose-50 text-rose-700',
@@ -935,6 +1014,16 @@ function TripCheckPanel({
           </p>
         </div>
       </div>
+
+      {!view && message && busy === null && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 min-h-12 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-800 transition hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2"
+        >
+          重新准备检查
+        </button>
+      )}
 
       {view && (
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
