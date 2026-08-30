@@ -25,6 +25,7 @@ from governance.g04_screenshot_parity import (
     validate_g04_delivery_evidence,
 )
 from governance.work_packages_v3 import validate_registry_v3
+from scripts.ci_posix_cmd_junction_shim import main as create_posix_junction
 from scripts.export_trip_check_openapi import _normalize_schema
 
 
@@ -48,6 +49,17 @@ def test_openapi_export_normalizes_singleton_literals_across_pydantic_versions()
         "enum": ["WRONG_CITY"],
         "type": "string",
     }
+
+
+def test_posix_cmd_shim_only_creates_the_legacy_junction_equivalent(tmp_path: Path) -> None:
+    target = tmp_path / "target"
+    target.mkdir()
+    link = tmp_path / "junction"
+
+    assert create_posix_junction(["/c", "mklink", "/J", str(link), str(target)]) == 0
+    assert link.is_symlink()
+    assert link.resolve() == target.resolve()
+    assert create_posix_junction(["/c", "echo", "unsafe", str(link), str(target)]) == 2
 
 
 def _write_json(path: Path, value: object) -> None:
@@ -346,6 +358,22 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     )
     assert scope_step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha || github.sha }}"
     assert '--head-ref "$head_ref"' in scope_step["run"]
+    postgres_steps = jobs["g04_postgresql"]["steps"]
+    compatibility_step = next(
+        step
+        for step in postgres_steps
+        if step.get("name") == "Prepare historical backend regression compatibility"
+    )
+    assert "fonts-noto-cjk" in compatibility_step["run"]
+    assert "ci_posix_cmd_junction_shim.py" in compatibility_step["run"]
+    assert "pydantic==2.10.4" in compatibility_step["run"]
+    full_regression = next(
+        step for step in postgres_steps if step.get("name") == "Verify full backend regression"
+    )
+    assert full_regression["env"] == {
+        "P3_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "P5_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    }
 
 
 def test_current_g04_lifecycle_has_frozen_formal_pass_before_delivery() -> None:

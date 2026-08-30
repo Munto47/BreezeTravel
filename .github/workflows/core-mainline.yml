@@ -392,8 +392,18 @@ jobs:
           tests/test_g04_screenshot_postgres.py
           tests/test_trip_understanding_v3_postgres.py
           tests/test_screenshot_postgres_integration.py
+      - name: Prepare historical backend regression compatibility
+        working-directory: backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-cjk
+          sudo install -m 0755 scripts/ci_posix_cmd_junction_shim.py /usr/local/bin/cmd
+          python -m pip install pydantic==2.10.4
       - name: Verify full backend regression
         working-directory: backend
+        env:
+          P3_OCR_FONT_PATH: /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+          P5_OCR_FONT_PATH: /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
         run: python -m pytest -q
 
   frontend_build:
