@@ -320,7 +320,7 @@ def test_product_delivery_pass_cannot_omit_formal_g04_receipt(tmp_path: Path) ->
         validate_delivery_receipt(root, 4)
 
 
-def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() -> None:
+def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddle_run() -> None:
     workflow_path = REPOSITORY_ROOT / ".github/workflows/core-mainline.yml"
     workflow = workflow_path.read_text(
         encoding="utf-8"
@@ -330,6 +330,7 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     g04_jobs = (
         "g04_screenshot_targeted",
         "g04_postgresql",
+        "g04_historical_backend",
         "frontend_build",
         "g04_browser_e2e",
     )
@@ -351,7 +352,7 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     assert "run_g04_screenshot_parity" not in workflow
     assert workflow.count(
         "ref: ${{ github.event.pull_request.head.sha || github.sha }}"
-    ) == 5
+    ) == 6
     preflight_steps = jobs["core-mainline-preflight"]["steps"]
     scope_step = next(
         step for step in preflight_steps if step.get("name") == "Enforce product-mainline scope"
@@ -362,18 +363,38 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     compatibility_step = next(
         step
         for step in postgres_steps
-        if step.get("name") == "Prepare historical backend regression compatibility"
+        if step.get("name") == "Prepare POSIX backend regression compatibility"
     )
-    assert "fonts-noto-cjk" in compatibility_step["run"]
     assert "ci_posix_cmd_junction_shim.py" in compatibility_step["run"]
     assert "pydantic==2.10.4" in compatibility_step["run"]
-    full_regression = next(
-        step for step in postgres_steps if step.get("name") == "Verify full backend regression"
+    posix_regression = next(
+        step
+        for step in postgres_steps
+        if step.get("name") == "Verify backend service and non-P5 regression"
     )
-    assert full_regression["env"] == {
-        "P3_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-        "P5_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    assert "--ignore-glob='tests/test_trip_check_p5*.py'" in posix_regression["run"]
+    historical_job = jobs["g04_historical_backend"]
+    assert historical_job["runs-on"] == "windows-2022"
+    assert historical_job["env"] == {
+        "P3_OCR_FONT_PATH": "C:\\Windows\\Fonts\\msyh.ttc",
+        "P5_OCR_FONT_PATH": "C:\\Windows\\Fonts\\msyh.ttc",
     }
+    historical_steps = historical_job["steps"]
+    schema_runtime = next(
+        step
+        for step in historical_steps
+        if step.get("name") == "Freeze historical schema and renderer runtime"
+    )
+    assert "pydantic==2.10.4" in schema_runtime["run"]
+    assert "Pillow==12.2.0" in schema_runtime["run"]
+    historical_regression = next(
+        step
+        for step in historical_steps
+        if step.get("name") == "Verify exact historical font and P5 regression"
+    )
+    assert "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f" in historical_regression["run"]
+    assert "test_trip_check_p5*.py" in historical_regression["run"]
+    assert "python -m pytest -q @testFiles" in historical_regression["run"]
 
 
 def test_current_g04_lifecycle_has_frozen_formal_pass_before_delivery() -> None:
