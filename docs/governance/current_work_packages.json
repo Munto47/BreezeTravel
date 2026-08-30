@@ -292,8 +292,8 @@
       "registry_activation_commit": "74264ec16d27f020201dca5e59ab14023bfd8632",
       "remote_branch": "origin/codex/g03r-ui",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
-      "status_reason": "两个原始UI提交已完成并远端回读为994ac855；build、单轮19/19、workers=1 repeat57/57和既有G03旅程通过，但主集成按合同默认workers运行repeat3得到56/57，同一兼容ETag清理窗口串行重复materialize，因此在追加稳定性包通过前不得标记READY_TO_MERGE。",
+      "status": "DEFERRED",
+      "status_reason": "两个原始UI提交已完成并远端回读为994ac855；其默认workers缺口已依次由稳定性、增强恢复和测试证据附录处理。原分支现作为冻结历史输入，不再占用writer；最终累计候选由WP-G03R-UI-ENHANCEMENT-EVIDENCE登记。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui"
     },
     {
@@ -344,7 +344,7 @@
       "remote_readback": "030d2129736ac354a4febe6631e8141098e70a75",
       "remote_branch": "origin/codex/g03r-ui-stability",
       "role": "CONTRIBUTOR",
-      "status": "PLANNED",
+      "status": "DEFERRED",
       "status_reason": "单一追加提交030d212已完成并远端回读，build、默认workers单轮19/19和repeat57/57通过；最终独立复核仍确认增强读取无限/重叠P1与关闭预览迟到P2，因此冻结为NOT_READY、无活动writer且不得追加或改写，交由第二轮恢复包处理。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui-stability"
     },
@@ -398,8 +398,8 @@
       "remote_readback": "7fb559d071f03da940c398f1dafc0372f1bb9a48",
       "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
-      "status_reason": "单一产品修复提交7fb559d已远端回读且仅修改三条授权路径；贡献者报告build、27/27和81/81，但主集成在精确tip独立运行原始默认workers门禁得到26/27。两个只读复核确认唯一失败来自未暂停fake clock与route非稳态快照，未发现新的产品P0/P1；保持NOT_READY并交由同一第二轮内的验证附录修正测试证据。",
+      "status": "DEFERRED",
+      "status_reason": "单一产品修复提交7fb559d已远端回读且仅修改三条授权路径；两个只读复核未发现产品P0/P1。原始门禁的假时钟证据缺口已由同一恢复分支上的测试附录791fe1a修正，本包冻结为累计候选的产品输入，不再占用writer。",
       "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     },
     {
@@ -440,20 +440,22 @@
         "frontend/e2e/g03r-result-ui.spec.js"
       ],
       "package_id": "WP-G03R-UI-ENHANCEMENT-EVIDENCE",
+      "checkpoint_commit": "791fe1a7135256ac205790dccff980291c237195",
       "prepared_tip": "357bffa99159d620dfb30f8d8dfe041a42443521",
       "prompt_path": "docs/governance/work-packages/WP-G03R-UI-ENHANCEMENT-EVIDENCE.md",
       "prompt_sha256": "be6f0b67588d3e29b089df2f63ca48b2316115d0ea7ddb3f921d82acc40a2aa4",
       "registry_activation_commit": "cc476d1cc6bc4e416b56976149918526ee9c738b",
-      "remote_readback": "357bffa99159d620dfb30f8d8dfe041a42443521",
+      "ready_commit": "791fe1a7135256ac205790dccff980291c237195",
+      "remote_readback": "791fe1a7135256ac205790dccff980291c237195",
       "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
-      "status_reason": "binding cc476d1已推送并远端精确回读；主集成把该binding追加到已冻结产品提交7fb559d后的恢复分支，冲突只涉及治理旧快照并已解析为与控制分支字节一致。local/upstream/remote准备点均为357bffa且clean；现只授权一个E2E测试专用追加提交。",
+      "status": "READY_TO_MERGE",
+      "status_reason": "测试专用提交791fe1a已推送并完成local/upstream/remote精确回读，工作树clean，产品src树与7fb559d字节不变。贡献者build、29/29、87/87通过；主集成独立build、29/29、预热后默认workers且retries=0的87/87通过，最终静态复核P0/P1/P2均为0。主集成首次repeat3的86/87失败保留为Next dev bundle语法错误环境证据：页面停在SSR loading且0次fixture API请求；清理并重建缓存、预热bundle后完整矩阵通过，未以retry或单worker替代。",
       "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_ENHANCEMENT_EVIDENCE_WRITER_ACTIVATED",
+  "program_state": "G03R_UI_READY_FOR_SERIAL_INTEGRATION",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
