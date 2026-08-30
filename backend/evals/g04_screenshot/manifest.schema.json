@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/g04-screenshot-parity-manifest-v1.json",
+  "title": "G04 Screenshot Parity Manifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cases", "performance"],
+  "properties": {
+    "schema_version": {"const": "g04-screenshot-parity-manifest-v1"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/case"}
+    },
+    "performance": {"$ref": "#/$defs/performance"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "uniqueStrings": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "license_name", "license_reference"],
+          "properties": {
+            "evidence_tier": {"const": "LICENSED_REAL_SOURCE"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "license_name": {"type": "string", "minLength": 1},
+            "license_reference": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "synthetic_spec_sha256"],
+          "properties": {
+            "evidence_tier": {"const": "SYNTHETIC_FORMAT_ONLY"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "synthetic_spec_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
+    "seriousError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "item_id"],
+      "properties": {
+        "category": {
+          "enum": ["WRONG_CITY", "WRONG_CATEGORY", "DESCRIPTION_AS_PLACE", "URL_AS_PLACE"]
+        },
+        "item_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id", "source", "expected_key_fields", "observed_key_fields",
+        "expected_reading_order", "observed_reading_order",
+        "expected_low_confidence_fields", "observed_confirmation_fields",
+        "reference_executable_places", "text_executable_places",
+        "screenshot_executable_places", "serious_errors"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,99}$"},
+        "source": {"$ref": "#/$defs/source"},
+        "expected_key_fields": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
+        "observed_key_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "expected_reading_order": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
+        "observed_reading_order": {"$ref": "#/$defs/uniqueStrings"},
+        "expected_low_confidence_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "observed_confirmation_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "reference_executable_places": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
+        "text_executable_places": {"$ref": "#/$defs/uniqueStrings"},
+        "screenshot_executable_places": {"$ref": "#/$defs/uniqueStrings"},
+        "serious_errors": {"type": "array", "items": {"$ref": "#/$defs/seriousError"}}
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "warmup_runs", "measured_runs", "image_count", "image_width",
+        "image_height", "max_concurrency", "durations_ms"
+      ],
+      "properties": {
+        "warmup_runs": {"const": 2},
+        "measured_runs": {"const": 20},
+        "image_count": {"const": 3},
+        "image_width": {"const": 1080},
+        "image_height": {"const": 1920},
+        "max_concurrency": {"const": 1},
+        "durations_ms": {
+          "type": "array",
+          "minItems": 20,
+          "maxItems": 20,
+          "items": {"type": "number", "minimum": 0}
+        }
+      }
+    }
+  }
+}
