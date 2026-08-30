@@ -1,6 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -69,12 +75,67 @@ type ActiveChecksRequest = {
   controller: AbortController
 }
 
+type ActivePreviewRequest = {
+  id: number
+  key: string
+}
+
 type WorkspaceCommandResult =
   | { status: 'APPLIED' | 'SYNCED'; days: UserFacingTripResult['days'] }
   | { status: 'RECONCILING' }
 
 
 const CHECKS_REQUEST_TIMEOUT_MS = 10_000
+
+
+function fallbackMapView(result: UserFacingTripResult | null): MapRenderView {
+  const source = result?.map
+  if (source && source.status !== 'PREPARING') {
+    return { ...source, days: [] }
+  }
+  return {
+    status: 'UNAVAILABLE',
+    message: '路线详情暂时不可用，不影响继续查看行程。',
+    days: [],
+    available_actions: [],
+  }
+}
+
+
+function fallbackStayView(result: UserFacingTripResult | null): StaySuggestionView {
+  const source = result?.stay
+  if (source && source.status !== 'PREPARING') return source
+  return {
+    status: 'UNAVAILABLE',
+    message: '住宿建议暂时不可用，不影响继续查看行程。',
+    area_summary: null,
+    searched_scopes: [],
+    candidates: [],
+    available_actions: [],
+  }
+}
+
+
+function pendingRevisionMapView(): MapRenderView {
+  return {
+    status: 'NEEDS_UPDATE',
+    message: '行程已调整，需要手动更新路线。',
+    days: [],
+    available_actions: ['RENDER_MAP'],
+  }
+}
+
+
+function pendingRevisionStayView(): StaySuggestionView {
+  return {
+    status: 'NEEDS_UPDATE',
+    message: '行程已调整，住宿建议需要重新确认。',
+    area_summary: null,
+    searched_scopes: [],
+    candidates: [],
+    available_actions: [],
+  }
+}
 
 
 function scrollToResultSection(id: string) {
@@ -116,16 +177,23 @@ export default function TripResultPage() {
   const [reconciliationKind, setReconciliationKind] = useState<'RESULT' | 'TRIP_DELETE'>('RESULT')
   const activeResourceRef = useRef<string | null>(null)
   const mountedRef = useRef(false)
+  const resultRef = useRef<UserFacingTripResult | null>(result)
   const checksRequestSequence = useRef(0)
   const activeChecksRequest = useRef<ActiveChecksRequest | null>(null)
+  const activeChecksPromise = useRef<Promise<void> | null>(null)
   const completedChecksKey = useRef<string | null>(null)
+  const previewRequestSequence = useRef(0)
+  const activePreviewRequest = useRef<ActivePreviewRequest | null>(null)
   const commandInFlightRef = useRef(false)
   const mutationLockRef = useRef(false)
   const authoritativeKeyRef = useRef<string | null>(null)
   const enhancementGenerationRef = useRef(0)
+  const editorDialogRef = useRef<HTMLDivElement | null>(null)
+  const editorTriggerRef = useRef<HTMLElement | null>(null)
   const resultAvailable = result !== null
   const currentChecksKey = resourceRef && etag ? `${resourceRef}:${etag}` : null
   const currentChecksKeyRef = useRef<string | null>(currentChecksKey)
+  resultRef.current = result
   currentChecksKeyRef.current = currentChecksKey
 
   useEffect(() => {
@@ -139,15 +207,76 @@ export default function TripResultPage() {
       checksRequestSequence.current += 1
       activeChecksRequest.current?.controller.abort()
       activeChecksRequest.current = null
+      previewRequestSequence.current += 1
+      activePreviewRequest.current = null
     }
   }, [])
 
-  const beginMutation = useCallback(() => {
+  const restoreEditorFocus = useCallback((dayIndex: number, preferDayHeading = false) => {
+    window.requestAnimationFrame(() => {
+      const trigger = editorTriggerRef.current
+      if (!preferDayHeading && trigger?.isConnected) {
+        trigger.focus()
+        return
+      }
+      document.querySelector<HTMLElement>(`[data-day-heading="${dayIndex}"]`)?.focus()
+    })
+  }, [])
+
+  const closeEditor = useCallback((preferDayHeading = false) => {
+    if (!editor) return
+    const dayIndex = editor.dayIndex
+    setEditor(null)
+    restoreEditorFocus(dayIndex, preferDayHeading)
+  }, [editor, restoreEditorFocus])
+
+  const cancelActivePreview = useCallback(() => {
+    previewRequestSequence.current += 1
+    activePreviewRequest.current = null
+    setCheckBusy((current) => current === 'PREVIEW' ? null : current)
+  }, [])
+
+  const invalidatePreview = useCallback(() => {
+    cancelActivePreview()
+    setChangePreview(null)
+  }, [cancelActivePreview])
+
+  const invalidateDerivedViews = useCallback(() => {
+    enhancementGenerationRef.current += 1
+    completedChecksKey.current = null
+    setMapView(pendingRevisionMapView())
+    setStayView(pendingRevisionStayView())
+    setChecksView(null)
+    invalidatePreview()
+  }, [invalidatePreview])
+
+  const stagePendingRevision = useCallback((
+    reference: string,
+    nextEtag: string,
+    nextChecks: PublicTripChecksView | null = null,
+  ) => {
+    const nextKey = `${reference}:${nextEtag}`
+    enhancementGenerationRef.current += 1
+    currentChecksKeyRef.current = nextKey
+    completedChecksKey.current = nextChecks ? nextKey : null
+    setMapView(pendingRevisionMapView())
+    setStayView(pendingRevisionStayView())
+    setChecksView(nextChecks)
+    invalidatePreview()
+    setEtag(nextEtag)
+    sessionStorage.setItem('bt_active_trip_etag', nextEtag)
+  }, [invalidatePreview])
+
+  const beginMutation = useCallback(async () => {
     if (mutationLockRef.current) return false
     mutationLockRef.current = true
     setMutationLocked(true)
+    cancelActivePreview()
+    const pendingChecks = activeChecksPromise.current
+    activeChecksRequest.current?.controller.abort()
+    if (pendingChecks) await Promise.allSettled([pendingChecks])
     return true
-  }, [])
+  }, [cancelActivePreview])
 
   const finishMutation = useCallback(() => {
     mutationLockRef.current = false
@@ -168,6 +297,7 @@ export default function TripResultPage() {
   const refreshEnhancements = useCallback(async (
     reference: string,
     generation = enhancementGenerationRef.current,
+    fallbackResult = resultRef.current,
   ) => {
     const [mapResult, stayResult] = await Promise.allSettled([
       readTripUnderstandingMap(reference),
@@ -177,8 +307,12 @@ export default function TripResultPage() {
       activeResourceRef.current !== reference
       || enhancementGenerationRef.current !== generation
     ) return
-    if (mapResult.status === 'fulfilled') setMapView(mapResult.value)
-    if (stayResult.status === 'fulfilled') setStayView(stayResult.value)
+    setMapView(mapResult.status === 'fulfilled'
+      ? mapResult.value
+      : fallbackMapView(fallbackResult))
+    setStayView(stayResult.status === 'fulfilled'
+      ? stayResult.value
+      : fallbackStayView(fallbackResult))
   }, [])
 
   const refresh = useCallback(async (reference: string, suppressOpenError = false) => {
@@ -192,20 +326,22 @@ export default function TripResultPage() {
           const checksAlreadyMatch = completedChecksKey.current === `${reference}:${response.etag}`
           enhancementGeneration = enhancementGenerationRef.current + 1
           enhancementGenerationRef.current = enhancementGeneration
+          currentChecksKeyRef.current = authoritativeKey
           setMapView(null)
           setStayView(null)
           if (!checksAlreadyMatch) setChecksView(null)
-          setChangePreview(null)
+          invalidatePreview()
           if (!checksAlreadyMatch) completedChecksKey.current = null
         }
         authoritativeKeyRef.current = authoritativeKey
+        resultRef.current = response.body
         setResult(response.body)
         if (response.etag) {
           setEtag(response.etag)
           sessionStorage.setItem('bt_active_trip_etag', response.etag)
         }
         setMessage('卡片已可用')
-        void refreshEnhancements(reference, enhancementGeneration)
+        void refreshEnhancements(reference, enhancementGeneration, response.body)
         return response.body
       }
       setMessage(response.body.message)
@@ -216,7 +352,7 @@ export default function TripResultPage() {
       }
       return null
     }
-  }, [refreshEnhancements])
+  }, [invalidatePreview, refreshEnhancements])
 
   useEffect(() => {
     if (!resourceRef || !resultAvailable) return
@@ -239,7 +375,7 @@ export default function TripResultPage() {
     if (completedChecksKey.current === attemptKey && checksView) return
     const previousRequest = activeChecksRequest.current
     if (previousRequest) {
-      if (previousRequest.resourceRef === resourceRef && previousRequest.key === attemptKey) return
+      if (previousRequest.resourceRef === resourceRef) return
       previousRequest.controller.abort()
       return
     }
@@ -251,7 +387,7 @@ export default function TripResultPage() {
     const timeout = window.setTimeout(() => controller.abort(), CHECKS_REQUEST_TIMEOUT_MS)
     setCheckBusy('PREPARE')
     setCheckMessage('')
-    void (async () => {
+    const checksPromise = (async () => {
       try {
         const prepared = await materializeTripUnderstanding(resourceRef, etag, controller.signal)
         const preparedKey = `${resourceRef}:${prepared.etag}`
@@ -267,9 +403,8 @@ export default function TripResultPage() {
           return
         }
         activeChecksRequest.current = { id: requestId, resourceRef, key: preparedKey, controller }
-        if (etag !== prepared.etag) {
-          setEtag(prepared.etag)
-          sessionStorage.setItem('bt_active_trip_etag', prepared.etag)
+        if (etag !== prepared.etag && currentKey === attemptKey) {
+          stagePendingRevision(resourceRef, prepared.etag)
         }
         const checks = await readTripUnderstandingChecks(resourceRef, controller.signal)
         const settledKey = currentChecksKeyRef.current
@@ -315,6 +450,15 @@ export default function TripResultPage() {
         }
       }
     })()
+    activeChecksPromise.current = checksPromise
+    void checksPromise.then(
+      () => {
+        if (activeChecksPromise.current === checksPromise) activeChecksPromise.current = null
+      },
+      () => {
+        if (activeChecksPromise.current === checksPromise) activeChecksPromise.current = null
+      },
+    )
   }, [
     checksRetryGeneration,
     checksView,
@@ -324,6 +468,7 @@ export default function TripResultPage() {
     refresh,
     resourceRef,
     resultAvailable,
+    stagePendingRevision,
     stayView?.status,
   ])
 
@@ -354,16 +499,17 @@ export default function TripResultPage() {
     const latest = await refresh(resourceRef, true)
     if (latest) {
       finishMutation()
-      setEditor(null)
+      closeEditor(true)
       setCommandError('已读取服务端最新行程，可以继续调整。')
     } else {
       setCommandError('仍在确认服务端保存结果。请保持此页面打开，稍后再重新读取。')
     }
     setReconciliationBusy(false)
-  }, [finishMutation, reconciliationBusy, reconciliationKind, reconciliationRequired, refresh, resourceRef])
+  }, [closeEditor, finishMutation, reconciliationBusy, reconciliationKind, reconciliationRequired, refresh, resourceRef])
 
   const handleMapRender = useCallback(async () => {
-    if (!resourceRef || !etag || enhancementBusy || !beginMutation()) return
+    if (!resourceRef || !etag || enhancementBusy) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setEnhancementBusy('MAP')
     setCommandError('')
@@ -388,23 +534,20 @@ export default function TripResultPage() {
   }, [beginMutation, enhancementBusy, etag, finishMutation, holdForReconciliation, refresh, refreshEnhancements, resourceRef])
 
   const handleStaySelection = useCallback(async (candidateToken: string) => {
-    if (!resourceRef || !etag || enhancementBusy || !beginMutation()) return
+    if (!resourceRef || !etag || enhancementBusy) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setEnhancementBusy('STAY')
     setCommandError('')
     try {
       const selectedStay = await selectTripUnderstandingStay(resourceRef, candidateToken, etag)
-      setMapView(null)
-      setStayView(null)
-      setEtag(selectedStay.etag)
-      setChecksView(null)
-      setChangePreview(null)
-      sessionStorage.setItem('bt_active_trip_etag', selectedStay.etag)
+      stagePendingRevision(resourceRef, selectedStay.etag)
       if (!(await refresh(resourceRef, true))) {
         reconciliationHeld = true
         holdForReconciliation('住宿选择已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
       }
     } catch (stayFailure) {
+      invalidateDerivedViews()
       const latest = await refresh(resourceRef, true)
       if (!latest) {
         reconciliationHeld = true
@@ -419,30 +562,44 @@ export default function TripResultPage() {
       setEnhancementBusy(null)
       if (!reconciliationHeld) finishMutation()
     }
-  }, [beginMutation, enhancementBusy, etag, finishMutation, holdForReconciliation, refresh, resourceRef])
+  }, [beginMutation, enhancementBusy, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, stagePendingRevision])
 
   const handleChangePreview = useCallback(async (checkToken: string) => {
     if (!resourceRef || checkBusy) return
     const previewKey = currentChecksKeyRef.current
+    if (!previewKey) return
+    const requestId = previewRequestSequence.current + 1
+    previewRequestSequence.current = requestId
+    activePreviewRequest.current = { id: requestId, key: previewKey }
     setCheckBusy('PREVIEW')
     setCheckMessage('')
     try {
       const preview = await previewTripUnderstandingChange(resourceRef, checkToken)
-      if (mutationLockRef.current || currentChecksKeyRef.current !== previewKey) {
-        setChangePreview(null)
-        return
-      }
+      const activePreview = activePreviewRequest.current
+      if (
+        mutationLockRef.current
+        || currentChecksKeyRef.current !== previewKey
+        || activePreview?.id !== requestId
+        || activePreview.key !== previewKey
+      ) return
       setChangePreview(preview)
     } catch {
+      const activePreview = activePreviewRequest.current
+      if (activePreview?.id !== requestId || activePreview.key !== previewKey) return
       setChangePreview(null)
       setCheckMessage('这项建议已经变化，请刷新后再试。')
     } finally {
-      setCheckBusy(null)
+      const activePreview = activePreviewRequest.current
+      if (activePreview?.id === requestId && activePreview.key === previewKey) {
+        activePreviewRequest.current = null
+        setCheckBusy(null)
+      }
     }
   }, [checkBusy, resourceRef])
 
   const handleChangeAdopt = useCallback(async () => {
-    if (!resourceRef || !etag || !changePreview || checkBusy || !beginMutation()) return
+    if (!resourceRef || !etag || !changePreview || checkBusy) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setCheckBusy('ADOPT')
     setCheckMessage('')
@@ -452,18 +609,14 @@ export default function TripResultPage() {
         changePreview.change_token,
         etag,
       )
-      setEtag(adopted.etag)
-      sessionStorage.setItem('bt_active_trip_etag', adopted.etag)
-      completedChecksKey.current = `${resourceRef}:${adopted.etag}`
-      setChecksView(adopted.body.checks)
-      setChangePreview(null)
+      stagePendingRevision(resourceRef, adopted.etag, adopted.body.checks)
       setCheckMessage(adopted.body.message)
       if (!(await refresh(resourceRef, true))) {
         reconciliationHeld = true
         holdForReconciliation('改动已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
       }
     } catch (adoptFailure) {
-      setChangePreview(null)
+      invalidateDerivedViews()
       const latest = await refresh(resourceRef, true)
       if (!latest) {
         reconciliationHeld = true
@@ -478,32 +631,28 @@ export default function TripResultPage() {
       setCheckBusy(null)
       if (!reconciliationHeld) finishMutation()
     }
-  }, [beginMutation, changePreview, checkBusy, etag, finishMutation, holdForReconciliation, refresh, resourceRef])
+  }, [beginMutation, changePreview, checkBusy, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, stagePendingRevision])
 
   const runCommand = useCallback(async (command: TripUnderstandingCommand): Promise<WorkspaceCommandResult> => {
-    if (!resourceRef || !etag || commandInFlightRef.current || !beginMutation()) {
+    if (!resourceRef || !etag || commandInFlightRef.current) {
       return { status: 'SYNCED', days: result?.days || [] }
     }
+    if (!(await beginMutation())) return { status: 'SYNCED', days: result?.days || [] }
     let reconciliationHeld = false
     commandInFlightRef.current = true
     setCommandError('')
     try {
       const applied = await applyTripUnderstandingCommand(resourceRef, etag, command)
-      setMapView(null)
-      setStayView(null)
-      setEtag(applied.etag)
-      setChecksView(null)
-      setChangePreview(null)
-      sessionStorage.setItem('bt_active_trip_etag', applied.etag)
+      stagePendingRevision(resourceRef, applied.etag)
       const refreshed = await refresh(resourceRef, true)
       if (!refreshed) {
         reconciliationHeld = true
         holdForReconciliation('调整已提交，但保存结果暂时无法确认；确认前其他写入已暂停。')
         return { status: 'RECONCILING' }
       }
-      setEditor(null)
       return { status: 'APPLIED', days: refreshed.days }
     } catch (commandFailure) {
+      invalidateDerivedViews()
       const refreshed = await refresh(resourceRef, true)
       if (!refreshed) {
         reconciliationHeld = true
@@ -520,10 +669,16 @@ export default function TripResultPage() {
       commandInFlightRef.current = false
       if (!reconciliationHeld) finishMutation()
     }
-  }, [beginMutation, etag, finishMutation, holdForReconciliation, refresh, resourceRef, result?.days])
+  }, [beginMutation, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, result?.days, stagePendingRevision])
 
   const openEditor = (state: EditorState) => {
     if (mutationLockRef.current) return
+    const activeElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    editorTriggerRef.current = activeElement?.closest('[role="dialog"]')
+      ? null
+      : activeElement
     setEditor(state)
     setEditorName(state.card?.name || '')
     setEditorCategory(state.card?.category || '地点')
@@ -532,13 +687,36 @@ export default function TripResultPage() {
     setCommandError('')
   }
 
+  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeEditor()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = Array.from(editorDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ) || []).filter((element) => element.getClientRects().length > 0)
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   const submitEditor = async () => {
     if (!editor || !editorName.trim()) {
       setCommandError('请填写地点名称。')
       return
     }
+    let outcome: WorkspaceCommandResult | null = null
     if (editor.mode === 'INSERT') {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'ACTIVITY_INSERT',
         day_index: editor.dayIndex,
         position: editor.position,
@@ -548,14 +726,14 @@ export default function TripResultPage() {
         time_hint: editorTime.trim() || null,
       })
     } else if (editor.mode === 'EDIT' && editor.card) {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'ACTIVITY_TEXT_EDIT',
         activity_token: editor.card.activity_token,
         name: editorName.trim(),
         time_hint: editorTime.trim() || null,
       })
     } else if (editor.mode === 'REPLACE' && editor.card) {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'PLACE_REPLACE',
         activity_token: editor.card.activity_token,
         replacement: {
@@ -563,6 +741,13 @@ export default function TripResultPage() {
           category: editorCategory.trim() || '地点',
           area_or_address: editorAddress.trim() || '地点待确认',
         },
+      })
+    }
+    if (outcome?.status === 'APPLIED') {
+      closeEditor(true)
+    } else if (outcome) {
+      window.requestAnimationFrame(() => {
+        editorDialogRef.current?.querySelector<HTMLElement>('[data-testid="card-editor-name"]')?.focus()
       })
     }
   }
@@ -574,7 +759,7 @@ export default function TripResultPage() {
       router.push('/login')
       return
     }
-    if (!beginMutation()) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setPrivacyBusy('CLAIM')
     setPrivacyMessage('')
@@ -589,7 +774,7 @@ export default function TripResultPage() {
       activeResourceRef.current = nextReference
       setResourceRef(nextReference)
       setActiveMode('CLAIMED')
-      setEtag(claimed.etag)
+      stagePendingRevision(nextReference, claimed.etag)
       if (await refresh(nextReference, true)) {
         setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
       } else {
@@ -597,6 +782,7 @@ export default function TripResultPage() {
         holdForReconciliation('账号保存已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
       }
     } catch {
+      invalidateDerivedViews()
       const latest = await refresh(activeResourceRef.current || resourceRef, true)
       if (latest) {
         setPrivacyMessage('账号保存请求未完成，已按服务端当前行程恢复。')
@@ -616,7 +802,7 @@ export default function TripResultPage() {
       '删除原文后，攻略文字将永久不可恢复；当前逐日卡片会保留。确定继续吗？',
     )
     if (!confirmed) return
-    if (!beginMutation()) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setPrivacyBusy('SOURCE')
     setPrivacyMessage('')
@@ -650,7 +836,7 @@ export default function TripResultPage() {
       '删除整份行程会永久移除原文、卡片和相关结果，之后无法恢复。确定删除吗？',
     )
     if (!confirmed) return
-    if (!beginMutation()) return
+    if (!(await beginMutation())) return
     let reconciliationHeld = false
     setPrivacyBusy('TRIP')
     setPrivacyMessage('')
@@ -984,13 +1170,13 @@ export default function TripResultPage() {
       </div>
 
       {editor && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="card-editor-title" onKeyDown={(event) => { if (event.key === 'Escape') setEditor(null) }}>
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="card-editor-title" onKeyDown={handleEditorKeyDown}>
+          <div ref={editorDialogRef} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-4">
               <h2 id="card-editor-title" className="text-xl font-semibold">
                 {editor.mode === 'INSERT' ? '新增地点' : editor.mode === 'REPLACE' ? '替换地点' : '编辑卡片文字'}
               </h2>
-              <button type="button" onClick={() => setEditor(null)} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label="关闭编辑">
+              <button type="button" onClick={() => closeEditor()} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label="关闭编辑">
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>

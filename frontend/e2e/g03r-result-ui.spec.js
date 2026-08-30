@@ -6,6 +6,30 @@ const ETAG_A = 'tu3_race_generation_a'
 const ETAG_B = 'tu3_race_generation_b'
 
 
+function deferred() {
+  let resolvePromise
+  let settled = false
+  const promise = new Promise((resolve) => {
+    resolvePromise = resolve
+  })
+  return {
+    promise,
+    resolve: () => {
+      if (settled) return
+      settled = true
+      resolvePromise()
+    },
+  }
+}
+
+
+async function flushTwoAnimationFrames(page) {
+  await page.evaluate(() => new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve))
+  }))
+}
+
+
 function activity(token, name) {
   return {
     activity_token: token,
@@ -109,19 +133,22 @@ async function installRaceFixture(page, scenario = 'cleanup') {
   let maxMaterializeInFlight = 0
   let checksCalls = 0
   let abortedMaterializeCalls = 0
-  let releaseHungMaterialize = null
+  const activeMaterializeRequests = new Set()
+  const materializeStarted = deferred()
+  const secondResultRead = deferred()
+  const releaseCompatibleMaterialize = deferred()
+  const releaseHungMaterialize = deferred()
+
+  const settleMaterialize = (request) => {
+    if (!activeMaterializeRequests.delete(request)) return
+    materializeInFlight -= 1
+  }
 
   page.on('requestfailed', (request) => {
-    if (
-      scenario === 'stale'
-      && request.url().endsWith('/materialize')
-      && releaseHungMaterialize
-    ) {
-      abortedMaterializeCalls += 1
-      materializeInFlight -= 1
-      releaseHungMaterialize()
-      releaseHungMaterialize = null
-    }
+    if (!request.url().endsWith('/materialize')) return
+    abortedMaterializeCalls += 1
+    settleMaterialize(request)
+    releaseHungMaterialize.resolve()
   })
 
   await page.addInitScript(({ resourceRef, etag }) => {
@@ -136,7 +163,7 @@ async function installRaceFixture(page, scenario = 'cleanup') {
 
     if (pathname.endsWith('/events')) {
       if (scenario === 'cleanup' || scenario === 'stale') {
-        await new Promise((resolve) => setTimeout(resolve, 150))
+        await materializeStarted.promise
         await route.fulfill({
           status: 200,
           contentType: 'text/event-stream',
@@ -162,6 +189,7 @@ async function installRaceFixture(page, scenario = 'cleanup') {
         headers: { ETag: initial ? ETAG_A : ETAG_B },
         body: JSON.stringify(resultView(initial && startsPolling ? 'PREPARING' : 'AVAILABLE')),
       })
+      if (!initial) secondResultRead.resolve()
       return
     }
 
@@ -177,9 +205,11 @@ async function installRaceFixture(page, scenario = 'cleanup') {
 
     if (pathname.endsWith('/materialize')) {
       materializeCalls += 1
+      activeMaterializeRequests.add(request)
       materializeInFlight += 1
       maxMaterializeInFlight = Math.max(maxMaterializeInFlight, materializeInFlight)
       const currentCall = materializeCalls
+      materializeStarted.resolve()
       const fulfillReady = async (etag) => {
         await route.fulfill({
           status: 200,
@@ -195,13 +225,12 @@ async function installRaceFixture(page, scenario = 'cleanup') {
         })
       }
       if (currentCall === 1 && scenario === 'stale') {
-        await new Promise((resolve) => {
-          releaseHungMaterialize = resolve
-        })
+        await releaseHungMaterialize.promise
         return
       }
       if (currentCall === 1 && scenario === 'cleanup') {
-        await new Promise((resolve) => setTimeout(resolve, 60))
+        await releaseCompatibleMaterialize.promise
+        if (!activeMaterializeRequests.has(request)) return
         await fulfillReady(ETAG_B)
       } else if (currentCall === 1 && scenario === 'conflict') {
         await route.fulfill({
@@ -220,7 +249,7 @@ async function installRaceFixture(page, scenario = 'cleanup') {
       } else {
         await fulfillReady(ETAG_B)
       }
-      materializeInFlight -= 1
+      settleMaterialize(request)
       return
     }
 
@@ -241,6 +270,9 @@ async function installRaceFixture(page, scenario = 'cleanup') {
       checksCalls,
       abortedMaterializeCalls,
     }),
+    waitForMaterializeStart: () => materializeStarted.promise,
+    waitForSecondResultRead: () => secondResultRead.promise,
+    releaseCompatibleMaterialize: () => releaseCompatibleMaterialize.resolve(),
   }
 }
 
@@ -250,8 +282,14 @@ test('current checks generation survives result cleanup without duplicate materi
 
   await page.goto('/trip/result')
   await expect(page.getByTestId('trip-days')).toBeVisible()
+  await fixture.waitForMaterializeStart()
+  await fixture.waitForSecondResultRead()
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('bt_active_trip_etag'))).toBe(ETAG_B)
+  expect(fixture.calls().materializeCalls).toBe(1)
+  fixture.releaseCompatibleMaterialize()
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
   await expect(page.getByText('优先处理这三项，行程会更顺畅')).toBeVisible()
+  await flushTwoAnimationFrames(page)
 
   expect(fixture.calls()).toEqual({
     resultReads: 2,
@@ -265,9 +303,22 @@ test('current checks generation survives result cleanup without duplicate materi
 
 
 test('a hanging obsolete materialize is aborted before the current generation starts', async ({ page }) => {
+  await page.clock.install()
   const fixture = await installRaceFixture(page, 'stale')
 
   await page.goto('/trip/result')
+  await fixture.waitForMaterializeStart()
+  await fixture.waitForSecondResultRead()
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('bt_active_trip_etag'))).toBe(ETAG_B)
+  expect(fixture.calls()).toEqual({
+    resultReads: 2,
+    materializeCalls: 1,
+    maxMaterializeInFlight: 1,
+    checksCalls: 0,
+    abortedMaterializeCalls: 0,
+  })
+
+  await page.clock.runFor(10_001)
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
 
   expect(fixture.calls()).toEqual({
@@ -399,6 +450,19 @@ function applyCommandToResult(view, command) {
       0,
       activity('inserted-interaction-token', command.name),
     )
+  } else if (command.command_type === 'ACTIVITY_TEXT_EDIT') {
+    for (const day of view.days) {
+      const card = day.activities.find((item) => item.activity_token === command.activity_token)
+      if (card) {
+        card.name = command.name
+        card.time_hint = command.time_hint
+      }
+    }
+  } else if (command.command_type === 'PLACE_REPLACE') {
+    for (const day of view.days) {
+      const card = day.activities.find((item) => item.activity_token === command.activity_token)
+      if (card) Object.assign(card, command.replacement)
+    }
   }
   view.map = {
     status: 'NEEDS_UPDATE',
@@ -412,6 +476,9 @@ async function installInteractionFixture(page, {
   scenario = 'success',
   delayMs = 0,
   holdCommand = false,
+  holdMaterialize = false,
+  racePreview = false,
+  failInitialEnhancements = false,
   exposeWrites = false,
   mode = 'DEMO',
   withUser = false,
@@ -427,30 +494,83 @@ async function installInteractionFixture(page, {
     }
     view.stay = interactionStayView(true)
   }
+  if (failInitialEnhancements) {
+    view.map = {
+      status: 'PREPARING',
+      message: '正在准备路线',
+      available_actions: [],
+    }
+    view.stay = {
+      ...interactionStayView(false),
+      status: 'PREPARING',
+      message: '正在准备住宿建议',
+    }
+  }
   const commands = []
   const writes = { map: 0, stay: 0, adopt: 0, claim: 0, source: 0, trip: 0 }
   let mapRenderPosts = 0
   let directProviderRequests = 0
   let resultReads = 0
   let previewPosts = 0
+  let mapReads = 0
+  let stayReads = 0
+  let materializeCalls = 0
+  let checksCalls = 0
+  let materializeInFlight = false
+  let writesBeforeMaterializeSettled = 0
   let readbackBlocked = false
   let releaseCommand = null
+  const materializeStarted = deferred()
+  const releaseMaterialize = deferred()
+  const twoPreviewsStarted = deferred()
+  const releaseFirstPreview = deferred()
+  const releaseSecondPreview = deferred()
   const commandGate = holdCommand
     ? new Promise((resolve) => { releaseCommand = resolve })
     : null
 
+  page.on('requestfailed', (request) => {
+    if (!request.url().endsWith('/materialize') || !materializeInFlight) return
+    materializeInFlight = false
+    releaseMaterialize.resolve()
+  })
+
   page.on('request', (request) => {
     if (/amap|高德/i.test(request.url())) directProviderRequests += 1
     const pathname = new URL(request.url()).pathname
-    if (request.method() === 'POST' && pathname.endsWith('/map-renders')) writes.map += 1
-    if (request.method() === 'POST' && pathname.endsWith('/stay-selection')) writes.stay += 1
-    if (request.method() === 'POST' && pathname.endsWith('/changes/adopt')) writes.adopt += 1
-    if (request.method() === 'POST' && pathname.endsWith('/claim')) writes.claim += 1
-    if (request.method() === 'DELETE' && pathname.endsWith('/source')) writes.source += 1
-    if (request.method() === 'DELETE' && pathname.endsWith(`/${INTERACTION_REF}`)) writes.trip += 1
+    let isWrite = false
+    if (request.method() === 'POST' && pathname.endsWith('/map-renders')) { writes.map += 1; isWrite = true }
+    if (request.method() === 'POST' && pathname.endsWith('/stay-selection')) { writes.stay += 1; isWrite = true }
+    if (request.method() === 'POST' && pathname.endsWith('/changes/adopt')) { writes.adopt += 1; isWrite = true }
+    if (request.method() === 'POST' && pathname.endsWith('/claim')) { writes.claim += 1; isWrite = true }
+    if (request.method() === 'DELETE' && pathname.endsWith('/source')) { writes.source += 1; isWrite = true }
+    if (request.method() === 'DELETE' && pathname.endsWith(`/${INTERACTION_REF}`)) { writes.trip += 1; isWrite = true }
+    if (request.method() === 'POST' && pathname.endsWith('/commands')) isWrite = true
+    if (isWrite && materializeInFlight) writesBeforeMaterializeSettled += 1
   })
 
   await page.addInitScript(({ resourceRef, initialEtag, activeMode, authenticated }) => {
+    const originalFetch = window.fetch.bind(window)
+    window.__g03rWriteRace = { materializeInFlight: 0, writesBeforeMaterializeSettled: 0 }
+    window.fetch = async (input, init) => {
+      const requestUrl = typeof input === 'string' ? input : input.url
+      const pathname = new URL(requestUrl, window.location.origin).pathname
+      const method = (init?.method || (typeof input === 'string' ? 'GET' : input.method) || 'GET').toUpperCase()
+      const isMaterialize = pathname.endsWith('/materialize')
+      const isWrite = (
+        (method === 'POST' && /\/(?:commands|map-renders|stay-selection|changes\/adopt|claim)$/.test(pathname))
+        || (method === 'DELETE' && (pathname.endsWith('/source') || pathname.endsWith(`/${resourceRef}`)))
+      )
+      if (isWrite && window.__g03rWriteRace.materializeInFlight > 0) {
+        window.__g03rWriteRace.writesBeforeMaterializeSettled += 1
+      }
+      if (isMaterialize) window.__g03rWriteRace.materializeInFlight += 1
+      try {
+        return await originalFetch(input, init)
+      } finally {
+        if (isMaterialize) window.__g03rWriteRace.materializeInFlight -= 1
+      }
+    }
     sessionStorage.setItem('bt_active_trip_ref', resourceRef)
     sessionStorage.setItem('bt_active_trip_mode', activeMode)
     sessionStorage.setItem('bt_active_trip_etag', initialEtag)
@@ -524,6 +644,11 @@ async function installInteractionFixture(page, {
     }
 
     if (pathname.endsWith('/map-renders/latest')) {
+      mapReads += 1
+      if (failInitialEnhancements && mapReads === 1) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
+        return
+      }
       const status = view.map.status
       await route.fulfill({
         status: 200,
@@ -545,6 +670,11 @@ async function installInteractionFixture(page, {
     }
 
     if (pathname.endsWith('/stay-suggestions')) {
+      stayReads += 1
+      if (failInitialEnhancements && stayReads === 1) {
+        await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
+        return
+      }
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(view.stay) })
       return
     }
@@ -561,16 +691,27 @@ async function installInteractionFixture(page, {
 
     if (pathname.endsWith('/changes/preview') && request.method() === 'POST') {
       previewPosts += 1
+      const previewCall = previewPosts
+      if (racePreview && previewCall === 1) {
+        if (previewPosts === 2) twoPreviewsStarted.resolve()
+        await releaseFirstPreview.promise
+        await route.abort('failed')
+        return
+      }
+      if (racePreview && previewCall === 2) {
+        twoPreviewsStarted.resolve()
+        await releaseSecondPreview.promise
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          change_token: 'change-token-safe',
-          title: '补充午餐时间',
-          summary: '在两段参观之间留出午餐时间。',
-          affected_days: ['Day 1'],
-          before: ['连续参观'],
-          after: ['中间预留午餐'],
+          change_token: previewCall === 2 ? 'change-token-new-safe' : 'change-token-safe',
+          title: previewCall === 2 ? '最新步行衔接' : '补充午餐时间',
+          summary: previewCall === 2 ? '优先保留新一次预览。' : '在两段参观之间留出午餐时间。',
+          affected_days: [previewCall === 2 ? 'Day 3' : 'Day 1'],
+          before: [previewCall === 2 ? '旧衔接' : '连续参观'],
+          after: [previewCall === 2 ? '新衔接' : '中间预留午餐'],
           available_actions: ['ADOPT_CHANGE'],
         }),
       })
@@ -578,6 +719,14 @@ async function installInteractionFixture(page, {
     }
 
     if (pathname.endsWith('/materialize')) {
+      materializeCalls += 1
+      if (holdMaterialize && materializeCalls === 1) {
+        materializeInFlight = true
+        materializeStarted.resolve()
+        await releaseMaterialize.promise
+        if (!materializeInFlight) return
+        materializeInFlight = false
+      }
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -594,6 +743,7 @@ async function installInteractionFixture(page, {
     }
 
     if (pathname.endsWith('/checks')) {
+      checksCalls += 1
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(checksView) })
       return
     }
@@ -608,10 +758,21 @@ async function installInteractionFixture(page, {
       directProviderRequests,
       resultReads,
       previewPosts,
+      mapReads,
+      stayReads,
+      materializeCalls,
+      checksCalls,
+      materializeInFlight,
+      writesBeforeMaterializeSettled,
       writes: clone(writes),
     }),
     releaseCommand: () => releaseCommand?.(),
     recoverReadback: () => { readbackBlocked = false },
+    waitForMaterializeStart: () => materializeStarted.promise,
+    waitForTwoPreviews: () => twoPreviewsStarted.promise,
+    releaseFirstPreview: () => releaseFirstPreview.resolve(),
+    releaseSecondPreview: () => releaseSecondPreview.resolve(),
+    browserWriteRace: () => page.evaluate(() => window.__g03rWriteRace),
   }
 }
 
@@ -732,7 +893,7 @@ test('desktop keyboard activation of a drag handle opens the equivalent move pan
 test('mobile and keyboard controls move within and across days with accessible targets', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })
-  const fixture = await installInteractionFixture(page, { exposeWrites: true })
+  const fixture = await installInteractionFixture(page, { exposeWrites: true, racePreview: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('itinerary-workspace')).toHaveAttribute('data-reduced-motion', 'true')
   await expect(page.getByTestId('drag-handle-1-0')).toBeHidden()
@@ -769,7 +930,18 @@ test('mobile and keyboard controls move within and across days with accessible t
   expect(fixture.calls().mapRenderPosts).toBe(0)
 
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
-  await page.getByTestId('preview-change').first().click()
+  await page.getByTestId('preview-change').evaluateAll((buttons) => {
+    buttons[0].click()
+    buttons[1].click()
+  })
+  await fixture.waitForTwoPreviews()
+  expect(fixture.calls().previewPosts).toBe(2)
+  fixture.releaseFirstPreview()
+  await expect(page.getByTestId('preview-change').first()).toHaveText('正在准备预览…')
+  await expect(page.getByText('这项建议已经变化，请刷新后再试。')).toHaveCount(0)
+  fixture.releaseSecondPreview()
+  await expect(page.getByTestId('change-preview')).toContainText('最新步行衔接')
+  await expect(page.getByTestId('change-preview')).not.toContainText('补充午餐时间')
   await expectMinimumTarget(page.getByRole('button', { name: '关闭改动预览' }))
   await expectMinimumTarget(page.getByTestId('adopt-change'))
   const runningMotionAnimations = await page.evaluate(() => document
@@ -799,9 +971,45 @@ test('reduced-motion navigation never forces smooth scrolling', async ({ page })
 })
 
 
-test('delete dialog cancels accessibly, restores focus, and preserves an empty day after confirmation', async ({ page }) => {
+test('card editor traps focus and restores it before accessible delete preserves an empty day', async ({ page }) => {
   const fixture = await installInteractionFixture(page)
   await page.goto('/trip/result')
+
+  const addButton = page.getByTestId('day-3-add')
+  await addButton.click()
+  const addEditor = page.getByRole('dialog', { name: '新增地点' })
+  const closeEditor = addEditor.getByRole('button', { name: '关闭编辑' })
+  const saveEditor = addEditor.getByTestId('save-card-editor')
+  await expect(addEditor.getByTestId('card-editor-name')).toBeFocused()
+  await closeEditor.focus()
+  await page.keyboard.press('Shift+Tab')
+  await expect(saveEditor).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(closeEditor).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(addEditor).toBeHidden()
+  await expect(addButton).toBeFocused()
+
+  const palaceCard = page.getByTestId('activity-card').filter({ hasText: '故宫博物院' })
+  const palaceDetails = palaceCard.locator('button').filter({ hasText: '故宫博物院' })
+  await palaceDetails.click()
+  await page.getByRole('button', { name: '编辑文字' }).click()
+  const editEditor = page.getByRole('dialog', { name: '编辑卡片文字' })
+  await expect(editEditor).toBeVisible()
+  await editEditor.getByRole('button', { name: '关闭编辑' }).click()
+  await expect(editEditor).toBeHidden()
+  await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
+
+  const refreshedPalaceCard = page.getByTestId('activity-card').filter({ hasText: '故宫博物院' })
+  await refreshedPalaceCard.locator('button').filter({ hasText: '故宫博物院' }).click()
+  await page.getByRole('button', { name: '替换地点' }).click()
+  const replaceEditor = page.getByRole('dialog', { name: '替换地点' })
+  await replaceEditor.getByTestId('card-editor-name').fill('北海公园')
+  await replaceEditor.getByTestId('save-card-editor').click()
+  await expect(replaceEditor).toBeHidden()
+  await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
+  await expect.poll(() => dayCardNames(page, 1)).toEqual(['北海公园', '景山公园'])
+
   const deleteButton = page.getByRole('button', { name: '删除 天坛公园' })
 
   await deleteButton.click()
@@ -811,12 +1019,12 @@ test('delete dialog cancels accessibly, restores focus, and preserves an empty d
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(deleteButton).toBeFocused()
-  expect(fixture.calls().commands).toHaveLength(0)
+  expect(fixture.calls().commands).toHaveLength(1)
 
   await deleteButton.click()
   await page.getByTestId('confirm-delete').click()
-  await expect.poll(() => fixture.calls().commands.length).toBe(1)
-  expect(fixture.calls().commands[0]).toMatchObject({ command_type: 'ACTIVITY_DELETE' })
+  await expect.poll(() => fixture.calls().commands.length).toBe(2)
+  expect(fixture.calls().commands[1]).toMatchObject({ command_type: 'ACTIVITY_DELETE' })
   await expect.poll(() => dayCardNames(page, 2)).toEqual([])
   await expect(page.getByTestId('day-2-add')).toBeVisible()
   await expect(page.locator('[data-day-heading="2"]')).toBeFocused()
@@ -828,9 +1036,17 @@ test('one pending card command blocks every conflicting write surface', async ({
   const fixture = await installInteractionFixture(page, {
     exposeWrites: true,
     holdCommand: true,
+    holdMaterialize: true,
     withUser: true,
   })
   await page.goto('/trip/result')
+  await fixture.waitForMaterializeStart()
+  await page.getByTestId('choose-stay').click()
+  await expect.poll(() => fixture.calls().writes.stay).toBe(1)
+  expect(await fixture.browserWriteRace()).toEqual({
+    materializeInFlight: 0,
+    writesBeforeMaterializeSettled: 0,
+  })
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
   await page.getByTestId('preview-change').first().click()
   await expect(page.getByTestId('change-preview')).toBeVisible()
@@ -858,7 +1074,7 @@ test('one pending card command blocks every conflicting write surface', async ({
     await control.evaluate((element) => element.click())
   }
   expect(fixture.calls().commands).toHaveLength(1)
-  expect(fixture.calls().writes).toEqual({ map: 0, stay: 0, adopt: 0, claim: 0, source: 0, trip: 0 })
+  expect(fixture.calls().writes).toEqual({ map: 0, stay: 1, adopt: 0, claim: 0, source: 0, trip: 0 })
 
   fixture.releaseCommand()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
@@ -922,8 +1138,13 @@ test('delete failure restores its card and returns focus to the original delete 
 
 
 test('accepted command with failed readback stays locked until explicit recovery', async ({ page }) => {
-  const fixture = await installInteractionFixture(page, { scenario: 'readback-failure', exposeWrites: true })
+  const fixture = await installInteractionFixture(page, { scenario: 'readback-failure' })
   await page.goto('/trip/result')
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+  await page.getByTestId('preview-change').first().click()
+  await expect(page.getByTestId('change-preview')).toBeVisible()
+  await expect(page.getByTestId('map-theater')).toContainText('已准备')
+  await expect(page.getByTestId('stay-panel')).toContainText('已准备')
   await page.getByRole('button', { name: '下移 故宫博物院' }).click()
 
   const retryReadback = page.getByTestId('retry-result-readback')
@@ -931,6 +1152,12 @@ test('accepted command with failed readback stays locked until explicit recovery
   await expect(page.getByText(/调整已提交，但保存结果暂时无法确认/)).toBeVisible()
   await expect(page.locator('body')).not.toContainText(/没有保存|未保存/)
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
+  await expect(page.getByTestId('change-preview')).toHaveCount(0)
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
+  await expect(page.getByTestId('map-theater')).not.toContainText('已准备')
+  await expect(page.getByTestId('stay-panel')).not.toContainText('已准备')
+  await expect(page.getByText('行程已调整，需要手动更新路线。', { exact: true })).toBeVisible()
+  await expect(page.getByText('行程已调整，住宿建议需要重新确认。', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '上移 故宫博物院' })).toBeDisabled()
   await expect(page.getByTestId('render-map')).toBeDisabled()
 
@@ -960,9 +1187,15 @@ test('409 reads latest cards and invalidates an old available map without render
 
 
 test('public result DOM contains no provider URL or internal implementation vocabulary', async ({ page }) => {
-  const fixture = await installInteractionFixture(page)
+  const fixture = await installInteractionFixture(page, { failInitialEnhancements: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('trip-days')).toBeVisible()
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+  await expect(page.getByTestId('map-theater')).toContainText('路线详情暂时不可用')
+  await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
+  expect(fixture.calls().mapReads).toBe(1)
+  expect(fixture.calls().stayReads).toBe(1)
+  expect(fixture.calls().checksCalls).toBe(1)
   const publicDom = await page.evaluate(() => {
     const clone = document.body.cloneNode(true)
     clone.querySelectorAll('script, style').forEach((element) => element.remove())
