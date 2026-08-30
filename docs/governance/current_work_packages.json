@@ -388,17 +388,20 @@
         "frontend/e2e/g03r-result-ui.spec.js"
       ],
       "package_id": "WP-G03R-UI-ENHANCEMENT-RECOVERY",
+      "prepared_tip": "62896beabae7ec7016e447df5004186115497e61",
       "prompt_path": "docs/governance/work-packages/WP-G03R-UI-ENHANCEMENT-RECOVERY.md",
       "prompt_sha256": "70c2079a9c268174c4f5c6766b2295414427dd99c56220f0916661e62dd1d8bf",
+      "registry_activation_commit": "6fd4d922b989fab947ec68bb36a681187312abf4",
+      "remote_readback": "62896beabae7ec7016e447df5004186115497e61",
       "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
       "role": "CONTRIBUTOR",
-      "status": "WAITING_FOR_WRITER_SLOT",
-      "status_reason": "030d212最终独立复核为1 P1 + 1 P2；完整第二轮prompt、三条deny-by-default路径和固定边界已登记。等待本binding远端回读、独立分支准备点与精确activation commit，产品新增写入为0。",
+      "status": "IN_PROGRESS",
+      "status_reason": "binding 6fd4d92已远端回读；独立用户可见任务01a05203在专属工作树只读等待，主集成从binding按顺序摘取前三个UI提交，local/upstream/remote准备点均为62896be且clean，prompt SHA-256精确匹配。现授权一个追加提交。",
       "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_ENHANCEMENT_RECOVERY_BINDING",
+  "program_state": "G03R_UI_ENHANCEMENT_RECOVERY_WRITER_ACTIVATED",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
