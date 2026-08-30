@@ -178,6 +178,7 @@ Goal type: BLOCKING_DEFECT
 | 2026-08-30 | 语义最终修复版通过全部固定72条门槛；语义与地点两个贡献包均已冻结为可合并，尚未进入集成分支 | semantic `905327d96e15838e510eae7a7b5da268a90736c8`，远端tip同值 | 最终`72/72`可比较、0禁入、0额外PLANNED、432/432计划召回、720/720五角色、432/432日序顺序、72次调用、0 UNKNOWN、0 repair、0失败；P95 4241.913 ms；score hash `2c921c516ddcef73cad59802cf9e62139f46ecc8019ff6d73150fa2041fbb25c` | `LIVE_QWEN_NONBLIND_DEVELOPMENT_DIAGNOSTIC` | `Product progress=MODEL / RUNTIME contribution` | `Governance ratio=100% / readiness checkpoint` | 按语义后地点顺序摘取产品提交并运行每阶段受影响验证；高德live矩阵仍未运行 | 高德控制台未登录，不能证明完整2500次调用仍在零增量额度内；保持0次调用且不把NOT_RUN写成PASS | 提交并远端回读本可合并登记，然后先集成语义四个产品提交 |
 | 2026-08-30 | 语义修复已按四个提交顺序集成；推荐、经过、排除、描述、URL与预约噪声不进入行程，日序、原文顺序和原子地点边界进入当前集成分支 | integration tip `8af22f048aaeda718489550832452f4c6f37b79e` | 语义/相关55 PASS；固定90条数据validator valid且Gate NOT_RUN；ruff PASS；core-mainline PASS；无cherry-pick冲突 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=RUNTIME integrated slice` | `Governance ratio=checkpoint pending` | 推送并远端回读语义集成检查点；随后摘取地点两个提交并执行地点阶段门禁 | sealed blind、真人与完整产品门禁仍未运行；高德live矩阵继续为0调用NOT_RUN | 提交语义集成检查点并push/readback，然后继续地点包 |
 | 2026-08-30 | 地点两个提交无冲突进入集成候选，但组合回归发现成都样本目的地被错误降为待确认；未接受地点阶段，也未把101/102称为通过 | candidate tip `6149f51`；纯语义远端tip `905327d`同样可复现 | 地点完整受影响回归`101 PASS / 1 FAIL`；失败为`G01-TC-037 成都 → 目的地待确认`；ruff PASS；纯语义分支独立复现同一失败，定位为语义fallback先占span后丢失OTHER_CITY城市元数据 | `LOCAL_AUTOMATED / INTEGRATION_REGRESSION` | `Product progress=RUNTIME candidate / NOT_ACCEPTED` | `Governance ratio=repair routing checkpoint` | 语义窗口在既有owned paths内追加通用回归修复；随后主对话重新运行语义、地点与组合验证 | 新修复不会修改Qwen adapter、提示词、配置或固定模型，因此既有Qwen比较只支持原Qwen路径，新增fallback修复需独立离线证据 | 提交并远端回读修复路由，向原语义任务发送精确激活点与复现合同 |
+| 2026-08-30 | 通用外地城市回归已修复并冻结；成都恢复，广州“北京路步行街”不会被字面误判，未知和跨城市仍待确认 | semantic repair `dd26967ea3d04453a7aac2e52017088d4b7c829b`，远端tip同值 | 贡献包G01样本1 PASS、语义/相关56 PASS、dataset valid、ruff与core-mainline PASS；主对话独立G01+语义12 PASS、ruff PASS；仅2条授权路径；Provider调用0 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=RUNTIME repair contribution` | `Governance ratio=readiness checkpoint` | 摘取dd26967并重新运行语义、地点与组合全套门禁 | 新提交未修改Qwen adapter、提示词、配置或模型绑定；原72条只作为Qwen路径证据，不替代新增fallback的离线验证 | 提交并远端回读修复可合并登记，然后摘取单一修复提交 |
 
 ## Auto-advance
 
@@ -191,7 +192,7 @@ Goal type: BLOCKING_DEFECT
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
 - Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / 905327d96e15838e510eae7a7b5da268a90736c8 / INTEGRATION_REGRESSION / IN_PROGRESS_REPAIR`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / READY_TO_MERGE`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / READY_TO_MERGE_REPAIR`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / READY_TO_MERGE`；
 - Fresh 72-case Qwen comparison：`BASELINE + B37 + 28A + 905 EACH EXACTLY ONCE / FINAL 72/72 AND ALL THRESHOLDS PASS / DEVELOPMENT_DIAGNOSTIC`；sealed blind仍为`NOT_RUN`且不得推断通过；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；

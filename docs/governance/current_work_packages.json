@@ -157,12 +157,12 @@
       "prompt_sha256": "90faedd370581ec29b8d5f70dfaa685d7019dc678965003848ff3c4c27984fc9",
       "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
       "remote_branch": "origin/codex/g03r-semantic",
-      "checkpoint_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
-      "ready_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
-      "remote_readback": "905327d96e15838e510eae7a7b5da268a90736c8",
+      "checkpoint_commit": "dd26967ea3d04453a7aac2e52017088d4b7c829b",
+      "ready_commit": "dd26967ea3d04453a7aac2e52017088d4b7c829b",
+      "remote_readback": "dd26967ea3d04453a7aac2e52017088d4b7c829b",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
-      "status_reason": "语义单包门禁通过后，主对话在地点组合回归中发现G01-TC-037的成都目的地被降为待确认；已在纯语义分支独立复现，根因为通用计划捕获先占用已知外地地点span并丢失受控地点城市元数据。仅允许full_text.py与独立语义测试追加通用修复，不重跑或修改Qwen配置/提示词。",
+      "status": "READY_TO_MERGE",
+      "status_reason": "追加提交dd26967仅修改full_text.py与独立语义测试：通用捕获优先复用受控地点精确城市元数据，恢复成都样本并防止广州北京路步行街被字面误判；未知和多城市仍待确认。贡献包必跑检查、主对话独立12项、ruff、clean与远端tip通过，Provider调用0。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     },
     {
@@ -227,7 +227,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_INTEGRATION_REGRESSION_REPAIR_IN_PROGRESS",
+  "program_state": "G03R_INTEGRATION_REGRESSION_REPAIR_READY",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
