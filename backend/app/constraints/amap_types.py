@@ -1,5 +1,7 @@
 """Closed-set Amap POI classification; unknown provider types stay UNKNOWN."""
 
+from dataclasses import dataclass
+
 from app.schemas.place import PlaceCategory
 
 
@@ -46,15 +48,59 @@ _CATEGORY_TYPECODES = {
 }
 
 
-def classify_amap_type(typecode: str = "", type_label: str = "") -> PlaceCategory:
+@dataclass(frozen=True, slots=True)
+class AmapTypeSignals:
+    typecode_category: PlaceCategory
+    label_category: PlaceCategory
+    category: PlaceCategory
+    conflict: bool
+    complete: bool
+
+
+def _category_from_typecode(typecode: str) -> PlaceCategory:
     compact_code = str(typecode or "").strip()
     for prefix, category in _TYPECODE_PREFIXES.items():
         if compact_code.startswith(prefix):
             return category
-    for label, category in _TYPE_LABELS.items():
-        if label in str(type_label or ""):
-            return category
     return PlaceCategory.UNKNOWN
+
+
+def _category_from_label(type_label: str) -> PlaceCategory:
+    categories = {
+        category
+        for label, category in _TYPE_LABELS.items()
+        if label in str(type_label or "")
+    }
+    return categories.pop() if len(categories) == 1 else PlaceCategory.UNKNOWN
+
+
+def classify_amap_type_signals(typecode: str = "", type_label: str = "") -> AmapTypeSignals:
+    """Classify independent provider signals and expose disagreement explicitly."""
+
+    code = _category_from_typecode(typecode)
+    label = _category_from_label(type_label)
+    code_known = code is not PlaceCategory.UNKNOWN
+    label_known = label is not PlaceCategory.UNKNOWN
+    conflict = code_known and label_known and code is not label
+    if conflict:
+        category = PlaceCategory.UNKNOWN
+    elif code_known:
+        category = code
+    elif label_known:
+        category = label
+    else:
+        category = PlaceCategory.UNKNOWN
+    return AmapTypeSignals(
+        typecode_category=code,
+        label_category=label,
+        category=category,
+        conflict=conflict,
+        complete=bool(str(typecode or "").strip() and str(type_label or "").strip() and code_known and label_known),
+    )
+
+
+def classify_amap_type(typecode: str = "", type_label: str = "") -> PlaceCategory:
+    return classify_amap_type_signals(typecode, type_label).category
 
 
 def typecodes_for_category(category: PlaceCategory | str) -> list[str]:
