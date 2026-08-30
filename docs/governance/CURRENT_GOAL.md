@@ -80,6 +80,8 @@ Goal type: BLOCKING_DEFECT
 7. 私有加载与保守解析：城市内返回零/一/多匹配，只允许规范名、审核别名和完整后缀白名单三层精确等价；最终POI必须通过高德城市、行政区、类别及唯一性确认，否则保持待确认。
 8. 新增独立地点词典与解析回归，覆盖配额、schema、来源、稳定排序、禁止字段、归一化正反例、错城/错类/行政区冲突、Provider失败和词典外实时搜索。
 9. 结果页稳定与交互：按`resourceRef + etag`隔离请求代际，过期响应不覆盖新状态、合法cleanup可恢复；桌面同日/跨日拖拽与键盘/移动等价操作只发送一次命令，删除、焦点、aria-live、48px与reduced-motion满足无障碍。
+10. UI稳定性追加修复：同一resource的在途`materialize`若返回与当前ETag兼容的prepared key必须复用；只有真正挂起或不兼容的旧代际才能在有界结束后串行启动当前代际。
+11. 新revision到达时同步失效旧地图、住宿、检查和预览；写POST等待旧检查终态，增强首次失败与迟到preview可恢复；编辑、替换和添加对话框形成键盘焦点闭环。
 
 ## Parallel work packages
 
@@ -87,6 +89,7 @@ Goal type: BLOCKING_DEFECT
 - 语义贡献包`WP-G03R-SEMANTIC`使用`codex/g03r-semantic`和`D:/munto/code/claudeProject/agentTravel-g03r-semantic`，只修改登记的三个运行时文件、Qwen语义提示词和独立测试。
 - 地点贡献包`WP-G03R-PLACE`使用`codex/g03r-place-resolution`和`D:/munto/code/claudeProject/agentTravel-g03r-place-resolution`，按“词典/私有加载器”和“高德保守解析/测试”两个串行提交，只修改登记的七条路径。
 - 前端贡献包`WP-G03R-UI`使用`codex/g03r-ui`和`D:/munto/code/claudeProject/agentTravel-g03r-ui`，按“竞态修复→结果页主交互”两个串行提交，只修改登记的四条路径。
+- 默认workers的repeat3在原UI候选上捕获同代际串行重复调用后，追加`WP-G03R-UI-STABILITY`；它使用`codex/g03r-ui-stability`和独立工作树，只允许修改结果页与新E2E，不改写原两个UI提交。
 - 子Agent不拥有分支、提交或产品写入；本切片未授权运行时多Agent。
 
 ## Non-goals
@@ -111,6 +114,7 @@ Goal type: BLOCKING_DEFECT
 
 - Product baseline / upstream：`origin/develop@8a33a4b22a405135f310376d8766d9170d80097d`；
 - 控制分支：`codex/g03r-activation`；语义、地点与UI分支分别在各自完整prompt binding commit后创建；UI集成检查点为`74264ec16d27f020201dca5e59ab14023bfd8632`；
+- 原UI候选与远端精确tip：`994ac8557f1d507787b9ca26e724d7df684d3faa`；稳定性包必须在控制面binding远端回读后，从该UI内容准备独立分支并登记精确prepared tip才可写入。
 - 固定比较集：`54 dev + 18 validation`，不读取blind；
 - 基线诊断：结构化结果`72/72`、计划原子召回`432/432`、额外计划地点`0`、角色`716/720`、日序及顺序`336/432`；本地回退另有计划召回与额外描述地点缺陷；
 - 当前Qwen环境：既有批准凭据已从仓库外忽略的根`.env`安全注入且未打印；baseline已且仅运行一次，`72/72`可比较、禁入地点`0`、额外`PLANNED 0`、计划原子召回`432/432`、五角色`708/720`、日序及顺序`336/432`，其余三个精确版本正在各自唯一一次比较中。
@@ -123,7 +127,8 @@ Goal type: BLOCKING_DEFECT
 - 推荐内容保留为内部`REFERENCE`，不进入行程；URL、电话、预约、描述和元示例不得迁移成地点。
 - 三城词典只辅助检索，不承担地点身份权威；高德未确认、同层不唯一、错城、错类别、行政区矛盾或字段不足一律保持待确认。
 - 地名归一化必须保留数字、方向、分店、航站楼、校区和括号限定；不得删除`馆/院/店/站/园`等单字或使用模糊猜测消歧。
-- UI异步检查以当前`resourceRef + etag`为代际；旧响应不得覆盖新状态，cleanup不得留下永久busy或永久attempted。同一有效代际最多一个并发materialize。
+- UI异步检查以当前`resourceRef + etag`为代际；旧响应不得覆盖新状态，cleanup不得留下永久busy或永久attempted。同一有效兼容代际最多一次materialize且最大并发为1；挂起或不兼容代际只能在有界结束后排一次当前代际。
+- 写操作发出前旧检查请求必须已经终态；任何新ETag或写响应同步失效旧增强generation，权威回读失败时不得回流旧`AVAILABLE`。增强首次失败、preview迟到以及编辑对话框焦点都必须有可恢复闭环。
 - 卡片移动先从源日移除再计算目标位置；无变化不发命令，有效移动只发一次`ACTIVITY_MOVE`。编辑只令地图`NEEDS_UPDATE`，不得自动请求`map-renders`。
 - 任何Provider超时、环境失败或不可比较结果记`UNKNOWN`，不得算语义成功或失败。
 - G04保持`NOT_ACTIVATED`。
@@ -142,6 +147,8 @@ Goal type: BLOCKING_DEFECT
 - 地点解析严重自动误配`0`；词典命中但未获高德确认、同层多候选、错城/错类别/行政区冲突和Provider失败全部保持待确认。
 - 后端checks成功返回3条时结果页最终显示3条；effect cleanup、住宿/地图/ETag切换、失败与409不得永久停在准备态或显示旧代际结果；
 - 同日/跨日/空日移动、无效落点、无变化、键盘/移动替代、删除确认、焦点恢复与无障碍全部通过；每次有效移动恰好一条命令且无自动地图请求。
+- 默认workers、`retries=0`的结果页E2E必须单轮`19/19`且`--repeat-each=3`为`57/57`；`--workers=1`只能作补充诊断，不能替代门禁。
+- 从旧AVAILABLE开始的写入回读失败不得显示旧地图；materialize与后续写POST总并发不得超过1；map/stay首次失败不永久阻止Top-3；迟到preview不覆盖新代际；编辑、替换、添加对话框焦点闭环通过。
 
 正式G03产品交付状态仍是`PRODUCT_DELIVERY_NOT_RUN`；只有贡献包被主对话验收并串行集成、受影响G03验证和当前产品回执全部通过后，才能重新进入`CORE_MVP_OWNER_REVIEW_PENDING`。
 
@@ -153,6 +160,7 @@ Goal type: BLOCKING_DEFECT
 - `python -m pytest tests/test_g03r_place_lexicon.py tests/test_g03r_place_resolution.py tests/test_amap_trip_understanding.py -q`；
 - 地点贡献包只跑离线回归；主对话在精确提交远端回读后决定是否运行一次live AMap矩阵；
 - `npm run build`；
+- `npx playwright test e2e/g03r-result-ui.spec.js -c playwright.product-delivery.config.js`；
 - `npx playwright test e2e/g03r-result-ui.spec.js -c playwright.product-delivery.config.js --repeat-each=3`；
 - `npx playwright test e2e/g03-product-delivery.spec.js -c playwright.product-delivery.config.js`；
 - `python -m scripts.validate_core_mainline`；
@@ -164,7 +172,7 @@ Goal type: BLOCKING_DEFECT
 - 模型、temperature、7秒deadline、768 output tokens、并发1、最多一次schema repair保持字节绑定不变；
 - 每因素只允许一次固定72条比较，环境失败不以概率性重跑替代；
 - 地点贡献包live AMap预算为`0`；主对话后续矩阵最多2500次，且仅在现有账户配额内零增量费用被证明后执行；
-- UI验证强制本地fixture、`AMAP_MOCK=true`且真实Qwen/高德key为空；不得以测试retry、延长等待或放宽断言掩盖竞态；
+- UI验证强制本地fixture、`AMAP_MOCK=true`且真实Qwen/高德key为空；不得以测试retry、`--workers=1`、概率性重跑、延长等待或放宽断言掩盖竞态；
 - 最多两轮修复复审；不新增Provider、账号、费用、数据或依赖；
 - 只做登记的最小语义运行时/提示词/测试，以及三城词典、私有加载器、两处地点运行时和独立测试改动。
 
@@ -196,20 +204,21 @@ Goal type: BLOCKING_DEFECT
 | 2026-08-30 | 通用外地城市回归已修复并冻结；成都恢复，广州“北京路步行街”不会被字面误判，未知和跨城市仍待确认 | semantic repair `dd26967ea3d04453a7aac2e52017088d4b7c829b`，远端tip同值 | 贡献包G01样本1 PASS、语义/相关56 PASS、dataset valid、ruff与core-mainline PASS；主对话独立G01+语义12 PASS、ruff PASS；仅2条授权路径；Provider调用0 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=RUNTIME repair contribution` | `Governance ratio=readiness checkpoint` | 摘取dd26967并重新运行语义、地点与组合全套门禁 | 新提交未修改Qwen adapter、提示词、配置或模型绑定；原72条只作为Qwen路径证据，不替代新增fallback的离线验证 | 提交并远端回读修复可合并登记，然后摘取单一修复提交 |
 | 2026-08-30 | 语义与地点后端修复已全部串行集成；浏览器完整旅程在CI同类Selector worker下通过，但首次运行曾出现后端已返回3条建议而前端永久停在准备态，结果页存在必须消除的时序竞态 | integration tip `a16e3a93a4a56ff2a81fce4cde1332885c46afd6`；place tip `6149f51ef8d13025846b50c329f174b31288c3ef` | 组合定向131 PASS；全部G03非数据库3 PASS；G03 PostgreSQL 1 PASS；frontend build PASS；core-mainline PASS，fingerprint `02517cc49aff32caff49bd3dda8cef1b8624ff0223c3f06089933acbc3d964c1`；Playwright首次Top-3 UI 0/后端3 FAIL，第二次Windows worker租约超时，Selector worker完整旅程1 PASS | `LOCAL_AUTOMATED / LOCAL_BROWSER / ENVIRONMENT_DIAGNOSTIC` | `Product progress=BACKEND INTEGRATED / UI UNSTABLE` | `Governance ratio=integration checkpoint pending` | 绑定前端结果页稳定性与主交互工作包，修复异步effect被清理后仍锁死attempt key的问题，并要求零重试稳定回归 | 单次浏览器PASS不能覆盖已捕获的真实前端竞态；live AMap仍为0调用NOT_RUN，正式产品回执尚未重封 | 推送并回读本后端集成检查点，再激活独立UI writer；媒体/API/migration继续留在后续单独切片 |
 | 2026-08-30 | 后端集成检查点已远端回读；现绑定结果页稳定性与主交互包，产品写入尚未开始 | activation `74264ec16d27f020201dca5e59ab14023bfd8632`；UI binding以本次远端subject回读为准 | prompt完整性与SHA-256、deny-by-default路径、两提交顺序、三次稳定E2E和现有G03产品旅程已写入版本化合同；治理与core-mainline由主对话复核 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / UI activation` | `Governance ratio=100% / UI prompt binding` | 创建`codex/g03r-ui`与独立工作树，发送精确binding commit后由UI窗口写入 | 媒体/API/migration未授权且继续禁止；不得把Windows worker环境差异变成延长前端等待 | 推送binding并远端回读，从该提交创建UI分支/工作树，再启动两个串行提交 |
+| 2026-08-30 | 原UI两提交已完成主交互、回读锁、取消、焦点与无障碍并远端回读；主集成按合同默认workers复跑发现同一兼容ETag窗口仍会串行重复materialize，最终只读复审另发现新revision派生状态、写入与旧检查协调、增强首次失败、迟到preview和编辑焦点闭环缺口，因此未登记READY、未合并 | UI tip `994ac8557f1d507787b9ca26e724d7df684d3faa`；stability binding以本次远端subject回读为准 | build PASS；单轮19/19 PASS；贡献者workers=1 repeat57/57；既有G03旅程1 PASS；双视口a11y 100；主集成原始repeat3 `56 PASS / 1 FAIL`，trace证明A请求被过早abort后又POST B；最终只读review为3 P1/2 P2 | `LOCAL_AUTOMATED / LOCAL_BROWSER / INTEGRATION_REGRESSION / READ_ONLY_REVIEW` | `Product progress=UI candidate / NOT_ACCEPTED` | `Governance ratio=stability prompt binding pending` | 只在page与新E2E中修复兼容代际复用、派生失效、写前终止、增强恢复、preview隔离和editor焦点；默认workers单轮19/19和repeat57/57 | 不能以workers=1或重跑覆盖；原UI历史不得amend或force-push；媒体/API/migration仍禁止 | 提交并远端回读稳定性prompt，创建独立分支/工作树和精确prepared tip后授权单一追加提交 |
 
 ## Auto-advance
 
 - 自动推进G04：`DISABLED`；G04：`NOT_ACTIVATED`；
 - 不得自动激活G04；只有本P1返修复核完成后回到所有者体验验收点；
 - 语义、地点与UI贡献分支只commit/push并请求验收，不自行合并；
-- 主对话按`WP-G03R-SEMANTIC → WP-G03R-PLACE → WP-G03R-UI`验收路径、tip、clean、比较与测试后才可串行集成；
+- 主对话按`WP-G03R-SEMANTIC → WP-G03R-PLACE → WP-G03R-UI → WP-G03R-UI-STABILITY`验收路径、tip、clean、比较与测试后才可串行集成；
 - 受影响G03产品验证完成后回到`CORE_MVP_OWNER_REVIEW_PENDING`，不激活G04。
 
 ## Completion record
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
 - Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / PENDING / IN_PROGRESS`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / 994ac8557f1d507787b9ca26e724d7df684d3faa / DEFAULT_WORKERS_REPEAT_FAIL / IN_PROGRESS`；`WP-G03R-UI-STABILITY / PENDING / PLANNED`；
 - Fresh 72-case Qwen comparison：`BASELINE + B37 + 28A + 905 EACH EXACTLY ONCE / FINAL 72/72 AND ALL THRESHOLDS PASS / DEVELOPMENT_DIAGNOSTIC`；sealed blind仍为`NOT_RUN`且不得推断通过；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；

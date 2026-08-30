@@ -33,6 +33,7 @@
       "backend/tests/test_g03r_place_resolution.py",
       "backend/tests/test_amap_trip_understanding.py",
       "docs/governance/work-packages/WP-G03R-UI.md",
+      "docs/governance/work-packages/WP-G03R-UI-STABILITY.md",
       "frontend/src/app/trip/result/page.tsx",
       "frontend/src/app/trip/result/itinerary-workspace.tsx",
       "frontend/src/lib/trip-understanding-v3.ts",
@@ -87,7 +88,8 @@
   "integration_order": [
     "WP-G03R-SEMANTIC",
     "WP-G03R-PLACE",
-    "WP-G03R-UI"
+    "WP-G03R-UI",
+    "WP-G03R-UI-STABILITY"
   ],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -285,12 +287,60 @@
       "remote_branch": "origin/codex/g03r-ui",
       "role": "CONTRIBUTOR",
       "status": "IN_PROGRESS",
-      "status_reason": "后端已集成且writer slot可用；完整版本化prompt已绑定。只允许结果页竞态修复与现有交互重构，媒体/API/migration继续禁止；分支与工作树必须从本binding commit创建后才能写产品。",
+      "status_reason": "两个原始UI提交已完成并远端回读为994ac855；build、单轮19/19、workers=1 repeat57/57和既有G03旅程通过，但主集成按合同默认workers运行repeat3得到56/57，同一兼容ETag清理窗口串行重复materialize，因此在追加稳定性包通过前不得标记READY_TO_MERGE。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui"
+    },
+    {
+      "acceptance": [
+        "同一resource的在途materialize返回与当前ETag兼容的prepared key时复用该结果，不发送第二次POST",
+        "真正挂起或不兼容的旧代际在10秒有界终止后只排一次当前代际，最大并发保持1",
+        "写入前旧检查已终态；新revision不得回流旧AVAILABLE，map/stay首次失败与迟到preview均可恢复且不污染当前代际",
+        "编辑、替换和添加对话框形成键盘焦点闭环，关闭、保存或失败后恢复合理焦点",
+        "默认workers且retries=0的单轮19/19与repeat-each=3共57/57通过，不以workers=1替代"
+      ],
+      "baseline_commit": "994ac8557f1d507787b9ca26e724d7df684d3faa",
+      "branch": "codex/g03r-ui-stability",
+      "dependencies": [
+        "WP-G03R-UI"
+      ],
+      "dialogue_ref": "codex-agent:/root/ui_recovery",
+      "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
+      "forbidden_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs",
+        "backend",
+        "packages",
+        "miniapp",
+        "y-websocket",
+        "frontend/src/app/trip/result/itinerary-workspace.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/playwright.config.js",
+        "frontend/playwright.product-delivery.config.js",
+        "frontend/e2e/g03-product-delivery.spec.js",
+        "frontend/e2e/trip-understanding-v3.spec.js",
+        "all paths not listed in owned_paths"
+      ],
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "merge_order": 5,
+      "owned_paths": [
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/e2e/g03r-result-ui.spec.js"
+      ],
+      "package_id": "WP-G03R-UI-STABILITY",
+      "prompt_path": "docs/governance/work-packages/WP-G03R-UI-STABILITY.md",
+      "prompt_sha256": "22ab17887a13c3afbba768c59049a3791bbb0949b9f1e0fb78744ee1a9854a3d",
+      "remote_branch": "origin/codex/g03r-ui-stability",
+      "role": "CONTRIBUTOR",
+      "status": "PLANNED",
+      "status_reason": "主集成默认workers repeat3捕获56/57；只读trace已定位同resource兼容ETag被过早abort。等待控制面binding远端回读和独立分支准备点登记，产品写入仍为0。",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui-stability"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_WRITER_ACTIVATED_BACKEND_INTEGRATED",
+  "program_state": "G03R_UI_STABILITY_BINDING",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
