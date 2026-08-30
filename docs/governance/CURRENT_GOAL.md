@@ -152,6 +152,7 @@ Goal type: BLOCKING_DEFECT
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | 所有者授权G03 P1语义返修；G04继续未激活；尚未修改语义运行时 | activation pending | 远端`origin/develop@8a33a4b`回读；治理基线validator PASS；治理定向测试24 PASS | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / activation only` | prompt绑定、三个单因素、离线回归、正式72条 | 当前终端无Qwen凭据，正式72条可能`BLOCKED_EXTERNAL` | 提交激活点，登记prompt和独立语义工作树 |
+| 2026-08-30 | G03R控制面已激活并登记唯一语义贡献包；尚未修改语义运行时 | `d4ce966de55b6d72e0b5daced9764223d7a6913a` | core-mainline `PASS`；治理定向测试`24 PASS`；prompt SHA-256 `90faedd3...84fc9` | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / prompt binding` | 创建独立分支/工作树，逐因素实现与验证 | 当前终端无Qwen凭据；不读取blind | 提交prompt binding并从该提交创建`codex/g03r-semantic` |
 
 ## Auto-advance
 

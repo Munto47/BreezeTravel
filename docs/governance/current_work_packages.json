@@ -60,7 +60,9 @@
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
-  "integration_order": [],
+  "integration_order": [
+    "WP-G03R-SEMANTIC"
+  ],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
   "max_prepared_next_goal_packages": 2,
@@ -98,6 +100,50 @@
       "role": "INTEGRATOR",
       "status": "IN_PROGRESS",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
+    },
+    {
+      "acceptance": [
+        "禁入内容和额外PLANNED地点均为0，计划原子召回432/432",
+        "五类角色720/720，计划日序及顺序432/432",
+        "POI调用和公共卡片使用同一PLANNED原子地点资格集合"
+      ],
+      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+      "branch": "codex/g03r-semantic",
+      "dependencies": [],
+      "dialogue_ref": "codex-task:g03r-semantic",
+      "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
+      "forbidden_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs/governance",
+        "backend/app/db/migrations",
+        "packages/trip-check-client/openapi.json",
+        "packages/trip-check-client/openapi.current.json",
+        "packages/trip-check-client/src/generated",
+        "frontend/package-lock.json",
+        "miniapp/package-lock.json",
+        "packages/trip-check-client/package-lock.json",
+        "y-websocket/package-lock.json",
+        "backend/eval_data/agent_gate_v1/automation_runner_requirements.lock",
+        "backend/eval_data/agent_gate_v1/automation_runner_browser_package-lock.json"
+      ],
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "merge_order": 2,
+      "owned_paths": [
+        "backend/app/trip_understanding/qwen_provider.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+        "backend/tests/test_g03r_trip_semantics.py"
+      ],
+      "package_id": "WP-G03R-SEMANTIC",
+      "prompt_path": "docs/governance/work-packages/WP-G03R-SEMANTIC.md",
+      "prompt_sha256": "90faedd370581ec29b8d5f70dfaa685d7019dc678965003848ff3c4c27984fc9",
+      "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
+      "remote_branch": "origin/codex/g03r-semantic",
+      "role": "CONTRIBUTOR",
+      "status": "IN_PROGRESS",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     }
   ],
   "program_id": "TC-VNEXT-2026",
@@ -105,5 +151,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "WP-G03R-INTEGRATOR"
+  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-SEMANTIC"
 }
