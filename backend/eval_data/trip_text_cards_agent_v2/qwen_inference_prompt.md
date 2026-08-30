@@ -50,6 +50,17 @@ Mentions:
   Phrases such as “听说/网友提到/另一篇攻略/不是本次安排” are `REFERENCE`,
   not `EXCLUDED`. A quoted example inside an instruction is not a substitute
   for the later, actual local intent sentence.
+- Apply this local priority without borrowing intent from another occurrence:
+  skip meta-instructions first; then unconditional cancellation is
+  `EXCLUDED`; a conditional choice or conditional skip is `OPTIONAL`; a pure
+  pass/transfer is `PASS_THROUGH`; a recommendation, hearsay item or “not this
+  trip's arrangement” is `REFERENCE`; only an explicit committed visit is
+  `PLANNED`.
+- Judge every real occurrence independently even when names repeat or overlap.
+  A planned compound such as `北京鼓楼` does not satisfy a later standalone
+  `鼓楼` reference. Likewise, a quoted `X很有名` meta-example must be skipped
+  without suppressing the later sentence that actually classifies `X` as a
+  `REFERENCE`.
 - Do not return day or sequence indexes. Application code derives the day from
   the nearest preceding Day/第N天 heading (Day 1 when absent), sorts accepted
   mentions by source span, and assigns sequence indexes.

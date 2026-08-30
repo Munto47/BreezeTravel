@@ -106,6 +106,10 @@ def qwen_effective_run_config_sha256(
 _META_ACTIVITY_MARKERS = (
     "不要因为",
     "不要把",
+    "模型举例",
+    "如果用户说",
+    "只是示例",
+    "仅作示例",
     "不能生成地点卡",
     "不是地点",
     "说明句",
@@ -117,6 +121,7 @@ _ROLE_CONTEXT_MARKERS = {
     ActivityRole.PLANNED: (
         "确定行程",
         "确定游览",
+        "属于当天确定计划",
         "安排",
         "前往",
         "依次到",
@@ -130,8 +135,11 @@ _ROLE_CONTEXT_MARKERS = {
         "如果",
         "时间充裕",
         "太累",
+        "有空",
+        "时间允许",
         "备选",
         "可选",
+        "可以不去",
         "可以完全不去",
         "视情况",
         "来不及",
@@ -141,12 +149,14 @@ _ROLE_CONTEXT_MARKERS = {
         "听说",
         "提到",
         "推荐",
+        "很有名",
         "不表示已经安排",
         "不是本次安排",
         "另一篇攻略",
     ),
     ActivityRole.EXCLUDED: (
         "明确不去",
+        "已经决定排除",
         "决定排除",
         "已经决定",
         "取消",
@@ -162,6 +172,60 @@ _ROLE_CONTEXT_MARKERS = {
         "不在那里游览",
     ),
 }
+_ATOMIC_ROLE_NAME_PATTERN = r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]{2,40}"
+_ROLE_NAME_FORBIDDEN_MARKERS = ("仅在", "只在", "时间充裕", "作为", "当作", "可以")
+_EXPLICIT_ROLE_PATTERNS: tuple[tuple[ActivityRole, re.Pattern[str]], ...] = (
+    (
+        ActivityRole.EXCLUDED,
+        re.compile(
+            rf"(?:明确不去|已经决定排除|决定排除|取消|不安排|放弃|排除)"
+            rf"\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:仅在|只在).*?(?:备选|可选)"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:作为|当作)(?:备选|可选)"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"[，,]\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"可以(?:完全)?不去"
+        ),
+    ),
+    (
+        ActivityRole.PASS_THROUGH,
+        re.compile(
+            rf"(?:会经过|经过|只是路过|路过|途经)\s*"
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:[，,]|但|换乘|中转)"
+        ),
+    ),
+    (
+        ActivityRole.REFERENCE,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*只是从.*?"
+            rf"(?:听说|提到|推荐)"
+        ),
+    ),
+    (
+        ActivityRole.REFERENCE,
+        re.compile(
+            rf"(?:网友曾|网友|另一篇攻略|攻略)?\s*"
+            rf"(?:提到|推荐|听说)\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
+        ),
+    ),
+)
 
 
 def _verbatim_offsets_outside_urls(source_text: str, value: str) -> list[int]:
@@ -206,17 +270,86 @@ def _source_clause(source_text: str, position: int) -> str:
     return source_text[left + 1 : right]
 
 
+def _local_source_clause(source_text: str, position: int) -> str:
+    left = max(
+        source_text.rfind(marker, 0, position)
+        for marker in _TIME_SEGMENT_BOUNDARIES
+    )
+    right_values = [
+        value
+        for marker in _TIME_SEGMENT_BOUNDARIES
+        if (value := source_text.find(marker, position)) >= 0
+    ]
+    right = min(right_values) if right_values else len(source_text)
+    return source_text[left + 1 : right]
+
+
+def _is_meta_activity_clause(clause: str) -> bool:
+    if any(marker in clause for marker in _META_ACTIVITY_MARKERS):
+        return True
+    return (
+        any(marker in clause for marker in ("整理", "围绕"))
+        and any(marker in clause for marker in ("路线", "笔记", "攻略", "主题"))
+    )
+
+
+def _local_activity_role(
+    source_text: str,
+    position: int,
+    proposed_role: ActivityRole,
+) -> ActivityRole | None:
+    clause = _local_source_clause(source_text, position)
+    if _is_meta_activity_clause(clause):
+        return None
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.EXCLUDED]):
+        return ActivityRole.EXCLUDED
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.OPTIONAL]):
+        return ActivityRole.OPTIONAL
+    if any(marker in clause for marker in ("不去", "不要去")):
+        return ActivityRole.EXCLUDED
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PASS_THROUGH]):
+        return ActivityRole.PASS_THROUGH
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.REFERENCE]):
+        return ActivityRole.REFERENCE
+    if (
+        any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED])
+        or _DAY_HEADING_RE.search(clause)
+    ):
+        return ActivityRole.PLANNED
+    return proposed_role
+
+
+def _explicit_role_mentions(
+    source_text: str,
+) -> list[tuple[int, int, str, ActivityRole]]:
+    mentions: list[tuple[int, int, str, ActivityRole]] = []
+    seen: set[tuple[int, int]] = set()
+    for clause_match in re.finditer(r"[^。；;\n]+", source_text):
+        clause = clause_match.group(0)
+        if _is_meta_activity_clause(clause):
+            continue
+        for role, pattern in _EXPLICIT_ROLE_PATTERNS:
+            for match in pattern.finditer(clause):
+                start = clause_match.start() + match.start("name")
+                end = clause_match.start() + match.end("name")
+                recovered = _safe_atomic_source_span(source_text, start, end)
+                if (
+                    recovered is None
+                    or any(marker in recovered[2] for marker in _ROLE_NAME_FORBIDDEN_MARKERS)
+                    or recovered[:2] in seen
+                ):
+                    continue
+                seen.add(recovered[:2])
+                mentions.append((*recovered, role))
+    return mentions
+
+
 def _role_context_score(source_text: str, position: int, role: ActivityRole) -> int:
     clause = _source_clause(source_text, position)
     positive = sum(marker in clause for marker in _ROLE_CONTEXT_MARKERS[role])
     if role == ActivityRole.PLANNED and _DAY_HEADING_RE.search(clause):
         positive += 1
-    meta = sum(marker in clause for marker in _META_ACTIVITY_MARKERS)
-    if (
-        any(marker in clause for marker in ("整理", "围绕"))
-        and any(marker in clause for marker in ("路线", "笔记", "攻略", "主题"))
-    ):
-        meta += 1
+    meta = int(_is_meta_activity_clause(clause))
     # A repeated place name can occur once in the itinerary and again inside a
     # recommendation, exclusion or pass-through sentence.  Model offsets are
     # proposals, so a negated phrase such as "不表示已经安排" must not make the
@@ -608,6 +741,8 @@ class QwenStructuredInferenceProvider:
             "planned_day_fill_count": 0,
             "role_context_relocation_count": 0,
             "conditional_optional_reclassification_count": 0,
+            "local_role_reclassification_count": 0,
+            "explicit_role_recovery_count": 0,
             "non_activity_mention_drop_count": 0,
             "duplicate_mention_drop_count": 0,
             "time_hint_derivation_count": 0,
@@ -726,6 +861,13 @@ class QwenStructuredInferenceProvider:
                         "conditional_optional_reclassification_count"
                     ] += 1
                     role = corrected_role
+                local_role = _local_activity_role(source_text, span_start, role)
+                if local_role is None:
+                    normalization_counts["non_activity_mention_drop_count"] += 1
+                    continue
+                if local_role != role:
+                    normalization_counts["local_role_reclassification_count"] += 1
+                    role = local_role
                 if _role_context_score(source_text, span_start, role) <= -50:
                     normalization_counts["non_activity_mention_drop_count"] += 1
                     continue
@@ -752,6 +894,29 @@ class QwenStructuredInferenceProvider:
                     span_end=span_end,
                     role=role,
                     day_index=day_index,
+                    sequence_index=0,
+                    atomic_place_name=atomic,
+                    category_hint=None,
+                    time_hint=time_hint,
+                )
+            )
+        for span_start, span_end, atomic, role in _explicit_role_mentions(source_text):
+            span = (span_start, span_end)
+            if span in seen_spans:
+                continue
+            seen_spans.add(span)
+            normalization_counts["explicit_role_recovery_count"] += 1
+            time_hint = _time_hint_at(source_text, span_start)
+            if time_hint is not None:
+                normalization_counts["time_hint_derivation_count"] += 1
+            mentions.append(
+                ProposedMention(
+                    mention_id=f"mention-recovered-{len(mentions) + 1}",
+                    raw_text=source_text[span_start:span_end],
+                    span_start=span_start,
+                    span_end=span_end,
+                    role=role,
+                    day_index=None,
                     sequence_index=0,
                     atomic_place_name=atomic,
                     category_hint=None,
