@@ -5,7 +5,8 @@
     "acceptance_refs": [
       "三份Work Package Prompt v1的UTF-8/LF内容与SHA-256一致",
       "三个用户可见Codex任务、独立branch/worktree和dialogue ref已绑定",
-      "Upload与OCR为IN_PROGRESS，VL为WAITING_FOR_WRITER_SLOT，活动writer总数为3"
+      "Upload与OCR的clean远端tip、路径和定向检查已由集成者复核并冻结",
+      "VL从WAITING_FOR_WRITER_SLOT切换为IN_PROGRESS，活动writer总数为2"
     ],
     "allowed_paths": [
       "docs/governance/CURRENT_GOAL.md",
@@ -23,7 +24,7 @@
       "子Agent拥有功能分支或提交产品代码",
       "功能任务自行合并develop、rebase、squash或force-push"
     ],
-    "minimum_change": "只绑定三份完整提示词、用户可见任务、独立分支/worktree、路径所有权和writer调度，不实现产品代码。",
+    "minimum_change": "只登记Upload与OCR的冻结commit并释放VL writer席位，不把贡献包产品代码混入控制面提交。",
     "phase": "GOAL_TRANSITION",
     "preflight_entrypoints": [
       "docs/governance/WORK_PACKAGE_PROMPT_TEMPLATE.md",
@@ -33,9 +34,9 @@
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G04-WORK-PACKAGE-BINDING",
-    "stop_condition": "任一prompt hash、任务引用、branch/worktree、product baseline或writer数量不一致时，所有贡献任务保持只读。",
-    "user_outcome": "三个独立功能任务被组织成可追踪、无路径冲突且由唯一集成者控制的G04开发流水线。",
+    "slice_id": "G04-CONTRIBUTOR-FREEZE-AND-VL-ACTIVATION",
+    "stop_condition": "Upload或OCR的本地tip、远端tip、clean状态、路径或定向检查失配时不得冻结；VL只能在writer席位释放后启动。",
+    "user_outcome": "已验收的上传与OCR贡献被不可变冻结，第三个VL/UI功能任务在writer上限内开始执行。",
     "work_kind": "GOAL_TRANSITION"
   },
   "e2e_after_all_merges": true,
@@ -153,7 +154,8 @@
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
       "remote_branch": "origin/codex/g04-ephemeral-upload",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "ready_commit": "a8852f3f7e7b2a269a526f266cc6d46d3a9d7e05",
+      "status": "READY_TO_MERGE",
       "worktree_path": "C:/Users/26450/.codex/worktrees/f87f/agentTravel"
     },
     {
@@ -210,7 +212,8 @@
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
       "remote_branch": "origin/codex/g04-paddle-ocr",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "ready_commit": "0eba25564845524982d5e91469a0a4398d942020",
+      "status": "READY_TO_MERGE",
       "worktree_path": "C:/Users/26450/.codex/worktrees/7eed/agentTravel"
     },
     {
@@ -269,7 +272,7 @@
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
       "remote_branch": "origin/codex/g04-vl-parity",
       "role": "CONTRIBUTOR",
-      "status": "WAITING_FOR_WRITER_SLOT",
+      "status": "IN_PROGRESS",
       "worktree_path": "C:/Users/26450/.codex/worktrees/9ce2/agentTravel"
     }
   ],
@@ -278,5 +281,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_PLUS_TWO_CONTRIBUTORS"
+  "writer_activation": "INTEGRATOR_PLUS_ONE_CONTRIBUTOR"
 }
