@@ -74,7 +74,8 @@ _DAY_NUMBER = {
     "十": 10,
 }
 _DAY_HEADING_RE = re.compile(
-    r"(?:第\s*(?P<zh>[一二三四五六七八九十])\s*天|(?:Day|D)\s*(?P<num>1[0-4]|[1-9]))",
+    r"(?:第\s*(?:(?P<zh>[一二三四五六七八九十])|(?P<arabic>1[0-4]|[1-9]))\s*天"
+    r"|(?:Day|D)\s*(?P<latin>1[0-4]|[1-9]))",
     re.IGNORECASE,
 )
 _CLAUSE_BOUNDARIES = "。；;\n"
@@ -180,7 +181,7 @@ def _day_index_at(source_text: str, position: int) -> int:
     for match in _DAY_HEADING_RE.finditer(source_text):
         if match.start() > position:
             break
-        raw = match.group("zh") or match.group("num")
+        raw = match.group("zh") or match.group("arabic") or match.group("latin")
         day_index = int(raw) if raw.isdigit() else _DAY_NUMBER[raw]
     return day_index
 
