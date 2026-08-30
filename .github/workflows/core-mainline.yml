@@ -426,12 +426,9 @@ jobs:
         with:
           python-version: "3.13.9"
           cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Freeze historical schema and renderer runtime
-        working-directory: backend
-        run: python -m pip install pydantic==2.10.4 Pillow==12.2.0
+          cache-dependency-path: backend/requirements-historical-p5-ci.txt
+      - name: Install frozen historical P5 CI profile
+        run: python -m pip install -r backend/requirements-historical-p5-ci.txt
       - name: Verify exact historical font and P5 regression
         working-directory: backend
         shell: pwsh

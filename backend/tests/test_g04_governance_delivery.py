@@ -391,13 +391,28 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         step for step in historical_steps if step.get("uses") == "actions/setup-python@v5"
     )
     assert historical_python["with"]["python-version"] == "3.13.9"
-    schema_runtime = next(
+    assert historical_python["with"]["cache-dependency-path"] == (
+        "backend/requirements-historical-p5-ci.txt"
+    )
+    historical_install = next(
         step
         for step in historical_steps
-        if step.get("name") == "Freeze historical schema and renderer runtime"
+        if step.get("name") == "Install frozen historical P5 CI profile"
     )
-    assert "pydantic==2.10.4" in schema_runtime["run"]
-    assert "Pillow==12.2.0" in schema_runtime["run"]
+    assert historical_install["run"] == (
+        "python -m pip install -r backend/requirements-historical-p5-ci.txt"
+    )
+    historical_requirements = (
+        REPOSITORY_ROOT / "backend/requirements-historical-p5-ci.txt"
+    ).read_text(encoding="utf-8")
+    assert "pydantic==2.10.4" in historical_requirements
+    assert "Pillow==12.2.0" in historical_requirements
+    assert "asyncpg==0.31.0" in historical_requirements
+    assert "numpy==2.3.5" in historical_requirements
+    assert "ortools==9.15.6755" in historical_requirements
+    assert "paddlepaddle" not in historical_requirements.lower()
+    assert "paddleocr" not in historical_requirements.lower()
+    assert "-r requirements" not in historical_requirements
     historical_regression = next(
         step
         for step in historical_steps
