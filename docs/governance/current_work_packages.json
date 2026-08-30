@@ -159,10 +159,11 @@
       "remote_branch": "origin/codex/g03r-semantic",
       "checkpoint_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
       "ready_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
+      "merged_commit": "8af22f048aaeda718489550832452f4c6f37b79e",
       "remote_readback": "905327d96e15838e510eae7a7b5da268a90736c8",
       "role": "CONTRIBUTOR",
-      "status": "READY_TO_MERGE",
-      "status_reason": "四个精确版本均按固定配置各运行唯一一次72条非盲开发比较；最终905327d为72/72可比较、0禁入、0额外PLANNED、432/432计划召回、720/720五角色、432/432日序顺序、0 UNKNOWN、0 repair、0失败。贡献路径、离线回归、clean worktree与远端tip均通过，等待主对话先序集成。",
+      "status": "MERGED",
+      "status_reason": "主对话按b37、28a、ca4、905顺序无冲突摘取为327f94b、788950d、6e0f34e、8af22f0；语义55项、固定数据validator、ruff与core-mainline均通过。地点贡献包仍未集成。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     },
     {
@@ -227,7 +228,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_CONTRIBUTIONS_READY_FOR_SERIAL_INTEGRATION",
+  "program_state": "G03R_SEMANTIC_INTEGRATED_PLACE_READY",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
