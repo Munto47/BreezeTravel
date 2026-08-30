@@ -148,6 +148,7 @@ Goal type: PRODUCT_ENHANCEMENT
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | Owner已批准截图入口；G04完整合同、034授权和唯一集成者从fresh develop激活 | activation commit待提交 | fresh fetch/ls-remote一致；根工作树和历史脏工作树保持不动；Paddle依赖/硬件readback | `LOCAL_READBACK / OWNER_AUTHORIZATION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / authorized activation only` | 提示词/任务绑定、三个贡献包、产品实现与Gate | 当前无eligible Qwen-VL binding；真实来源截图集待许可清晰化 | push/readback激活提交并经PR合入develop，再绑定三个用户可见任务 |
+| 2026-08-30 | 三个用户可见功能任务已创建并绑定独立branch/worktree；Upload与OCR可在远端绑定后启动，VL等待writer名额 | binding commit待提交 | PR #15/core-mainline PASS并合入`develop@2d74a2cf`；三份prompt hash和dialogue/worktree readback | `LOCAL_READBACK / REMOTE_AUTOMATED` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / GOVERNANCE_SCOPE_GUARD binding exception` | 贡献包实现、冻结、串行集成和G04 Gate | Codex管理的独立worktree路径替代计划中的建议路径，隔离与branch合同不变 | 提交并push prompt binding，随后把两个活动任务切到binding commit并发送完整提示词 |
 
 ## Auto-advance
 
