@@ -216,16 +216,19 @@
       "prompt_path": "docs/governance/work-packages/WP-G03R-PLACE.md",
       "prompt_sha256": "ee4de8b924c3ee06388000212d711ae999bbf4980d987c4458be240eee9f59f3",
       "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
+      "ready_commit": "d554b0d73c2b8d2ce93bf1adb93ab6412904536d",
+      "remote_readback": "d554b0d73c2b8d2ce93bf1adb93ab6412904536d",
       "remote_branch": "origin/codex/g03r-place-resolution",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "status": "READY_TO_MERGE",
+      "status_reason": "两个串行提交、7条授权路径、900条词典、102项受影响回归、ruff、core-mainline、clean worktree及远端tip均通过；live AMap为INTEGRATOR_ONLY且当前凭据未注入。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-place-resolution"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_SEMANTIC_BLOCKED_PLACE_P1_IN_PROGRESS",
+  "program_state": "G03R_SEMANTIC_BLOCKED_PLACE_READY",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-PLACE"
+  "writer_activation": "WP-G03R-INTEGRATOR"
 }
