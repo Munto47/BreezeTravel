@@ -83,6 +83,7 @@ Goal type: BLOCKING_DEFECT
 10. UI稳定性追加修复：同一resource的在途`materialize`若返回与当前ETag兼容的prepared key必须复用；只有真正挂起或不兼容的旧代际才能在有界结束后串行启动当前代际。
 11. 新revision到达时同步失效旧地图、住宿、检查和预览；写POST等待旧检查终态，增强首次失败与迟到preview可恢复；编辑、替换和添加对话框形成键盘焦点闭环。
 12. UI增强恢复：map/stay GET接收取消信号，自动读取按resource/generation单飞串行且总预算有界；挂起、失败或持续准备诚实降级而不永久阻断Top-3，关闭预览同步作废在途请求代际。
+13. UI增强验证附录：冻结`7fb559d...`产品实现，只修正未暂停fake clock造成的799/800ms竞态，并让10秒总预算、混合终态保留及旧promise终结成为确定性可复核证据。
 
 ## Parallel work packages
 
@@ -92,6 +93,7 @@ Goal type: BLOCKING_DEFECT
 - 前端贡献包`WP-G03R-UI`使用`codex/g03r-ui`和`D:/munto/code/claudeProject/agentTravel-g03r-ui`，按“竞态修复→结果页主交互”两个串行提交，只修改登记的四条路径。
 - 默认workers的repeat3在原UI候选上捕获同代际串行重复调用后，追加`WP-G03R-UI-STABILITY`；它使用`codex/g03r-ui-stability`和独立工作树，只允许修改结果页与新E2E，不改写原两个UI提交。
 - `030d212...`最终独立复核捕获增强读取无限轮询P1后，使用第二轮且最后一轮复审包`WP-G03R-UI-ENHANCEMENT-RECOVERY`；它使用`codex/g03r-ui-enhancement-recovery`和独立工作树，只允许修改结果页、现有请求库与新E2E，不改写前三个UI提交。
+- `7fb559d...`产品实现静态复核未发现新P0/P1，但主集成原始默认workers门禁因假时钟未暂停得到26/27；同一第二轮内追加`WP-G03R-UI-ENHANCEMENT-EVIDENCE`，只允许修改新E2E，不授权第三轮产品修复。
 - 子Agent不拥有分支、提交或产品写入；本切片未授权运行时多Agent。
 
 ## Non-goals
@@ -118,6 +120,7 @@ Goal type: BLOCKING_DEFECT
 - 控制分支：`codex/g03r-activation`；语义、地点与UI分支分别在各自完整prompt binding commit后创建；UI集成检查点为`74264ec16d27f020201dca5e59ab14023bfd8632`；
 - 原UI候选与远端精确tip：`994ac8557f1d507787b9ca26e724d7df684d3faa`；稳定性包必须在控制面binding远端回读后，从该UI内容准备独立分支并登记精确prepared tip才可写入。
 - 稳定性候选与远端精确tip：`030d2129736ac354a4febe6631e8141098e70a75`；增强恢复包必须从新的控制面binding创建独立分支，再按顺序准备`8373484 → 994ac855 → 030d212`并登记精确prepared tip才可写入。
+- 增强产品候选与远端精确tip：`7fb559d071f03da940c398f1dafc0372f1bb9a48`；验证附录必须在控制面binding远端回读后由主集成追加到同一恢复分支，再登记新的精确prepared tip。产品实现路径全部冻结。
 - 固定比较集：`54 dev + 18 validation`，不读取blind；
 - 基线诊断：结构化结果`72/72`、计划原子召回`432/432`、额外计划地点`0`、角色`716/720`、日序及顺序`336/432`；本地回退另有计划召回与额外描述地点缺陷；
 - 当前Qwen环境：既有批准凭据已从仓库外忽略的根`.env`安全注入且未打印；baseline已且仅运行一次，`72/72`可比较、禁入地点`0`、额外`PLANNED 0`、计划原子召回`432/432`、五角色`708/720`、日序及顺序`336/432`，其余三个精确版本正在各自唯一一次比较中。
@@ -151,6 +154,7 @@ Goal type: BLOCKING_DEFECT
 - 后端checks成功返回3条时结果页最终显示3条；effect cleanup、住宿/地图/ETag切换、失败与409不得永久停在准备态或显示旧代际结果；
 - 同日/跨日/空日移动、无效落点、无变化、键盘/移动替代、删除确认、焦点恢复与无障碍全部通过；每次有效移动恰好一条命令且无自动地图请求。
 - 默认workers、`retries=0`的结果页E2E在新增挂起/慢响应/持续准备/取消/关闭预览覆盖后记精确总数`N`，必须`N >= 24`、单轮`N/N`且`--repeat-each=3`为`3N/3N`；`--workers=1`只能作补充诊断，不能替代门禁。
+- 最终验证附录后`N >= 28`；所有毫秒边界必须显式暂停fake clock，10秒总预算必须在8轮前实际成为停止原因，且至少一个map/stay混合终态和旧async promise终结barrier由确定性断言证明。
 - 从旧AVAILABLE开始的写入回读失败不得显示旧地图；materialize与后续写POST总并发不得超过1；map/stay挂起、慢响应、首次失败或持续PREPARING都必须真实取消、单飞、有界停止且不永久阻止Top-3；成功端点不被失败端点覆盖；关闭或迟到preview不覆盖当前代际；编辑、替换、添加对话框焦点闭环通过。
 
 正式G03产品交付状态仍是`PRODUCT_DELIVERY_NOT_RUN`；只有贡献包被主对话验收并串行集成、受影响G03验证和当前产品回执全部通过后，才能重新进入`CORE_MVP_OWNER_REVIEW_PENDING`。
@@ -176,7 +180,7 @@ Goal type: BLOCKING_DEFECT
 - 每因素只允许一次固定72条比较，环境失败不以概率性重跑替代；
 - 地点贡献包live AMap预算为`0`；主对话后续矩阵最多2500次，且仅在现有账户配额内零增量费用被证明后执行；
 - UI验证强制本地fixture、`AMAP_MOCK=true`且真实Qwen/高德key为空；不得以测试retry、`--workers=1`、概率性重跑、延长等待或放宽断言掩盖竞态；
-- 最多两轮修复复审；不新增Provider、账号、费用、数据或依赖；
+- 最多两轮修复复审；`WP-G03R-UI-ENHANCEMENT-EVIDENCE`只是第二轮验证附录且产品写入为0，不构成第三轮产品策略；不新增Provider、账号、费用、数据或依赖；
 - 只做登记的最小语义运行时/提示词/测试，以及三城词典、私有加载器、两处地点运行时和独立测试改动。
 
 ## HITL
@@ -211,20 +215,21 @@ Goal type: BLOCKING_DEFECT
 | 2026-08-30 | UI稳定性追加包已完成控制面绑定与独立分支准备，产品修复写入尚未开始 | binding `6934f57cf680e90fd9b529af07d5c9937202348e`；prepared tip `3c3c8a352f50da5e718f7dbf520ea09826d106dc`；远端同值 | 分支从binding创建并按原顺序摘取UI两个提交；local/upstream/remote三方一致、工作树clean；prompt SHA-256 `22ab17887a13c3afbba768c59049a3791bbb0949b9f1e0fb78744ee1a9854a3d`；治理定向24 PASS | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / stability activation` | `Governance ratio=100% / exact prepared binding` | 单一追加修复提交、默认workers单轮19/19与repeat57/57、build、主对话独立复核 | 只允许page和新E2E；不得amend/force-push原UI历史；不得修改配置或放宽门槛 | 推送并远端回读精确prepared登记后，向恢复代理发送完整版本化提示词与精确写入许可 |
 | 2026-08-30 | 稳定性提交`030d212...`通过build、单轮19/19与默认workers repeat57/57，但最终独立复核仍发现增强读取可无限/重叠并永久阻断Top-3，因此未登记READY、未合并；现登记第二轮且最后一轮增强恢复包，产品新增写入仍为0 | stability tip `030d2129736ac354a4febe6631e8141098e70a75`；recovery binding以本次远端subject回读为准 | 稳定性贡献者build、19/19、57/57与既有G03旅程均PASS；主集成独立build PASS；只读review确认`1 P1 + 1 P2`，分支local/upstream/remote一致且clean、两条路径合规；Provider调用0 | `LOCAL_AUTOMATED / LOCAL_BROWSER / READ_ONLY_REVIEW / NOT_ACCEPTED` | `Product progress=UI candidate / NOT_ACCEPTED` | `Governance ratio=recovery prompt binding pending` | 为map/stay GET增加可选AbortSignal，单飞有界轮询与诚实降级，关闭preview作废请求；新增至少5个确定性覆盖并按默认workers复跑 | 本轮是工作包允许的第二轮也是最后一轮复审；若仍有阻断P1或需要扩大API/依赖/后端，停止而不降低门槛 | 提交并远端回读增强恢复prompt，创建独立分支/工作树并登记精确prepared tip后授权一个追加提交 |
 | 2026-08-30 | 第二轮增强恢复包已完成完整prompt binding、独立用户可见任务和前三个UI提交准备；尚未产生新的产品提交 | binding `6fd4d922b989fab947ec68bb36a681187312abf4`；prepared tip `62896beabae7ec7016e447df5004186115497e61`；远端同值 | 任务`01a05203...`只读等待回执；branch/worktree唯一；local/upstream/remote三方一致且clean；prompt SHA-256 `70c2079a9c268174c4f5c6766b2295414427dd99c56220f0916661e62dd1d8bf`；治理定向24 PASS、core-mainline PASS | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / recovery activation` | `Governance ratio=100% / exact prepared binding` | 一个追加提交、至少24个默认workers确定性E2E、repeat3、build、主集成独立复核与完整G03矩阵 | 第二轮是最后复审预算；只允许三条前端路径，不得修改配置、依赖、后端、API或放宽门槛 | 推送并远端回读精确prepared登记，再向独立恢复任务发送activation commit和完整版本化提示词 |
+| 2026-08-30 | 增强产品修复`7fb559d...`已冻结；静态复核未发现新产品P0/P1，但主集成原始门禁因未暂停fake clock只通过26/27，因此未合并；现登记同一最终周期的测试证据附录 | recovery `7fb559d071f03da940c398f1dafc0372f1bb9a48`；evidence binding以本次远端subject回读为准 | 贡献者build、27/27、81/81；主集成build PASS、原始单轮26/27 FAIL；隔离repeat10与workers=1 repeat30只作诊断；两个独立只读复核一致定位时钟竞态并确认产品轮次静态单飞 | `LOCAL_AUTOMATED / LOCAL_BROWSER / READ_ONLY_REVIEW / NOT_ACCEPTED` | `Product progress=UI candidate frozen / evidence correction only` | `Governance ratio=evidence prompt binding pending` | 只改新E2E，显式冻结时钟并补齐10秒预算、混合终态与旧promise终结；随后原始单轮和repeat3各取得一次新鲜结果 | 不得靠重跑消除失败；若确定性证据暴露真实产品缺陷，本包停止且不修改产品 | 提交并远端回读验证附录prompt，把binding追加到恢复分支并登记精确prepared tip后授权测试专用提交 |
 
 ## Auto-advance
 
 - 自动推进G04：`DISABLED`；G04：`NOT_ACTIVATED`；
 - 不得自动激活G04；只有本P1返修复核完成后回到所有者体验验收点；
 - 语义、地点与UI贡献分支只commit/push并请求验收，不自行合并；
-- 主对话按`WP-G03R-SEMANTIC → WP-G03R-PLACE → WP-G03R-UI → WP-G03R-UI-STABILITY → WP-G03R-UI-ENHANCEMENT-RECOVERY`验收路径、tip、clean、比较与测试后才可串行集成；
+- 主对话按`WP-G03R-SEMANTIC → WP-G03R-PLACE → WP-G03R-UI → WP-G03R-UI-STABILITY → WP-G03R-UI-ENHANCEMENT-RECOVERY → WP-G03R-UI-ENHANCEMENT-EVIDENCE`验收路径、tip、clean、比较与测试后才可串行集成；
 - 受影响G03产品验证完成后回到`CORE_MVP_OWNER_REVIEW_PENDING`，不激活G04。
 
 ## Completion record
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
 - Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / 994ac8557f1d507787b9ca26e724d7df684d3faa / DEFAULT_WORKERS_REPEAT_FAIL / IN_PROGRESS`；`WP-G03R-UI-STABILITY / 030d2129736ac354a4febe6631e8141098e70a75 / FINAL_REVIEW_1P1_1P2 / FROZEN_NOT_READY`；`WP-G03R-UI-ENHANCEMENT-RECOVERY / 62896beabae7ec7016e447df5004186115497e61 / IN_PROGRESS`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / 994ac8557f1d507787b9ca26e724d7df684d3faa / DEFAULT_WORKERS_REPEAT_FAIL / IN_PROGRESS`；`WP-G03R-UI-STABILITY / 030d2129736ac354a4febe6631e8141098e70a75 / FINAL_REVIEW_1P1_1P2 / FROZEN_NOT_READY`；`WP-G03R-UI-ENHANCEMENT-RECOVERY / 7fb559d071f03da940c398f1dafc0372f1bb9a48 / PRIMARY_GATE_26_OF_27 / FROZEN_NOT_READY`；`WP-G03R-UI-ENHANCEMENT-EVIDENCE / BINDING_PENDING / PLANNED`；
 - Fresh 72-case Qwen comparison：`BASELINE + B37 + 28A + 905 EACH EXACTLY ONCE / FINAL 72/72 AND ALL THRESHOLDS PASS / DEVELOPMENT_DIAGNOSTIC`；sealed blind仍为`NOT_RUN`且不得推断通过；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；
