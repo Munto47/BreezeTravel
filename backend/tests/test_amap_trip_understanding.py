@@ -23,17 +23,23 @@ def _poi(
     typecode: str = "110202",
     **extra: object,
 ) -> dict[str, object]:
+    city_key = city.removesuffix("市")
+    province, district, adcode = {
+        "北京": ("北京市", "东城区", "110101"),
+        "上海": ("上海市", "黄浦区", "310101"),
+        "杭州": ("浙江省", "上城区", "330102"),
+    }.get(city_key, ("北京市", "东城区", "110101"))
     return {
         "id": provider_id,
         "name": name,
         "location": "116.397026,39.918058",
         "type": "风景名胜;风景名胜相关;旅游景点",
         "typecode": typecode,
-        "pname": "北京市",
+        "pname": province,
         "cityname": city,
-        "adname": "东城区",
+        "adname": district,
         "address": "景山前街4号",
-        "adcode": "110101",
+        "adcode": adcode,
         **extra,
     }
 
@@ -264,11 +270,6 @@ async def test_amap_does_not_apply_technical_type_override_to_unrelated_name() -
         (
             "故宫",
             _poi(business={"alias": "紫禁城|故宫"}),
-            1,
-        ),
-        (
-            "午门",
-            _poi(name="故宫博物院-午门"),
             0,
         ),
         (
@@ -296,22 +297,26 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.place is not None
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
-    assert outcome.receipt["name_match_policy"] == (
-        "UNIQUE_PRIMARY_EXACT_THEN_UNIQUE_VARIANT_V3"
-    )
+    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_POI_ID_V4"
     assert len(observed) == 1
 
 
 @pytest.mark.asyncio
-async def test_amap_unique_primary_exact_name_wins_over_broader_provider_variant() -> None:
+async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() -> None:
     observed: list[httpx.Request] = []
     payload = {
         "status": "1",
         "infocode": "10000",
         "count": "2",
         "pois": [
-            _poi(provider_id="B0PALACE", name="颐和园"),
-            _poi(provider_id="B0MUSEUM", name="颐和园博物馆", typecode="140100"),
+            _poi(provider_id="B0PALACE", name="颐和园", adname="海淀区", adcode="110108"),
+            _poi(
+                provider_id="B0MUSEUM",
+                name="颐和园博物馆",
+                typecode="140100",
+                adname="海淀区",
+                adcode="110108",
+            ),
         ],
     }
     async with _client(payload, observed) as client:
@@ -323,8 +328,8 @@ async def test_amap_unique_primary_exact_name_wins_over_broader_provider_variant
     assert outcome.place is not None
     assert outcome.place.canonical_place_id == "B0PALACE"
     assert outcome.receipt["category_compatible_candidate_count"] == 2
-    assert outcome.receipt["primary_exact_candidate_count"] == 1
-    assert outcome.receipt["selection_tier"] == "UNIQUE_PRIMARY_EXACT"
+    assert outcome.receipt["primary_exact_candidate_count"] == 0
+    assert outcome.receipt["selection_tier"] == "SAFE_ALIAS_EXACT"
     assert outcome.receipt["category_basis"] == "ATOMIC_NAME_LEXICAL"
     assert observed[0].url.params["types"].split("|") == [
         "061000",
