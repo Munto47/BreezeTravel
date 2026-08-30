@@ -129,6 +129,8 @@ const checksView = {
 const ENHANCEMENT_REF = 'g03r-bounded-enhancements'
 const ENHANCEMENT_ETAG_A = 'tu3_enhancement_generation_a'
 const ENHANCEMENT_ETAG_B = 'tu3_enhancement_generation_b'
+const ENHANCEMENT_CLOCK_START = Date.parse('2026-08-30T08:00:00.000Z')
+const ENHANCEMENT_CLOCK_PAUSED = ENHANCEMENT_CLOCK_START + 60_000
 
 
 function enhancementResultView() {
@@ -149,6 +151,7 @@ async function installEnhancementFixture(page, {
   mapMode = 'available',
   stayMode = 'available',
   switchGeneration = false,
+  holdOldEnhancementRejections = false,
 } = {}) {
   const modes = { map: mapMode, stay: stayMode }
   const reads = { map: 0, stay: 0 }
@@ -157,6 +160,7 @@ async function installEnhancementFixture(page, {
   const aborted = { map: 0, stay: 0 }
   const activeRequests = { map: new Set(), stay: new Set() }
   const barriers = { map: deferred(), stay: deferred() }
+  const readBarriers = { map: new Map(), stay: new Map() }
   const waiters = []
   let materializeCalls = 0
   let checksCalls = 0
@@ -205,17 +209,74 @@ async function installEnhancementFixture(page, {
     notify()
   })
 
-  await page.addInitScript(({ resourceRef, etag }) => {
+  await page.addInitScript(({ resourceRef, etag, holdOldRejections }) => {
+    if (holdOldRejections) {
+      const originalFetch = window.fetch.bind(window)
+      let releaseOldRejections
+      let resolveOldRejectionsCaught
+      let resolveOldRejectionsFinalized
+      const oldRejectionBarrier = new Promise((resolve) => { releaseOldRejections = resolve })
+      const oldRejectionsCaught = new Promise((resolve) => { resolveOldRejectionsCaught = resolve })
+      const oldRejectionsFinalized = new Promise((resolve) => { resolveOldRejectionsFinalized = resolve })
+      const state = {
+        endpointCalls: { map: 0, stay: 0 },
+        caught: 0,
+        finalized: 0,
+        newStartedBeforeOldFinalized: false,
+      }
+      window.__g03rOldEnhancementState = state
+      window.__g03rOldRejectionsCaught = oldRejectionsCaught
+      window.__g03rOldRejectionsFinalized = oldRejectionsFinalized
+      window.__g03rReleaseOldRejections = () => releaseOldRejections()
+      window.fetch = async (input, init) => {
+        const requestUrl = typeof input === 'string' ? input : input.url
+        const pathname = new URL(requestUrl, window.location.origin).pathname
+        const kind = pathname.endsWith('/map-renders/latest')
+          ? 'map'
+          : pathname.endsWith('/stay-suggestions')
+            ? 'stay'
+            : null
+        if (!kind) return originalFetch(input, init)
+        state.endpointCalls[kind] += 1
+        const oldRequest = state.endpointCalls[kind] === 1
+        if (!oldRequest && state.finalized < 2) state.newStartedBeforeOldFinalized = true
+        try {
+          return await originalFetch(input, init)
+        } catch (error) {
+          if (oldRequest) {
+            state.caught += 1
+            if (state.caught === 2) resolveOldRejectionsCaught()
+            await oldRejectionBarrier
+          }
+          throw error
+        } finally {
+          if (oldRequest) {
+            state.finalized += 1
+            if (state.finalized === 2) resolveOldRejectionsFinalized()
+          }
+        }
+      }
+    }
     sessionStorage.setItem('bt_active_trip_ref', resourceRef)
     sessionStorage.setItem('bt_active_trip_mode', 'DEMO')
     sessionStorage.setItem('bt_active_trip_etag', etag)
-  }, { resourceRef: ENHANCEMENT_REF, etag: ENHANCEMENT_ETAG_A })
+  }, {
+    resourceRef: ENHANCEMENT_REF,
+    etag: ENHANCEMENT_ETAG_A,
+    holdOldRejections: holdOldEnhancementRejections,
+  })
+
+  const readBarrier = (kind, call) => {
+    if (!readBarriers[kind].has(call)) readBarriers[kind].set(call, deferred())
+    return readBarriers[kind].get(call)
+  }
 
   const fulfillEndpoint = async (route, kind) => {
     const request = route.request()
     reads[kind] += 1
     const call = reads[kind]
     const mode = modes[kind]
+    const perReadBarrier = mode === 'budget-preparing' ? readBarrier(kind, call) : null
     activeRequests[kind].add(request)
     inFlight[kind] += 1
     maxInFlight[kind] = Math.max(maxInFlight[kind], inFlight[kind])
@@ -242,6 +303,7 @@ async function installEnhancementFixture(page, {
     }
 
     if (mode === 'slow' && call === 1) await barriers[kind].promise
+    if (perReadBarrier) await perReadBarrier.promise
     if (mode === 'failure') {
       await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
       settle(kind, request)
@@ -249,23 +311,27 @@ async function installEnhancementFixture(page, {
     }
 
     const preparing = mode === 'preparing' || (mode === 'slow' && call === 1)
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(kind === 'map'
-        ? {
-            ...mapView,
-            status: preparing ? 'PREPARING' : 'AVAILABLE',
-            message: preparing ? `路线仍在准备 ${call}` : '新路线状态已读取',
-            available_actions: preparing ? [] : ['VIEW_MAP'],
-          }
-        : {
-            ...stayView,
-            status: preparing ? 'PREPARING' : 'AVAILABLE',
-            message: preparing ? `住宿仍在准备 ${call}` : '新住宿状态已读取',
-            area_summary: preparing ? null : stayView.area_summary,
-          }),
-    })
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(kind === 'map'
+          ? {
+              ...mapView,
+              status: preparing || mode === 'budget-preparing' ? 'PREPARING' : 'AVAILABLE',
+              message: preparing || mode === 'budget-preparing' ? `路线仍在准备 ${call}` : '新路线状态已读取',
+              available_actions: preparing || mode === 'budget-preparing' ? [] : ['VIEW_MAP'],
+            }
+          : {
+              ...stayView,
+              status: preparing || mode === 'budget-preparing' ? 'PREPARING' : 'AVAILABLE',
+              message: preparing || mode === 'budget-preparing' ? `住宿仍在准备 ${call}` : '新住宿状态已读取',
+              area_summary: preparing || mode === 'budget-preparing' ? null : stayView.area_summary,
+            }),
+      })
+    } catch {
+      // A bounded session can abort a route while its deterministic response barrier is still held.
+    }
     settle(kind, request)
   }
 
@@ -356,11 +422,32 @@ async function installEnhancementFixture(page, {
     waitForReads: (map, stay) => waitFor((calls) => calls.reads.map >= map && calls.reads.stay >= stay),
     waitForAborts: (map, stay) => waitFor((calls) => calls.aborted.map >= map && calls.aborted.stay >= stay),
     waitForIdle: () => waitFor((calls) => calls.inFlight.map === 0 && calls.inFlight.stay === 0),
+    releaseRead: (kind, call) => readBarrier(kind, call).resolve(),
+    waitForOldRejectionsCaught: () => page.evaluate(() => window.__g03rOldRejectionsCaught),
+    releaseOldRejections: () => page.evaluate(() => window.__g03rReleaseOldRejections()),
+    waitForOldRejectionsFinalized: () => page.evaluate(() => window.__g03rOldRejectionsFinalized),
+    oldEnhancementState: () => page.evaluate(() => window.__g03rOldEnhancementState),
     releaseAll: () => {
       barriers.map.resolve()
       barriers.stay.resolve()
+      for (const barrier of readBarriers.map.values()) barrier.resolve()
+      for (const barrier of readBarriers.stay.values()) barrier.resolve()
     },
   }
+}
+
+
+async function installPausedClock(page) {
+  await page.clock.install({ time: ENHANCEMENT_CLOCK_START })
+  await page.clock.pauseAt(ENHANCEMENT_CLOCK_PAUSED)
+}
+
+
+async function openEnhancementFixtureWithPausedClock(page, options = {}) {
+  await installPausedClock(page)
+  const fixture = await installEnhancementFixture(page, options)
+  await page.goto('/trip/result')
+  return fixture
 }
 
 
@@ -517,14 +604,12 @@ async function installRaceFixture(page, scenario = 'cleanup') {
 
 for (const hangingKind of ['map', 'stay']) {
   test(`a hanging ${hangingKind} read aborts at 3000ms without losing the other terminal enhancement`, async ({ page }) => {
-    await page.clock.install()
-    const fixture = await installEnhancementFixture(page, {
+    const fixture = await openEnhancementFixtureWithPausedClock(page, {
       mapMode: hangingKind === 'map' ? 'hang' : 'available',
       stayMode: hangingKind === 'stay' ? 'hang' : 'available',
     })
 
     try {
-      await page.goto('/trip/result')
       await fixture.waitForReads(1, 1)
       await page.clock.runFor(3_001)
       await fixture.waitForAborts(hangingKind === 'map' ? 1 : 0, hangingKind === 'stay' ? 1 : 0)
@@ -552,11 +637,9 @@ for (const hangingKind of ['map', 'stay']) {
 
 
 test('an enhancement round slower than 800ms stays single-flight before the next round', async ({ page }) => {
-  await page.clock.install()
-  const fixture = await installEnhancementFixture(page, { mapMode: 'slow', stayMode: 'slow' })
+  const fixture = await openEnhancementFixtureWithPausedClock(page, { mapMode: 'slow', stayMode: 'slow' })
 
   try {
-    await page.goto('/trip/result')
     await fixture.waitForReads(1, 1)
     await page.clock.runFor(801)
     expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
@@ -582,11 +665,12 @@ test('an enhancement round slower than 800ms stays single-flight before the next
 
 
 test('continuous PREPARING responses stop after eight bounded rounds and release Top-3', async ({ page }) => {
-  await page.clock.install()
-  const fixture = await installEnhancementFixture(page, { mapMode: 'preparing', stayMode: 'preparing' })
+  const fixture = await openEnhancementFixtureWithPausedClock(page, {
+    mapMode: 'preparing',
+    stayMode: 'preparing',
+  })
 
   try {
-    await page.goto('/trip/result')
     await fixture.waitForReads(1, 1)
     await expect(page.getByTestId('map-theater')).toContainText('路线仍在准备 1')
     for (let call = 2; call <= 7; call += 1) {
@@ -613,12 +697,74 @@ test('continuous PREPARING responses stop after eight bounded rounds and release
 })
 
 
+for (const pendingKind of ['map', 'stay']) {
+  const terminalKind = pendingKind === 'map' ? 'stay' : 'map'
+  const terminalMessage = terminalKind === 'map' ? '新路线状态已读取' : '新住宿状态已读取'
+  const preparingMessage = pendingKind === 'map' ? '路线仍在准备' : '住宿仍在准备'
+  const fallbackMessage = pendingKind === 'map' ? '路线详情暂时不可用' : '住宿建议暂时不可用'
+  const terminalPanel = terminalKind === 'map' ? 'map-theater' : 'stay-panel'
+  const pendingPanel = pendingKind === 'map' ? 'map-theater' : 'stay-panel'
+
+  test(`the 10000ms budget stops a slow PREPARING ${pendingKind} before round eight and preserves terminal ${terminalKind}`, async ({ page }) => {
+    const fixture = await openEnhancementFixtureWithPausedClock(page, {
+      mapMode: pendingKind === 'map' ? 'budget-preparing' : 'available',
+      stayMode: pendingKind === 'stay' ? 'budget-preparing' : 'available',
+    })
+
+    try {
+      await fixture.waitForReads(1, 1)
+      for (let call = 1; call <= 3; call += 1) {
+        await page.clock.runFor(2_000)
+        fixture.releaseRead(pendingKind, call)
+        await expect(page.getByTestId(pendingPanel)).toContainText(`${preparingMessage} ${call}`)
+        await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
+        await page.clock.runFor(800)
+        const nextPendingReads = call + 1
+        await fixture.waitForReads(
+          pendingKind === 'map' ? nextPendingReads : 1,
+          pendingKind === 'stay' ? nextPendingReads : 1,
+        )
+      }
+
+      expect(fixture.calls().reads).toEqual(pendingKind === 'map'
+        ? { map: 4, stay: 1 }
+        : { map: 1, stay: 4 })
+      await page.clock.runFor(1_599)
+      expect(fixture.calls().aborted[pendingKind]).toBe(0)
+      await page.clock.runFor(1)
+      await fixture.waitForAborts(
+        pendingKind === 'map' ? 1 : 0,
+        pendingKind === 'stay' ? 1 : 0,
+      )
+      fixture.releaseRead(pendingKind, 4)
+
+      await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
+      await expect(page.getByTestId(pendingPanel)).toContainText(fallbackMessage)
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await expect(page.getByTestId('retry-enhancements')).toBeVisible()
+
+      const stopped = fixture.calls()
+      expect(stopped.reads[pendingKind]).toBe(4)
+      expect(stopped.reads[terminalKind]).toBe(1)
+      expect(stopped.reads[pendingKind]).toBeLessThan(8)
+      expect(stopped.maxInFlight).toEqual({ map: 1, stay: 1 })
+      expect(stopped.mapRenderPosts).toBe(0)
+      await page.clock.runFor(20_001)
+      expect(fixture.calls().reads).toEqual(stopped.reads)
+    } finally {
+      fixture.releaseAll()
+    }
+  })
+}
+
+
 test('manual enhancement recovery is GET-only, single-flight, and keeps completed Top-3', async ({ page }) => {
-  await page.clock.install()
-  const fixture = await installEnhancementFixture(page, { mapMode: 'failure', stayMode: 'available' })
+  const fixture = await openEnhancementFixtureWithPausedClock(page, {
+    mapMode: 'failure',
+    stayMode: 'available',
+  })
 
   try {
-    await page.goto('/trip/result')
     await fixture.waitForReads(1, 1)
     await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
     await expect(page.getByTestId('retry-enhancements')).toBeVisible()
@@ -648,17 +794,30 @@ test('manual enhancement recovery is GET-only, single-flight, and keeps complete
 
 
 test('a generation change aborts old enhancement reads before the new session starts', async ({ page }) => {
-  await page.clock.install()
-  const fixture = await installEnhancementFixture(page, {
+  const fixture = await openEnhancementFixtureWithPausedClock(page, {
     mapMode: 'hang',
     stayMode: 'hang',
     switchGeneration: true,
+    holdOldEnhancementRejections: true,
   })
 
   try {
-    await page.goto('/trip/result')
     await fixture.waitForReads(1, 1)
     await fixture.waitForAborts(1, 1)
+    await fixture.waitForOldRejectionsCaught()
+    expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
+    expect(fixture.calls().inFlight).toEqual({ map: 0, stay: 0 })
+    expect(await fixture.oldEnhancementState()).toEqual({
+      endpointCalls: { map: 1, stay: 1 },
+      caught: 2,
+      finalized: 0,
+      newStartedBeforeOldFinalized: false,
+    })
+    await page.clock.runFor(30_000)
+    expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
+
+    await fixture.releaseOldRejections()
+    await fixture.waitForOldRejectionsFinalized()
     await fixture.waitForReads(2, 2)
     await expect(page.getByTestId('map-theater')).toContainText('新路线状态已读取')
     await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
@@ -667,12 +826,19 @@ test('a generation change aborts old enhancement reads before the new session st
     const current = fixture.calls()
     expect(current.newGenerationStartedBeforeOldSettled).toBe(false)
     expect(current.maxInFlight).toEqual({ map: 1, stay: 1 })
+    expect(await fixture.oldEnhancementState()).toEqual({
+      endpointCalls: { map: 2, stay: 2 },
+      caught: 2,
+      finalized: 2,
+      newStartedBeforeOldFinalized: false,
+    })
     fixture.releaseAll()
     await page.clock.runFor(30_000)
     expect(fixture.calls().reads).toEqual({ map: 2, stay: 2 })
     await expect(page.getByTestId('map-theater')).not.toContainText('旧代际迟到路线')
     await expect(page.getByTestId('stay-panel')).not.toContainText('旧代际迟到住宿')
   } finally {
+    await fixture.releaseOldRejections().catch(() => {})
     fixture.releaseAll()
   }
 })
@@ -704,7 +870,7 @@ test('current checks generation survives result cleanup without duplicate materi
 
 
 test('a hanging obsolete materialize is aborted before the current generation starts', async ({ page }) => {
-  await page.clock.install()
+  await installPausedClock(page)
   const fixture = await installRaceFixture(page, 'stale')
 
   await page.goto('/trip/result')
@@ -963,6 +1129,7 @@ async function installInteractionFixture(page, {
 
   await page.addInitScript(({ resourceRef, initialEtag, activeMode, authenticated }) => {
     const originalFetch = window.fetch.bind(window)
+    let firstWriteStarted = false
     window.__g03rWriteRace = { materializeInFlight: 0, writesBeforeMaterializeSettled: 0 }
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === 'string' ? input : input.url
@@ -973,14 +1140,16 @@ async function installInteractionFixture(page, {
         (method === 'POST' && /\/(?:commands|map-renders|stay-selection|changes\/adopt|claim)$/.test(pathname))
         || (method === 'DELETE' && (pathname.endsWith('/source') || pathname.endsWith(`/${resourceRef}`)))
       )
+      const tracksPreWriteMaterialize = isMaterialize && !firstWriteStarted
       if (isWrite && window.__g03rWriteRace.materializeInFlight > 0) {
         window.__g03rWriteRace.writesBeforeMaterializeSettled += 1
       }
-      if (isMaterialize) window.__g03rWriteRace.materializeInFlight += 1
+      if (isWrite) firstWriteStarted = true
+      if (tracksPreWriteMaterialize) window.__g03rWriteRace.materializeInFlight += 1
       try {
         return await originalFetch(input, init)
       } finally {
-        if (isMaterialize) window.__g03rWriteRace.materializeInFlight -= 1
+        if (tracksPreWriteMaterialize) window.__g03rWriteRace.materializeInFlight -= 1
       }
     }
     sessionStorage.setItem('bt_active_trip_ref', resourceRef)
@@ -1250,7 +1419,7 @@ async function expectMinimumTarget(locator, minimum = 48) {
 
 for (const latePreviewOutcome of ['success', 'failure']) {
   test(`closing a pending preview aborts its late ${latePreviewOutcome} without reopening or polluting state`, async ({ page }) => {
-    await page.clock.install()
+    await installPausedClock(page)
     const fixture = await installInteractionFixture(page, { latePreviewOutcome })
 
     try {
