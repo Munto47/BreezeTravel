@@ -1,31 +1,32 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
-  ArrowRight,
   BedDouble,
   BusFront,
   CalendarDays,
-  ChevronDown,
-  ChevronUp,
   CheckCircle2,
   Compass,
   Footprints,
   Map,
   MapPin,
   Pencil,
-  Plus,
-  Replace,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  Trash2,
   Users,
   X,
 } from 'lucide-react'
 
+import ItineraryWorkspace from './itinerary-workspace'
 import {
   type ActivityCardView,
   type MapRenderView,
@@ -60,17 +61,121 @@ const ASSUMPTION_ICONS = {
 }
 
 
-type SelectedCard = {
-  card: ActivityCardView
-  dayIndex: number
-  position: number
-}
-
 type EditorState = {
   mode: 'INSERT' | 'EDIT' | 'REPLACE'
   dayIndex: number
   position: number
   card?: ActivityCardView
+}
+
+type ActiveChecksRequest = {
+  id: number
+  resourceRef: string
+  key: string
+  controller: AbortController
+}
+
+type ActivePreviewRequest = {
+  id: number
+  key: string
+  controller: AbortController
+}
+
+type ActiveEnhancementSession = {
+  id: number
+  key: string
+  resourceRef: string
+  generation: number
+  manual: boolean
+  cancelled: boolean
+  controllers: Set<AbortController>
+  timer: number | null
+  releaseTimer: (() => void) | null
+}
+
+type BoundedEnhancementRead<T> =
+  | { status: 'fulfilled'; value: T }
+  | { status: 'rejected'; reason: unknown }
+
+type WorkspaceCommandResult =
+  | { status: 'APPLIED' | 'SYNCED'; days: UserFacingTripResult['days'] }
+  | { status: 'RECONCILING' }
+
+
+const CHECKS_REQUEST_TIMEOUT_MS = 10_000
+const ENHANCEMENT_REQUEST_TIMEOUT_MS = 3_000
+const ENHANCEMENT_SESSION_BUDGET_MS = 10_000
+const ENHANCEMENT_MAX_ROUNDS = 8
+const ENHANCEMENT_POLL_INTERVAL_MS = 800
+
+
+function stopEnhancementSession(session: ActiveEnhancementSession | null) {
+  if (!session || session.cancelled) return
+  session.cancelled = true
+  if (session.timer !== null) {
+    window.clearTimeout(session.timer)
+    session.timer = null
+  }
+  const releaseTimer = session.releaseTimer
+  session.releaseTimer = null
+  releaseTimer?.()
+  session.controllers.forEach((controller) => controller.abort())
+}
+
+
+function fallbackMapView(result: UserFacingTripResult | null): MapRenderView {
+  const source = result?.map
+  if (source && source.status !== 'PREPARING') {
+    return { ...source, days: [] }
+  }
+  return {
+    status: 'UNAVAILABLE',
+    message: '路线详情暂时不可用，不影响继续查看行程。',
+    days: [],
+    available_actions: [],
+  }
+}
+
+
+function fallbackStayView(result: UserFacingTripResult | null): StaySuggestionView {
+  const source = result?.stay
+  if (source && source.status !== 'PREPARING') return source
+  return {
+    status: 'UNAVAILABLE',
+    message: '住宿建议暂时不可用，不影响继续查看行程。',
+    area_summary: null,
+    searched_scopes: [],
+    candidates: [],
+    available_actions: [],
+  }
+}
+
+
+function pendingRevisionMapView(): MapRenderView {
+  return {
+    status: 'NEEDS_UPDATE',
+    message: '行程已调整，需要手动更新路线。',
+    days: [],
+    available_actions: ['RENDER_MAP'],
+  }
+}
+
+
+function pendingRevisionStayView(): StaySuggestionView {
+  return {
+    status: 'NEEDS_UPDATE',
+    message: '行程已调整，住宿建议需要重新确认。',
+    area_summary: null,
+    searched_scopes: [],
+    candidates: [],
+    available_actions: [],
+  }
+}
+
+
+function scrollToResultSection(id: string) {
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
 }
 
 
@@ -84,8 +189,6 @@ export default function TripResultPage() {
   const [message, setMessage] = useState('正在整理每天行程')
   const [error, setError] = useState('')
   const [commandError, setCommandError] = useState('')
-  const [isApplying, setIsApplying] = useState(false)
-  const [selected, setSelected] = useState<SelectedCard | null>(null)
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [editorName, setEditorName] = useState('')
   const [editorCategory, setEditorCategory] = useState('地点')
@@ -98,156 +201,620 @@ export default function TripResultPage() {
   const [mapView, setMapView] = useState<MapRenderView | null>(null)
   const [stayView, setStayView] = useState<StaySuggestionView | null>(null)
   const [enhancementBusy, setEnhancementBusy] = useState<'MAP' | 'STAY' | null>(null)
+  const [enhancementReadBusy, setEnhancementReadBusy] = useState(false)
+  const [enhancementRecoveryAvailable, setEnhancementRecoveryAvailable] = useState(false)
   const [checksView, setChecksView] = useState<PublicTripChecksView | null>(null)
   const [changePreview, setChangePreview] = useState<PublicChangePreview | null>(null)
   const [checkBusy, setCheckBusy] = useState<'PREPARE' | 'PREVIEW' | 'ADOPT' | null>(null)
   const [checkMessage, setCheckMessage] = useState('')
+  const [checksRetryGeneration, setChecksRetryGeneration] = useState(0)
+  const [mutationLocked, setMutationLocked] = useState(false)
+  const [reconciliationRequired, setReconciliationRequired] = useState(false)
+  const [reconciliationBusy, setReconciliationBusy] = useState(false)
+  const [reconciliationKind, setReconciliationKind] = useState<'RESULT' | 'TRIP_DELETE'>('RESULT')
   const activeResourceRef = useRef<string | null>(null)
-  const checksAttemptedKey = useRef<string | null>(null)
+  const mountedRef = useRef(false)
+  const resultRef = useRef<UserFacingTripResult | null>(result)
+  const checksRequestSequence = useRef(0)
+  const activeChecksRequest = useRef<ActiveChecksRequest | null>(null)
+  const activeChecksPromise = useRef<Promise<void> | null>(null)
+  const completedChecksKey = useRef<string | null>(null)
+  const previewRequestSequence = useRef(0)
+  const activePreviewRequest = useRef<ActivePreviewRequest | null>(null)
+  const commandInFlightRef = useRef(false)
+  const mutationLockRef = useRef(false)
+  const authoritativeKeyRef = useRef<string | null>(null)
+  const enhancementGenerationRef = useRef(0)
+  const enhancementSessionSequence = useRef(0)
+  const activeEnhancementSession = useRef<ActiveEnhancementSession | null>(null)
+  const activeEnhancementPromise = useRef<Promise<void> | null>(null)
+  const settledEnhancementKey = useRef<string | null>(null)
+  const editorDialogRef = useRef<HTMLDivElement | null>(null)
+  const editorTriggerRef = useRef<HTMLElement | null>(null)
   const resultAvailable = result !== null
+  const currentChecksKey = resourceRef && etag ? `${resourceRef}:${etag}` : null
+  const currentChecksKeyRef = useRef<string | null>(currentChecksKey)
+  resultRef.current = result
+  currentChecksKeyRef.current = currentChecksKey
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
 
-  const refreshEnhancements = useCallback(async (reference: string) => {
-    const [mapResult, stayResult] = await Promise.allSettled([
-      readTripUnderstandingMap(reference),
-      readTripUnderstandingStay(reference),
-    ])
-    if (activeResourceRef.current !== reference) return
-    if (mapResult.status === 'fulfilled') setMapView(mapResult.value)
-    if (stayResult.status === 'fulfilled') setStayView(stayResult.value)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      checksRequestSequence.current += 1
+      activeChecksRequest.current?.controller.abort()
+      activeChecksRequest.current = null
+      previewRequestSequence.current += 1
+      activePreviewRequest.current?.controller.abort()
+      activePreviewRequest.current = null
+      enhancementSessionSequence.current += 1
+      stopEnhancementSession(activeEnhancementSession.current)
+      activeEnhancementSession.current = null
+    }
   }, [])
 
-  const refresh = useCallback(async (reference: string) => {
+  const restoreEditorFocus = useCallback((dayIndex: number, preferDayHeading = false) => {
+    window.requestAnimationFrame(() => {
+      const trigger = editorTriggerRef.current
+      if (!preferDayHeading && trigger?.isConnected) {
+        trigger.focus()
+        return
+      }
+      document.querySelector<HTMLElement>(`[data-day-heading="${dayIndex}"]`)?.focus()
+    })
+  }, [])
+
+  const closeEditor = useCallback((preferDayHeading = false) => {
+    if (!editor) return
+    const dayIndex = editor.dayIndex
+    setEditor(null)
+    restoreEditorFocus(dayIndex, preferDayHeading)
+  }, [editor, restoreEditorFocus])
+
+  const cancelActivePreview = useCallback((clearBusy = true) => {
+    previewRequestSequence.current += 1
+    activePreviewRequest.current?.controller.abort()
+    activePreviewRequest.current = null
+    if (clearBusy && mountedRef.current) {
+      setCheckBusy((current) => current === 'PREVIEW' ? null : current)
+    }
+  }, [])
+
+  const cancelActiveEnhancement = useCallback((clearBusy = true) => {
+    enhancementSessionSequence.current += 1
+    stopEnhancementSession(activeEnhancementSession.current)
+    activeEnhancementSession.current = null
+    if (clearBusy && mountedRef.current) setEnhancementReadBusy(false)
+  }, [])
+
+  const invalidatePreview = useCallback(() => {
+    cancelActivePreview()
+    setChangePreview(null)
+  }, [cancelActivePreview])
+
+  const invalidateDerivedViews = useCallback(() => {
+    cancelActiveEnhancement()
+    enhancementGenerationRef.current += 1
+    settledEnhancementKey.current = null
+    completedChecksKey.current = null
+    setEnhancementRecoveryAvailable(false)
+    setMapView(pendingRevisionMapView())
+    setStayView(pendingRevisionStayView())
+    setChecksView(null)
+    invalidatePreview()
+  }, [cancelActiveEnhancement, invalidatePreview])
+
+  const stagePendingRevision = useCallback((
+    reference: string,
+    nextEtag: string,
+    nextChecks: PublicTripChecksView | null = null,
+  ) => {
+    const nextKey = `${reference}:${nextEtag}`
+    cancelActiveEnhancement()
+    enhancementGenerationRef.current += 1
+    settledEnhancementKey.current = null
+    currentChecksKeyRef.current = nextKey
+    completedChecksKey.current = nextChecks ? nextKey : null
+    setEnhancementRecoveryAvailable(false)
+    setMapView(pendingRevisionMapView())
+    setStayView(pendingRevisionStayView())
+    setChecksView(nextChecks)
+    invalidatePreview()
+    setEtag(nextEtag)
+    sessionStorage.setItem('bt_active_trip_etag', nextEtag)
+  }, [cancelActiveEnhancement, invalidatePreview])
+
+  const beginMutation = useCallback(async () => {
+    if (mutationLockRef.current) return false
+    mutationLockRef.current = true
+    setMutationLocked(true)
+    cancelActivePreview()
+    const pendingEnhancements = activeEnhancementPromise.current
+    cancelActiveEnhancement()
+    const pendingChecks = activeChecksPromise.current
+    activeChecksRequest.current?.controller.abort()
+    const pendingReads = [pendingChecks, pendingEnhancements].filter(
+      (pending): pending is Promise<void> => pending !== null,
+    )
+    if (pendingReads.length > 0) await Promise.allSettled(pendingReads)
+    return true
+  }, [cancelActiveEnhancement, cancelActivePreview])
+
+  const finishMutation = useCallback(() => {
+    mutationLockRef.current = false
+    setMutationLocked(false)
+    setReconciliationRequired(false)
+    setReconciliationKind('RESULT')
+  }, [])
+
+  const holdForReconciliation = useCallback((
+    message: string,
+    kind: 'RESULT' | 'TRIP_DELETE' = 'RESULT',
+  ) => {
+    cancelActiveEnhancement()
+    setReconciliationKind(kind)
+    setReconciliationRequired(true)
+    setCommandError(message)
+  }, [cancelActiveEnhancement])
+
+  const refreshEnhancements = useCallback((
+    reference: string,
+    generation = enhancementGenerationRef.current,
+    fallbackResult = resultRef.current,
+    options: { force?: boolean; manual?: boolean } = {},
+  ) => {
+    const key = `${reference}:${generation}`
+    const currentSession = activeEnhancementSession.current
+    if (currentSession && !currentSession.cancelled && currentSession.key === key) {
+      return activeEnhancementPromise.current || Promise.resolve()
+    }
+    if (!options.force && settledEnhancementKey.current === key) return Promise.resolve()
+
+    const previousPromise = activeEnhancementPromise.current
+    stopEnhancementSession(currentSession)
+    const sessionId = enhancementSessionSequence.current + 1
+    enhancementSessionSequence.current = sessionId
+    const session: ActiveEnhancementSession = {
+      id: sessionId,
+      key,
+      resourceRef: reference,
+      generation,
+      manual: options.manual === true,
+      cancelled: false,
+      controllers: new Set(),
+      timer: null,
+      releaseTimer: null,
+    }
+    activeEnhancementSession.current = session
+    settledEnhancementKey.current = null
+    setEnhancementRecoveryAvailable(false)
+    if (session.manual) setEnhancementReadBusy(true)
+
+    const isCurrent = () => (
+      mountedRef.current
+      && !session.cancelled
+      && activeResourceRef.current === reference
+      && enhancementGenerationRef.current === generation
+      && activeEnhancementSession.current?.id === session.id
+    )
+
+    const sessionPromise = (async () => {
+      if (previousPromise) await Promise.allSettled([previousPromise])
+      if (!isCurrent()) return
+
+      const startedAt = Date.now()
+      let round = 0
+      let mapPending = true
+      let stayPending = true
+      let mapResult: MapRenderView | null = null
+      let stayResult: StaySuggestionView | null = null
+      let degraded = false
+
+      async function readWithBound<T>(
+        reader: (signal: AbortSignal) => Promise<T>,
+      ): Promise<BoundedEnhancementRead<T>> {
+        const remainingBudget = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        const controller = new AbortController()
+        session.controllers.add(controller)
+        const timeout = window.setTimeout(
+          () => controller.abort(),
+          Math.max(0, Math.min(ENHANCEMENT_REQUEST_TIMEOUT_MS, remainingBudget)),
+        )
+        try {
+          return { status: 'fulfilled' as const, value: await reader(controller.signal) }
+        } catch (reason) {
+          return { status: 'rejected' as const, reason }
+        } finally {
+          window.clearTimeout(timeout)
+          session.controllers.delete(controller)
+        }
+      }
+
+      while (isCurrent() && round < ENHANCEMENT_MAX_ROUNDS) {
+        const remainingBudget = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        if (remainingBudget <= 0) break
+        round += 1
+
+        const mapReadPromise: Promise<BoundedEnhancementRead<MapRenderView> | null> = mapPending
+          ? readWithBound((signal) => readTripUnderstandingMap(reference, signal))
+          : Promise.resolve(null)
+        const stayReadPromise: Promise<BoundedEnhancementRead<StaySuggestionView> | null> = stayPending
+          ? readWithBound((signal) => readTripUnderstandingStay(reference, signal))
+          : Promise.resolve(null)
+        const mapRead = await mapReadPromise
+        const stayRead = await stayReadPromise
+        if (!isCurrent()) return
+
+        if (mapRead) {
+          if (mapRead.status === 'fulfilled') {
+            mapResult = mapRead.value
+            mapPending = mapRead.value.status === 'PREPARING'
+          } else {
+            mapResult = fallbackMapView(fallbackResult)
+            mapPending = false
+            degraded = true
+          }
+        }
+        if (stayRead) {
+          if (stayRead.status === 'fulfilled') {
+            stayResult = stayRead.value
+            stayPending = stayRead.value.status === 'PREPARING'
+          } else {
+            stayResult = fallbackStayView(fallbackResult)
+            stayPending = false
+            degraded = true
+          }
+        }
+
+        if (mapResult) setMapView(mapResult)
+        if (stayResult) setStayView(stayResult)
+        if (!mapPending && !stayPending) {
+          settledEnhancementKey.current = key
+          setEnhancementRecoveryAvailable(degraded)
+          return
+        }
+        if (round >= ENHANCEMENT_MAX_ROUNDS) break
+
+        const budgetAfterRead = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        if (budgetAfterRead <= 0) break
+        await new Promise<void>((resolve) => {
+          let released = false
+          const release = () => {
+            if (released) return
+            released = true
+            if (session.timer !== null) window.clearTimeout(session.timer)
+            session.timer = null
+            session.releaseTimer = null
+            resolve()
+          }
+          session.releaseTimer = release
+          session.timer = window.setTimeout(
+            release,
+            Math.min(ENHANCEMENT_POLL_INTERVAL_MS, budgetAfterRead),
+          )
+        })
+      }
+
+      if (!isCurrent()) return
+      if (mapPending) setMapView(fallbackMapView(fallbackResult))
+      if (stayPending) setStayView(fallbackStayView(fallbackResult))
+      settledEnhancementKey.current = key
+      setEnhancementRecoveryAvailable(true)
+    })()
+
+    activeEnhancementPromise.current = sessionPromise
+    void sessionPromise.then(() => {
+      if (activeEnhancementPromise.current === sessionPromise) {
+        activeEnhancementPromise.current = null
+      }
+      if (activeEnhancementSession.current?.id === session.id) {
+        activeEnhancementSession.current = null
+        if (session.manual && mountedRef.current) setEnhancementReadBusy(false)
+      }
+    })
+    return sessionPromise
+  }, [])
+
+  const refresh = useCallback(async (reference: string, suppressOpenError = false) => {
     try {
       const response = await readTripUnderstandingResult(reference)
-      if (activeResourceRef.current !== reference) return false
+      if (activeResourceRef.current !== reference) return null
       if (response.body.status !== 'PROCESSING') {
+        let enhancementGeneration = enhancementGenerationRef.current
+        const authoritativeKey = response.etag ? `${reference}:${response.etag}` : null
+        if (response.etag && authoritativeKeyRef.current !== authoritativeKey) {
+          const checksAlreadyMatch = completedChecksKey.current === `${reference}:${response.etag}`
+          cancelActiveEnhancement()
+          enhancementGeneration = enhancementGenerationRef.current + 1
+          enhancementGenerationRef.current = enhancementGeneration
+          settledEnhancementKey.current = null
+          currentChecksKeyRef.current = authoritativeKey
+          setEnhancementRecoveryAvailable(false)
+          setMapView(null)
+          setStayView(null)
+          if (!checksAlreadyMatch) setChecksView(null)
+          invalidatePreview()
+          if (!checksAlreadyMatch) completedChecksKey.current = null
+        }
+        authoritativeKeyRef.current = authoritativeKey
+        resultRef.current = response.body
         setResult(response.body)
         if (response.etag) {
           setEtag(response.etag)
           sessionStorage.setItem('bt_active_trip_etag', response.etag)
         }
         setMessage('卡片已可用')
-        void refreshEnhancements(reference)
-        return true
+        void refreshEnhancements(reference, enhancementGeneration, response.body)
+        return response.body
       }
       setMessage(response.body.message)
-      return false
+      return null
     } catch {
-      if (activeResourceRef.current === reference) {
+      if (!suppressOpenError && activeResourceRef.current === reference) {
         setError('这份体验暂时无法打开，请返回首页重新开始。')
       }
-      return false
+      return null
     }
-  }, [refreshEnhancements])
+  }, [cancelActiveEnhancement, invalidatePreview, refreshEnhancements])
 
   useEffect(() => {
-    if (!resourceRef || !resultAvailable) return
-    const preparing = mapView?.status === 'PREPARING' || stayView?.status === 'PREPARING'
-    if (!preparing) return
-    const timer = window.setInterval(() => {
-      void refreshEnhancements(resourceRef)
-    }, 800)
-    return () => window.clearInterval(timer)
-  }, [mapView?.status, refreshEnhancements, resourceRef, resultAvailable, stayView?.status])
-
-  useEffect(() => {
+    if (mutationLocked) {
+      activeChecksRequest.current?.controller.abort()
+      return
+    }
     if (!resourceRef || !resultAvailable || !etag || !mapView || !stayView) return
     if (mapView.status === 'PREPARING' || stayView.status === 'PREPARING') return
     const attemptKey = `${resourceRef}:${etag}`
-    if (checksAttemptedKey.current === attemptKey) return
-    checksAttemptedKey.current = attemptKey
-    let disposed = false
+    if (completedChecksKey.current === attemptKey && checksView) return
+    const previousRequest = activeChecksRequest.current
+    if (previousRequest) {
+      if (previousRequest.resourceRef === resourceRef) return
+      previousRequest.controller.abort()
+      return
+    }
+    const requestId = checksRequestSequence.current + 1
+    const controller = new AbortController()
+    checksRequestSequence.current = requestId
+    activeChecksRequest.current = { id: requestId, resourceRef, key: attemptKey, controller }
+    let queueCurrentGeneration = false
+    const timeout = window.setTimeout(() => controller.abort(), CHECKS_REQUEST_TIMEOUT_MS)
     setCheckBusy('PREPARE')
     setCheckMessage('')
-    void (async () => {
+    const checksPromise = (async () => {
       try {
-        const prepared = await materializeTripUnderstanding(resourceRef, etag)
-        const checks = await readTripUnderstandingChecks(resourceRef)
-        if (disposed || activeResourceRef.current !== resourceRef) return
-        setEtag(prepared.etag)
-        sessionStorage.setItem('bt_active_trip_etag', prepared.etag)
+        const prepared = await materializeTripUnderstanding(resourceRef, etag, controller.signal)
+        const preparedKey = `${resourceRef}:${prepared.etag}`
+        const currentKey = currentChecksKeyRef.current
+        const activeRequest = activeChecksRequest.current
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeRequest?.id !== requestId
+          || (currentKey !== attemptKey && currentKey !== preparedKey)
+        ) {
+          queueCurrentGeneration = activeRequest?.id === requestId
+          return
+        }
+        activeChecksRequest.current = { id: requestId, resourceRef, key: preparedKey, controller }
+        if (etag !== prepared.etag && currentKey === attemptKey) {
+          stagePendingRevision(resourceRef, prepared.etag)
+        }
+        const checks = await readTripUnderstandingChecks(resourceRef, controller.signal)
+        const settledKey = currentChecksKeyRef.current
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeChecksRequest.current?.id !== requestId
+          || (settledKey !== attemptKey && settledKey !== preparedKey)
+        ) {
+          queueCurrentGeneration = activeChecksRequest.current?.id === requestId
+          return
+        }
+        completedChecksKey.current = preparedKey
         setChecksView(checks)
       } catch (checksFailure) {
-        if (disposed || activeResourceRef.current !== resourceRef) return
-        if (checksFailure instanceof Error && checksFailure.message === 'TRIP_UPDATED') {
+        if (
+          !mountedRef.current
+          || activeResourceRef.current !== resourceRef
+          || activeChecksRequest.current?.id !== requestId
+        ) return
+        if (controller.signal.aborted) {
+          queueCurrentGeneration = mutationLockRef.current || currentChecksKeyRef.current !== attemptKey
+          if (!queueCurrentGeneration) {
+            setCheckMessage('优先检查等待时间较长，已安全停止；你可以手动重新准备。')
+          }
+        } else if (checksFailure instanceof Error && checksFailure.message === 'TRIP_UPDATED') {
           setCheckMessage('行程刚刚有更新，正在读取最新内容。')
-          await refresh(resourceRef)
+          await refresh(resourceRef, true)
+          queueCurrentGeneration = true
         } else {
           setCheckMessage('优先检查暂时没有准备好，不影响查看和调整行程。')
         }
       } finally {
-        if (!disposed) setCheckBusy(null)
+        window.clearTimeout(timeout)
+        if (activeChecksRequest.current?.id === requestId) {
+          activeChecksRequest.current = null
+          if (mountedRef.current) {
+            setCheckBusy(null)
+            if (queueCurrentGeneration) {
+              setChecksRetryGeneration((generation) => generation + 1)
+            }
+          }
+        }
       }
     })()
-    return () => {
-      disposed = true
+    activeChecksPromise.current = checksPromise
+    void checksPromise.then(
+      () => {
+        if (activeChecksPromise.current === checksPromise) activeChecksPromise.current = null
+      },
+      () => {
+        if (activeChecksPromise.current === checksPromise) activeChecksPromise.current = null
+      },
+    )
+  }, [
+    checksRetryGeneration,
+    checksView,
+    etag,
+    mapView?.status,
+    mutationLocked,
+    refresh,
+    resourceRef,
+    resultAvailable,
+    stagePendingRevision,
+    stayView?.status,
+  ])
+
+  const retryChecks = useCallback(() => {
+    if (checkBusy || mutationLockRef.current || !resourceRef || !etag) return
+    completedChecksKey.current = null
+    setCheckMessage('')
+    setChecksRetryGeneration((generation) => generation + 1)
+  }, [checkBusy, etag, resourceRef])
+
+  const retryEnhancements = useCallback(() => {
+    if (!resourceRef || !resultRef.current || mutationLockRef.current) return
+    void refreshEnhancements(
+      resourceRef,
+      enhancementGenerationRef.current,
+      resultRef.current,
+      { force: true, manual: true },
+    )
+  }, [refreshEnhancements, resourceRef])
+
+  const retryResultReadback = useCallback(async () => {
+    if (!resourceRef || !reconciliationRequired || reconciliationBusy) return
+    setReconciliationBusy(true)
+    if (reconciliationKind === 'TRIP_DELETE') {
+      try {
+        await deleteTripUnderstanding(resourceRef)
+        clearTripUnderstandingSession()
+        activeResourceRef.current = null
+        setTripDeleted(true)
+        finishMutation()
+      } catch {
+        setCommandError('仍在确认整份行程的删除结果。请保持此页面打开，稍后再重新确认。')
+      } finally {
+        setReconciliationBusy(false)
+      }
+      return
     }
-  }, [etag, mapView?.status, refresh, resourceRef, resultAvailable, stayView?.status])
+    const latest = await refresh(resourceRef, true)
+    if (latest) {
+      finishMutation()
+      closeEditor(true)
+      setCommandError('已读取服务端最新行程，可以继续调整。')
+    } else {
+      setCommandError('仍在确认服务端保存结果。请保持此页面打开，稍后再重新读取。')
+    }
+    setReconciliationBusy(false)
+  }, [closeEditor, finishMutation, reconciliationBusy, reconciliationKind, reconciliationRequired, refresh, resourceRef])
 
   const handleMapRender = useCallback(async () => {
     if (!resourceRef || !etag || enhancementBusy) return
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setEnhancementBusy('MAP')
     setCommandError('')
     try {
       await requestTripUnderstandingMap(resourceRef, etag)
-      await refreshEnhancements(resourceRef)
+      await refreshEnhancements(
+        resourceRef,
+        enhancementGenerationRef.current,
+        resultRef.current,
+        { force: true },
+      )
     } catch (mapFailure) {
+      const latest = await refresh(resourceRef, true)
+      if (!latest) {
+        reconciliationHeld = true
+        holdForReconciliation('路线更新结果暂时无法确认；确认前其他写入已暂停。')
+      }
       if (mapFailure instanceof Error && mapFailure.message === 'REVISION_CONFLICT') {
-        setCommandError('行程刚刚有更新，已为你读取最新版本。')
-        await refresh(resourceRef)
+        if (latest) setCommandError('行程刚刚有更新，已为你读取最新版本。')
       } else {
-        setCommandError('路线暂时没有开始更新，卡片仍可正常查看。')
+        if (latest) setCommandError('路线更新请求未能确认，已按服务端最新行程恢复。')
       }
     } finally {
       setEnhancementBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
-  }, [enhancementBusy, etag, refresh, refreshEnhancements, resourceRef])
+  }, [beginMutation, enhancementBusy, etag, finishMutation, holdForReconciliation, refresh, refreshEnhancements, resourceRef])
 
   const handleStaySelection = useCallback(async (candidateToken: string) => {
     if (!resourceRef || !etag || enhancementBusy) return
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setEnhancementBusy('STAY')
     setCommandError('')
     try {
       const selectedStay = await selectTripUnderstandingStay(resourceRef, candidateToken, etag)
-      setMapView(null)
-      setStayView(null)
-      setEtag(selectedStay.etag)
-      setChecksView(null)
-      setChangePreview(null)
-      sessionStorage.setItem('bt_active_trip_etag', selectedStay.etag)
-      await refresh(resourceRef)
+      stagePendingRevision(resourceRef, selectedStay.etag)
+      if (!(await refresh(resourceRef, true))) {
+        reconciliationHeld = true
+        holdForReconciliation('住宿选择已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+      }
     } catch (stayFailure) {
+      invalidateDerivedViews()
+      const latest = await refresh(resourceRef, true)
+      if (!latest) {
+        reconciliationHeld = true
+        holdForReconciliation('住宿选择的结果暂时无法确认；确认前其他写入已暂停。')
+      }
       if (stayFailure instanceof Error && stayFailure.message === 'REVISION_CONFLICT') {
-        setCommandError('住宿候选已经变化，已为你读取最新版本。')
-        await refresh(resourceRef)
+        if (latest) setCommandError('住宿候选已经变化，已为你读取最新版本。')
       } else {
-        setCommandError('这次住宿选择暂时没有保存，请稍后再试。')
+        if (latest) setCommandError('住宿选择请求未完成，已按服务端最新行程恢复。')
       }
     } finally {
       setEnhancementBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
-  }, [enhancementBusy, etag, refresh, resourceRef])
+  }, [beginMutation, enhancementBusy, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, stagePendingRevision])
 
   const handleChangePreview = useCallback(async (checkToken: string) => {
     if (!resourceRef || checkBusy) return
+    const previewKey = currentChecksKeyRef.current
+    if (!previewKey) return
+    const requestId = previewRequestSequence.current + 1
+    activePreviewRequest.current?.controller.abort()
+    const controller = new AbortController()
+    previewRequestSequence.current = requestId
+    activePreviewRequest.current = { id: requestId, key: previewKey, controller }
     setCheckBusy('PREVIEW')
     setCheckMessage('')
     try {
-      setChangePreview(await previewTripUnderstandingChange(resourceRef, checkToken))
+      const preview = await previewTripUnderstandingChange(resourceRef, checkToken, controller.signal)
+      const activePreview = activePreviewRequest.current
+      if (
+        mutationLockRef.current
+        || currentChecksKeyRef.current !== previewKey
+        || activePreview?.id !== requestId
+        || activePreview.key !== previewKey
+      ) return
+      setChangePreview(preview)
     } catch {
+      const activePreview = activePreviewRequest.current
+      if (activePreview?.id !== requestId || activePreview.key !== previewKey) return
       setChangePreview(null)
       setCheckMessage('这项建议已经变化，请刷新后再试。')
     } finally {
-      setCheckBusy(null)
+      const activePreview = activePreviewRequest.current
+      if (activePreview?.id === requestId && activePreview.key === previewKey) {
+        activePreviewRequest.current = null
+        setCheckBusy(null)
+      }
     }
   }, [checkBusy, resourceRef])
 
   const handleChangeAdopt = useCallback(async () => {
     if (!resourceRef || !etag || !changePreview || checkBusy) return
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setCheckBusy('ADOPT')
     setCheckMessage('')
     try {
@@ -256,55 +823,76 @@ export default function TripResultPage() {
         changePreview.change_token,
         etag,
       )
-      setEtag(adopted.etag)
-      sessionStorage.setItem('bt_active_trip_etag', adopted.etag)
-      checksAttemptedKey.current = `${resourceRef}:${adopted.etag}`
-      setChecksView(adopted.body.checks)
-      setChangePreview(null)
+      stagePendingRevision(resourceRef, adopted.etag, adopted.body.checks)
       setCheckMessage(adopted.body.message)
-      await refresh(resourceRef)
+      if (!(await refresh(resourceRef, true))) {
+        reconciliationHeld = true
+        holdForReconciliation('改动已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+      }
     } catch (adoptFailure) {
-      setChangePreview(null)
+      invalidateDerivedViews()
+      const latest = await refresh(resourceRef, true)
+      if (!latest) {
+        reconciliationHeld = true
+        holdForReconciliation('改动结果暂时无法确认；确认前其他写入已暂停。')
+      }
       if (adoptFailure instanceof Error && adoptFailure.message === 'TRIP_UPDATED') {
-        setCheckMessage('行程刚刚有更新，已读取最新内容，请重新预览。')
-        await refresh(resourceRef)
+        if (latest) setCheckMessage('行程刚刚有更新，已读取最新内容，请重新预览。')
       } else {
-        setCheckMessage('这次改动暂时没有保存，行程保持原样。')
+        if (latest) setCheckMessage('改动请求未完成，已按服务端最新行程恢复。')
       }
     } finally {
       setCheckBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
-  }, [changePreview, checkBusy, etag, refresh, resourceRef])
+  }, [beginMutation, changePreview, checkBusy, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, stagePendingRevision])
 
-  const runCommand = useCallback(async (command: TripUnderstandingCommand) => {
-    if (!resourceRef || !etag || isApplying) return
-    setIsApplying(true)
+  const runCommand = useCallback(async (command: TripUnderstandingCommand): Promise<WorkspaceCommandResult> => {
+    if (!resourceRef || !etag || commandInFlightRef.current) {
+      return { status: 'SYNCED', days: result?.days || [] }
+    }
+    if (!(await beginMutation())) return { status: 'SYNCED', days: result?.days || [] }
+    let reconciliationHeld = false
+    commandInFlightRef.current = true
     setCommandError('')
     try {
       const applied = await applyTripUnderstandingCommand(resourceRef, etag, command)
-      setMapView(null)
-      setStayView(null)
-      setEtag(applied.etag)
-      setChecksView(null)
-      setChangePreview(null)
-      sessionStorage.setItem('bt_active_trip_etag', applied.etag)
-      await refresh(resourceRef)
-      setSelected(null)
-      setEditor(null)
+      stagePendingRevision(resourceRef, applied.etag)
+      const refreshed = await refresh(resourceRef, true)
+      if (!refreshed) {
+        reconciliationHeld = true
+        holdForReconciliation('调整已提交，但保存结果暂时无法确认；确认前其他写入已暂停。')
+        return { status: 'RECONCILING' }
+      }
+      return { status: 'APPLIED', days: refreshed.days }
     } catch (commandFailure) {
+      invalidateDerivedViews()
+      const refreshed = await refresh(resourceRef, true)
+      if (!refreshed) {
+        reconciliationHeld = true
+        holdForReconciliation('调整结果暂时无法确认；确认前其他写入已暂停。')
+        return { status: 'RECONCILING' }
+      }
       if (commandFailure instanceof Error && commandFailure.message === 'REVISION_CONFLICT') {
         setCommandError('卡片刚刚有更新，已为你读取最新版本，请再试一次。')
-        await refresh(resourceRef)
       } else {
-        setCommandError('这次调整暂时没有保存，卡片内容没有丢失。')
+        setCommandError('调整请求未能确认，已按服务端最新行程恢复。')
       }
+      return { status: 'SYNCED', days: refreshed.days }
     } finally {
-      setIsApplying(false)
+      commandInFlightRef.current = false
+      if (!reconciliationHeld) finishMutation()
     }
-  }, [etag, isApplying, refresh, resourceRef])
+  }, [beginMutation, etag, finishMutation, holdForReconciliation, invalidateDerivedViews, refresh, resourceRef, result?.days, stagePendingRevision])
 
   const openEditor = (state: EditorState) => {
-    setSelected(null)
+    if (mutationLockRef.current) return
+    const activeElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    editorTriggerRef.current = activeElement?.closest('[role="dialog"]')
+      ? null
+      : activeElement
     setEditor(state)
     setEditorName(state.card?.name || '')
     setEditorCategory(state.card?.category || '地点')
@@ -313,13 +901,36 @@ export default function TripResultPage() {
     setCommandError('')
   }
 
+  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeEditor()
+      return
+    }
+    if (event.key !== 'Tab') return
+    const focusable = Array.from(editorDialogRef.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ) || []).filter((element) => element.getClientRects().length > 0)
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
+
   const submitEditor = async () => {
     if (!editor || !editorName.trim()) {
       setCommandError('请填写地点名称。')
       return
     }
+    let outcome: WorkspaceCommandResult | null = null
     if (editor.mode === 'INSERT') {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'ACTIVITY_INSERT',
         day_index: editor.dayIndex,
         position: editor.position,
@@ -329,14 +940,14 @@ export default function TripResultPage() {
         time_hint: editorTime.trim() || null,
       })
     } else if (editor.mode === 'EDIT' && editor.card) {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'ACTIVITY_TEXT_EDIT',
         activity_token: editor.card.activity_token,
         name: editorName.trim(),
         time_hint: editorTime.trim() || null,
       })
     } else if (editor.mode === 'REPLACE' && editor.card) {
-      await runCommand({
+      outcome = await runCommand({
         command_type: 'PLACE_REPLACE',
         activity_token: editor.card.activity_token,
         replacement: {
@@ -346,15 +957,24 @@ export default function TripResultPage() {
         },
       })
     }
+    if (outcome?.status === 'APPLIED') {
+      closeEditor(true)
+    } else if (outcome) {
+      window.requestAnimationFrame(() => {
+        editorDialogRef.current?.querySelector<HTMLElement>('[data-testid="card-editor-name"]')?.focus()
+      })
+    }
   }
 
   const handleClaim = async () => {
-    if (!resourceRef || privacyBusy) return
+    if (!resourceRef || privacyBusy || mutationLockRef.current) return
     if (!user) {
       sessionStorage.setItem('bt_login_return', '/trip/result')
       router.push('/login')
       return
     }
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setPrivacyBusy('CLAIM')
     setPrivacyMessage('')
     try {
@@ -368,43 +988,70 @@ export default function TripResultPage() {
       activeResourceRef.current = nextReference
       setResourceRef(nextReference)
       setActiveMode('CLAIMED')
-      setEtag(claimed.etag)
-      if (!(await refresh(nextReference))) throw new Error('CLAIM_READBACK_FAILED')
-      setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
+      stagePendingRevision(nextReference, claimed.etag)
+      if (await refresh(nextReference, true)) {
+        setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
+      } else {
+        reconciliationHeld = true
+        holdForReconciliation('账号保存已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+      }
     } catch {
-      setPrivacyMessage('暂时没有保存成功，这份卡片仍保持原样。')
+      invalidateDerivedViews()
+      const latest = await refresh(activeResourceRef.current || resourceRef, true)
+      if (latest) {
+        setPrivacyMessage('账号保存请求未完成，已按服务端当前行程恢复。')
+      } else {
+        reconciliationHeld = true
+        holdForReconciliation('账号保存结果暂时无法确认；确认前其他写入已暂停。')
+      }
     } finally {
       setPrivacyBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
   }
 
   const handleDeleteSource = async () => {
-    if (!resourceRef || privacyBusy || sourceDeleted) return
+    if (!resourceRef || privacyBusy || sourceDeleted || mutationLockRef.current) return
     const confirmed = window.confirm(
       '删除原文后，攻略文字将永久不可恢复；当前逐日卡片会保留。确定继续吗？',
     )
     if (!confirmed) return
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setPrivacyBusy('SOURCE')
     setPrivacyMessage('')
     try {
       await deleteTripUnderstandingSource(resourceRef)
-      if (!(await refresh(resourceRef))) throw new Error('SOURCE_DELETE_READBACK_FAILED')
-      sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
-      setSourceDeleted(true)
-      setPrivacyMessage('原文已永久删除，逐日卡片仍可继续查看和调整。')
+      if (await refresh(resourceRef, true)) {
+        sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
+        setSourceDeleted(true)
+        setPrivacyMessage('原文已永久删除，逐日卡片仍可继续查看和调整。')
+      } else {
+        reconciliationHeld = true
+        holdForReconciliation('原文删除已提交，正在确认服务端结果；确认前其他写入已暂停。')
+      }
     } catch {
-      setPrivacyMessage('原文尚未确认删除，卡片没有变化，可以稍后重试。')
+      const latest = await refresh(resourceRef, true)
+      if (latest) {
+        setPrivacyMessage('原文删除请求未完成，已读取服务端当前行程。')
+      } else {
+        reconciliationHeld = true
+        holdForReconciliation('原文删除结果暂时无法确认；确认前其他写入已暂停。')
+      }
     } finally {
       setPrivacyBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
   }
 
   const handleDeleteTrip = async () => {
-    if (!resourceRef || privacyBusy) return
+    if (!resourceRef || privacyBusy || mutationLockRef.current) return
     const confirmed = window.confirm(
       '删除整份行程会永久移除原文、卡片和相关结果，之后无法恢复。确定删除吗？',
     )
     if (!confirmed) return
+    if (!(await beginMutation())) return
+    let reconciliationHeld = false
     setPrivacyBusy('TRIP')
     setPrivacyMessage('')
     try {
@@ -413,9 +1060,14 @@ export default function TripResultPage() {
       activeResourceRef.current = null
       setTripDeleted(true)
     } catch {
-      setPrivacyMessage('尚未确认删除完成，这份行程仍保留，可以稍后重试。')
+      reconciliationHeld = true
+      holdForReconciliation(
+        '尚未确认整份行程的删除结果；确认前其他写入已暂停。',
+        'TRIP_DELETE',
+      )
     } finally {
       setPrivacyBusy(null)
+      if (!reconciliationHeld) finishMutation()
     }
   }
 
@@ -447,7 +1099,13 @@ export default function TripResultPage() {
         setMessage(event.message)
         if (event.type === 'result_available') {
           void refresh(resourceRef).then((ready) => {
-            if (ready) eventController.abort()
+            if (ready) {
+              eventController.abort()
+              if (interval) {
+                clearInterval(interval)
+                interval = undefined
+              }
+            }
           })
         }
       },
@@ -457,7 +1115,12 @@ export default function TripResultPage() {
         void refresh(resourceRef)
       }
     })
-    void refresh(resourceRef)
+    void refresh(resourceRef).then((ready) => {
+      if (ready && interval) {
+        clearInterval(interval)
+        interval = undefined
+      }
+    })
     interval = setInterval(() => {
       if (!disposed) {
         void refresh(resourceRef).then((ready) => {
@@ -469,20 +1132,10 @@ export default function TripResultPage() {
       disposed = true
       eventController.abort()
       if (interval) clearInterval(interval)
+      cancelActiveEnhancement()
+      cancelActivePreview()
     }
-  }, [refresh, resourceRef])
-
-  useEffect(() => {
-    if (!resourceRef || !result || result.map.status !== 'PREPARING') return
-    let disposed = false
-    const timer = setInterval(() => {
-      if (!disposed) void refresh(resourceRef)
-    }, 500)
-    return () => {
-      disposed = true
-      clearInterval(timer)
-    }
-  }, [refresh, resourceRef, result])
+  }, [cancelActiveEnhancement, cancelActivePreview, refresh, resourceRef])
 
   if (tripDeleted) {
     return (
@@ -519,12 +1172,12 @@ export default function TripResultPage() {
       <main className="flex min-h-screen items-center justify-center bg-[#f8f7f2] p-6">
         <div data-testid="trip-progress" className="w-full max-w-md rounded-3xl border border-white bg-white/90 p-8 text-center shadow-xl">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-            <Sparkles className="h-6 w-6 animate-pulse" aria-hidden="true" />
+            <Sparkles className="h-6 w-6 animate-pulse motion-reduce:animate-none" aria-hidden="true" />
           </div>
           <h1 className="mt-5 text-xl font-semibold">{message}</h1>
           <p className="mt-2 text-sm text-slate-500">页面可以安全刷新，整理结果会继续保留。</p>
           <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
-            <div className="h-full w-2/3 animate-pulse rounded-full bg-emerald-500" />
+            <div className="h-full w-2/3 animate-pulse rounded-full bg-emerald-500 motion-reduce:animate-none" />
           </div>
         </div>
       </main>
@@ -532,152 +1185,123 @@ export default function TripResultPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f7f2] text-slate-900">
-      <div className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between border-b border-slate-200/80 pb-5">
-          <button type="button" onClick={() => router.push('/')} className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-slate-600 transition hover:bg-white">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            返回首页
+    <>
+      <header className="sticky top-0 z-40 border-b border-emerald-950/10 bg-[#fbfaf6]/95 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[4.75rem] w-full max-w-[1540px] items-center justify-between gap-4 px-5 sm:px-8 lg:px-12">
+          <button
+            type="button"
+            onClick={() => router.push('/')}
+            className="group inline-flex min-h-12 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+          >
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-800 text-white shadow-sm transition motion-reduce:transition-none group-hover:-rotate-6 motion-reduce:group-hover:rotate-0">
+              <Compass className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <span>
+              <span className="block text-base font-semibold tracking-tight text-slate-900">行程查 · <span className="text-emerald-800">BreezeTravel</span></span>
+              <span className="hidden text-xs text-slate-600 sm:block">把攻略变成每天能照着走的卡片</span>
+            </span>
+            <span className="sr-only">，返回首页</span>
           </button>
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Compass className="h-4 w-4 text-emerald-700" aria-hidden="true" />
-            {result.assumptions.find((item) => item.key === 'destination')?.value || '行程卡片'}
-          </div>
-        </header>
 
-        <section className="py-8">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                {result.status === 'READY' ? '地点卡片已整理' : '已整理可确认的内容'}
-              </div>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">按天查看，随时可以调整</h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">没有日历日期时先用 Day 编号；人数是可修改的软假设。</p>
+          <nav className="hidden items-center gap-1 lg:flex" aria-label="结果页导航">
+            <button type="button" onClick={() => scrollToResultSection('itinerary-overview')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">行程总览</button>
+            <button type="button" onClick={() => scrollToResultSection('trip-map-stay')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">地图与住宿</button>
+            <button type="button" onClick={() => scrollToResultSection('trip-check-area')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">优先检查</button>
+          </nav>
+
+          <button type="button" onClick={() => router.push('/')} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-emerald-950/10 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-700/30 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label="返回首页">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">返回首页</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="min-h-screen overflow-hidden bg-[#f8f7f2] text-slate-900">
+      <div className="relative mx-auto w-full max-w-[1540px] px-5 pb-14 sm:px-8 lg:px-12">
+        <div className="pointer-events-none absolute -right-32 top-44 h-80 w-80 rounded-full bg-emerald-100/35 blur-3xl" aria-hidden="true" />
+        <div className="pointer-events-none absolute -left-40 top-[42rem] h-72 w-72 rounded-full bg-amber-100/45 blur-3xl" aria-hidden="true" />
+
+        <section className="relative border-b border-emerald-950/10 py-5" aria-label="行程摘要">
+          <div className="flex flex-wrap items-center gap-y-3 divide-x divide-slate-200">
+            {result.assumptions.map((assumption) => {
+              const Icon = ASSUMPTION_ICONS[assumption.key]
+              return (
+                <button
+                  key={assumption.key}
+                  type="button"
+                  disabled={mutationLocked || !assumption.editable}
+                  onClick={() => {
+                    const value = window.prompt(`修改${assumption.label}`, assumption.value)?.trim()
+                    if (value && value !== assumption.value) {
+                      void runCommand({ command_type: 'ASSUMPTION_SET', key: assumption.key, value })
+                    }
+                  }}
+                  className="group flex min-h-12 items-center gap-3 px-4 text-left first:pl-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-wait disabled:opacity-60 sm:px-7"
+                >
+                  <Icon className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+                  <span>
+                    <span className="flex items-center gap-1 text-[11px] text-slate-600">{assumption.label}<Pencil className="h-3 w-3 opacity-0 transition group-hover:opacity-100" aria-hidden="true" /></span>
+                    <span className="mt-0.5 block text-sm font-semibold text-slate-800">{assumption.value}</span>
+                  </span>
+                  <span className="sr-only">，点击修改</span>
+                </button>
+              )
+            })}
+            <div className="flex min-h-12 items-center gap-3 px-4 sm:px-7">
+              <ShieldCheck className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+              <span>
+                <span className="block text-[11px] text-slate-600">整理状态</span>
+                <span className="mt-0.5 block text-sm font-semibold text-emerald-800">{result.status === 'READY' ? '地点卡片已整理' : '部分地点待确认'}</span>
+              </span>
             </div>
-            <div className="flex flex-wrap gap-2" aria-label="当前假设">
-              {result.assumptions.map((assumption) => {
-                const Icon = ASSUMPTION_ICONS[assumption.key]
-                return (
-                  <button
-                    key={assumption.key}
-                    type="button"
-                    disabled={isApplying || !assumption.editable}
-                    onClick={() => {
-                      const value = window.prompt(`修改${assumption.label}`, assumption.value)?.trim()
-                      if (value && value !== assumption.value) {
-                        void runCommand({ command_type: 'ASSUMPTION_SET', key: assumption.key, value })
-                      }
-                    }}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-emerald-200 disabled:cursor-wait"
-                    aria-label={`修改${assumption.label}`}
-                  >
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                      {assumption.label}
-                      <Pencil className="h-3 w-3" aria-hidden="true" />
-                    </div>
-                    <p className="mt-1 text-sm font-medium text-slate-700">{assumption.value}</p>
-                  </button>
-                )
-              })}
+          </div>
+        </section>
+
+        <section id="itinerary-overview" className="relative scroll-mt-28 pt-8 sm:pt-10">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm">
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              {result.status === 'READY' ? '每天的地点已经排好' : '先查看已整理的地点'}
             </div>
+            <h1 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-900 sm:text-5xl">按天查看，照着走<span className="text-emerald-800">更轻松</span></h1>
+            <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">这是清晰的游览顺序，不伪装成实时路线。拖动卡片后会自动保存，需要时再手动更新地图。</p>
           </div>
 
           {commandError && (
-            <p role="status" className="mt-5 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              {commandError}
-            </p>
+            <div role="status" aria-live="polite" className="mt-5 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p>{commandError}</p>
+              {reconciliationRequired && (
+                <button
+                  data-testid="retry-result-readback"
+                  type="button"
+                  disabled={reconciliationBusy}
+                  onClick={() => void retryResultReadback()}
+                  className="mt-3 min-h-12 rounded-xl border border-amber-700/30 bg-white px-4 font-semibold text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 disabled:opacity-60"
+                >
+                  {reconciliationBusy ? '正在读取最新结果…' : '重新读取服务端结果'}
+                </button>
+              )}
+            </div>
           )}
 
-          <div data-testid="trip-days" className="mt-8 grid gap-5 lg:grid-cols-3">
-            {result.days.map((day, dayOffset) => (
-              <section key={day.label} className="rounded-3xl border border-slate-200/80 bg-white p-5 shadow-lg shadow-slate-200/45">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold">{day.label}</h2>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-500">{day.activities.length} 个地点</span>
-                </div>
-                <div className="space-y-3">
-                  {day.activities.map((activity, index) => (
-                    <div
-                      key={activity.activity_token}
-                      data-testid="activity-card"
-                      className="group overflow-hidden rounded-2xl border border-slate-100 bg-[#fbfaf7] transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setSelected({ card: activity, dayIndex: dayOffset + 1, position: index })}
-                        className="w-full p-4 text-left"
-                      >
-                        <div className="flex items-start gap-3">
-                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-700 text-xs font-semibold text-white">{index + 1}</span>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="truncate font-semibold text-slate-800">{activity.name}</h3>
-                              <ArrowRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-emerald-600" aria-hidden="true" />
-                            </div>
-                            <p className="mt-1 text-xs text-slate-500">{activity.category} · {activity.time_hint || '时间待定'}</p>
-                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{activity.area_or_address}</p>
-                          </div>
-                        </div>
-                      </button>
-                      <div className="flex justify-end gap-1 border-t border-slate-100 px-3 py-2">
-                        <button
-                          type="button"
-                          disabled={isApplying || index === 0}
-                          onClick={() => void runCommand({
-                            command_type: 'ACTIVITY_MOVE',
-                            activity_token: activity.activity_token,
-                            target_day_index: dayOffset + 1,
-                            target_position: index - 1,
-                          })}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-emerald-700 disabled:opacity-30"
-                          aria-label={`上移 ${activity.name}`}
-                        >
-                          <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isApplying || index === day.activities.length - 1}
-                          onClick={() => void runCommand({
-                            command_type: 'ACTIVITY_MOVE',
-                            activity_token: activity.activity_token,
-                            target_day_index: dayOffset + 1,
-                            target_position: index + 1,
-                          })}
-                          className="rounded-lg p-1.5 text-slate-400 hover:bg-white hover:text-emerald-700 disabled:opacity-30"
-                          aria-label={`下移 ${activity.name}`}
-                        >
-                          <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {day.activities.length === 0 && (
-                    <div className="rounded-2xl bg-slate-50 p-4 text-sm leading-6 text-slate-500">
-                      还没有能确认的地点，可以稍后补充或调整文字。
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    disabled={isApplying}
-                    onClick={() => openEditor({
-                      mode: 'INSERT',
-                      dayIndex: dayOffset + 1,
-                      position: day.activities.length,
-                    })}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-500 transition hover:border-emerald-400 hover:text-emerald-700 disabled:cursor-wait"
-                    aria-label={`新增地点到 ${day.label}`}
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    新增地点
-                  </button>
-                </div>
-              </section>
-            ))}
-          </div>
+          <ItineraryWorkspace
+            days={result.days}
+            disabled={mutationLocked}
+            mapStatus={mapView?.status || result.map.status}
+            checkStatus={checkBusy
+              ? '正在准备'
+              : checksView
+                ? `已准备 ${checksView.items.length} 项`
+                : checkMessage
+                  ? '可重新准备'
+                  : '等待准备'}
+            onCommand={runCommand}
+            onAdd={(dayIndex, position) => openEditor({ mode: 'INSERT', dayIndex, position })}
+            onEdit={(item) => openEditor({ ...item, mode: 'EDIT', card: item.card })}
+            onReplace={(item) => openEditor({ ...item, mode: 'REPLACE', card: item.card })}
+          />
 
-          <div className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_1fr]">
+          <div id="trip-map-stay" className="mt-8 grid scroll-mt-28 gap-5 xl:grid-cols-[1.35fr_1fr]">
             <MapTheater
               view={mapView || {
                 status: result.map.status,
@@ -686,24 +1310,50 @@ export default function TripResultPage() {
                 available_actions: result.map.available_actions,
               }}
               busy={enhancementBusy === 'MAP'}
+              disabled={mutationLocked}
               onRender={() => void handleMapRender()}
             />
             <StayPanel
               view={stayView || result.stay}
               busy={enhancementBusy === 'STAY'}
+              disabled={mutationLocked}
               onChoose={(candidateToken) => void handleStaySelection(candidateToken)}
             />
           </div>
 
-          <TripCheckPanel
-            view={checksView}
-            preview={changePreview}
-            busy={checkBusy}
-            message={checkMessage}
-            onPreview={(checkToken) => void handleChangePreview(checkToken)}
-            onAdopt={() => void handleChangeAdopt()}
-            onClosePreview={() => setChangePreview(null)}
-          />
+          {(enhancementRecoveryAvailable || enhancementReadBusy) && (
+            <div
+              data-testid="enhancement-read-recovery"
+              role="status"
+              aria-live="polite"
+              className="mt-4 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+            >
+              <p>路线或住宿状态暂时未能完整读取，不影响继续查看优先检查。</p>
+              <button
+                data-testid="retry-enhancements"
+                type="button"
+                disabled={mutationLocked || enhancementReadBusy}
+                onClick={retryEnhancements}
+                className="mt-3 min-h-12 rounded-xl border border-amber-700/30 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 disabled:opacity-60"
+              >
+                {enhancementReadBusy ? '正在重新读取路线与住宿状态…' : '重新读取路线与住宿状态'}
+              </button>
+            </div>
+          )}
+
+          <div id="trip-check-area" className="scroll-mt-28">
+            <TripCheckPanel
+              view={checksView}
+              preview={changePreview}
+              busy={checkBusy}
+              mutationLocked={mutationLocked}
+              message={checkMessage}
+              onPreview={(checkToken) => void handleChangePreview(checkToken)}
+              onAdopt={() => void handleChangeAdopt()}
+              onClosePreview={invalidatePreview}
+              onRetry={retryChecks}
+            />
+          </div>
 
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
             <div className="flex items-start gap-3">
@@ -723,9 +1373,9 @@ export default function TripResultPage() {
                 <button
                   data-testid={user ? 'claim-demo-trip' : 'login-to-claim-demo'}
                   type="button"
-                  disabled={privacyBusy !== null || !isHydrated}
+                  disabled={mutationLocked || privacyBusy !== null || !isHydrated}
                   onClick={() => void handleClaim()}
-                  className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                  className="min-h-12 rounded-xl bg-emerald-700 px-4 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-50"
                 >
                   {privacyBusy === 'CLAIM' ? '正在保存…' : user ? '保存到我的账号' : '登录后保存这份体验'}
                 </button>
@@ -734,9 +1384,9 @@ export default function TripResultPage() {
                 <button
                   data-testid="delete-trip-source"
                   type="button"
-                  disabled={privacyBusy !== null || sourceDeleted}
+                  disabled={mutationLocked || privacyBusy !== null || sourceDeleted}
                   onClick={() => void handleDeleteSource()}
-                  className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-50"
+                  className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
                 >
                   {sourceDeleted ? '原文已删除' : privacyBusy === 'SOURCE' ? '正在删除原文…' : '删除原文，保留卡片'}
                 </button>
@@ -744,9 +1394,9 @@ export default function TripResultPage() {
               <button
                 data-testid="delete-entire-trip"
                 type="button"
-                disabled={privacyBusy !== null}
+                disabled={mutationLocked || privacyBusy !== null}
                 onClick={() => void handleDeleteTrip()}
-                className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-500 hover:border-rose-200 hover:text-rose-700 disabled:opacity-50"
+                className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 disabled:opacity-50"
               >
                 {privacyBusy === 'TRIP' ? '正在删除行程…' : '永久删除整份行程'}
               </button>
@@ -755,94 +1405,14 @@ export default function TripResultPage() {
         </section>
       </div>
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="地点详情">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium text-emerald-700">{selected.card.category}</p>
-                <h2 className="mt-1 text-2xl font-semibold">{selected.card.name}</h2>
-              </div>
-              <button type="button" onClick={() => setSelected(null)} className="rounded-full bg-slate-100 p-2 text-slate-500" aria-label="关闭地点详情">
-                <X className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-              <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.card.area_or_address}</p>
-              <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-slate-400" aria-hidden="true" />{selected.card.time_hint || '时间待定'}</p>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={isApplying}
-                onClick={() => openEditor({ ...selected, mode: 'EDIT', card: selected.card })}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700"
-              >
-                <Pencil className="h-4 w-4" aria-hidden="true" />编辑文字
-              </button>
-              <button
-                type="button"
-                disabled={isApplying}
-                onClick={() => openEditor({ ...selected, mode: 'REPLACE', card: selected.card })}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 py-2.5 text-sm text-slate-700"
-              >
-                <Replace className="h-4 w-4" aria-hidden="true" />替换地点
-              </button>
-              <button
-                type="button"
-                disabled={isApplying || selected.dayIndex === 1}
-                onClick={() => void runCommand({
-                  command_type: 'ACTIVITY_MOVE',
-                  activity_token: selected.card.activity_token,
-                  target_day_index: selected.dayIndex - 1,
-                  target_position: result.days[selected.dayIndex - 2]?.activities.length || 0,
-                })}
-                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 disabled:opacity-40"
-              >
-                移到前一天
-              </button>
-              <button
-                type="button"
-                disabled={isApplying || selected.dayIndex === 14}
-                onClick={() => void runCommand({
-                  command_type: 'ACTIVITY_MOVE',
-                  activity_token: selected.card.activity_token,
-                  target_day_index: selected.dayIndex + 1,
-                  target_position: result.days[selected.dayIndex]?.activities.length || 0,
-                })}
-                className="rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-600 disabled:opacity-40"
-              >
-                移到后一天
-              </button>
-            </div>
-            <button
-              type="button"
-              disabled={isApplying}
-              onClick={() => {
-                if (window.confirm(`删除“${selected.card.name}”这张卡片？`)) {
-                  void runCommand({
-                    command_type: 'ACTIVITY_DELETE',
-                    activity_token: selected.card.activity_token,
-                  })
-                }
-              }}
-              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-500 hover:border-rose-200 hover:text-rose-700"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />删除这张卡片
-            </button>
-            <p className="mt-4 text-xs leading-5 text-slate-400">调整会自动保存；路线不会自动重算，需要时可稍后手动更新。</p>
-          </div>
-        </div>
-      )}
-
       {editor && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-label="编辑地点卡片">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="card-editor-title" onKeyDown={handleEditorKeyDown}>
+          <div ref={editorDialogRef} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-xl font-semibold">
+              <h2 id="card-editor-title" className="text-xl font-semibold">
                 {editor.mode === 'INSERT' ? '新增地点' : editor.mode === 'REPLACE' ? '替换地点' : '编辑卡片文字'}
               </h2>
-              <button type="button" onClick={() => setEditor(null)} className="rounded-full bg-slate-100 p-2 text-slate-500" aria-label="关闭编辑">
+              <button type="button" onClick={() => closeEditor()} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label="关闭编辑">
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
@@ -851,44 +1421,46 @@ export default function TripResultPage() {
                 地点名称
                 <input
                   data-testid="card-editor-name"
+                  autoFocus
                   value={editorName}
                   onChange={(event) => setEditorName(event.target.value)}
                   maxLength={40}
-                  className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500"
+                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
                 />
               </label>
               {editor.mode !== 'EDIT' && (
                 <>
                   <label className="block text-sm font-medium text-slate-700">
                     类别
-                    <input value={editorCategory} onChange={(event) => setEditorCategory(event.target.value)} maxLength={40} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                    <input value={editorCategory} onChange={(event) => setEditorCategory(event.target.value)} maxLength={40} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20" />
                   </label>
                   <label className="block text-sm font-medium text-slate-700">
                     区域或地址
-                    <input value={editorAddress} onChange={(event) => setEditorAddress(event.target.value)} maxLength={120} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                    <input value={editorAddress} onChange={(event) => setEditorAddress(event.target.value)} maxLength={120} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20" />
                   </label>
                 </>
               )}
               {editor.mode !== 'REPLACE' && (
                 <label className="block text-sm font-medium text-slate-700">
                   时间提示（可选）
-                  <input value={editorTime} onChange={(event) => setEditorTime(event.target.value)} maxLength={80} className="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2.5 outline-none focus:border-emerald-500" />
+                  <input value={editorTime} onChange={(event) => setEditorTime(event.target.value)} maxLength={80} className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20" />
                 </label>
               )}
             </div>
             <button
               data-testid="save-card-editor"
               type="button"
-              disabled={isApplying}
+              disabled={mutationLocked}
               onClick={() => void submitEditor()}
-              className="mt-6 w-full rounded-2xl bg-emerald-700 px-4 py-3 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70"
+              className="mt-6 min-h-12 w-full rounded-2xl bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
             >
-              {isApplying ? '正在保存…' : '保存调整'}
+              {mutationLocked ? '正在保存…' : '保存调整'}
             </button>
           </div>
         </div>
       )}
     </main>
+    </>
   )
 }
 
@@ -900,18 +1472,22 @@ function TripCheckPanel({
   view,
   preview,
   busy,
+  mutationLocked,
   message,
   onPreview,
   onAdopt,
   onClosePreview,
+  onRetry,
 }: {
   view: PublicTripChecksView | null
   preview: PublicChangePreview | null
   busy: 'PREPARE' | 'PREVIEW' | 'ADOPT' | null
+  mutationLocked: boolean
   message: string
   onPreview: (checkToken: string) => void
   onAdopt: () => void
   onClosePreview: () => void
+  onRetry: () => void
 }) {
   const labelClass = {
     必须调整: 'bg-rose-50 text-rose-700',
@@ -936,6 +1512,17 @@ function TripCheckPanel({
         </div>
       </div>
 
+      {!view && message && busy === null && (
+        <button
+          type="button"
+          disabled={mutationLocked}
+          onClick={onRetry}
+          className="mt-4 min-h-12 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-800 transition motion-reduce:transition-none hover:bg-violet-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 disabled:opacity-50"
+        >
+          重新准备检查
+        </button>
+      )}
+
       {view && (
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {view.items.map((item) => (
@@ -945,7 +1532,7 @@ function TripCheckPanel({
                   {item.label}
                 </span>
                 {item.affected_days.map((day) => (
-                  <span key={day} className="text-xs text-slate-400">{day}</span>
+                  <span key={day} className="text-xs text-slate-600">{day}</span>
                 ))}
               </div>
               <h3 className="mt-3 font-semibold text-slate-800">{item.title}</h3>
@@ -956,7 +1543,7 @@ function TripCheckPanel({
                   type="button"
                   disabled={busy !== null}
                   onClick={() => onPreview(item.check_token)}
-                  className="mt-4 w-full rounded-xl bg-violet-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                  className="mt-4 min-h-12 w-full rounded-xl bg-violet-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2 disabled:opacity-50"
                 >
                   {busy === 'PREVIEW' ? '正在准备预览…' : '预览怎么调整'}
                 </button>
@@ -984,7 +1571,7 @@ function TripCheckPanel({
               <h3 className="mt-1 font-semibold text-slate-800">{preview.title}</h3>
               <p className="mt-1 text-sm leading-6 text-slate-600">{preview.summary}</p>
             </div>
-            <button type="button" onClick={onClosePreview} className="rounded-full bg-white p-2 text-slate-500" aria-label="关闭改动预览">
+            <button type="button" onClick={onClosePreview} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-white text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700" aria-label="关闭改动预览">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
@@ -1001,9 +1588,9 @@ function TripCheckPanel({
           <button
             data-testid="adopt-change"
             type="button"
-            disabled={busy !== null}
+            disabled={busy !== null || mutationLocked}
             onClick={onAdopt}
-            className="mt-4 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+            className="mt-4 min-h-12 w-full rounded-xl bg-violet-700 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-700 focus-visible:ring-offset-2 disabled:opacity-50"
           >
             {busy === 'ADOPT' ? '正在保存并重新检查…' : '采纳这次改动'}
           </button>
@@ -1017,10 +1604,12 @@ function TripCheckPanel({
 function MapTheater({
   view,
   busy,
+  disabled,
   onRender,
 }: {
   view: MapRenderView
   busy: boolean
+  disabled: boolean
   onRender: () => void
 }) {
   const [mode, setMode] = useState<'walking' | 'transit'>('walking')
@@ -1061,7 +1650,7 @@ function MapTheater({
               data-testid="map-mode-walking"
               type="button"
               onClick={() => setMode('walking')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium ${mode === 'walking' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+              className={`inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${mode === 'walking' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600'}`}
             >
               <Footprints className="h-3.5 w-3.5" aria-hidden="true" />步行
             </button>
@@ -1069,7 +1658,7 @@ function MapTheater({
               data-testid="map-mode-transit"
               type="button"
               onClick={() => setMode('transit')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium ${mode === 'transit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500'}`}
+              className={`inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${mode === 'transit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600'}`}
             >
               <BusFront className="h-3.5 w-3.5" aria-hidden="true" />公交
             </button>
@@ -1078,11 +1667,11 @@ function MapTheater({
             <button
               data-testid="render-map"
               type="button"
-              disabled={busy || view.status === 'PREPARING'}
+              disabled={disabled || busy || view.status === 'PREPARING'}
               onClick={onRender}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="inline-flex min-h-12 items-center gap-1.5 rounded-xl bg-emerald-700 px-3 text-xs font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-50"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} aria-hidden="true" />
+              <RefreshCw className={`h-3.5 w-3.5 ${busy ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
               重新渲染地图
             </button>
           )}
@@ -1156,10 +1745,12 @@ function MapTheater({
 function StayPanel({
   view,
   busy,
+  disabled,
   onChoose,
 }: {
   view: StaySuggestionView
   busy: boolean
+  disabled: boolean
   onChoose: (candidateToken: string) => void
 }) {
   return (
@@ -1186,7 +1777,7 @@ function StayPanel({
               <div className="min-w-0">
                 <p className="text-xs font-medium text-blue-700">候选 {index + 1} · {candidate.brand}</p>
                 <h3 className="mt-1 truncate font-semibold text-slate-800">{candidate.name}</h3>
-                <p className="mt-1 text-xs leading-5 text-slate-400">{candidate.area_or_address}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">{candidate.area_or_address}</p>
               </div>
               {candidate.selected && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" aria-label="已选择" />}
             </div>
@@ -1200,9 +1791,9 @@ function StayPanel({
               <button
                 data-testid="choose-stay"
                 type="button"
-                disabled={busy}
+                disabled={disabled || busy}
                 onClick={() => onChoose(candidate.candidate_token)}
-                className="mt-3 w-full rounded-xl bg-blue-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                className="mt-3 min-h-12 w-full rounded-xl bg-blue-700 px-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2 disabled:opacity-50"
               >
                 {busy ? '正在保存…' : '整程住这里'}
               </button>

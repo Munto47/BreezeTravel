@@ -2,7 +2,7 @@
   "schema_version": "product-delivery-result-v1",
   "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "product_fingerprint": "0c09093bfa1eca32942bf68d3b5d665d0470604139d48968e127ff2cad9c54a1",
+  "product_fingerprint": "aa76dbafb3fe48d28f4e54efcbac1530aa2bf0c706c86a6e8facbf6d7b5079ee",
   "checks": {
     "core_mainline_contract": "PASS",
     "g03_top3_targeted": "PASS",
@@ -11,15 +11,19 @@
     "g03_browser_e2e": "PASS"
   },
   "verification": {
-    "g03_targeted_and_existing_v3_regression": "16 PASS",
-    "g03_and_fresh_existing_postgresql": "3 PASS",
+    "g03r_semantic_place_and_existing_v3_regression": "131 PASS",
+    "g03_top3_non_postgresql": "3 PASS",
+    "g03_postgresql_isolated_chain": "1 PASS",
+    "fixed_dataset_validator": "90 VALID / GATE NOT_RUN",
     "frontend_production_build": "PASS",
     "trip_check_client_build": "PASS",
     "openapi_contract": "PASS",
-    "browser_journey": "1 PASS"
+    "g03r_result_ui_single": "29 PASS / retries 0",
+    "g03r_result_ui_repeat3": "87 PASS / retries 0 / default 3 workers",
+    "browser_journey": "1 PASS / local_fixture / provider keys empty"
   },
   "safety_floor": "PASS",
-  "live_provider_evidence": "NOT_RUN",
+  "live_provider_evidence": "NOT_RUN / live AMap calls 0",
   "human_usability": "NOT_RUN",
   "production_evidence": "NOT_RUN",
   "commercial_evidence": "NOT_RUN",

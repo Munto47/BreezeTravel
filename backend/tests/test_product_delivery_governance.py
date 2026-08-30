@@ -9,6 +9,7 @@ import pytest
 
 from governance.core_mainline import (
     CONTRACT_PATH,
+    G03_REPAIR_OWNER_AUTHORIZATION,
     CoreMainlineError,
     product_fingerprint,
     validate_core_mainline,
@@ -295,3 +296,163 @@ def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_wor
     assert report.goal_sequence == 2
     assert report.delivery_goal_sequence == 1
     assert validate_delivery_receipt(root, report.delivery_goal_sequence)["verdict"] == "PASS"
+
+
+def _write_active_g03_repair(
+    root: Path,
+    *,
+    owner_authorization: str,
+) -> None:
+    binding_path = root / "docs/governance/current_goal_binding.json"
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    binding.update(
+        {
+            "goal_sequence": 3,
+            "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+            "status": "IN_PROGRESS",
+            "mainline_phase": "CORE_MVP",
+        }
+    )
+    binding.pop("program_state", None)
+    _write_json(binding_path, binding)
+
+    registry_path = root / "docs/governance/current_work_packages.json"
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry.update(
+        {
+            "active_goal_sequence": 3,
+            "active_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+        }
+    )
+    registry["active_slice"].update(
+        {
+            "work_kind": "BLOCKING_DEFECT",
+            "phase": "IMPLEMENTING",
+            "product_progress": "RUNTIME",
+            "allowed_paths": [
+                "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+            ],
+            "blocking_issue": {
+                "severity": "P1",
+                "reproduction": "Arabic day headings lose day and sequence accuracy.",
+                "current_goal_acceptance_ref": owner_authorization,
+                "impact_chain": "Semantic errors reach itinerary cards and POI lookup.",
+                "minimum_fix": "Repair day, role and atomic-place semantics only.",
+                "stop_condition": "Do not activate G04 or change provider limits.",
+            },
+        }
+    )
+    _write_json(registry_path, registry)
+    (root / "docs/governance/CURRENT_GOAL.md").write_text(
+        "# IN_PROGRESS GOAL：G03 P1 repair\n\n"
+        "Goal ID: TC-VNEXT-G03-TOP3-AUDIT\n"
+        "Status: IN_PROGRESS\n\n"
+        "<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE\n"
+        "{\n"
+        '  "schema_version": "product-delivery-current-goal-state-v1",\n'
+        '  "program_id": "TC-VNEXT-2026",\n'
+        '  "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",\n'
+        '  "goal_status": "IN_PROGRESS",\n'
+        '  "gate_profile": "PRODUCT_DELIVERY_GATE",\n'
+        '  "required_gate": "Top-3 Audit Gate + PRODUCT_DELIVERY_PASS",\n'
+        '  "completion_status": "PENDING",\n'
+        '  "gate_result": "PRODUCT_DELIVERY_NOT_RUN"\n'
+        "}\n"
+        "-->\n\n"
+        "- Gate profile：`PRODUCT_DELIVERY_GATE`\n"
+        "- Required gate：`Top-3 Audit Gate + PRODUCT_DELIVERY_PASS`\n",
+        encoding="utf-8",
+    )
+
+
+def _commit_owner_review_base(root: Path) -> str:
+    binding_path = root / "docs/governance/current_goal_binding.json"
+    binding = json.loads(binding_path.read_text(encoding="utf-8"))
+    binding.update(
+        {
+            "goal_sequence": 3,
+            "goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
+            "status": "OWNER_REVIEW_PENDING",
+            "program_state": "CORE_MVP_OWNER_REVIEW_PENDING",
+        }
+    )
+    _write_json(binding_path, binding)
+    return _commit(root, "hold after G03")
+
+
+def test_owner_authorized_g03_p1_repair_can_leave_review_hold_and_change_runtime(
+    tmp_path: Path,
+) -> None:
+    root, _initial = _delivery_repo(tmp_path)
+    owner_review_base = _commit_owner_review_base(root)
+    _write_active_g03_repair(
+        root,
+        owner_authorization=G03_REPAIR_OWNER_AUTHORIZATION,
+    )
+    _commit(root, "activate authorized G03 repair")
+
+    activation = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert activation.verdict == "PASS"
+    assert activation.work_kind == "GOAL_TRANSITION"
+    assert activation.product_progress == ()
+
+    (root / "backend/app/main.py").write_text(
+        "USER_FLOW = 'semantic-repair'\n",
+        encoding="utf-8",
+    )
+    _commit(root, "repair G03 runtime")
+
+    runtime = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert runtime.verdict == "PASS"
+    assert runtime.work_kind == "BLOCKING_DEFECT"
+    assert runtime.product_progress == ("RUNTIME",)
+
+    prompt = (
+        root
+        / "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md"
+    )
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("Classify local itinerary semantics.\n", encoding="utf-8")
+    _commit(root, "repair the authorized semantic prompt")
+
+    prompt_runtime = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert prompt_runtime.verdict == "PASS"
+    assert prompt_runtime.frozen_g07_changes == ()
+    assert prompt_runtime.deferred_work_changes == ()
+
+    schema = (
+        root
+        / "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json"
+    )
+    schema.write_text("{}\n", encoding="utf-8")
+    _commit(root, "attempt an unauthorized semantic schema change")
+
+    unauthorized_asset = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert unauthorized_asset.verdict == "FAIL"
+    assert "FROZEN_G07_ASSET_CHANGED" in unauthorized_asset.errors
+    assert "DEFERRED_DETAIL_WORK_CHANGED" in unauthorized_asset.errors
+    assert unauthorized_asset.frozen_g07_changes == (
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+    )
+    assert unauthorized_asset.deferred_work_changes == (
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+    )
+
+
+def test_g03_review_hold_cannot_open_governance_only_repair_without_owner_marker(
+    tmp_path: Path,
+) -> None:
+    root, _initial = _delivery_repo(tmp_path)
+    owner_review_base = _commit_owner_review_base(root)
+    _write_active_g03_repair(root, owner_authorization="UNAPPROVED")
+    _commit(root, "attempt unapproved G03 repair")
+
+    report = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert report.verdict == "FAIL"
+    assert "PRODUCT_PROGRESS_NONE" in report.errors
+    assert "GOVERNANCE_ONLY_SLICE" in report.errors

@@ -317,12 +317,14 @@ export async function applyTripUnderstandingCommand(
 
 export async function readTripUnderstandingMap(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<MapRenderView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders/latest`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
@@ -354,12 +356,14 @@ export async function requestTripUnderstandingMap(
 
 export async function readTripUnderstandingStay(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<StaySuggestionView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
@@ -399,12 +403,14 @@ export async function selectTripUnderstandingStay(
 export async function materializeTripUnderstanding(
   publicResourceId: string,
   etag: string,
+  signal?: AbortSignal,
 ): Promise<{ body: MaterializedTripView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/materialize`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Idempotency-Key': operationRequestKey(`materialize:${publicResourceId}:${etag}`),
         'If-Match': etag,
@@ -426,12 +432,14 @@ export async function materializeTripUnderstanding(
 
 export async function readTripUnderstandingChecks(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<PublicTripChecksView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/checks`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
@@ -442,12 +450,14 @@ export async function readTripUnderstandingChecks(
 export async function previewTripUnderstandingChange(
   publicResourceId: string,
   checkToken: string,
+  signal?: AbortSignal,
 ): Promise<PublicChangePreview> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/preview`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         'Idempotency-Key': operationRequestKey(`change-preview:${checkToken}`),

@@ -3,14 +3,24 @@ from __future__ import annotations
 import hashlib
 import re
 import time
-import unicodedata
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
-from app.constraints.amap_types import classify_amap_type, typecodes_for_category
+from app.constraints.amap_types import (
+    classify_amap_type_signals,
+    typecodes_for_category,
+)
 from app.schemas.place import PlaceCategory
+from app.trip_understanding._three_city_place_lexicon import (
+    LexiconMatchTier,
+    get_three_city_place_lexicon,
+    normalize_city_name,
+    normalize_place_name,
+    venue_suffix_equivalent,
+)
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace
 from app.trip_understanding.pipeline import canonical_sha256
@@ -23,9 +33,70 @@ _SENTENCE_MARKERS = frozenset("。！？；\n")
 _PROVIDER_STATUS_SUFFIX_RE = re.compile(
     r"[（(](?:暂停开放|暂停营业|临时关闭|暂不开放|停止营业)[）)]$"
 )
-_PROVIDER_CATEGORY_SUFFIXES = ("博物馆", "风景区", "景区")
-_PROVIDER_HIERARCHY_SEPARATORS = ("-", "—")
 _G01_ATTRACTION_ADDITIONAL_TYPECODES = ("061000",)
+_PROVIDER_MATCH_TIERS = (
+    "CANONICAL_EXACT",
+    "SAFE_ALIAS_EXACT",
+    "VENUE_SUFFIX_EQUIVALENT",
+)
+_CITY_ADMIN_RULES = {
+    "北京": {"province": "北京", "adcode_prefix": "11", "municipality": True},
+    "上海": {"province": "上海", "adcode_prefix": "31", "municipality": True},
+    "杭州": {"province": "浙江", "adcode_prefix": "3301", "municipality": False},
+}
+_DISTRICT_ADCODES = {
+    "北京": {
+        "东城": "110101",
+        "西城": "110102",
+        "朝阳": "110105",
+        "丰台": "110106",
+        "石景山": "110107",
+        "海淀": "110108",
+        "门头沟": "110109",
+        "房山": "110111",
+        "通州": "110112",
+        "顺义": "110113",
+        "昌平": "110114",
+        "大兴": "110115",
+        "怀柔": "110116",
+        "平谷": "110117",
+        "密云": "110118",
+        "延庆": "110119",
+    },
+    "上海": {
+        "黄浦": "310101",
+        "徐汇": "310104",
+        "长宁": "310105",
+        "静安": "310106",
+        "普陀": "310107",
+        "虹口": "310109",
+        "杨浦": "310110",
+        "闵行": "310112",
+        "宝山": "310113",
+        "嘉定": "310114",
+        "浦东": "310115",
+        "金山": "310116",
+        "松江": "310117",
+        "青浦": "310118",
+        "奉贤": "310120",
+        "崇明": "310151",
+    },
+    "杭州": {
+        "上城": "330102",
+        "拱墅": "330105",
+        "西湖": "330106",
+        "滨江": "330108",
+        "萧山": "330109",
+        "余杭": "330110",
+        "富阳": "330111",
+        "临安": "330112",
+        "临平": "330113",
+        "钱塘": "330114",
+        "桐庐": "330122",
+        "淳安": "330127",
+        "建德": "330182",
+    },
+}
 _LEXICAL_CATEGORY_MARKERS = (
     (
         PlaceCategory.TRANSPORT,
@@ -179,15 +250,11 @@ def _sha256_text(value: str) -> str:
 
 
 def _normalized_name(value: str) -> str:
-    return "".join(unicodedata.normalize("NFKC", value).split()).casefold()
+    return normalize_place_name(value)
 
 
 def _normalized_city(value: str) -> str:
-    normalized = _normalized_name(value)
-    for suffix in ("特别行政区", "自治区", "自治州", "地区", "盟", "省", "市"):
-        if normalized.endswith(suffix):
-            return normalized[: -len(suffix)]
-    return normalized
+    return normalize_city_name(value)
 
 
 def _provider_aliases(raw: dict[str, Any]) -> list[str]:
@@ -207,63 +274,57 @@ def _provider_aliases(raw: dict[str, Any]) -> list[str]:
     return expanded
 
 
-def _name_variants(value: str, *, city: str, provider_name: bool) -> set[str]:
-    raw_values = {value.strip()}
-    if provider_name:
-        raw_values.add(_PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip())
-    variants: set[str] = set()
-    city_prefixes = (city, f"{_normalized_city(city)}市")
-    for raw in tuple(raw_values):
-        if not raw:
-            continue
-        raw_values.update(
-            raw[len(prefix) :]
-            for prefix in city_prefixes
-            if raw.startswith(prefix) and len(raw) > len(prefix)
-        )
-    if provider_name:
-        for raw in tuple(raw_values):
-            for separator in _PROVIDER_HIERARCHY_SEPARATORS:
-                if separator in raw:
-                    tail = raw.rsplit(separator, 1)[-1].strip()
-                    if len(tail) >= 2:
-                        raw_values.add(tail)
-            for suffix in _PROVIDER_CATEGORY_SUFFIXES:
-                if raw.endswith(suffix) and len(raw) > len(suffix) + 1:
-                    raw_values.add(raw[: -len(suffix)])
-    for raw in raw_values:
-        normalized = _normalized_name(raw)
-        if normalized:
-            variants.add(normalized)
-    return variants
+def _comparison_values(value: str, *, city: str, provider_name: bool) -> set[str]:
+    cleaned = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip() if provider_name else value.strip()
+    normalized = _normalized_name(cleaned)
+    if not normalized:
+        return set()
+    values = {normalized}
+    for prefix in {_normalized_city(city), _normalized_name(f"{_normalized_city(city)}市")}:
+        if normalized.startswith(prefix) and len(normalized) > len(prefix):
+            values.add(normalized[len(prefix) :])
+    return values
 
 
-def _name_matches(raw: dict[str, Any], atomic: str, city: str) -> tuple[bool, bool]:
-    query_variants = _name_variants(atomic, city=city, provider_name=False)
+def _name_match_tier(
+    raw: dict[str, Any],
+    *,
+    canonical_name: str,
+    safe_aliases: tuple[str, ...],
+    city: str,
+) -> str | None:
     primary = raw.get("name")
-    names = [primary] if isinstance(primary, str) else []
-    aliases = _provider_aliases(raw)
-    for index, name in enumerate([*names, *aliases]):
-        provider_variants = _name_variants(name, city=city, provider_name=True)
-        if query_variants & provider_variants:
-            return True, index >= len(names)
-    return False, False
+    if not isinstance(primary, str) or not primary.strip():
+        return None
+    canonical_values = _comparison_values(canonical_name, city=city, provider_name=False)
+    safe_alias_values = {
+        value
+        for alias in safe_aliases
+        for value in _comparison_values(alias, city=city, provider_name=False)
+    }
+    primary_values = _comparison_values(primary, city=city, provider_name=True)
+    if canonical_values & primary_values:
+        return "CANONICAL_EXACT"
 
+    provider_alias_values = {
+        value
+        for alias in _provider_aliases(raw)
+        for value in _comparison_values(alias, city=city, provider_name=True)
+    }
+    if (safe_alias_values & primary_values) or (
+        provider_alias_values & (canonical_values | safe_alias_values)
+    ):
+        return "SAFE_ALIAS_EXACT"
 
-def _primary_name_is_exact(raw: dict[str, Any], atomic: str, city: str) -> bool:
-    primary = raw.get("name")
-    if not isinstance(primary, str):
-        return False
-    provider_name = _PROVIDER_STATUS_SUFFIX_RE.sub("", primary).strip()
-    provider_values = {provider_name}
-    city_prefixes = (city, f"{_normalized_city(city)}市")
-    provider_values.update(
-        provider_name[len(prefix) :]
-        for prefix in city_prefixes
-        if provider_name.startswith(prefix) and len(provider_name) > len(prefix)
-    )
-    query = _normalized_name(atomic)
-    return any(_normalized_name(value) == query for value in provider_values)
+    expected_values = canonical_values | safe_alias_values
+    provider_values = primary_values | provider_alias_values
+    if any(
+        venue_suffix_equivalent(provider_value, expected_value)
+        for provider_value in provider_values
+        for expected_value in expected_values
+    ):
+        return "VENUE_SUFFIX_EQUIVALENT"
+    return None
 
 
 def _expected_category(category_hint: str | None) -> PlaceCategory | None:
@@ -312,17 +373,51 @@ def _string_values(value: object) -> list[str]:
     return []
 
 
-def _city_matches(raw: dict[str, Any], expected_city: str) -> bool:
-    expected = _normalized_city(expected_city)
-    city_values = _string_values(raw.get("cityname"))
-    if city_values:
-        return any(_normalized_city(value) == expected for value in city_values)
-    if expected in {_normalized_city("北京"), _normalized_city("上海")}:
-        return any(
-            _normalized_city(value) == expected
-            for value in _string_values(raw.get("pname"))
-        )
-    return False
+def _one_provider_value(value: object) -> str | None:
+    values = {item.strip() for item in _string_values(value) if item.strip()}
+    return values.pop() if len(values) == 1 else None
+
+
+def _normalized_district(value: str) -> str:
+    normalized = _normalized_name(value)
+    for suffix in ("自治县", "新区", "区", "县", "市"):
+        if normalized.endswith(suffix) and len(normalized) > len(suffix):
+            return normalized[: -len(suffix)]
+    return normalized
+
+
+def _admin_matches(
+    raw: dict[str, Any],
+    *,
+    expected_city: str,
+    expected_district: str | None,
+) -> bool:
+    city = _normalized_city(expected_city)
+    rule = _CITY_ADMIN_RULES.get(city)
+    if rule is None:
+        return False
+
+    province = _one_provider_value(raw.get("pname"))
+    district = _one_provider_value(raw.get("adname"))
+    adcode = _one_provider_value(raw.get("adcode"))
+    if province is None or district is None or adcode is None:
+        return False
+    if _normalized_city(province) != rule["province"]:
+        return False
+    if not re.fullmatch(r"\d{6}", adcode) or not adcode.startswith(str(rule["adcode_prefix"])):
+        return False
+    normalized_district = _normalized_district(district)
+    if _DISTRICT_ADCODES[city].get(normalized_district) != adcode:
+        return False
+
+    city_values = {item.strip() for item in _string_values(raw.get("cityname")) if item.strip()}
+    if city_values and any(_normalized_city(value) != city for value in city_values):
+        return False
+    if not city_values and not bool(rule["municipality"]):
+        return False
+    if expected_district is not None and normalized_district != _normalized_district(expected_district):
+        return False
+    return True
 
 
 def _coordinates(value: object) -> tuple[float, float] | None:
@@ -338,6 +433,139 @@ def _coordinates(value: object) -> tuple[float, float] | None:
     if not (-180 <= longitude <= 180 and -90 <= latitude <= 90):
         return None
     return longitude, latitude
+
+
+@dataclass(frozen=True, slots=True)
+class _MatchedCandidate:
+    raw: dict[str, Any]
+    category: PlaceCategory
+    coordinates: tuple[float, float]
+    tier: str
+    category_compatibility_basis: str
+
+
+@dataclass(frozen=True, slots=True)
+class _CandidateDecision:
+    selected: _MatchedCandidate | None
+    metrics: dict[str, object]
+
+
+def _evaluate_candidates(
+    pois: list[dict[str, Any]],
+    *,
+    city: str,
+    canonical_name: str,
+    safe_aliases: tuple[str, ...],
+    expected_category: PlaceCategory | None,
+    expected_district: str | None,
+    atomic: str,
+) -> _CandidateDecision:
+    name_matches: list[tuple[dict[str, Any], str]] = []
+    alias_match_ids: set[str] = set()
+    for item in pois:
+        tier = _name_match_tier(
+            item,
+            canonical_name=canonical_name,
+            safe_aliases=safe_aliases,
+            city=city,
+        )
+        if tier is None:
+            continue
+        name_matches.append((item, tier))
+        if tier == "SAFE_ALIAS_EXACT":
+            alias_match_ids.add(str(item.get("id") or "").strip())
+
+    admin_match_ids: set[str] = set()
+    category_conflict_ids: set[str] = set()
+    category_incomplete_ids: set[str] = set()
+    by_tier: dict[str, dict[str, _MatchedCandidate]] = {
+        tier: {} for tier in _PROVIDER_MATCH_TIERS
+    }
+    for item, tier in name_matches:
+        provider_id_raw = item.get("id")
+        provider_id = provider_id_raw.strip() if isinstance(provider_id_raw, str) else ""
+        if not provider_id or not _admin_matches(
+            item,
+            expected_city=city,
+            expected_district=expected_district,
+        ):
+            continue
+        admin_match_ids.add(provider_id)
+
+        typecode_raw = item.get("typecode")
+        type_label_raw = item.get("type")
+        typecode = typecode_raw.strip() if isinstance(typecode_raw, str) else ""
+        type_label = type_label_raw.strip() if isinstance(type_label_raw, str) else ""
+        signals = classify_amap_type_signals(typecode, type_label)
+        compatibility_basis = "PROVIDER_TYPECODE_AND_LABEL"
+        if signals.conflict:
+            category_conflict_ids.add(provider_id)
+            continue
+        if signals.complete:
+            category = signals.category
+        elif (
+            expected_category is not None
+            and typecode
+            and type_label
+            and _product_semantic_technical_category_is_compatible(
+                item,
+                atomic=atomic,
+                expected_category=expected_category,
+            )
+        ):
+            category = expected_category
+            compatibility_basis = "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
+        else:
+            category_incomplete_ids.add(provider_id)
+            continue
+        if category is PlaceCategory.UNKNOWN or (
+            expected_category is not None and category is not expected_category
+        ):
+            continue
+
+        coordinates = _coordinates(item.get("location"))
+        if coordinates is None:
+            continue
+        by_tier[tier].setdefault(
+            provider_id,
+            _MatchedCandidate(
+                raw=item,
+                category=category,
+                coordinates=coordinates,
+                tier=tier,
+                category_compatibility_basis=compatibility_basis,
+            ),
+        )
+
+    selected: _MatchedCandidate | None = None
+    selection_tier = "NO_VALID_CANDIDATE"
+    for tier in _PROVIDER_MATCH_TIERS:
+        candidates = tuple(by_tier[tier].values())
+        if not candidates:
+            continue
+        selection_tier = tier if len(candidates) == 1 else f"AMBIGUOUS_{tier}"
+        if len(candidates) == 1:
+            selected = candidates[0]
+        break
+
+    compatible_ids = {
+        provider_id
+        for candidates in by_tier.values()
+        for provider_id in candidates
+    }
+    metrics: dict[str, object] = {
+        "provider_result_count": len(pois),
+        "exact_name_candidate_count": len(name_matches),
+        "provider_alias_candidate_count": len(alias_match_ids - {""}),
+        "city_consistent_candidate_count": len(admin_match_ids),
+        "category_compatible_candidate_count": len(compatible_ids),
+        "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
+        "provider_type_conflict_candidate_count": len(category_conflict_ids),
+        "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
+        "name_match_policy": "HIGHEST_TIER_UNIQUE_POI_ID_V4",
+        "selection_tier": selection_tier,
+    }
+    return _CandidateDecision(selected=selected, metrics=metrics)
 
 
 def _provider_request_id_hash(response: httpx.Response) -> str:
@@ -399,9 +627,6 @@ def _combine_rewrite_receipts(
         "rewrite_count": 1,
         "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
         "primary_typecodes": primary.get("typecodes", []),
-        "category_compatible_candidate_count": (
-            1 if accepted else 0
-        ),
         "status": "AUTO_MATCHED" if accepted else "NO_UNIQUE_MATCH",
         "calls": calls,
         "raw_provider_response_retained": False,
@@ -448,59 +673,18 @@ class AmapPlaceResolver:
             "raw_provider_response_retained": False,
         }
 
-    async def resolve(
+    async def _query_provider(
         self,
         *,
         city: str,
-        atomic_place_name: str,
-        category_hint: str | None = None,
-        _allow_lexical_category: bool = True,
-    ) -> PlaceResolutionOutcome:
-        atomic = atomic_place_name.strip()
-        if (
-            not atomic
-            or len(atomic) > 40
-            or any(marker in atomic.casefold() for marker in _FORBIDDEN_MARKERS)
-            or any(marker in atomic for marker in _SENTENCE_MARKERS)
-        ):
-            return PlaceResolutionOutcome(
-                receipt=self._no_call_receipt(
-                    city=city,
-                    atomic_place_name=atomic,
-                    status="INVALID_ATOMIC_TEXT",
-                )
-            )
-        normalized_city = _normalized_city(city)
-        if normalized_city not in {_normalized_city(value) for value in _DEEP_CITIES}:
-            return PlaceResolutionOutcome(
-                receipt=self._no_call_receipt(
-                    city=city,
-                    atomic_place_name=atomic,
-                    status="BASIC_CITY_CONFIRMATION_REQUIRED",
-                )
-            )
-
-        expected_category = _expected_category(category_hint)
-        category_basis = "EXPLICIT_SEMANTIC_HINT"
-        if expected_category is None:
-            category_basis = "NOT_AVAILABLE"
-            if _allow_lexical_category and not category_hint:
-                expected_category = _lexical_category(atomic)
-                if expected_category is not None:
-                    category_basis = "ATOMIC_NAME_LEXICAL"
-        typecodes = (
-            typecodes_for_category(expected_category)
-            if expected_category is not None
-            else []
-        )
-        # Tourist commercial streets are useful for text-card resolution, but
-        # the shared category list is also part of older suggestion query
-        # contracts. Keep the G01 expansion local so those frozen contracts do
-        # not drift.
-        if expected_category == PlaceCategory.ATTRACTION:
-            typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
+        query_name: str,
+        original_atomic: str,
+        category_basis: str,
+        typecodes: list[str],
+        lexicon_binding: dict[str, object],
+    ) -> tuple[list[dict[str, Any]], dict[str, object]]:
         safe_params: dict[str, object] = {
-            "keywords_sha256": _sha256_text(atomic),
+            "keywords_sha256": _sha256_text(query_name),
             "region": city,
             "city_limit": "true",
             "page_size": 25,
@@ -511,7 +695,7 @@ class AmapPlaceResolver:
         }
         params: dict[str, object] = {
             "key": self.api_key,
-            "keywords": atomic,
+            "keywords": query_name,
             "region": city,
             "city_limit": "true",
             "page_size": 25,
@@ -529,11 +713,13 @@ class AmapPlaceResolver:
             "execution_mode": "LIVE",
             "endpoint_sha256": _sha256_text(self.endpoint),
             "request_sha256": request_sha256,
-            "query_sha256": _sha256_text(atomic),
+            "query_sha256": _sha256_text(original_atomic),
+            "provider_keywords_sha256": _sha256_text(query_name),
             "city": city,
             "city_limit": True,
             "category_basis": category_basis,
             "typecodes": typecodes,
+            **lexicon_binding,
             "raw_provider_response_retained": False,
         }
         started = time.perf_counter()
@@ -573,16 +759,12 @@ class AmapPlaceResolver:
         if not isinstance(payload, dict):
             raise PlaceProviderUnavailableError(
                 "INVALID_PROVIDER_RESPONSE",
-                provider_binding={
-                    **request_binding,
-                    "latency_ms": latency_ms,
-                },
+                provider_binding={**request_binding, "latency_ms": latency_ms},
                 external_call_count=1,
             )
-        response_sha256 = canonical_sha256(payload)
         base_receipt: dict[str, object] = {
             **request_binding,
-            "response_sha256": response_sha256,
+            "response_sha256": canonical_sha256(payload),
             "provider_request_id_sha256": _provider_request_id_hash(response),
             "http_status": response.status_code,
             "latency_ms": latency_ms,
@@ -598,138 +780,17 @@ class AmapPlaceResolver:
                 },
                 external_call_count=1,
             )
-
         raw_pois = payload.get("pois")
         pois = [item for item in raw_pois if isinstance(item, dict)] if isinstance(raw_pois, list) else []
-        name_matches: list[dict[str, Any]] = []
-        alias_match_ids: set[str] = set()
-        for item in pois:
-            matched, via_alias = _name_matches(item, atomic, city)
-            if not matched:
-                continue
-            name_matches.append(item)
-            if via_alias:
-                alias_match_ids.add(str(item.get("id") or ""))
-        city_matches = [item for item in name_matches if _city_matches(item, city)]
-        compatible: list[tuple[dict[str, Any], PlaceCategory, tuple[float, float]]] = []
-        seen_ids: set[str] = set()
-        for item in city_matches:
-            category = classify_amap_type(
-                str(item.get("typecode") or ""),
-                str(item.get("type") or ""),
-            )
-            if expected_category is not None and category != expected_category:
-                continue
-            coordinates = _coordinates(item.get("location"))
-            provider_id = str(item.get("id") or "").strip()
-            if coordinates is None or not provider_id or provider_id in seen_ids:
-                continue
-            seen_ids.add(provider_id)
-            compatible.append((item, category, coordinates))
+        return pois, base_receipt
 
-        decision_receipt = {
-            **base_receipt,
-            "provider_result_count": len(pois),
-            "exact_name_candidate_count": len(name_matches),
-            "provider_alias_candidate_count": len(alias_match_ids - {""}),
-            "city_consistent_candidate_count": len(city_matches),
-            "category_compatible_candidate_count": len(compatible),
-            "primary_exact_candidate_count": sum(
-                _primary_name_is_exact(item, atomic, city)
-                for item, _category, _coordinates_value in compatible
-            ),
-            "name_match_policy": "UNIQUE_PRIMARY_EXACT_THEN_UNIQUE_VARIANT_V3",
-        }
-        if len(compatible) == 0 and typecodes:
-            try:
-                rewrite = await self.resolve(
-                    city=city,
-                    atomic_place_name=atomic,
-                    category_hint=None,
-                    _allow_lexical_category=False,
-                )
-            except PlaceProviderUnavailableError as exc:
-                failure = dict(exc.provider_binding)
-                raise PlaceProviderUnavailableError(
-                    exc.category,
-                    provider_binding={
-                        **failure,
-                        "primary_request_sha256": decision_receipt[
-                            "request_sha256"
-                        ],
-                        "primary_response_sha256": decision_receipt[
-                            "response_sha256"
-                        ],
-                        "external_calls": 1 + exc.external_call_count,
-                        "rewrite_count": 1,
-                        "query_strategy": (
-                            "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK"
-                        ),
-                        "raw_provider_response_retained": False,
-                    },
-                    external_call_count=1 + exc.external_call_count,
-                ) from exc
-            accepted_rewrite = (
-                rewrite.place is not None
-                and (
-                    rewrite.place.category == _CATEGORY_LABELS[expected_category]
-                    or _product_semantic_technical_category_is_compatible(
-                        rewrite.receipt,
-                        atomic=atomic,
-                        expected_category=expected_category,
-                    )
-                )
-            )
-            combined_receipt = _combine_rewrite_receipts(
-                decision_receipt,
-                rewrite.receipt,
-                accepted=accepted_rewrite,
-            )
-            if accepted_rewrite and rewrite.place is not None:
-                resolved_category = _CATEGORY_LABELS[expected_category]
-                compatibility_basis = (
-                    "PROVIDER_TYPE_CLASSIFICATION"
-                    if rewrite.place.category == resolved_category
-                    else "G01_PRODUCT_SEMANTIC_TECHNICAL_COMPATIBILITY"
-                )
-                combined_receipt = {
-                    **combined_receipt,
-                    "resolved_category": resolved_category,
-                    "category_compatibility_basis": compatibility_basis,
-                }
-                place = rewrite.place.model_copy(
-                    update={
-                        "category": resolved_category,
-                        "provider_binding": combined_receipt,
-                    }
-                )
-                return PlaceResolutionOutcome(
-                    place=place,
-                    receipt=combined_receipt,
-                )
-            return PlaceResolutionOutcome(receipt=combined_receipt)
-
-        selected = compatible
-        selection_tier = "UNIQUE_VARIANT"
-        if len(compatible) > 1:
-            primary_exact = [
-                item
-                for item in compatible
-                if _primary_name_is_exact(item[0], atomic, city)
-            ]
-            if len(primary_exact) == 1:
-                selected = primary_exact
-                selection_tier = "UNIQUE_PRIMARY_EXACT"
-        if len(selected) != 1:
-            return PlaceResolutionOutcome(
-                receipt={
-                    **decision_receipt,
-                    "selection_tier": "AMBIGUOUS",
-                    "status": "NO_UNIQUE_MATCH",
-                }
-            )
-
-        raw, category, (longitude, latitude) = selected[0]
+    @staticmethod
+    def _resolved_outcome(
+        candidate: _MatchedCandidate,
+        receipt: dict[str, object],
+    ) -> PlaceResolutionOutcome:
+        raw = candidate.raw
+        longitude, latitude = candidate.coordinates
         address = raw.get("address")
         if isinstance(address, list):
             address = "".join(str(item) for item in address)
@@ -737,23 +798,195 @@ class AmapPlaceResolver:
             district = raw.get("adname")
             address = district if isinstance(district, str) else "地点详情待确认"
         provider_binding = {
-            **decision_receipt,
+            **receipt,
             "status": "AUTO_MATCHED",
-            "selection_tier": selection_tier,
-            "resolved_category": _CATEGORY_LABELS[category],
-            "category_compatibility_basis": "PROVIDER_TYPE_CLASSIFICATION",
+            "selection_tier": candidate.tier,
+            "resolved_category": _CATEGORY_LABELS[candidate.category],
+            "category_compatibility_basis": candidate.category_compatibility_basis,
             "adcode": str(raw.get("adcode") or "NOT_EXPOSED_BY_PROVIDER"),
             "typecode": str(raw.get("typecode") or "NOT_EXPOSED_BY_PROVIDER"),
-            "coordinates": {
-                "longitude": longitude,
-                "latitude": latitude,
-            },
+            "coordinates": {"longitude": longitude, "latitude": latitude},
         }
         place = ResolvedPlace(
             canonical_place_id=str(raw["id"]),
             name=str(raw["name"]),
-            category=_CATEGORY_LABELS[category],
+            category=_CATEGORY_LABELS[candidate.category],
             area_or_address=address.strip(),
             provider_binding=provider_binding,
         )
         return PlaceResolutionOutcome(place=place, receipt=provider_binding)
+
+    async def resolve(
+        self,
+        *,
+        city: str,
+        atomic_place_name: str,
+        category_hint: str | None = None,
+        _allow_lexical_category: bool = True,
+    ) -> PlaceResolutionOutcome:
+        atomic = atomic_place_name.strip()
+        if (
+            not atomic
+            or len(atomic) > 40
+            or any(marker in atomic.casefold() for marker in _FORBIDDEN_MARKERS)
+            or any(marker in atomic for marker in _SENTENCE_MARKERS)
+        ):
+            return PlaceResolutionOutcome(
+                receipt=self._no_call_receipt(
+                    city=city,
+                    atomic_place_name=atomic,
+                    status="INVALID_ATOMIC_TEXT",
+                )
+            )
+        normalized_city = _normalized_city(city)
+        if normalized_city not in {_normalized_city(value) for value in _DEEP_CITIES}:
+            return PlaceResolutionOutcome(
+                receipt=self._no_call_receipt(
+                    city=city,
+                    atomic_place_name=atomic,
+                    status="BASIC_CITY_CONFIRMATION_REQUIRED",
+                )
+            )
+
+        lexicon = get_three_city_place_lexicon()
+        lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
+        lexicon_binding: dict[str, object] = {
+            "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
+            "lexicon_match_tier": LexiconMatchTier.NONE.value,
+            "lexicon_rewrite_applied": False,
+        }
+        query_name = atomic
+        safe_aliases: tuple[str, ...] = ()
+        expected_district: str | None = None
+        lexicon_category: PlaceCategory | None = None
+        if lookup is not None and lookup.matches:
+            lexicon_binding["lexicon_match_tier"] = lookup.tier.value
+            if lookup.unique is None:
+                return PlaceResolutionOutcome(
+                    receipt={
+                        **self._no_call_receipt(
+                            city=city,
+                            atomic_place_name=atomic,
+                            status="LEXICON_AMBIGUOUS",
+                        ),
+                        **lexicon_binding,
+                        "lexicon_status": "AMBIGUOUS",
+                    }
+                )
+            entry = lookup.unique
+            query_name = entry.canonical_name
+            safe_aliases = entry.aliases
+            expected_district = entry.district
+            lexicon_category = PlaceCategory(entry.category)
+            lexicon_binding = {
+                **lexicon_binding,
+                "lexicon_status": "MATCHED",
+                "lexicon_entry_id_sha256": _sha256_text(entry.entry_id),
+                "lexicon_rewrite_applied": _normalized_name(query_name) != _normalized_name(atomic),
+                "lexicon_category": entry.category,
+                "lexicon_district_constraint": expected_district is not None,
+            }
+
+        expected_category = _expected_category(category_hint)
+        category_basis = "EXPLICIT_SEMANTIC_HINT"
+        if expected_category is None:
+            category_basis = "NOT_AVAILABLE"
+            if _allow_lexical_category and not category_hint:
+                expected_category = _lexical_category(atomic)
+                if expected_category is not None:
+                    category_basis = "ATOMIC_NAME_LEXICAL"
+        if (
+            expected_category is not None
+            and lexicon_category is not None
+            and expected_category is not lexicon_category
+        ):
+            return PlaceResolutionOutcome(
+                receipt={
+                    **self._no_call_receipt(
+                        city=city,
+                        atomic_place_name=atomic,
+                        status="LEXICON_CATEGORY_CONFLICT",
+                    ),
+                    **lexicon_binding,
+                    "category_basis": category_basis,
+                }
+            )
+        if expected_category is None and lexicon_category is not None:
+            expected_category = lexicon_category
+            category_basis = "LEXICON_CATEGORY"
+
+        typecodes = typecodes_for_category(expected_category) if expected_category is not None else []
+        # Tourist commercial streets are useful for text-card resolution, but
+        # the shared category list is part of older suggestion query contracts.
+        if expected_category == PlaceCategory.ATTRACTION:
+            typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
+
+        pois, primary_base = await self._query_provider(
+            city=city,
+            query_name=query_name,
+            original_atomic=atomic,
+            category_basis=category_basis,
+            typecodes=typecodes,
+            lexicon_binding=lexicon_binding,
+        )
+        primary_decision = _evaluate_candidates(
+            pois,
+            city=city,
+            canonical_name=query_name,
+            safe_aliases=safe_aliases,
+            expected_category=expected_category,
+            expected_district=expected_district,
+            atomic=atomic,
+        )
+        primary_receipt = {**primary_base, **primary_decision.metrics}
+        if primary_decision.selected is not None:
+            return self._resolved_outcome(primary_decision.selected, primary_receipt)
+
+        compatible_count = int(primary_decision.metrics["category_compatible_candidate_count"])
+        if compatible_count == 0 and typecodes:
+            try:
+                rewrite_pois, rewrite_base = await self._query_provider(
+                    city=city,
+                    query_name=query_name,
+                    original_atomic=atomic,
+                    category_basis=category_basis,
+                    typecodes=[],
+                    lexicon_binding=lexicon_binding,
+                )
+            except PlaceProviderUnavailableError as exc:
+                failure = dict(exc.provider_binding)
+                raise PlaceProviderUnavailableError(
+                    exc.category,
+                    provider_binding={
+                        **failure,
+                        "primary_request_sha256": primary_receipt["request_sha256"],
+                        "primary_response_sha256": primary_receipt["response_sha256"],
+                        "external_calls": 1 + exc.external_call_count,
+                        "rewrite_count": 1,
+                        "query_strategy": "CATEGORY_FILTERED_THEN_UNTYPED_LOCAL_CATEGORY_CHECK",
+                        "raw_provider_response_retained": False,
+                    },
+                    external_call_count=1 + exc.external_call_count,
+                ) from exc
+            rewrite_decision = _evaluate_candidates(
+                rewrite_pois,
+                city=city,
+                canonical_name=query_name,
+                safe_aliases=safe_aliases,
+                expected_category=expected_category,
+                expected_district=expected_district,
+                atomic=atomic,
+            )
+            rewrite_receipt = {**rewrite_base, **rewrite_decision.metrics}
+            combined_receipt = _combine_rewrite_receipts(
+                primary_receipt,
+                rewrite_receipt,
+                accepted=rewrite_decision.selected is not None,
+            )
+            if rewrite_decision.selected is not None:
+                return self._resolved_outcome(rewrite_decision.selected, combined_receipt)
+            return PlaceResolutionOutcome(receipt=combined_receipt)
+
+        return PlaceResolutionOutcome(
+            receipt={**primary_receipt, "status": "NO_UNIQUE_MATCH"}
+        )

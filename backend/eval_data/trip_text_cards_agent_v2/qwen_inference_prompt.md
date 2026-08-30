@@ -38,6 +38,11 @@ Mentions:
   `atomic_place_name` MUST equal that span; do not set it to null. Use null only
   when the source itself does not provide a reliable place-name boundary. Never
   invent or normalize a name.
+- Keep the boundary at the smallest source-verbatim place entity. Strip local
+  action wording such as “上午去/随后前往/结束当天” by selecting only the
+  place span, but never rewrite the selected name. Reject navigation wording,
+  reservation workflow text, phone-like digit strings and URL query values as
+  places even when they contain a real place name.
 - Classify every place mention from its local sentence as exactly one of:
   - `PLANNED`: the author has committed to visit or stop there;
   - `OPTIONAL`: it is a backup, time-permitting choice, or conditionally may be
@@ -50,12 +55,26 @@ Mentions:
   Phrases such as “听说/网友提到/另一篇攻略/不是本次安排” are `REFERENCE`,
   not `EXCLUDED`. A quoted example inside an instruction is not a substitute
   for the later, actual local intent sentence.
+- Apply this local priority without borrowing intent from another occurrence:
+  skip meta-instructions first; then unconditional cancellation is
+  `EXCLUDED`; a conditional choice or conditional skip is `OPTIONAL`; a pure
+  pass/transfer is `PASS_THROUGH`; a recommendation, hearsay item or “not this
+  trip's arrangement” is `REFERENCE`; only an explicit committed visit is
+  `PLANNED`.
+- Judge every real occurrence independently even when names repeat or overlap.
+  A planned compound such as `北京鼓楼` does not satisfy a later standalone
+  `鼓楼` reference. Likewise, a quoted `X很有名` meta-example must be skipped
+  without suppressing the later sentence that actually classifies `X` as a
+  `REFERENCE`.
 - Do not return day or sequence indexes. Application code derives the day from
   the nearest preceding Day/第N天 heading (Day 1 when absent), sorts accepted
   mentions by source span, and assigns sequence indexes.
 - Do not return category or time hints. Provider resolution supplies verified
   categories later; application code copies only explicit local time markers
   such as “上午” or “08:30” from the source.
+
+Only a `PLANNED` mention with a non-null, valid atomic place span can be sent to
+POI resolution or a public itinerary card. All other roles remain internal.
 
 Do not claim that any POI, city, category, route, opening time or booking fact is
 verified. Deterministic application code performs Provider resolution later.

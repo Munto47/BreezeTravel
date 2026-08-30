@@ -34,6 +34,19 @@ from app.trip_understanding.models import (
 
 URL_RE = re.compile(r"https?://", re.IGNORECASE)
 SENTENCE_MARKERS = set("。！？；\n")
+ATOMIC_PLACE_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+")
+FORBIDDEN_PLACE_MARKERS = (
+    "预约",
+    "说明",
+    "网址",
+    "链接",
+    "电话",
+    "导航",
+    "路线",
+    "流程",
+    "确认",
+    "分钟",
+)
 DEEP_CITIES = ("北京", "上海", "杭州")
 
 
@@ -127,22 +140,15 @@ def is_atomic_planned_place(mention) -> bool:
     candidate = (mention.atomic_place_name or "").strip()
     if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
         return False
-    if any(marker in candidate for marker in SENTENCE_MARKERS):
-        return False
-    if any(word in candidate for word in ("预约", "说明", "网址", "链接")):
-        return False
-    return True
-
-
-def is_user_facing_planned_place(mention) -> bool:
-    if mention.role != ActivityRole.PLANNED or mention.day_index is None:
-        return False
-    candidate = (mention.atomic_place_name or mention.raw_text or "").strip()
-    if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
+    if candidate != (mention.raw_text or "").strip():
         return False
     if any(marker in candidate for marker in SENTENCE_MARKERS):
         return False
-    return not any(word in candidate for word in ("预约", "说明", "网址", "链接"))
+    if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
+        return False
+    if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
+        return False
+    return re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is not None
 
 
 class EvidenceCompiler:
@@ -203,7 +209,7 @@ class PublicResultProjector:
         planned = [
             activity
             for activity in activities
-            if is_user_facing_planned_place(activity.compiled.mention)
+            if is_atomic_planned_place(activity.compiled.mention)
         ]
         day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
@@ -216,7 +222,7 @@ class PublicResultProjector:
                 (
                     activity
                     for activity in activities
-                    if is_user_facing_planned_place(activity.compiled.mention)
+                    if is_atomic_planned_place(activity.compiled.mention)
                     and activity.compiled.mention.day_index == day_index
                 ),
                 key=lambda activity: activity.compiled.mention.sequence_index,
