@@ -365,6 +365,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         for step in postgres_steps
         if step.get("name") == "Prepare POSIX backend regression compatibility"
     )
+    assert "fonts-noto-cjk" in compatibility_step["run"]
     assert "ci_posix_cmd_junction_shim.py" in compatibility_step["run"]
     assert "pydantic==2.10.4" in compatibility_step["run"]
     posix_regression = next(
@@ -373,13 +374,23 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         if step.get("name") == "Verify backend service and non-P5 regression"
     )
     assert "--ignore-glob='tests/test_trip_check_p5*.py'" in posix_regression["run"]
+    assert posix_regression["env"] == {
+        "P3_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+    }
     historical_job = jobs["g04_historical_backend"]
     assert historical_job["runs-on"] == "windows-2022"
     assert historical_job["env"] == {
         "P3_OCR_FONT_PATH": "C:\\Windows\\Fonts\\msyh.ttc",
         "P5_OCR_FONT_PATH": "C:\\Windows\\Fonts\\msyh.ttc",
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "OMP_NUM_THREADS": "1",
     }
     historical_steps = historical_job["steps"]
+    historical_python = next(
+        step for step in historical_steps if step.get("uses") == "actions/setup-python@v5"
+    )
+    assert historical_python["with"]["python-version"] == "3.13.9"
     schema_runtime = next(
         step
         for step in historical_steps
