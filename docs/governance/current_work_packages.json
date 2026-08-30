@@ -157,8 +157,11 @@
       "prompt_sha256": "90faedd370581ec29b8d5f70dfaa685d7019dc678965003848ff3c4c27984fc9",
       "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
       "remote_branch": "origin/codex/g03r-semantic",
+      "checkpoint_commit": "ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d",
+      "remote_readback": "ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "status": "BLOCKED_EXTERNAL",
+      "status_reason": "新鲜54 dev + 18 validation逐因素Qwen比较因既有批准凭据未注入而NOT_RUN；代码、离线回归、路径和远端tip已验证。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     },
     {
@@ -220,9 +223,9 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_SEMANTIC_PLACE_P1_IN_PROGRESS",
+  "program_state": "G03R_SEMANTIC_BLOCKED_PLACE_P1_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-SEMANTIC+WP-G03R-PLACE"
+  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-PLACE"
 }

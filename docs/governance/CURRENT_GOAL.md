@@ -172,7 +172,7 @@ Goal type: BLOCKING_DEFECT
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | 所有者授权G03 P1语义返修；G04继续未激活；尚未修改语义运行时 | activation pending | 远端`origin/develop@8a33a4b`回读；治理基线validator PASS；治理定向测试24 PASS | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / activation only` | prompt绑定、三个单因素、离线回归、正式72条 | 当前终端无Qwen凭据，正式72条可能`BLOCKED_EXTERNAL` | 提交激活点，登记prompt和独立语义工作树 |
 | 2026-08-30 | G03R控制面已激活，语义贡献包已运行；现登记三城900地点词典与保守高德解析包，地点产品代码尚未修改 | activation `d4ce966de55b6d72e0b5daced9764223d7a6913a`；place binding以本次远端subject回读为准 | core-mainline、治理定向测试、prompt完整性/哈希与registry一致性由本控制切片复核 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / semantic + place prompt binding` | 地点分支/工作树、两个串行提交、离线回归、正式语义72条 | 词典来源需逐条复核；Qwen凭据未注入；live AMap仅主对话且受零增量费用边界约束 | 推送place binding并从该提交创建`codex/g03r-place-resolution` |
-| 2026-08-30 | 已把语义提示词纳入所有者授权的G03 P1返修边界；schema、配置和其他冻结评测资产仍被拒绝 | 本控制checkpoint commit | 治理定向测试24 PASS；精确提示词路径PASS；相邻schema路径同时触发两项冻结错误 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / exact-path exception` | 从新控制点重建语义贡献分支、重跑语义回归及core-mainline、正式72条 | Qwen凭据未注入，正式72条仍可能`BLOCKED_EXTERNAL` | 推送控制checkpoint并回读，然后无历史改写地重建`codex/g03r-semantic` |
+| 2026-08-30 | 语义代码与离线检查已完成并推送，推荐/经过/排除/描述/URL/预约不进入行程，日序、原文顺序和计划原子地点由独立回归保护；尚未取得新鲜Qwen比较证据 | semantic `ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d`，远端tip同值 | 必跑语义测试53 PASS；相关API/高德回归34 PASS；数据集validator valid且Gate NOT_RUN；core-mainline PASS；贡献路径5/5；模型配置和schema未变 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=MODEL / RUNTIME contribution` | `Governance ratio=0% / semantic branch` | 三个因素各一次新鲜72条Qwen比较、主对话串行验收与集成、受影响G03产品验证 | 进程环境和非示例项目env均无Qwen密钥；新鲜72条为`NOT_RUN / BLOCKED_EXTERNAL` | 现有批准凭据环境恢复后，在同一固定72条上各运行一次比较；不得概率性重跑 |
 
 ## Auto-advance
 
@@ -186,7 +186,7 @@ Goal type: BLOCKING_DEFECT
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
 - Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC + WP-G03R-PLACE / PENDING / NOT_RUN`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d / PASS / BLOCKED_EXTERNAL`；`WP-G03R-PLACE / PENDING / NOT_RUN`；
 - Fresh 72-case Qwen comparison：`NOT_RUN`；当前无凭据时最终状态必须为`BLOCKED_EXTERNAL`；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；
