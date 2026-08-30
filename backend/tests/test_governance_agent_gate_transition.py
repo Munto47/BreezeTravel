@@ -355,7 +355,7 @@ def test_checked_in_gate_contracts_default_to_clean_checkout() -> None:
 
 def test_future_product_contracts_keep_the_approved_boundaries() -> None:
     api = _text(ROOT / "docs/product/TRIP_CHECK_API_CONTRACT.md")
-    g04 = _text(PLANNED / "TC-VNEXT-G04-SCREENSHOT.md")
+    g04 = _text(_goal_contract(4))
     g05 = _text(PLANNED / "TC-VNEXT-G05-CITY-KNOWLEDGE.md")
     g06 = _text(PLANNED / "TC-VNEXT-G06-MEMORY-SHARE.md")
     g07 = _text(PLANNED / "TC-VNEXT-G07-CANDIDATE.md")

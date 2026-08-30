@@ -1,25 +1,23 @@
-# OWNER REVIEW HOLD：G01～G03 核心主线返修后可体验里程碑
+# APPROVED GOAL：V0.4 截图与文本一致
 
-Goal ID: CORE_MVP_OWNER_REVIEW_PENDING
-Status: OWNER_REVIEW_PENDING
-Goal type: OWNER_REVIEW_HOLD
+Goal ID: TC-VNEXT-G04-SCREENSHOT
+Status: APPROVED
+Goal type: PRODUCT_ENHANCEMENT
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
 {
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
-  "goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
-  "goal_status": "OWNER_REVIEW_PENDING",
+  "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "goal_status": "APPROVED",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "required_gate": "G03 Top-3 Audit Gate + PRODUCT_DELIVERY_PASS; owner experience review before G04",
-  "completion_status": "DELIVERY_INTEGRATED",
-  "gate_result": "PRODUCT_DELIVERY_PASS",
-  "goal_archived": true,
+  "required_gate": "Screenshot Parity Gate + PRODUCT_DELIVERY_PASS",
+  "completion_status": "PENDING",
+  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
-  "next_goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "next_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
   "next_activated": false,
-  "g04_status": "NOT_ACTIVATED",
-  "fux03_status": "NOT_RUN",
   "h1_status": "NOT_RUN",
   "public_network_status": "NOT_RUN",
   "production_status": "NOT_RUN",
@@ -33,109 +31,142 @@ Goal type: OWNER_REVIEW_HOLD
 ## Metadata
 
 - Program ID：`TC-VNEXT-2026`
-- Mainline phase：`CORE_MVP`
+- Product version：`V0.4`
+- Mainline phase：`PRODUCT_ENHANCEMENT`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
-- Required gate：`G03 Top-3 Audit Gate + PRODUCT_DELIVERY_PASS; owner experience review before G04`
-- Status：`OWNER_REVIEW_PENDING`
-- Last completed Goal：`TC-VNEXT-G03-TOP3-AUDIT`
-- Next planned Goal：`TC-VNEXT-G04-SCREENSHOT`
-- G04：`NOT_ACTIVATED`
-- 当前没有`APPROVED`或`IN_PROGRESS`产品Goal，也没有活动产品writer。
+- Required gate：`Screenshot Parity Gate + PRODUCT_DELIVERY_PASS`
+- Status：`APPROVED`
+- Product baseline：`origin/develop@0531c0642f437932fb4e305a0a99fbb66b19e4bc`
+- Activation branch：`codex/g04-activation`
+- Canonical implementation branch：`codex/g04-screenshot-integration`
+- Integration worktree：`D:/munto/code/claudeProject/agentTravel-g04-integration`
+- Upstream / remote readback：`origin/develop` / `0531c0642f437932fb4e305a0a99fbb66b19e4bc`，2026-08-30 fresh fetch与`ls-remote`一致
+- Predecessor：G03/G03R已交付并归档；owner-review closure为`0531c0642f437932fb4e305a0a99fbb66b19e4bc`
+- Next Goal：`TC-VNEXT-G05-CITY-KNOWLEDGE`
 
-## Owner outcome
+## Dependencies
 
-G01～G03核心主线与本轮P1返修已经进入`develop`。用户粘贴攻略后，可得到只保留真正计划地点的逐日卡片；北京、上海、杭州采用保守地点匹配，证据不足时显示“地点待确认”。结果页可查看和手动更新地图、选择整程住宿、查看Top-3，并用桌面拖拽、键盘或移动端等价操作编辑；失败和409以服务端权威结果复原。
+- G03 Top-3 Audit Gate、G03R返修和`PRODUCT_DELIVERY_PASS`已经合入`develop`。
+- 项目所有者于2026-08-30明确要求“开始G04”，该指令解除`CORE_MVP_OWNER_REVIEW_PENDING`。
+- 项目所有者同时明确批准G04所需的一份追加式PostgreSQL migration；编号冻结为`034_trip_understanding_screenshot_batches.sql`，保留G05/G06既定的032/033。
+- 当前统一语义编译、加密SourceDocument与主动删除能力存在；截图v3批次、到期物理清理和截图输入UI尚未实现。
+- Paddle baseline冻结为`paddleocr==3.7.0`、`paddlepaddle==3.3.1`；候选本地硬件为Ryzen 9 7945HX、32 logical processors、RTX 4060 Laptop 8GB，正式性能RunSpec在Gate前记录可用CPU/GPU/内存。
+- 当前没有可回读的Qwen-VL exact account/region/model binding，因此默认为`NOT_RUN_NO_EXACT_BINDING`，不得调用或静默fallback。
 
-项目现在停在所有者体验验收点。所有者没有批准进入G04前，不开发截图增强，不创建G04分支或writer，也不把自动化结果表述为真人、生产或商业证据。
+## User Outcome
 
-## Delivered scope
+登录用户上传最多6张聊天、备忘录、攻略或AI回复截图，不填写前置表单，即可得到与粘贴文本相同的逐日卡片、地图准备、住宿和Top-3核验体验；原始像素在任何终态都不会长期保留。
 
-- G01：文本理解、地点解析、逐日卡片与首次地图任务；
-- G02：地图剧场、步行/公交、手动更新、最多三家整程住宿与同店锚点；
-- G03：无日期物化、lineage、冻结证据、AuditEngine全量Finding、公开Top-3、preview/adopt、新revision与完整postcheck；
-- G03R语义：过滤推荐、经过、排除、描述、URL与预约噪声，保持原子地点、日序和日内顺序；
-- G03R地点：版本化三城900地点词典与保守Provider消歧，错城、错类、行政区冲突和同层歧义不自动匹配；
-- G03R结果页：拖拽、键盘/移动等价操作、删除确认、焦点恢复、409回读，以及可取消、单飞、有界的地图/住宿增强读取；
-- 公开接口和DOM保持脱敏，卡片编辑、住宿选择和修复采纳均不自动调用路线Provider。
+## Scope
 
-## Acceptance state
+- 登录态multipart `POST /api/v3/screenshot-batches`，1～6张PNG/JPEG/WebP、单张不超过10MB、总体不超过61MiB，禁止Base64 JSON；
+- owner-bound、短期、不透明且数据库只存摘要的`batch_ref`；
+- PaddleOCR 3.x、确定性阅读顺序、bbox/span与低置信确认映射；
+- 加密`ScreenshotSourceDocumentV1`及一次性原子消费；
+- `POST /api/v3/trip-understandings`增加`FULL + SCREENSHOT_BATCH`严格union，并复用同一TripUnderstanding语义编译器和用户投影；
+- 成功、失败、取消、超时、TTL的原图清理receipt，以及SourceDocument 30天到期物理清理；
+- 首页多图选择、排序、删除、partial/重试/刷新/断线体验；
+- Qwen-VL只作有资格时的冻结消融，不胜出不进入运行时；
+- 当前Goal所需的PostgreSQL、build、browser、隐私与parity验证。
 
-- G01 Text Card Gate：`PRODUCT_DELIVERY_PASS / INTEGRATED`；
-- G02 Map & Stay Gate：`PRODUCT_DELIVERY_PASS / INTEGRATED`；
-- G03 Top-3 Audit Gate及G03R返修：`PRODUCT_DELIVERY_PASS / INTEGRATED`；
-- G04：`NOT_ACTIVATED`；
-- H1、公网、生产、商业：`NOT_RUN`；FUX-03、sealed blind、live AMap：`NOT_RUN`；
-- release、部署、合并`main`：`NOT_REQUESTED`。
+## Public and internal contracts locked at activation
 
-## Authority
+- `POST /api/v3/screenshot-batches`要求登录与`Idempotency-Key`，文件字段固定为重复的`screenshots`；清理全部成功后才返回`201 {batch_ref, expires_at, outcome: COMPLETE|PARTIAL, message}`和`Cache-Control: no-store`。
+- `POST /api/v3/trip-understandings`新增`{"mode":"FULL","source":{"type":"SCREENSHOT_BATCH","batch_ref":"..."}}`；同一幂等键重放原202，不同键重复消费409，不存在和跨账号统一404，owner已过期410。
+- 公开结果、SSE、DOM和日志不得返回batch ref、OCR原文、bbox、confidence、source span、hash、receipt、模型或Provider。
+- 内部batch状态固定为`PROCESSING / READY / PARTIAL / CONSUMED / FAILED / CANCELLED / TIMED_OUT / EXPIRED / PRIVACY_BLOCKED`；内部清理失败不得伪装成功。
+- `ScreenshotSourceDocumentV1`包含图片顺序/结果、OCR行、四点bbox、confidence、reading index、Unicode code-point半开span、`requires_confirmation`、engine/config binding和document hash，整体加密。
+- batch未消费TTL 15分钟；OCR并发1、单图deadline 15秒、整批45秒；低置信阈值0.85；立即清理最多3次，失败公开为`503 SCREENSHOT_CLEANUP_RETRY_REQUIRED`且不返回ref。
+- 与低置信span相交的可执行地点不得查询POI，只能显示“地点待确认”；单图失败保留其他成功来源，全部无文本返回`422 SCREENSHOT_TEXT_NOT_FOUND`。
 
-- `AGENTS.md`、Project Charter、Trip Check Spec、v3 API Contract与Architecture；
-- Program、Roadmap、Release Gates、Product Delivery Gate和Risk Register；
-- 已归档的G01、G02、G03完整合同，以及G03R完成附录与当前指纹绑定交付回执。
+## Parallel work packages
 
-## Baseline and integration
+| Package | Branch / worktree | Owned outcome | Initial state |
+|---|---|---|---|
+| `WP-G04-INTEGRATOR` | `codex/g04-screenshot-integration` / `...-g04-integration` | governance、034、共享API/持久化/worker、OpenAPI/client、首页装配、CI、最终E2E | `IN_PROGRESS` |
+| `WP-G04-EPHEMERAL-UPLOAD` | `codex/g04-ephemeral-upload` / `...-g04-upload` | 有界multipart、临时文件、终态清理 | 提示词绑定后`IN_PROGRESS` |
+| `WP-G04-PADDLE-OCR` | `codex/g04-paddle-ocr` / `...-g04-ocr` | Paddle、阅读顺序、bbox/span、评测runner | 提示词绑定后`IN_PROGRESS` |
+| `WP-G04-VL-PARITY` | `codex/g04-vl-parity` / `...-g04-vl-parity` | VL消融合同和隔离截图输入组件 | `WAITING_FOR_WRITER_SLOT` |
 
-- G03R activation baseline：`origin/develop@8a33a4b22a405135f310376d8766d9170d80097d`；
-- G03R delivery checkpoint：`2d74a88ffd97988f50fbaa271b5d66f7411c2155`；
-- G03R product fingerprint：`aa76dbafb3fe48d28f4e54efcbac1530aa2bf0c706c86a6e8facbf6d7b5079ee`；
-- PR #13 integration：`origin/develop@1f5a93c62aeeefc83486778d446780710977529d`；
-- GitHub `core-mainline` run `33307676730 PASS`，subject祖先与远端tip回读`PASS`。
+主对话是唯一集成者。三个长期贡献包必须使用用户可见独立任务、独立branch/worktree和完整prompt hash；子Agent只可只读标注、复核或诊断。集成者加最多两个贡献writer同时活动；任一前两包经集成者验收冻结后才启动VL/UI包。贡献包不得改治理、migration、共享OpenAPI/生成物或锁文件，不得自行合并。集成顺序固定为OCR→上传/清理→共享持久化/API→VL/UI→OpenAPI/client/homepage→E2E，每个问题最多两轮修复复审。
 
 ## Invariants
 
-- `CURRENT_GOAL.md`在本状态下不包含活动产品Goal；G04合同继续保持`DRAFT`；
-- `current_work_packages.json`只保留一个已合并的G03R历史包，`writer_activation=NONE`；
-- G03交付回执继续绑定当前产品指纹，治理收口不改动产品运行时；
-- live AMap因零增量额度未证明保持`NOT_RUN / 0 calls`，不得外推为Provider实测；
-- owner review不是H1、发布、生产、商业或`main`合并授权；未经所有者明确批准不得推进。
+- 文本与截图共用同一语义编译和严格用户投影，不形成第二套业务逻辑。
+- PostgreSQL是batch、幂等、消费、receipt和SourceDocument权威；原始像素不进入数据库、日志或Git。
+- 只有全部临时像素确认删除后才能向用户返回可消费ref；清理失败为内部`PRIVACY_BLOCKED`。
+- OCR证据只在加密SourceDocument中保存，最长30天或主动删除，以先到者为准；到期必须物理清空并回读receipt。
+- 低置信地点宁可待确认也不得误匹配；错城、错类别、描述句/URL成为地点为零容忍。
+- PaddleOCR是默认baseline；Qwen-VL无资格或不胜出时保持`NOT_RUN/EXPERIMENT`，不作fallback。
+- fixture、synthetic、自动化、Agent转写、真人、生产证据严格分层。
 
-## Work packages
+## Acceptance / Gate
 
-语义、地点和UI贡献包已由唯一主集成串行验收。最终集成包`WP-G03R-INTEGRATOR`的ready commit为`2d74a88ffd97988f50fbaa271b5d66f7411c2155`，merge commit为`1f5a93c62aeeefc83486778d446780710977529d`。当前活动writer数量为0，没有预备或隐藏的G04包。
-
-## Non-goals
-
-- 不激活G04～G07，不启动FUX-03或H1真人研究；
-- 不运行live AMap、公网、生产或商业验证；
-- 不发布、不部署、不合并`main`；
-- 不新增媒体代理、公共API、migration、依赖、额外治理或运行时多Agent体系。
+- 格式、数量、大小、顺序正确；JSON Base64成功数0；跨账号、过期、重复终态消费成功数0；
+- 许可清晰真实来源OCR关键字段F1≥95%；低置信关键字段确认召回100%；reading-order adjacency-F1≥97%；
+- 同源paired set上截图端到端可执行地点precision和recall较文本各下降≤1个百分点；严重错城、错类、整句地点为0；
+- 三张1080×1920图片在冻结环境、并发1、2次预热后20次测量P95≤12秒；
+- 原图、OCR证据和内部字段泄漏0；成功、失败、取消、超时、TTL清理receipt 100%；
+- partial图片不抹掉成功来源；Qwen-VL若晋级，所有指标不差且至少一项错误率相对下降≥20%；
+- `core_mainline_contract / g04_screenshot_targeted / g04_postgresql / frontend_build / g04_browser_e2e`全部PASS，并生成耐久`PRODUCT_DELIVERY_PASS`。
 
 ## Verification
 
-- 语义、地点与既有v3组合回归：`131 PASS`；G03 Top-3：`3 PASS`；
-- G03 PostgreSQL隔离链：`1 PASS`；固定数据：`90 VALID / blind Gate NOT_RUN`；
-- frontend production build、trip-check client build、OpenAPI contract：`PASS`；
-- 结果页E2E：`29/29`；默认3 workers、retries=0的repeat3：`87/87`；
-- 清空真实Provider密钥的local fixture完整主链：`1/1 PASS`；
-- GitHub PR #13 `core-mainline` run `33307676730 PASS`，PR `MERGED`；
-- 当前治理过渡只运行治理定向测试、核心主线validator和交付回执回读。
+- upload/OCR/API/pipeline定向测试及旧截图、既有v3回归；
+- fresh PostgreSQL和既有031升级、状态约束、原子消费、并发单胜者、主动删除、TTL物理清理；
+- Ruff、backend full suite、OpenAPI导出、shared client generate/typecheck/build、frontend build；
+- Playwright登录、多图顺序/删除、partial、刷新、断线、卡片/地图/住宿/Top-3与DOM隐私；
+- 许可清晰真实来源与SYNTHETIC格式集分层；两个隔离Agent转写与一个新裁决仅记`MULTI_AGENT_SIMULATED_REVIEW`；
+- H1、公网、生产、商业：`NOT_RUN`。
 
-## Budget and HITL
+## Authority
 
-本状态不授权产品开发、Provider调用、外部费用、数据扩大或部署。只有项目所有者完成体验验收并明确批准进入G04，才可从届时最新`origin/develop`建立精确基线并原子激活完整G04合同。FUX-03/H1、付费Provider、公网、生产、发布、部署和`main`仍分别需要独立批准。
+- 权威继承`AGENTS.md`、Charter、Trip Check Spec、v3 API Contract、Architecture、Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register及ADR-007、ADR-009、ADR-011、ADR-012、ADR-013、ADR-014。
+- 本轮Owner批准：激活G04、上述追加v3截图API、`034_trip_understanding_screenshot_batches.sql`、独立功能任务/worktree、离线/本地自动验证、checkpoint commit/push和受保护`develop` PR。
+- 未授权：新账号/费用、对象存储、付费OCR、扩大外部数据、真人招募/consent、sealed blind修改、H1、公网、生产、release/deploy和`main`合并。
+
+## Non-goals
+
+- 视频、PDF、网页抓取、手写识别承诺或恢复旧房间截图入口；
+- 新对象存储、付费OCR、长期原图留存、运行时多Agent；
+- 用synthetic或Agent转写冒充真实来源、真人或生产证据；
+- 修改sealed文本blind/oracle，或提前实施G05/G06/G07。
+
+## Budget
+
+- 上传预算：1～6张、单张≤10MB、总体≤61MiB；TTL 15分钟；OCR并发1、15秒/图、45秒/批；
+- 性能测量：3×1080×1920，2次预热、20次测量；
+- 不新增依赖、对象存储、账号或费用；每个可回滚切片checkpoint并远端readback；
+- 每包最多两轮修复复审，失败时采用可靠保守降级或由集成者接管。
+
+## HITL
+
+只有新增真人来源/consent、扩大数据或Provider权限、新账号/费用、对象存储/付费OCR、降低Gate、H1/公网/生产/release/deploy/`main`时再次请求Owner。普通代码、测试、构建、数据许可查验和Provider未准入由当前Goal继续处理或诚实标记`NOT_RUN`。
 
 ## Checkpoint ledger
 
-| 时间 | 用户结果 | Commit | Verification | Evidence level | Remaining | Risk/failure | Next action |
-|---|---|---|---|---|---|---|---|
-| 2026-08-30 | G03R准确语义、保守地点和稳定结果页已合入`develop`；项目停在所有者体验验收点，G04未激活 | delivery `2d74a88f`；integration `1f5a93c6` | local全矩阵PASS；GitHub run `33307676730 PASS`；PR #13 MERGED；远端祖先回读PASS | `LOCAL_AUTOMATED / POSTGRESQL_INTEGRATION / LOCAL_BROWSER / REMOTE_AUTOMATED` | `Product progress=NONE / GOAL_TRANSITION`；`Governance ratio=100% / terminal transition only` | 所有者体验验收；如未来批准，再激活G04 | live AMap、sealed blind、FUX-03/H1、公网、生产、商业均未运行 | 保持`CORE_MVP_OWNER_REVIEW_PENDING`，等待所有者明确决策 |
+| 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
+|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-30 | Owner已批准截图入口；G04完整合同、034授权和唯一集成者从fresh develop激活 | activation commit待提交 | fresh fetch/ls-remote一致；根工作树和历史脏工作树保持不动；Paddle依赖/硬件readback | `LOCAL_READBACK / OWNER_AUTHORIZATION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / authorized activation only` | 提示词/任务绑定、三个贡献包、产品实现与Gate | 当前无eligible Qwen-VL binding；真实来源截图集待许可清晰化 | push/readback激活提交并经PR合入develop，再绑定三个用户可见任务 |
 
 ## Auto-advance
 
-- 自动推进：`DISABLED`；G04：`NOT_ACTIVATED`；writer activation：`NONE`；
-- FUX-03/H1、公网、生产、商业：`NOT_RUN`；
-- release、部署、合并`main`：`NOT_REQUESTED`。
+- Required gate：`Screenshot Parity Gate + PRODUCT_DELIVERY_PASS`；Next template：`TC-VNEXT-G05-CITY-KNOWLEDGE.md`。
+- subject push/readback、耐久PASS、clean tree、无Stop后归档G04，并在独立治理过渡中原子激活完整G05；不创建外部authority generation，不自动进入H1/公网/生产。
 
 ## Completion record
 
-- Last completed Goal：`TC-VNEXT-G03-TOP3-AUDIT / G03R COMPLETED / ARCHIVED`；
-- Gate result：`PRODUCT_DELIVERY_PASS`；integration：`1f5a93c62aeeefc83486778d446780710977529d`；
-- User-visible result：准确卡片、保守地点、地图、住宿、Top-3、稳定编辑和完整复检主链均可运行；
-- Remaining：项目所有者体验验收，不属于自动化工程PASS；
-- H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
-- release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；
-- Promotion decision：`NOT_REQUESTED`；`structurally_valid=true`只表示终态合同结构有效。
+- Status：`PENDING`；Subject commits / Remote branch：激活后逐checkpoint填写；
+- Verification / Evidence / Gate result / structurally_valid：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`；
+- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`PENDING / PENDING / false / false`；
+- Promotion decision：`NOT_REQUESTED`。
 
-## Resume conditions
+## Stop conditions
 
-项目所有者若明确批准进入G04，新的治理过渡必须从当时最新`origin/develop`开始，记录体验验收边界，原子激活完整G04合同与唯一writer；否则本状态持续保持。
+- 原图无法在所有终态可靠删除；
+- 截图链必须绕开统一语义编译器；
+- 必须新增费用、对象存储、账号、生产依赖或未授权数据范围；
+- Qwen-VL只能靠弱化bbox、隐私或地点门禁晋级；
+- 许可清晰代表性集不足且必须引入真人来源/consent；
+- fresh `origin/develop`不再由G04合法接棒，或需要降低Screenshot Parity Gate。
