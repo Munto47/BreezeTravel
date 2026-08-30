@@ -9,7 +9,9 @@
       "三城词典900条且每城210/60/15/15配额、来源、schema和禁止字段校验全部通过",
       "地点自动解析严重错误为0；高德未确认、错城、错类别、行政区冲突和同层多候选保持待确认",
       "结果页合法状态切换不得永久丢弃已成功返回的Top-3检查或停留在准备态",
-      "同日/跨日拖拽、键盘移动、删除确认、焦点与无障碍在桌面和移动视口稳定可用且不自动重绘地图"
+      "同日/跨日拖拽、键盘移动、删除确认、焦点与无障碍在桌面和移动视口稳定可用且不自动重绘地图",
+      "地图与住宿读取挂起、慢响应或持续准备时必须可取消、单飞且有界降级，不得永久阻断Top-3",
+      "用户关闭改动预览后，任何迟到响应不得重新打开预览或污染当前消息"
     ],
     "allowed_paths": [
       "backend/governance/core_mainline.py",
@@ -34,6 +36,7 @@
       "backend/tests/test_amap_trip_understanding.py",
       "docs/governance/work-packages/WP-G03R-UI.md",
       "docs/governance/work-packages/WP-G03R-UI-STABILITY.md",
+      "docs/governance/work-packages/WP-G03R-UI-ENHANCEMENT-RECOVERY.md",
       "frontend/src/app/trip/result/page.tsx",
       "frontend/src/app/trip/result/itinerary-workspace.tsx",
       "frontend/src/lib/trip-understanding-v3.ts",
@@ -42,9 +45,9 @@
     "base_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
     "blocking_issue": {
       "current_goal_acceptance_ref": "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30",
-      "impact_chain": "日标题、角色或原子边界错误会污染卡片和POI；地点消歧过宽会展示错误POI；结果页effect在合法状态切换中丢弃已成功检查响应会让用户永久停在准备态，交互时序不可靠会造成假成功或重复命令。",
-      "minimum_fix": "保留已集成语义与地点修复；追加前端请求代际/取消恢复、一次命令、服务端回读、桌面拖拽、键盘/移动替代、可访问删除和稳定E2E，不改变公共API、数据库、模型或Provider边界。",
-      "reproduction": "后端语义与地点门禁已通过；首次G03浏览器旅程中materialize/checks均200且响应含3条建议，但DOM为0并永久显示准备态。cleanup已将请求标为disposed，而attempt key提前固定阻止当前resource/etag重试。",
+      "impact_chain": "日标题、角色或原子边界错误会污染卡片和POI；地点消歧过宽会展示错误POI；结果页请求竞态、增强读取挂起或无限重叠会让用户永久停在准备态，交互时序不可靠会造成假成功、重复命令或关闭后的预览重开。",
+      "minimum_fix": "保留已集成语义与地点修复及前三个UI提交；追加增强GET真实取消、单飞有界轮询、诚实降级和关闭preview代际失效，并以确定性E2E证明，不改变公共API、数据库、模型、Provider或依赖边界。",
+      "reproduction": "后端语义与地点门禁已通过；030d212消除原materialize竞态后，最终独立复核确认map/stay GET无AbortSignal，PREPARING使用800ms setInterval且无总预算；挂起使checks永不启动，慢响应或持续准备会无限重叠。关闭preview也未作废在途request id。",
       "severity": "P1",
       "stop_condition": "若需要改变公共API、数据库、模型配置、语义文件、deadline、token、并发、schema、blind/oracle、以高德/模型猜测构造词典、产生增量费用或激活G04，立即停止该扩展。"
     },
@@ -60,7 +63,7 @@
       "把词典作为POI身份权威或保存高德ID、坐标、地址、电话、营业时间、价格、评分、房态和原始响应",
       "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
-    "minimum_change": "保留已集成的语义资格与三城保守解析；只在登记结果页路径中修复检查状态竞态，并重排现有真实功能以提供可靠拖拽、键盘/移动替代、删除确认、焦点和无障碍，不新增媒体/API/数据库能力。",
+    "minimum_change": "保留已集成的语义资格、三城保守解析及前三个UI提交；只在登记结果页、现有请求库和新E2E中增加增强GET取消、单飞有界轮询、诚实降级与preview关闭失效，不新增媒体、API、数据库、依赖或自动地图重绘。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_g03r_trip_semantics.py",
@@ -76,7 +79,7 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "repair_review_cycle": 1,
+    "repair_review_cycle": 2,
     "slice_id": "G03-G03R-SEMANTIC-PLACE-UI-P1",
     "stop_condition": "UI只重排现有真实功能；若需要公共API、migration、依赖、媒体代理、自动地图重绘、放宽既有产品E2E或以重试掩盖竞态，立即停止并交回主对话。",
     "user_outcome": "粘贴攻略后得到准确、稳定的逐日卡片；结果页不会丢失已成功返回的Top-3，桌面可拖拽，键盘和移动端有等价操作，所有编辑以服务端回读为准。",
@@ -89,7 +92,8 @@
     "WP-G03R-SEMANTIC",
     "WP-G03R-PLACE",
     "WP-G03R-UI",
-    "WP-G03R-UI-STABILITY"
+    "WP-G03R-UI-STABILITY",
+    "WP-G03R-UI-ENHANCEMENT-RECOVERY"
   ],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -303,7 +307,7 @@
       "dependencies": [
         "WP-G03R-UI"
       ],
-      "dialogue_ref": "codex-agent:/root/ui_recovery",
+      "dialogue_ref": "codex-task:01a05203-707c-79d2-a36b-d07e108f6abe",
       "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
       "forbidden_paths": [
         "AGENTS.md",
@@ -330,20 +334,71 @@
         "frontend/e2e/g03r-result-ui.spec.js"
       ],
       "package_id": "WP-G03R-UI-STABILITY",
+      "checkpoint_commit": "030d2129736ac354a4febe6631e8141098e70a75",
       "prepared_tip": "3c3c8a352f50da5e718f7dbf520ea09826d106dc",
       "prompt_path": "docs/governance/work-packages/WP-G03R-UI-STABILITY.md",
       "prompt_sha256": "22ab17887a13c3afbba768c59049a3791bbb0949b9f1e0fb78744ee1a9854a3d",
       "registry_activation_commit": "6934f57cf680e90fd9b529af07d5c9937202348e",
-      "remote_readback": "3c3c8a352f50da5e718f7dbf520ea09826d106dc",
+      "remote_readback": "030d2129736ac354a4febe6631e8141098e70a75",
       "remote_branch": "origin/codex/g03r-ui-stability",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
-      "status_reason": "控制面binding 6934f57已远端回读；独立分支从该binding创建并按原顺序摘取两个UI提交，local/upstream/remote准备点均为3c3c8a3且clean，prompt SHA-256精确匹配。只允许page与新E2E形成一个追加修复提交。",
+      "status": "PLANNED",
+      "status_reason": "单一追加提交030d212已完成并远端回读，build、默认workers单轮19/19和repeat57/57通过；最终独立复核仍确认增强读取无限/重叠P1与关闭预览迟到P2，因此冻结为NOT_READY、无活动writer且不得追加或改写，交由第二轮恢复包处理。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui-stability"
+    },
+    {
+      "acceptance": [
+        "map/stay GET和preview POST均支持真实AbortSignal，现有URL、schema、错误和公共API不变",
+        "增强读取单请求3000ms、总预算10000ms、最多8轮且轮间800ms；同端点最大在途1，停止后不再自动增长",
+        "挂起、失败或持续PREPARING只降级未终态部分并允许Top-3继续，已成功端点结果保留",
+        "手动重新读取只启动单飞GET session，不重复已完成checks且不POST map-renders",
+        "resource、generation、mutation、卸载和关闭preview都真实取消旧请求，迟到响应不写回",
+        "默认workers且retries=0的新增E2E总数N不少于24，单轮N/N且repeat3为3N/3N"
+      ],
+      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+      "branch": "codex/g03r-ui-enhancement-recovery",
+      "dependencies": [
+        "WP-G03R-UI-STABILITY"
+      ],
+      "dialogue_ref": "codex-agent:/root/ui_recovery",
+      "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
+      "forbidden_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs",
+        "backend",
+        "packages",
+        "miniapp",
+        "y-websocket",
+        "frontend/src/app/trip/result/itinerary-workspace.tsx",
+        "frontend/src/app/trip/result/activity-image.tsx",
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/playwright.config.js",
+        "frontend/playwright.product-delivery.config.js",
+        "frontend/e2e/g03-product-delivery.spec.js",
+        "frontend/e2e/trip-understanding-v3.spec.js",
+        "all paths not listed in owned_paths"
+      ],
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "merge_order": 6,
+      "owned_paths": [
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
+        "frontend/e2e/g03r-result-ui.spec.js"
+      ],
+      "package_id": "WP-G03R-UI-ENHANCEMENT-RECOVERY",
+      "prompt_path": "docs/governance/work-packages/WP-G03R-UI-ENHANCEMENT-RECOVERY.md",
+      "prompt_sha256": "70c2079a9c268174c4f5c6766b2295414427dd99c56220f0916661e62dd1d8bf",
+      "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
+      "role": "CONTRIBUTOR",
+      "status": "WAITING_FOR_WRITER_SLOT",
+      "status_reason": "030d212最终独立复核为1 P1 + 1 P2；完整第二轮prompt、三条deny-by-default路径和固定边界已登记。等待本binding远端回读、独立分支准备点与精确activation commit，产品新增写入为0。",
+      "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_STABILITY_WRITER_ACTIVATED",
+  "program_state": "G03R_UI_ENHANCEMENT_RECOVERY_BINDING",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
