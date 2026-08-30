@@ -6,7 +6,8 @@
       "三份Work Package Prompt v1的UTF-8/LF内容与SHA-256一致",
       "三个用户可见Codex任务、独立branch/worktree和dialogue ref已绑定",
       "Upload与OCR的clean远端tip、路径和定向检查已由集成者复核并冻结",
-      "VL从WAITING_FOR_WRITER_SLOT切换为IN_PROGRESS，活动writer总数为2"
+      "VL的clean远端tip、owned paths、17项定向测试、Ruff与零网络receipt已由集成者复核并冻结",
+      "三个贡献writer全部停止写入，仅集成者保留writer席位"
     ],
     "allowed_paths": [
       "docs/governance/CURRENT_GOAL.md",
@@ -24,7 +25,7 @@
       "子Agent拥有功能分支或提交产品代码",
       "功能任务自行合并develop、rebase、squash或force-push"
     ],
-    "minimum_change": "只登记Upload与OCR的冻结commit并释放VL writer席位，不把贡献包产品代码混入控制面提交。",
+    "minimum_change": "只登记VL冻结commit和三包实际binding commit，不把贡献包产品代码混入控制面提交。",
     "phase": "GOAL_TRANSITION",
     "preflight_entrypoints": [
       "docs/governance/WORK_PACKAGE_PROMPT_TEMPLATE.md",
@@ -34,9 +35,9 @@
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G04-CONTRIBUTOR-FREEZE-AND-VL-ACTIVATION",
-    "stop_condition": "Upload或OCR的本地tip、远端tip、clean状态、路径或定向检查失配时不得冻结；VL只能在writer席位释放后启动。",
-    "user_outcome": "已验收的上传与OCR贡献被不可变冻结，第三个VL/UI功能任务在writer上限内开始执行。",
+    "slice_id": "G04-CONTRIBUTOR-FREEZE-COMPLETE",
+    "stop_condition": "任一贡献包的本地tip、远端tip、clean状态、owned paths或定向检查失配时不得进入串行集成。",
+    "user_outcome": "上传、OCR和VL/UI三个独立贡献都已形成可回读的冻结提交，产品集成可以按登记顺序开始。",
     "work_kind": "GOAL_TRANSITION"
   },
   "e2e_after_all_merges": true,
@@ -152,6 +153,7 @@
       "prompt_path": "docs/governance/work-packages/WP-G04-EPHEMERAL-UPLOAD.md",
       "prompt_sha256": "00cc1ef5760ec2ddba66f5763c38ae3ac8a612969d3d827de03a4586683d5c0a",
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
+      "registry_binding_commit": "e7373380451fa10a91d7436a981e112f1efc6c76",
       "remote_branch": "origin/codex/g04-ephemeral-upload",
       "role": "CONTRIBUTOR",
       "ready_commit": "a8852f3f7e7b2a269a526f266cc6d46d3a9d7e05",
@@ -210,6 +212,7 @@
       "prompt_path": "docs/governance/work-packages/WP-G04-PADDLE-OCR.md",
       "prompt_sha256": "f1b364cb9843253ec32e4a86beb82501b598c13d4308e5baeec781b94c1a44af",
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
+      "registry_binding_commit": "e7373380451fa10a91d7436a981e112f1efc6c76",
       "remote_branch": "origin/codex/g04-paddle-ocr",
       "role": "CONTRIBUTOR",
       "ready_commit": "0eba25564845524982d5e91469a0a4398d942020",
@@ -270,9 +273,11 @@
       "prompt_path": "docs/governance/work-packages/WP-G04-VL-PARITY.md",
       "prompt_sha256": "8ac3f65f7cdab4b82c46dd12a1e450fe1d14dd291ea44f54188a1540bb60ca27",
       "registry_activation_commit": "1065cafdc1a8efdbd82624474919e95dc5ee2d24",
+      "registry_binding_commit": "c7f23489d29d829e0459628da9e69ca6f78f98df",
       "remote_branch": "origin/codex/g04-vl-parity",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "ready_commit": "2fd6bd10f3c31a6f39a7846b47ce00cc1dc8a531",
+      "status": "READY_TO_MERGE",
       "worktree_path": "C:/Users/26450/.codex/worktrees/9ce2/agentTravel"
     }
   ],
@@ -281,5 +286,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_PLUS_ONE_CONTRIBUTOR"
+  "writer_activation": "INTEGRATOR_ONLY"
 }
