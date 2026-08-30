@@ -42,11 +42,17 @@ _DAY_HEADING_RE = re.compile(
 )
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
 _CLAUSE_BOUNDARIES = "，,。！？；;\n"
-_PLANNED_ACTION_RE = re.compile(
-    r"(?:确定行程是|确定游览|依次到|随后前往|步行到|先到|先去|再去|再到|"
-    r"上午看|下午看|上午安排|下午安排|游览|参观|打卡|安排|前往|去)"
-    r"\s*(?P<names>[^，,。！？；;\n]+)"
+_PLANNED_ACTION_PATTERN = (
+    r"(?:确定行程是|确定游览|依次到|随后前往|步行到|先到|先去|先逛|"
+    r"再去|再到|再逛|上午看|下午看|上午安排|下午安排|游览|参观|"
+    r"打卡|安排|前往|逛|去)"
 )
+_PLANNED_ACTION_RE = re.compile(
+    rf"{_PLANNED_ACTION_PATTERN}\s*"
+    rf"(?P<names>[^，,。！？；;\n]*?)"
+    rf"(?={_PLANNED_ACTION_PATTERN}|[，,。！？；;\n]|$)"
+)
+_LEADING_PLANNED_ACTION_RE = re.compile(rf"^{_PLANNED_ACTION_PATTERN}")
 _PLAN_TRAILING_MARKERS = (
     "结束当天",
     "放在前面",
@@ -369,6 +375,8 @@ def _atomic_category_hint(name: str) -> str | None:
 
 def _is_atomic_place_text(value: str) -> bool:
     if not 1 < len(value) <= 40:
+        return False
+    if _LEADING_PLANNED_ACTION_RE.search(value):
         return False
     if _URL_TOKEN_RE.search(value) or any(marker in value for marker in _CLAUSE_BOUNDARIES):
         return False

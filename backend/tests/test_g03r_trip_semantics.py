@@ -234,6 +234,49 @@ async def test_local_fallback_keeps_overlapping_real_occurrence_outside_url() ->
 
 
 @pytest.mark.asyncio
+async def test_local_fallback_consumes_leading_action_before_atomic_places() -> None:
+    source = (
+        "上海三日游。Day 1 逛外滩和南京路步行街。"
+        "D2 经过人民广场换乘，前往上海博物馆。"
+        "Day 3 如果有时间可以去豫园。"
+    )
+
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    by_name = {
+        item.atomic_place_name: item
+        for item in proposal.mentions
+        if item.atomic_place_name
+    }
+
+    assert [
+        (item.atomic_place_name, item.day_index, item.sequence_index)
+        for item in proposal.mentions
+        if item.role.value == "PLANNED"
+    ] == [
+        ("外滩", 1, 0),
+        ("南京路步行街", 1, 1),
+        ("上海博物馆", 2, 0),
+    ]
+    assert by_name["豫园"].role.value == "OPTIONAL"
+    assert "逛外滩" not in by_name
+
+
+@pytest.mark.asyncio
+async def test_local_fallback_starts_a_new_capture_at_each_action_anchor() -> None:
+    source = "D2先去上海博物馆再去外滩。"
+
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [
+        (item.atomic_place_name, item.role.value, item.day_index, item.sequence_index)
+        for item in proposal.mentions
+    ] == [
+        ("上海博物馆", "PLANNED", 2, 0),
+        ("外滩", "PLANNED", 2, 1),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() -> None:
     source = "未知地点甲；只写描述；010-12345678；预约说明；前往地点丙；推荐地点乙"
     values = [
