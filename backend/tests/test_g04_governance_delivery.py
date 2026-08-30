@@ -25,11 +25,29 @@ from governance.g04_screenshot_parity import (
     validate_g04_delivery_evidence,
 )
 from governance.work_packages_v3 import validate_registry_v3
+from scripts.export_trip_check_openapi import _normalize_schema
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 HEX_A = "a" * 64
 HEX_B = "b" * 64
+
+
+def test_openapi_export_normalizes_singleton_literals_across_pydantic_versions() -> None:
+    literal = {"const": "FULL", "enum": ["FULL"], "type": "string"}
+    component = {"const": "WRONG_CITY", "enum": ["WRONG_CITY"], "type": "string"}
+
+    assert _normalize_schema(literal, path=("properties", "mode")) == {
+        "const": "FULL",
+        "type": "string",
+    }
+    assert _normalize_schema(
+        component,
+        path=("components", "schemas", "ResolutionRejectionReason"),
+    ) == {
+        "enum": ["WRONG_CITY"],
+        "type": "string",
+    }
 
 
 def _write_json(path: Path, value: object) -> None:

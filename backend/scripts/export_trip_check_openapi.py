@@ -5,6 +5,7 @@ from importlib import import_module
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
@@ -19,8 +20,36 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TARGET = REPO_ROOT / "packages" / "trip-check-client" / "openapi.current.json"
 
 
+def _normalize_schema(value: Any, *, path: tuple[str, ...] = ()) -> Any:
+    """Remove Pydantic 2.9/2.10 singleton-schema rendering drift."""
+
+    if isinstance(value, list):
+        return [_normalize_schema(item, path=path) for item in value]
+    if not isinstance(value, dict):
+        return value
+
+    normalized = {
+        key: _normalize_schema(item, path=(*path, str(key)))
+        for key, item in value.items()
+    }
+    constant = normalized.get("const")
+    enum = normalized.get("enum")
+    if isinstance(enum, list) and enum == [constant] and "const" in normalized:
+        is_component_schema = (
+            len(path) == 3
+            and path[0] == "components"
+            and path[1] == "schemas"
+        )
+        if is_component_schema:
+            normalized.pop("const")
+        else:
+            normalized.pop("enum")
+    return normalized
+
+
 def rendered_schema() -> str:
-    return json.dumps(app.openapi(), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    schema = _normalize_schema(app.openapi())
+    return json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
 def main() -> int:
