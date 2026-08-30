@@ -12,8 +12,8 @@ Goal type: BLOCKING_DEFECT
   "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Top-3 Audit Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "repair_slice_id": "G03R-SEMANTIC-PLACE-UI-P1",
   "next_goal_id": "TC-VNEXT-G04-SCREENSHOT",
@@ -157,7 +157,7 @@ Goal type: BLOCKING_DEFECT
 - 最终验证附录后`N >= 28`；所有毫秒边界必须显式暂停fake clock，10秒总预算必须在8轮前实际成为停止原因，且至少一个map/stay混合终态和旧async promise终结barrier由确定性断言证明。
 - 从旧AVAILABLE开始的写入回读失败不得显示旧地图；materialize与后续写POST总并发不得超过1；map/stay挂起、慢响应、首次失败或持续PREPARING都必须真实取消、单飞、有界停止且不永久阻止Top-3；成功端点不被失败端点覆盖；关闭或迟到preview不覆盖当前代际；编辑、替换、添加对话框焦点闭环通过。
 
-正式G03产品交付状态仍是`PRODUCT_DELIVERY_NOT_RUN`；只有贡献包被主对话验收并串行集成、受影响G03验证和当前产品回执全部通过后，才能重新进入`CORE_MVP_OWNER_REVIEW_PENDING`。
+G03返修产品交付已在当前集成候选上重新验证为`PRODUCT_DELIVERY_PASS`；必须先提交、push并精确回读本产品回执，随后才能原子进入`CORE_MVP_OWNER_REVIEW_PENDING`，且不得激活G04。
 
 ## Verification
 
@@ -218,6 +218,7 @@ Goal type: BLOCKING_DEFECT
 | 2026-08-30 | 增强产品修复`7fb559d...`已冻结；静态复核未发现新产品P0/P1，但主集成原始门禁因未暂停fake clock只通过26/27，因此未合并；现登记同一最终周期的测试证据附录 | recovery `7fb559d071f03da940c398f1dafc0372f1bb9a48`；evidence binding以本次远端subject回读为准 | 贡献者build、27/27、81/81；主集成build PASS、原始单轮26/27 FAIL；隔离repeat10与workers=1 repeat30只作诊断；两个独立只读复核一致定位时钟竞态并确认产品轮次静态单飞 | `LOCAL_AUTOMATED / LOCAL_BROWSER / READ_ONLY_REVIEW / NOT_ACCEPTED` | `Product progress=UI candidate frozen / evidence correction only` | `Governance ratio=evidence prompt binding pending` | 只改新E2E，显式冻结时钟并补齐10秒预算、混合终态与旧promise终结；随后原始单轮和repeat3各取得一次新鲜结果 | 不得靠重跑消除失败；若确定性证据暴露真实产品缺陷，本包停止且不修改产品 | 提交并远端回读验证附录prompt，把binding追加到恢复分支并登记精确prepared tip后授权测试专用提交 |
 | 2026-08-30 | 测试证据附录已完成binding、同一恢复分支准备和远端回读；产品实现仍冻结，现只授权新增E2E文件内的一个确定性测试提交 | binding `cc476d1cc6bc4e416b56976149918526ee9c738b`；prepared tip `357bffa99159d620dfb30f8d8dfe041a42443521`；远端同值 | prompt SHA-256 `be6f0b67588d3e29b089df2f63ca48b2316115d0ea7ddb3f921d82acc40a2aa4`；恢复工作树local/upstream/remote三方一致且clean；三份治理文件与控制分支逐字节一致；绑定前治理24 PASS、core-mainline PASS | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / evidence activation` | `Governance ratio=100% / exact prepared binding` | 一个测试专用追加提交、build、默认workers原始单轮和repeat3、主集成独立复核 | 若确定性测试揭示真实产品缺陷必须停止；不得修改页面、请求库、配置、依赖或门槛 | 推送并远端回读activation，然后向任务`01a05203...`发送精确commit、tip、哈希和完整prompt |
 | 2026-08-30 | 结果页累计UI候选已完成确定性证据修复并冻结为可串行集成；拖拽、键盘移动、删除确认、409回读、单命令、地图手动更新边界和有界增强读取均具备零重试覆盖，尚未进入集成分支 | final evidence `791fe1a7135256ac205790dccff980291c237195`；local/upstream/remote同值 | 贡献者build、29/29、87/87；主集成独立build、29/29、预热后默认workers且retries=0的87/87；产品`frontend/src`树与`7fb559d`一致；最终静态复核P0/P1/P2为0。首次repeat3为86/87，trace显示Next dev bundle语法错误、SSR loading且0次fixture API请求；清理重建缓存并预热后完整复验通过 | `LOCAL_AUTOMATED / LOCAL_BROWSER / ENVIRONMENT_DIAGNOSTIC / READ_ONLY_REVIEW` | `Product progress=UI cumulative candidate / READY_TO_MERGE` | `Governance ratio=readiness checkpoint pending` | 推送并回读本冻结登记；按原UI两提交、稳定性、增强恢复、测试证据顺序串行摘取并运行完整G03产品矩阵 | live AMap继续0调用NOT_RUN；首次Next dev故障不作为产品PASS也不被重跑抹除；媒体/API/migration仍不在本切片 | 提交、push/readback本READY登记，然后串行集成五个UI提交 |
+| 2026-08-30 | 语义、地点与结果页返修已全部串行集成，用户可稳定得到准确逐日卡片、手动更新地图、选择住宿、查看Top-3并通过拖拽/键盘/移动操作编辑；当前产品交付回执已重封为PASS，等待远端subject精确回读 | UI integration `93e8a466f0409ae9e898a906c9d101012b656c88`；product fingerprint `aa76dbafb3fe48d28f4e54efcbac1530aa2bf0c706c86a6e8facbf6d7b5079ee` | 组合131 PASS；Top-3非数据库3 PASS；G03 PostgreSQL隔离链1 PASS；dataset 90 VALID且blind Gate NOT_RUN；frontend build、OpenAPI drift、client build PASS；UI 29/29、默认3 workers repeat3 87/87；清空Provider密钥的local_fixture完整旅程1/1；治理24 PASS、core-mainline与delivery receipt PASS | `LOCAL_AUTOMATED / POSTGRESQL_INTEGRATION / LOCAL_BROWSER / DEVELOPMENT_DIAGNOSTIC` | `Product progress=RUNTIME + UI integrated / PRODUCT_DELIVERY_PASS` | `Governance ratio=delivery checkpoint pending` | 提交并push/readback本产品回执；随后原子切换到`CORE_MVP_OWNER_REVIEW_PENDING`，不激活G04 | live AMap矩阵仍因零增量额度未证明而0调用NOT_RUN；sealed blind、FUX-03、H1、公网、生产和商业均NOT_RUN；不自动部署、发布或合并main | 固化并远端回读交付检查点，再执行G03 completed归档与所有者体验验收停点 |
 
 ## Auto-advance
 
@@ -230,8 +231,8 @@ Goal type: BLOCKING_DEFECT
 ## Completion record
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
-- Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / 994ac8557f1d507787b9ca26e724d7df684d3faa / SUPERSEDED_BY_CUMULATIVE_CHAIN / FROZEN`；`WP-G03R-UI-STABILITY / 030d2129736ac354a4febe6631e8141098e70a75 / SUPERSEDED_BY_CUMULATIVE_CHAIN / FROZEN`；`WP-G03R-UI-ENHANCEMENT-RECOVERY / 7fb559d071f03da940c398f1dafc0372f1bb9a48 / STATIC_P0_P1_CLEAR / FROZEN`；`WP-G03R-UI-ENHANCEMENT-EVIDENCE / 791fe1a7135256ac205790dccff980291c237195 / READY_TO_MERGE / REMOTE_READBACK_PASS`；
+- Product result / current delivery Gate：`PASS_PENDING_REMOTE_READBACK / PRODUCT_DELIVERY_PASS`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / dd26967ea3d04453a7aac2e52017088d4b7c829b / PASS / MERGED_AS_a16e3a9`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / MERGED_AS_6149f51`；`WP-G03R-UI / 994ac8557f1d507787b9ca26e724d7df684d3faa / SUPERSEDED_BY_CUMULATIVE_CHAIN / FROZEN`；`WP-G03R-UI-STABILITY / 030d2129736ac354a4febe6631e8141098e70a75 / SUPERSEDED_BY_CUMULATIVE_CHAIN / FROZEN`；`WP-G03R-UI-ENHANCEMENT-RECOVERY / 7fb559d071f03da940c398f1dafc0372f1bb9a48 / STATIC_P0_P1_CLEAR / FROZEN`；`WP-G03R-UI-ENHANCEMENT-EVIDENCE / 791fe1a7135256ac205790dccff980291c237195 / PASS / MERGED_AS_93e8a46`；
 - Fresh 72-case Qwen comparison：`BASELINE + B37 + 28A + 905 EACH EXACTLY ONCE / FINAL 72/72 AND ALL THRESHOLDS PASS / DEVELOPMENT_DIAGNOSTIC`；sealed blind仍为`NOT_RUN`且不得推断通过；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；

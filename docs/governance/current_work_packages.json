@@ -65,7 +65,7 @@
       "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
     "minimum_change": "保留已集成的语义资格、三城保守解析及前三个UI提交；只在登记结果页、现有请求库和新E2E中增加增强GET取消、单飞有界轮询、诚实降级与preview关闭失效，不新增媒体、API、数据库、依赖或自动地图重绘。",
-    "phase": "IMPLEMENTING",
+    "phase": "DELIVERY_VERIFY",
     "preflight_entrypoints": [
       "backend/tests/test_g03r_trip_semantics.py",
       "backend/tests/test_qwen_trip_understanding.py",
@@ -446,16 +446,17 @@
       "prompt_sha256": "be6f0b67588d3e29b089df2f63ca48b2316115d0ea7ddb3f921d82acc40a2aa4",
       "registry_activation_commit": "cc476d1cc6bc4e416b56976149918526ee9c738b",
       "ready_commit": "791fe1a7135256ac205790dccff980291c237195",
+      "merged_commit": "93e8a466f0409ae9e898a906c9d101012b656c88",
       "remote_readback": "791fe1a7135256ac205790dccff980291c237195",
       "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
       "role": "CONTRIBUTOR",
-      "status": "READY_TO_MERGE",
-      "status_reason": "测试专用提交791fe1a已推送并完成local/upstream/remote精确回读，工作树clean，产品src树与7fb559d字节不变。贡献者build、29/29、87/87通过；主集成独立build、29/29、预热后默认workers且retries=0的87/87通过，最终静态复核P0/P1/P2均为0。主集成首次repeat3的86/87失败保留为Next dev bundle语法错误环境证据：页面停在SSR loading且0次fixture API请求；清理并重建缓存、预热bundle后完整矩阵通过，未以retry或单worker替代。",
+      "status": "MERGED",
+      "status_reason": "累计UI链已按原UI两提交、稳定性、增强恢复、测试证据顺序无冲突摘取，最终映射提交为93e8a46。集成分支通过后端131项、Top-3 3项、PostgreSQL 1项、前端build、UI 29/29与默认3 workers repeat3 87/87、完整产品旅程1/1、OpenAPI漂移和客户端build；Provider fixture运行时真实Qwen/高德密钥为空，live AMap调用0。",
       "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_READY_FOR_SERIAL_INTEGRATION",
+  "program_state": "G03R_PRODUCT_DELIVERY_PASS_PENDING_READBACK",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
