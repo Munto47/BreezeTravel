@@ -277,6 +277,30 @@ async def test_local_fallback_starts_a_new_capture_at_each_action_anchor() -> No
 
 
 @pytest.mark.asyncio
+async def test_local_fallback_preserves_controlled_other_city_metadata() -> None:
+    unique_city = await DeterministicTextInferenceProvider().propose(
+        "Day 1 去北京路步行街。"
+    )
+    unknown_city = await DeterministicTextInferenceProvider().propose(
+        "Day 1 去星河秘境一号。"
+    )
+    multiple_cities = await DeterministicTextInferenceProvider().propose(
+        "Day 1 去北京路步行街。Day 2 去南普陀寺。"
+    )
+
+    assert unique_city.destination_name == "广州"
+    assert [item.atomic_place_name for item in unique_city.mentions] == [
+        "北京路步行街"
+    ]
+    assert unknown_city.destination_name == "目的地待确认"
+    assert multiple_cities.destination_name == "目的地待确认"
+    assert [item.atomic_place_name for item in multiple_cities.mentions] == [
+        "北京路步行街",
+        "南普陀寺",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() -> None:
     source = "未知地点甲；只写描述；010-12345678；预约说明；前往地点丙；推荐地点乙"
     values = [
