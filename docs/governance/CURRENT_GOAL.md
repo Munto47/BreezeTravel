@@ -155,6 +155,7 @@ Goal type: PRODUCT_ENHANCEMENT
 | 2026-08-30 | OCR、上传清理与VL/UI三个用户可见贡献包均已冻结、远端回读并按OCR→Upload→VL/UI顺序集成；共享截图主链进入总集成 | `f1c75d95` / `9403a989` / `206312c0`；registry checkpoint `313c5347` | 三包远端tip与ready commit一致；stable patch-id一致；45项贡献测试与Ruff通过 | `REMOTE_AUTOMATED / MULTI_DIALOGUE_CONTRIBUTION` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=control-plane checkpoint` | 034、原子幂等、TTL、OpenAPI、浏览器和最终Gate | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；真实Paddle与真实来源Gate仍需单独实跑 | 集成者完成共享持久化/API/前端/CI并运行Screenshot Parity Gate |
 | 2026-08-30 | G04四项自动检查拆为独立CI job，fixture回归与真实Paddle一致性Gate建立机器可判别边界 | 工作树待集成者checkpoint | 治理定向测试覆盖receipt缺失、`NOT_EVALUABLE`、空分母、循环oracle、候选过期、Paddle/hardware与2+20绑定 | `LOCAL_AUTOMATED / GOVERNANCE_CONTRACT_ONLY` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=delivery evidence fail-closed` | 真实许可数据、真实Paddle执行、全量产品检查和耐久delivery receipt | 当前正式receipt状态仍为`NOT_RUN`，不得推断Screenshot Parity Gate通过 | 完成产品验收后生成脱敏正式receipt，再生成并验证G04 product-delivery receipt |
 | 2026-08-31 | 截图批次、034持久化、原子一次性消费、隐私清理、统一语义主链、首页与独立CI聚合已形成可验证候选；许可真实截图oracle已由双隔离转写加独立裁决冻结 | 本候选提交（提交后远端readback） | G04定向`137 passed, 1 skipped`；自然路线/正式Gate`38 passed`；Ruff PASS；Windows临时文件安全`47 passed`，Linux容器`36 passed, 2 skipped`；fresh/031 PostgreSQL真实升级与事务测试PASS；live fixture Playwright `5 passed`；OpenAPI、client typecheck/build、frontend production build PASS | `LOCAL_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / MULTI_AGENT_SIMULATED_REVIEW / LICENSED_REAL_SCREENSHOT_DATASET` | `Product progress=RUNTIME+UI / VERIFYING` | `Governance ratio=product candidate plus fail-closed evidence contract` | 真实Paddle 2+20、backend full suite终态与耐久delivery receipt | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；正式Paddle receipt尚未生成；全量后端仅剩冻结Trip NLU旧manifest与当前validator绑定相互矛盾的2项历史失败，未改冻结资产 | 冻结并push候选commit，回读远端tip后运行真实Paddle；继续寻找不改冻结资产的全量回归解法 |
+| 2026-08-31 | 许可真实截图已在冻结候选上通过Screenshot Parity Gate；失败首轮暴露同起点嵌套字段排序缺陷，改用紧框优先几何规则后复跑通过，原图终态删除 | candidate `525af072c47a3f318d88c722bf8067d6ff30907c`；正式receipt待本checkpoint提交 | PaddleOCR 3.7.0/PaddlePaddle 3.3.1 GPU；关键字段F1、reading adjacency-F1、低置信确认召回、清理覆盖率均`1.0`；地点precision/recall下降`0pp`；严重错误/泄漏`0`；3图2+20 P95 `551.451ms` | `REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / LICENSED_REAL / MULTI_AGENT_SIMULATED_REVIEW` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=formal evidence frozen, delivery not yet claimed` | backend full suite历史2项冲突、耐久`PRODUCT_DELIVERY_PASS`、远端CI与PR | cuDNN编译9.9/加载9.5.1但主ABI一致；Qwen-VL仍`NOT_RUN_NO_EXACT_BINDING`；H1/公网/生产/商业未运行 | 提交push/readback脱敏正式receipt，再完成delivery receipt和远端主线验证 |
 
 ## Auto-advance
 
@@ -164,7 +165,7 @@ Goal type: PRODUCT_ENHANCEMENT
 ## Completion record
 
 - Status：`PENDING`；Subject commits / Remote branch：激活后逐checkpoint填写；
-- Verification / Evidence / Gate result / structurally_valid：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`（`structurally_valid=true`）；
+- Verification / Evidence / Gate result / structurally_valid：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / PRODUCT_DELIVERY_NOT_RUN / true`（`structurally_valid=true`）；
 - 当前结构有效或G04自动验证通过，不得因此宣称 `V1_CANDIDATE_READY`；该发布门仍不在本Goal授权和证据范围内。
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：`PENDING / PENDING / false / false`；

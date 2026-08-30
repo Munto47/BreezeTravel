@@ -65,7 +65,7 @@
       "功能任务自行合并develop、rebase、squash或force-push"
     ],
     "minimum_change": "把三个已冻结领域贡献接入唯一v3主链，完成隐私生命周期、持久化、公共API、首页与可重复交付门。",
-    "phase": "IMPLEMENTING",
+    "phase": "EVIDENCE_FROZEN",
     "preflight_entrypoints": [
       "docs/governance/WORK_PACKAGE_PROMPT_TEMPLATE.md",
       "backend/tests/test_governance_agent_gate_transition.py",
@@ -92,7 +92,7 @@
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
   "delivery_evidence": {
-    "state": "IMPLEMENTING",
+    "state": "EVIDENCE_FROZEN",
     "fixture_ci": {
       "evidence_level": "AUTOMATED_FIXTURE_CI",
       "proves_formal_parity": false,
@@ -101,7 +101,7 @@
     "formal_parity": {
       "evidence_level": "REAL_PADDLE_LICENSED_SCREENSHOT_PARITY",
       "receipt_path": "backend/governance/g04_screenshot_parity_receipt.json",
-      "status": "NOT_RUN"
+      "status": "PASS"
     },
     "transition_requires_formal_pass": true
   },

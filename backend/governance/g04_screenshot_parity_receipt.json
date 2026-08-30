@@ -1,0 +1,105 @@
+{
+  "candidate": {
+    "commit": "525af072c47a3f318d88c722bf8067d6ff30907c",
+    "product_fingerprint": "5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3",
+    "tree": "354dd9df99f375f95d7da0dde52ac17ca8166540"
+  },
+  "decision": {
+    "failures": [],
+    "status": "PASS"
+  },
+  "evaluator": {
+    "baseline_manifest_sha256": "145db1264a69f8f72289e2c52ad8885e47f87c80e1850ca1c90ad40963fe8c14",
+    "expected_transcript_sha256": "4981cd620f6bb6eb2d5bc4ed3c1583c4829ad5a628b896091b94787721470dfa",
+    "metric_inputs_sha256": "cbf0940fb38b3b833205274e7fb34ca7db16e7a9bc48ecde7a78e8422fecfedd",
+    "oracle_adjudication_sha256": "5fee064cf448345f0c79777d8045abb7c355caf5075244cbcfaf243c92c55569",
+    "runner_sha256": "d58afb9a1f62cc2d6f208bfa151e6f89f39b71f0ad09f27bb086e0530c1ab688",
+    "runspec_sha256": "38b50112f8991fb42a20d44f0db50e494f47636618f8fb8831e0b997819d69ee",
+    "scored_outputs_sha256": "bdf82ff56b89f018402a57f09e850157073a2092c15b692ede2b54f47820081a",
+    "scorer_sha256": "857dbd3cee8f295d744c84d6182cf687154cf78efb134d7f5fccac533bfd950e",
+    "text_only_day_dataset_sha256": "241c7b6d18386c96bf78c29009cb920185ecaf5ce1ea163d61aca11aba72c412"
+  },
+  "evidence_level": "REAL_PADDLE_LICENSED_SCREENSHOT_PARITY",
+  "execution_mode": "REAL_PADDLE_LOCAL",
+  "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "hardware": {
+    "device_class": "LOCAL_GPU",
+    "driver_sha256": "f9afab24c2d8a218d7785b041f69f076f3e509d9e63851d88af140154ff3f505",
+    "hardware_sha256": "e938bdfdf53a24a496a45973425c7771dae260416d91c4d6a76192e799d7fe21"
+  },
+  "metric_counts": {
+    "case_count": 8,
+    "cleanup_receipt_count": 77,
+    "cleanup_terminal_count": 77,
+    "critical_field_count": 71,
+    "licensed_real_case_count": 4,
+    "location_baseline_count": 12,
+    "low_confidence_critical_field_count": 13,
+    "reading_adjacency_count": 68,
+    "synthetic_case_count": 4,
+    "text_only_day_case_count": 3
+  },
+  "metrics": {
+    "cleanup_receipt_coverage": 1.0,
+    "critical_field_f1": 1.0,
+    "internal_leak_count": 0,
+    "location_precision_drop_pp": 0.0,
+    "location_recall_drop_pp": 0.0,
+    "low_confidence_confirmation_recall": 1.0,
+    "reading_order_adjacency_f1": 1.0,
+    "sentence_as_place_count": 0,
+    "wrong_category_count": 0,
+    "wrong_city_count": 0
+  },
+  "paddle": {
+    "config_sha256": "695f643514e1bb79e1ce40bff2d4e7b87ff7aafd81f49d42546771758cacc803",
+    "model_sha256": "d46029ac98913e65386cb342445b604893b15eff3b908c8ebda9efc9e68b7b4f",
+    "paddleocr_version": "3.7.0",
+    "paddlepaddle_version": "3.3.1"
+  },
+  "performance": {
+    "concurrency": 1,
+    "height_px": 1920,
+    "image_count": 3,
+    "measured_runs": 20,
+    "measurement_ms": [
+      491.375,
+      481.289,
+      492.448,
+      501.479,
+      499.975,
+      532.481,
+      545.092,
+      531.055,
+      501.029,
+      532.997,
+      495.123,
+      495.527,
+      485.505,
+      502.432,
+      492.087,
+      500.188,
+      488.876,
+      578.742,
+      551.451,
+      509.569
+    ],
+    "p95_ms": 551.451,
+    "warmup_runs": 2,
+    "width_px": 1080
+  },
+  "receipt_hash": "7db7c13eb5a9d44b24f0e7328347f0f0c362d3127266211a70495b475417c158",
+  "sanitized": true,
+  "schema_version": "g04-screenshot-parity-receipt-v1",
+  "source_policy": {
+    "candidate_outputs_used_for_oracle": false,
+    "cleanup_receipts_sha256": "697e6fb251a0ee03662442e2c408c7213a143834899b18df93348528645280e6",
+    "human_review": false,
+    "license_manifest_sha256": "8ae9cff1e84c0d7ff5540911706d201a8fcfd5d52adb106c1f799153f41bf27c",
+    "originals_in_git": false,
+    "originals_storage": "OUTSIDE_GIT_EPHEMERAL",
+    "parity_metric_scope": "LICENSED_REAL_ONLY",
+    "review_label": "MULTI_AGENT_SIMULATED_REVIEW",
+    "terminal_cleanup_receipts_complete": true
+  }
+}

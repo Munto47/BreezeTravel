@@ -321,7 +321,7 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     assert "run_g04_screenshot_parity" not in workflow
 
 
-def test_current_g04_lifecycle_is_in_progress_and_formal_gate_is_not_run() -> None:
+def test_current_g04_lifecycle_has_frozen_formal_pass_before_delivery() -> None:
     current_goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
         encoding="utf-8"
     )
@@ -332,6 +332,6 @@ def test_current_g04_lifecycle_is_in_progress_and_formal_gate_is_not_run() -> No
     )
 
     assert current_goal.startswith("# IN_PROGRESS GOAL")
-    assert registry["delivery_evidence"]["state"] == "IMPLEMENTING"
-    assert registry["delivery_evidence"]["formal_parity"]["status"] == "NOT_RUN"
+    assert registry["delivery_evidence"]["state"] == "EVIDENCE_FROZEN"
+    assert registry["delivery_evidence"]["formal_parity"]["status"] == "PASS"
     assert validate_registry_v3(REPOSITORY_ROOT)["verdict"] == "PASS"
