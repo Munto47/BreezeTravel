@@ -419,6 +419,8 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         if step.get("name") == "Verify exact historical font and P5 regression"
     )
     assert "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f" in historical_regression["run"]
+    assert "P5_RENDERER_ABI" in historical_regression["run"]
+    assert "frozen P5 renderer ABI mismatch" in historical_regression["run"]
     assert "test_trip_check_p5*.py" in historical_regression["run"]
     assert "python -m pytest -q @testFiles" in historical_regression["run"]
 

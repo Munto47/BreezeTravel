@@ -441,6 +441,49 @@ jobs:
           if ($actualFontHash -ne $expectedFontHash) {
             throw "frozen P5 font hash mismatch: expected $expectedFontHash, got $actualFontHash"
           }
+          @'
+          import json
+          import platform
+          import sys
+          from pathlib import Path
+
+          import PIL
+          from PIL import ImageFont, features
+
+          from evals.trip_check_v1.p5.evidence_materialization_v3 import _render_contract_v3
+
+          rows = Path("evals/trip_check_v1/p5/materializations_nonblind_v3.jsonl")
+          case = next(
+              json.loads(line)
+              for line in rows.read_text(encoding="utf-8").splitlines()
+              if json.loads(line).get("case_id") == "p5.dev.bj.002"
+          )
+          product_input = case["source_payload"]["product_input"]
+          actual = _render_contract_v3(
+              product_input["source_text"],
+              json.dumps(product_input["render_spec"], ensure_ascii=False, sort_keys=True),
+          )
+          expected = (
+              case["render_receipt"]["image_sha256"],
+              case["render_receipt"]["byte_size"],
+          )
+          diagnostic = {
+              "python": sys.version,
+              "platform": platform.platform(),
+              "pillow": PIL.__version__,
+              "freetype": features.version("freetype2"),
+              "raqm": features.version_feature("raqm"),
+              "fribidi": features.version_feature("fribidi"),
+              "layout_engine": int(
+                  ImageFont.truetype(str(Path("C:/Windows/Fonts/msyh.ttc")), 34).layout_engine
+              ),
+              "expected": expected,
+              "actual": actual[:2],
+          }
+          print("P5_RENDERER_ABI " + json.dumps(diagnostic, ensure_ascii=False, sort_keys=True))
+          if actual[:2] != expected:
+              raise SystemExit("frozen P5 renderer ABI mismatch")
+          '@ | python -
           $testFiles = @(
             Get-ChildItem -LiteralPath tests -Filter 'test_trip_check_p5*.py' |
               Sort-Object -Property Name |
