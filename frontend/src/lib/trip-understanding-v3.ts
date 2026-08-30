@@ -399,12 +399,14 @@ export async function selectTripUnderstandingStay(
 export async function materializeTripUnderstanding(
   publicResourceId: string,
   etag: string,
+  signal?: AbortSignal,
 ): Promise<{ body: MaterializedTripView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/materialize`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Idempotency-Key': operationRequestKey(`materialize:${publicResourceId}:${etag}`),
         'If-Match': etag,
@@ -426,12 +428,14 @@ export async function materializeTripUnderstanding(
 
 export async function readTripUnderstandingChecks(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<PublicTripChecksView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/checks`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
