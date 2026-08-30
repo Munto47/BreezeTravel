@@ -52,7 +52,7 @@
       "把词典作为POI身份权威或保存高德ID、坐标、地址、电话、营业时间、价格、评分、房态和原始响应",
       "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
-    "minimum_change": "按三个独立质量因素修复G03行程语义并统一PLANNED资格；另以版本化三城900地点词典辅助检索，由实时高德结果按城市、行政区、类别和最高有效层唯一性保守确认地点。",
+    "minimum_change": "按三个独立质量因素修复G03行程语义并统一PLANNED资格；冻结模式只精确放行已登记的Qwen语义提示词，schema、配置和其他评测资产继续锁定；另以版本化三城900地点词典辅助检索，由实时高德结果按城市、行政区、类别和最高有效层唯一性保守确认地点。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_g03r_trip_semantics.py",

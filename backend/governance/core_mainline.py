@@ -20,6 +20,9 @@ OWNER_REVIEW_STATUS = "OWNER_REVIEW_PENDING"
 G03_GOAL_ID = "TC-VNEXT-G03-TOP3-AUDIT"
 G04_GOAL_ID = "TC-VNEXT-G04-SCREENSHOT"
 G03_REPAIR_OWNER_AUTHORIZATION = "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30"
+G03_REPAIR_SEMANTIC_PROMPT_PATH = (
+    "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md"
+)
 
 PRODUCT_ROOTS = (
     "backend/app/",
@@ -475,8 +478,22 @@ def validate_core_mainline(
     deferred_patterns = contract.get("deferred_work_patterns", [])
     if not all(isinstance(item, str) and item for item in (*frozen_patterns, *deferred_patterns)):
         raise CoreMainlineError("delivery contract path patterns are invalid")
-    frozen_changes = tuple(path for path in paths if _matches_any(path, frozen_patterns))
-    deferred_changes = tuple(path for path in paths if _matches_any(path, deferred_patterns))
+    repair_path_exemptions = (
+        {G03_REPAIR_SEMANTIC_PROMPT_PATH}
+        if owner_review_repair_transition
+        and G03_REPAIR_SEMANTIC_PROMPT_PATH in active.get("allowed_paths", [])
+        else set()
+    )
+    frozen_changes = tuple(
+        path
+        for path in paths
+        if _matches_any(path, frozen_patterns) and path not in repair_path_exemptions
+    )
+    deferred_changes = tuple(
+        path
+        for path in paths
+        if _matches_any(path, deferred_patterns) and path not in repair_path_exemptions
+    )
 
     if sequence <= 3 and not bootstrap:
         if frozen_changes:

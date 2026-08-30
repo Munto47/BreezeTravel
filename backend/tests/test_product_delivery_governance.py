@@ -329,6 +329,9 @@ def _write_active_g03_repair(
             "work_kind": "BLOCKING_DEFECT",
             "phase": "IMPLEMENTING",
             "product_progress": "RUNTIME",
+            "allowed_paths": [
+                "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+            ],
             "blocking_issue": {
                 "severity": "P1",
                 "reproduction": "Arabic day headings lose day and sequence accuracy.",
@@ -405,6 +408,39 @@ def test_owner_authorized_g03_p1_repair_can_leave_review_hold_and_change_runtime
     assert runtime.verdict == "PASS"
     assert runtime.work_kind == "BLOCKING_DEFECT"
     assert runtime.product_progress == ("RUNTIME",)
+
+    prompt = (
+        root
+        / "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md"
+    )
+    prompt.parent.mkdir(parents=True)
+    prompt.write_text("Classify local itinerary semantics.\n", encoding="utf-8")
+    _commit(root, "repair the authorized semantic prompt")
+
+    prompt_runtime = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert prompt_runtime.verdict == "PASS"
+    assert prompt_runtime.frozen_g07_changes == ()
+    assert prompt_runtime.deferred_work_changes == ()
+
+    schema = (
+        root
+        / "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json"
+    )
+    schema.write_text("{}\n", encoding="utf-8")
+    _commit(root, "attempt an unauthorized semantic schema change")
+
+    unauthorized_asset = validate_core_mainline(root, base_ref=owner_review_base)
+
+    assert unauthorized_asset.verdict == "FAIL"
+    assert "FROZEN_G07_ASSET_CHANGED" in unauthorized_asset.errors
+    assert "DEFERRED_DETAIL_WORK_CHANGED" in unauthorized_asset.errors
+    assert unauthorized_asset.frozen_g07_changes == (
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+    )
+    assert unauthorized_asset.deferred_work_changes == (
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+    )
 
 
 def test_g03_review_hold_cannot_open_governance_only_repair_without_owner_marker(

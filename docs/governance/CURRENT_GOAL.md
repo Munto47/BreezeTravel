@@ -172,6 +172,7 @@ Goal type: BLOCKING_DEFECT
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | 所有者授权G03 P1语义返修；G04继续未激活；尚未修改语义运行时 | activation pending | 远端`origin/develop@8a33a4b`回读；治理基线validator PASS；治理定向测试24 PASS | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / activation only` | prompt绑定、三个单因素、离线回归、正式72条 | 当前终端无Qwen凭据，正式72条可能`BLOCKED_EXTERNAL` | 提交激活点，登记prompt和独立语义工作树 |
 | 2026-08-30 | G03R控制面已激活，语义贡献包已运行；现登记三城900地点词典与保守高德解析包，地点产品代码尚未修改 | activation `d4ce966de55b6d72e0b5daced9764223d7a6913a`；place binding以本次远端subject回读为准 | core-mainline、治理定向测试、prompt完整性/哈希与registry一致性由本控制切片复核 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / semantic + place prompt binding` | 地点分支/工作树、两个串行提交、离线回归、正式语义72条 | 词典来源需逐条复核；Qwen凭据未注入；live AMap仅主对话且受零增量费用边界约束 | 推送place binding并从该提交创建`codex/g03r-place-resolution` |
+| 2026-08-30 | 已把语义提示词纳入所有者授权的G03 P1返修边界；schema、配置和其他冻结评测资产仍被拒绝 | 本控制checkpoint commit | 治理定向测试24 PASS；精确提示词路径PASS；相邻schema路径同时触发两项冻结错误 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / exact-path exception` | 从新控制点重建语义贡献分支、重跑语义回归及core-mainline、正式72条 | Qwen凭据未注入，正式72条仍可能`BLOCKED_EXTERNAL` | 推送控制checkpoint并回读，然后无历史改写地重建`codex/g03r-semantic` |
 
 ## Auto-advance
 
