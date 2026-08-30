@@ -126,6 +126,244 @@ const checksView = {
 }
 
 
+const ENHANCEMENT_REF = 'g03r-bounded-enhancements'
+const ENHANCEMENT_ETAG_A = 'tu3_enhancement_generation_a'
+const ENHANCEMENT_ETAG_B = 'tu3_enhancement_generation_b'
+
+
+function enhancementResultView() {
+  const view = resultView('PREPARING')
+  view.stay = {
+    status: 'PREPARING',
+    message: '正在准备住宿建议',
+    area_summary: null,
+    searched_scopes: [],
+    candidates: [],
+    available_actions: [],
+  }
+  return view
+}
+
+
+async function installEnhancementFixture(page, {
+  mapMode = 'available',
+  stayMode = 'available',
+  switchGeneration = false,
+} = {}) {
+  const modes = { map: mapMode, stay: stayMode }
+  const reads = { map: 0, stay: 0 }
+  const inFlight = { map: 0, stay: 0 }
+  const maxInFlight = { map: 0, stay: 0 }
+  const aborted = { map: 0, stay: 0 }
+  const activeRequests = { map: new Set(), stay: new Set() }
+  const barriers = { map: deferred(), stay: deferred() }
+  const waiters = []
+  let materializeCalls = 0
+  let checksCalls = 0
+  let resultReads = 0
+  let mapRenderPosts = 0
+  let newGenerationStartedBeforeOldSettled = false
+
+  const snapshot = () => ({
+    reads: { ...reads },
+    inFlight: { ...inFlight },
+    maxInFlight: { ...maxInFlight },
+    aborted: { ...aborted },
+    materializeCalls,
+    checksCalls,
+    resultReads,
+    mapRenderPosts,
+    newGenerationStartedBeforeOldSettled,
+  })
+  const notify = () => {
+    for (let index = waiters.length - 1; index >= 0; index -= 1) {
+      if (!waiters[index].predicate(snapshot())) continue
+      const [{ resolve }] = waiters.splice(index, 1)
+      resolve()
+    }
+  }
+  const waitFor = (predicate) => {
+    if (predicate(snapshot())) return Promise.resolve()
+    return new Promise((resolve) => waiters.push({ predicate, resolve }))
+  }
+  const settle = (kind, request) => {
+    if (!activeRequests[kind].delete(request)) return
+    inFlight[kind] -= 1
+    notify()
+  }
+
+  page.on('requestfailed', (request) => {
+    const pathname = new URL(request.url()).pathname
+    const kind = pathname.endsWith('/map-renders/latest')
+      ? 'map'
+      : pathname.endsWith('/stay-suggestions')
+        ? 'stay'
+        : null
+    if (!kind) return
+    aborted[kind] += 1
+    settle(kind, request)
+    notify()
+  })
+
+  await page.addInitScript(({ resourceRef, etag }) => {
+    sessionStorage.setItem('bt_active_trip_ref', resourceRef)
+    sessionStorage.setItem('bt_active_trip_mode', 'DEMO')
+    sessionStorage.setItem('bt_active_trip_etag', etag)
+  }, { resourceRef: ENHANCEMENT_REF, etag: ENHANCEMENT_ETAG_A })
+
+  const fulfillEndpoint = async (route, kind) => {
+    const request = route.request()
+    reads[kind] += 1
+    const call = reads[kind]
+    const mode = modes[kind]
+    activeRequests[kind].add(request)
+    inFlight[kind] += 1
+    maxInFlight[kind] = Math.max(maxInFlight[kind], inFlight[kind])
+    if (switchGeneration && call > 1 && (aborted.map < 1 || aborted.stay < 1)) {
+      newGenerationStartedBeforeOldSettled = true
+    }
+    notify()
+
+    if (mode === 'hang') {
+      await barriers[kind].promise
+      try {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(kind === 'map'
+            ? { ...mapView, message: '旧代际迟到路线' }
+            : { ...stayView, message: '旧代际迟到住宿' }),
+        })
+      } catch {
+        // The browser has already aborted this stale request.
+      }
+      settle(kind, request)
+      return
+    }
+
+    if (mode === 'slow' && call === 1) await barriers[kind].promise
+    if (mode === 'failure') {
+      await route.fulfill({ status: 503, contentType: 'application/json', body: '{}' })
+      settle(kind, request)
+      return
+    }
+
+    const preparing = mode === 'preparing' || (mode === 'slow' && call === 1)
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(kind === 'map'
+        ? {
+            ...mapView,
+            status: preparing ? 'PREPARING' : 'AVAILABLE',
+            message: preparing ? `路线仍在准备 ${call}` : '新路线状态已读取',
+            available_actions: preparing ? [] : ['VIEW_MAP'],
+          }
+        : {
+            ...stayView,
+            status: preparing ? 'PREPARING' : 'AVAILABLE',
+            message: preparing ? `住宿仍在准备 ${call}` : '新住宿状态已读取',
+            area_summary: preparing ? null : stayView.area_summary,
+          }),
+    })
+    settle(kind, request)
+  }
+
+  await page.route(`**/api/v3/trip-understandings/${ENHANCEMENT_REF}/**`, async (route) => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+
+    if (pathname.endsWith('/events')) {
+      if (switchGeneration) {
+        await waitFor((calls) => calls.reads.map >= 1 && calls.reads.stay >= 1)
+        modes.map = 'available'
+        modes.stay = 'available'
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/event-stream',
+          body: 'id: 1\nevent: result_available\ndata: {"message":"服务端结果已更新"}\n\n',
+        })
+      } else {
+        await route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' })
+      }
+      return
+    }
+
+    if (pathname.endsWith('/result')) {
+      resultReads += 1
+      const etag = switchGeneration && resultReads > 1 ? ENHANCEMENT_ETAG_B : ENHANCEMENT_ETAG_A
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { ETag: etag },
+        body: JSON.stringify(enhancementResultView()),
+      })
+      notify()
+      return
+    }
+
+    if (pathname.endsWith('/map-renders/latest')) {
+      await fulfillEndpoint(route, 'map')
+      return
+    }
+
+    if (pathname.endsWith('/stay-suggestions')) {
+      await fulfillEndpoint(route, 'stay')
+      return
+    }
+
+    if (pathname.endsWith('/map-renders') && request.method() === 'POST') {
+      mapRenderPosts += 1
+      notify()
+      await route.fulfill({ status: 202, contentType: 'application/json', body: '{}' })
+      return
+    }
+
+    if (pathname.endsWith('/materialize')) {
+      materializeCalls += 1
+      notify()
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { ETag: switchGeneration ? ENHANCEMENT_ETAG_B : ENHANCEMENT_ETAG_A },
+        body: JSON.stringify({
+          status: 'READY',
+          message: '行程已准备好检查',
+          calendar: 'Day 1 ～ Day 3',
+          party_size: 2,
+          checks_available: true,
+        }),
+      })
+      return
+    }
+
+    if (pathname.endsWith('/checks')) {
+      checksCalls += 1
+      notify()
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(checksView) })
+      return
+    }
+
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  return {
+    calls: snapshot,
+    setModes: (nextMapMode, nextStayMode) => {
+      modes.map = nextMapMode
+      modes.stay = nextStayMode
+    },
+    waitForReads: (map, stay) => waitFor((calls) => calls.reads.map >= map && calls.reads.stay >= stay),
+    waitForAborts: (map, stay) => waitFor((calls) => calls.aborted.map >= map && calls.aborted.stay >= stay),
+    waitForIdle: () => waitFor((calls) => calls.inFlight.map === 0 && calls.inFlight.stay === 0),
+    releaseAll: () => {
+      barriers.map.resolve()
+      barriers.stay.resolve()
+    },
+  }
+}
+
+
 async function installRaceFixture(page, scenario = 'cleanup') {
   let resultReads = 0
   let materializeCalls = 0
@@ -275,6 +513,169 @@ async function installRaceFixture(page, scenario = 'cleanup') {
     releaseCompatibleMaterialize: () => releaseCompatibleMaterialize.resolve(),
   }
 }
+
+
+for (const hangingKind of ['map', 'stay']) {
+  test(`a hanging ${hangingKind} read aborts at 3000ms without losing the other terminal enhancement`, async ({ page }) => {
+    await page.clock.install()
+    const fixture = await installEnhancementFixture(page, {
+      mapMode: hangingKind === 'map' ? 'hang' : 'available',
+      stayMode: hangingKind === 'stay' ? 'hang' : 'available',
+    })
+
+    try {
+      await page.goto('/trip/result')
+      await fixture.waitForReads(1, 1)
+      await page.clock.runFor(3_001)
+      await fixture.waitForAborts(hangingKind === 'map' ? 1 : 0, hangingKind === 'stay' ? 1 : 0)
+
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await expect(page.getByTestId('enhancement-read-recovery')).toBeVisible()
+      if (hangingKind === 'map') {
+        await expect(page.getByTestId('map-theater')).toContainText('路线详情暂时不可用')
+        await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
+      } else {
+        await expect(page.getByTestId('map-theater')).toContainText('新路线状态已读取')
+        await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
+      }
+
+      const stopped = fixture.calls()
+      expect(stopped.maxInFlight).toEqual({ map: 1, stay: 1 })
+      expect(stopped.mapRenderPosts).toBe(0)
+      await page.clock.runFor(30_000)
+      expect(fixture.calls().reads).toEqual(stopped.reads)
+    } finally {
+      fixture.releaseAll()
+    }
+  })
+}
+
+
+test('an enhancement round slower than 800ms stays single-flight before the next round', async ({ page }) => {
+  await page.clock.install()
+  const fixture = await installEnhancementFixture(page, { mapMode: 'slow', stayMode: 'slow' })
+
+  try {
+    await page.goto('/trip/result')
+    await fixture.waitForReads(1, 1)
+    await page.clock.runFor(801)
+    expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
+    expect(fixture.calls().maxInFlight).toEqual({ map: 1, stay: 1 })
+
+    fixture.releaseAll()
+    await fixture.waitForIdle()
+    await expect(page.getByTestId('map-theater')).toContainText('路线仍在准备 1')
+    await expect(page.getByTestId('stay-panel')).toContainText('住宿仍在准备 1')
+    await page.clock.runFor(799)
+    expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
+
+    await page.clock.runFor(1)
+    await fixture.waitForReads(2, 2)
+    await expect(page.getByTestId('map-theater')).toContainText('新路线状态已读取')
+    await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    expect(fixture.calls().maxInFlight).toEqual({ map: 1, stay: 1 })
+  } finally {
+    fixture.releaseAll()
+  }
+})
+
+
+test('continuous PREPARING responses stop after eight bounded rounds and release Top-3', async ({ page }) => {
+  await page.clock.install()
+  const fixture = await installEnhancementFixture(page, { mapMode: 'preparing', stayMode: 'preparing' })
+
+  try {
+    await page.goto('/trip/result')
+    await fixture.waitForReads(1, 1)
+    await expect(page.getByTestId('map-theater')).toContainText('路线仍在准备 1')
+    for (let call = 2; call <= 7; call += 1) {
+      await page.clock.runFor(800)
+      await fixture.waitForReads(call, call)
+      await expect(page.getByTestId('map-theater')).toContainText(`路线仍在准备 ${call}`)
+    }
+    await page.clock.runFor(800)
+    await fixture.waitForReads(8, 8)
+
+    await expect(page.getByTestId('map-theater')).toContainText('路线详情暂时不可用')
+    await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('enhancement-read-recovery')).toBeVisible()
+    const stopped = fixture.calls()
+    expect(stopped.reads).toEqual({ map: 8, stay: 8 })
+    expect(stopped.maxInFlight).toEqual({ map: 1, stay: 1 })
+
+    await page.clock.runFor(20_001)
+    expect(fixture.calls().reads).toEqual(stopped.reads)
+  } finally {
+    fixture.releaseAll()
+  }
+})
+
+
+test('manual enhancement recovery is GET-only, single-flight, and keeps completed Top-3', async ({ page }) => {
+  await page.clock.install()
+  const fixture = await installEnhancementFixture(page, { mapMode: 'failure', stayMode: 'available' })
+
+  try {
+    await page.goto('/trip/result')
+    await fixture.waitForReads(1, 1)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('retry-enhancements')).toBeVisible()
+    const beforeRecovery = fixture.calls()
+    fixture.setModes('available', 'available')
+
+    await page.getByTestId('retry-enhancements').evaluate((button) => {
+      button.click()
+      button.click()
+    })
+    await fixture.waitForReads(2, 2)
+    await expect(page.getByTestId('map-theater')).toContainText('新路线状态已读取')
+    await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
+    await expect(page.getByTestId('enhancement-read-recovery')).toHaveCount(0)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+
+    const recovered = fixture.calls()
+    expect(recovered.reads).toEqual({ map: 2, stay: 2 })
+    expect(recovered.materializeCalls).toBe(beforeRecovery.materializeCalls)
+    expect(recovered.checksCalls).toBe(beforeRecovery.checksCalls)
+    expect(recovered.mapRenderPosts).toBe(0)
+    expect(recovered.maxInFlight).toEqual({ map: 1, stay: 1 })
+  } finally {
+    fixture.releaseAll()
+  }
+})
+
+
+test('a generation change aborts old enhancement reads before the new session starts', async ({ page }) => {
+  await page.clock.install()
+  const fixture = await installEnhancementFixture(page, {
+    mapMode: 'hang',
+    stayMode: 'hang',
+    switchGeneration: true,
+  })
+
+  try {
+    await page.goto('/trip/result')
+    await fixture.waitForReads(1, 1)
+    await fixture.waitForAborts(1, 1)
+    await fixture.waitForReads(2, 2)
+    await expect(page.getByTestId('map-theater')).toContainText('新路线状态已读取')
+    await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+
+    const current = fixture.calls()
+    expect(current.newGenerationStartedBeforeOldSettled).toBe(false)
+    expect(current.maxInFlight).toEqual({ map: 1, stay: 1 })
+    fixture.releaseAll()
+    await page.clock.runFor(30_000)
+    expect(fixture.calls().reads).toEqual({ map: 2, stay: 2 })
+    await expect(page.getByTestId('map-theater')).not.toContainText('旧代际迟到路线')
+    await expect(page.getByTestId('stay-panel')).not.toContainText('旧代际迟到住宿')
+  } finally {
+    fixture.releaseAll()
+  }
+})
 
 
 test('current checks generation survives result cleanup without duplicate materialize', async ({ page }) => {
@@ -478,6 +879,7 @@ async function installInteractionFixture(page, {
   holdCommand = false,
   holdMaterialize = false,
   racePreview = false,
+  latePreviewOutcome = null,
   failInitialEnhancements = false,
   exposeWrites = false,
   mode = 'DEMO',
@@ -512,6 +914,7 @@ async function installInteractionFixture(page, {
   let directProviderRequests = 0
   let resultReads = 0
   let previewPosts = 0
+  let previewAborts = 0
   let mapReads = 0
   let stayReads = 0
   let materializeCalls = 0
@@ -525,11 +928,20 @@ async function installInteractionFixture(page, {
   const twoPreviewsStarted = deferred()
   const releaseFirstPreview = deferred()
   const releaseSecondPreview = deferred()
+  const latePreviewStarted = deferred()
+  const latePreviewAborted = deferred()
+  const releaseLatePreview = deferred()
+  const latePreviewHandled = deferred()
   const commandGate = holdCommand
     ? new Promise((resolve) => { releaseCommand = resolve })
     : null
 
   page.on('requestfailed', (request) => {
+    if (request.url().endsWith('/changes/preview')) {
+      previewAborts += 1
+      latePreviewAborted.resolve()
+      return
+    }
     if (!request.url().endsWith('/materialize') || !materializeInFlight) return
     materializeInFlight = false
     releaseMaterialize.resolve()
@@ -692,6 +1104,33 @@ async function installInteractionFixture(page, {
     if (pathname.endsWith('/changes/preview') && request.method() === 'POST') {
       previewPosts += 1
       const previewCall = previewPosts
+      if (latePreviewOutcome && previewCall === 2) {
+        latePreviewStarted.resolve()
+        await releaseLatePreview.promise
+        try {
+          if (latePreviewOutcome === 'failure') {
+            await route.abort('failed')
+          } else {
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              body: JSON.stringify({
+                change_token: 'change-token-late',
+                title: '迟到预览不应重开',
+                summary: '用户已经关闭预览。',
+                affected_days: ['Day 2'],
+                before: ['旧安排'],
+                after: ['迟到安排'],
+                available_actions: ['ADOPT_CHANGE'],
+              }),
+            })
+          }
+        } catch {
+          // The preview fetch was intentionally aborted when the user closed it.
+        }
+        latePreviewHandled.resolve()
+        return
+      }
       if (racePreview && previewCall === 1) {
         if (previewPosts === 2) twoPreviewsStarted.resolve()
         await releaseFirstPreview.promise
@@ -758,6 +1197,7 @@ async function installInteractionFixture(page, {
       directProviderRequests,
       resultReads,
       previewPosts,
+      previewAborts,
       mapReads,
       stayReads,
       materializeCalls,
@@ -772,6 +1212,10 @@ async function installInteractionFixture(page, {
     waitForTwoPreviews: () => twoPreviewsStarted.promise,
     releaseFirstPreview: () => releaseFirstPreview.resolve(),
     releaseSecondPreview: () => releaseSecondPreview.resolve(),
+    waitForLatePreviewStart: () => latePreviewStarted.promise,
+    waitForLatePreviewAbort: () => latePreviewAborted.promise,
+    releaseLatePreview: () => releaseLatePreview.resolve(),
+    waitForLatePreviewHandled: () => latePreviewHandled.promise,
     browserWriteRace: () => page.evaluate(() => window.__g03rWriteRace),
   }
 }
@@ -801,6 +1245,41 @@ async function expectMinimumTarget(locator, minimum = 48) {
   })
   expect(size.width).toBeGreaterThanOrEqual(minimum)
   expect(size.height).toBeGreaterThanOrEqual(minimum)
+}
+
+
+for (const latePreviewOutcome of ['success', 'failure']) {
+  test(`closing a pending preview aborts its late ${latePreviewOutcome} without reopening or polluting state`, async ({ page }) => {
+    await page.clock.install()
+    const fixture = await installInteractionFixture(page, { latePreviewOutcome })
+
+    try {
+      await page.goto('/trip/result')
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await page.getByTestId('preview-change').first().click()
+      await expect(page.getByTestId('change-preview')).toContainText('补充午餐时间')
+
+      await page.getByTestId('preview-change').nth(1).click()
+      await fixture.waitForLatePreviewStart()
+      await page.getByRole('button', { name: '关闭改动预览' }).click()
+      await fixture.waitForLatePreviewAbort()
+      await expect(page.getByTestId('change-preview')).toHaveCount(0)
+      await expect(page.getByTestId('preview-change').first()).toBeEnabled()
+
+      fixture.releaseLatePreview()
+      await fixture.waitForLatePreviewHandled()
+      await page.clock.runFor(30_000)
+      await expect(page.getByTestId('change-preview')).toHaveCount(0)
+      await expect(page.getByTestId('trip-checks')).not.toContainText('迟到预览不应重开')
+      await expect(page.getByTestId('trip-checks')).not.toContainText('这项建议已经变化')
+      const calls = fixture.calls()
+      expect(calls.previewPosts).toBe(2)
+      expect(calls.previewAborts).toBe(1)
+      expect(calls.writes.adopt).toBe(0)
+    } finally {
+      fixture.releaseLatePreview()
+    }
+  })
 }
 
 

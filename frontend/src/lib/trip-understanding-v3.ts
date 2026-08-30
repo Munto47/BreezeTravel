@@ -317,12 +317,14 @@ export async function applyTripUnderstandingCommand(
 
 export async function readTripUnderstandingMap(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<MapRenderView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders/latest`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
@@ -354,12 +356,14 @@ export async function requestTripUnderstandingMap(
 
 export async function readTripUnderstandingStay(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<StaySuggestionView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-suggestions`,
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
@@ -446,12 +450,14 @@ export async function readTripUnderstandingChecks(
 export async function previewTripUnderstandingChange(
   publicResourceId: string,
   checkToken: string,
+  signal?: AbortSignal,
 ): Promise<PublicChangePreview> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/preview`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         'Idempotency-Key': operationRequestKey(`change-preview:${checkToken}`),

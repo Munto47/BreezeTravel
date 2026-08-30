@@ -78,7 +78,24 @@ type ActiveChecksRequest = {
 type ActivePreviewRequest = {
   id: number
   key: string
+  controller: AbortController
 }
+
+type ActiveEnhancementSession = {
+  id: number
+  key: string
+  resourceRef: string
+  generation: number
+  manual: boolean
+  cancelled: boolean
+  controllers: Set<AbortController>
+  timer: number | null
+  releaseTimer: (() => void) | null
+}
+
+type BoundedEnhancementRead<T> =
+  | { status: 'fulfilled'; value: T }
+  | { status: 'rejected'; reason: unknown }
 
 type WorkspaceCommandResult =
   | { status: 'APPLIED' | 'SYNCED'; days: UserFacingTripResult['days'] }
@@ -86,6 +103,24 @@ type WorkspaceCommandResult =
 
 
 const CHECKS_REQUEST_TIMEOUT_MS = 10_000
+const ENHANCEMENT_REQUEST_TIMEOUT_MS = 3_000
+const ENHANCEMENT_SESSION_BUDGET_MS = 10_000
+const ENHANCEMENT_MAX_ROUNDS = 8
+const ENHANCEMENT_POLL_INTERVAL_MS = 800
+
+
+function stopEnhancementSession(session: ActiveEnhancementSession | null) {
+  if (!session || session.cancelled) return
+  session.cancelled = true
+  if (session.timer !== null) {
+    window.clearTimeout(session.timer)
+    session.timer = null
+  }
+  const releaseTimer = session.releaseTimer
+  session.releaseTimer = null
+  releaseTimer?.()
+  session.controllers.forEach((controller) => controller.abort())
+}
 
 
 function fallbackMapView(result: UserFacingTripResult | null): MapRenderView {
@@ -166,6 +201,8 @@ export default function TripResultPage() {
   const [mapView, setMapView] = useState<MapRenderView | null>(null)
   const [stayView, setStayView] = useState<StaySuggestionView | null>(null)
   const [enhancementBusy, setEnhancementBusy] = useState<'MAP' | 'STAY' | null>(null)
+  const [enhancementReadBusy, setEnhancementReadBusy] = useState(false)
+  const [enhancementRecoveryAvailable, setEnhancementRecoveryAvailable] = useState(false)
   const [checksView, setChecksView] = useState<PublicTripChecksView | null>(null)
   const [changePreview, setChangePreview] = useState<PublicChangePreview | null>(null)
   const [checkBusy, setCheckBusy] = useState<'PREPARE' | 'PREVIEW' | 'ADOPT' | null>(null)
@@ -188,6 +225,10 @@ export default function TripResultPage() {
   const mutationLockRef = useRef(false)
   const authoritativeKeyRef = useRef<string | null>(null)
   const enhancementGenerationRef = useRef(0)
+  const enhancementSessionSequence = useRef(0)
+  const activeEnhancementSession = useRef<ActiveEnhancementSession | null>(null)
+  const activeEnhancementPromise = useRef<Promise<void> | null>(null)
+  const settledEnhancementKey = useRef<string | null>(null)
   const editorDialogRef = useRef<HTMLDivElement | null>(null)
   const editorTriggerRef = useRef<HTMLElement | null>(null)
   const resultAvailable = result !== null
@@ -208,7 +249,11 @@ export default function TripResultPage() {
       activeChecksRequest.current?.controller.abort()
       activeChecksRequest.current = null
       previewRequestSequence.current += 1
+      activePreviewRequest.current?.controller.abort()
       activePreviewRequest.current = null
+      enhancementSessionSequence.current += 1
+      stopEnhancementSession(activeEnhancementSession.current)
+      activeEnhancementSession.current = null
     }
   }, [])
 
@@ -230,10 +275,20 @@ export default function TripResultPage() {
     restoreEditorFocus(dayIndex, preferDayHeading)
   }, [editor, restoreEditorFocus])
 
-  const cancelActivePreview = useCallback(() => {
+  const cancelActivePreview = useCallback((clearBusy = true) => {
     previewRequestSequence.current += 1
+    activePreviewRequest.current?.controller.abort()
     activePreviewRequest.current = null
-    setCheckBusy((current) => current === 'PREVIEW' ? null : current)
+    if (clearBusy && mountedRef.current) {
+      setCheckBusy((current) => current === 'PREVIEW' ? null : current)
+    }
+  }, [])
+
+  const cancelActiveEnhancement = useCallback((clearBusy = true) => {
+    enhancementSessionSequence.current += 1
+    stopEnhancementSession(activeEnhancementSession.current)
+    activeEnhancementSession.current = null
+    if (clearBusy && mountedRef.current) setEnhancementReadBusy(false)
   }, [])
 
   const invalidatePreview = useCallback(() => {
@@ -242,13 +297,16 @@ export default function TripResultPage() {
   }, [cancelActivePreview])
 
   const invalidateDerivedViews = useCallback(() => {
+    cancelActiveEnhancement()
     enhancementGenerationRef.current += 1
+    settledEnhancementKey.current = null
     completedChecksKey.current = null
+    setEnhancementRecoveryAvailable(false)
     setMapView(pendingRevisionMapView())
     setStayView(pendingRevisionStayView())
     setChecksView(null)
     invalidatePreview()
-  }, [invalidatePreview])
+  }, [cancelActiveEnhancement, invalidatePreview])
 
   const stagePendingRevision = useCallback((
     reference: string,
@@ -256,27 +314,35 @@ export default function TripResultPage() {
     nextChecks: PublicTripChecksView | null = null,
   ) => {
     const nextKey = `${reference}:${nextEtag}`
+    cancelActiveEnhancement()
     enhancementGenerationRef.current += 1
+    settledEnhancementKey.current = null
     currentChecksKeyRef.current = nextKey
     completedChecksKey.current = nextChecks ? nextKey : null
+    setEnhancementRecoveryAvailable(false)
     setMapView(pendingRevisionMapView())
     setStayView(pendingRevisionStayView())
     setChecksView(nextChecks)
     invalidatePreview()
     setEtag(nextEtag)
     sessionStorage.setItem('bt_active_trip_etag', nextEtag)
-  }, [invalidatePreview])
+  }, [cancelActiveEnhancement, invalidatePreview])
 
   const beginMutation = useCallback(async () => {
     if (mutationLockRef.current) return false
     mutationLockRef.current = true
     setMutationLocked(true)
     cancelActivePreview()
+    const pendingEnhancements = activeEnhancementPromise.current
+    cancelActiveEnhancement()
     const pendingChecks = activeChecksPromise.current
     activeChecksRequest.current?.controller.abort()
-    if (pendingChecks) await Promise.allSettled([pendingChecks])
+    const pendingReads = [pendingChecks, pendingEnhancements].filter(
+      (pending): pending is Promise<void> => pending !== null,
+    )
+    if (pendingReads.length > 0) await Promise.allSettled(pendingReads)
     return true
-  }, [cancelActivePreview])
+  }, [cancelActiveEnhancement, cancelActivePreview])
 
   const finishMutation = useCallback(() => {
     mutationLockRef.current = false
@@ -289,30 +355,168 @@ export default function TripResultPage() {
     message: string,
     kind: 'RESULT' | 'TRIP_DELETE' = 'RESULT',
   ) => {
+    cancelActiveEnhancement()
     setReconciliationKind(kind)
     setReconciliationRequired(true)
     setCommandError(message)
-  }, [])
+  }, [cancelActiveEnhancement])
 
-  const refreshEnhancements = useCallback(async (
+  const refreshEnhancements = useCallback((
     reference: string,
     generation = enhancementGenerationRef.current,
     fallbackResult = resultRef.current,
+    options: { force?: boolean; manual?: boolean } = {},
   ) => {
-    const [mapResult, stayResult] = await Promise.allSettled([
-      readTripUnderstandingMap(reference),
-      readTripUnderstandingStay(reference),
-    ])
-    if (
-      activeResourceRef.current !== reference
-      || enhancementGenerationRef.current !== generation
-    ) return
-    setMapView(mapResult.status === 'fulfilled'
-      ? mapResult.value
-      : fallbackMapView(fallbackResult))
-    setStayView(stayResult.status === 'fulfilled'
-      ? stayResult.value
-      : fallbackStayView(fallbackResult))
+    const key = `${reference}:${generation}`
+    const currentSession = activeEnhancementSession.current
+    if (currentSession && !currentSession.cancelled && currentSession.key === key) {
+      return activeEnhancementPromise.current || Promise.resolve()
+    }
+    if (!options.force && settledEnhancementKey.current === key) return Promise.resolve()
+
+    const previousPromise = activeEnhancementPromise.current
+    stopEnhancementSession(currentSession)
+    const sessionId = enhancementSessionSequence.current + 1
+    enhancementSessionSequence.current = sessionId
+    const session: ActiveEnhancementSession = {
+      id: sessionId,
+      key,
+      resourceRef: reference,
+      generation,
+      manual: options.manual === true,
+      cancelled: false,
+      controllers: new Set(),
+      timer: null,
+      releaseTimer: null,
+    }
+    activeEnhancementSession.current = session
+    settledEnhancementKey.current = null
+    setEnhancementRecoveryAvailable(false)
+    if (session.manual) setEnhancementReadBusy(true)
+
+    const isCurrent = () => (
+      mountedRef.current
+      && !session.cancelled
+      && activeResourceRef.current === reference
+      && enhancementGenerationRef.current === generation
+      && activeEnhancementSession.current?.id === session.id
+    )
+
+    const sessionPromise = (async () => {
+      if (previousPromise) await Promise.allSettled([previousPromise])
+      if (!isCurrent()) return
+
+      const startedAt = Date.now()
+      let round = 0
+      let mapPending = true
+      let stayPending = true
+      let mapResult: MapRenderView | null = null
+      let stayResult: StaySuggestionView | null = null
+      let degraded = false
+
+      async function readWithBound<T>(
+        reader: (signal: AbortSignal) => Promise<T>,
+      ): Promise<BoundedEnhancementRead<T>> {
+        const remainingBudget = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        const controller = new AbortController()
+        session.controllers.add(controller)
+        const timeout = window.setTimeout(
+          () => controller.abort(),
+          Math.max(0, Math.min(ENHANCEMENT_REQUEST_TIMEOUT_MS, remainingBudget)),
+        )
+        try {
+          return { status: 'fulfilled' as const, value: await reader(controller.signal) }
+        } catch (reason) {
+          return { status: 'rejected' as const, reason }
+        } finally {
+          window.clearTimeout(timeout)
+          session.controllers.delete(controller)
+        }
+      }
+
+      while (isCurrent() && round < ENHANCEMENT_MAX_ROUNDS) {
+        const remainingBudget = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        if (remainingBudget <= 0) break
+        round += 1
+
+        const mapReadPromise: Promise<BoundedEnhancementRead<MapRenderView> | null> = mapPending
+          ? readWithBound((signal) => readTripUnderstandingMap(reference, signal))
+          : Promise.resolve(null)
+        const stayReadPromise: Promise<BoundedEnhancementRead<StaySuggestionView> | null> = stayPending
+          ? readWithBound((signal) => readTripUnderstandingStay(reference, signal))
+          : Promise.resolve(null)
+        const mapRead = await mapReadPromise
+        const stayRead = await stayReadPromise
+        if (!isCurrent()) return
+
+        if (mapRead) {
+          if (mapRead.status === 'fulfilled') {
+            mapResult = mapRead.value
+            mapPending = mapRead.value.status === 'PREPARING'
+          } else {
+            mapResult = fallbackMapView(fallbackResult)
+            mapPending = false
+            degraded = true
+          }
+        }
+        if (stayRead) {
+          if (stayRead.status === 'fulfilled') {
+            stayResult = stayRead.value
+            stayPending = stayRead.value.status === 'PREPARING'
+          } else {
+            stayResult = fallbackStayView(fallbackResult)
+            stayPending = false
+            degraded = true
+          }
+        }
+
+        if (mapResult) setMapView(mapResult)
+        if (stayResult) setStayView(stayResult)
+        if (!mapPending && !stayPending) {
+          settledEnhancementKey.current = key
+          setEnhancementRecoveryAvailable(degraded)
+          return
+        }
+        if (round >= ENHANCEMENT_MAX_ROUNDS) break
+
+        const budgetAfterRead = ENHANCEMENT_SESSION_BUDGET_MS - (Date.now() - startedAt)
+        if (budgetAfterRead <= 0) break
+        await new Promise<void>((resolve) => {
+          let released = false
+          const release = () => {
+            if (released) return
+            released = true
+            if (session.timer !== null) window.clearTimeout(session.timer)
+            session.timer = null
+            session.releaseTimer = null
+            resolve()
+          }
+          session.releaseTimer = release
+          session.timer = window.setTimeout(
+            release,
+            Math.min(ENHANCEMENT_POLL_INTERVAL_MS, budgetAfterRead),
+          )
+        })
+      }
+
+      if (!isCurrent()) return
+      if (mapPending) setMapView(fallbackMapView(fallbackResult))
+      if (stayPending) setStayView(fallbackStayView(fallbackResult))
+      settledEnhancementKey.current = key
+      setEnhancementRecoveryAvailable(true)
+    })()
+
+    activeEnhancementPromise.current = sessionPromise
+    void sessionPromise.then(() => {
+      if (activeEnhancementPromise.current === sessionPromise) {
+        activeEnhancementPromise.current = null
+      }
+      if (activeEnhancementSession.current?.id === session.id) {
+        activeEnhancementSession.current = null
+        if (session.manual && mountedRef.current) setEnhancementReadBusy(false)
+      }
+    })
+    return sessionPromise
   }, [])
 
   const refresh = useCallback(async (reference: string, suppressOpenError = false) => {
@@ -324,9 +528,12 @@ export default function TripResultPage() {
         const authoritativeKey = response.etag ? `${reference}:${response.etag}` : null
         if (response.etag && authoritativeKeyRef.current !== authoritativeKey) {
           const checksAlreadyMatch = completedChecksKey.current === `${reference}:${response.etag}`
+          cancelActiveEnhancement()
           enhancementGeneration = enhancementGenerationRef.current + 1
           enhancementGenerationRef.current = enhancementGeneration
+          settledEnhancementKey.current = null
           currentChecksKeyRef.current = authoritativeKey
+          setEnhancementRecoveryAvailable(false)
           setMapView(null)
           setStayView(null)
           if (!checksAlreadyMatch) setChecksView(null)
@@ -352,17 +559,7 @@ export default function TripResultPage() {
       }
       return null
     }
-  }, [invalidatePreview, refreshEnhancements])
-
-  useEffect(() => {
-    if (!resourceRef || !resultAvailable) return
-    const preparing = mapView?.status === 'PREPARING' || stayView?.status === 'PREPARING'
-    if (!preparing) return
-    const timer = window.setInterval(() => {
-      void refreshEnhancements(resourceRef)
-    }, 800)
-    return () => window.clearInterval(timer)
-  }, [mapView?.status, refreshEnhancements, resourceRef, resultAvailable, stayView?.status])
+  }, [cancelActiveEnhancement, invalidatePreview, refreshEnhancements])
 
   useEffect(() => {
     if (mutationLocked) {
@@ -479,6 +676,16 @@ export default function TripResultPage() {
     setChecksRetryGeneration((generation) => generation + 1)
   }, [checkBusy, etag, resourceRef])
 
+  const retryEnhancements = useCallback(() => {
+    if (!resourceRef || !resultRef.current || mutationLockRef.current) return
+    void refreshEnhancements(
+      resourceRef,
+      enhancementGenerationRef.current,
+      resultRef.current,
+      { force: true, manual: true },
+    )
+  }, [refreshEnhancements, resourceRef])
+
   const retryResultReadback = useCallback(async () => {
     if (!resourceRef || !reconciliationRequired || reconciliationBusy) return
     setReconciliationBusy(true)
@@ -515,7 +722,12 @@ export default function TripResultPage() {
     setCommandError('')
     try {
       await requestTripUnderstandingMap(resourceRef, etag)
-      await refreshEnhancements(resourceRef)
+      await refreshEnhancements(
+        resourceRef,
+        enhancementGenerationRef.current,
+        resultRef.current,
+        { force: true },
+      )
     } catch (mapFailure) {
       const latest = await refresh(resourceRef, true)
       if (!latest) {
@@ -569,12 +781,14 @@ export default function TripResultPage() {
     const previewKey = currentChecksKeyRef.current
     if (!previewKey) return
     const requestId = previewRequestSequence.current + 1
+    activePreviewRequest.current?.controller.abort()
+    const controller = new AbortController()
     previewRequestSequence.current = requestId
-    activePreviewRequest.current = { id: requestId, key: previewKey }
+    activePreviewRequest.current = { id: requestId, key: previewKey, controller }
     setCheckBusy('PREVIEW')
     setCheckMessage('')
     try {
-      const preview = await previewTripUnderstandingChange(resourceRef, checkToken)
+      const preview = await previewTripUnderstandingChange(resourceRef, checkToken, controller.signal)
       const activePreview = activePreviewRequest.current
       if (
         mutationLockRef.current
@@ -918,8 +1132,10 @@ export default function TripResultPage() {
       disposed = true
       eventController.abort()
       if (interval) clearInterval(interval)
+      cancelActiveEnhancement()
+      cancelActivePreview()
     }
-  }, [refresh, resourceRef])
+  }, [cancelActiveEnhancement, cancelActivePreview, refresh, resourceRef])
 
   if (tripDeleted) {
     return (
@@ -1105,6 +1321,26 @@ export default function TripResultPage() {
             />
           </div>
 
+          {(enhancementRecoveryAvailable || enhancementReadBusy) && (
+            <div
+              data-testid="enhancement-read-recovery"
+              role="status"
+              aria-live="polite"
+              className="mt-4 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+            >
+              <p>路线或住宿状态暂时未能完整读取，不影响继续查看优先检查。</p>
+              <button
+                data-testid="retry-enhancements"
+                type="button"
+                disabled={mutationLocked || enhancementReadBusy}
+                onClick={retryEnhancements}
+                className="mt-3 min-h-12 rounded-xl border border-amber-700/30 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 disabled:opacity-60"
+              >
+                {enhancementReadBusy ? '正在重新读取路线与住宿状态…' : '重新读取路线与住宿状态'}
+              </button>
+            </div>
+          )}
+
           <div id="trip-check-area" className="scroll-mt-28">
             <TripCheckPanel
               view={checksView}
@@ -1114,7 +1350,7 @@ export default function TripResultPage() {
               message={checkMessage}
               onPreview={(checkToken) => void handleChangePreview(checkToken)}
               onAdopt={() => void handleChangeAdopt()}
-              onClosePreview={() => setChangePreview(null)}
+              onClosePreview={invalidatePreview}
               onRetry={retryChecks}
             />
           </div>
