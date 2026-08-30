@@ -474,7 +474,7 @@ def validate_core_mainline(
     ):
         from governance.work_packages_v3 import validate_registry_v3
 
-        work_packages = validate_registry_v3(root)
+        work_packages = validate_registry_v3(root, head_ref=head_ref)
         if work_packages["verdict"] != "PASS":
             errors.extend(
                 f"WORK_PACKAGE_V3_{code}"

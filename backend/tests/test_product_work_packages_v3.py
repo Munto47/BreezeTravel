@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import governance.work_packages_v3 as work_packages_v3
 from governance.work_packages_v3 import validate_registry_v3
 
 
@@ -34,3 +35,20 @@ def test_g04_active_slice_excludes_frozen_agent_gate_and_accepts_current_diff() 
         path.startswith("backend/evals/agent_gate_v1/")
         for path in result["changed_paths"]
     )
+
+
+def test_g04_registry_uses_explicit_head_for_first_parent_proof(monkeypatch) -> None:
+    original_git = work_packages_v3._git
+    observed_heads: list[str] = []
+
+    def recording_git(root: Path, *args: str, **kwargs: object) -> str:
+        if args[:3] == ("rev-list", "--first-parent", "--reverse"):
+            observed_heads.append(args[3])
+        return original_git(root, *args, **kwargs)
+
+    monkeypatch.setattr(work_packages_v3, "_git", recording_git)
+
+    result = validate_registry_v3(REPOSITORY_ROOT, head_ref="HEAD^")
+
+    assert result["verdict"] == "PASS", result
+    assert observed_heads == ["HEAD^"]

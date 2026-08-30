@@ -122,6 +122,7 @@ def validate_registry_v3(
     *,
     check_scope: bool = False,
     package_id: str | None = None,
+    head_ref: str = "HEAD",
 ) -> dict[str, Any]:
     root = repository_root.resolve()
     registry = _read_json(root / REGISTRY_PATH)
@@ -239,7 +240,13 @@ def validate_registry_v3(
     ]
     if registry.get("integration_order") != expected_order:
         errors.append("INTEGRATION_ORDER_MISMATCH")
-    first_parent = _git(root, "rev-list", "--first-parent", "--reverse", "HEAD").splitlines()
+    first_parent = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        "--reverse",
+        head_ref,
+    ).splitlines()
     merged_positions: dict[str, int] = {}
 
     for package in contributors:
