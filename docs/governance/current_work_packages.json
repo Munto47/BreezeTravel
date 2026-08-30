@@ -7,7 +7,9 @@
       "计划地点原子召回432/432且额外PLANNED地点为0",
       "五类地点角色720/720，计划地点日序及日内顺序432/432",
       "三城词典900条且每城210/60/15/15配额、来源、schema和禁止字段校验全部通过",
-      "地点自动解析严重错误为0；高德未确认、错城、错类别、行政区冲突和同层多候选保持待确认"
+      "地点自动解析严重错误为0；高德未确认、错城、错类别、行政区冲突和同层多候选保持待确认",
+      "结果页合法状态切换不得永久丢弃已成功返回的Top-3检查或停留在准备态",
+      "同日/跨日拖拽、键盘移动、删除确认、焦点与无障碍在桌面和移动视口稳定可用且不自动重绘地图"
     ],
     "allowed_paths": [
       "backend/governance/core_mainline.py",
@@ -29,14 +31,19 @@
       "backend/app/constraints/amap_types.py",
       "backend/tests/test_g03r_place_lexicon.py",
       "backend/tests/test_g03r_place_resolution.py",
-      "backend/tests/test_amap_trip_understanding.py"
+      "backend/tests/test_amap_trip_understanding.py",
+      "docs/governance/work-packages/WP-G03R-UI.md",
+      "frontend/src/app/trip/result/page.tsx",
+      "frontend/src/app/trip/result/itinerary-workspace.tsx",
+      "frontend/src/lib/trip-understanding-v3.ts",
+      "frontend/e2e/g03r-result-ui.spec.js"
     ],
     "base_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
     "blocking_issue": {
       "current_goal_acceptance_ref": "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30",
-      "impact_chain": "日标题识别缺口会错置日序和顺序；重复地点角色丢失会误删语义证据；贪婪本地回退会把非地点送入解析；缺少三城安全别名和保守唯一候选边界会把错城、错类别或同名POI展示给用户并污染路线准备。",
-      "minimum_fix": "修复日序、原文顺序、五类角色、地点原子边界和PLANNED资格复用；增加版本化三城900地点词典、私有加载器及必须经高德城市/行政区/类别/唯一性确认的保守解析，不改变公共schema、模型配置或运行限制。",
-      "reproduction": "同一54条dev与18条validation诊断中，第1天导致日序/顺序仅336/432，四个实际REFERENCE出现位置缺失，本地回退存在计划召回缺口与额外描述型PLANNED；现有三城解析没有版本化安全别名及统一的错城、同名、类别和行政区冲突拒绝边界。",
+      "impact_chain": "日标题、角色或原子边界错误会污染卡片和POI；地点消歧过宽会展示错误POI；结果页effect在合法状态切换中丢弃已成功检查响应会让用户永久停在准备态，交互时序不可靠会造成假成功或重复命令。",
+      "minimum_fix": "保留已集成语义与地点修复；追加前端请求代际/取消恢复、一次命令、服务端回读、桌面拖拽、键盘/移动替代、可访问删除和稳定E2E，不改变公共API、数据库、模型或Provider边界。",
+      "reproduction": "后端语义与地点门禁已通过；首次G03浏览器旅程中materialize/checks均200且响应含3条建议，但DOM为0并永久显示准备态。cleanup已将请求标为disposed，而attempt key提前固定阻止当前resource/etag重试。",
       "severity": "P1",
       "stop_condition": "若需要改变公共API、数据库、模型配置、语义文件、deadline、token、并发、schema、blind/oracle、以高德/模型猜测构造词典、产生增量费用或激活G04，立即停止该扩展。"
     },
@@ -52,7 +59,7 @@
       "把词典作为POI身份权威或保存高德ID、坐标、地址、电话、营业时间、价格、评分、房态和原始响应",
       "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
-    "minimum_change": "按三个独立质量因素修复G03行程语义并统一PLANNED资格；冻结模式只精确放行已登记的Qwen语义提示词，schema、配置和其他评测资产继续锁定；另以版本化三城900地点词典辅助检索，由实时高德结果按城市、行政区、类别和最高有效层唯一性保守确认地点。",
+    "minimum_change": "保留已集成的语义资格与三城保守解析；只在登记结果页路径中修复检查状态竞态，并重排现有真实功能以提供可靠拖拽、键盘/移动替代、删除确认、焦点和无障碍，不新增媒体/API/数据库能力。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_g03r_trip_semantics.py",
@@ -62,14 +69,16 @@
       "backend/tests/test_g03r_place_lexicon.py",
       "backend/tests/test_g03r_place_resolution.py",
       "backend/tests/test_amap_trip_understanding.py",
+      "frontend/e2e/g03r-result-ui.spec.js",
+      "frontend/e2e/g03-product-delivery.spec.js",
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "repair_review_cycle": 0,
-    "slice_id": "G03-G03R-SEMANTIC-PLACE-P1",
-    "stop_condition": "语义每个因素只比较同一72条非blind输入；地点贡献包只跑离线验证并形成两个串行提交；不达门槛则审计revert，最多两轮且不得概率性重跑或以错误匹配换覆盖率。",
-    "user_outcome": "粘贴攻略后只保留真正计划的原子地点并保持日序和原文顺序；三城常见地点得到更准确检索，但任何错城、错类别、冲突、歧义或高德证据不足都保留待确认。",
+    "repair_review_cycle": 1,
+    "slice_id": "G03-G03R-SEMANTIC-PLACE-UI-P1",
+    "stop_condition": "UI只重排现有真实功能；若需要公共API、migration、依赖、媒体代理、自动地图重绘、放宽既有产品E2E或以重试掩盖竞态，立即停止并交回主对话。",
+    "user_outcome": "粘贴攻略后得到准确、稳定的逐日卡片；结果页不会丢失已成功返回的Top-3，桌面可拖拽，键盘和移动端有等价操作，所有编辑以服务端回读为准。",
     "work_kind": "BLOCKING_DEFECT"
   },
   "e2e_after_all_merges": true,
@@ -77,7 +86,8 @@
   "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
   "integration_order": [
     "WP-G03R-SEMANTIC",
-    "WP-G03R-PLACE"
+    "WP-G03R-PLACE",
+    "WP-G03R-UI"
   ],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -226,10 +236,61 @@
       "status": "MERGED",
       "status_reason": "两个地点提交已无冲突摘取为ed60ec2与6149f51；组合定向131项、全部G03非数据库、G03 PostgreSQL隔离链、ruff、前端build与core-mainline通过。完整live AMap矩阵因零增量额度未证明继续为NOT_RUN，调用0。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-place-resolution"
+    },
+    {
+      "acceptance": [
+        "后端checks已返回3条时，合法effect cleanup或ETag切换不得令DOM永久为0或busy永久不释放",
+        "同日、跨日和空日移动每次有效操作只发送一条ACTIVITY_MOVE，无变化与非法落点不发命令",
+        "键盘与移动端等价操作、可访问删除确认、焦点恢复、aria-live、48px目标和reduced-motion全部通过",
+        "保留地点编辑、添加、地图、住宿、Top-3和隐私删除；编辑不自动请求map-renders且失败/409以服务端回读复原"
+      ],
+      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+      "integration_checkpoint_commit": "74264ec16d27f020201dca5e59ab14023bfd8632",
+      "branch": "codex/g03r-ui",
+      "dependencies": [
+        "WP-G03R-SEMANTIC",
+        "WP-G03R-PLACE"
+      ],
+      "dialogue_ref": "codex-task:01a050ae-0939-7f61-bc80-0ffd04480412",
+      "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
+      "forbidden_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs",
+        "backend",
+        "packages",
+        "miniapp",
+        "y-websocket",
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/playwright.config.js",
+        "frontend/playwright.product-delivery.config.js",
+        "frontend/e2e/g03-product-delivery.spec.js",
+        "frontend/e2e/trip-understanding-v3.spec.js",
+        "frontend/src/app/trip/result/activity-image.tsx",
+        "all paths not listed in owned_paths"
+      ],
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "merge_order": 4,
+      "owned_paths": [
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/src/app/trip/result/itinerary-workspace.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
+        "frontend/e2e/g03r-result-ui.spec.js"
+      ],
+      "package_id": "WP-G03R-UI",
+      "prompt_path": "docs/governance/work-packages/WP-G03R-UI.md",
+      "prompt_sha256": "acfd92d1e491182407548f1a831ae1bfc9c50fba7e4772173e9d6a7d7b8e4d2b",
+      "registry_activation_commit": "74264ec16d27f020201dca5e59ab14023bfd8632",
+      "remote_branch": "origin/codex/g03r-ui",
+      "role": "CONTRIBUTOR",
+      "status": "IN_PROGRESS",
+      "status_reason": "后端已集成且writer slot可用；完整版本化prompt已绑定。只允许结果页竞态修复与现有交互重构，媒体/API/migration继续禁止；分支与工作树必须从本binding commit创建后才能写产品。",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_BACKEND_INTEGRATED_UI_STABILITY_REPAIR_REQUIRED",
+  "program_state": "G03R_UI_WRITER_ACTIVATED_BACKEND_INTEGRATED",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
