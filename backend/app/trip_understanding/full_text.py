@@ -373,6 +373,13 @@ def _atomic_category_hint(name: str) -> str | None:
     return None
 
 
+def _candidate_cities(name: str) -> set[str]:
+    controlled_cities = {fact.city for fact in _PLACES_BY_NAME.get(name, ())}
+    if controlled_cities:
+        return controlled_cities
+    return {city for city in _DEEP_CITIES if city in name}
+
+
 def _is_atomic_place_text(value: str) -> bool:
     if not 1 < len(value) <= 40:
         return False
@@ -415,7 +422,7 @@ def _explicit_role_candidates(
                 ):
                     continue
                 occupied.append(span)
-                cities = {city for city in _DEEP_CITIES if city in name}
+                cities = _candidate_cities(name)
                 candidates.append((start, end, name, cities))
     return candidates
 
@@ -501,7 +508,7 @@ def _append_plan_capture(
         ):
             continue
         occupied.append(span)
-        cities = {city for city in _DEEP_CITIES if city in name}
+        cities = _candidate_cities(name)
         candidates.append((piece_start, piece_end, name, cities))
 
 
