@@ -1,27 +1,27 @@
 {
-  "active_goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
-  "active_goal_sequence": 3,
+  "active_goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "active_goal_sequence": 4,
   "active_slice": {
     "acceptance_refs": [
-      "G03R产品回执、PR #13合并与远端祖先readback均为PASS",
-      "唯一G03R集成包已MERGED且没有活动writer",
-      "G04保持NOT_ACTIVATED并等待项目所有者体验验收"
+      "Owner于2026-08-30明确批准开始G04",
+      "G03/G03R PRODUCT_DELIVERY_PASS已经合入develop",
+      "G04 Screenshot Parity Gate + PRODUCT_DELIVERY_PASS"
     ],
     "allowed_paths": [
       "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
-      "docs/governance/goals/completed/TC-VNEXT-G03-TOP3-AUDIT.md"
+      "docs/governance/goals/planned/TC-VNEXT-G04-SCREENSHOT.md"
     ],
-    "base_commit": "1f5a93c62aeeefc83486778d446780710977529d",
+    "base_commit": "0531c0642f437932fb4e305a0a99fbb66b19e4bc",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "激活G04或创建产品writer",
-      "修改产品运行时、公共API、数据库、模型、Provider或依赖",
-      "运行sealed blind、FUX-03、H1、公网、生产、商业、发布、部署或main合并",
-      "把自动化或fixture结果表述为真人、live Provider、生产或商业证据"
+      "修改产品运行时、migration、公共OpenAPI或依赖作为激活提交的一部分",
+      "触碰根工作树或历史脏工作树",
+      "新账号、费用、对象存储、付费OCR或生产调用",
+      "H1、公网、生产、商业、发布、部署、main合并或把自动证据冒充真人"
     ],
-    "minimum_change": "仅追加完整G03R完成归档、关闭产品writer并恢复owner-review终态。",
+    "minimum_change": "原子激活完整G04合同、唯一集成者、034授权与fresh product baseline，不实现产品代码。",
     "phase": "GOAL_TRANSITION",
     "preflight_entrypoints": [
       "backend/tests/test_product_delivery_governance.py",
@@ -31,60 +31,67 @@
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G03R-OWNER-REVIEW-HOLD",
-    "stop_condition": "不激活G04，不创建产品writer，不运行Provider、FUX-03、H1、公网、生产、商业、发布、部署或main合并。",
-    "user_outcome": "G01至G03核心主线与P1返修已可体验，项目停在所有者体验验收点。",
+    "slice_id": "G04-ACTIVATION",
+    "stop_condition": "若fresh develop不再由G04接棒、Owner授权边界不成立或激活必须改产品代码，则停止激活并重新审计。",
+    "user_outcome": "项目从G03所有者验收点正式进入截图输入开发，且用户现有文本主链不受影响。",
     "work_kind": "GOAL_TRANSITION"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
   "integration_order": [],
-  "mainline_phase": "CORE_MVP",
+  "mainline_phase": "PRODUCT_ENHANCEMENT",
   "max_parallel_writers": 3,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
-  "next_goal_id": "TC-VNEXT-G04-SCREENSHOT",
-  "next_goal_status": "NOT_ACTIVATED",
+  "next_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
+  "next_goal_status": "DRAFT",
   "packages": [
     {
       "acceptance": [
-        "推荐、经过、排除、描述、URL和预约噪声不进入行程，计划地点日序与原子边界正确",
-        "三城地点保守消歧，错城、错类、行政区冲突和同层歧义保持待确认",
-        "结果页Top-3、拖拽、键盘/移动编辑、失败回读和有界增强读取稳定通过"
+        "G04完整合同、034授权和product baseline可远端回读",
+        "主对话是唯一非终态集成者",
+        "贡献任务只在后续prompt binding提交后启动"
       ],
-      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
-      "branch": "codex/g03r-activation",
+      "baseline_commit": "0531c0642f437932fb4e305a0a99fbb66b19e4bc",
+      "branch": "codex/g04-screenshot-integration",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
       "forbidden_paths": [],
-      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
-      "merge_order": 1,
+      "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+      "merge_order": 100,
       "owned_paths": [
+        ".github/workflows/core-mainline.yml",
+        "backend/app/api",
+        "backend/app/config.py",
+        "backend/app/db/connection.py",
+        "backend/app/db/migrations",
+        "backend/app/main.py",
         "backend/app/trip_understanding",
-        "backend/app/constraints/amap_types.py",
-        "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
-        "backend/tests/test_g03r_*.py",
-        "backend/tests/test_amap_trip_understanding.py",
+        "backend/tests/test_g04_screenshot_api.py",
+        "backend/tests/test_g04_screenshot_pipeline.py",
+        "backend/tests/test_g04_screenshot_postgres.py",
         "docs/governance",
-        "frontend/e2e/g03r-result-ui.spec.js",
-        "frontend/src/app/trip/result",
-        "frontend/src/lib/trip-understanding-v3.ts"
+        "docs/product/TRIP_CHECK_API_CONTRACT.md",
+        "frontend/e2e/g04-screenshot-parity.spec.js",
+        "frontend/src/app/page.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
+        "packages/trip-check-client/openapi.json",
+        "packages/trip-check-client/openapi.current.json",
+        "packages/trip-check-client/src/generated"
       ],
-      "package_id": "WP-G03R-INTEGRATOR",
-      "ready_commit": "2d74a88ffd97988f50fbaa271b5d66f7411c2155",
-      "remote_branch": "origin/codex/g03r-activation",
+      "package_id": "WP-G04-INTEGRATOR",
+      "remote_branch": "origin/codex/g04-screenshot-integration",
       "role": "INTEGRATOR",
-      "status": "MERGED",
-      "merged_commit": "1f5a93c62aeeefc83486778d446780710977529d",
-      "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
+      "status": "IN_PROGRESS",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g04-integration"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "CORE_MVP_OWNER_REVIEW_PENDING",
+  "program_state": "G04_SCREENSHOT_APPROVED",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "NONE"
+  "writer_activation": "INTEGRATOR_ONLY"
 }
