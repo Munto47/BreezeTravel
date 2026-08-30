@@ -28,7 +28,18 @@
           "additionalProperties": false,
           "required": ["evidence_tier", "source_sha256", "license_name", "license_reference"],
           "properties": {
-            "evidence_tier": {"const": "LICENSED_REAL_SOURCE"},
+            "evidence_tier": {"const": "LICENSED_REAL_SCREENSHOT"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "license_name": {"type": "string", "minLength": 1},
+            "license_reference": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "license_name", "license_reference"],
+          "properties": {
+            "evidence_tier": {"const": "LICENSED_DERIVED_TEXT_SCREENSHOT"},
             "source_sha256": {"$ref": "#/$defs/sha256"},
             "license_name": {"type": "string", "minLength": 1},
             "license_reference": {"type": "string", "minLength": 1}
@@ -57,29 +68,126 @@
         "item_id": {"type": "string", "minLength": 1, "maxLength": 200}
       }
     },
+    "placeOracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oracle_id", "expected_text", "activity_role", "metric_eligibility"],
+      "properties": {
+        "oracle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,99}$"},
+        "expected_text": {"type": "string", "minLength": 1, "maxLength": 200},
+        "activity_role": {
+          "enum": ["PLANNED", "OPTIONAL", "REFERENCE", "EXCLUDED", "PASS_THROUGH"]
+        },
+        "metric_eligibility": {"enum": ["ELIGIBLE", "NOT_APPLICABLE"]}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"metric_eligibility": {"const": "ELIGIBLE"}},
+            "required": ["metric_eligibility"]
+          },
+          "then": {
+            "properties": {"activity_role": {"const": "PLANNED"}},
+            "required": ["activity_role"]
+          }
+        }
+      ]
+    },
+    "evaluatedPlaceMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "oracle_items", "reference_executable_places",
+        "text_executable_places", "screenshot_executable_places"
+      ],
+      "properties": {
+        "status": {"const": "EVALUATED"},
+        "oracle_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/placeOracle"}
+        },
+        "reference_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "text_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "screenshot_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        }
+      }
+    },
+    "notApplicablePlaceMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "reason", "oracle_items", "reference_executable_places",
+        "text_executable_places", "screenshot_executable_places"
+      ],
+      "properties": {
+        "status": {"const": "NOT_APPLICABLE"},
+        "reason": {
+          "enum": [
+            "OCR_ONLY_SCOPE", "REFERENCE_CONTROL_ROLE", "LOW_CONFIDENCE_CONTROL",
+            "SYNTHETIC_FORMAT_ONLY", "DERIVED_NOT_EVALUABLE"
+          ]
+        },
+        "oracle_items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/placeOracle"}
+        },
+        "reference_executable_places": {"const": "NOT_APPLICABLE"},
+        "text_executable_places": {"const": "NOT_APPLICABLE"},
+        "screenshot_executable_places": {"const": "NOT_APPLICABLE"}
+      }
+    },
     "case": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "case_id", "source", "expected_key_fields", "observed_key_fields",
-        "expected_reading_order", "observed_reading_order",
+        "case_id", "source", "metric_scope", "expected_key_fields",
+        "observed_key_fields", "expected_reading_order", "observed_reading_order",
         "expected_low_confidence_fields", "observed_confirmation_fields",
-        "reference_executable_places", "text_executable_places",
-        "screenshot_executable_places", "serious_errors"
+        "place_metric", "serious_errors"
       ],
       "properties": {
         "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,99}$"},
         "source": {"$ref": "#/$defs/source"},
-        "expected_key_fields": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
+        "metric_scope": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "REAL_OCR_READING",
+              "REAL_PLANNED_PARITY",
+              "REAL_LOW_CONFIDENCE_CONTROL",
+              "REFERENCE_CONTROL",
+              "SYNTHETIC_FORMAT_CONTROL"
+            ]
+          }
+        },
+        "expected_key_fields": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
         "observed_key_fields": {"$ref": "#/$defs/uniqueStrings"},
-        "expected_reading_order": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
+        "expected_reading_order": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
         "observed_reading_order": {"$ref": "#/$defs/uniqueStrings"},
         "expected_low_confidence_fields": {"$ref": "#/$defs/uniqueStrings"},
         "observed_confirmation_fields": {"$ref": "#/$defs/uniqueStrings"},
-        "reference_executable_places": {"allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]},
-        "text_executable_places": {"$ref": "#/$defs/uniqueStrings"},
-        "screenshot_executable_places": {"$ref": "#/$defs/uniqueStrings"},
-        "serious_errors": {"type": "array", "items": {"$ref": "#/$defs/seriousError"}}
+        "place_metric": {
+          "oneOf": [
+            {"$ref": "#/$defs/evaluatedPlaceMetric"},
+            {"$ref": "#/$defs/notApplicablePlaceMetric"}
+          ]
+        },
+        "serious_errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/seriousError"}
+        }
       }
     },
     "performance": {
@@ -100,7 +208,7 @@
           "type": "array",
           "minItems": 20,
           "maxItems": 20,
-          "items": {"type": "number", "minimum": 0}
+          "items": {"type": "number", "exclusiveMinimum": 0}
         }
       }
     }

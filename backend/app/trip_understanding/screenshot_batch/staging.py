@@ -4,8 +4,10 @@ import asyncio
 import hashlib
 import os
 import secrets
-from collections.abc import AsyncIterable, Sequence
+import stat as stat_module
+from collections.abc import AsyncIterable, Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -38,11 +40,138 @@ from app.trip_understanding.screenshot_batch.models import (
     StagedBatch,
     StagedScreenshot,
 )
+from app.trip_understanding.screenshot_batch.security import (
+    require_node_local,
+    secure_owner_only,
+)
 
 
 _SUPPORTED_MEDIA_TYPES = frozenset({"image/png", "image/jpeg", "image/webp"})
 _LOCATOR_BYTES = 32
 _LOCATOR_CREATION_ATTEMPTS = 16
+_WINDOWS_REPARSE_POINT = getattr(stat_module, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+
+
+def stat_is_link_or_reparse(observed: os.stat_result) -> bool:
+    """Recognize Unix links and every Windows reparse-point path."""
+
+    return stat_module.S_ISLNK(observed.st_mode) or bool(
+        getattr(observed, "st_file_attributes", 0) & _WINDOWS_REPARSE_POINT
+    )
+
+
+def validate_no_link_or_reparse_components(path: Path) -> Path:
+    """Return a lexical absolute path after lstat-checking every existing component.
+
+    This check intentionally runs before ``Path.resolve``.  In particular, a
+    Windows junction is a directory according to ``is_dir()`` and is not always
+    reported by ``is_symlink()``, but its reparse-point attribute is visible to
+    ``lstat``.
+    """
+
+    try:
+        absolute = Path(os.path.abspath(os.fspath(path)))
+    except (OSError, TypeError, ValueError) as exc:
+        raise ScreenshotPathSecurityError(
+            "screenshot temporary path could not be inspected"
+        ) from exc
+
+    current = Path(absolute.anchor)
+    try:
+        anchor_stat = current.lstat()
+    except OSError as exc:
+        raise ScreenshotPathSecurityError(
+            "screenshot temporary path anchor could not be inspected"
+        ) from exc
+    if stat_is_link_or_reparse(anchor_stat) or not stat_module.S_ISDIR(
+        anchor_stat.st_mode
+    ):
+        raise ScreenshotPathSecurityError(
+            "screenshot temporary path anchor is unsafe"
+        )
+    components = absolute.parts[1:] if absolute.anchor else absolute.parts
+    missing_parent = False
+    for component in components:
+        current /= component
+        try:
+            observed = current.lstat()
+        except FileNotFoundError:
+            missing_parent = True
+            continue
+        except OSError as exc:
+            raise ScreenshotPathSecurityError(
+                "screenshot temporary path could not be inspected"
+            ) from exc
+        if missing_parent:
+            raise ScreenshotPathSecurityError(
+                "screenshot temporary path changed while it was inspected"
+            )
+        if stat_is_link_or_reparse(observed):
+            raise ScreenshotPathSecurityError(
+                "screenshot temporary path cannot contain links or reparse points"
+            )
+        if current != absolute and not stat_module.S_ISDIR(observed.st_mode):
+            raise ScreenshotPathSecurityError(
+                "screenshot temporary path parent must be a directory"
+            )
+    return absolute
+
+
+def secure_and_validate_open_regular_file(path: Path, descriptor: int) -> os.stat_result:
+    """Bind an open owner-only regular file to the same non-link path inode."""
+
+    try:
+        path_before = path.lstat()
+        descriptor_before = os.fstat(descriptor)
+    except OSError as exc:
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file identity could not be verified"
+        ) from exc
+    if (
+        stat_is_link_or_reparse(path_before)
+        or not stat_module.S_ISREG(path_before.st_mode)
+        or not stat_module.S_ISREG(descriptor_before.st_mode)
+        or getattr(path_before, "st_nlink", 1) != 1
+        or getattr(descriptor_before, "st_nlink", 1) != 1
+        or not os.path.samestat(path_before, descriptor_before)
+    ):
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file is not a unique regular file"
+        )
+    if hasattr(os, "geteuid") and descriptor_before.st_uid != os.geteuid():
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file owner is not the process user"
+        )
+
+    secure_owner_only(path, is_directory=False)
+    try:
+        path_after = path.lstat()
+        descriptor_after = os.fstat(descriptor)
+    except OSError as exc:
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file identity could not be verified"
+        ) from exc
+    if (
+        stat_is_link_or_reparse(path_after)
+        or not stat_module.S_ISREG(path_after.st_mode)
+        or not stat_module.S_ISREG(descriptor_after.st_mode)
+        or getattr(path_after, "st_nlink", 1) != 1
+        or getattr(descriptor_after, "st_nlink", 1) != 1
+        or not os.path.samestat(path_after, descriptor_after)
+        or not os.path.samestat(descriptor_before, descriptor_after)
+    ):
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file changed while it was secured"
+        )
+    if os.name != "nt" and stat_module.S_IMODE(descriptor_after.st_mode) != 0o600:
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file permissions are not owner-only"
+        )
+    if hasattr(os, "geteuid") and descriptor_after.st_uid != os.geteuid():
+        raise ScreenshotPathSecurityError(
+            "staged screenshot file owner is not the process user"
+        )
+    return descriptor_after
 
 
 def _is_inside_git_checkout(path: Path) -> bool:
@@ -50,16 +179,42 @@ def _is_inside_git_checkout(path: Path) -> bool:
 
 
 def _prepare_temp_root(temp_root: str | os.PathLike[str]) -> Path:
-    root = Path(temp_root).expanduser().resolve(strict=False)
+    root = Path(temp_root).expanduser()
+    require_node_local(root)
+    root = validate_no_link_or_reparse_components(root)
+    root = root.resolve(strict=False)
+    require_node_local(root)
     if _is_inside_git_checkout(root):
         raise ScreenshotPathSecurityError("temporary screenshot root cannot be inside a Git checkout")
     try:
         root.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
         raise ScreenshotStorageError("temporary screenshot root could not be created") from exc
+    root = validate_no_link_or_reparse_components(root)
     root = root.resolve(strict=True)
-    if not root.is_dir() or root.is_symlink():
+    try:
+        root_before = root.lstat()
+    except OSError as exc:
+        raise ScreenshotPathSecurityError(
+            "temporary screenshot root could not be verified"
+        ) from exc
+    if stat_is_link_or_reparse(root_before) or not stat_module.S_ISDIR(root_before.st_mode):
         raise ScreenshotPathSecurityError("temporary screenshot root must resolve to a directory")
+    secure_owner_only(root, is_directory=True)
+    try:
+        root_after = root.lstat()
+    except OSError as exc:
+        raise ScreenshotPathSecurityError(
+            "temporary screenshot root could not be verified"
+        ) from exc
+    if (
+        stat_is_link_or_reparse(root_after)
+        or not stat_module.S_ISDIR(root_after.st_mode)
+        or not os.path.samestat(root_before, root_after)
+    ):
+        raise ScreenshotPathSecurityError(
+            "temporary screenshot root changed while it was secured"
+        )
     return root
 
 
@@ -73,12 +228,49 @@ def _create_batch_directory(root: Path) -> tuple[str, Path]:
             continue
         except OSError as exc:
             raise ScreenshotStorageError("staged screenshot directory could not be created") from exc
+        directory_before: os.stat_result | None = None
+        try:
+            validate_no_link_or_reparse_components(directory)
+            directory_before = directory.lstat()
+            if not stat_module.S_ISDIR(directory_before.st_mode):
+                raise ScreenshotPathSecurityError(
+                    "staged screenshot directory is not a directory"
+                )
+            secure_owner_only(directory, is_directory=True)
+            directory_after = directory.lstat()
+            if (
+                stat_is_link_or_reparse(directory_after)
+                or not stat_module.S_ISDIR(directory_after.st_mode)
+                or not os.path.samestat(directory_before, directory_after)
+            ):
+                raise ScreenshotPathSecurityError(
+                    "staged screenshot directory changed while it was secured"
+                )
+        except BaseException:
+            try:
+                if (
+                    directory_before is not None
+                    and not stat_is_link_or_reparse(directory.lstat())
+                    and os.path.samestat(directory_before, directory.lstat())
+                ):
+                    directory.rmdir()
+            except OSError:
+                pass
+            raise
         return locator, directory
     raise ScreenshotStorageError("a unique staged screenshot directory could not be allocated")
 
 
 def _reserve_random_asset(directory: Path) -> tuple[str, Path, int]:
-    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | getattr(os, "O_BINARY", 0)
+        | getattr(os, "O_CLOEXEC", 0)
+        | getattr(os, "O_NOINHERIT", 0)
+        | getattr(os, "O_NOFOLLOW", 0)
+    )
     for _ in range(_LOCATOR_CREATION_ATTEMPTS):
         locator = secrets.token_hex(_LOCATOR_BYTES)
         path = directory / locator
@@ -224,9 +416,12 @@ class _MultipartStager:
         part.path = path
         self.parts.append(part)
         try:
+            secure_and_validate_open_regular_file(path, descriptor)
             part.handle = os.fdopen(descriptor, "wb", buffering=0)
         except BaseException as exc:
             os.close(descriptor)
+            if isinstance(exc, ScreenshotBatchError):
+                raise
             raise ScreenshotStorageError("staged screenshot file could not be opened") from exc
 
     def on_part_data(self, data: bytes, start: int, end: int) -> None:
@@ -353,10 +548,17 @@ def _translate_error(exc: BaseException) -> BaseException:
     return exc
 
 
-def _attach_cleanup_attempts(error: BaseException, attempts: Sequence[CleanupAttempt]) -> None:
-    attach = getattr(error, "attach_cleanup_attempts", None)
+def _attach_staging_evidence(
+    error: BaseException,
+    batch: StagedBatch,
+    attempts: Sequence[CleanupAttempt],
+) -> None:
+    attach = getattr(error, "attach_staging_evidence", None)
     if callable(attach):
-        attach(attempts)
+        attach(batch, attempts)
+        return
+    setattr(error, "batch", batch)
+    setattr(error, "cleanup_attempts", tuple(attempts))
 
 
 async def stage_screenshot_multipart(
@@ -364,6 +566,9 @@ async def stage_screenshot_multipart(
     chunks: AsyncIterable[bytes],
     limits: ScreenshotBatchLimits | None,
     temp_root: str | os.PathLike[str],
+    cleanup_started: Callable[[StagedBatch, str], None] | None = None,
+    cleanup_finished: Callable[[StagedBatch, tuple[CleanupAttempt, ...]], None]
+    | None = None,
 ) -> StagedBatch:
     """Receive and stage an ordered multipart screenshot batch within fixed bounds."""
 
@@ -395,12 +600,55 @@ async def stage_screenshot_multipart(
         stager.close_all(suppress_errors=True)
         partial_batch = stager.snapshot(body_bytes=body_bytes, require_complete=False)
         translated = _translate_error(exc)
+        terminal_reason = _terminal_reason(exc)
+        if cleanup_started is not None:
+            try:
+                cleanup_started(partial_batch, terminal_reason)
+            except BaseException as journal_error:
+                attempt = CleanupAttempt(
+                    attempt_number=1,
+                    terminal_reason=terminal_reason,
+                    attempted_at=datetime.now(timezone.utc),
+                    deleted_locators=(),
+                    already_absent_locators=(),
+                    failed_locators=tuple(
+                        item.locator for item in partial_batch.screenshots
+                    ),
+                    remaining_locators=tuple(
+                        item.locator for item in partial_batch.screenshots
+                    ),
+                    error_categories=("CLEANUP_JOURNAL_UNAVAILABLE",),
+                    directory_removed=False,
+                    succeeded=False,
+                )
+                raise ScreenshotCleanupError(
+                    "cleanup journal could not be written",
+                    attempts=(attempt,),
+                    staging_error_code=getattr(
+                        translated, "code", type(translated).__name__
+                    ),
+                    batch=partial_batch,
+                ) from journal_error
         try:
-            cleanup_attempts = cleanup_staged_batch(partial_batch, _terminal_reason(exc))
+            cleanup_attempts = cleanup_staged_batch(partial_batch, terminal_reason)
         except ScreenshotCleanupError as cleanup_error:
             cleanup_error.staging_error_code = getattr(translated, "code", type(translated).__name__)
+            if cleanup_finished is not None:
+                try:
+                    cleanup_finished(partial_batch, cleanup_error.attempts)
+                except BaseException as journal_error:
+                    _attach_staging_evidence(
+                        journal_error, partial_batch, cleanup_error.attempts
+                    )
+                    raise journal_error from cleanup_error
             raise cleanup_error from exc
-        _attach_cleanup_attempts(translated, cleanup_attempts)
+        if cleanup_finished is not None:
+            try:
+                cleanup_finished(partial_batch, cleanup_attempts)
+            except BaseException as journal_error:
+                _attach_staging_evidence(journal_error, partial_batch, cleanup_attempts)
+                raise journal_error from exc
+        _attach_staging_evidence(translated, partial_batch, cleanup_attempts)
         if translated is exc:
             raise
         raise translated from exc

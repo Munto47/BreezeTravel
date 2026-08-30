@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
@@ -113,6 +116,86 @@ async def test_paddle_adapter_lazy_loads_and_reads_new_polygon_output(tmp_path: 
     assert lines[0].bbox == ((1.0, 2.0), (11.0, 2.0), (11.0, 8.0), (1.0, 8.0))
     assert len(created) == 1
     assert created[0]["enable_mkldnn"] is False
+
+
+@pytest.mark.asyncio
+async def test_isolated_paddle_cancellation_aborts_and_joins_worker_before_return(
+    tmp_path: Path,
+) -> None:
+    started = threading.Event()
+    released = threading.Event()
+    finished = threading.Event()
+    aborted = threading.Event()
+
+    class BlockingWorker:
+        def recognize(self, _: Path):
+            started.set()
+            released.wait(timeout=5)
+            finished.set()
+            raise RuntimeError("controlled worker termination")
+
+        def abort(self) -> None:
+            aborted.set()
+            released.set()
+
+        def close(self) -> None:
+            released.set()
+
+    worker = BlockingWorker()
+    adapter = PaddleOcrAdapter(process_worker_factory=lambda _options: worker)
+    image = tmp_path / "cancel.png"
+    image.write_bytes(b"fixture")
+
+    operation = asyncio.create_task(adapter.recognize(image))
+    assert await asyncio.to_thread(started.wait, 2)
+    operation.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await operation
+
+    assert aborted.is_set()
+    assert finished.is_set()
+
+
+@pytest.mark.asyncio
+async def test_isolated_paddle_serializes_across_adapter_instances(tmp_path: Path) -> None:
+    state_lock = threading.Lock()
+    active = 0
+    maximum_active = 0
+
+    class MeasuringWorker:
+        def recognize(self, _: Path):
+            nonlocal active, maximum_active
+            with state_lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+            time.sleep(0.03)
+            with state_lock:
+                active -= 1
+            return (_line("完成", 0.99, 0, 0),)
+
+        def abort(self) -> None:
+            return None
+
+        def close(self) -> None:
+            return None
+
+    first = PaddleOcrAdapter(
+        process_worker_factory=lambda _options: MeasuringWorker()
+    )
+    second = PaddleOcrAdapter(
+        process_worker_factory=lambda _options: MeasuringWorker()
+    )
+    image = tmp_path / "serial.png"
+    image.write_bytes(b"fixture")
+
+    first_result, second_result = await asyncio.gather(
+        first.recognize(image),
+        second.recognize(image),
+    )
+
+    assert first_result[0].text == "完成"
+    assert second_result[0].text == "完成"
+    assert maximum_active == 1
 
 
 def test_paddle_adapter_reads_compatibility_shapes_and_four_point_boxes() -> None:
@@ -302,26 +385,74 @@ async def test_document_hash_is_canonical_and_excludes_paths_and_filenames(tmp_p
 
 
 def _passing_manifest() -> dict[str, Any]:
-    return {
-        "schema_version": "g04-screenshot-parity-manifest-v1",
-        "cases": [
-            {
-                "case_id": "licensed-01",
-                "source": {
-                    "evidence_tier": "LICENSED_REAL_SOURCE",
-                    "source_sha256": "a" * 64,
-                    "license_name": "Controlled fixture license",
-                    "license_reference": "receipt:licensed-01",
-                },
-                "expected_key_fields": ["day=1", "place=故宫", "time=09:00"],
-                "observed_key_fields": ["day=1", "place=故宫", "time=09:00"],
-                "expected_reading_order": ["day", "place", "time"],
-                "observed_reading_order": ["day", "place", "time"],
-                "expected_low_confidence_fields": ["place=故宫"],
-                "observed_confirmation_fields": ["place=故宫"],
+    licensed_cases = [
+        {
+            "case_id": f"licensed-{index:02d}",
+            "source": {
+                "evidence_tier": "LICENSED_REAL_SCREENSHOT",
+                "source_sha256": digest * 64,
+                "license_name": "Controlled fixture license",
+                "license_reference": f"receipt:licensed-{index:02d}",
+            },
+            "metric_scope": ["REAL_OCR_READING", "REAL_PLANNED_PARITY"],
+            "expected_key_fields": ["day=1", "place=故宫", "time=09:00"],
+            "observed_key_fields": ["day=1", "place=故宫", "time=09:00"],
+            "expected_reading_order": ["day", "place", "time"],
+            "observed_reading_order": ["day", "place", "time"],
+            "expected_low_confidence_fields": [],
+            "observed_confirmation_fields": [],
+            "place_metric": {
+                "status": "EVALUATED",
+                "oracle_items": [
+                    {
+                        "oracle_id": f"planned-{index:02d}",
+                        "expected_text": "故宫",
+                        "activity_role": "PLANNED",
+                        "metric_eligibility": "ELIGIBLE",
+                    }
+                ],
                 "reference_executable_places": ["故宫"],
                 "text_executable_places": ["故宫"],
                 "screenshot_executable_places": ["故宫"],
+            },
+            "serious_errors": [],
+        }
+        for index, digest in enumerate(("a", "d", "e"), start=1)
+    ]
+    return {
+        "schema_version": "g04-screenshot-parity-manifest-v1",
+        "cases": [
+            *licensed_cases,
+            {
+                "case_id": "licensed-low-confidence-control",
+                "source": {
+                    "evidence_tier": "LICENSED_REAL_SCREENSHOT",
+                    "source_sha256": "f" * 64,
+                    "license_name": "Controlled fixture license",
+                    "license_reference": "receipt:licensed-low-confidence-control",
+                },
+                "metric_scope": ["REAL_LOW_CONFIDENCE_CONTROL"],
+                "expected_key_fields": ["place=故宫"],
+                "observed_key_fields": ["place=故宫"],
+                "expected_reading_order": ["place=故宫"],
+                "observed_reading_order": ["place=故宫"],
+                "expected_low_confidence_fields": ["place=故宫"],
+                "observed_confirmation_fields": ["place=故宫"],
+                "place_metric": {
+                    "status": "NOT_APPLICABLE",
+                    "reason": "LOW_CONFIDENCE_CONTROL",
+                    "oracle_items": [
+                        {
+                            "oracle_id": "guarded-place",
+                            "expected_text": "故宫",
+                            "activity_role": "PLANNED",
+                            "metric_eligibility": "NOT_APPLICABLE",
+                        }
+                    ],
+                    "reference_executable_places": "NOT_APPLICABLE",
+                    "text_executable_places": "NOT_APPLICABLE",
+                    "screenshot_executable_places": "NOT_APPLICABLE",
+                },
                 "serious_errors": [],
             },
             {
@@ -331,15 +462,21 @@ def _passing_manifest() -> dict[str, Any]:
                     "source_sha256": "b" * 64,
                     "synthetic_spec_sha256": "c" * 64,
                 },
+                "metric_scope": ["SYNTHETIC_FORMAT_CONTROL"],
                 "expected_key_fields": ["format=chat"],
                 "observed_key_fields": [],
                 "expected_reading_order": ["format"],
                 "observed_reading_order": [],
                 "expected_low_confidence_fields": [],
                 "observed_confirmation_fields": [],
-                "reference_executable_places": ["synthetic-only"],
-                "text_executable_places": [],
-                "screenshot_executable_places": [],
+                "place_metric": {
+                    "status": "NOT_APPLICABLE",
+                    "reason": "SYNTHETIC_FORMAT_ONLY",
+                    "oracle_items": [],
+                    "reference_executable_places": "NOT_APPLICABLE",
+                    "text_executable_places": "NOT_APPLICABLE",
+                    "screenshot_executable_places": "NOT_APPLICABLE",
+                },
                 "serious_errors": [],
             },
         ],
@@ -364,7 +501,9 @@ def test_manifest_schema_and_scorer_keep_evidence_tiers_separate() -> None:
     manifest = G04ScreenshotParityManifestV1.model_validate(_passing_manifest())
     report = score_g04_screenshot_manifest(manifest)
 
-    assert report.licensed_real_case_count == 1
+    assert report.licensed_real_case_count == 4
+    assert report.licensed_real_ocr_case_count == 3
+    assert report.licensed_real_planned_parity_case_count == 3
     assert report.synthetic_format_case_count == 1
     assert report.key_field_f1 == 1.0
     assert report.adjacency_f1 == 1.0
@@ -376,12 +515,12 @@ def test_manifest_schema_and_scorer_keep_evidence_tiers_separate() -> None:
 
 def test_scorer_reports_all_locked_quality_failures() -> None:
     payload = _passing_manifest()
-    payload["cases"] = [payload["cases"][0]]
     case = payload["cases"][0]
     case["observed_key_fields"] = ["day=1"]
     case["observed_reading_order"] = ["time", "place", "day"]
     case["observed_confirmation_fields"] = []
-    case["screenshot_executable_places"] = []
+    payload["cases"][3]["observed_confirmation_fields"] = []
+    case["place_metric"]["screenshot_executable_places"] = ["天坛"]
     case["serious_errors"] = [{"category": "WRONG_CITY", "item_id": "故宫"}]
     payload["performance"]["durations_ms"] = [13_000] * 20
 

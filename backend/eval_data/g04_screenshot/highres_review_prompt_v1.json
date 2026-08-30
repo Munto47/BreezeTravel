@@ -1,0 +1,83 @@
+{
+  "schema_version": "g04-highres-pixel-review-prompt-v1",
+  "evidence_label": "MULTI_AGENT_SIMULATED_REVIEW",
+  "human_evidence": false,
+  "review_scope": "FROZEN_SCREENSHOT_PIXELS_ONLY",
+  "source_root_policy": "OUTSIDE_GIT_EPHEMERAL",
+  "captures": [
+    {
+      "case_id": "licensed-yuntaishan-oldid220410",
+      "source_file": "wikivoyage-yuntaishan-oldid220410.jpg",
+      "source_sha256": "e4b666ceb257058f7bc618be6b4d0dd59b7056a86966ffdb345b59652a824070",
+      "image_width": 1060,
+      "image_height": 90
+    },
+    {
+      "case_id": "licensed-zhangjiajie-oldid221547",
+      "source_file": "wikivoyage-zhangjiajie-oldid221547.jpg",
+      "source_sha256": "f23dba93b46e8fe9e576d2016cc3fb5f196ecf6dd946f1af69e2b7a862360d7b",
+      "image_width": 1060,
+      "image_height": 235
+    },
+    {
+      "case_id": "licensed-qinling-oldid133737",
+      "source_file": "wikivoyage-qinling-oldid133737.jpg",
+      "source_sha256": "acafa8716f12c789d5832e0a01ddffa4d8801514a796af5775e78ffbaa36fddf",
+      "image_width": 1060,
+      "image_height": 195
+    },
+    {
+      "case_id": "licensed-yuntaishan-oldid220410-low-confidence-control",
+      "source_file": "wikivoyage-yuntaishan-oldid220410-low-confidence-control.jpg",
+      "source_sha256": "ce741d0cd0ff773e3c0ca859117fda61669ffac3fbd992ef5051f9262ceefd9c",
+      "image_width": 430,
+      "image_height": 48,
+      "metric_scope": "REAL_LOW_CONFIDENCE_CONTROL_ONLY"
+    }
+  ],
+  "instructions": [
+    "Inspect only the exact frozen pixels and do not open the source pages or use prior transcripts.",
+    "Transcribe every fully visible content line in visual reading order while preserving semantic punctuation and visible line breaks.",
+    "Do not reconstruct text that is vertically or horizontally clipped; record such material only as an uncertainty note.",
+    "Identify only pixel-supported DESTINATION, DAY_MARKER, ACTIVITY_PLACE, TIME_HINT and AREA_ADDRESS fields.",
+    "For every identified field, freeze a tight pixel region_xyxy and deterministic extraction rule; do not use a region that includes unrelated glyphs.",
+    "Cover every fully visible critical field in the three quality captures; do not select fields based on expected OCR success.",
+    "The low-confidence control is a separate downscaled real capture. Freeze its complete readable planned-place and day controls, but never mark them parity eligible.",
+    "Classify activity places as PLANNED, OPTIONAL, REFERENCE, EXCLUDED or PASS_THROUGH from visible wording only.",
+    "Mark a field parity eligible only when it is a clearly planned atomic place and fully readable.",
+    "List descriptions, URLs, fused routes and clipped fragments that must never be predicted as atomic places.",
+    "Do not call this human review or human evidence."
+  ],
+  "output_contract": {
+    "review_payload_fields": [
+      "schema_version",
+      "reviewer_role",
+      "evidence_label",
+      "human_evidence",
+      "captures"
+    ],
+    "capture_fields": [
+      "case_id",
+      "source_file",
+      "source_sha256",
+      "visible_text",
+      "uncertainties",
+      "fields",
+      "forbidden_place_predictions"
+    ],
+    "field_fields": [
+      "field_id",
+      "field_type",
+      "expected_text",
+      "activity_role",
+      "place_metric_eligibility",
+      "reading_order_index",
+      "pixel_support",
+      "region_xyxy",
+      "extraction",
+      "must_confirm"
+    ],
+    "canonicalization": "UTF-8 JSON, ensure_ascii=false, sort_keys=true, separators=(',', ':'), no trailing newline",
+    "output_hash_rule": "SHA-256 of review_payload canonical bytes"
+  }
+}

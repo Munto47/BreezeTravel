@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import secrets
+from collections.abc import Sequence
 from typing import Protocol
 from uuid import uuid4
 
@@ -140,7 +141,8 @@ def is_atomic_planned_place(mention) -> bool:
     candidate = (mention.atomic_place_name or "").strip()
     if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
         return False
-    if candidate != (mention.raw_text or "").strip():
+    raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
+    if candidate != raw_candidate:
         return False
     if any(marker in candidate for marker in SENTENCE_MARKERS):
         return False
@@ -229,11 +231,31 @@ class PublicResultProjector:
             ):
                 mention = item.compiled.mention
                 place = item.place
+                source_confirmation_required = (
+                    item.resolver_receipt.get("status")
+                    == "SOURCE_CONFIRMATION_REQUIRED"
+                )
                 cards.append(
                     ActivityCardView(
                         activity_token=item.compiled.public_activity_token,
-                        name=place.name if place else (mention.atomic_place_name or "地点待确认"),
-                        category=place.category if place else (mention.category_hint or "地点"),
+                        name=(
+                            place.name
+                            if place
+                            else (
+                                "地点待确认"
+                                if source_confirmation_required
+                                else (mention.atomic_place_name or "地点待确认")
+                            )
+                        ),
+                        category=(
+                            place.category
+                            if place
+                            else (
+                                "地点"
+                                if source_confirmation_required
+                                else (mention.category_hint or "地点")
+                            )
+                        ),
                         area_or_address=place.area_or_address if place else "地点待确认",
                         time_hint=mention.time_hint,
                         status="READY" if place else "NEEDS_CONFIRMATION",
@@ -442,10 +464,35 @@ class TripUnderstandingPipeline:
             unavailable,
         )
 
-    async def run(self, source_text: str) -> PipelineOutput:
+    async def run(
+        self,
+        source_text: str,
+        *,
+        requires_confirmation_spans: Sequence[tuple[int, int]] = (),
+        partial_source: bool = False,
+    ) -> PipelineOutput:
+        confirmation_spans = tuple(requires_confirmation_spans)
+        if any(
+            start < 0 or end <= start or end > len(source_text)
+            for start, end in confirmation_spans
+        ):
+            raise ValueError("confirmation spans must be valid source code-point ranges")
         proposal = await self.inference_provider.propose(source_text)
         search_cities = resolution_cities(source_text, proposal.destination_name)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
+        confirmation_activity_ids: set[str] = set()
+        guarded_compiled: list[CompiledActivity] = []
+        for item in compiled:
+            mention = item.mention
+            intersects_confirmation = any(
+                mention.span_start < end and start < mention.span_end
+                for start, end in confirmation_spans
+            )
+            if item.eligible_for_place_search and intersects_confirmation:
+                confirmation_activity_ids.add(item.activity_id)
+                item = item.model_copy(update={"eligible_for_place_search": False})
+            guarded_compiled.append(item)
+        compiled = guarded_compiled
         resolved: list[ResolvedActivity] = []
         attempted_count = 0
         unavailable_count = 0
@@ -460,6 +507,9 @@ class TripUnderstandingPipeline:
             tuple[str, asyncio.Task[tuple[PlaceResolutionOutcome, bool]] | None, bool, str]
         ] = []
         for item in compiled:
+            if item.activity_id in confirmation_activity_ids:
+                resolution_slots.append(("CONFIRMATION_REQUIRED", None, False, ""))
+                continue
             if not item.eligible_for_place_search:
                 resolution_slots.append(("NOT_ELIGIBLE", None, False, ""))
                 continue
@@ -503,6 +553,18 @@ class TripUnderstandingPipeline:
             resolution_slots,
             strict=True,
         ):
+            if slot_type == "CONFIRMATION_REQUIRED":
+                resolved.append(
+                    ResolvedActivity(
+                        compiled=item,
+                        resolution_status=ResolutionStatus.NEEDS_CONFIRMATION,
+                        resolver_receipt={
+                            "status": "SOURCE_CONFIRMATION_REQUIRED",
+                            "external_calls": 0,
+                        },
+                    )
+                )
+                continue
             if slot_type == "NOT_ELIGIBLE":
                 resolved.append(
                     ResolvedActivity(
@@ -558,7 +620,9 @@ class TripUnderstandingPipeline:
             resolved,
         )
         fallback_used = proposal.binding.get("fallback_used") is True
-        if budget_limited_count:
+        if partial_source:
+            public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
+        elif budget_limited_count:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
         elif (fallback_used or unavailable_count) and public_result.status != "PARTIAL_RESULT":
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
@@ -582,6 +646,8 @@ class TripUnderstandingPipeline:
             "budget_limited_count": budget_limited_count,
             "max_executable_activities": self.max_executable_activities,
             "inference_fallback_used": fallback_used,
+            "source_confirmation_required_count": len(confirmation_activity_ids),
+            "partial_source": partial_source,
             "provider_failures_exposed_publicly": 0,
         }
         internal_content = {

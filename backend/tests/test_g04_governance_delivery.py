@@ -1,0 +1,337 @@
+from __future__ import annotations
+
+import hashlib
+import json
+import subprocess
+from pathlib import Path
+
+import pytest
+import yaml
+
+from governance.core_mainline import (
+    CONTRACT_PATH,
+    CoreMainlineError,
+    product_fingerprint,
+    validate_delivery_receipt,
+)
+from governance.g04_screenshot_parity import (
+    FORMAL_EVIDENCE_KEY,
+    FORMAL_EVIDENCE_LEVEL,
+    FORMAL_EXECUTION_MODE,
+    FORMAL_RECEIPT_PATH,
+    FORMAL_SCHEMA_VERSION,
+    G04ParityReceiptError,
+    canonical_receipt_hash,
+    validate_g04_delivery_evidence,
+)
+from governance.work_packages_v3 import validate_registry_v3
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+HEX_A = "a" * 64
+HEX_B = "b" * 64
+
+
+def _write_json(path: Path, value: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _git(root: Path, *args: str) -> str:
+    result = subprocess.run(
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    return result.stdout.strip()
+
+
+def _candidate_repo(tmp_path: Path) -> tuple[Path, str]:
+    root = tmp_path / "repo"
+    product = root / "backend/app/main.py"
+    product.parent.mkdir(parents=True)
+    product.write_text("SCREENSHOT_PARITY = 'candidate'\n", encoding="utf-8")
+    for relative in (
+        "backend/eval_data/g04_screenshot/licensed_baseline_v1.json",
+        "backend/scripts/run_g04_paddle_gate.py",
+        "backend/evals/g04_screenshot/scorer.py",
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"candidate artifact: {relative}\n", encoding="utf-8")
+    _git(root, "init", "-b", "develop")
+    _git(root, "config", "user.email", "test@example.invalid")
+    _git(root, "config", "user.name", "G04 Governance Test")
+    _git(root, "add", ".")
+    _git(root, "commit", "-m", "candidate product")
+    return root, _git(root, "rev-parse", "HEAD")
+
+
+def _formal_receipt(root: Path, candidate_commit: str) -> dict[str, object]:
+    fingerprint = product_fingerprint(root)
+
+    def candidate_sha256(relative: str) -> str:
+        result = subprocess.run(
+            ["git", "-C", str(root), "show", f"{candidate_commit}:{relative}"],
+            check=True,
+            capture_output=True,
+        )
+        return hashlib.sha256(result.stdout).hexdigest()
+
+    receipt: dict[str, object] = {
+        "schema_version": FORMAL_SCHEMA_VERSION,
+        "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+        "evidence_level": FORMAL_EVIDENCE_LEVEL,
+        "execution_mode": FORMAL_EXECUTION_MODE,
+        "sanitized": True,
+        "candidate": {
+            "commit": candidate_commit,
+            "tree": _git(root, "rev-parse", f"{candidate_commit}^{{tree}}"),
+            "product_fingerprint": fingerprint,
+        },
+        "evaluator": {
+            "baseline_manifest_sha256": candidate_sha256(
+                "backend/eval_data/g04_screenshot/licensed_baseline_v1.json"
+            ),
+            "expected_transcript_sha256": HEX_B,
+            "runspec_sha256": HEX_A,
+            "runner_sha256": candidate_sha256(
+                "backend/scripts/run_g04_paddle_gate.py"
+            ),
+            "scorer_sha256": candidate_sha256(
+                "backend/evals/g04_screenshot/scorer.py"
+            ),
+            "text_only_day_dataset_sha256": HEX_B,
+            "oracle_adjudication_sha256": HEX_A,
+            "metric_inputs_sha256": HEX_B,
+            "scored_outputs_sha256": HEX_A,
+        },
+        "source_policy": {
+            "originals_in_git": False,
+            "originals_storage": "OUTSIDE_GIT_EPHEMERAL",
+            "license_manifest_sha256": HEX_A,
+            "cleanup_receipts_sha256": HEX_B,
+            "terminal_cleanup_receipts_complete": True,
+            "parity_metric_scope": "LICENSED_REAL_ONLY",
+            "review_label": "MULTI_AGENT_SIMULATED_REVIEW",
+            "human_review": False,
+            "candidate_outputs_used_for_oracle": False,
+        },
+        "paddle": {
+            "paddleocr_version": "3.7.0",
+            "paddlepaddle_version": "3.3.1",
+            "model_sha256": HEX_A,
+            "config_sha256": HEX_B,
+        },
+        "hardware": {
+            "device_class": "LOCAL_GPU",
+            "hardware_sha256": HEX_A,
+            "driver_sha256": HEX_B,
+        },
+        "performance": {
+            "image_count": 3,
+            "width_px": 1080,
+            "height_px": 1920,
+            "concurrency": 1,
+            "warmup_runs": 2,
+            "measured_runs": 20,
+            "measurement_ms": list(range(1000, 1020)),
+            "p95_ms": 1018,
+        },
+        "metric_counts": {
+            "case_count": 3,
+            "licensed_real_case_count": 2,
+            "synthetic_case_count": 1,
+            "text_only_day_case_count": 2,
+            "critical_field_count": 10,
+            "low_confidence_critical_field_count": 2,
+            "reading_adjacency_count": 8,
+            "location_baseline_count": 5,
+            "cleanup_terminal_count": 3,
+            "cleanup_receipt_count": 3,
+        },
+        "metrics": {
+            "critical_field_f1": 0.96,
+            "low_confidence_confirmation_recall": 1.0,
+            "reading_order_adjacency_f1": 0.98,
+            "location_precision_drop_pp": 0.5,
+            "location_recall_drop_pp": 0.5,
+            "wrong_city_count": 0,
+            "wrong_category_count": 0,
+            "sentence_as_place_count": 0,
+            "internal_leak_count": 0,
+            "cleanup_receipt_coverage": 1.0,
+        },
+        "decision": {"status": "PASS", "failures": []},
+        "receipt_hash": "",
+    }
+    receipt["receipt_hash"] = canonical_receipt_hash(receipt)
+    return receipt
+
+
+def _install_formal_receipt(
+    root: Path,
+    receipt: dict[str, object],
+) -> dict[str, str]:
+    path = root / FORMAL_RECEIPT_PATH
+    _write_json(path, receipt)
+    _git(root, "add", FORMAL_RECEIPT_PATH)
+    fingerprint = str(receipt["candidate"]["product_fingerprint"])
+    return {
+        "path": FORMAL_RECEIPT_PATH,
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "candidate_commit": str(receipt["candidate"]["commit"]),
+        "product_fingerprint": fingerprint,
+    }
+
+
+def test_formal_receipt_binds_candidate_product_paddle_hardware_and_2_plus_20(
+    tmp_path: Path,
+) -> None:
+    root, candidate = _candidate_repo(tmp_path)
+    formal = _formal_receipt(root, candidate)
+    evidence = _install_formal_receipt(root, formal)
+    delivery = {FORMAL_EVIDENCE_KEY: evidence}
+
+    result = validate_g04_delivery_evidence(
+        root,
+        delivery,
+        expected_product_fingerprint=product_fingerprint(root),
+        current_product_fingerprint=product_fingerprint(root),
+    )
+
+    assert result["decision"] == {"status": "PASS", "failures": []}
+
+
+@pytest.mark.parametrize(
+    ("mutator", "message"),
+    [
+        (lambda value: value["decision"].update(status="NOT_EVALUABLE"), "not PASS"),
+        (
+            lambda value: value["metric_counts"].update(
+                low_confidence_critical_field_count=0
+            ),
+            "positive integer",
+        ),
+        (lambda value: value["performance"].update(warmup_runs=0), r"2\+20"),
+        (
+            lambda value: value["source_policy"].update(
+                candidate_outputs_used_for_oracle=True
+            ),
+            "own oracle",
+        ),
+    ],
+)
+def test_formal_receipt_fails_closed_for_not_evaluable_empty_or_circular_evidence(
+    tmp_path: Path,
+    mutator: object,
+    message: str,
+) -> None:
+    root, candidate = _candidate_repo(tmp_path)
+    formal = _formal_receipt(root, candidate)
+    mutator(formal)
+    formal["receipt_hash"] = canonical_receipt_hash(formal)
+    evidence = _install_formal_receipt(root, formal)
+
+    with pytest.raises(G04ParityReceiptError, match=message):
+        validate_g04_delivery_evidence(
+            root,
+            {FORMAL_EVIDENCE_KEY: evidence},
+            expected_product_fingerprint=product_fingerprint(root),
+            current_product_fingerprint=product_fingerprint(root),
+        )
+
+
+def test_formal_receipt_becomes_stale_after_product_bytes_change(tmp_path: Path) -> None:
+    root, candidate = _candidate_repo(tmp_path)
+    formal = _formal_receipt(root, candidate)
+    evidence = _install_formal_receipt(root, formal)
+    (root / "backend/app/main.py").write_text(
+        "SCREENSHOT_PARITY = 'different product'\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(G04ParityReceiptError, match="stale for current product bytes"):
+        validate_g04_delivery_evidence(
+            root,
+            {FORMAL_EVIDENCE_KEY: evidence},
+            expected_product_fingerprint=evidence["product_fingerprint"],
+            current_product_fingerprint=product_fingerprint(root),
+        )
+
+
+def test_product_delivery_pass_cannot_omit_formal_g04_receipt(tmp_path: Path) -> None:
+    root, _candidate = _candidate_repo(tmp_path)
+    contract = json.loads((REPOSITORY_ROOT / CONTRACT_PATH).read_text(encoding="utf-8"))
+    _write_json(root / CONTRACT_PATH, contract)
+    _write_json(
+        root / "docs/governance/current_goal_binding.json",
+        {"goal_sequence": 4},
+    )
+    goal = contract["goals"][3]
+    _write_json(
+        root / "docs/governance/gate-results/G04.product-delivery.json",
+        {
+            "schema_version": "product-delivery-result-v1",
+            "goal_id": goal["goal_id"],
+            "gate_profile": goal["gate_profile"],
+            "product_fingerprint": product_fingerprint(root),
+            "checks": {name: "PASS" for name in goal["required_checks"]},
+            "verdict": "PASS",
+        },
+    )
+
+    with pytest.raises(CoreMainlineError, match="formal parity evidence"):
+        validate_delivery_receipt(root, 4)
+
+
+def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() -> None:
+    workflow_path = REPOSITORY_ROOT / ".github/workflows/core-mainline.yml"
+    workflow = workflow_path.read_text(
+        encoding="utf-8"
+    )
+    workflow_contract = yaml.safe_load(workflow)
+    jobs = workflow_contract["jobs"]
+    g04_jobs = (
+        "g04_screenshot_targeted",
+        "g04_postgresql",
+        "frontend_build",
+        "g04_browser_e2e",
+    )
+    for job_name in g04_jobs:
+        assert f"\n  {job_name}:\n    name: {job_name}\n" in workflow
+        assert jobs[job_name]["needs"] == "core-mainline-preflight"
+    assert jobs["core-mainline-preflight"]["name"] == "core-mainline-preflight"
+    aggregator = jobs["core-mainline"]
+    assert aggregator["name"] == "core-mainline"
+    assert aggregator["if"] == "${{ always() }}"
+    assert set(aggregator["needs"]) == {"core-mainline-preflight", *g04_jobs}
+    assert sum(job.get("name") == "core-mainline" for job in jobs.values()) == 1
+    enforcement = aggregator["steps"][0]["run"]
+    assert 'PREFLIGHT_RESULT" != "success' in enforcement
+    assert 'expected_g04_result="success"' in enforcement
+    assert 'expected_g04_result="skipped"' in enforcement
+    assert 'actual_result" != "$expected_g04_result' in enforcement
+    assert workflow.count("G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI") >= 3
+    assert "run_g04_screenshot_parity" not in workflow
+
+
+def test_current_g04_lifecycle_is_in_progress_and_formal_gate_is_not_run() -> None:
+    current_goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
+        encoding="utf-8"
+    )
+    registry = json.loads(
+        (REPOSITORY_ROOT / "docs/governance/current_work_packages.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert current_goal.startswith("# IN_PROGRESS GOAL")
+    assert registry["delivery_evidence"]["state"] == "IMPLEMENTING"
+    assert registry["delivery_evidence"]["formal_parity"]["status"] == "NOT_RUN"
+    assert validate_registry_v3(REPOSITORY_ROOT)["verdict"] == "PASS"

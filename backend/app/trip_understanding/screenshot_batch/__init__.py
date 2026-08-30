@@ -21,6 +21,9 @@ from app.trip_understanding.screenshot_batch.errors import (
 from app.trip_understanding.screenshot_batch.models import (
     DEFAULT_SCREENSHOT_BATCH_LIMITS,
     CleanupAttempt,
+    LocalRecoveryBatchEvidence,
+    LocalRecoveryIssue,
+    LocalScreenshotRecoveryReport,
     ScreenshotBatchLimits,
     StagedBatch,
     StagedScreenshot,
@@ -31,6 +34,9 @@ from app.trip_understanding.screenshot_batch.staging import stage_screenshot_mul
 __all__ = [
     "DEFAULT_SCREENSHOT_BATCH_LIMITS",
     "CleanupAttempt",
+    "LocalRecoveryBatchEvidence",
+    "LocalRecoveryIssue",
+    "LocalScreenshotRecoveryReport",
     "MultipartMalformedError",
     "MultipartRequiredError",
     "ScreenshotBatchError",

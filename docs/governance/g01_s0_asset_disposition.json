@@ -34,8 +34,8 @@
     ]
   },
   "source_openapi_observation": {
-    "path_count": 116,
-    "v3_path_count": 11,
+    "path_count": 123,
+    "v3_path_count": 18,
     "legacy_99_missing_methods": [],
     "paths_not_in_legacy_snapshot": [
       "/api/rooms/{room_id}/trip-intakes",
@@ -54,7 +54,14 @@
       "/api/v3/trip-understandings/{public_resource_id}/result",
       "/api/v3/trip-understandings/{public_resource_id}/source",
       "/api/v3/me/travel-data",
-      "/api/v3/me/travel-data-deletion"
+      "/api/v3/me/travel-data-deletion",
+      "/api/v3/screenshot-batches",
+      "/api/v3/trip-understandings/{public_resource_id}/changes/adopt",
+      "/api/v3/trip-understandings/{public_resource_id}/changes/preview",
+      "/api/v3/trip-understandings/{public_resource_id}/checks",
+      "/api/v3/trip-understandings/{public_resource_id}/materialize",
+      "/api/v3/trip-understandings/{public_resource_id}/stay-selection",
+      "/api/v3/trip-understandings/{public_resource_id}/stay-suggestions"
     ]
   },
   "surfaces": {
@@ -189,13 +196,14 @@
     "source_api_additions": {
       "source": "packages/trip-check-client/openapi.current.json",
       "legacy_source": "packages/trip-check-client/openapi.json",
-      "observed_count": 17,
+      "observed_count": 24,
       "rules": [
         {
           "disposition": "ADAPT",
           "patterns": [
             "/api/trip-intakes/*",
             "/api/v3/me/*",
+            "/api/v3/screenshot-batches",
             "/api/v3/trip-understandings*"
           ]
         },

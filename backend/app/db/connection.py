@@ -77,16 +77,30 @@ async def run_migrations():
 
 
 async def check_schema_version(required_migration: str | None = None) -> None:
-    """Fail startup when the independently-managed schema is behind."""
+    """Fail startup unless every migration shipped in this image is applied."""
     required = required_migration or get_settings().required_migration
+    migrations_dir = os.path.join(os.path.dirname(__file__), "migrations")
+    expected = sorted(
+        filename
+        for filename in os.listdir(migrations_dir)
+        if filename.endswith(".sql")
+    )
+    if required not in expected:
+        raise RuntimeError(f"required migration is absent from image: {required}")
     pool = await get_pool()
     async with pool.acquire() as conn:
         exists = await conn.fetchval("SELECT to_regclass('public.applied_migrations') IS NOT NULL")
         if not exists:
             raise RuntimeError("database schema is uninitialised; run python -m scripts.migrate")
-        applied = await conn.fetchval(
-            "SELECT EXISTS(SELECT 1 FROM applied_migrations WHERE filename = $1)",
-            required,
+        applied = {
+            row["filename"]
+            for row in await conn.fetch(
+                "SELECT filename FROM applied_migrations WHERE filename = ANY($1::text[])",
+                expected,
+            )
+        }
+    missing = [filename for filename in expected if filename not in applied]
+    if missing:
+        raise RuntimeError(
+            "database schema is behind; missing migrations " + ", ".join(missing)
         )
-    if not applied:
-        raise RuntimeError(f"database schema is behind; missing migration {required}")

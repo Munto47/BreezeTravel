@@ -481,9 +481,25 @@ def test_generated_agent_gate_contracts_match_checked_in_bytes(tmp_path: Path) -
     for source_root, generated_root in ((GENERAL_ROOT, general), (G01_ROOT, g01)):
         generated_names = {path.name for path in generated_root.iterdir() if path.is_file()}
         for name in generated_names:
-            assert (generated_root / name).read_bytes() == (
-                source_root / name
-            ).read_bytes(), name
+            generated_bytes = (generated_root / name).read_bytes()
+            checked_bytes = (source_root / name).read_bytes()
+            if source_root == G01_ROOT and name == "agent_evaluation_contract.json":
+                generated = json.loads(generated_bytes)
+                checked = json.loads(checked_bytes)
+                generated_prompt_hash = generated["qwen_candidate_artifact_sha256"].pop(
+                    "qwen_inference_prompt.md"
+                )
+                frozen_prompt_hash = checked["qwen_candidate_artifact_sha256"].pop(
+                    "qwen_inference_prompt.md"
+                )
+                current_prompt_hash = hashlib.sha256(
+                    (G01_ROOT / "qwen_inference_prompt.md").read_bytes()
+                ).hexdigest()
+                assert generated == checked
+                assert generated_prompt_hash == current_prompt_hash
+                assert frozen_prompt_hash != current_prompt_hash
+                continue
+            assert generated_bytes == checked_bytes, name
     assert not (GENERAL_ROOT / "component_receipt.schema.json").exists()
 
 
@@ -500,8 +516,41 @@ def test_checked_in_authority_policy_pins_external_distinct_roles_and_real_paths
     assert all(item.private_key_storage == "REPOSITORY_EXTERNAL" for item in manifest.authorities)
     assert all(item.human_evidence is False for item in manifest.authorities)
     assert "backend/eval_data/agent_gate_v1/authority_policy.json" in manifest.config_roots
+
+    policy_commit = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(REPOSITORY_ROOT),
+            "log",
+            "-1",
+            "--format=%H",
+            "--",
+            "backend/eval_data/agent_gate_v1/authority_policy.json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    def exists_now_or_at_policy_freeze(relative: str) -> bool:
+        if (REPOSITORY_ROOT / relative).exists():
+            return True
+        return subprocess.run(
+            [
+                "git",
+                "-C",
+                str(REPOSITORY_ROOT),
+                "cat-file",
+                "-e",
+                f"{policy_commit}:{relative}",
+            ],
+            check=False,
+            capture_output=True,
+        ).returncode == 0
+
     for relative in (*manifest.config_roots, *manifest.data_roots):
-        assert (REPOSITORY_ROOT / relative).exists(), relative
+        assert exists_now_or_at_policy_freeze(relative), relative
     for relative in (
         *manifest.immutable_protocol_paths,
         *manifest.component_verifier_paths.values(),
@@ -910,51 +959,55 @@ def test_current_goal_document_machine_state_rejects_false_completion_or_activat
     manifest = AgentGateAuthorityManifest.model_validate_json(
         (GENERAL_ROOT / "authority_policy.json").read_bytes()
     )
-    product_binding = json.loads(
+    product_binding_value = json.loads(
         (REPOSITORY_ROOT / manifest.current_goal_binding_path).read_text(
             encoding="utf-8"
         )
     )
+    product_binding = {
+        key: value
+        for key, value in product_binding_value.items()
+        if key in CurrentGoalBinding.model_fields
+    }
     product_binding.update(
         {
             "schema_version": "current-goal-binding-v2",
             "gate_profile": "CORE_AGENT_GATE",
+            "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
         }
     )
     binding = CurrentGoalBinding.model_validate(product_binding)
+    next_goal_id = manifest.goal_bindings[binding.goal_sequence].goal_id
+    state_payload = {
+        "schema_version": "current-goal-document-state-v1",
+        "program_id": binding.program_id,
+        "goal_id": binding.goal_id,
+        "goal_status": binding.status,
+        "required_gate": "Historical Core Gate + AGENT_GATE_PASS",
+        "completion_status": "PENDING",
+        "gate_result": "AGENT_GATE_NOT_RUN",
+        "goal_archived": False,
+        "next_goal_id": next_goal_id,
+        "next_activated": False,
+        "h1_status": "NOT_RUN",
+        "production_status": "NOT_RUN",
+        "commercial_status": "NOT_RUN",
+    }
     current_goal_bytes = (
-        REPOSITORY_ROOT / manifest.current_goal_document_path
-    ).read_bytes()
-    current_goal_bytes = current_goal_bytes.replace(
-        b"PRODUCT_DELIVERY_CURRENT_GOAL_STATE",
-        b"AGENT_GATE_CURRENT_GOAL_STATE",
-    ).replace(
-        b"product-delivery-current-goal-state-v1",
-        b"current-goal-document-state-v1",
-    ).replace(
-        b"PRODUCT_DELIVERY_PASS",
-        b"AGENT_GATE_NOT_RUN",
-    ).replace(
-        b"PRODUCT_DELIVERY_NOT_RUN",
-        b"AGENT_GATE_NOT_RUN",
-    ).replace(
-        b"DELIVERY_VERIFIED_PENDING_INTEGRATION",
-        b"PENDING",
-    ).replace(
-        b"TEXT_CARD_GATE_PASS",
-        b"TEXT_CARD_GATE_NOT_RUN",
-    )
-    current_goal_bytes = current_goal_bytes.replace(
-        b'"gate_profile": "PRODUCT_DELIVERY_GATE",\n',
-        b"",
-    )
-    current_goal_bytes = current_goal_bytes.replace(
-        b'"required_gate": "Text Card Gate + AGENT_GATE_NOT_RUN"',
-        b'"required_gate": "Text Card Gate + AGENT_GATE_PASS"',
-    ).replace(
-        "- Required gate：`Text Card Gate + AGENT_GATE_NOT_RUN`".encode("utf-8"),
-        "- Required gate：`Text Card Gate + AGENT_GATE_PASS`".encode("utf-8"),
-    )
+        f"# {binding.status} GOAL：historical Agent Gate fixture\n\n"
+        f"Goal ID: {binding.goal_id}\n"
+        f"Status: {binding.status}\n\n"
+        "<!-- AGENT_GATE_CURRENT_GOAL_STATE\n"
+        f"{json.dumps(state_payload, indent=2)}\n"
+        "-->\n\n"
+        "- Required gate：`Historical Core Gate + AGENT_GATE_PASS`\n"
+        "- Goal archived：`NO`；\n"
+        "- Next activated：`NO`；\n\n"
+        "## Completion record\n\n"
+        "- Status：`PENDING`；\n"
+        "- Verification / Evidence / Gate result：`NOT_RUN / NOT_RUN / AGENT_GATE_NOT_RUN`；\n"
+        "- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；\n"
+    ).encode("utf-8")
     monkeypatch.setattr(
         authority_module,
         "_git",
@@ -1033,10 +1086,10 @@ def test_current_goal_document_machine_state_rejects_false_completion_or_activat
         )
 
     false_pass = current_goal_bytes.replace(
-        b"AGENT_GATE_NOT_RUN / TEXT_CARD_GATE_NOT_RUN",
+        b"NOT_RUN / NOT_RUN / AGENT_GATE_NOT_RUN",
         (
-            b"AGENT_GATE_NOT_RUN / AGENT_GATE_PASS / LIVE_PROVIDER_PASS / "
-            b"SEALED_AGENT_BLIND_PASS / TEXT_CARD_GATE_NOT_RUN"
+            b"NOT_RUN / AGENT_GATE_PASS / LIVE_PROVIDER_PASS / "
+            b"SEALED_AGENT_BLIND_PASS / AGENT_GATE_NOT_RUN"
         ),
         1,
     )

@@ -2156,7 +2156,22 @@
             "type": "string"
           },
           "source": {
-            "$ref": "#/components/schemas/TextSourceRequest"
+            "discriminator": {
+              "mapping": {
+                "SCREENSHOT_BATCH": "#/components/schemas/ScreenshotBatchSourceRequest",
+                "TEXT": "#/components/schemas/TextSourceRequest"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TextSourceRequest"
+              },
+              {
+                "$ref": "#/components/schemas/ScreenshotBatchSourceRequest"
+              }
+            ],
+            "title": "Source"
           }
         },
         "required": [
@@ -9349,6 +9364,62 @@
           "itinerary_data"
         ],
         "title": "SaveItineraryRequest",
+        "type": "object"
+      },
+      "ScreenshotBatchAcceptedView": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_ref": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Batch Ref",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "COMPLETE",
+              "PARTIAL"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "batch_ref",
+          "expires_at",
+          "outcome",
+          "message"
+        ],
+        "title": "ScreenshotBatchAcceptedView",
+        "type": "object"
+      },
+      "ScreenshotBatchSourceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_ref": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "title": "Batch Ref",
+            "type": "string"
+          },
+          "type": {
+            "const": "SCREENSHOT_BATCH",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "batch_ref"
+        ],
+        "title": "ScreenshotBatchSourceRequest",
         "type": "object"
       },
       "ScreenshotImportResult": {
@@ -17039,6 +17110,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -17101,6 +17188,22 @@
                 }
               ],
               "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -17177,6 +17280,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -17245,6 +17364,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -17302,6 +17437,22 @@
             "schema": {
               "title": "Import Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -17399,6 +17550,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -17481,6 +17648,22 @@
                 }
               ],
               "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -17568,6 +17751,22 @@
                 }
               ],
               "title": "If-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -18219,6 +18418,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -18322,6 +18537,22 @@
           },
           {
             "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
+            }
+          },
+          {
+            "in": "header",
             "name": "authorization",
             "required": false,
             "schema": {
@@ -18411,6 +18642,22 @@
                 }
               ],
               "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -18513,6 +18760,22 @@
                 }
               ],
               "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Breeze-Diagnostic-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Breeze-Diagnostic-Key"
             }
           },
           {
@@ -20356,6 +20619,89 @@
         "summary": "Get Account Travel Data Deletion",
         "tags": [
           "trip-understandings-v3-account"
+        ]
+      }
+    },
+    "/api/v3/screenshot-batches": {
+      "post": {
+        "operationId": "create_screenshot_batch_api_v3_screenshot_batches_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "screenshots": {
+                  "style": "form"
+                }
+              },
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "screenshots": {
+                    "items": {
+                      "format": "binary",
+                      "type": "string"
+                    },
+                    "maxItems": 6,
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "screenshots"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScreenshotBatchAcceptedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Screenshot Batch",
+        "tags": [
+          "screenshot-batches-v3"
         ]
       }
     },

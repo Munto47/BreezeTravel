@@ -8,6 +8,12 @@ export const G04_SCREENSHOT_MAX_FILE_BYTES = 10 * 1024 * 1024
 
 const ALLOWED_MEDIA_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const ALLOWED_EXTENSIONS = new Set(['jpeg', 'jpg', 'png', 'webp'])
+const MEDIA_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
 const UNSAFE_FILENAME_CHARACTERS = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g
 const PATH_SEPARATORS = /[\\/]/g
 
@@ -69,6 +75,17 @@ export function getG04ScreenshotFileIssue(file: File): G04ScreenshotFileIssue | 
   return null
 }
 
+export function normalizeG04ScreenshotFile(file: File): File {
+  if (file.type.trim()) return file
+  const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
+  const mediaType = MEDIA_TYPE_BY_EXTENSION[extension]
+  if (!mediaType) return file
+  return new File([file], file.name, {
+    type: mediaType,
+    lastModified: file.lastModified,
+  })
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -119,7 +136,7 @@ export default function G04ScreenshotSource({
     selected.forEach(file => {
       const issue = getG04ScreenshotFileIssue(file)
       if (issue) messages.push(issue.message)
-      else valid.push(file)
+      else valid.push(normalizeG04ScreenshotFile(file))
     })
 
     const availableSlots = Math.max(0, G04_SCREENSHOT_MAX_FILES - boundedFiles.length)

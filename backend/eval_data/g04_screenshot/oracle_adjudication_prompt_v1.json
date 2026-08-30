@@ -1,0 +1,96 @@
+{
+  "schema_version": "g04-oracle-adjudication-prompt-v1",
+  "evidence_label": "MULTI_AGENT_SIMULATED_REVIEW",
+  "human_evidence": false,
+  "source_review_prompt_sha256": "8211f4dbe3ca994f2eccfe22c0cfccb3c025ef3593bfcc707440f5077cc0c538",
+  "transcriber_inputs": [
+    {
+      "task_id": "/root/g04_oracle_transcriber_a",
+      "payload_path": "C:/Users/26450/AppData/Local/Temp/breezetravel-g04-oracle-reviews-01a052/transcriber-a.json",
+      "payload_sha256": "f40eaa6199d6203851246c3eebc3c78bf27b7a3513a6c0d1808ba13913154516"
+    },
+    {
+      "task_id": "/root/g04_oracle_transcriber_b",
+      "payload_path": "C:/Users/26450/AppData/Local/Temp/breezetravel-g04-oracle-reviews-01a052/transcriber-b.json",
+      "payload_sha256": "65282d373fcf8f9ccfb54cc08c9ffd7b9942965407bbf7b15dd999a94bae7979"
+    }
+  ],
+  "source_root": "C:/Users/26450/AppData/Local/Temp/breezetravel-g04-quality-dpr2-01a052",
+  "captures": [
+    {
+      "case_id": "licensed-yuntaishan-oldid220410",
+      "source_file": "wikivoyage-yuntaishan-oldid220410.jpg",
+      "source_sha256": "e4b666ceb257058f7bc618be6b4d0dd59b7056a86966ffdb345b59652a824070",
+      "metric_scope": ["REAL_OCR_READING", "REAL_PLANNED_PARITY"]
+    },
+    {
+      "case_id": "licensed-zhangjiajie-oldid221547",
+      "source_file": "wikivoyage-zhangjiajie-oldid221547.jpg",
+      "source_sha256": "f23dba93b46e8fe9e576d2016cc3fb5f196ecf6dd946f1af69e2b7a862360d7b",
+      "metric_scope": ["REAL_OCR_READING", "REAL_PLANNED_PARITY"]
+    },
+    {
+      "case_id": "licensed-qinling-oldid133737",
+      "source_file": "wikivoyage-qinling-oldid133737.jpg",
+      "source_sha256": "acafa8716f12c789d5832e0a01ddffa4d8801514a796af5775e78ffbaa36fddf",
+      "metric_scope": ["REAL_OCR_READING", "REAL_PLANNED_PARITY"]
+    },
+    {
+      "case_id": "licensed-yuntaishan-oldid220410-low-confidence-control",
+      "source_file": "wikivoyage-yuntaishan-oldid220410-low-confidence-control.jpg",
+      "source_sha256": "ce741d0cd0ff773e3c0ca859117fda61669ffac3fbd992ef5051f9262ceefd9c",
+      "metric_scope": ["REAL_LOW_CONFIDENCE_CONTROL"]
+    }
+  ],
+  "instructions": [
+    "Verify both transcriber payload hashes before reading them, then inspect all four exact source images at original detail. Do not read OCR output, calibration output, source webpages, runtime code or prior transcripts.",
+    "Resolve every A/B disagreement from frozen pixels and visible wording. Record the chosen value, rejected alternatives and pixel-grounded reason in disagreements.",
+    "Return all fully visible critical fields, including repeated occurrences when each has a tight independent rectangle. Omit a cross-line atomic field only when one tight rectangle would include unrelated glyphs; keep its visible text and forbidden-fragment audit.",
+    "The first three captures are quality/parity members: every field must use must_confirm=false. The fourth capture is an isolated low-confidence safety control: every field must use must_confirm=true and place_metric_eligibility=NOT_APPLICABLE.",
+    "For quality captures, only clearly PLANNED atomic places may use place_metric_eligibility=ELIGIBLE. For repeated occurrences of the same planned atomic place, select exactly one representative occurrence as ELIGIBLE and mark other occurrences NOT_APPLICABLE so the parity denominator is unique.",
+    "Use activity_role only for ACTIVITY_PLACE and choose PLANNED, OPTIONAL, REFERENCE, EXCLUDED or PASS_THROUGH from visible wording. Non-place fields use activity_role=null and place_metric_eligibility=NOT_APPLICABLE.",
+    "Use zero-based contiguous reading_order_index in visual order. field_id must match ^[a-z0-9][a-z0-9._-]{1,99}$ and be unique within its case.",
+    "Use extraction=CONTAINS_EXPECTED_TEXT for tight substring rectangles, unless the entire OCR line is itself the exact field, in which case WHOLE_LINE is allowed. Allowed alternatives are BEFORE_MIDDLE_DOT and AFTER_MIDDLE_DOT only when visibly applicable.",
+    "paired_visible_text is one UTF-8 string preserving all visible semantic line breaks. Do not reconstruct horizontally or vertically clipped content.",
+    "forbidden_place_predictions is a non-empty array of exact strings only, covering descriptions, URLs, fused routes, generic features and clipped fragments that must not become atomic places.",
+    "This is simulated multi-agent review, never human evidence. Do not select or remove fields based on OCR success."
+  ],
+  "oracle_projection_contract": {
+    "case_fields": [
+      "case_id",
+      "source_file",
+      "source_sha256",
+      "paired_visible_text",
+      "fields",
+      "forbidden_place_predictions"
+    ],
+    "field_fields": [
+      "field_id",
+      "field_type",
+      "expected_text",
+      "region_xyxy",
+      "extraction",
+      "reading_order_index",
+      "must_confirm",
+      "activity_role",
+      "place_metric_eligibility"
+    ],
+    "canonicalization": "UTF-8 JSON, ensure_ascii=false, sort_keys=true, separators=(',', ':'), no trailing newline"
+  },
+  "output_contract": {
+    "schema_version": "g04-oracle-adjudication-output-v1",
+    "required_fields": [
+      "schema_version",
+      "reviewer_role",
+      "evidence_label",
+      "human_evidence",
+      "source_review_prompt_sha256",
+      "transcriber_output_sha256s",
+      "disagreements",
+      "oracle_projection",
+      "coverage_audit"
+    ],
+    "output_path": "C:/Users/26450/AppData/Local/Temp/breezetravel-g04-oracle-reviews-01a052/adjudicator-output.json",
+    "output_hash_rule": "SHA-256 of canonical output payload bytes"
+  }
+}

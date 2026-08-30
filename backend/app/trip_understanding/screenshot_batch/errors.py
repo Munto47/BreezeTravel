@@ -11,11 +11,26 @@ if TYPE_CHECKING:
 class ScreenshotBatchError(Exception):
     code = "SCREENSHOT_BATCH_ERROR"
 
-    def __init__(self, message: str, *, cleanup_attempts: Sequence[CleanupAttempt] = ()) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        cleanup_attempts: Sequence[CleanupAttempt] = (),
+        batch: StagedBatch | None = None,
+    ) -> None:
         super().__init__(message)
         self.cleanup_attempts = tuple(cleanup_attempts)
+        self.batch = batch
 
     def attach_cleanup_attempts(self, attempts: Sequence[CleanupAttempt]) -> None:
+        self.cleanup_attempts = tuple(attempts)
+
+    def attach_staging_evidence(
+        self,
+        batch: StagedBatch,
+        attempts: Sequence[CleanupAttempt],
+    ) -> None:
+        self.batch = batch
         self.cleanup_attempts = tuple(attempts)
 
 
@@ -74,7 +89,7 @@ class ScreenshotCleanupError(ScreenshotBatchError):
         staging_error_code: str | None = None,
         batch: StagedBatch | None = None,
     ) -> None:
-        super().__init__(message, cleanup_attempts=attempts)
+        super().__init__(message, cleanup_attempts=attempts, batch=batch)
         self.attempts = tuple(attempts)
         self.staging_error_code = staging_error_code
         self.batch = batch
@@ -83,20 +98,50 @@ class ScreenshotCleanupError(ScreenshotBatchError):
 class ScreenshotStagingCancelledError(asyncio.CancelledError):
     code = "SCREENSHOT_STAGING_CANCELLED"
 
-    def __init__(self, message: str, *, cleanup_attempts: Sequence[CleanupAttempt] = ()) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        cleanup_attempts: Sequence[CleanupAttempt] = (),
+        batch: StagedBatch | None = None,
+    ) -> None:
         super().__init__(message)
         self.cleanup_attempts = tuple(cleanup_attempts)
+        self.batch = batch
 
     def attach_cleanup_attempts(self, attempts: Sequence[CleanupAttempt]) -> None:
+        self.cleanup_attempts = tuple(attempts)
+
+    def attach_staging_evidence(
+        self,
+        batch: StagedBatch,
+        attempts: Sequence[CleanupAttempt],
+    ) -> None:
+        self.batch = batch
         self.cleanup_attempts = tuple(attempts)
 
 
 class ScreenshotStagingTimeoutError(TimeoutError):
     code = "SCREENSHOT_STAGING_TIMED_OUT"
 
-    def __init__(self, message: str, *, cleanup_attempts: Sequence[CleanupAttempt] = ()) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        cleanup_attempts: Sequence[CleanupAttempt] = (),
+        batch: StagedBatch | None = None,
+    ) -> None:
         super().__init__(message)
         self.cleanup_attempts = tuple(cleanup_attempts)
+        self.batch = batch
 
     def attach_cleanup_attempts(self, attempts: Sequence[CleanupAttempt]) -> None:
+        self.cleanup_attempts = tuple(attempts)
+
+    def attach_staging_evidence(
+        self,
+        batch: StagedBatch,
+        attempts: Sequence[CleanupAttempt],
+    ) -> None:
+        self.batch = batch
         self.cleanup_attempts = tuple(attempts)

@@ -11,10 +11,13 @@ permissions:
   contents: read
 
 jobs:
-  core-mainline:
-    name: core-mainline
+  core-mainline-preflight:
+    name: core-mainline-preflight
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      sequence: ${{ steps.goal.outputs.sequence }}
+      work_kind: ${{ steps.goal.outputs.work_kind }}
     services:
       postgres:
         image: pgvector/pgvector:0.8.1-pg16
@@ -42,6 +45,7 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379
       RUNTIME_PROFILE: local_fixture
       TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
+      SCREENSHOT_OCR_MODE: fixture
       AMAP_MOCK: "true"
       DEV_LOGIN_BYPASS: "true"
       JWT_SECRET_KEY: core-mainline-local-only-secret-2026
@@ -122,13 +126,21 @@ jobs:
         run: >-
           python -m ruff check
           governance
+          scripts/run_g04_paddle_gate.py
+          scripts/validate_work_packages.py
           scripts/validate_core_mainline.py
           tests/test_product_delivery_governance.py
+          tests/test_g04_governance_delivery.py
+          tests/test_product_work_packages_v3.py
           tests/test_g01_delivery_samples.py
 
       - name: Verify delivery contracts
         working-directory: backend
-        run: python -m pytest -q tests/test_product_delivery_governance.py tests/test_governance_agent_gate_transition.py
+        run: >-
+          python -m pytest -q
+          tests/test_product_delivery_governance.py
+          tests/test_governance_agent_gate_transition.py
+          tests/test_product_work_packages_v3.py
 
       - name: Verify G01 fixed samples and v3 journey
         if: steps.goal.outputs.sequence == '1' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
@@ -154,7 +166,7 @@ jobs:
         run: python -m pytest -q tests/test_g03_*.py --ignore-glob='tests/test_g03_*_postgres.py'
 
       - name: Create browser database and migrate
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
+        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4'
         working-directory: backend
         shell: bash
         run: |
@@ -200,12 +212,12 @@ jobs:
         run: python -m pytest -q tests/test_g03_*_postgres.py
 
       - name: Build frontend
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
+        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4'
         working-directory: frontend
         run: npm run build
 
       - name: Start v3 backend and workers
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
+        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4'
         working-directory: backend
         shell: bash
         run: |
@@ -240,7 +252,7 @@ jobs:
         run: python -m scripts.validate_core_mainline --base-ref HEAD^ --require-delivery-pass
 
       - name: Show service logs on failure
-        if: failure() && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
+        if: failure() && steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4'
         shell: bash
         run: |
           for log in /tmp/core-mainline-*.log; do
@@ -249,3 +261,326 @@ jobs:
 
       - name: Repository diff hygiene
         run: git diff --check
+
+  g04_screenshot_targeted:
+    name: g04_screenshot_targeted
+    needs: core-mainline-preflight
+    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      RUNTIME_PROFILE: local_fixture
+      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
+      SCREENSHOT_OCR_MODE: fixture
+      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install backend test dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Assert fixture evidence boundary
+        shell: bash
+        run: |
+          test "$SCREENSHOT_OCR_MODE" = fixture
+          test "$G04_EVIDENCE_LEVEL" = AUTOMATED_FIXTURE_CI
+      - name: Verify screenshot fixture contract and compatibility
+        working-directory: backend
+        run: >-
+          python -m pytest -q
+          tests/test_g04_formal_gate.py
+          tests/test_g04_governance_delivery.py
+          tests/test_g04_screenshot_batches_unit.py
+          tests/test_g04_screenshot_ocr_unit.py
+          tests/test_g04_screenshot_api.py
+          tests/test_g04_screenshot_cleanup_lifecycle.py
+          tests/test_g04_screenshot_pipeline.py
+          tests/test_g04_private_data_maintenance.py
+          tests/test_g04_public_privacy_boundaries.py
+          tests/test_g04_schema_compatibility.py
+          tests/test_trip_understanding_v3.py
+          tests/test_trip_understanding_v3_api.py
+          tests/test_screenshot_imports.py
+          tests/test_screenshot_upload_batches.py
+
+  g04_postgresql:
+    name: g04_postgresql
+    needs: core-mainline-preflight
+    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/travel_agent
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      REDIS_URL: redis://127.0.0.1:6379
+      TEST_REDIS_URL: redis://127.0.0.1:6379/15
+      RUNTIME_PROFILE: local_fixture
+      SCREENSHOT_OCR_MODE: fixture
+      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
+      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
+      RUN_SERVICE_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install backend test dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Create PostgreSQL database and migrate
+        working-directory: backend
+        shell: bash
+        run: |
+          python - <<'PY'
+          import asyncio
+          import asyncpg
+          from pathlib import Path
+          async def main():
+              connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
+              try:
+                  exists = await connection.fetchval("SELECT 1 FROM pg_database WHERE datname='travel_agent'")
+                  if not exists:
+                      await connection.execute("CREATE DATABASE travel_agent")
+              finally:
+                  await connection.close()
+              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
+              try:
+                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
+              finally:
+                  await bootstrap.close()
+          asyncio.run(main())
+          PY
+          python -m scripts.migrate
+      - name: Verify G04 PostgreSQL lifecycle
+        working-directory: backend
+        run: >-
+          python -m pytest -q
+          tests/test_g04_screenshot_postgres.py
+          tests/test_trip_understanding_v3_postgres.py
+          tests/test_screenshot_postgres_integration.py
+      - name: Verify full backend regression
+        working-directory: backend
+        run: python -m pytest -q
+
+  frontend_build:
+    name: frontend_build
+    needs: core-mainline-preflight
+    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            packages/trip-check-client/package-lock.json
+      - name: Install build dependencies
+        run: |
+          python -m pip install -r backend/requirements-dev.txt
+          npm ci --prefix frontend
+          npm ci --prefix packages/trip-check-client
+      - name: Verify OpenAPI and shared client
+        shell: bash
+        run: |
+          python -m backend.scripts.export_trip_check_openapi --check
+          npm run generate --prefix packages/trip-check-client
+          git diff --exit-code -- packages/trip-check-client/openapi.current.json packages/trip-check-client/src/generated/schema.ts
+          npm run typecheck --prefix packages/trip-check-client
+          npm run build --prefix packages/trip-check-client
+      - name: Build frontend production bundle
+        working-directory: frontend
+        run: npm run build
+
+  g04_browser_e2e:
+    name: g04_browser_e2e
+    needs: core-mainline-preflight
+    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/travel_agent
+      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      REDIS_URL: redis://127.0.0.1:6379
+      RUNTIME_PROFILE: local_fixture
+      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
+      SCREENSHOT_OCR_MODE: fixture
+      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
+      AMAP_MOCK: "true"
+      DEV_LOGIN_BYPASS: "true"
+      JWT_SECRET_KEY: core-mainline-local-only-secret-2026
+      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
+      RUN_SERVICE_INTEGRATION: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install browser test dependencies
+        run: |
+          python -m pip install -r backend/requirements-dev.txt
+          npm ci --prefix frontend
+          cd frontend
+          npx playwright install --with-deps chromium
+      - name: Create browser database and migrate
+        working-directory: backend
+        shell: bash
+        run: |
+          python - <<'PY'
+          import asyncio
+          import asyncpg
+          from pathlib import Path
+          async def main():
+              connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
+              try:
+                  exists = await connection.fetchval("SELECT 1 FROM pg_database WHERE datname='travel_agent'")
+                  if not exists:
+                      await connection.execute("CREATE DATABASE travel_agent")
+              finally:
+                  await connection.close()
+              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
+              try:
+                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
+              finally:
+                  await bootstrap.close()
+          asyncio.run(main())
+          PY
+          python -m scripts.migrate
+      - name: Start fixture services
+        working-directory: backend
+        shell: bash
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8999 > /tmp/g04-backend.log 2>&1 &
+          nohup python -m app.trip_understanding.worker > /tmp/g04-understanding-worker.log 2>&1 &
+          nohup python -m app.trip_understanding.map_worker > /tmp/g04-map-worker.log 2>&1 &
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8999/health > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/g04-backend.log
+          exit 1
+      - name: Verify screenshot browser journey with fixture OCR
+        working-directory: frontend
+        run: npm run test:e2e:screenshot
+      - name: Show G04 service logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          for log in /tmp/g04-*.log; do
+            if test -f "$log"; then echo "=== $log ==="; tail -n 200 "$log"; fi
+          done
+
+  core-mainline:
+    name: core-mainline
+    if: ${{ always() }}
+    needs:
+      - core-mainline-preflight
+      - g04_screenshot_targeted
+      - g04_postgresql
+      - frontend_build
+      - g04_browser_e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PREFLIGHT_RESULT: ${{ needs.core-mainline-preflight.result }}
+      GOAL_SEQUENCE: ${{ needs.core-mainline-preflight.outputs.sequence }}
+      WORK_KIND: ${{ needs.core-mainline-preflight.outputs.work_kind }}
+      G04_SCREENSHOT_TARGETED_RESULT: ${{ needs.g04_screenshot_targeted.result }}
+      G04_POSTGRESQL_RESULT: ${{ needs.g04_postgresql.result }}
+      FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
+      G04_BROWSER_E2E_RESULT: ${{ needs.g04_browser_e2e.result }}
+    steps:
+      - name: Enforce required product-mainline results
+        shell: bash
+        run: |
+          if [ "$PREFLIGHT_RESULT" != "success" ]; then
+            echo "core-mainline preflight did not succeed: $PREFLIGHT_RESULT"
+            exit 1
+          fi
+
+          if [ "$GOAL_SEQUENCE" = "4" ] && [ "$WORK_KIND" != "GOAL_TRANSITION" ]; then
+            expected_g04_result="success"
+          else
+            expected_g04_result="skipped"
+          fi
+
+          for result_name in \
+            G04_SCREENSHOT_TARGETED_RESULT \
+            G04_POSTGRESQL_RESULT \
+            FRONTEND_BUILD_RESULT \
+            G04_BROWSER_E2E_RESULT
+          do
+            actual_result="${!result_name}"
+            if [ "$actual_result" != "$expected_g04_result" ]; then
+              echo "$result_name must be $expected_g04_result, got $actual_result"
+              exit 1
+            fi
+          done

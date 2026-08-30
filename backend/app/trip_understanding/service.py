@@ -13,6 +13,12 @@ from app.trip_understanding.models import (
     MaterializationOutcome,
     PublicTripChecksView,
     PublicResourceRecord,
+    ScreenshotBatchCreateOutcome,
+    ScreenshotBatchClaimInput,
+    ScreenshotBatchFailurePersistenceInput,
+    ScreenshotBatchPersistenceInput,
+    ScreenshotBatchSourceRequest,
+    ScreenshotCleanupPersistenceInput,
     StaySelectionOutcome,
     TripUnderstandingCommand,
     TravelDataDeletionOutcome,
@@ -62,6 +68,15 @@ class TripUnderstandingApplicationService:
         now: datetime | None = None,
     ) -> CreateOutcome:
         request_hash = canonical_sha256(body.model_dump(mode="json"))
+        if isinstance(body.source, ScreenshotBatchSourceRequest):
+            return await self.repository.create_full_from_screenshot(
+                owner_user_id=owner_user_id,
+                batch_ref=body.source.batch_ref,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                now=now or datetime.now(timezone.utc),
+                retention_days=self.full_retention_days,
+            )
         return await self.repository.create_full(
             owner_user_id=owner_user_id,
             source_text=body.source.text,
@@ -69,6 +84,76 @@ class TripUnderstandingApplicationService:
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),
             retention_days=self.full_retention_days,
+        )
+
+    async def store_screenshot_batch(
+        self,
+        payload: ScreenshotBatchPersistenceInput,
+        *,
+        now: datetime | None = None,
+    ) -> ScreenshotBatchCreateOutcome:
+        return await self.repository.store_screenshot_batch(
+            payload,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def claim_screenshot_batch(
+        self,
+        payload: ScreenshotBatchClaimInput,
+        *,
+        now: datetime | None = None,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        return await self.repository.claim_screenshot_batch(
+            payload,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def preflight_screenshot_batch(
+        self,
+        *,
+        owner_user_id: str,
+        idempotency_key: str,
+        batch_ref: str,
+        now: datetime | None = None,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        return await self.repository.preflight_screenshot_batch(
+            owner_user_id=owner_user_id,
+            idempotency_key=idempotency_key,
+            batch_ref=batch_ref,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def record_screenshot_cleanup(
+        self,
+        payload: ScreenshotCleanupPersistenceInput,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        await self.repository.record_screenshot_cleanup(
+            payload,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def purge_expired_private_data(
+        self,
+        *,
+        limit: int,
+        now: datetime | None = None,
+    ) -> dict[str, int]:
+        return await self.repository.purge_expired_private_data(
+            now=now or datetime.now(timezone.utc),
+            limit=limit,
+        )
+
+    async def store_screenshot_batch_failure(
+        self,
+        payload: ScreenshotBatchFailurePersistenceInput,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        await self.repository.store_screenshot_batch_failure(
+            payload,
+            now=now or datetime.now(timezone.utc),
         )
 
     async def authorize(

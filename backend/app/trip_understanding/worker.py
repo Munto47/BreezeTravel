@@ -141,7 +141,14 @@ class TripUnderstandingWorker:
                     pipeline = self.lease_takeover_pipeline
                 else:
                     pipeline = self.full_pipeline
-                return await pipeline.run(source.text)
+                return await pipeline.run(
+                    source.text,
+                    requires_confirmation_spans=tuple(
+                        (span.start, span.end)
+                        for span in source.requires_confirmation_spans
+                    ),
+                    partial_source=source.partial_source,
+                )
 
             output = await self._run_with_heartbeat(
                 job,
@@ -174,9 +181,22 @@ async def run_forever() -> None:
         full_pipeline=full_pipeline,
         lease_seconds=settings.trip_understanding_job_lease_seconds,
     )
+    next_maintenance = time.monotonic()
     try:
         while True:
             processed = await worker.run_once(worker_id)
+            if time.monotonic() >= next_maintenance:
+                try:
+                    await worker.repository.purge_expired_private_data(
+                        now=datetime.now(timezone.utc),
+                        limit=settings.screenshot_maintenance_batch_size,
+                    )
+                except Exception:
+                    logger.exception("private source maintenance failed")
+                next_maintenance = (
+                    time.monotonic()
+                    + settings.screenshot_maintenance_interval_seconds
+                )
             if not processed:
                 await asyncio.sleep(settings.trip_understanding_worker_poll_seconds)
     finally:

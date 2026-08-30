@@ -24,6 +24,11 @@ from app.trip_understanding.errors import (
     ResourceGoneError,
     ResourceNotFoundError,
     RevisionConflictError,
+    ScreenshotBatchAlreadyUsedError,
+    ScreenshotBatchExpiredError,
+    ScreenshotBatchNotFoundError,
+    ScreenshotBatchNotReadyError,
+    ScreenshotBatchUnusableError,
     SourceUnavailableError,
 )
 from app.trip_understanding.g03_repository import (
@@ -48,6 +53,14 @@ from app.trip_understanding.models import (
     PublicEventPayload,
     PublicEventRecord,
     PublicResourceRecord,
+    ScreenshotBatchAcceptedView,
+    ScreenshotBatchClaimInput,
+    ScreenshotBatchCreateOutcome,
+    ScreenshotBatchFailurePersistenceInput,
+    ScreenshotBatchPersistenceInput,
+    ScreenshotCleanupPersistenceInput,
+    ScreenshotCleanupReceiptInput,
+    ConfirmationSourceSpan,
     StoredResult,
     TripUnderstandingAcceptedView,
     TripUnderstandingJobRecord,
@@ -58,6 +71,11 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.screenshot_batch.models import (
+    CleanupAttempt,
+    LocalScreenshotRecoveryReport,
+)
+from app.trip_understanding.screenshot_ocr import ScreenshotSourceDocumentV1
 from app.trip_understanding.route_geometry import (
     InMemoryRouteGeometryCache,
     RedisRouteGeometryCache,
@@ -179,6 +197,119 @@ def _accepted(public_resource_id: str) -> TripUnderstandingAcceptedView:
     )
 
 
+def _screenshot_accepted(
+    batch_ref: str,
+    *,
+    expires_at: datetime,
+    outcome: str,
+) -> ScreenshotBatchAcceptedView:
+    return ScreenshotBatchAcceptedView(
+        batch_ref=batch_ref,
+        expires_at=expires_at,
+        outcome=outcome,
+        message=(
+            "截图已读取，可以生成行程卡片"
+            if outcome == "COMPLETE"
+            else "部分截图未能读取，已保留其余内容"
+        ),
+    )
+
+
+def _latest_cleanup_statuses(
+    receipts: tuple[ScreenshotCleanupReceiptInput, ...],
+) -> dict[int, str]:
+    latest: dict[int, tuple[int, str]] = {}
+    for receipt in receipts:
+        if receipt.upload_position is None:
+            continue
+        previous = latest.get(receipt.upload_position)
+        if previous is None or receipt.attempt_number >= previous[0]:
+            latest[receipt.upload_position] = (
+                receipt.attempt_number,
+                receipt.cleanup_status,
+            )
+    return {position: value[1] for position, value in latest.items()}
+
+
+def _local_recovery_status(attempt: CleanupAttempt, locator: str) -> str:
+    if locator in attempt.deleted_locators:
+        return "DELETED"
+    if locator in attempt.already_absent_locators:
+        return "ALREADY_ABSENT"
+    return "DELETE_FAILED"
+
+
+def _require_confirmed_asset_cleanup(
+    assets: tuple[Any, ...],
+    receipts: tuple[ScreenshotCleanupReceiptInput, ...],
+) -> None:
+    final_statuses = _latest_cleanup_statuses(receipts)
+    for asset in assets:
+        if final_statuses.get(asset.upload_position) not in {"DELETED", "ALREADY_ABSENT"}:
+            raise ValueError("a consumable screenshot batch requires confirmed cleanup")
+
+
+def _require_document_asset_binding(
+    document: ScreenshotSourceDocumentV1,
+    assets: tuple[Any, ...],
+) -> None:
+    documented = [
+        (image.image_index, image.content_hash, image.status)
+        for image in sorted(document.images, key=lambda item: item.image_index)
+    ]
+    persisted = [
+        (asset.upload_position, asset.content_hash, asset.ocr_status)
+        for asset in sorted(assets, key=lambda item: item.upload_position)
+    ]
+    if documented != persisted:
+        raise ValueError("screenshot assets differ from the OCR document binding")
+
+
+async def _insert_screenshot_cleanup_receipts(
+    conn: Any,
+    *,
+    batch_id: str,
+    assets_by_position: dict[int, tuple[str, str, str]],
+    submitted_assets: tuple[Any, ...],
+    receipts: tuple[ScreenshotCleanupReceiptInput, ...],
+    now: datetime,
+) -> None:
+    submitted_bindings = {
+        asset.upload_position: (asset.content_hash, asset.storage_locator)
+        for asset in submitted_assets
+    }
+    for receipt in receipts:
+        position = receipt.upload_position
+        submitted = submitted_bindings.get(position) if position is not None else None
+        submitted_hash = submitted[0] if submitted is not None else None
+        stored = assets_by_position.get(position) if position is not None else None
+        asset_id = (
+            stored[0]
+            if stored is not None and submitted == (stored[1], stored[2])
+            else None
+        )
+        await conn.execute(
+            """
+            INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                receipt_id, batch_id, asset_id, upload_position,
+                asset_content_hash, attempt_number, terminal_reason,
+                cleanup_status, error_category, attempted_at, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            """,
+            str(uuid4()),
+            batch_id,
+            asset_id,
+            position,
+            submitted_hash,
+            receipt.attempt_number,
+            receipt.terminal_reason,
+            receipt.cleanup_status,
+            receipt.error_category,
+            receipt.attempted_at,
+            now,
+        )
+
+
 def _persisted_proposal(output: PipelineOutput) -> dict[str, object]:
     """Persist structural semantics without duplicating verbatim source quotes."""
     return {
@@ -217,6 +348,68 @@ class TripUnderstandingRepository(
         now: datetime,
         retention_days: int,
     ) -> CreateOutcome: ...
+
+    async def preflight_screenshot_batch(
+        self,
+        *,
+        owner_user_id: str,
+        idempotency_key: str,
+        batch_ref: str,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None: ...
+
+    async def claim_screenshot_batch(
+        self,
+        payload: ScreenshotBatchClaimInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None: ...
+
+    async def record_screenshot_cleanup(
+        self,
+        payload: ScreenshotCleanupPersistenceInput,
+        *,
+        now: datetime,
+    ) -> None: ...
+
+    async def reconcile_local_screenshot_recovery(
+        self,
+        report: LocalScreenshotRecoveryReport,
+        *,
+        now: datetime,
+    ) -> dict[str, int]: ...
+
+    async def store_screenshot_batch(
+        self,
+        payload: ScreenshotBatchPersistenceInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome: ...
+
+    async def create_full_from_screenshot(
+        self,
+        *,
+        owner_user_id: str,
+        batch_ref: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> CreateOutcome: ...
+
+    async def store_screenshot_batch_failure(
+        self,
+        payload: ScreenshotBatchFailurePersistenceInput,
+        *,
+        now: datetime,
+    ) -> None: ...
+
+    async def purge_expired_private_data(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> dict[str, int]: ...
 
     async def authorize(
         self,
@@ -757,6 +950,1261 @@ class PostgresTripUnderstandingRepository(
                 now,
             )
         return CreateOutcome(accepted=accepted)
+
+    async def preflight_screenshot_batch(
+        self,
+        *,
+        owner_user_id: str,
+        idempotency_key: str,
+        batch_ref: str,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        """Resolve an already-bound key without receiving screenshot bytes."""
+
+        del now
+        key_hash = _sha256_text(idempotency_key)
+        ref_hash = _sha256_text(batch_ref)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            existing = await conn.fetchrow(
+                """
+                SELECT batch_ref_hash, status, expires_at,
+                       image_count, successful_image_count
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND idempotency_key_hash = $2
+                """,
+                owner_user_id,
+                key_hash,
+            )
+        if existing is None:
+            return None
+        if existing["batch_ref_hash"].strip() != ref_hash:
+            raise IdempotencyConflictError(
+                "screenshot upload idempotency key binding is invalid"
+            )
+        if existing["status"] in {"READY", "PARTIAL"}:
+            replay_outcome = (
+                "COMPLETE"
+                if existing["successful_image_count"] == existing["image_count"]
+                else "PARTIAL"
+            )
+            return ScreenshotBatchCreateOutcome(
+                accepted=_screenshot_accepted(
+                    batch_ref,
+                    expires_at=existing["expires_at"],
+                    outcome=replay_outcome,
+                ),
+                replayed=True,
+            )
+        if existing["status"] == "PROCESSING":
+            raise IdempotencyInProgressError(
+                "matching screenshot upload is still in progress"
+            )
+        raise IdempotencyConflictError(
+            "screenshot upload idempotency key belongs to a terminal request"
+        )
+
+    async def claim_screenshot_batch(
+        self,
+        payload: ScreenshotBatchClaimInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        key_hash = _sha256_text(payload.idempotency_key)
+        ref_hash = _sha256_text(payload.batch_ref)
+        positions = {asset.upload_position for asset in payload.assets}
+        if len(positions) != len(payload.assets):
+            raise ValueError("screenshot upload positions must be unique")
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{payload.owner_user_id}",
+            )
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"screenshot-upload:{payload.owner_user_id}:{key_hash}",
+            )
+            existing = await conn.fetchrow(
+                """
+                SELECT request_hash, batch_ref_hash, status, expires_at,
+                       image_count, successful_image_count
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND idempotency_key_hash = $2
+                """,
+                payload.owner_user_id,
+                key_hash,
+            )
+            if existing is not None:
+                if (
+                    existing["request_hash"].strip() != payload.request_hash
+                    or existing["batch_ref_hash"].strip() != ref_hash
+                ):
+                    raise IdempotencyConflictError(
+                        "screenshot upload idempotency key was reused"
+                    )
+                if existing["status"] in {"READY", "PARTIAL"}:
+                    replay_outcome = (
+                        "COMPLETE"
+                        if existing["successful_image_count"] == existing["image_count"]
+                        else "PARTIAL"
+                    )
+                    return ScreenshotBatchCreateOutcome(
+                        accepted=_screenshot_accepted(
+                            payload.batch_ref,
+                            expires_at=existing["expires_at"],
+                            outcome=replay_outcome,
+                        ),
+                        replayed=True,
+                    )
+                if existing["status"] == "PROCESSING":
+                    raise IdempotencyInProgressError(
+                        "matching screenshot upload is still in progress"
+                    )
+                raise IdempotencyConflictError(
+                    "screenshot upload idempotency key belongs to a terminal request"
+                )
+
+            batch_id = str(uuid4())
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_screenshot_batches (
+                    batch_id, owner_user_id, batch_ref_hash, idempotency_key_hash,
+                    request_hash, status, image_count, successful_image_count,
+                    expires_at, created_at, updated_at
+                ) VALUES ($1, $2, $3, $4, $5, 'PROCESSING', $6, 0, $7, $8, $8)
+                """,
+                batch_id,
+                payload.owner_user_id,
+                ref_hash,
+                key_hash,
+                payload.request_hash,
+                len(payload.assets),
+                payload.expires_at,
+                now,
+            )
+            for asset in payload.assets:
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_screenshot_assets (
+                        asset_id, batch_id, upload_position, content_hash,
+                        media_type, byte_size, storage_locator, ocr_status,
+                        cleanup_status, created_at
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', 'PENDING', $8)
+                    """,
+                    str(uuid4()),
+                    batch_id,
+                    asset.upload_position,
+                    asset.content_hash,
+                    asset.media_type,
+                    asset.byte_size,
+                    asset.storage_locator,
+                    now,
+                )
+        return None
+
+    async def record_screenshot_cleanup(
+        self,
+        payload: ScreenshotCleanupPersistenceInput,
+        *,
+        now: datetime,
+    ) -> None:
+        key_hash = _sha256_text(payload.idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"screenshot-upload:{payload.owner_user_id}:{key_hash}",
+            )
+            batch = await conn.fetchrow(
+                """
+                SELECT batch_id, status
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND idempotency_key_hash = $2
+                FOR UPDATE
+                """,
+                payload.owner_user_id,
+                key_hash,
+            )
+            if batch is None:
+                return
+            asset_rows = await conn.fetch(
+                """
+                SELECT asset_id, upload_position, content_hash, storage_locator
+                FROM trip_understanding_screenshot_assets
+                WHERE batch_id = $1
+                """,
+                batch["batch_id"],
+            )
+            assets_by_position = {
+                int(row["upload_position"]): (
+                    row["asset_id"],
+                    row["content_hash"].strip(),
+                    row["storage_locator"],
+                )
+                for row in asset_rows
+            }
+            await _insert_screenshot_cleanup_receipts(
+                conn,
+                batch_id=batch["batch_id"],
+                assets_by_position=assets_by_position,
+                submitted_assets=payload.assets,
+                receipts=payload.cleanup_receipts,
+                now=now,
+            )
+            submitted_bindings = {
+                asset.upload_position: (asset.content_hash, asset.storage_locator)
+                for asset in payload.assets
+            }
+            for position, final_status in _latest_cleanup_statuses(
+                payload.cleanup_receipts
+            ).items():
+                submitted = submitted_bindings.get(position)
+                if submitted is None:
+                    continue
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_screenshot_assets
+                    SET cleanup_status = $5
+                    WHERE batch_id = $1 AND upload_position = $2
+                      AND content_hash = $3 AND storage_locator = $4
+                    """,
+                    batch["batch_id"],
+                    position,
+                    submitted[0],
+                    submitted[1],
+                    (
+                        "CLEANED"
+                        if final_status in {"DELETED", "ALREADY_ABSENT"}
+                        else "CLEANUP_FAILED"
+                    ),
+                )
+            if payload.privacy_blocked and batch["status"] != "CONSUMED":
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_screenshot_batches
+                    SET status = 'PRIVACY_BLOCKED', encrypted_source_document = NULL,
+                        encryption_key_ref = NULL, source_document_hash = NULL,
+                        semantic_text_hash = NULL, document_purged_at = $2,
+                        last_error_category = 'SCREENSHOT_CLEANUP_FAILED', updated_at = $2
+                    WHERE batch_id = $1
+                    """,
+                    batch["batch_id"],
+                    now,
+                )
+
+    async def reconcile_local_screenshot_recovery(
+        self,
+        report: LocalScreenshotRecoveryReport,
+        *,
+        now: datetime,
+    ) -> dict[str, int]:
+        """Persist locator-bound crash cleanup after the database is available."""
+
+        receipts_recorded = 0
+        orphan_receipts = 0
+        batches_finalized = 0
+        observed_locators = {
+            locator
+            for recovered in report.batches
+            for locator in recovered.asset_locators
+        }
+
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            rows = (
+                await conn.fetch(
+                    """
+                    SELECT a.asset_id, a.batch_id, a.upload_position,
+                           a.content_hash, a.storage_locator
+                    FROM trip_understanding_screenshot_assets AS a
+                    WHERE a.storage_locator = ANY($1::text[])
+                    FOR UPDATE
+                    """,
+                    sorted(observed_locators),
+                )
+                if observed_locators
+                else ()
+            )
+            by_locator = {str(row["storage_locator"]): row for row in rows}
+            affected_batches: set[str] = set()
+            cleanup_failed_batches: set[str] = set()
+            for recovered in report.batches:
+                batch_locator_hash = _sha256_text(recovered.batch_locator)
+                for attempt in recovered.attempts:
+                    attempt_locators = recovered.asset_locators or (None,)
+                    for locator in attempt_locators:
+                        row = by_locator.get(locator)
+                        cleanup_status = (
+                            _local_recovery_status(attempt, locator)
+                            if locator is not None
+                            else "DELETED"
+                            if attempt.succeeded
+                            else "DELETE_FAILED"
+                        )
+                        asset_locator_hash = (
+                            _sha256_text(locator) if locator is not None else None
+                        )
+                        event_hash = canonical_sha256(
+                            {
+                                "batch_locator_hash": batch_locator_hash,
+                                "asset_locator_hash": asset_locator_hash,
+                                "attempt_number": attempt.attempt_number,
+                                "terminal_reason": attempt.terminal_reason,
+                                "cleanup_status": cleanup_status,
+                                "error_categories": list(attempt.error_categories),
+                                "attempted_at": attempt.attempted_at.isoformat(),
+                            }
+                        )
+                        inserted = await conn.fetchval(
+                            """
+                            INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                                receipt_id, batch_id, asset_id, upload_position,
+                                asset_content_hash, orphan_batch_locator_hash,
+                                orphan_asset_locator_hash, recovery_event_hash,
+                                attempt_number, terminal_reason, cleanup_status,
+                                error_category, attempted_at, created_at
+                            ) VALUES (
+                                $1, $2, $3, $4, $5, $6, $7, $8, $9,
+                                $10, $11, $12, $13, $14
+                            )
+                            ON CONFLICT (recovery_event_hash) DO NOTHING
+                            RETURNING receipt_id
+                            """,
+                            str(uuid4()),
+                            row["batch_id"] if row is not None else None,
+                            row["asset_id"] if row is not None else None,
+                            row["upload_position"] if row is not None else None,
+                            (
+                                row["content_hash"].strip()
+                                if row is not None
+                                else None
+                            ),
+                            None if row is not None else batch_locator_hash,
+                            None if row is not None else asset_locator_hash,
+                            event_hash,
+                            attempt.attempt_number,
+                            attempt.terminal_reason,
+                            cleanup_status,
+                            (
+                                attempt.error_categories[0]
+                                if attempt.error_categories
+                                else None
+                            ),
+                            attempt.attempted_at,
+                            now,
+                        )
+                        if inserted is not None:
+                            receipts_recorded += 1
+                            if row is None:
+                                orphan_receipts += 1
+                        if row is None:
+                            continue
+                        await conn.execute(
+                            """
+                            UPDATE trip_understanding_screenshot_assets
+                            SET cleanup_status = $2
+                            WHERE asset_id = $1
+                            """,
+                            row["asset_id"],
+                            (
+                                "CLEANED"
+                                if cleanup_status in {"DELETED", "ALREADY_ABSENT"}
+                                else "CLEANUP_FAILED"
+                            ),
+                        )
+                        affected_batches.add(str(row["batch_id"]))
+                        if not attempt.succeeded or not attempt.directory_removed:
+                            cleanup_failed_batches.add(str(row["batch_id"]))
+            for issue in report.issues:
+                batch_locator_hash = _sha256_text(issue.batch_locator)
+                event_hash = canonical_sha256(
+                    {
+                        "batch_locator_hash": batch_locator_hash,
+                        "asset_locator_hash": None,
+                        "attempt_number": 1,
+                        "cleanup_status": "DELETE_FAILED",
+                        "error_categories": [issue.category],
+                        "attempted_at": issue.observed_at.isoformat(),
+                    }
+                )
+                inserted = await conn.fetchval(
+                    """
+                    INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                        receipt_id, orphan_batch_locator_hash,
+                        recovery_event_hash, attempt_number, terminal_reason,
+                        cleanup_status, error_category, attempted_at, created_at
+                    ) VALUES (
+                        $1, $2, $3, 1, 'CRASH_RECOVERY',
+                        'DELETE_FAILED', $4, $5, $6
+                    )
+                    ON CONFLICT (recovery_event_hash) DO NOTHING
+                    RETURNING receipt_id
+                    """,
+                    str(uuid4()),
+                    batch_locator_hash,
+                    event_hash,
+                    issue.category,
+                    issue.observed_at,
+                    now,
+                )
+                if inserted is not None:
+                    receipts_recorded += 1
+                    orphan_receipts += 1
+            for batch_id in affected_batches:
+                batch_status = await conn.fetchval(
+                    """
+                    SELECT status
+                    FROM trip_understanding_screenshot_batches
+                    WHERE batch_id = $1
+                    FOR UPDATE
+                    """,
+                    batch_id,
+                )
+                if batch_status == "CONSUMED":
+                    continue
+                state = await conn.fetchrow(
+                    """
+                    SELECT COUNT(*) AS asset_count,
+                           COUNT(*) FILTER (
+                               WHERE a.cleanup_status = 'CLEANED'
+                           ) AS cleaned_count,
+                           COUNT(*) FILTER (
+                               WHERE a.cleanup_status = 'CLEANUP_FAILED'
+                           ) AS failed_count
+                    FROM trip_understanding_screenshot_batches AS b
+                    JOIN trip_understanding_screenshot_assets AS a
+                      ON a.batch_id = b.batch_id
+                    WHERE b.batch_id = $1
+                    """,
+                    batch_id,
+                )
+                failed = (
+                    int(state["failed_count"]) > 0
+                    or batch_id in cleanup_failed_batches
+                )
+                all_cleaned = int(state["cleaned_count"]) == int(
+                    state["asset_count"]
+                )
+                if failed:
+                    final_status = "PRIVACY_BLOCKED"
+                    error_category = "SCREENSHOT_CLEANUP_FAILED"
+                elif batch_status == "PROCESSING" and all_cleaned:
+                    final_status = "FAILED"
+                    error_category = "CRASH_RECOVERED_NO_RESULT"
+                else:
+                    continue
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_screenshot_batches
+                    SET status = $2, encrypted_source_document = NULL,
+                        encryption_key_ref = NULL, source_document_hash = NULL,
+                        semantic_text_hash = NULL, document_purged_at = $3,
+                        last_error_category = $4, updated_at = $3
+                    WHERE batch_id = $1 AND status <> 'CONSUMED'
+                    """,
+                    batch_id,
+                    final_status,
+                    now,
+                    error_category,
+                )
+                batches_finalized += 1
+
+        return {
+            "matched_assets": len(by_locator),
+            "receipts_recorded": receipts_recorded,
+            "orphan_receipts": orphan_receipts,
+            "batches_finalized": batches_finalized,
+            "unmatched_assets": len(observed_locators - set(by_locator)),
+            "local_issues": len(report.issues),
+        }
+
+    async def store_screenshot_batch(
+        self,
+        payload: ScreenshotBatchPersistenceInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome:
+        document = ScreenshotSourceDocumentV1.model_validate_json(
+            payload.source_document_json
+        )
+        if document.document_hash != payload.source_document_hash:
+            raise ValueError("screenshot source document hash binding differs")
+        if _sha256_text(document.semantic_text) != payload.semantic_text_hash:
+            raise ValueError("screenshot semantic text hash binding differs")
+        if len(payload.assets) != len(document.images):
+            raise ValueError("screenshot asset count differs from source document")
+        _require_document_asset_binding(document, payload.assets)
+        if len({asset.upload_position for asset in payload.assets}) != len(
+            payload.assets
+        ):
+            raise ValueError("screenshot upload positions must be unique")
+        _require_confirmed_asset_cleanup(payload.assets, payload.cleanup_receipts)
+
+        key_hash = _sha256_text(payload.idempotency_key)
+        ref_hash = _sha256_text(payload.batch_ref)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"screenshot-upload:{payload.owner_user_id}:{key_hash}",
+            )
+            existing = await conn.fetchrow(
+                """
+                SELECT batch_id, request_hash, batch_ref_hash, status, expires_at,
+                       image_count, successful_image_count
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND idempotency_key_hash = $2
+                FOR UPDATE
+                """,
+                payload.owner_user_id,
+                key_hash,
+            )
+            if existing is not None:
+                if (
+                    existing["request_hash"].strip() != payload.request_hash
+                    or existing["batch_ref_hash"].strip() != ref_hash
+                ):
+                    raise IdempotencyConflictError(
+                        "screenshot upload idempotency key was reused"
+                    )
+                if existing["status"] in {"READY", "PARTIAL"}:
+                    replay_outcome = (
+                        "COMPLETE"
+                        if existing["successful_image_count"] == existing["image_count"]
+                        else "PARTIAL"
+                    )
+                    return ScreenshotBatchCreateOutcome(
+                        accepted=_screenshot_accepted(
+                            payload.batch_ref,
+                            expires_at=existing["expires_at"],
+                            outcome=replay_outcome,
+                        ),
+                        replayed=True,
+                    )
+                if existing["status"] != "PROCESSING":
+                    raise IdempotencyConflictError(
+                        "screenshot upload idempotency key belongs to a terminal request"
+                    )
+                batch_id = existing["batch_id"]
+                asset_rows = await conn.fetch(
+                    """
+                    SELECT asset_id, upload_position, content_hash, media_type,
+                           byte_size, storage_locator
+                    FROM trip_understanding_screenshot_assets
+                    WHERE batch_id = $1
+                    ORDER BY upload_position
+                    """,
+                    batch_id,
+                )
+                expected = [
+                    (
+                        asset.upload_position,
+                        asset.content_hash,
+                        asset.media_type,
+                        asset.byte_size,
+                        asset.storage_locator,
+                    )
+                    for asset in sorted(
+                        payload.assets, key=lambda item: item.upload_position
+                    )
+                ]
+                stored = [
+                    (
+                        int(row["upload_position"]),
+                        row["content_hash"].strip(),
+                        row["media_type"],
+                        int(row["byte_size"]),
+                        row["storage_locator"],
+                    )
+                    for row in asset_rows
+                ]
+                if stored != expected:
+                    raise IdempotencyConflictError(
+                        "claimed screenshot assets no longer match the request"
+                    )
+            else:
+                batch_id = str(uuid4())
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_screenshot_batches (
+                        batch_id, owner_user_id, batch_ref_hash, idempotency_key_hash,
+                        request_hash, status, image_count, successful_image_count,
+                        expires_at, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, 'PROCESSING', $6, 0, $7, $8, $8)
+                    """,
+                    batch_id,
+                    payload.owner_user_id,
+                    ref_hash,
+                    key_hash,
+                    payload.request_hash,
+                    len(payload.assets),
+                    payload.expires_at,
+                    now,
+                )
+                for asset in payload.assets:
+                    await conn.execute(
+                        """
+                        INSERT INTO trip_understanding_screenshot_assets (
+                            asset_id, batch_id, upload_position, content_hash,
+                            media_type, byte_size, storage_locator, ocr_status,
+                            cleanup_status, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING', 'PENDING', $8)
+                        """,
+                        str(uuid4()),
+                        batch_id,
+                        asset.upload_position,
+                        asset.content_hash,
+                        asset.media_type,
+                        asset.byte_size,
+                        asset.storage_locator,
+                        now,
+                    )
+
+            cipher = self._get_source_cipher()
+            encrypted_document = cipher.encrypt(
+                payload.source_document_json,
+                source_id=batch_id,
+                content_hash=payload.source_document_hash,
+                purpose="screenshot-batch",
+            )
+            successful_count = sum(
+                asset.ocr_status == "SUCCEEDED" for asset in payload.assets
+            )
+            updated = await conn.execute(
+                """
+                UPDATE trip_understanding_screenshot_batches
+                SET status = $2, encrypted_source_document = $3,
+                    encryption_key_ref = $4, source_document_hash = $5,
+                    semantic_text_hash = $6, successful_image_count = $7,
+                    expires_at = $8, document_purged_at = NULL,
+                    last_error_category = NULL, updated_at = $9
+                WHERE batch_id = $1 AND status = 'PROCESSING'
+                """,
+                batch_id,
+                "READY" if payload.outcome == "COMPLETE" else "PARTIAL",
+                encrypted_document,
+                cipher.key_ref,
+                payload.source_document_hash,
+                payload.semantic_text_hash,
+                successful_count,
+                payload.expires_at,
+                now,
+            )
+            if updated != "UPDATE 1":
+                raise IdempotencyInProgressError(
+                    "screenshot upload claim changed before completion"
+                )
+            for asset in payload.assets:
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_screenshot_assets
+                    SET ocr_status = $3, cleanup_status = 'CLEANED'
+                    WHERE batch_id = $1 AND upload_position = $2
+                    """,
+                    batch_id,
+                    asset.upload_position,
+                    asset.ocr_status,
+                )
+            asset_rows = await conn.fetch(
+                """
+                SELECT asset_id, upload_position, content_hash, storage_locator
+                FROM trip_understanding_screenshot_assets
+                WHERE batch_id = $1
+                """,
+                batch_id,
+            )
+            assets_by_position = {
+                int(row["upload_position"]): (
+                    row["asset_id"],
+                    row["content_hash"].strip(),
+                    row["storage_locator"],
+                )
+                for row in asset_rows
+            }
+            await _insert_screenshot_cleanup_receipts(
+                conn,
+                batch_id=batch_id,
+                assets_by_position=assets_by_position,
+                submitted_assets=payload.assets,
+                receipts=payload.cleanup_receipts,
+                now=now,
+            )
+
+        return ScreenshotBatchCreateOutcome(
+            accepted=_screenshot_accepted(
+                payload.batch_ref,
+                expires_at=payload.expires_at,
+                outcome=payload.outcome,
+            )
+        )
+
+    async def store_screenshot_batch_failure(
+        self,
+        payload: ScreenshotBatchFailurePersistenceInput,
+        *,
+        now: datetime,
+    ) -> None:
+        key_hash = _sha256_text(payload.idempotency_key)
+        ref_hash = _sha256_text(payload.batch_ref)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"screenshot-upload:{payload.owner_user_id}:{key_hash}",
+            )
+            existing = await conn.fetchrow(
+                """
+                SELECT batch_id, request_hash, batch_ref_hash, status
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND idempotency_key_hash = $2
+                FOR UPDATE
+                """,
+                payload.owner_user_id,
+                key_hash,
+            )
+            if existing is not None:
+                if (
+                    existing["request_hash"].strip() != payload.request_hash
+                    or existing["batch_ref_hash"].strip() != ref_hash
+                ):
+                    raise IdempotencyConflictError(
+                        "screenshot upload idempotency key was reused"
+                    )
+                if existing["status"] != "PROCESSING":
+                    return
+                batch_id = existing["batch_id"]
+            else:
+                batch_id = str(uuid4())
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_screenshot_batches (
+                        batch_id, owner_user_id, batch_ref_hash, idempotency_key_hash,
+                        request_hash, status, image_count, successful_image_count,
+                        expires_at, last_error_category, created_at, updated_at
+                    ) VALUES ($1, $2, $3, $4, $5, 'PROCESSING', $6, 0, $7, $8, $9, $9)
+                    """,
+                    batch_id,
+                    payload.owner_user_id,
+                    ref_hash,
+                    key_hash,
+                    payload.request_hash,
+                    len(payload.assets),
+                    payload.expires_at,
+                    payload.last_error_category,
+                    now,
+                )
+
+            stored_rows = await conn.fetch(
+                """
+                SELECT asset_id, upload_position, content_hash, storage_locator
+                FROM trip_understanding_screenshot_assets
+                WHERE batch_id = $1
+                """,
+                batch_id,
+            )
+            assets_by_position = {
+                int(row["upload_position"]): (
+                    row["asset_id"],
+                    row["content_hash"].strip(),
+                    row["storage_locator"],
+                )
+                for row in stored_rows
+            }
+            final_cleanup = _latest_cleanup_statuses(payload.cleanup_receipts)
+            for asset in payload.assets:
+                stored = assets_by_position.get(asset.upload_position)
+                cleanup_status = (
+                    "CLEANED"
+                    if final_cleanup.get(asset.upload_position)
+                    in {"DELETED", "ALREADY_ABSENT"}
+                    else "CLEANUP_FAILED"
+                    if final_cleanup.get(asset.upload_position) == "DELETE_FAILED"
+                    else "PENDING"
+                )
+                if stored is None:
+                    asset_id = str(uuid4())
+                    await conn.execute(
+                        """
+                        INSERT INTO trip_understanding_screenshot_assets (
+                            asset_id, batch_id, upload_position, content_hash,
+                            media_type, byte_size, storage_locator, ocr_status,
+                            cleanup_status, created_at
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                        """,
+                        asset_id,
+                        batch_id,
+                        asset.upload_position,
+                        asset.content_hash,
+                        asset.media_type,
+                        asset.byte_size,
+                        asset.storage_locator,
+                        asset.ocr_status,
+                        cleanup_status,
+                        now,
+                    )
+                    assets_by_position[asset.upload_position] = (
+                        asset_id,
+                        asset.content_hash,
+                        asset.storage_locator,
+                    )
+                elif stored[1:] == (asset.content_hash, asset.storage_locator):
+                    await conn.execute(
+                        """
+                        UPDATE trip_understanding_screenshot_assets
+                        SET ocr_status = $3, cleanup_status = $4
+                        WHERE batch_id = $1 AND upload_position = $2
+                        """,
+                        batch_id,
+                        asset.upload_position,
+                        asset.ocr_status,
+                        cleanup_status,
+                    )
+                else:
+                    raise IdempotencyConflictError(
+                        "claimed screenshot assets no longer match the request"
+                    )
+
+            successful_count = sum(
+                asset.ocr_status == "SUCCEEDED" for asset in payload.assets
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_screenshot_batches
+                SET status = $2, encrypted_source_document = NULL,
+                    encryption_key_ref = NULL, source_document_hash = NULL,
+                    semantic_text_hash = NULL, successful_image_count = $3,
+                    expires_at = $4, document_purged_at = $5,
+                    last_error_category = $6, updated_at = $5
+                WHERE batch_id = $1 AND status = 'PROCESSING'
+                """,
+                batch_id,
+                payload.status,
+                successful_count,
+                payload.expires_at,
+                now,
+                payload.last_error_category,
+            )
+            await _insert_screenshot_cleanup_receipts(
+                conn,
+                batch_id=batch_id,
+                assets_by_position=assets_by_position,
+                submitted_assets=payload.assets,
+                receipts=payload.cleanup_receipts,
+                now=now,
+            )
+
+    async def create_full_from_screenshot(
+        self,
+        *,
+        owner_user_id: str,
+        batch_ref: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> CreateOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        expires_at = now + timedelta(days=retention_days)
+        batch_ref_hash = _sha256_text(batch_ref)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-user:{owner_user_id}",
+            )
+            scope = f"user:{owner_user_id}:create"
+            key_hash = _sha256_text(idempotency_key)
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING
+                RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different request"
+                    )
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError(
+                        "matching create request is still in progress"
+                    )
+                return CreateOutcome(
+                    accepted=TripUnderstandingAcceptedView.model_validate(
+                        _json_value(existing["response_json"])
+                    ),
+                    replayed=True,
+                )
+
+            active_count = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understandings
+                WHERE owner_user_id = $1 AND state = 'PROCESSING'
+                """,
+                owner_user_id,
+            )
+            if active_count >= 2:
+                raise ConcurrentJobLimitError(
+                    "user already has two understanding jobs in progress"
+                )
+            batch = await conn.fetchrow(
+                """
+                SELECT * FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1 AND batch_ref_hash = $2
+                FOR UPDATE
+                """,
+                owner_user_id,
+                batch_ref_hash,
+            )
+            if batch is None:
+                raise ScreenshotBatchNotFoundError("screenshot batch does not exist")
+            if batch["status"] == "EXPIRED" or (
+                batch["expires_at"] <= now and batch["status"] in {"READY", "PARTIAL"}
+            ):
+                raise ScreenshotBatchExpiredError("screenshot batch has expired")
+            if batch["status"] == "CONSUMED":
+                raise ScreenshotBatchAlreadyUsedError("screenshot batch was already consumed")
+            if batch["status"] == "PROCESSING":
+                raise ScreenshotBatchNotReadyError("screenshot batch is not ready")
+            if batch["status"] not in {"READY", "PARTIAL"}:
+                raise ScreenshotBatchUnusableError("screenshot batch cannot be consumed")
+            if batch["encrypted_source_document"] is None:
+                raise ScreenshotBatchUnusableError("screenshot source document is unavailable")
+
+            cipher = self._get_source_cipher()
+            if batch["encryption_key_ref"] != cipher.key_ref:
+                raise ScreenshotBatchUnusableError("screenshot encryption key is unavailable")
+            document_json = cipher.decrypt(
+                bytes(batch["encrypted_source_document"]),
+                source_id=batch["batch_id"],
+                content_hash=batch["source_document_hash"].strip(),
+                purpose="screenshot-batch",
+            )
+            document = ScreenshotSourceDocumentV1.model_validate_json(document_json)
+            content_hash = _sha256_text(document.semantic_text)
+            if (
+                document.document_hash != batch["source_document_hash"].strip()
+                or content_hash != batch["semantic_text_hash"].strip()
+            ):
+                raise ValueError("screenshot source document integrity check failed")
+
+            understanding_id = str(uuid4())
+            public_resource_id = secrets.token_urlsafe(24)
+            source_id = str(uuid4())
+            job_id = str(uuid4())
+            encrypted_source = cipher.encrypt(
+                document.model_dump_json(),
+                source_id=source_id,
+                content_hash=content_hash,
+            )
+            draft_payload = {
+                "source_hash": content_hash,
+                "destination": {"status": "PENDING"},
+                "assumptions": [],
+                "proposal": {},
+                "inference_binding": {"status": "NOT_RUN"},
+                "compiler_receipt": {"status": "NOT_RUN"},
+            }
+            await conn.execute(
+                """
+                INSERT INTO trip_understandings (
+                    understanding_id, public_resource_id, owner_user_id,
+                    state, current_revision, etag_nonce, source_expires_at,
+                    created_at, updated_at
+                ) VALUES ($1, $2, $3, 'PROCESSING', 1, $4, $5, $6, $6)
+                """,
+                understanding_id,
+                public_resource_id,
+                owner_user_id,
+                secrets.token_hex(32),
+                expires_at,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_sources (
+                    source_id, understanding_id, source_type, content_hash,
+                    encrypted_content, encryption_key_ref, retention_until, created_at
+                ) VALUES ($1, $2, 'SCREENSHOT_OCR', $3, $4, $5, $6, $7)
+                """,
+                source_id,
+                understanding_id,
+                content_hash,
+                encrypted_source,
+                cipher.key_ref,
+                expires_at,
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_revisions (
+                    understanding_id, revision, parent_revision, source_id, status,
+                    content_hash, destination_json, assumptions_json, proposal_json,
+                    inference_binding_json, compiler_receipt_json, created_at
+                ) VALUES (
+                    $1, 1, NULL, $2, 'PROCESSING', $3, $4::jsonb, $5::jsonb,
+                    $6::jsonb, $7::jsonb, $8::jsonb, $9
+                )
+                """,
+                understanding_id,
+                source_id,
+                canonical_sha256(draft_payload),
+                json.dumps(draft_payload["destination"], ensure_ascii=False),
+                json.dumps(draft_payload["assumptions"], ensure_ascii=False),
+                json.dumps(draft_payload["proposal"], ensure_ascii=False),
+                json.dumps(draft_payload["inference_binding"], ensure_ascii=False),
+                json.dumps(draft_payload["compiler_receipt"], ensure_ascii=False),
+                now,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_jobs (
+                    job_id, understanding_id, revision, job_type, status,
+                    input_hash, available_at, created_at, updated_at
+                ) VALUES ($1, $2, 1, 'UNDERSTAND', 'QUEUED', $3, $4, $4, $4)
+                """,
+                job_id,
+                understanding_id,
+                content_hash,
+                now,
+            )
+            event_payload = PublicEventPayload(
+                status="PROCESSING",
+                message="正在整理每天行程",
+            ).model_dump(mode="json")
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_events (
+                    understanding_id, event_key, event_type, public_payload_json, created_at
+                ) VALUES ($1, 'created', 'progress', $2::jsonb, $3)
+                """,
+                understanding_id,
+                json.dumps(event_payload, ensure_ascii=False),
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_screenshot_batches
+                SET status = 'CONSUMED', encrypted_source_document = NULL,
+                    encryption_key_ref = NULL, consumed_at = $2,
+                    consumed_understanding_id = $3, document_purged_at = $2,
+                    updated_at = $2
+                WHERE batch_id = $1
+                """,
+                batch["batch_id"],
+                now,
+                understanding_id,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                    receipt_id, batch_id, attempt_number, terminal_reason,
+                    cleanup_status, attempted_at, created_at
+                ) VALUES ($1, $2, 1, 'CONSUMED_SOURCE_MOVED',
+                          'CIPHERTEXT_PURGED', $3, $3)
+                """,
+                str(uuid4()),
+                batch["batch_id"],
+                now,
+            )
+            accepted = _accepted(public_resource_id)
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 202,
+                    response_json = $3::jsonb, response_headers_json = '{}'::jsonb,
+                    lease_until = NULL, completed_at = $4
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps(accepted.model_dump(mode="json"), ensure_ascii=False),
+                now,
+            )
+        return CreateOutcome(accepted=accepted)
+
+    async def purge_expired_private_data(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> dict[str, int]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("maintenance limit must be between 1 and 1000")
+        source_count = 0
+        batch_count = 0
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            candidates = await conn.fetch(
+                """
+                SELECT private_kind, private_id
+                FROM (
+                    SELECT 'BATCH'::text AS private_kind,
+                           batch_id AS private_id,
+                           expires_at AS purge_due_at
+                    FROM trip_understanding_screenshot_batches
+                    WHERE expires_at <= $1 AND document_purged_at IS NULL
+                      AND (
+                          encrypted_source_document IS NOT NULL
+                          OR status = 'PROCESSING'
+                      )
+                    UNION ALL
+                    SELECT 'SOURCE'::text AS private_kind,
+                           source_id AS private_id,
+                           retention_until AS purge_due_at
+                    FROM trip_understanding_sources
+                    WHERE retention_until <= $1 AND encrypted_content IS NOT NULL
+                ) AS expired_private_data
+                ORDER BY purge_due_at, private_kind, private_id
+                LIMIT $2
+                """,
+                now,
+                limit,
+            )
+            for candidate in candidates:
+                if candidate["private_kind"] == "BATCH":
+                    row = await conn.fetchrow(
+                        """
+                        SELECT batch_id, status
+                        FROM trip_understanding_screenshot_batches
+                        WHERE batch_id = $1 AND expires_at <= $2
+                          AND document_purged_at IS NULL
+                          AND (
+                              encrypted_source_document IS NOT NULL
+                              OR status = 'PROCESSING'
+                          )
+                        FOR UPDATE SKIP LOCKED
+                        """,
+                        candidate["private_id"],
+                        now,
+                    )
+                    if row is None:
+                        continue
+                    asset_state = await conn.fetchrow(
+                        """
+                        SELECT COUNT(*) AS asset_count,
+                               COUNT(*) FILTER (
+                                   WHERE cleanup_status = 'CLEANED'
+                               ) AS cleaned_count
+                        FROM trip_understanding_screenshot_assets
+                        WHERE batch_id = $1
+                        """,
+                        row["batch_id"],
+                    )
+                    cleanup_confirmed = (
+                        int(asset_state["asset_count"]) > 0
+                        and int(asset_state["cleaned_count"])
+                        == int(asset_state["asset_count"])
+                    )
+                    privacy_blocked = (
+                        row["status"] == "PROCESSING" and not cleanup_confirmed
+                    )
+                    await conn.execute(
+                        """
+                        UPDATE trip_understanding_screenshot_batches
+                        SET status = $2, encrypted_source_document = NULL,
+                            encryption_key_ref = NULL, document_purged_at = $4,
+                            last_error_category = $3, updated_at = $4
+                        WHERE batch_id = $1
+                        """,
+                        row["batch_id"],
+                        "PRIVACY_BLOCKED" if privacy_blocked else "EXPIRED",
+                        (
+                            "SCREENSHOT_CLEANUP_NOT_CONFIRMED_AT_TTL"
+                            if privacy_blocked
+                            else None
+                        ),
+                        now,
+                    )
+                    await conn.execute(
+                        """
+                        INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                            receipt_id, batch_id, attempt_number, terminal_reason,
+                            cleanup_status, error_category, attempted_at, created_at
+                        ) VALUES ($1, $2, 1, 'BATCH_TTL_EXPIRED',
+                                  $3, $4, $5, $5)
+                        """,
+                        str(uuid4()),
+                        row["batch_id"],
+                        "DELETE_FAILED" if privacy_blocked else "CIPHERTEXT_PURGED",
+                        (
+                            "SCREENSHOT_CLEANUP_NOT_CONFIRMED_AT_TTL"
+                            if privacy_blocked
+                            else None
+                        ),
+                        now,
+                    )
+                    batch_count += 1
+                    continue
+
+                row = await conn.fetchrow(
+                    """
+                    SELECT source_id
+                    FROM trip_understanding_sources
+                    WHERE source_id = $1 AND retention_until <= $2
+                      AND encrypted_content IS NOT NULL
+                    FOR UPDATE SKIP LOCKED
+                    """,
+                    candidate["private_id"],
+                    now,
+                )
+                if row is None:
+                    continue
+                await conn.execute(
+                    "DELETE FROM trip_understanding_source_claims WHERE source_id = $1",
+                    row["source_id"],
+                )
+                receipt_hash = canonical_sha256(
+                    {
+                        "source_id": row["source_id"],
+                        "reason": "SOURCE_TTL_EXPIRED",
+                        "purged_at": now.isoformat(),
+                    }
+                )
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_sources
+                    SET encrypted_content = NULL, encryption_key_ref = NULL,
+                        deleted_at = $2, deletion_receipt_hash = $3
+                    WHERE source_id = $1
+                    """,
+                    row["source_id"],
+                    now,
+                    receipt_hash,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                        receipt_id, source_id, attempt_number, terminal_reason,
+                        cleanup_status, attempted_at, created_at
+                    ) VALUES ($1, $2, 1, 'SOURCE_TTL_EXPIRED',
+                              'CIPHERTEXT_PURGED', $3, $3)
+                    """,
+                    str(uuid4()),
+                    row["source_id"],
+                    now,
+                )
+                source_count += 1
+        return {"sources_purged": source_count, "batches_purged": batch_count}
 
     async def authorize(
         self,
@@ -1692,6 +3140,103 @@ class PostgresTripUnderstandingRepository(
                     ),
                     replayed=True,
                 )
+            screenshot_batches = await conn.fetch(
+                """
+                SELECT batch_id, status
+                FROM trip_understanding_screenshot_batches
+                WHERE owner_user_id = $1
+                  AND consumed_understanding_id IS NULL
+                FOR UPDATE
+                """,
+                user_id,
+            )
+            batch_ids = [str(row["batch_id"]) for row in screenshot_batches]
+            if batch_ids:
+                cleanup_rows = await conn.fetch(
+                    """
+                    SELECT batch_id,
+                           COUNT(*) AS asset_count,
+                           COUNT(*) FILTER (
+                               WHERE cleanup_status = 'CLEANED'
+                           ) AS cleaned_count
+                    FROM trip_understanding_screenshot_assets
+                    WHERE batch_id = ANY($1::text[])
+                    GROUP BY batch_id
+                    """,
+                    batch_ids,
+                )
+                cleanup_by_batch = {
+                    str(row["batch_id"]): (
+                        int(row["asset_count"]),
+                        int(row["cleaned_count"]),
+                    )
+                    for row in cleanup_rows
+                }
+                pending_batch_ids = [
+                    batch_id
+                    for batch_id in batch_ids
+                    if cleanup_by_batch.get(batch_id, (0, 0))[0] == 0
+                    or cleanup_by_batch[batch_id][0]
+                    != cleanup_by_batch[batch_id][1]
+                ]
+                if pending_batch_ids:
+                    view = TravelDataDeletionStatusView(
+                        status="RETRY_REQUIRED",
+                        message="部分截图仍在确认清理，请稍后重试",
+                        next_action="RETRY",
+                    )
+                    await conn.execute(
+                        """
+                        DELETE FROM trip_understanding_deletion_jobs
+                        WHERE owner_user_id = $1
+                          AND scope = 'ACCOUNT_TRAVEL_DATA'
+                          AND status <> 'COMPLETED'
+                        """,
+                        user_id,
+                    )
+                    await conn.execute(
+                        """
+                        INSERT INTO trip_understanding_deletion_jobs (
+                            deletion_job_id, scope, owner_user_id, status,
+                            request_hash, created_at, updated_at
+                        ) VALUES (
+                            $1, 'ACCOUNT_TRAVEL_DATA', $2, 'RETRY_REQUIRED',
+                            $3, $4, $4
+                        )
+                        """,
+                        str(uuid4()),
+                        user_id,
+                        request_hash,
+                        now,
+                    )
+                    retry_receipt_hash = canonical_sha256(
+                        {
+                            "scope": "ACCOUNT_TRAVEL_DATA",
+                            "status": "RETRY_REQUIRED",
+                            "pending_screenshot_batch_count": len(
+                                pending_batch_ids
+                            ),
+                        }
+                    )
+                    await conn.execute(
+                        """
+                        UPDATE trip_understanding_idempotency_records
+                        SET state = 'COMPLETED', response_status = 202,
+                            response_json = $3::jsonb,
+                            response_headers_json = $4::jsonb,
+                            lease_until = NULL, completed_at = $5
+                        WHERE scope = $1 AND key_hash = $2
+                        """,
+                        scope,
+                        key_hash,
+                        json.dumps(view.model_dump(mode="json"), ensure_ascii=False),
+                        json.dumps(
+                            {"retry_receipt_hash": retry_receipt_hash},
+                            ensure_ascii=False,
+                        ),
+                        now,
+                    )
+                    return TravelDataDeletionOutcome(view=view)
             rows = await conn.fetch(
                 """
                 SELECT understanding_id, public_resource_id
@@ -1700,6 +3245,30 @@ class PostgresTripUnderstandingRepository(
                 """,
                 user_id,
             )
+            for batch in screenshot_batches:
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_screenshot_batches
+                    SET status = 'EXPIRED', encrypted_source_document = NULL,
+                        encryption_key_ref = NULL, document_purged_at = $2,
+                        updated_at = $2, last_error_category = 'ACCOUNT_DATA_DELETED'
+                    WHERE batch_id = $1
+                    """,
+                    batch["batch_id"],
+                    now,
+                )
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_screenshot_cleanup_receipts (
+                        receipt_id, batch_id, attempt_number, terminal_reason,
+                        cleanup_status, attempted_at, created_at
+                    ) VALUES ($1, $2, 1, 'ACCOUNT_DATA_DELETED',
+                              'CIPHERTEXT_PURGED', $3, $3)
+                    """,
+                    str(uuid4()),
+                    batch["batch_id"],
+                    now,
+                )
             claimed_session_ids = await conn.fetch(
                 """
                 SELECT session_id FROM trip_understanding_anonymous_sessions
@@ -1773,6 +3342,7 @@ class PostgresTripUnderstandingRepository(
                     "scope": "ACCOUNT_TRAVEL_DATA",
                     "deleted_resource_count": len(rows),
                     "deleted_resource_ids": sorted(row["understanding_id"] for row in rows),
+                    "purged_screenshot_batch_count": len(screenshot_batches),
                 }
             )
             view = TravelDataDeletionStatusView(
@@ -1951,8 +3521,8 @@ class PostgresTripUnderstandingRepository(
             if content_hash != DEMO_SOURCE_SHA256:
                 raise ValueError("fixed demo source hash is invalid")
             return TripUnderstandingSourcePayload(source_type="FIXED_DEMO", text=DEMO_SOURCE_TEXT)
-        if row["source_type"] != "TEXT" or row["encrypted_content"] is None:
-            raise SourceUnavailableError("recoverable text source is unavailable")
+        if row["source_type"] not in {"TEXT", "SCREENSHOT_OCR"} or row["encrypted_content"] is None:
+            raise SourceUnavailableError("recoverable source is unavailable")
         cipher = self._get_source_cipher()
         if row["encryption_key_ref"] != cipher.key_ref:
             raise SourceUnavailableError("source encryption key is unavailable")
@@ -1961,9 +3531,26 @@ class PostgresTripUnderstandingRepository(
             source_id=row["source_id"],
             content_hash=content_hash,
         )
-        if _sha256_text(text) != content_hash:
-            raise ValueError("decrypted source hash mismatch")
-        return TripUnderstandingSourcePayload(source_type="TEXT", text=text)
+        if row["source_type"] == "TEXT":
+            if _sha256_text(text) != content_hash:
+                raise ValueError("decrypted source hash mismatch")
+            return TripUnderstandingSourcePayload(source_type="TEXT", text=text)
+        document = ScreenshotSourceDocumentV1.model_validate_json(text)
+        if _sha256_text(document.semantic_text) != content_hash:
+            raise ValueError("decrypted screenshot semantic hash mismatch")
+        return TripUnderstandingSourcePayload(
+            source_type="SCREENSHOT_OCR",
+            text=document.semantic_text,
+            requires_confirmation_spans=tuple(
+                ConfirmationSourceSpan(
+                    start=line.semantic_span.start,
+                    end=line.semantic_span.end,
+                )
+                for line in document.lines
+                if line.requires_confirmation
+            ),
+            partial_source=document.partial,
+        )
 
     async def renew_lease(
         self,
@@ -2050,10 +3637,12 @@ class PostgresTripUnderstandingRepository(
                 raise ResourceGoneError("trip resource was deleted during processing")
             source_row = await conn.fetchrow(
                 """
-                SELECT s.source_id, s.source_type, s.content_hash
+                SELECT s.source_id, s.source_type, s.content_hash,
+                       s.encrypted_content, s.deleted_at, s.retention_until
                 FROM trip_understanding_revisions r
                 JOIN trip_understanding_sources s ON s.source_id = r.source_id
                 WHERE r.understanding_id = $1 AND r.revision = $2
+                FOR UPDATE OF s
                 """,
                 job.understanding_id,
                 job.revision,
@@ -2063,6 +3652,17 @@ class PostgresTripUnderstandingRepository(
             source_id = source_row["source_id"]
             source_type = source_row["source_type"]
             source_hash = source_row["content_hash"].strip()
+            if (
+                source_row["deleted_at"] is not None
+                or source_row["retention_until"] <= now
+                or (
+                    source_type in {"TEXT", "SCREENSHOT_OCR"}
+                    and source_row["encrypted_content"] is None
+                )
+            ):
+                raise SourceUnavailableError("understanding source is unavailable")
+            if source_hash != job.input_hash:
+                raise SourceUnavailableError("understanding source binding differs")
             result_revision = int(aggregate["current_revision"]) + 1
             await conn.execute(
                 """
@@ -2136,7 +3736,7 @@ class PostgresTripUnderstandingRepository(
                 )
             for claim in output.claims:
                 stored_quote = claim.quote
-                if source_type == "TEXT":
+                if source_type in {"TEXT", "SCREENSHOT_OCR"}:
                     quote_envelope = self._get_source_cipher().encrypt(
                         claim.quote,
                         source_id=source_id,
@@ -2316,6 +3916,12 @@ class InMemoryTripUnderstandingRepository(
         self.result_revisions: dict[str, int] = {}
         self.side_effects: dict[str, tuple[str, str]] = {}
         self.sources: dict[str, TripUnderstandingSourcePayload] = {}
+        self.source_expiries: dict[str, datetime] = {}
+        self.screenshot_batches: dict[tuple[str, str], dict[str, Any]] = {}
+        self.screenshot_upload_idempotency: dict[
+            tuple[str, str], tuple[str, str]
+        ] = {}
+        self.screenshot_cleanup_receipts: list[dict[str, Any]] = []
         self.command_idempotency: dict[tuple[str, str], tuple[str, CommandOutcome]] = {}
         self.claim_idempotency: dict[tuple[str, str, str], tuple[str, ClaimOutcome]] = {}
         self.privacy_idempotency: dict[tuple[str, str], str] = {}
@@ -2389,6 +3995,7 @@ class InMemoryTripUnderstandingRepository(
             source_type="FIXED_DEMO",
             text=DEMO_SOURCE_TEXT,
         )
+        self.source_expiries[job_id] = session["expires_at"]
         self.events[understanding_id] = [
             PublicEventRecord(
                 event_id=1,
@@ -2457,6 +4064,7 @@ class InMemoryTripUnderstandingRepository(
             source_type="TEXT",
             text=source_text,
         )
+        self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
             PublicEventRecord(
                 event_id=1,
@@ -2465,6 +4073,679 @@ class InMemoryTripUnderstandingRepository(
             )
         ]
         return CreateOutcome(accepted=accepted)
+
+    async def preflight_screenshot_batch(
+        self,
+        *,
+        owner_user_id: str,
+        idempotency_key: str,
+        batch_ref: str,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        del now
+        key = (owner_user_id, _sha256_text(idempotency_key))
+        existing = self.screenshot_upload_idempotency.get(key)
+        if existing is None:
+            return None
+        ref_hash = _sha256_text(batch_ref)
+        if existing[1] != ref_hash:
+            raise IdempotencyConflictError(
+                "screenshot upload idempotency key binding is invalid"
+            )
+        row = self.screenshot_batches[(owner_user_id, ref_hash)]
+        if row["status"] in {"READY", "PARTIAL"}:
+            return ScreenshotBatchCreateOutcome(
+                accepted=_screenshot_accepted(
+                    batch_ref,
+                    expires_at=row["expires_at"],
+                    outcome=row["outcome"],
+                ),
+                replayed=True,
+            )
+        if row["status"] == "PROCESSING":
+            raise IdempotencyInProgressError(
+                "matching screenshot upload is still in progress"
+            )
+        raise IdempotencyConflictError(
+            "screenshot upload idempotency key belongs to a terminal request"
+        )
+
+    async def claim_screenshot_batch(
+        self,
+        payload: ScreenshotBatchClaimInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome | None:
+        key = (payload.owner_user_id, _sha256_text(payload.idempotency_key))
+        ref_hash = _sha256_text(payload.batch_ref)
+        existing = self.screenshot_upload_idempotency.get(key)
+        if existing is not None:
+            if existing != (payload.request_hash, ref_hash):
+                raise IdempotencyConflictError(
+                    "screenshot upload idempotency key was reused"
+                )
+            row = self.screenshot_batches[(payload.owner_user_id, ref_hash)]
+            if row["status"] in {"READY", "PARTIAL"}:
+                return ScreenshotBatchCreateOutcome(
+                    accepted=_screenshot_accepted(
+                        payload.batch_ref,
+                        expires_at=row["expires_at"],
+                        outcome=row["outcome"],
+                    ),
+                    replayed=True,
+                )
+            if row["status"] == "PROCESSING":
+                raise IdempotencyInProgressError(
+                    "matching screenshot upload is still in progress"
+                )
+            raise IdempotencyConflictError(
+                "screenshot upload idempotency key belongs to a terminal request"
+            )
+        self.screenshot_upload_idempotency[key] = (payload.request_hash, ref_hash)
+        self.screenshot_batches[(payload.owner_user_id, ref_hash)] = {
+            "batch_id": str(uuid4()),
+            "status": "PROCESSING",
+            "outcome": None,
+            "source_document_json": None,
+            "source_document_hash": None,
+            "semantic_text_hash": None,
+            "expires_at": payload.expires_at,
+            "consumed_understanding_id": None,
+            "assets": payload.assets,
+            "asset_cleanup_statuses": {
+                asset.upload_position: "PENDING" for asset in payload.assets
+            },
+            "recorded_at": now,
+        }
+        return None
+
+    async def record_screenshot_cleanup(
+        self,
+        payload: ScreenshotCleanupPersistenceInput,
+        *,
+        now: datetime,
+    ) -> None:
+        key = (payload.owner_user_id, _sha256_text(payload.idempotency_key))
+        binding = self.screenshot_upload_idempotency.get(key)
+        if binding is None:
+            return
+        row = self.screenshot_batches[(payload.owner_user_id, binding[1])]
+        submitted_bindings = {
+            asset.upload_position: (asset.content_hash, asset.storage_locator)
+            for asset in payload.assets
+        }
+        stored_bindings = {
+            asset.upload_position: (asset.content_hash, asset.storage_locator)
+            for asset in row["assets"]
+        }
+        for receipt in payload.cleanup_receipts:
+            value = receipt.model_dump(mode="python")
+            value["batch_id"] = row["batch_id"]
+            position = receipt.upload_position
+            value["asset_content_hash"] = (
+                submitted_bindings.get(position, (None, None))[0]
+                if position is not None
+                else None
+            )
+            value["asset_matched"] = (
+                position is not None
+                and stored_bindings.get(position) == submitted_bindings.get(position)
+            )
+            self.screenshot_cleanup_receipts.append(value)
+        for position, final_status in _latest_cleanup_statuses(
+            payload.cleanup_receipts
+        ).items():
+            if stored_bindings.get(position) != submitted_bindings.get(position):
+                continue
+            row["asset_cleanup_statuses"][position] = (
+                "CLEANED"
+                if final_status in {"DELETED", "ALREADY_ABSENT"}
+                else "CLEANUP_FAILED"
+            )
+        if payload.privacy_blocked and row["status"] != "CONSUMED":
+            row.update(
+                {
+                    "status": "PRIVACY_BLOCKED",
+                    "source_document_json": None,
+                    "source_document_hash": None,
+                    "semantic_text_hash": None,
+                    "last_error_category": "SCREENSHOT_CLEANUP_FAILED",
+                    "document_purged_at": now,
+                }
+            )
+
+    async def reconcile_local_screenshot_recovery(
+        self,
+        report: LocalScreenshotRecoveryReport,
+        *,
+        now: datetime,
+    ) -> dict[str, int]:
+        locator_bindings: dict[str, tuple[dict[str, Any], Any]] = {}
+        for row in self.screenshot_batches.values():
+            for asset in row.get("assets", ()):
+                locator_bindings[asset.storage_locator] = (row, asset)
+
+        observed_locators = {
+            locator
+            for recovered in report.batches
+            for locator in recovered.asset_locators
+        }
+        matched_locators: set[str] = set()
+        receipts_recorded = 0
+        orphan_receipts = 0
+        known_event_hashes = {
+            receipt.get("recovery_event_hash")
+            for receipt in self.screenshot_cleanup_receipts
+            if receipt.get("recovery_event_hash")
+        }
+        affected_rows: dict[str, dict[str, Any]] = {}
+        cleanup_failed_rows: set[str] = set()
+        for recovered in report.batches:
+            batch_locator_hash = _sha256_text(recovered.batch_locator)
+            for attempt in recovered.attempts:
+                attempt_locators = recovered.asset_locators or (None,)
+                for locator in attempt_locators:
+                    binding = locator_bindings.get(locator)
+                    cleanup_status = (
+                        _local_recovery_status(attempt, locator)
+                        if locator is not None
+                        else "DELETED"
+                        if attempt.succeeded
+                        else "DELETE_FAILED"
+                    )
+                    asset_locator_hash = (
+                        _sha256_text(locator) if locator is not None else None
+                    )
+                    event_hash = canonical_sha256(
+                        {
+                            "batch_locator_hash": batch_locator_hash,
+                            "asset_locator_hash": asset_locator_hash,
+                            "attempt_number": attempt.attempt_number,
+                            "terminal_reason": attempt.terminal_reason,
+                            "cleanup_status": cleanup_status,
+                            "error_categories": list(attempt.error_categories),
+                            "attempted_at": attempt.attempted_at.isoformat(),
+                        }
+                    )
+                    if event_hash not in known_event_hashes:
+                        row, asset = binding if binding is not None else (None, None)
+                        self.screenshot_cleanup_receipts.append(
+                            {
+                                "batch_id": row["batch_id"] if row else None,
+                                "upload_position": (
+                                    asset.upload_position if asset else None
+                                ),
+                                "asset_content_hash": (
+                                    asset.content_hash if asset else None
+                                ),
+                                "orphan_batch_locator_hash": (
+                                    None if row else batch_locator_hash
+                                ),
+                                "orphan_asset_locator_hash": (
+                                    None if row else asset_locator_hash
+                                ),
+                                "recovery_event_hash": event_hash,
+                                "attempt_number": attempt.attempt_number,
+                                "terminal_reason": attempt.terminal_reason,
+                                "cleanup_status": cleanup_status,
+                                "error_category": (
+                                    attempt.error_categories[0]
+                                    if attempt.error_categories
+                                    else None
+                                ),
+                                "attempted_at": attempt.attempted_at,
+                                "created_at": now,
+                            }
+                        )
+                        known_event_hashes.add(event_hash)
+                        receipts_recorded += 1
+                        if binding is None:
+                            orphan_receipts += 1
+                    if binding is None:
+                        continue
+                    row, asset = binding
+                    matched_locators.add(locator)
+                    row["asset_cleanup_statuses"][asset.upload_position] = (
+                        "CLEANED"
+                        if cleanup_status in {"DELETED", "ALREADY_ABSENT"}
+                        else "CLEANUP_FAILED"
+                    )
+                    affected_rows[row["batch_id"]] = row
+                    if not attempt.succeeded or not attempt.directory_removed:
+                        cleanup_failed_rows.add(row["batch_id"])
+
+        for issue in report.issues:
+            batch_locator_hash = _sha256_text(issue.batch_locator)
+            event_hash = canonical_sha256(
+                {
+                    "batch_locator_hash": batch_locator_hash,
+                    "asset_locator_hash": None,
+                    "attempt_number": 1,
+                    "cleanup_status": "DELETE_FAILED",
+                    "error_categories": [issue.category],
+                    "attempted_at": issue.observed_at.isoformat(),
+                }
+            )
+            if event_hash in known_event_hashes:
+                continue
+            self.screenshot_cleanup_receipts.append(
+                {
+                    "batch_id": None,
+                    "upload_position": None,
+                    "asset_content_hash": None,
+                    "orphan_batch_locator_hash": batch_locator_hash,
+                    "orphan_asset_locator_hash": None,
+                    "recovery_event_hash": event_hash,
+                    "attempt_number": 1,
+                    "terminal_reason": "CRASH_RECOVERY",
+                    "cleanup_status": "DELETE_FAILED",
+                    "error_category": issue.category,
+                    "attempted_at": issue.observed_at,
+                    "created_at": now,
+                }
+            )
+            known_event_hashes.add(event_hash)
+            receipts_recorded += 1
+            orphan_receipts += 1
+
+        batches_finalized = 0
+        for row in affected_rows.values():
+            if row["status"] == "CONSUMED":
+                continue
+            cleanup_states = tuple(row["asset_cleanup_statuses"].values())
+            failed = (
+                "CLEANUP_FAILED" in cleanup_states
+                or row["batch_id"] in cleanup_failed_rows
+            )
+            all_cleaned = cleanup_states.count("CLEANED") == len(cleanup_states)
+            if failed:
+                final_status = "PRIVACY_BLOCKED"
+                error_category = "SCREENSHOT_CLEANUP_FAILED"
+            elif row["status"] == "PROCESSING" and all_cleaned:
+                final_status = "FAILED"
+                error_category = "CRASH_RECOVERED_NO_RESULT"
+            else:
+                continue
+            row.update(
+                {
+                    "status": final_status,
+                    "source_document_json": None,
+                    "source_document_hash": None,
+                    "semantic_text_hash": None,
+                    "document_purged_at": now,
+                    "last_error_category": error_category,
+                }
+            )
+            batches_finalized += 1
+        return {
+            "matched_assets": len(matched_locators),
+            "receipts_recorded": receipts_recorded,
+            "orphan_receipts": orphan_receipts,
+            "batches_finalized": batches_finalized,
+            "unmatched_assets": len(observed_locators - matched_locators),
+            "local_issues": len(report.issues),
+        }
+
+    async def store_screenshot_batch(
+        self,
+        payload: ScreenshotBatchPersistenceInput,
+        *,
+        now: datetime,
+    ) -> ScreenshotBatchCreateOutcome:
+        document = ScreenshotSourceDocumentV1.model_validate_json(
+            payload.source_document_json
+        )
+        if document.document_hash != payload.source_document_hash:
+            raise ValueError("screenshot source document hash binding differs")
+        if _sha256_text(document.semantic_text) != payload.semantic_text_hash:
+            raise ValueError("screenshot semantic text hash binding differs")
+        if len(payload.assets) != len(document.images):
+            raise ValueError("screenshot asset count differs from source document")
+        _require_document_asset_binding(document, payload.assets)
+        _require_confirmed_asset_cleanup(payload.assets, payload.cleanup_receipts)
+        key = (payload.owner_user_id, _sha256_text(payload.idempotency_key))
+        ref_hash = _sha256_text(payload.batch_ref)
+        existing = self.screenshot_upload_idempotency.get(key)
+        if existing is not None:
+            if existing != (payload.request_hash, ref_hash):
+                raise IdempotencyConflictError(
+                    "screenshot upload idempotency key was reused"
+                )
+            row = self.screenshot_batches[(payload.owner_user_id, ref_hash)]
+            if row["status"] in {"READY", "PARTIAL"}:
+                return ScreenshotBatchCreateOutcome(
+                    accepted=_screenshot_accepted(
+                        payload.batch_ref,
+                        expires_at=row["expires_at"],
+                        outcome=row["outcome"],
+                    ),
+                    replayed=True,
+                )
+            if row["status"] != "PROCESSING":
+                raise IdempotencyConflictError(
+                    "screenshot upload idempotency key belongs to a terminal request"
+                )
+            if [
+                (
+                    item.upload_position,
+                    item.content_hash,
+                    item.media_type,
+                    item.byte_size,
+                    item.storage_locator,
+                )
+                for item in row["assets"]
+            ] != [
+                (
+                    item.upload_position,
+                    item.content_hash,
+                    item.media_type,
+                    item.byte_size,
+                    item.storage_locator,
+                )
+                for item in payload.assets
+            ]:
+                raise IdempotencyConflictError(
+                    "claimed screenshot assets no longer match the request"
+                )
+        else:
+            self.screenshot_upload_idempotency[key] = (payload.request_hash, ref_hash)
+            row = {
+                "batch_id": str(uuid4()),
+                "consumed_understanding_id": None,
+            }
+            self.screenshot_batches[(payload.owner_user_id, ref_hash)] = row
+        row.update(
+            {
+                "status": "READY" if payload.outcome == "COMPLETE" else "PARTIAL",
+                "outcome": payload.outcome,
+                "source_document_json": payload.source_document_json,
+                "source_document_hash": payload.source_document_hash,
+                "semantic_text_hash": payload.semantic_text_hash,
+                "expires_at": payload.expires_at,
+                "assets": payload.assets,
+                "asset_cleanup_statuses": {
+                    asset.upload_position: "CLEANED" for asset in payload.assets
+                },
+                "recorded_at": now,
+            }
+        )
+        for receipt in payload.cleanup_receipts:
+            value = receipt.model_dump(mode="python")
+            value["batch_id"] = row["batch_id"]
+            value["asset_content_hash"] = next(
+                (
+                    asset.content_hash
+                    for asset in payload.assets
+                    if asset.upload_position == receipt.upload_position
+                ),
+                None,
+            )
+            self.screenshot_cleanup_receipts.append(value)
+        return ScreenshotBatchCreateOutcome(
+            accepted=_screenshot_accepted(
+                payload.batch_ref,
+                expires_at=payload.expires_at,
+                outcome=payload.outcome,
+            )
+        )
+
+    async def store_screenshot_batch_failure(
+        self,
+        payload: ScreenshotBatchFailurePersistenceInput,
+        *,
+        now: datetime,
+    ) -> None:
+        key = (payload.owner_user_id, _sha256_text(payload.idempotency_key))
+        ref_hash = _sha256_text(payload.batch_ref)
+        existing = self.screenshot_upload_idempotency.get(key)
+        if existing is not None:
+            if existing != (payload.request_hash, ref_hash):
+                raise IdempotencyConflictError(
+                    "screenshot upload idempotency key was reused"
+                )
+            row = self.screenshot_batches[(payload.owner_user_id, ref_hash)]
+            if row["status"] != "PROCESSING":
+                return
+        else:
+            self.screenshot_upload_idempotency[key] = (payload.request_hash, ref_hash)
+            row = {
+                "batch_id": str(uuid4()),
+                "consumed_understanding_id": None,
+            }
+            self.screenshot_batches[(payload.owner_user_id, ref_hash)] = row
+        final_cleanup = _latest_cleanup_statuses(payload.cleanup_receipts)
+        row.update(
+            {
+                "status": payload.status,
+                "outcome": None,
+                "source_document_json": None,
+                "source_document_hash": None,
+                "semantic_text_hash": None,
+                "expires_at": payload.expires_at,
+                "assets": payload.assets,
+                "asset_cleanup_statuses": {
+                    asset.upload_position: (
+                        "CLEANED"
+                        if final_cleanup.get(asset.upload_position)
+                        in {"DELETED", "ALREADY_ABSENT"}
+                        else "CLEANUP_FAILED"
+                        if final_cleanup.get(asset.upload_position) == "DELETE_FAILED"
+                        else "PENDING"
+                    )
+                    for asset in payload.assets
+                },
+                "last_error_category": payload.last_error_category,
+                "recorded_at": now,
+            }
+        )
+        for receipt in payload.cleanup_receipts:
+            value = receipt.model_dump(mode="python")
+            value["batch_id"] = row["batch_id"]
+            self.screenshot_cleanup_receipts.append(value)
+
+    async def create_full_from_screenshot(
+        self,
+        *,
+        owner_user_id: str,
+        batch_ref: str,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+        retention_days: int,
+    ) -> CreateOutcome:
+        scope = f"user:{owner_user_id}:create"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.idempotency.get(key)
+        if existing:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError(
+                    "idempotency key was already used with a different request"
+                )
+            return CreateOutcome(accepted=existing[1], replayed=True)
+        active_count = sum(
+            row["owner_user_id"] == owner_user_id and row["state"] == "PROCESSING"
+            for row in self.resources.values()
+        )
+        if active_count >= 2:
+            raise ConcurrentJobLimitError(
+                "user already has two understanding jobs in progress"
+            )
+        ref_hash = _sha256_text(batch_ref)
+        row = self.screenshot_batches.get((owner_user_id, ref_hash))
+        if row is None:
+            raise ScreenshotBatchNotFoundError("screenshot batch does not exist")
+        if row["status"] == "EXPIRED" or (
+            row["expires_at"] <= now and row["status"] in {"READY", "PARTIAL"}
+        ):
+            raise ScreenshotBatchExpiredError("screenshot batch has expired")
+        if row["status"] == "CONSUMED":
+            raise ScreenshotBatchAlreadyUsedError("screenshot batch was already consumed")
+        if row["status"] == "PROCESSING":
+            raise ScreenshotBatchNotReadyError("screenshot batch is not ready")
+        if row["status"] not in {"READY", "PARTIAL"}:
+            raise ScreenshotBatchUnusableError("screenshot batch cannot be consumed")
+        document_json = row["source_document_json"]
+        if not document_json:
+            raise ScreenshotBatchUnusableError("screenshot source document is unavailable")
+        document = ScreenshotSourceDocumentV1.model_validate_json(document_json)
+        content_hash = _sha256_text(document.semantic_text)
+        if (
+            document.document_hash != row["source_document_hash"]
+            or content_hash != row["semantic_text_hash"]
+        ):
+            raise ValueError("screenshot source document integrity check failed")
+
+        understanding_id = str(uuid4())
+        public_resource_id = secrets.token_urlsafe(24)
+        accepted = _accepted(public_resource_id)
+        self.idempotency[key] = (request_hash, accepted)
+        self.resources[public_resource_id] = {
+            "understanding_id": understanding_id,
+            "public_resource_id": public_resource_id,
+            "state": "PROCESSING",
+            "current_result_id": None,
+            "capability_hash": None,
+            "owner_user_id": owner_user_id,
+            "expires_at": now + timedelta(days=retention_days),
+            "current_revision": 1,
+        }
+        self.resources_by_understanding[understanding_id] = public_resource_id
+        job_id = str(uuid4())
+        self.jobs[job_id] = {
+            "job_id": job_id,
+            "understanding_id": understanding_id,
+            "revision": 1,
+            "status": "QUEUED",
+            "lease_owner": None,
+            "lease_until": None,
+            "attempt": 0,
+            "max_attempts": 3,
+            "input_hash": content_hash,
+            "available_at": now,
+        }
+        self.sources[job_id] = TripUnderstandingSourcePayload(
+            source_type="SCREENSHOT_OCR",
+            text=document.semantic_text,
+            requires_confirmation_spans=tuple(
+                ConfirmationSourceSpan(
+                    start=line.semantic_span.start,
+                    end=line.semantic_span.end,
+                )
+                for line in document.lines
+                if line.requires_confirmation
+            ),
+            partial_source=document.partial,
+        )
+        self.source_expiries[job_id] = now + timedelta(days=retention_days)
+        self.events[understanding_id] = [
+            PublicEventRecord(
+                event_id=1,
+                event_type="progress",
+                payload=PublicEventPayload(
+                    status="PROCESSING", message="正在整理每天行程"
+                ),
+            )
+        ]
+        row.update(
+            {
+                "status": "CONSUMED",
+                "source_document_json": None,
+                "consumed_understanding_id": understanding_id,
+            }
+        )
+        self.screenshot_cleanup_receipts.append(
+            {
+                "attempt_number": 1,
+                "terminal_reason": "CONSUMED_SOURCE_MOVED",
+                "cleanup_status": "CIPHERTEXT_PURGED",
+                "attempted_at": now,
+            }
+        )
+        return CreateOutcome(accepted=accepted)
+
+    async def purge_expired_private_data(
+        self,
+        *,
+        now: datetime,
+        limit: int,
+    ) -> dict[str, int]:
+        if not 1 <= limit <= 1000:
+            raise ValueError("maintenance limit must be between 1 and 1000")
+        batch_count = 0
+        source_count = 0
+        candidates: list[tuple[datetime, str, Any]] = []
+        candidates.extend(
+            (row["expires_at"], "BATCH", key)
+            for key, row in self.screenshot_batches.items()
+            if row["expires_at"] <= now
+            and (
+                row.get("source_document_json") is not None
+                or row.get("status") == "PROCESSING"
+            )
+            and row.get("document_purged_at") is None
+        )
+        candidates.extend(
+            (expiry, "SOURCE", job_id)
+            for job_id, expiry in self.source_expiries.items()
+            if expiry <= now and job_id in self.sources
+        )
+        candidates.sort(key=lambda item: (item[0], item[1], str(item[2])))
+        for _due_at, private_kind, private_id in candidates[:limit]:
+            if private_kind == "BATCH":
+                row = self.screenshot_batches[private_id]
+                cleanup_states = tuple(row.get("asset_cleanup_statuses", {}).values())
+                cleanup_confirmed = bool(cleanup_states) and all(
+                    state == "CLEANED" for state in cleanup_states
+                )
+                privacy_blocked = (
+                    row.get("status") == "PROCESSING" and not cleanup_confirmed
+                )
+                error_category = (
+                    "SCREENSHOT_CLEANUP_NOT_CONFIRMED_AT_TTL"
+                    if privacy_blocked
+                    else None
+                )
+                row.update(
+                    {
+                        "status": "PRIVACY_BLOCKED" if privacy_blocked else "EXPIRED",
+                        "source_document_json": None,
+                        "source_document_hash": None,
+                        "semantic_text_hash": None,
+                        "document_purged_at": now,
+                        "last_error_category": error_category,
+                    }
+                )
+                batch_count += 1
+                self.screenshot_cleanup_receipts.append(
+                    {
+                        "batch_id": row.get("batch_id"),
+                        "attempt_number": 1,
+                        "terminal_reason": "BATCH_TTL_EXPIRED",
+                        "cleanup_status": (
+                            "DELETE_FAILED"
+                            if privacy_blocked
+                            else "CIPHERTEXT_PURGED"
+                        ),
+                        "error_category": error_category,
+                        "attempted_at": now,
+                    }
+                )
+                continue
+            self.sources.pop(private_id, None)
+            source_count += 1
+            self.screenshot_cleanup_receipts.append(
+                {
+                    "source_job_id": private_id,
+                    "attempt_number": 1,
+                    "terminal_reason": "SOURCE_TTL_EXPIRED",
+                    "cleanup_status": "CIPHERTEXT_PURGED",
+                    "attempted_at": now,
+                }
+            )
+        return {
+            "sources_purged": source_count,
+            "batches_purged": batch_count,
+        }
 
     async def authorize(
         self,
@@ -2826,6 +5107,47 @@ class InMemoryTripUnderstandingRepository(
                 view=self.account_deletion_status[subject_hash],
                 replayed=True,
             )
+        pending_screenshot_cleanup = False
+        for (owner_user_id, _ref_hash), row in self.screenshot_batches.items():
+            if owner_user_id != user_id or row.get("consumed_understanding_id") is not None:
+                continue
+            cleanup_statuses = row.get("asset_cleanup_statuses")
+            if isinstance(cleanup_statuses, dict):
+                if not cleanup_statuses or any(
+                    status != "CLEANED" for status in cleanup_statuses.values()
+                ):
+                    pending_screenshot_cleanup = True
+                    break
+            elif row.get("status") in {"PROCESSING", "PRIVACY_BLOCKED"}:
+                pending_screenshot_cleanup = True
+                break
+        if pending_screenshot_cleanup:
+            view = TravelDataDeletionStatusView(
+                status="RETRY_REQUIRED",
+                message="部分截图仍在确认清理，请稍后重试",
+                next_action="RETRY",
+            )
+            self.account_deletion_status[subject_hash] = view
+            self.privacy_idempotency[key] = request_hash
+            return TravelDataDeletionOutcome(view=view)
+        for (owner_user_id, _ref_hash), row in self.screenshot_batches.items():
+            if owner_user_id != user_id or row.get("consumed_understanding_id") is not None:
+                continue
+            row.update(
+                {
+                    "status": "EXPIRED",
+                    "source_document_json": None,
+                    "last_error_category": "ACCOUNT_DATA_DELETED",
+                }
+            )
+            self.screenshot_cleanup_receipts.append(
+                {
+                    "attempt_number": 1,
+                    "terminal_reason": "ACCOUNT_DATA_DELETED",
+                    "cleanup_status": "CIPHERTEXT_PURGED",
+                    "attempted_at": now,
+                }
+            )
         owned_resources = [
             PublicResourceRecord.model_validate(
                 {field: row[field] for field in PublicResourceRecord.model_fields}
@@ -2932,9 +5254,13 @@ class InMemoryTripUnderstandingRepository(
         *,
         now: datetime,
     ) -> TripUnderstandingSourcePayload:
-        del now
         source = self.sources.get(job.job_id)
-        if source is None or _sha256_text(source.text) != job.input_hash:
+        expiry = self.source_expiries.get(job.job_id)
+        if (
+            source is None
+            or (expiry is not None and expiry <= now)
+            or _sha256_text(source.text) != job.input_hash
+        ):
             raise SourceUnavailableError("understanding source is unavailable")
         return source
 
@@ -2966,6 +5292,16 @@ class InMemoryTripUnderstandingRepository(
         now: datetime,
     ) -> bool:
         item = self.jobs[job.job_id]
+        source = self.sources.get(job.job_id)
+        source_expiry = self.source_expiries.get(job.job_id)
+        if (
+            source is None
+            or source_expiry is None
+            or source_expiry <= now
+            or _sha256_text(source.text) != job.input_hash
+            or output.source_hash != job.input_hash
+        ):
+            raise SourceUnavailableError("understanding source is unavailable")
         public_payload = output.public_result.model_dump(mode="json")
         public_hash = canonical_sha256(public_payload)
         effect_key = f"trip-understanding:{job.understanding_id}:r{job.revision}:pipeline-v1"

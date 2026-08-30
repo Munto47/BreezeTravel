@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.4 截图与文本一致
+# IN_PROGRESS GOAL：V0.4 截图与文本一致
 
 Goal ID: TC-VNEXT-G04-SCREENSHOT
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: PRODUCT_ENHANCEMENT
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
@@ -9,7 +9,7 @@ Goal type: PRODUCT_ENHANCEMENT
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G04-SCREENSHOT",
-  "goal_status": "APPROVED",
+  "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Screenshot Parity Gate + PRODUCT_DELIVERY_PASS",
   "completion_status": "PENDING",
@@ -35,7 +35,7 @@ Goal type: PRODUCT_ENHANCEMENT
 - Mainline phase：`PRODUCT_ENHANCEMENT`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
 - Required gate：`Screenshot Parity Gate + PRODUCT_DELIVERY_PASS`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Product baseline：`origin/develop@0531c0642f437932fb4e305a0a99fbb66b19e4bc`
 - Activation branch：`codex/g04-activation`
 - Canonical implementation branch：`codex/g04-screenshot-integration`
@@ -84,9 +84,9 @@ Goal type: PRODUCT_ENHANCEMENT
 | Package | Branch / worktree | Owned outcome | Initial state |
 |---|---|---|---|
 | `WP-G04-INTEGRATOR` | `codex/g04-screenshot-integration` / `...-g04-integration` | governance、034、共享API/持久化/worker、OpenAPI/client、首页装配、CI、最终E2E | `IN_PROGRESS` |
-| `WP-G04-EPHEMERAL-UPLOAD` | `codex/g04-ephemeral-upload` / `...-g04-upload` | 有界multipart、临时文件、终态清理 | 提示词绑定后`IN_PROGRESS` |
-| `WP-G04-PADDLE-OCR` | `codex/g04-paddle-ocr` / `...-g04-ocr` | Paddle、阅读顺序、bbox/span、评测runner | 提示词绑定后`IN_PROGRESS` |
-| `WP-G04-VL-PARITY` | `codex/g04-vl-parity` / `...-g04-vl-parity` | VL消融合同和隔离截图输入组件 | `WAITING_FOR_WRITER_SLOT` |
+| `WP-G04-EPHEMERAL-UPLOAD` | `codex/g04-ephemeral-upload` / `...-g04-upload` | 有界multipart、临时文件、终态清理 | `MERGED`（`9403a989`） |
+| `WP-G04-PADDLE-OCR` | `codex/g04-paddle-ocr` / `...-g04-ocr` | Paddle、阅读顺序、bbox/span、评测runner | `MERGED`（`f1c75d95`） |
+| `WP-G04-VL-PARITY` | `codex/g04-vl-parity` / `...-g04-vl-parity` | VL消融合同和隔离截图输入组件 | `MERGED`（`206312c0`） |
 
 主对话是唯一集成者。三个长期贡献包必须使用用户可见独立任务、独立branch/worktree和完整prompt hash；子Agent只可只读标注、复核或诊断。集成者加最多两个贡献writer同时活动；任一前两包经集成者验收冻结后才启动VL/UI包。贡献包不得改治理、migration、共享OpenAPI/生成物或锁文件，不得自行合并。集成顺序固定为OCR→上传/清理→共享持久化/API→VL/UI→OpenAPI/client/homepage→E2E，每个问题最多两轮修复复审。
 
@@ -117,6 +117,9 @@ Goal type: PRODUCT_ENHANCEMENT
 - Ruff、backend full suite、OpenAPI导出、shared client generate/typecheck/build、frontend build；
 - Playwright登录、多图顺序/删除、partial、刷新、断线、卡片/地图/住宿/Top-3与DOM隐私；
 - 许可清晰真实来源与SYNTHETIC格式集分层；两个隔离Agent转写与一个新裁决仅记`MULTI_AGENT_SIMULATED_REVIEW`；
+- sequence 4的`g04_screenshot_targeted / g04_postgresql / frontend_build / g04_browser_e2e`是四个独立CI job；其中OCR固定为fixture，只证明自动回归，不生成或替代真实Paddle截图一致性证据；
+- `PRODUCT_DELIVERY_PASS`必须回读已纳入Git的脱敏正式receipt，并同时校验receipt文件hash、候选commit/tree、跨平台稳定product fingerprint、Paddle 3.7.0/PaddlePaddle 3.3.1、hardware hash、冻结oracle/runner/scorer hash及3图并发1的2次预热+20次测量；缺失、过期、空分母、循环oracle、`NOT_EVALUABLE`或非PASS均失败关闭；
+- 真实许可原图只可位于Git外临时证据目录；正式receipt仅保存许可清单与清理回执hash，不保存原图、OCR原文、bbox、置信度或本机路径；
 - H1、公网、生产、商业：`NOT_RUN`。
 
 ## Authority
@@ -149,6 +152,9 @@ Goal type: PRODUCT_ENHANCEMENT
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | Owner已批准截图入口；G04完整合同、034授权和唯一集成者从fresh develop激活 | activation commit待提交 | fresh fetch/ls-remote一致；根工作树和历史脏工作树保持不动；Paddle依赖/硬件readback | `LOCAL_READBACK / OWNER_AUTHORIZATION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / authorized activation only` | 提示词/任务绑定、三个贡献包、产品实现与Gate | 当前无eligible Qwen-VL binding；真实来源截图集待许可清晰化 | push/readback激活提交并经PR合入develop，再绑定三个用户可见任务 |
 | 2026-08-30 | 三个用户可见功能任务已创建并绑定独立branch/worktree；Upload与OCR可在远端绑定后启动，VL等待writer名额 | binding commit待提交 | PR #15/core-mainline PASS并合入`develop@2d74a2cf`；三份prompt hash和dialogue/worktree readback | `LOCAL_READBACK / REMOTE_AUTOMATED` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / GOVERNANCE_SCOPE_GUARD binding exception` | 贡献包实现、冻结、串行集成和G04 Gate | Codex管理的独立worktree路径替代计划中的建议路径，隔离与branch合同不变 | 提交并push prompt binding，随后把两个活动任务切到binding commit并发送完整提示词 |
+| 2026-08-30 | OCR、上传清理与VL/UI三个用户可见贡献包均已冻结、远端回读并按OCR→Upload→VL/UI顺序集成；共享截图主链进入总集成 | `f1c75d95` / `9403a989` / `206312c0`；registry checkpoint `313c5347` | 三包远端tip与ready commit一致；stable patch-id一致；45项贡献测试与Ruff通过 | `REMOTE_AUTOMATED / MULTI_DIALOGUE_CONTRIBUTION` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=control-plane checkpoint` | 034、原子幂等、TTL、OpenAPI、浏览器和最终Gate | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；真实Paddle与真实来源Gate仍需单独实跑 | 集成者完成共享持久化/API/前端/CI并运行Screenshot Parity Gate |
+| 2026-08-30 | G04四项自动检查拆为独立CI job，fixture回归与真实Paddle一致性Gate建立机器可判别边界 | 工作树待集成者checkpoint | 治理定向测试覆盖receipt缺失、`NOT_EVALUABLE`、空分母、循环oracle、候选过期、Paddle/hardware与2+20绑定 | `LOCAL_AUTOMATED / GOVERNANCE_CONTRACT_ONLY` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=delivery evidence fail-closed` | 真实许可数据、真实Paddle执行、全量产品检查和耐久delivery receipt | 当前正式receipt状态仍为`NOT_RUN`，不得推断Screenshot Parity Gate通过 | 完成产品验收后生成脱敏正式receipt，再生成并验证G04 product-delivery receipt |
+| 2026-08-31 | 截图批次、034持久化、原子一次性消费、隐私清理、统一语义主链、首页与独立CI聚合已形成可验证候选；许可真实截图oracle已由双隔离转写加独立裁决冻结 | 本候选提交（提交后远端readback） | G04定向`137 passed, 1 skipped`；自然路线/正式Gate`38 passed`；Ruff PASS；Windows临时文件安全`47 passed`，Linux容器`36 passed, 2 skipped`；fresh/031 PostgreSQL真实升级与事务测试PASS；live fixture Playwright `5 passed`；OpenAPI、client typecheck/build、frontend production build PASS | `LOCAL_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / MULTI_AGENT_SIMULATED_REVIEW / LICENSED_REAL_SCREENSHOT_DATASET` | `Product progress=RUNTIME+UI / VERIFYING` | `Governance ratio=product candidate plus fail-closed evidence contract` | 真实Paddle 2+20、backend full suite终态与耐久delivery receipt | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；正式Paddle receipt尚未生成；全量后端仅剩冻结Trip NLU旧manifest与当前validator绑定相互矛盾的2项历史失败，未改冻结资产 | 冻结并push候选commit，回读远端tip后运行真实Paddle；继续寻找不改冻结资产的全量回归解法 |
 
 ## Auto-advance
 
@@ -158,7 +164,8 @@ Goal type: PRODUCT_ENHANCEMENT
 ## Completion record
 
 - Status：`PENDING`；Subject commits / Remote branch：激活后逐checkpoint填写；
-- Verification / Evidence / Gate result / structurally_valid：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`；
+- Verification / Evidence / Gate result / structurally_valid：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`（`structurally_valid=true`）；
+- 当前结构有效或G04自动验证通过，不得因此宣称 `V1_CANDIDATE_READY`；该发布门仍不在本Goal授权和证据范围内。
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
 - User-visible result / Remaining risks / Goal archived / Next activated：`PENDING / PENDING / false / false`；
 - Promotion decision：`NOT_REQUESTED`。

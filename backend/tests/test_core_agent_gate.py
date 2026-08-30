@@ -32,20 +32,24 @@ NOW = datetime(2026, 8, 29, tzinfo=timezone.utc)
 
 
 def _legacy_core_binding() -> CurrentGoalBinding:
-    """Build the frozen Agent Gate view without consuming the active v3 binding."""
+    """Build the frozen G01 Agent Gate view, independent of the active Goal."""
 
-    value = json.loads(
-        (ROOT / "docs/governance/current_goal_binding.json").read_text(
-            encoding="utf-8"
-        )
+    contract_path = "backend/eval_data/agent_gate_v1/g01_automated_product_gate.json"
+    return CurrentGoalBinding(
+        schema_version="current-goal-binding-v2",
+        goal_sequence=1,
+        goal_id="TC-VNEXT-G01-TEXT-CARDS",
+        status="IN_PROGRESS",
+        predecessor_goal_id="TC-BP-G00-BLUEPRINT",
+        predecessor_completion_commit="f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
+        automated_gate_contract_path=contract_path,
+        automated_gate_contract_sha256=hashlib.sha256(
+            (ROOT / contract_path).read_bytes()
+        ).hexdigest(),
+        gate_profile="CORE_AGENT_GATE",
+        mainline_phase="CORE_MVP",
+        work_package_registry_path="docs/governance/current_work_packages.json",
     )
-    value.update(
-        {
-            "schema_version": "current-goal-binding-v2",
-            "gate_profile": "CORE_AGENT_GATE",
-        }
-    )
-    return CurrentGoalBinding.model_validate(value)
 
 
 def _blind_metrics() -> dict[str, float | int | bool]:

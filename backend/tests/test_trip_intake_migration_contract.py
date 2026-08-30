@@ -7,8 +7,10 @@ MIGRATION = Path("app/db/migrations/026_trip_intake_v2.sql")
 LINEAGE_MIGRATION = Path("app/db/migrations/027_trip_intake_revision_lineage.sql")
 
 
-def test_runtime_requires_trip_intake_v2_migration() -> None:
-    assert Settings().required_migration == "029_map_render_snapshots.sql"
+def test_runtime_requires_the_current_complete_migration_set() -> None:
+    assert Settings().required_migration == (
+        "034_trip_understanding_screenshot_batches.sql"
+    )
 
 
 def test_lineage_migration_removes_only_the_conflicting_room_intake_constraint() -> None:

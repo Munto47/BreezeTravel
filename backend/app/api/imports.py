@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hmac
 from email import policy
 from email.parser import BytesParser
 from typing import Annotated
@@ -7,6 +8,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field, model_validator
 
+from app.config import get_settings
 from app.importing.entity_resolver import AmapEntityCandidateProvider, EntityCandidateProvider, EntityResolver
 from app.importing.models import ImportApplyResult, ImportSourceType, ItineraryImport
 from app.importing.repositories import ImportRepository, PostgresImportRepository
@@ -42,7 +44,27 @@ from app.trip_check.briefs import PostgresTripBriefRepository, TripBriefReposito
 from app.utils.auth import get_current_user
 
 
-router = APIRouter()
+def require_legacy_import_diagnostic_access(
+    diagnostic_key: Annotated[
+        str | None,
+        Header(alias="X-Breeze-Diagnostic-Key"),
+    ] = None,
+) -> None:
+    settings = get_settings()
+    if settings.runtime_profile != "public":
+        return
+    expected = settings.legacy_import_diagnostics_key.strip()
+    supplied = (diagnostic_key or "").strip()
+    if (
+        not settings.legacy_import_diagnostics_enabled
+        or len(expected) < 32
+        or not supplied
+        or not hmac.compare_digest(expected, supplied)
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+
+router = APIRouter(dependencies=[Depends(require_legacy_import_diagnostic_access)])
 
 
 def get_import_repository() -> ImportRepository:

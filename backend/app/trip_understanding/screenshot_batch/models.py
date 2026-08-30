@@ -93,5 +93,59 @@ class CleanupAttempt:
     succeeded: bool
 
 
+@dataclass(frozen=True, slots=True)
+class LocalRecoveryIssue:
+    """A privacy-safe reason why one random local batch was not recovered."""
+
+    batch_locator: str
+    category: str
+    observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class LocalRecoveryBatchEvidence:
+    """Locator-bound crash cleanup evidence ready for later database reconciliation."""
+
+    batch_locator: str
+    asset_locators: tuple[str, ...]
+    attempts: tuple[CleanupAttempt, ...]
+
+    @property
+    def succeeded(self) -> bool:
+        return bool(self.attempts and self.attempts[-1].succeeded)
+
+
+@dataclass(frozen=True, slots=True)
+class LocalScreenshotRecoveryReport:
+    """Bounded local recovery output; it intentionally contains no pixels or source text."""
+
+    batches: tuple[LocalRecoveryBatchEvidence, ...]
+    issues: tuple[LocalRecoveryIssue, ...]
+    skipped_fresh_directories: int
+
+    @property
+    def directories_removed(self) -> int:
+        return sum(item.succeeded for item in self.batches)
+
+    @property
+    def files_removed(self) -> int:
+        return sum(
+            len(attempt.deleted_locators)
+            for item in self.batches
+            for attempt in item.attempts
+        )
+
+    @property
+    def failures(self) -> int:
+        return len(self.issues) + sum(not item.succeeded for item in self.batches)
+
+    def summary(self) -> dict[str, int]:
+        return {
+            "directories_removed": self.directories_removed,
+            "files_removed": self.files_removed,
+            "failures": self.failures,
+        }
+
+
 # The prompt calls this input simply ``limits``. Keep a concise public alias for integrators.
 UploadLimits = ScreenshotBatchLimits
