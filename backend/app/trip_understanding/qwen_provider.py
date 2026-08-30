@@ -32,7 +32,20 @@ _PROMPT_PATH = (
 _SCHEMA_PATH = _PROMPT_PATH.with_name("qwen_semantic_draft.schema.json")
 _CONFIG_PATH = _PROMPT_PATH.with_name("qwen_inference_config.json")
 _MODEL_PANEL_PATH = _PROMPT_PATH.with_name("qwen_model_panel.json")
-_FORBIDDEN_ATOMIC_MARKERS = ("预约", "说明", "网址", "链接", "http://", "https://")
+_FORBIDDEN_ATOMIC_MARKERS = (
+    "预约",
+    "说明",
+    "网址",
+    "链接",
+    "电话",
+    "导航",
+    "路线",
+    "流程",
+    "确认",
+    "分钟",
+    "http://",
+    "https://",
+)
 _SENTENCE_MARKERS = set("。！？；\n")
 _NON_ATOMIC_SOURCE_MARKERS = (
     "上午",
@@ -417,6 +430,21 @@ def _redacted_validation_category(exc: Exception) -> str:
     return "VALUE_ERROR"
 
 
+def _is_atomic_place_value(value: str) -> bool:
+    if not 1 < len(value) <= 40:
+        return False
+    lowered = value.casefold()
+    if any(marker in lowered for marker in _FORBIDDEN_ATOMIC_MARKERS):
+        return False
+    if any(marker in value for marker in _NON_ATOMIC_SOURCE_CHARACTERS):
+        return False
+    if any(marker in value for marker in _NON_ATOMIC_SOURCE_MARKERS):
+        return False
+    if re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+", value) is None:
+        return False
+    return re.search(r"[A-Za-z\u4e00-\u9fff]", value) is not None
+
+
 def _safe_atomic_source_span(
     source_text: str,
     span_start: int,
@@ -435,12 +463,7 @@ def _safe_atomic_source_span(
         for match in _URL_TOKEN_RE.finditer(source_text)
     ):
         return None
-    lowered = value.casefold()
-    if any(marker in lowered for marker in _FORBIDDEN_ATOMIC_MARKERS):
-        return None
-    if any(marker in value for marker in _NON_ATOMIC_SOURCE_CHARACTERS):
-        return None
-    if any(marker in value for marker in _NON_ATOMIC_SOURCE_MARKERS):
+    if not _is_atomic_place_value(value):
         return None
     return start, end, value
 
@@ -851,6 +874,8 @@ class QwenStructuredInferenceProvider:
                 if (narrowed_start, narrowed_end) != (span_start, span_end):
                     normalization_counts["atomic_span_narrowing_count"] += 1
                 span_start, span_end = narrowed_start, narrowed_end
+                if not _is_atomic_place_value(atomic):
+                    raise ValueError("NON_ATOMIC_PLACE")
                 corrected_role = _conditional_optional_role(
                     source_text,
                     span_start,

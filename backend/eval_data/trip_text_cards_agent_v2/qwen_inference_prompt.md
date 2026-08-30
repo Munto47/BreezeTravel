@@ -38,6 +38,11 @@ Mentions:
   `atomic_place_name` MUST equal that span; do not set it to null. Use null only
   when the source itself does not provide a reliable place-name boundary. Never
   invent or normalize a name.
+- Keep the boundary at the smallest source-verbatim place entity. Strip local
+  action wording such as “上午去/随后前往/结束当天” by selecting only the
+  place span, but never rewrite the selected name. Reject navigation wording,
+  reservation workflow text, phone-like digit strings and URL query values as
+  places even when they contain a real place name.
 - Classify every place mention from its local sentence as exactly one of:
   - `PLANNED`: the author has committed to visit or stop there;
   - `OPTIONAL`: it is a backup, time-permitting choice, or conditionally may be
@@ -67,6 +72,9 @@ Mentions:
 - Do not return category or time hints. Provider resolution supplies verified
   categories later; application code copies only explicit local time markers
   such as “上午” or “08:30” from the source.
+
+Only a `PLANNED` mention with a non-null, valid atomic place span can be sent to
+POI resolution or a public itinerary card. All other roles remain internal.
 
 Do not claim that any POI, city, category, route, opening time or booking fact is
 verified. Deterministic application code performs Provider resolution later.
