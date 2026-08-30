@@ -157,11 +157,11 @@
       "prompt_sha256": "90faedd370581ec29b8d5f70dfaa685d7019dc678965003848ff3c4c27984fc9",
       "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
       "remote_branch": "origin/codex/g03r-semantic",
-      "checkpoint_commit": "ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d",
-      "remote_readback": "ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d",
+      "checkpoint_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
+      "remote_readback": "905327d96e15838e510eae7a7b5da268a90736c8",
       "role": "CONTRIBUTOR",
-      "status": "BLOCKED_EXTERNAL",
-      "status_reason": "新鲜54 dev + 18 validation逐因素Qwen比较因既有批准凭据未注入而NOT_RUN；代码、离线回归、路径和远端tip已验证。",
+      "status": "IN_PROGRESS",
+      "status_reason": "既有批准Qwen环境已恢复；baseline固定72条已且仅运行一次并72/72可比较。主对话审查发现两条动作锚点原子边界缺陷后，贡献包以追加提交905327d修复并通过55项核心、31项相关回归、数据与主线校验；剩余三个精确版本的一次性比较正在运行。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     },
     {
@@ -221,12 +221,12 @@
       "remote_branch": "origin/codex/g03r-place-resolution",
       "role": "CONTRIBUTOR",
       "status": "READY_TO_MERGE",
-      "status_reason": "两个串行提交、7条授权路径、900条词典、102项受影响回归、ruff、core-mainline、clean worktree及远端tip均通过；live AMap为INTEGRATOR_ONLY且当前凭据未注入。",
+      "status_reason": "两个串行提交、7条授权路径、900条词典、102项受影响回归、ruff、core-mainline、clean worktree及远端tip均通过；AMAP_API_KEY已恢复，但控制台无现有登录态且无法证明本月仍有完整2500次零增量额度，主对话遵守停止条件保持live矩阵NOT_RUN（0次调用）。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-place-resolution"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_SEMANTIC_BLOCKED_PLACE_READY",
+  "program_state": "G03R_SEMANTIC_PROVIDER_VALIDATION_IN_PROGRESS_PLACE_READY",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",

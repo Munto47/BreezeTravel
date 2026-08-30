@@ -107,7 +107,7 @@ Goal type: BLOCKING_DEFECT
 - 控制分支：`codex/g03r-activation`；语义与地点分支分别在各自完整prompt binding commit后创建；
 - 固定比较集：`54 dev + 18 validation`，不读取blind；
 - 基线诊断：结构化结果`72/72`、计划原子召回`432/432`、额外计划地点`0`、角色`716/720`、日序及顺序`336/432`；本地回退另有计划召回与额外描述地点缺陷；
-- 当前终端Qwen凭据：`NOT_PRESENT`，正式新鲜72条比较为`NOT_RUN`。
+- 当前Qwen环境：既有批准凭据已从仓库外忽略的根`.env`安全注入且未打印；baseline已且仅运行一次，`72/72`可比较、禁入地点`0`、额外`PLANNED 0`、计划原子召回`432/432`、五角色`708/720`、日序及顺序`336/432`，其余三个精确版本正在各自唯一一次比较中。
 
 ## Invariants
 
@@ -174,6 +174,7 @@ Goal type: BLOCKING_DEFECT
 | 2026-08-30 | G03R控制面已激活，语义贡献包已运行；现登记三城900地点词典与保守高德解析包，地点产品代码尚未修改 | activation `d4ce966de55b6d72e0b5daced9764223d7a6913a`；place binding以本次远端subject回读为准 | core-mainline、治理定向测试、prompt完整性/哈希与registry一致性由本控制切片复核 | `LOCAL_AUTOMATED / CONTROL_PLANE` | `Product progress=NONE / GOAL_TRANSITION / GOVERNANCE_SCOPE_GUARD` | `Governance ratio=100% / semantic + place prompt binding` | 地点分支/工作树、两个串行提交、离线回归、正式语义72条 | 词典来源需逐条复核；Qwen凭据未注入；live AMap仅主对话且受零增量费用边界约束 | 推送place binding并从该提交创建`codex/g03r-place-resolution` |
 | 2026-08-30 | 语义代码与离线检查已完成并推送，推荐/经过/排除/描述/URL/预约不进入行程，日序、原文顺序和计划原子地点由独立回归保护；尚未取得新鲜Qwen比较证据 | semantic `ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d`，远端tip同值 | 必跑语义测试53 PASS；相关API/高德回归34 PASS；数据集validator valid且Gate NOT_RUN；core-mainline PASS；贡献路径5/5；模型配置和schema未变 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=MODEL / RUNTIME contribution` | `Governance ratio=0% / semantic branch` | 三个因素各一次新鲜72条Qwen比较、主对话串行验收与集成、受影响G03产品验证 | 进程环境和非示例项目env均无Qwen密钥；新鲜72条为`NOT_RUN / BLOCKED_EXTERNAL` | 现有批准凭据环境恢复后，在同一固定72条上各运行一次比较；不得概率性重跑 |
 | 2026-08-30 | 三城900地点词典与保守高德解析已形成两个串行提交并通过离线验收；歧义、错城、错类别、行政区冲突和字段不足保持待确认 | lexicon `ad0050585ddb9aa0479da90189bae1977f54efbc`；resolver `d554b0d73c2b8d2ce93bf1adb93ab6412904536d`；远端tip同resolver | 词典4 PASS；解析59 PASS；完整受影响回归102 PASS；ruff PASS；core-mainline PASS；两提交路径3+4精确匹配 | `LOCAL_AUTOMATED / DEVELOPMENT_DIAGNOSTIC` | `Product progress=RUNTIME contribution` | `Governance ratio=0% / place branch` | live AMap矩阵、语义先序解除、串行集成和受影响G03产品验证 | `AMAP_API_KEY`未注入，live矩阵为`NOT_RUN / INTEGRATOR_ONLY`；不得越过语义包先序 | 冻结地点候选为`READY_TO_MERGE`，等待已批准Provider环境恢复后完成两类外部矩阵 |
+| 2026-08-30 | Provider环境已恢复；Qwen baseline一次完成。主对话额外发现“逛外滩”和“上海博物馆再去外滩”会污染原子地点，语义任务已通用修复为正确拆分并推送；后续三个Qwen版本继续各运行一次 | semantic repair `905327d96e15838e510eae7a7b5da268a90736c8`，远端tip同值 | baseline `72/72`可比较、0禁入、0额外PLANNED、432/432计划召回、708/720角色、336/432日序顺序、72次调用且0失败；修复后核心55 PASS、相关31 PASS、数据与主线校验PASS；主对话黑盒复验两例PASS | `LIVE_QWEN_NONBLIND_DEVELOPMENT_DIAGNOSTIC / LOCAL_AUTOMATED` | `Product progress=MODEL / RUNTIME contribution` | `Governance ratio=0% / semantic branch` | b37、28a、905三个精确版本各自唯一一次72条比较；语义先序验收与串行集成 | 高德key存在，但当前账户剩余搜索额度无法从未登录控制台证明；完整2500次live矩阵保持0调用，避免潜在费用 | 完成三个Qwen版本且最终门槛全过后登记语义READY_TO_MERGE；否则回送同一语义任务定向修复 |
 
 ## Auto-advance
 
@@ -187,8 +188,8 @@ Goal type: BLOCKING_DEFECT
 
 - Status：`IN_PROGRESS`；Goal archived：`NO`；
 - Product result / current delivery Gate：`PENDING / PRODUCT_DELIVERY_NOT_RUN`；
-- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / ca4b0d3f767fcb3d799196f8bc7d7c2de9f5f25d / PASS / BLOCKED_EXTERNAL`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / READY_TO_MERGE`；
-- Fresh 72-case Qwen comparison：`NOT_RUN`；当前无凭据时最终状态必须为`BLOCKED_EXTERNAL`；
+- Contribution packages / final commits / remote readback：`WP-G03R-SEMANTIC / 905327d96e15838e510eae7a7b5da268a90736c8 / PASS / IN_PROGRESS_PROVIDER_COMPARISON`；`WP-G03R-PLACE / d554b0d73c2b8d2ce93bf1adb93ab6412904536d / PASS / READY_TO_MERGE`；
+- Fresh 72-case Qwen comparison：`BASELINE 72/72 COMPLETE / THREE FACTOR VERSIONS IN_PROGRESS`；任何未完成版本仍不得推断通过；
 - FUX-03 / H1 / public network / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN / NOT_RUN`；
 - Release / deployment / main merge：`NOT_REQUESTED / NOT_REQUESTED / NOT_REQUESTED`；
 - Next activated：`NO`，G04保持`NOT_ACTIVATED`。
