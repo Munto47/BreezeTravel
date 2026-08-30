@@ -319,6 +319,12 @@ def test_sequence_four_has_four_explicit_fixture_jobs_not_a_real_paddle_run() ->
     assert 'actual_result" != "$expected_g04_result' in enforcement
     assert workflow.count("G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI") >= 3
     assert "run_g04_screenshot_parity" not in workflow
+    preflight_steps = jobs["core-mainline-preflight"]["steps"]
+    scope_step = next(
+        step for step in preflight_steps if step.get("name") == "Enforce product-mainline scope"
+    )
+    assert scope_step["env"]["HEAD_SHA"] == "${{ github.event.pull_request.head.sha || github.sha }}"
+    assert '--head-ref "$head_ref"' in scope_step["run"]
 
 
 def test_current_g04_lifecycle_has_frozen_formal_pass_before_delivery() -> None:

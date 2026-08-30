@@ -116,10 +116,12 @@ jobs:
         working-directory: backend
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           base_ref="${BASE_SHA:-origin/develop}"
-          python -m scripts.validate_core_mainline --base-ref "$base_ref" --head-ref HEAD
+          head_ref="${HEAD_SHA:-HEAD}"
+          python -m scripts.validate_core_mainline --base-ref "$base_ref" --head-ref "$head_ref"
 
       - name: Check delivery governance code
         working-directory: backend
