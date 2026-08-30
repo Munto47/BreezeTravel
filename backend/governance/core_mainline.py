@@ -19,6 +19,7 @@ OWNER_REVIEW_STATE = "CORE_MVP_OWNER_REVIEW_PENDING"
 OWNER_REVIEW_STATUS = "OWNER_REVIEW_PENDING"
 G03_GOAL_ID = "TC-VNEXT-G03-TOP3-AUDIT"
 G04_GOAL_ID = "TC-VNEXT-G04-SCREENSHOT"
+G03_REPAIR_OWNER_AUTHORIZATION = "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30"
 
 PRODUCT_ROOTS = (
     "backend/app/",
@@ -437,10 +438,28 @@ def validate_core_mainline(
         and base_binding is not None
         and base_binding.get("goal_id") == G03_GOAL_ID
     )
+    blocking_issue = active.get("blocking_issue")
+    owner_review_repair_transition = (
+        base_binding is not None
+        and base_binding.get("program_state") == OWNER_REVIEW_STATE
+        and base_binding.get("goal_id") == OWNER_REVIEW_STATE
+        and base_sequence == 3
+        and sequence == 3
+        and binding.get("goal_id") == G03_GOAL_ID
+        and active.get("work_kind") == "BLOCKING_DEFECT"
+        and isinstance(blocking_issue, dict)
+        and blocking_issue.get("severity") == "P1"
+        and blocking_issue.get("current_goal_acceptance_ref")
+        == G03_REPAIR_OWNER_AUTHORIZATION
+    )
     goal_transition = (
         base_has_contract
         and isinstance(base_sequence, int)
-        and (sequence == base_sequence + 1 or owner_review_transition)
+        and (
+            sequence == base_sequence + 1
+            or owner_review_transition
+            or owner_review_repair_transition
+        )
     )
     errors: list[str] = []
 
@@ -466,7 +485,13 @@ def validate_core_mainline(
             errors.append("DEFERRED_DETAIL_WORK_CHANGED")
 
     declared_work_kind = str(active.get("work_kind"))
-    work_kind = "GOAL_TRANSITION" if goal_transition else declared_work_kind
+    work_kind = (
+        declared_work_kind
+        if owner_review_repair_transition and progress
+        else "GOAL_TRANSITION"
+        if goal_transition
+        else declared_work_kind
+    )
     if sequence <= 3 and work_kind in {"PRODUCT", "BLOCKING_DEFECT"} and not progress:
         errors.append("PRODUCT_PROGRESS_NONE")
     if sequence <= 3 and paths and all(_is_governance(path) or path.startswith("backend/tests/") for path in paths):

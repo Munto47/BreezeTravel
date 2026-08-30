@@ -1,11 +1,11 @@
 {
-  "active_goal_id": "CORE_MVP_OWNER_REVIEW_PENDING",
+  "active_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "active_goal_sequence": 3,
   "active_slice": {
     "acceptance_refs": [
-      "G03产品回执、PR合并与远端readback均为PASS",
-      "唯一G03工作包已MERGED且没有活动writer",
-      "G04保持NOT_ACTIVATED并等待项目所有者体验验收"
+      "描述、URL、预约说明和其他禁入内容成为地点必须为0",
+      "计划地点原子召回432/432且额外PLANNED地点为0",
+      "五类地点角色720/720，计划地点日序及日内顺序432/432"
     ],
     "allowed_paths": [
       "backend/governance/core_mainline.py",
@@ -14,29 +14,48 @@
       "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
-      "docs/governance/goals/completed/TC-VNEXT-G03-TOP3-AUDIT.md"
+      "docs/governance/work-packages/WP-G03R-SEMANTIC.md",
+      "backend/app/trip_understanding/qwen_provider.py",
+      "backend/app/trip_understanding/full_text.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+      "backend/tests/test_g03r_trip_semantics.py"
     ],
-    "base_commit": "3999ee583faf4c14ff5c16e2d573bf5cc12689cb",
-    "evidence_invalidated": [],
+    "base_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+    "blocking_issue": {
+      "current_goal_acceptance_ref": "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30",
+      "impact_chain": "日标题识别缺口会错置日序和顺序；重复地点角色丢失会误删语义证据；贪婪本地回退会漏掉真实计划地点并把描述短语送入地点解析和公共卡片。",
+      "minimum_fix": "只修复日序和原文顺序、五类角色、地点原子边界与PLANNED资格复用，不改变schema、模型或运行限制。",
+      "reproduction": "同一54条dev与18条validation诊断中，第1天导致日序/顺序仅336/432，四个实际REFERENCE出现位置缺失，本地回退存在计划召回缺口与额外描述型PLANNED。",
+      "severity": "P1",
+      "stop_condition": "若需要改变模型、deadline、token、并发、schema、blind/oracle或激活G04，立即停止该扩展。"
+    },
+    "evidence_invalidated": [
+      "G03_PRODUCT_DELIVERY_RECEIPT_FOR_CHANGED_RUNTIME",
+      "HISTORICAL_G01_SEMANTIC_CANDIDATE_FOR_CURRENT_COMMIT"
+    ],
     "forbidden_mechanisms": [
-      "Agent Gate、blind、authority、custody、签名或 broker",
-      "通用评测基础设施",
-      "不影响当前用户结果的性能或可靠性加固",
-      "未在 Goal 激活时锁定的新验收项"
+      "切换模型、deadline、token、temperature、并发、retry或schema",
+      "读取、修改或运行sealed blind与oracle",
+      "新增公共API、migration、依赖或运行时多Agent",
+      "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
-    "minimum_change": "仅归档G03、关闭产品writer并建立owner-review终态校验。",
-    "phase": "GOAL_TRANSITION",
+    "minimum_change": "按三个独立质量因素修复G03行程语义，并让POI调用和公共卡片共享同一PLANNED原子地点资格判断。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_governance_agent_gate_transition.py"
+      "backend/tests/test_g03r_trip_semantics.py",
+      "backend/tests/test_qwen_trip_understanding.py",
+      "backend/tests/test_trip_understanding_v3.py",
+      "backend/evals/trip_text_cards_v1/validator.py",
+      "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "RUNTIME",
     "repair_review_cycle": 0,
-    "slice_id": "G03-OWNER-REVIEW-HOLD",
-    "stop_condition": "不激活G04，不创建产品writer，不运行FUX-03、H1、公网、生产、商业、发布、部署或main合并。",
-    "user_outcome": "G01至G03核心主链已可体验，项目停在所有者体验验收点。",
-    "work_kind": "GOAL_TRANSITION"
+    "slice_id": "G03-G03R-SEMANTIC-P1",
+    "stop_condition": "每个因素只比较同一72条非blind输入；不达门槛则审计revert，最多两轮且不得概率性重跑。",
+    "user_outcome": "粘贴攻略后只保留真正计划的原子地点，日序和原文顺序不丢失，推荐、经过、排除、描述、URL与预约说明不会进入行程。",
+    "work_kind": "BLOCKING_DEFECT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
@@ -51,45 +70,40 @@
   "packages": [
     {
       "acceptance": [
-        "两种日期模式、默认人数来源、lineage和current plan ref持久正确",
-        "全部硬Finding留存、公共Top-3稳定排序且Provider局部失败不假PASS",
-        "preview/adopt/postcheck闭环可用，采纳零路线调用并令地图NEEDS_UPDATE"
+        "所有者授权标记存在且G04保持NOT_ACTIVATED",
+        "贡献包只修改登记语义路径并按单因素提交",
+        "主对话只做控制面、复核与串行集成"
       ],
-      "baseline_commit": "5a79c129f13914f4cd5a01789e641ada56d0b486",
-      "branch": "codex/g03-top3-audit",
+      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+      "branch": "codex/g03r-activation",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
-      "forbidden_paths": [],
+      "forbidden_paths": [
+        "backend/app/trip_understanding/qwen_provider.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md"
+      ],
       "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
       "merge_order": 1,
       "owned_paths": [
-        "backend/app",
-        "backend/app/db/migrations/031_day_index_trip_bridge.sql",
         "backend/governance/core_mainline.py",
-        "backend/tests/test_g03_*.py",
-        "docs/governance/CURRENT_GOAL.md",
-        "docs/governance/current_goal_binding.json",
-        "docs/governance/current_work_packages.json",
-        "docs/governance/gate-results/G03.product-delivery.json",
-        "frontend/e2e/g03-product-delivery.spec.js",
-        "frontend/src",
-        "packages/trip-check-client/openapi.current.json",
-        "packages/trip-check-client/src"
+        "backend/tests/test_product_delivery_governance.py",
+        "backend/tests/test_governance_agent_gate_transition.py",
+        "docs/governance"
       ],
-      "package_id": "WP-G03-INTEGRATOR",
-      "ready_commit": "3009372c07fd5b82a76655b2df5c831f4698ec93",
-      "remote_branch": "origin/codex/g03-top3-audit",
+      "package_id": "WP-G03R-INTEGRATOR",
+      "remote_branch": "origin/codex/g03r-activation",
       "role": "INTEGRATOR",
-      "status": "MERGED",
-      "merged_commit": "3999ee583faf4c14ff5c16e2d573bf5cc12689cb",
+      "status": "IN_PROGRESS",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-product-reset"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "CORE_MVP_OWNER_REVIEW_PENDING",
+  "program_state": "G03R_SEMANTIC_P1_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "NONE"
+  "writer_activation": "WP-G03R-INTEGRATOR"
 }
