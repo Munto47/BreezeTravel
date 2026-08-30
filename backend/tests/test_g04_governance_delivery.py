@@ -402,6 +402,16 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert historical_install["run"] == (
         "python -m pip install -r backend/requirements-historical-p5-ci.txt"
     )
+    historical_native_abi = next(
+        step
+        for step in historical_steps
+        if step.get("name") == "Provision exact historical text layout ABI"
+    )
+    assert "fribidi=1.0.10=h62dcd97_0" in historical_native_abi["run"]
+    assert "463c7479d434a8681a9dbde16d0675e28d09d38fa43e3e18d826e345584ba18d" in (
+        historical_native_abi["run"]
+    )
+    assert "GITHUB_PATH" in historical_native_abi["run"]
     historical_requirements = (
         REPOSITORY_ROOT / "backend/requirements-historical-p5-ci.txt"
     ).read_text(encoding="utf-8")
@@ -421,6 +431,10 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "d79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f" in historical_regression["run"]
     assert "P5_RENDERER_ABI" in historical_regression["run"]
     assert "frozen P5 renderer ABI mismatch" in historical_regression["run"]
+    assert "frozen P5 renderer ABI preflight failed" in historical_regression["run"]
+    assert '"raqm": "0.10.3"' in historical_regression["run"]
+    assert '"fribidi": "1.0.10"' in historical_regression["run"]
+    assert '"harfbuzz": "13.2.1"' in historical_regression["run"]
     assert "test_trip_check_p5*.py" in historical_regression["run"]
     assert "python -m pytest -q @testFiles" in historical_regression["run"]
 

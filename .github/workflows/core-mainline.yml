@@ -429,6 +429,33 @@ jobs:
           cache-dependency-path: backend/requirements-historical-p5-ci.txt
       - name: Install frozen historical P5 CI profile
         run: python -m pip install -r backend/requirements-historical-p5-ci.txt
+      - name: Provision exact historical text layout ABI
+        shell: pwsh
+        run: |
+          $condaRoot = $env:CONDA
+          if ([string]::IsNullOrWhiteSpace($condaRoot)) {
+            $condaRoot = 'C:\Miniconda'
+          }
+          $condaExe = Join-Path $condaRoot 'Scripts\conda.exe'
+          if (-not (Test-Path -LiteralPath $condaExe -PathType Leaf)) {
+            throw "GitHub Windows Miniconda is unavailable: $condaExe"
+          }
+          $nativePrefix = Join-Path $env:RUNNER_TEMP 'g04-p5-native'
+          & $condaExe create --prefix $nativePrefix --yes --override-channels --channel defaults 'fribidi=1.0.10=h62dcd97_0'
+          if ($LASTEXITCODE -ne 0) {
+            throw "failed to provision frozen FriBidi runtime: exit $LASTEXITCODE"
+          }
+          $nativeBin = Join-Path $nativePrefix 'Library\bin'
+          $fribidiPath = Join-Path $nativeBin 'fribidi-0.dll'
+          $expectedFribidiHash = '463c7479d434a8681a9dbde16d0675e28d09d38fa43e3e18d826e345584ba18d'
+          if (-not (Test-Path -LiteralPath $fribidiPath -PathType Leaf)) {
+            throw "frozen FriBidi runtime is unavailable: $fribidiPath"
+          }
+          $actualFribidiHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $fribidiPath).Hash.ToLowerInvariant()
+          if ($actualFribidiHash -ne $expectedFribidiHash) {
+            throw "frozen FriBidi hash mismatch: expected $expectedFribidiHash, got $actualFribidiHash"
+          }
+          Add-Content -LiteralPath $env:GITHUB_PATH -Value $nativeBin -Encoding utf8
       - name: Verify exact historical font and P5 regression
         working-directory: backend
         shell: pwsh
@@ -474,6 +501,7 @@ jobs:
               "freetype": features.version("freetype2"),
               "raqm": features.version_feature("raqm"),
               "fribidi": features.version_feature("fribidi"),
+              "harfbuzz": features.version_feature("harfbuzz"),
               "layout_engine": int(
                   ImageFont.truetype(str(Path("C:/Windows/Fonts/msyh.ttc")), 34).layout_engine
               ),
@@ -481,9 +509,22 @@ jobs:
               "actual": actual[:2],
           }
           print("P5_RENDERER_ABI " + json.dumps(diagnostic, ensure_ascii=False, sort_keys=True))
-          if actual[:2] != expected:
+          expected_abi = {
+              "pillow": "12.2.0",
+              "freetype": "2.14.3",
+              "raqm": "0.10.3",
+              "fribidi": "1.0.10",
+              "harfbuzz": "13.2.1",
+              "layout_engine": 1,
+          }
+          if actual[:2] != expected or any(
+              diagnostic[key] != value for key, value in expected_abi.items()
+          ):
               raise SystemExit("frozen P5 renderer ABI mismatch")
           '@ | python -
+          if ($LASTEXITCODE -ne 0) {
+            throw "frozen P5 renderer ABI preflight failed: exit $LASTEXITCODE"
+          }
           $testFiles = @(
             Get-ChildItem -LiteralPath tests -Filter 'test_trip_check_p5*.py' |
               Sort-Object -Property Name |
