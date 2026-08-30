@@ -159,11 +159,10 @@
       "remote_branch": "origin/codex/g03r-semantic",
       "checkpoint_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
       "ready_commit": "905327d96e15838e510eae7a7b5da268a90736c8",
-      "merged_commit": "8af22f048aaeda718489550832452f4c6f37b79e",
       "remote_readback": "905327d96e15838e510eae7a7b5da268a90736c8",
       "role": "CONTRIBUTOR",
-      "status": "MERGED",
-      "status_reason": "主对话按b37、28a、ca4、905顺序无冲突摘取为327f94b、788950d、6e0f34e、8af22f0；语义55项、固定数据validator、ruff与core-mainline均通过。地点贡献包仍未集成。",
+      "status": "IN_PROGRESS",
+      "status_reason": "语义单包门禁通过后，主对话在地点组合回归中发现G01-TC-037的成都目的地被降为待确认；已在纯语义分支独立复现，根因为通用计划捕获先占用已知外地地点span并丢失受控地点城市元数据。仅允许full_text.py与独立语义测试追加通用修复，不重跑或修改Qwen配置/提示词。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
     },
     {
@@ -228,7 +227,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_SEMANTIC_INTEGRATED_PLACE_READY",
+  "program_state": "G03R_INTEGRATION_REGRESSION_REPAIR_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
