@@ -45,10 +45,31 @@ _CLAUSE_BOUNDARIES = "，,。！？；;\n"
 _PLANNED_ATOMIC_RE = re.compile(
     r"(?:去|游览|逛|参观|打卡|安排|前往)\s*(?P<names>[^，,。！？；;\n]+)"
 )
-_EXCLUDED_CUES = ("不去", "排除", "取消", "不要", "跳过", "不安排", "放弃")
-_OPTIONAL_CUES = ("可选", "备选", "有空", "时间允许", "如果有时间", "可以考虑", "顺路再去")
-_PASS_THROUGH_CUES = ("路过", "经过", "途经")
-_REFERENCE_CUES = ("听说", "据说", "参考", "攻略提到", "有人推荐")
+_EXCLUDED_CUES = ("明确不去", "已经决定排除", "决定排除", "排除", "取消", "跳过", "不安排", "放弃")
+_OPTIONAL_CUES = (
+    "可选",
+    "备选",
+    "有空",
+    "时间允许",
+    "时间充裕",
+    "如果有时间",
+    "如果当天太累",
+    "如果太累",
+    "可以不去",
+    "可以完全不去",
+    "可以考虑",
+    "顺路再去",
+)
+_PASS_THROUGH_CUES = ("路过", "经过", "途经", "换乘", "中转")
+_REFERENCE_CUES = (
+    "听说",
+    "据说",
+    "参考",
+    "提到",
+    "推荐",
+    "不是本次安排",
+    "不表示已经安排",
+)
 _META_REFERENCE_CUES = (
     "模型举例",
     "如果用户说",
@@ -56,6 +77,10 @@ _META_REFERENCE_CUES = (
     "仅作示例",
     "不是地点",
     "不要把这个例子",
+    "不要因为",
+    "不要把",
+    "不能生成地点卡",
+    "说明性整句",
 )
 _PLANNED_CUES = ("去", "游览", "逛", "参观", "打卡", "安排", "前往")
 _NON_PLACE_ATOMIC_MARKERS = (
@@ -70,6 +95,60 @@ _NON_PLACE_ATOMIC_MARKERS = (
     "规则",
     "卡片",
     "表单",
+)
+_ATOMIC_ROLE_NAME_PATTERN = r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]{2,40}"
+_ROLE_NAME_FORBIDDEN_MARKERS = ("仅在", "只在", "时间充裕", "作为", "当作", "可以")
+_EXPLICIT_ROLE_PATTERNS: tuple[tuple[ActivityRole, re.Pattern[str]], ...] = (
+    (
+        ActivityRole.EXCLUDED,
+        re.compile(
+            rf"(?:明确不去|已经决定排除|决定排除|取消|不安排|放弃|排除)"
+            rf"\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:仅在|只在).*?(?:备选|可选)"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:作为|当作)(?:备选|可选)"
+        ),
+    ),
+    (
+        ActivityRole.OPTIONAL,
+        re.compile(
+            rf"[，,]\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"可以(?:完全)?不去"
+        ),
+    ),
+    (
+        ActivityRole.PASS_THROUGH,
+        re.compile(
+            rf"(?:会经过|经过|只是路过|路过|途经)\s*"
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:[，,]|但|换乘|中转)"
+        ),
+    ),
+    (
+        ActivityRole.REFERENCE,
+        re.compile(
+            rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*只是从.*?"
+            rf"(?:听说|提到|推荐)"
+        ),
+    ),
+    (
+        ActivityRole.REFERENCE,
+        re.compile(
+            rf"(?:网友曾|网友|另一篇攻略|攻略)?\s*"
+            rf"(?:提到|推荐|听说)\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})"
+        ),
+    ),
 )
 _PUBLIC_CATEGORY_LABELS = {
     "attraction": "景点",
@@ -168,21 +247,32 @@ def _clause_for_position(source_text: str, start: int, end: int) -> str:
     return source_text[left:right]
 
 
+def _is_meta_activity_clause(clause: str) -> bool:
+    if any(cue in clause for cue in _META_REFERENCE_CUES):
+        return True
+    return (
+        any(marker in clause for marker in ("整理", "围绕"))
+        and any(marker in clause for marker in ("路线", "笔记", "攻略", "主题"))
+    )
+
+
 def _role_for_context(
     source_text: str,
     start: int,
     end: int,
     *,
     has_day: bool,
-) -> ActivityRole:
+) -> ActivityRole | None:
     clause = _clause_for_position(source_text, start, end)
     context = source_text[max(0, start - 24) : start]
-    if any(cue in clause for cue in _META_REFERENCE_CUES):
+    if _is_meta_activity_clause(clause):
         return ActivityRole.REFERENCE
     if any(cue in clause for cue in _EXCLUDED_CUES):
         return ActivityRole.EXCLUDED
     if any(cue in clause for cue in _OPTIONAL_CUES):
         return ActivityRole.OPTIONAL
+    if any(cue in clause for cue in ("不去", "不要去")):
+        return ActivityRole.EXCLUDED
     if any(cue in clause for cue in _PASS_THROUGH_CUES):
         return ActivityRole.PASS_THROUGH
     if any(cue in clause for cue in _REFERENCE_CUES):
@@ -227,6 +317,39 @@ def _is_atomic_place_text(value: str) -> bool:
     if any(marker in value for marker in _NON_PLACE_ATOMIC_MARKERS):
         return False
     return re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+", value) is not None
+
+
+def _explicit_role_candidates(
+    source_text: str,
+    *,
+    url_spans: list[tuple[int, int]],
+    occupied: list[tuple[int, int]],
+) -> list[tuple[int, int, str, set[str]]]:
+    candidates: list[tuple[int, int, str, set[str]]] = []
+    for clause_match in re.finditer(r"[^。；;\n]+", source_text):
+        clause = clause_match.group(0)
+        if _is_meta_activity_clause(clause):
+            continue
+        for _role, pattern in _EXPLICIT_ROLE_PATTERNS:
+            for match in pattern.finditer(clause):
+                start = clause_match.start() + match.start("name")
+                end = clause_match.start() + match.end("name")
+                name = source_text[start:end]
+                span = (start, end)
+                if (
+                    not _is_atomic_place_text(name)
+                    or any(marker in name for marker in _ROLE_NAME_FORBIDDEN_MARKERS)
+                    or _inside_url(start, url_spans)
+                    or any(
+                        not (end <= old_start or start >= old_end)
+                        for old_start, old_end in occupied
+                    )
+                ):
+                    continue
+                occupied.append(span)
+                cities = {city for city in _DEEP_CITIES if city in name}
+                candidates.append((start, end, name, cities))
+    return candidates
 
 
 def _planned_atomic_candidates(
@@ -321,12 +444,19 @@ class DeterministicTextInferenceProvider:
                 occupied=occupied,
             )
         )
+        candidates.extend(
+            _explicit_role_candidates(
+                source_text,
+                url_spans=url_spans,
+                occupied=occupied,
+            )
+        )
         candidates.sort(key=lambda item: (item[0], item[1]))
 
         destination, destination_basis = _destination(source_text, candidates, headings)
         day_sequences: dict[int, int] = {}
         mentions: list[ProposedMention] = []
-        for index, (start, end, name, _cities) in enumerate(candidates, start=1):
+        for start, end, name, _cities in candidates:
             explicit_day = _day_for_position(start, headings)
             role = _role_for_context(
                 source_text,
@@ -334,27 +464,32 @@ class DeterministicTextInferenceProvider:
                 end,
                 has_day=explicit_day is not None,
             )
+            if role is None:
+                continue
+            meta_description = _is_meta_activity_clause(
+                _clause_for_position(source_text, start, end)
+            )
             day_index = explicit_day if role == ActivityRole.PLANNED else None
             if role == ActivityRole.PLANNED and day_index is None:
                 day_index = 1
             sequence_index = day_sequences.get(day_index or 0, 0)
             day_sequences[day_index or 0] = sequence_index + 1
-            facts = _PLACES_BY_NAME.get(name, [])
+            facts = _PLACES_BY_NAME.get(name, []) if not meta_description else []
             category = (
                 facts[0].category
                 if facts and len({item.category for item in facts}) == 1
-                else _atomic_category_hint(name)
+                else _atomic_category_hint(name) if not meta_description else None
             )
             mentions.append(
                 ProposedMention(
-                    mention_id=f"mention-{index}",
+                    mention_id=f"mention-{len(mentions) + 1}",
                     raw_text=source_text[start:end],
                     span_start=start,
                     span_end=end,
                     role=role,
                     day_index=day_index,
                     sequence_index=sequence_index,
-                    atomic_place_name=name,
+                    atomic_place_name=None if meta_description else name,
                     category_hint=category,
                 )
             )

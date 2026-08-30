@@ -90,3 +90,81 @@ async def test_only_true_planned_mentions_receive_day_one_without_a_title() -> N
     assert by_name["故宫博物院"].day_index == 1
     assert by_name["天坛公园"].role.value == "REFERENCE"
     assert by_name["天坛公园"].day_index is None
+
+
+def test_qwen_applies_five_role_priority_per_real_occurrence() -> None:
+    source = (
+        "第1天 前往北京鼓楼。"
+        "不要把‘错误地点’加入行程。"
+        "如果当天太累，河坊街可以完全不去；"
+        "只是路过杭州东站换乘；"
+        "网友曾提到鼓楼，但这不是本次安排；"
+        "已经决定排除北京环球影城。"
+    )
+
+    def mention(name: str, role: str) -> dict[str, object]:
+        start = source.index(name)
+        return {
+            "span_start": start,
+            "span_end": start + len(name),
+            "role": role,
+            "atomic_place_name": name,
+        }
+
+    draft = QwenSemanticDraft.model_validate(
+        {
+            "destination": {
+                "basis": "SOFT_ASSUMPTION",
+                "name": "北京、杭州",
+                "evidence_span_start": None,
+                "evidence_span_end": None,
+            },
+            "mentions": [
+                mention("北京鼓楼", "PLANNED"),
+                mention("错误地点", "PLANNED"),
+                mention("河坊街", "EXCLUDED"),
+                mention("杭州东站", "PLANNED"),
+                mention("北京环球影城", "REFERENCE"),
+            ],
+        }
+    )
+
+    normalized, _destination, counts = (
+        QwenStructuredInferenceProvider._proposal_from_draft(source, draft)
+    )
+
+    assert [(item.atomic_place_name, item.role.value) for item in normalized] == [
+        ("北京鼓楼", "PLANNED"),
+        ("河坊街", "OPTIONAL"),
+        ("杭州东站", "PASS_THROUGH"),
+        ("鼓楼", "REFERENCE"),
+        ("北京环球影城", "EXCLUDED"),
+    ]
+    reference = next(item for item in normalized if item.atomic_place_name == "鼓楼")
+    assert reference.span_start == source.index("鼓楼", source.index("网友曾提到"))
+    assert all(item.atomic_place_name != "错误地点" for item in normalized)
+    assert counts["explicit_role_recovery_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_local_fallback_keeps_five_roles_and_skips_meta_examples() -> None:
+    source = (
+        "第1天 前往北京鼓楼。"
+        "不要把‘错误地点’加入行程。"
+        "如果当天太累，河坊街可以完全不去；"
+        "只是路过杭州东站换乘；"
+        "网友曾提到鼓楼，但这不是本次安排；"
+        "已经决定排除北京环球影城。"
+    )
+
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [(item.atomic_place_name, item.role.value) for item in proposal.mentions] == [
+        ("北京鼓楼", "PLANNED"),
+        ("河坊街", "OPTIONAL"),
+        ("杭州东站", "PASS_THROUGH"),
+        ("鼓楼", "REFERENCE"),
+        ("北京环球影城", "EXCLUDED"),
+    ]
+    assert proposal.mentions[0].day_index == 1
+    assert all(item.day_index is None for item in proposal.mentions[1:])
