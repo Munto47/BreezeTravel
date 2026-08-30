@@ -330,17 +330,20 @@
         "frontend/e2e/g03r-result-ui.spec.js"
       ],
       "package_id": "WP-G03R-UI-STABILITY",
+      "prepared_tip": "3c3c8a352f50da5e718f7dbf520ea09826d106dc",
       "prompt_path": "docs/governance/work-packages/WP-G03R-UI-STABILITY.md",
       "prompt_sha256": "22ab17887a13c3afbba768c59049a3791bbb0949b9f1e0fb78744ee1a9854a3d",
+      "registry_activation_commit": "6934f57cf680e90fd9b529af07d5c9937202348e",
+      "remote_readback": "3c3c8a352f50da5e718f7dbf520ea09826d106dc",
       "remote_branch": "origin/codex/g03r-ui-stability",
       "role": "CONTRIBUTOR",
-      "status": "PLANNED",
-      "status_reason": "主集成默认workers repeat3捕获56/57；只读trace已定位同resource兼容ETag被过早abort。等待控制面binding远端回读和独立分支准备点登记，产品写入仍为0。",
+      "status": "IN_PROGRESS",
+      "status_reason": "控制面binding 6934f57已远端回读；独立分支从该binding创建并按原顺序摘取两个UI提交，local/upstream/remote准备点均为3c3c8a3且clean，prompt SHA-256精确匹配。只允许page与新E2E形成一个追加修复提交。",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-ui-stability"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_STABILITY_BINDING",
+  "program_state": "G03R_UI_STABILITY_WRITER_ACTIVATED",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
