@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 
 from app.trip_understanding.full_text import DeterministicTextInferenceProvider
+from app.trip_understanding.models import InferenceProposal, ProposedMention
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
 from app.trip_understanding.qwen_provider import (
     QwenSemanticDraft,
     QwenStructuredInferenceProvider,
@@ -168,3 +172,126 @@ async def test_local_fallback_keeps_five_roles_and_skips_meta_examples() -> None
     ]
     assert proposal.mentions[0].day_index == 1
     assert all(item.day_index is None for item in proposal.mentions[1:])
+
+
+@pytest.mark.asyncio
+async def test_local_fallback_atomizes_unknown_planned_places_without_noise() -> None:
+    source = (
+        "第1天上午先到银杏秘境一号，午后步行到星河展馆二号。"
+        "第 2 天安排云端花园三号和湖畔书屋四号。"
+        "第三天先古巷茶室五号后山顶平台六号。"
+        "网友推荐候鸟书店，但这不是本次安排；"
+        "预约说明写着‘提前确认’，电话010-12345678，"
+        "导航文字沿路线步行十分钟。"
+        "详情https://example.invalid/plan?place=银杏秘境一号"
+    )
+
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    planned = [item for item in proposal.mentions if item.role.value == "PLANNED"]
+
+    assert [item.atomic_place_name for item in planned] == [
+        "银杏秘境一号",
+        "星河展馆二号",
+        "云端花园三号",
+        "湖畔书屋四号",
+        "古巷茶室五号",
+        "山顶平台六号",
+    ]
+    assert [(item.day_index, item.sequence_index) for item in planned] == [
+        (1, 0),
+        (1, 1),
+        (2, 0),
+        (2, 1),
+        (3, 0),
+        (3, 1),
+    ]
+    references = [item for item in proposal.mentions if item.role.value == "REFERENCE"]
+    assert [(item.atomic_place_name, item.raw_text) for item in references] == [
+        ("候鸟书店", "候鸟书店")
+    ]
+    assert all("http" not in item.raw_text for item in proposal.mentions)
+    assert all("预约" not in (item.atomic_place_name or "") for item in proposal.mentions)
+    assert all("010-" not in (item.atomic_place_name or "") for item in proposal.mentions)
+
+
+@pytest.mark.asyncio
+async def test_local_fallback_keeps_overlapping_real_occurrence_outside_url() -> None:
+    source = (
+        "第1天前往北京鼓楼。"
+        "不要因为‘鼓楼很有名’就自动加入；"
+        "网友曾提到鼓楼，但这不是本次安排；"
+        "详情https://example.invalid/guide?place=北京鼓楼"
+    )
+
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    atomic = [item for item in proposal.mentions if item.atomic_place_name]
+
+    assert [(item.atomic_place_name, item.role.value) for item in atomic] == [
+        ("北京鼓楼", "PLANNED"),
+        ("鼓楼", "REFERENCE"),
+    ]
+    assert atomic[1].span_start == source.index("鼓楼", source.index("网友曾提到"))
+
+
+@pytest.mark.asyncio
+async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() -> None:
+    source = "未知地点甲；只写描述；010-12345678；预约说明；前往地点丙；推荐地点乙"
+    values = [
+        ("未知地点甲", "未知地点甲", "PLANNED", 1),
+        ("只写描述", None, "PLANNED", 1),
+        ("010-12345678", "010-12345678", "PLANNED", 1),
+        ("预约说明", "预约说明", "PLANNED", 1),
+        ("前往地点丙", "地点丙", "PLANNED", 1),
+        ("推荐地点乙", "推荐地点乙", "REFERENCE", None),
+    ]
+
+    class Provider:
+        async def propose(self, source_text: str) -> InferenceProposal:
+            mentions = []
+            for index, (raw, atomic, role, day) in enumerate(values):
+                start = source_text.index(raw)
+                mentions.append(
+                    ProposedMention(
+                        mention_id=f"gate-{index}",
+                        raw_text=raw,
+                        span_start=start,
+                        span_end=start + len(raw),
+                        role=role,
+                        day_index=day,
+                        sequence_index=index,
+                        atomic_place_name=atomic,
+                    )
+                )
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="目的地待确认",
+                destination_basis="SOFT_ASSUMPTION",
+                mentions=mentions,
+                binding={"provider": "test-double", "external_calls": 0},
+            )
+
+    class Resolver:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, category_hint
+            self.calls.append(atomic_place_name)
+            return None
+
+    resolver = Resolver()
+    output = await TripUnderstandingPipeline(Provider(), resolver).run(source)
+    eligible = [
+        item.compiled.mention.atomic_place_name
+        for item in output.activities
+        if item.compiled.eligible_for_place_search
+    ]
+    cards = [card.name for day in output.public_result.days for card in day.activities]
+
+    assert resolver.calls == eligible == cards == ["未知地点甲"]
