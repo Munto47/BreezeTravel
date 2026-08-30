@@ -562,6 +562,42 @@ def test_same_line_reading_order_comes_from_observed_text_position() -> None:
     )
 
 
+def test_same_start_nested_fields_use_tighter_observed_geometry_first() -> None:
+    case = _simulated_frozen_baseline().cases[0]
+    template = next(item for item in case.fields if item.field_type == "ACTIVITY_PLACE")
+    shorter = template.model_copy(
+        update={
+            "field_id": "z-shorter-place",
+            "expected_text": "黄石寨",
+            "region_xyxy": (100, 10, 160, 30),
+            "reading_order_index": 0,
+        }
+    )
+    containing_area = template.model_copy(
+        update={
+            "field_id": "a-containing-area",
+            "expected_text": "黄石寨东面的山谷对面",
+            "region_xyxy": (100, 10, 300, 30),
+            "reading_order_index": 1,
+        }
+    )
+    nested_case = case.model_copy(update={"fields": (shorter, containing_area)})
+    line_text = "黄石寨东面的山谷对面是袁家界"
+    line = ScreenshotSourceLineV1(
+        image_index=0,
+        reading_index=0,
+        text=line_text,
+        confidence=0.99,
+        bbox=((100, 10), (400, 10), (400, 30), (100, 30)),
+        semantic_span=SemanticSpanV1(start=0, end=len(line_text)),
+        requires_confirmation=False,
+    )
+
+    observation = _observe_case(nested_case, (line,))
+
+    assert observation.observed_reading_order == observation.expected_reading_order
+
+
 def test_repeated_same_line_text_uses_the_nearest_observed_occurrence() -> None:
     case = _simulated_frozen_baseline().cases[0]
     template = next(item for item in case.fields if item.field_type == "ACTIVITY_PLACE")

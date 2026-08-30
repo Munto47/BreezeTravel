@@ -680,7 +680,7 @@ def _observe_case(
         for field in case.fields
         if field.must_confirm
     )
-    matched: list[tuple[int, int, str, bool]] = []
+    matched: list[tuple[int, int, int, str, bool]] = []
     observed_tokens: list[str] = []
     observed_confirmation: list[str] = []
     for field in case.fields:
@@ -698,15 +698,17 @@ def _observe_case(
         if field.must_confirm and requires_confirmation:
             observed_confirmation.append(_confirmation_token(field.field_id))
         reading_index, subposition = _observed_field_position(field, selected)
+        region_width = field.region_xyxy[2] - field.region_xyxy[0]
         matched.append(
             (
                 reading_index,
                 subposition,
+                region_width,
                 token,
                 requires_confirmation,
             )
         )
-    observed_order = tuple(item[2] for item in sorted(matched))
+    observed_order = tuple(item[3] for item in sorted(matched))
     return FieldObservation(
         expected_key_fields=expected_tokens,
         observed_key_fields=tuple(observed_tokens),
