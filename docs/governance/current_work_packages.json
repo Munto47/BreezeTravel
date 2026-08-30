@@ -3,20 +3,45 @@
   "active_goal_sequence": 4,
   "active_slice": {
     "acceptance_refs": [
-      "三份Work Package Prompt v1的UTF-8/LF内容与SHA-256一致",
-      "三个用户可见Codex任务、独立branch/worktree和dialogue ref已绑定",
-      "Upload与OCR的clean远端tip、路径和定向检查已由集成者复核并冻结",
-      "VL的clean远端tip、owned paths、17项定向测试、Ruff与零网络receipt已由集成者复核并冻结",
-      "三个贡献writer全部停止写入，仅集成者保留writer席位"
+      "OCR、Upload、VL/UI三个冻结提交按登记顺序完成无冲突cherry-pick",
+      "三包合并后45项贡献单测与Ruff通过",
+      "下一切片完成034、API、原子消费、统一pipeline、OpenAPI、首页、PostgreSQL与浏览器验收"
     ],
     "allowed_paths": [
       "docs/governance/CURRENT_GOAL.md",
       "docs/governance/current_work_packages.json",
       "docs/governance/work-packages/WP-G04-EPHEMERAL-UPLOAD.md",
       "docs/governance/work-packages/WP-G04-PADDLE-OCR.md",
-      "docs/governance/work-packages/WP-G04-VL-PARITY.md"
+      "docs/governance/work-packages/WP-G04-VL-PARITY.md",
+      "backend/app/api",
+      "backend/app/config.py",
+      "backend/app/db/connection.py",
+      "backend/app/db/migrations/034_trip_understanding_screenshot_batches.sql",
+      "backend/app/main.py",
+      "backend/app/trip_understanding/models.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/app/trip_understanding/repository.py",
+      "backend/app/trip_understanding/service.py",
+      "backend/app/trip_understanding/worker.py",
+      "backend/app/trip_understanding/screenshot_batch",
+      "backend/app/trip_understanding/screenshot_ocr",
+      "backend/app/trip_understanding/screenshot_vl",
+      "backend/evals/agent_gate_v1/contracts.py",
+      "backend/evals/agent_gate_v1/work_packages.py",
+      "backend/evals/g04_screenshot",
+      "backend/scripts/run_g04_screenshot_parity.py",
+      "backend/scripts/run_g04_vl_parity.py",
+      "backend/scripts/validate_work_packages.py",
+      "backend/tests",
+      "frontend/e2e/g04-screenshot-parity.spec.js",
+      "frontend/src/app/page.tsx",
+      "frontend/src/components/g04-screenshot-source.tsx",
+      "frontend/src/lib/trip-understanding-v3.ts",
+      "packages/trip-check-client/openapi.current.json",
+      "packages/trip-check-client/src/generated",
+      ".github/workflows/core-mainline.yml"
     ],
-    "base_commit": "2d74a2cf48aa31de866fb3d25e419ac3fcbf202d",
+    "base_commit": "0212afe54128ef7cf8a90b3738318d8e55d395dd",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "在prompt binding远端readback前允许贡献任务写入",
@@ -25,20 +50,20 @@
       "子Agent拥有功能分支或提交产品代码",
       "功能任务自行合并develop、rebase、squash或force-push"
     ],
-    "minimum_change": "只登记VL冻结commit和三包实际binding commit，不把贡献包产品代码混入控制面提交。",
-    "phase": "GOAL_TRANSITION",
+    "minimum_change": "把三个已冻结领域贡献接入唯一v3主链，完成隐私生命周期、持久化、公共API、首页与可重复交付门。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "docs/governance/WORK_PACKAGE_PROMPT_TEMPLATE.md",
       "backend/tests/test_governance_agent_gate_transition.py",
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "RUNTIME+UI",
     "repair_review_cycle": 0,
-    "slice_id": "G04-CONTRIBUTOR-FREEZE-COMPLETE",
-    "stop_condition": "任一贡献包的本地tip、远端tip、clean状态、owned paths或定向检查失配时不得进入串行集成。",
-    "user_outcome": "上传、OCR和VL/UI三个独立贡献都已形成可回读的冻结提交，产品集成可以按登记顺序开始。",
-    "work_kind": "GOAL_TRANSITION"
+    "slice_id": "G04-SCREENSHOT-END-TO-END-INTEGRATION",
+    "stop_condition": "若原图无法在所有终态可靠删除、需要新增费用/账号/对象存储/真人来源，或只能弱化bbox、隐私或地点Gate，则停止对应策略。",
+    "user_outcome": "登录用户可以从1至6张截图生成与文本入口一致的逐日卡片，且原图在返回前确认清理。",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
@@ -157,7 +182,8 @@
       "remote_branch": "origin/codex/g04-ephemeral-upload",
       "role": "CONTRIBUTOR",
       "ready_commit": "a8852f3f7e7b2a269a526f266cc6d46d3a9d7e05",
-      "status": "READY_TO_MERGE",
+      "merged_commit": "9403a9893d5834e2dcdb8c9fc8110891e53386e5",
+      "status": "MERGED",
       "worktree_path": "C:/Users/26450/.codex/worktrees/f87f/agentTravel"
     },
     {
@@ -216,7 +242,8 @@
       "remote_branch": "origin/codex/g04-paddle-ocr",
       "role": "CONTRIBUTOR",
       "ready_commit": "0eba25564845524982d5e91469a0a4398d942020",
-      "status": "READY_TO_MERGE",
+      "merged_commit": "f1c75d9548d7ea4e1dd9ab80257b2e872db789e6",
+      "status": "MERGED",
       "worktree_path": "C:/Users/26450/.codex/worktrees/7eed/agentTravel"
     },
     {
@@ -277,7 +304,8 @@
       "remote_branch": "origin/codex/g04-vl-parity",
       "role": "CONTRIBUTOR",
       "ready_commit": "2fd6bd10f3c31a6f39a7846b47ce00cc1dc8a531",
-      "status": "READY_TO_MERGE",
+      "merged_commit": "206312c0bff42e8abf1a6fa792ebe06b046536a8",
+      "status": "MERGED",
       "worktree_path": "C:/Users/26450/.codex/worktrees/9ce2/agentTravel"
     }
   ],
