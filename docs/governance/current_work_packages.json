@@ -440,17 +440,20 @@
         "frontend/e2e/g03r-result-ui.spec.js"
       ],
       "package_id": "WP-G03R-UI-ENHANCEMENT-EVIDENCE",
+      "prepared_tip": "357bffa99159d620dfb30f8d8dfe041a42443521",
       "prompt_path": "docs/governance/work-packages/WP-G03R-UI-ENHANCEMENT-EVIDENCE.md",
       "prompt_sha256": "be6f0b67588d3e29b089df2f63ca48b2316115d0ea7ddb3f921d82acc40a2aa4",
+      "registry_activation_commit": "cc476d1cc6bc4e416b56976149918526ee9c738b",
+      "remote_readback": "357bffa99159d620dfb30f8d8dfe041a42443521",
       "remote_branch": "origin/codex/g03r-ui-enhancement-recovery",
       "role": "CONTRIBUTOR",
-      "status": "PLANNED",
-      "status_reason": "第二轮且最后一轮修复复审的验证附录已写入控制面；它不授权第三轮产品改动，只等待binding远端回读、精确prepared tip登记和activation后形成一个测试专用追加提交。",
+      "status": "IN_PROGRESS",
+      "status_reason": "binding cc476d1已推送并远端精确回读；主集成把该binding追加到已冻结产品提交7fb559d后的恢复分支，冲突只涉及治理旧快照并已解析为与控制分支字节一致。local/upstream/remote准备点均为357bffa且clean；现只授权一个E2E测试专用追加提交。",
       "worktree_path": "C:/Users/26450/.codex/worktrees/d09c/agentTravel"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_UI_ENHANCEMENT_EVIDENCE_BINDING",
+  "program_state": "G03R_UI_ENHANCEMENT_EVIDENCE_WRITER_ACTIVATED",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
