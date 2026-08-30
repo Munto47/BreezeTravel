@@ -5,7 +5,9 @@
     "acceptance_refs": [
       "描述、URL、预约说明和其他禁入内容成为地点必须为0",
       "计划地点原子召回432/432且额外PLANNED地点为0",
-      "五类地点角色720/720，计划地点日序及日内顺序432/432"
+      "五类地点角色720/720，计划地点日序及日内顺序432/432",
+      "三城词典900条且每城210/60/15/15配额、来源、schema和禁止字段校验全部通过",
+      "地点自动解析严重错误为0；高德未确认、错城、错类别、行政区冲突和同层多候选保持待确认"
     ],
     "allowed_paths": [
       "backend/governance/core_mainline.py",
@@ -15,53 +17,67 @@
       "docs/governance/current_goal_binding.json",
       "docs/governance/current_work_packages.json",
       "docs/governance/work-packages/WP-G03R-SEMANTIC.md",
+      "docs/governance/work-packages/WP-G03R-PLACE.md",
       "backend/app/trip_understanding/qwen_provider.py",
       "backend/app/trip_understanding/full_text.py",
       "backend/app/trip_understanding/pipeline.py",
       "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
-      "backend/tests/test_g03r_trip_semantics.py"
+      "backend/tests/test_g03r_trip_semantics.py",
+      "backend/app/trip_understanding/three_city_place_lexicon_v1.jsonl",
+      "backend/app/trip_understanding/_three_city_place_lexicon.py",
+      "backend/app/trip_understanding/amap_place.py",
+      "backend/app/constraints/amap_types.py",
+      "backend/tests/test_g03r_place_lexicon.py",
+      "backend/tests/test_g03r_place_resolution.py",
+      "backend/tests/test_amap_trip_understanding.py"
     ],
     "base_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
     "blocking_issue": {
       "current_goal_acceptance_ref": "OWNER_APPROVED_G03_P1_REPAIR_2026-08-30",
-      "impact_chain": "日标题识别缺口会错置日序和顺序；重复地点角色丢失会误删语义证据；贪婪本地回退会漏掉真实计划地点并把描述短语送入地点解析和公共卡片。",
-      "minimum_fix": "只修复日序和原文顺序、五类角色、地点原子边界与PLANNED资格复用，不改变schema、模型或运行限制。",
-      "reproduction": "同一54条dev与18条validation诊断中，第1天导致日序/顺序仅336/432，四个实际REFERENCE出现位置缺失，本地回退存在计划召回缺口与额外描述型PLANNED。",
+      "impact_chain": "日标题识别缺口会错置日序和顺序；重复地点角色丢失会误删语义证据；贪婪本地回退会把非地点送入解析；缺少三城安全别名和保守唯一候选边界会把错城、错类别或同名POI展示给用户并污染路线准备。",
+      "minimum_fix": "修复日序、原文顺序、五类角色、地点原子边界和PLANNED资格复用；增加版本化三城900地点词典、私有加载器及必须经高德城市/行政区/类别/唯一性确认的保守解析，不改变公共schema、模型配置或运行限制。",
+      "reproduction": "同一54条dev与18条validation诊断中，第1天导致日序/顺序仅336/432，四个实际REFERENCE出现位置缺失，本地回退存在计划召回缺口与额外描述型PLANNED；现有三城解析没有版本化安全别名及统一的错城、同名、类别和行政区冲突拒绝边界。",
       "severity": "P1",
-      "stop_condition": "若需要改变模型、deadline、token、并发、schema、blind/oracle或激活G04，立即停止该扩展。"
+      "stop_condition": "若需要改变公共API、数据库、模型配置、语义文件、deadline、token、并发、schema、blind/oracle、以高德/模型猜测构造词典、产生增量费用或激活G04，立即停止该扩展。"
     },
     "evidence_invalidated": [
       "G03_PRODUCT_DELIVERY_RECEIPT_FOR_CHANGED_RUNTIME",
-      "HISTORICAL_G01_SEMANTIC_CANDIDATE_FOR_CURRENT_COMMIT"
+      "HISTORICAL_G01_SEMANTIC_CANDIDATE_FOR_CURRENT_COMMIT",
+      "HISTORICAL_G01_AMAP_CANDIDATE_FOR_CHANGED_PLACE_RUNTIME"
     ],
     "forbidden_mechanisms": [
       "切换模型、deadline、token、temperature、并发、retry或schema",
       "读取、修改或运行sealed blind与oracle",
       "新增公共API、migration、依赖或运行时多Agent",
+      "把词典作为POI身份权威或保存高德ID、坐标、地址、电话、营业时间、价格、评分、房态和原始响应",
       "激活G04、FUX-03、H1、公网、生产、商业、发布、部署或main合并"
     ],
-    "minimum_change": "按三个独立质量因素修复G03行程语义，并让POI调用和公共卡片共享同一PLANNED原子地点资格判断。",
+    "minimum_change": "按三个独立质量因素修复G03行程语义并统一PLANNED资格；另以版本化三城900地点词典辅助检索，由实时高德结果按城市、行政区、类别和最高有效层唯一性保守确认地点。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_g03r_trip_semantics.py",
       "backend/tests/test_qwen_trip_understanding.py",
       "backend/tests/test_trip_understanding_v3.py",
       "backend/evals/trip_text_cards_v1/validator.py",
+      "backend/tests/test_g03r_place_lexicon.py",
+      "backend/tests/test_g03r_place_resolution.py",
+      "backend/tests/test_amap_trip_understanding.py",
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
     "repair_review_cycle": 0,
-    "slice_id": "G03-G03R-SEMANTIC-P1",
-    "stop_condition": "每个因素只比较同一72条非blind输入；不达门槛则审计revert，最多两轮且不得概率性重跑。",
-    "user_outcome": "粘贴攻略后只保留真正计划的原子地点，日序和原文顺序不丢失，推荐、经过、排除、描述、URL与预约说明不会进入行程。",
+    "slice_id": "G03-G03R-SEMANTIC-PLACE-P1",
+    "stop_condition": "语义每个因素只比较同一72条非blind输入；地点贡献包只跑离线验证并形成两个串行提交；不达门槛则审计revert，最多两轮且不得概率性重跑或以错误匹配换覆盖率。",
+    "user_outcome": "粘贴攻略后只保留真正计划的原子地点并保持日序和原文顺序；三城常见地点得到更准确检索，但任何错城、错类别、冲突、歧义或高德证据不足都保留待确认。",
     "work_kind": "BLOCKING_DEFECT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "guidance_sha256": "fea2d2a1040efb650ac9b268656bbadd06d13d097f88a0cd4338bc50cc32cb51",
   "integration_order": [
-    "WP-G03R-SEMANTIC"
+    "WP-G03R-SEMANTIC",
+    "WP-G03R-PLACE"
   ],
   "mainline_phase": "CORE_MVP",
   "max_parallel_writers": 3,
@@ -144,12 +160,69 @@
       "role": "CONTRIBUTOR",
       "status": "IN_PROGRESS",
       "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-semantic"
+    },
+    {
+      "acceptance": [
+        "三城词典共900条且每城210/60/15/15配额、schema、来源、稳定排序和禁止字段全部通过",
+        "规范名、审核别名、完整后缀白名单按层唯一选择，数字、方向、分店、航站楼、校区和括号限定不被过度归一化",
+        "实时高德必须确认城市、行政区、类别和唯一性；错城、错类别、冲突、歧义、失败或缺字段保持待确认",
+        "严格形成词典/私有加载器与高德保守解析/测试两个串行提交，贡献包不运行live AMap"
+      ],
+      "baseline_commit": "8a33a4b22a405135f310376d8766d9170d80097d",
+      "branch": "codex/g03r-place-resolution",
+      "dependencies": [],
+      "dialogue_ref": "codex-task:01a0509e-f5d1-71c1-9118-597e2c0d5d35",
+      "execution_mode": "INDEPENDENT_FUNCTION_DIALOGUE",
+      "forbidden_paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "docs/governance",
+        "backend/app/api",
+        "backend/app/db",
+        "backend/app/config.py",
+        "backend/app/trip_understanding/models.py",
+        "backend/app/trip_understanding/worker.py",
+        "backend/app/trip_understanding/qwen_provider.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+        "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
+        "packages/trip-check-client/openapi.json",
+        "packages/trip-check-client/openapi.current.json",
+        "packages/trip-check-client/src/generated",
+        "frontend",
+        "frontend/package-lock.json",
+        "miniapp/package-lock.json",
+        "packages/trip-check-client/package-lock.json",
+        "y-websocket/package-lock.json",
+        "backend/eval_data/agent_gate_v1/automation_runner_requirements.lock",
+        "backend/eval_data/agent_gate_v1/automation_runner_browser_package-lock.json"
+      ],
+      "goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
+      "merge_order": 3,
+      "owned_paths": [
+        "backend/app/trip_understanding/three_city_place_lexicon_v1.jsonl",
+        "backend/app/trip_understanding/_three_city_place_lexicon.py",
+        "backend/app/trip_understanding/amap_place.py",
+        "backend/app/constraints/amap_types.py",
+        "backend/tests/test_g03r_place_lexicon.py",
+        "backend/tests/test_g03r_place_resolution.py",
+        "backend/tests/test_amap_trip_understanding.py"
+      ],
+      "package_id": "WP-G03R-PLACE",
+      "prompt_path": "docs/governance/work-packages/WP-G03R-PLACE.md",
+      "prompt_sha256": "ee4de8b924c3ee06388000212d711ae999bbf4980d987c4458be240eee9f59f3",
+      "registry_activation_commit": "d4ce966de55b6d72e0b5daced9764223d7a6913a",
+      "remote_branch": "origin/codex/g03r-place-resolution",
+      "role": "CONTRIBUTOR",
+      "status": "IN_PROGRESS",
+      "worktree_path": "D:/munto/code/claudeProject/agentTravel-g03r-place-resolution"
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G03R_SEMANTIC_P1_IN_PROGRESS",
+  "program_state": "G03R_SEMANTIC_PLACE_P1_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-SEMANTIC"
+  "writer_activation": "WP-G03R-INTEGRATOR+WP-G03R-SEMANTIC+WP-G03R-PLACE"
 }
