@@ -46,7 +46,7 @@
       "新账号、费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "以合规官方来源交付可撤回KnowledgeClaim、动态建议投影和三城详情展示，同时对无来源类型与地点明确留缺口。",
-    "phase": "DELIVERY_VERIFY",
+    "phase": "EVIDENCE_FROZEN",
     "preflight_entrypoints": [
       "backend/scripts/run_g05_knowledge_gate.py",
       "backend/tests/test_g05_governance_delivery.py",
@@ -56,7 +56,7 @@
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "IMPLEMENTED_LOCAL_VERIFICATION",
+    "product_progress": "API+RUNTIME+UI",
     "repair_review_cycle": 0,
     "slice_id": "G05-SOURCE-KNOWLEDGE-UI",
     "stop_condition": "若来源无法逐项证明许可与时效、知识投影改变权威行程事实、需要新账号费用或未批准依赖，停止对应来源或机制并保留明确缺口。",
@@ -71,6 +71,16 @@
   "max_parallel_writers": 2,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
+  "delivery_evidence": {
+    "first_exact_tip_ci": {
+      "head_commit": "9dcd911c85688cc8b5783a37e8c03f6cee413baa",
+      "run_id": 33386769272,
+      "status": "PASS"
+    },
+    "product_fingerprint": "5e3838abbd35e500a6b505067d63fcf281b90d9d7127bc15cc92f34103a7881b",
+    "receipt_path": "docs/governance/gate-results/G05.product-delivery.json",
+    "state": "EVIDENCE_FROZEN"
+  },
   "next_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
   "next_goal_status": "DRAFT",
   "packages": [

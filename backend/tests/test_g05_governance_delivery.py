@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from governance.core_mainline import product_fingerprint, validate_delivery_receipt
 from app.trip_understanding.models import KnowledgeSuggestionView
 
 
@@ -15,6 +16,7 @@ MANIFEST_PATH = REPOSITORY_ROOT / "backend/eval_data/g05_knowledge/admission_v1.
 ORACLE_PATH = REPOSITORY_ROOT / "backend/eval_data/g05_knowledge/ablation_oracle_v1.json"
 WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/core-mainline.yml"
 MIGRATION_PATH = REPOSITORY_ROOT / "backend/app/db/migrations/032_knowledge_claims.sql"
+DELIVERY_PATH = REPOSITORY_ROOT / "docs/governance/gate-results/G05.product-delivery.json"
 
 
 def _sha256(path: Path) -> str:
@@ -139,3 +141,28 @@ def test_g04_historical_exception_is_not_expanded_by_g05() -> None:
     assert exception["unexpected_failure_count"] == 0
     assert exception["full_pytest_pass"] is False
     assert exception["removal_deadline"] == "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+
+
+def test_g05_delivery_receipt_binds_exact_product_and_required_checks() -> None:
+    receipt = json.loads(DELIVERY_PATH.read_text(encoding="utf-8"))
+
+    assert receipt["product_fingerprint"] == product_fingerprint(REPOSITORY_ROOT)
+    assert receipt["checks"] == {
+        "core_mainline_contract": "PASS",
+        "g05_knowledge_targeted": "PASS",
+        "g05_postgresql": "PASS",
+        "frontend_build": "PASS",
+        "g05_browser_e2e": "PASS",
+    }
+    assert receipt["remote_ci"] == {
+        "workflow": "Product mainline",
+        "run_id": 33386769272,
+        "run_url": "https://github.com/Munto47/BreezeTravel/actions/runs/33386769272",
+        "pull_request": 18,
+        "head_commit": "9dcd911c85688cc8b5783a37e8c03f6cee413baa",
+        "product_commit": "363daed34d25b991ad9699a7381ac0d64e658e8b",
+        "core_mainline": "PASS",
+    }
+    assert receipt["historical_compatibility"]["approved_failure_count"] == 2
+    assert receipt["historical_compatibility"]["full_pytest_pass"] is False
+    assert validate_delivery_receipt(REPOSITORY_ROOT, 5)["verdict"] == "PASS"

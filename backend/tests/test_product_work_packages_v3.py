@@ -65,8 +65,8 @@ def test_g04_archive_and_g05_active_implementation_are_unambiguous() -> None:
         "goal_status": "IN_PROGRESS",
         "gate_profile": "PRODUCT_DELIVERY_GATE",
         "required_gate": "Knowledge Admission Gate + PRODUCT_DELIVERY_PASS",
-        "completion_status": "PENDING",
-        "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+        "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+        "gate_result": "PRODUCT_DELIVERY_PASS",
         "goal_archived": False,
         "last_completed_goal_id": "TC-VNEXT-G04-SCREENSHOT",
         "next_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
@@ -92,10 +92,8 @@ def test_g04_archive_and_g05_active_implementation_are_unambiguous() -> None:
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
     assert registry["active_slice"]["work_kind"] == "PRODUCT"
-    assert registry["active_slice"]["phase"] == "DELIVERY_VERIFY"
-    assert registry["active_slice"]["product_progress"] == (
-        "IMPLEMENTED_LOCAL_VERIFICATION"
-    )
+    assert registry["active_slice"]["phase"] == "EVIDENCE_FROZEN"
+    assert registry["active_slice"]["product_progress"] == "API+RUNTIME+UI"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G05-INTEGRATOR"

@@ -12,8 +12,8 @@ Goal type: PRODUCT_ENHANCEMENT
   "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Knowledge Admission Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G04-SCREENSHOT",
   "next_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
@@ -160,6 +160,7 @@ Goal type: PRODUCT_ENHANCEMENT
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
+| 2026-08-31 | 三城有来源建议、可撤回知识存储、动态读取与详情展示已通过全部远端产品门禁；耐久G05交付回执已生成并绑定不变产品指纹 | 首轮exact subject `9dcd911c85688cc8b5783a37e8c03f6cee413baa`；delivery receipt为本checkpoint | GitHub Actions `33386769272`：preflight、`g05_knowledge_targeted`、`g05_postgresql`、`frontend_build`、`g05_browser_e2e`与`core-mainline`全部PASS；产品commit `363daed34d25b991ad9699a7381ac0d64e658e8b`；产品指纹`5e3838abbd35e500a6b505067d63fcf281b90d9d7127bc15cc92f34103a7881b`；冻结manifest/oracle哈希回读一致 | `REMOTE_AUTOMATED / REAL_POSTGRESQL / AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / KNOWLEDGE_ADMISSION_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #18合入`develop`，再独立归档G05并激活G06 | 典型时长与15个地点保持明确缺口；浏览器不是公网或真人证据；G04两个精确历史失败例外不扩大且须在G07 exact-binding前移除 | 本地验证delivery receipt，提交push并等待PR #18回执tip的完整CI |
 | 2026-08-31 | 北京、上海、杭州地点卡已可动态装配最多3条有来源建议；未来版本不提前遮蔽当前建议，撤回、过期、冲突或检索失败不会改变行程、地图、POI、路线或Finding；删除行程会同步清除使用回执 | `363daed34d25b991ad9699a7381ac0d64e658e8b` | 来源Gate与消融 `PASS`：18地点逐一处置、4个准入来源、1个`NOT_READY`、4种有claim、典型时长明确缺口，precision `1.0`、unsupported `0`、actionability提升 `16.67pp`、P95回退低于`20%`；定向 `57 passed`；PostgreSQL 032 fresh/after-034、不同bundle并发导入、幂等重放、未来版本、版本升级、并发撤回、claim/source撤回、使用回执与隐私删除 `3 passed`；治理 `46 passed`；OpenAPI/client、frontend build、Playwright `3 passed`、Ruff、diff check、core-mainline范围校验和远端subject readback均通过 | `OFFICIAL_PUBLIC_HTTPS_FACTS_ONLY / LOCAL_POSTGRESQL / AUTOMATED_FIXTURE_BROWSER / REMOTE_SUBJECT_READBACK` | `Product progress=IMPLEMENTED / DELIVERY_VERIFY_IN_PROGRESS` | `Governance ratio=bounded to G05 contract` | 取得首轮exact-tip CI；生成耐久交付回执后在回执tip复跑CI并经PR合入 | 冻结集中典型游览时长没有合规精确来源，保持`EXPLICIT_GAP`；G04两个精确历史失败例外原样保留至G07；本地浏览器为自动fixture而非公网或真人证据 | 记录checkpoint绑定，创建PR并等待required CI |
 | 2026-08-31 | G04截图入口已并入`develop`并完整归档；G05三城有来源知识层合同原子激活，激活时尚未修改G05产品代码或访问外部来源 | `ec7cdc73f99b30d24b29f29a3fca70c65e75fea7` | PR #17 `MERGED`；exact-tip GitHub Actions `33359977383 PASS`；fresh `origin/develop@d1fa4905807a7361ad2d4a5524a9e389312c0a74` fetch/ls-remote一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic archive and activation only` | 从fresh develop建立G05实现分支，先完成来源准入再进入032和用户建议 | 激活时G05来源准入、产品、PostgreSQL、浏览器与交付Gate均`NOT_RUN`；G04方案A不得外推为普通全量pytest零失败 | 建立唯一G05实现分支并登记exact baseline |
 
@@ -170,10 +171,10 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Completion record
 
-- Status：`IN_PROGRESS`；Subject commits / Remote branch：`363daed34d25b991ad9699a7381ac0d64e658e8b` / `origin/codex/g05-city-knowledge@363daed34d25b991ad9699a7381ac0d64e658e8b`；
-- Verification / Evidence / Gate result / `structurally_valid`：`LOCAL_TARGETED_PASS / LOCAL_POSTGRESQL_PASS / LOCAL_BROWSER_FIXTURE_PASS / PRODUCT_DELIVERY_NOT_RUN / true`；CI和远端合入前不得宣称交付完成；
+- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品`363daed34d25b991ad9699a7381ac0d64e658e8b`，首轮CI tip `9dcd911c85688cc8b5783a37e8c03f6cee413baa`，delivery receipt为本checkpoint / `origin/codex/g05-city-knowledge`；
+- Verification / Evidence / Gate result / `structurally_valid`：`REMOTE_REQUIRED_CI_PASS / OFFICIAL_PUBLIC_HTTPS_FACTS_ONLY + REAL_POSTGRESQL + AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS / true`；回执精确tip CI与远端合入仍待完成；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；公网、release、deploy和`main`同样未运行或未请求；
-- User-visible result / Remaining risks / Goal archived / Next activated：`三城已实现动态有来源建议投影与详情展示 / CI、交付回执、PR合入和远端readback待完成；典型时长保持明确缺口 / false / false`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`三城动态有来源建议、详情展示和撤回生命周期已生成PRODUCT_DELIVERY_PASS / 回执精确tip CI、PR #18合入与远端readback待完成；典型时长保持明确缺口；G04两个历史例外须在G07移除 / false / false`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
