@@ -5,6 +5,7 @@
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
   "goal_sequence": 5,
+  "implementation_baseline_commit": "d1fa4905807a7361ad2d4a5524a9e389312c0a74",
   "last_completed_goal_id": "TC-VNEXT-G04-SCREENSHOT",
   "mainline_phase": "PRODUCT_ENHANCEMENT",
   "next_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
@@ -12,8 +13,8 @@
   "predecessor_completion_commit": "c5a6f847f6c904dfaa81a397c2af878b18f089a6",
   "predecessor_goal_id": "TC-VNEXT-G04-SCREENSHOT",
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G05_CITY_KNOWLEDGE_APPROVED",
+  "program_state": "G05_CITY_KNOWLEDGE_IN_PROGRESS",
   "schema_version": "current-goal-binding-v3",
-  "status": "APPROVED",
+  "status": "IN_PROGRESS",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

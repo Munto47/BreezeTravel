@@ -23,6 +23,7 @@ import {
   Circle,
   Clock3,
   Compass,
+  ExternalLink,
   GripVertical,
   MapPin,
   MoveHorizontal,
@@ -84,6 +85,14 @@ const MAP_LABELS: Record<UserFacingTripResult['map']['status'], string> = {
   NEEDS_UPDATE: '需要手动更新',
   LIMITED: '部分路线可用',
   UNAVAILABLE: '暂时不可用',
+}
+
+const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestions']>[number]['type'], string> = {
+  TYPICAL_DURATION: '游览时长',
+  SUITABLE_TIME: '适合时段',
+  NIGHT_VIEW: '夜景建议',
+  SEASON: '季节提示',
+  RESERVATION_ADVICE: '预约建议',
 }
 
 const DAY_ACCENTS = [
@@ -458,6 +467,11 @@ export default function ItineraryWorkspace({
                                     >
                                       {activity.status === 'READY' ? '已确认' : '待确认'}
                                     </span>
+                                    {(activity.knowledge_suggestions?.length || 0) > 0 && (
+                                      <span className="rounded-full bg-sky-50 px-2 py-1 text-sky-700">
+                                        有来源建议 {activity.knowledge_suggestions?.length}
+                                      </span>
+                                    )}
                                   </span>
                                   <span className="sr-only">，查看详情</span>
                                 </button>
@@ -570,6 +584,34 @@ export default function ItineraryWorkspace({
               <p className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />{dialog.item.card.area_or_address}</p>
               <p className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-emerald-700" aria-hidden="true" />{dialog.item.card.time_hint || '时间待定'}</p>
             </div>
+            {(dialog.item.card.knowledge_suggestions?.length || 0) > 0 && (
+              <section className="mt-5" aria-labelledby="knowledge-suggestions-title" data-testid="knowledge-suggestions">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-sky-700" aria-hidden="true" />
+                  <h3 id="knowledge-suggestions-title" className="text-sm font-semibold text-slate-800">出行建议</h3>
+                </div>
+                <ul className="mt-3 space-y-3">
+                  {dialog.item.card.knowledge_suggestions?.map((suggestion) => (
+                    <li key={`${suggestion.type}-${suggestion.source_url}-${suggestion.text}`} className="rounded-2xl border border-sky-100 bg-sky-50/65 p-4">
+                      <p className="text-xs font-semibold text-sky-800">{KNOWLEDGE_LABELS[suggestion.type]}</p>
+                      <p className="mt-1 text-sm leading-6 text-slate-700">{suggestion.text}</p>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                        <a
+                          href={suggestion.source_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-10 items-center gap-1 rounded-lg px-1 font-medium text-sky-800 underline decoration-sky-300 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
+                        >
+                          {suggestion.source_name}
+                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                        </a>
+                        <span>{suggestion.freshness}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <div className="mt-5 grid grid-cols-2 gap-2">
               <DialogAction onClick={() => { closeDialog(false); onEdit(dialog.item) }} icon={<Pencil className="h-4 w-4" />}>编辑文字</DialogAction>
               <DialogAction onClick={() => { closeDialog(false); onReplace(dialog.item) }} icon={<Replace className="h-4 w-4" />}>替换地点</DialogAction>

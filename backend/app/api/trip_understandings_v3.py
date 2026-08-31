@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
@@ -58,6 +60,7 @@ from app.utils.auth import get_current_user, get_optional_user, get_recent_user
 
 router = APIRouter(prefix="/v3/trip-understandings")
 account_router = APIRouter(prefix="/v3/me")
+logger = logging.getLogger(__name__)
 
 
 def get_trip_understanding_repository() -> TripUnderstandingRepository:
@@ -290,7 +293,17 @@ async def get_trip_understanding_result(
         response.status_code = status.HTTP_202_ACCEPTED
         return TripUnderstandingProgressView(message="正在整理每天行程")
     response.headers["ETag"] = f'"{stored.opaque_etag}"'
-    return stored.result
+    try:
+        return await repository.project_current_knowledge(
+            resource,
+            stored.result,
+            now=datetime.now(timezone.utc),
+        )
+    except Exception:
+        # Knowledge is optional advice. A retrieval outage must not hide the
+        # authoritative cards, places, map state or audit result.
+        logger.exception("optional knowledge projection unavailable")
+        return stored.result
 
 
 @router.get(

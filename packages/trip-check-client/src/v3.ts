@@ -21,6 +21,14 @@ export interface AssumptionChipView {
   editable: boolean
 }
 
+export interface KnowledgeSuggestionView {
+  type: 'TYPICAL_DURATION' | 'SUITABLE_TIME' | 'NIGHT_VIEW' | 'SEASON' | 'RESERVATION_ADVICE'
+  text: string
+  source_name: string
+  source_url: string
+  freshness: string
+}
+
 export interface ActivityCardView {
   activity_token: string
   name: string
@@ -29,6 +37,7 @@ export interface ActivityCardView {
   time_hint: string | null
   status: 'READY' | 'NEEDS_CONFIRMATION'
   available_actions: Array<'VIEW_DETAILS' | 'REPLACE' | 'DELETE' | 'MOVE'>
+  knowledge_suggestions?: KnowledgeSuggestionView[]
 }
 
 export interface TripDayView {

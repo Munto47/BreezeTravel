@@ -3,8 +3,9 @@ from __future__ import annotations
 from datetime import datetime
 from enum import Enum
 from typing import Annotated, Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -115,6 +116,36 @@ class AssumptionChipView(StrictModel):
     editable: bool
 
 
+class KnowledgeSuggestionView(StrictModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal[
+        "TYPICAL_DURATION",
+        "SUITABLE_TIME",
+        "NIGHT_VIEW",
+        "SEASON",
+        "RESERVATION_ADVICE",
+    ]
+    text: str = Field(min_length=3, max_length=300)
+    source_name: str = Field(min_length=2, max_length=200)
+    source_url: str = Field(pattern=r"^https://", max_length=1000)
+    freshness: str = Field(min_length=3, max_length=100)
+
+    @field_validator("source_url")
+    @classmethod
+    def source_url_is_public_https(cls, value: str) -> str:
+        parsed = urlparse(value)
+        if (
+            value != value.strip()
+            or parsed.scheme != "https"
+            or not parsed.netloc
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise ValueError("source_url must be a public HTTPS URL")
+        return value
+
+
 class ActivityCardView(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
@@ -123,6 +154,10 @@ class ActivityCardView(StrictModel):
     time_hint: str | None = None
     status: Literal["READY", "NEEDS_CONFIRMATION"]
     available_actions: list[Literal["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"]]
+    knowledge_suggestions: list[KnowledgeSuggestionView] = Field(
+        default_factory=list,
+        max_length=3,
+    )
 
 
 class TripDayView(StrictModel):

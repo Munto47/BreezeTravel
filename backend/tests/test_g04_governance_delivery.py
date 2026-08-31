@@ -371,6 +371,11 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         "frontend_build",
         "g04_browser_e2e",
     )
+    g05_jobs = (
+        "g05_knowledge_targeted",
+        "g05_postgresql",
+        "g05_browser_e2e",
+    )
     for job_name in g04_jobs:
         assert f"\n  {job_name}:\n    name: {job_name}\n" in workflow
         assert jobs[job_name]["needs"] == "core-mainline-preflight"
@@ -378,7 +383,11 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     aggregator = jobs["core-mainline"]
     assert aggregator["name"] == "core-mainline"
     assert aggregator["if"] == "${{ always() }}"
-    assert set(aggregator["needs"]) == {"core-mainline-preflight", *g04_jobs}
+    assert set(aggregator["needs"]) == {
+        "core-mainline-preflight",
+        *g04_jobs,
+        *g05_jobs,
+    }
     assert sum(job.get("name") == "core-mainline" for job in jobs.values()) == 1
     enforcement = aggregator["steps"][0]["run"]
     assert 'PREFLIGHT_RESULT" != "success' in enforcement
@@ -389,7 +398,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "run_g04_screenshot_parity" not in workflow
     assert workflow.count(
         "ref: ${{ github.event.pull_request.head.sha || github.sha }}"
-    ) == 6
+    ) == 9
     preflight_steps = jobs["core-mainline-preflight"]["steps"]
     scope_step = next(
         step for step in preflight_steps if step.get("name") == "Enforce product-mainline scope"
@@ -497,7 +506,7 @@ def test_completed_g04_lifecycle_remains_verifiable_after_g05_activation() -> No
     assert match is not None
     archived_state = json.loads(match.group("payload"))
 
-    assert current_goal.startswith("# APPROVED GOAL：V0.5")
+    assert current_goal.startswith("# IN_PROGRESS GOAL：V0.5")
     assert registry["active_goal_id"] == "TC-VNEXT-G05-CITY-KNOWLEDGE"
     assert archive.startswith("# COMPLETED GOAL：V0.4")
     assert archived_state == {

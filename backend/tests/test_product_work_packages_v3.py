@@ -38,7 +38,7 @@ def test_g04_delivery_and_completed_archive_remain_verifiable_after_transition()
     assert "33357640834" in archive
 
 
-def test_g04_archive_and_g05_activation_are_atomic_and_unambiguous() -> None:
+def test_g04_archive_and_g05_active_implementation_are_unambiguous() -> None:
     governance = REPOSITORY_ROOT / "docs/governance"
     current_goal = (governance / "CURRENT_GOAL.md").read_text(encoding="utf-8")
     archive_path = (
@@ -62,7 +62,7 @@ def test_g04_archive_and_g05_activation_are_atomic_and_unambiguous() -> None:
         "schema_version": "product-delivery-current-goal-state-v1",
         "program_id": "TC-VNEXT-2026",
         "goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
-        "goal_status": "APPROVED",
+        "goal_status": "IN_PROGRESS",
         "gate_profile": "PRODUCT_DELIVERY_GATE",
         "required_gate": "Knowledge Admission Gate + PRODUCT_DELIVERY_PASS",
         "completion_status": "PENDING",
@@ -88,12 +88,14 @@ def test_g04_archive_and_g05_activation_are_atomic_and_unambiguous() -> None:
     assert archived_state["next_activated"] is True
     assert binding["goal_id"] == registry["active_goal_id"] == current_state["goal_id"]
     assert binding["goal_sequence"] == registry["active_goal_sequence"] == 5
-    assert binding["status"] == current_state["goal_status"] == "APPROVED"
+    assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
-    assert registry["active_slice"]["work_kind"] == "GOAL_TRANSITION"
-    assert registry["active_slice"]["phase"] == "GOAL_TRANSITION"
-    assert registry["active_slice"]["product_progress"] == "NONE"
+    assert registry["active_slice"]["work_kind"] == "PRODUCT"
+    assert registry["active_slice"]["phase"] == "DELIVERY_VERIFY"
+    assert registry["active_slice"]["product_progress"] == (
+        "IMPLEMENTED_LOCAL_VERIFICATION"
+    )
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G05-INTEGRATOR"
@@ -111,13 +113,13 @@ def test_g04_archive_and_g05_activation_are_atomic_and_unambiguous() -> None:
         "每条claim必须有source/effective/expires/license",
         "删除/撤回来源可回读",
         "小红书或其他未授权抓取",
-        "最多同时运行两个贡献writer",
+        "当前registry为`INTEGRATOR_ONLY`",
         "H1/商业/公网/生产/release/deploy/`main`需Owner批准",
     ):
         assert token in current_goal
 
 
-def test_g05_transition_slice_excludes_frozen_agent_gate_and_accepts_current_diff() -> None:
+def test_g05_product_slice_excludes_frozen_agent_gate_and_accepts_current_diff() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -130,10 +132,8 @@ def test_g05_transition_slice_excludes_frozen_agent_gate_and_accepts_current_dif
     assert result["verdict"] == "PASS", result
     assert result["active_goal_id"] == "TC-VNEXT-G05-CITY-KNOWLEDGE"
     assert result["package_count"] == 1
-    assert (
-        "docs/governance/goals/completed/TC-VNEXT-G04-SCREENSHOT.md"
-        in result["changed_paths"]
-    )
+    assert "backend/app/db/migrations/032_knowledge_claims.sql" in result["changed_paths"]
+    assert "frontend/e2e/g05-knowledge.spec.js" in result["changed_paths"]
     assert not any(
         path.startswith("backend/evals/agent_gate_v1/")
         for path in result["changed_paths"]
