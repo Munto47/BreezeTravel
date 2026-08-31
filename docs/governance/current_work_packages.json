@@ -3,42 +3,45 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "AMap地点、步行、公交、天气与唯一选定Qwen模型使用既有零增量授权真实调用",
-      "live回执绑定候选commit/tree/config/data/model/rule/provider且只保存脱敏最小事实",
-      "任何缺失权限、密钥、调用或回读使G4保持NOT_READY/NOT_RUN，不以snapshot或fixture替代",
-      "G0至G3只作为已保存checkpoint，不提前拼接为最终同subject候选PASS"
+      "候选浏览器矩阵在clean exact subject执行全部7个用户旅程文件，46项不得skip、flaky或unexpected",
+      "覆盖文本、截图、逐日卡、编辑、地图陈旧/手动更新、住宿、Top-3、刷新恢复、断线续传与局部失败",
+      "同一候选subject执行50条受控真实应用链并保存原始样本哈希，主链P95不得超过冻结阈值",
+      "browser fixture、内部性能、live Provider、H1、公网、生产与商业证据继续分层披露"
     ],
     "allowed_paths": [
       "docs/governance",
+      "frontend/package.json",
+      "frontend/playwright.candidate.config.js",
       "backend/eval_data/g07_candidate",
       "backend/evals/g07_candidate",
-      "backend/scripts/build_g07_live_provider_spec.py",
-      "backend/scripts/run_g07_g4_live_provider.py",
-      "backend/tests/test_g07_live_provider_spec.py"
+      "backend/scripts/run_g07_g5_browser_performance.py",
+      "backend/tests/test_g07_browser_performance.py"
     ],
-    "base_commit": "a59a43c7a024ab2838421122acae3e73dd72a5c7",
+    "base_commit": "770a6d2b36d7916a34fa75e6d1e4a7fc446d7a38",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "把snapshot、fixture、mock、历史summary或Agent常识冒充live Provider证据",
-      "记录或提交Provider密钥、完整原文、未脱敏响应、blind truth或外部环境文件",
-      "新增账号、付费、扩大Provider/数据权限、生产调用或公网部署",
-      "改写G04/G05/G06历史回执、blind、oracle、数据或阈值",
-      "把G0至G3 checkpoint或未运行的后续层拼接成最终候选PASS",
+      "把Playwright发现、构建成功、fixture或历史P6报告冒充本候选browser/P95证据",
+      "修改用户旅程、性能阈值、样本数、blind、oracle或历史P6冻结资产以获得PASS",
+      "复用跨commit浏览器报告、伪造50链、跳过失败或将flaky/skip计为PASS",
+      "在browser/performance切片发出Provider调用、H1招募、公网或生产请求",
+      "把G0至G4 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "历史P6冻结字节已恢复且重新禁止修改；由独立G07 builder/runner从冻结合同生成仓库外exact-subject spec并执行固定live矩阵，原始证据只留在仓库外。",
+    "minimum_change": "补齐缺失的test:e2e:g07入口，并用独立G07 runner绑定当前候选的完整浏览器JSON报告与50条应用链性能样本；不修改冻结P6合同。",
     "phase": "GATE_RUNNING",
     "preflight_entrypoints": [
-      "backend/tests/test_real_provider_evidence.py",
-      "backend/tests/test_trip_check_p6_live_provider_runner.py",
-      "backend/scripts/run_trip_check_p6_g4_live_provider.py"
+      "frontend/playwright.candidate.config.js",
+      "frontend/e2e",
+      "backend/evals/trip_check_v1/p6/local_browser_runner.py",
+      "backend/evals/trip_check_v1/p6/performance_runner.py",
+      "backend/tests/test_trip_check_p6_performance_runner.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G07-G4-LIVE-PROVIDER",
-    "stop_condition": "若缺少既有授权/仓库外环境，或继续需要新账号、费用、扩大权限、修改blind/oracle/阈值或把非live证据升级，则G4保持NOT_READY并停止该策略。",
-    "user_outcome": "候选版对三城地点、路线、天气和语义的关键外部事实可由真实Provider脱敏回执复验，同时不泄露密钥或原始用户内容。",
+    "slice_id": "G07-G5-BROWSER-PERFORMANCE",
+    "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
+    "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50链性能证据证明关键等待时间不越界。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
