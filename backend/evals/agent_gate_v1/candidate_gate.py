@@ -31,6 +31,9 @@ class CandidateGateError(ValueError):
     pass
 
 
+G07_THREAT_MODEL_PATH = "backend/eval_data/g07_candidate/threat_model_v1.json"
+
+
 def _git(root: Path, *args: str, binary: bool = False) -> str | bytes:
     result = subprocess.run(
         ["git", "-C", str(root), *args],
@@ -242,6 +245,22 @@ def verify_g07_candidate_gate_pass(
         or decision.candidate_tree != expected_candidate_tree
     ):
         raise CandidateGateError("hardening decision is bound to another candidate")
+    threat_model_bytes = _git_blob(
+        root,
+        expected_candidate_commit,
+        G07_THREAT_MODEL_PATH,
+    )
+    if decision.threat_model_sha256 != _sha256_bytes(threat_model_bytes):
+        raise CandidateGateError("hardening decision threat model binding mismatch")
+    try:
+        threat_model = json.loads(threat_model_bytes)
+    except json.JSONDecodeError as exc:
+        raise CandidateGateError("invalid G07 threat model") from exc
+    if (
+        threat_model.get("schema_version") != "g07-candidate-threat-model-v1"
+        or threat_model.get("goal_id") != binding.goal_id
+    ):
+        raise CandidateGateError("G07 threat model disagrees with candidate binding")
 
     expected_components = {
         "AUTOMATED_PRODUCT_GATE",

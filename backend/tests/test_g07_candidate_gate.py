@@ -32,6 +32,21 @@ def _write_json(path: Path, value: object) -> None:
     path.write_text(json.dumps(value), encoding="utf-8")
 
 
+def _threat_model_sha(root: Path, commit: str) -> str:
+    content = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "show",
+            f"{commit}:backend/eval_data/g07_candidate/threat_model_v1.json",
+        ],
+        check=True,
+        capture_output=True,
+    ).stdout
+    return hashlib.sha256(content).hexdigest()
+
+
 def _candidate_repository(
     tmp_path: Path,
     *,
@@ -54,6 +69,13 @@ def _candidate_repository(
     (root / "docs/governance").mkdir(parents=True)
     (root / "backend/eval_data").mkdir(parents=True)
     (root / "backend/eval_data/value.json").write_text("{}\n", encoding="utf-8")
+    _write_json(
+        root / "backend/eval_data/g07_candidate/threat_model_v1.json",
+        {
+            "schema_version": "g07-candidate-threat-model-v1",
+            "goal_id": "TC-VNEXT-G07-CANDIDATE",
+        },
+    )
     (root / "backend/app").mkdir(parents=True)
     (root / "backend/app/value.py").write_text("VALUE = 1\n", encoding="utf-8")
     isolation: dict[str, object] = {
@@ -333,7 +355,7 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "3" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "NOT_REQUIRED_WITH_RATIONALE",
             "identified_threats": ["candidate evidence may drift"],
             "selected_controls": [],
@@ -359,6 +381,21 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
     )
     assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
     assert receipt.selected_control_receipt_sha256 == {}
+    drifted_decision = external / "drifted-decision.json"
+    payload = json.loads(decision.read_text(encoding="utf-8"))
+    payload["threat_model_sha256"] = "0" * 64
+    _write_json(drifted_decision, payload)
+    with pytest.raises(CandidateGateError, match="threat model binding mismatch"):
+        verify_g07_candidate_gate_pass(
+            repository_root=root,
+            development_checkout_root=development,
+            expected_candidate_commit=commit,
+            expected_candidate_tree=tree,
+            component_receipt_paths=components,
+            hardening_decision_path=drifted_decision,
+            hardening_control_receipt_paths={},
+            output_path=external / "drifted-pass.json",
+        )
 
 
 def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
@@ -407,7 +444,7 @@ def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "3" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "NOT_REQUIRED_WITH_RATIONALE",
             "identified_threats": ["candidate evidence may drift"],
             "selected_controls": [],
@@ -486,7 +523,7 @@ def test_g07_required_validates_only_selected_controls(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "3" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "REQUIRED",
             "identified_threats": ["runner contamination"],
             "selected_controls": ["ISOLATED_OCI"],
@@ -517,7 +554,7 @@ def test_g07_required_validates_only_selected_controls(
         {
             "candidate_commit": commit,
             "candidate_tree": tree,
-            "threat_model_sha256": "6" * 64,
+            "threat_model_sha256": _threat_model_sha(root, commit),
             "decision": "NOT_REQUIRED_WITH_RATIONALE",
             "identified_threats": ["runner contamination was not confirmed"],
             "selected_controls": [],

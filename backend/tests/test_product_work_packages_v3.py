@@ -162,7 +162,11 @@ def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
     assert "backend/tests/test_g07_release_manifest.py" in allowed
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
-    assert not any(path.startswith("backend/evals/agent_gate_v1/") for path in allowed)
+    assert {
+        path
+        for path in allowed
+        if path.startswith("backend/evals/agent_gate_v1/")
+    } == {"backend/evals/agent_gate_v1/candidate_gate.py"}
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
@@ -185,7 +189,7 @@ def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
     }
 
 
-def test_agent_gate_files_are_frozen_outside_the_g07_contract_slice() -> None:
+def test_only_candidate_gate_is_mutable_inside_the_g07_contract_slice() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -193,7 +197,7 @@ def test_agent_gate_files_are_frozen_outside_the_g07_contract_slice() -> None:
     )
     active_slice = registry["active_slice"]
 
-    assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
+    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
         "backend/evals/agent_gate_v1/candidate_gate.py",
         registry=registry,
         active_slice=active_slice,

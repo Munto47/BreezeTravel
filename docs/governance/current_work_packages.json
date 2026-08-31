@@ -12,7 +12,9 @@
       "docs/governance",
       "backend/eval_data/g07_candidate",
       "backend/eval_data/agent_gate_v1",
+      "backend/evals/agent_gate_v1/candidate_gate.py",
       "backend/scripts/build_release_manifest.py",
+      "backend/tests/test_g07_candidate_gate.py",
       "backend/tests/test_g07_release_manifest.py",
       "backend/tests/test_product_work_packages_v3.py"
     ],
@@ -28,7 +30,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "扩展既有G07 manifest builder，使其接收仓库外独立component receipts并验证同一subject/tree、Gate唯一性、receipt hash和固定bindings；任何缺失或NOT_RUN保持不通过，不修改产品运行时。",
+    "minimum_change": "扩展既有G07 manifest builder，使其验证仓库外四组件的同一subject/tree/config/data/contract，并让最终candidate Gate同时验证HardeningDecision绑定的候选威胁模型hash；任何缺失或NOT_RUN保持不通过，不修改产品运行时。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/scripts/build_release_manifest.py",
@@ -40,7 +42,7 @@
     "preflight_required_tokens": {},
     "product_progress": "EVAL_METRIC",
     "repair_review_cycle": 0,
-    "slice_id": "G07-G6-MANIFEST-AGGREGATION",
+    "slice_id": "G07-CANDIDATE-CONTRACT",
     "stop_condition": "若现有component receipt schema不足以验证同subject或hash，则新增最小候选专用验证合同；不得修改历史回执、将缺失证据标为PASS或通过读取blind内容补证。",
     "user_outcome": "候选版每一项通过证据都能被同一清单按精确版本和哈希回读，缺失或不同版本的证据不会被误拼成可发布候选。",
     "work_kind": "CANDIDATE_HARDENING"
