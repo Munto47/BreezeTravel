@@ -12,7 +12,12 @@
   "properties": {
     "schema_version": {"const": "trip-check-p6-candidate-run-spec-v1"},
     "subject_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
-    "upstream_ref": {"const": "origin/codex/trip-check-p6-candidate-evidence"},
+    "upstream_ref": {
+      "enum": [
+        "origin/codex/trip-check-p6-candidate-evidence",
+        "origin/codex/g07-candidate"
+      ]
+    },
     "upstream_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "dirty_tree": {"const": false},
     "p5_gate_manifest_hash": {"const": "9a3338a565522577f4514f628b225ad165e87085a992185bd2650b197011187a"},
@@ -49,7 +54,12 @@
       "required": ["engine", "required_migration", "isolated", "migration_hash_readback_required"],
       "properties": {
         "engine": {"const": "postgresql"},
-        "required_migration": {"const": "025_miniapp_identity_and_upload_batches.sql"},
+        "required_migration": {
+          "enum": [
+            "025_miniapp_identity_and_upload_batches.sql",
+            "034_trip_understanding_screenshot_batches.sql"
+          ]
+        },
         "isolated": {"const": true},
         "migration_hash_readback_required": {"const": true}
       }

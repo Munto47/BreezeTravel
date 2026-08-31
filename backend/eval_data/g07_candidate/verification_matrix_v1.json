@@ -50,7 +50,9 @@
       "required_proof": ["AMap place", "AMap walking", "AMap transit", "weather", "selected Qwen model", "license-scoped redacted receipts"],
       "commands": [
         "python -m pytest -q tests/test_real_provider_evidence.py tests/test_trip_check_p6_live_provider_runner.py --timeout=180",
-        "python scripts/run_trip_check_p6_g4_live_provider.py --candidate-run-spec <external-final-spec> --output-root <external-output> --live-env-file <external-env>"
+        "python -m scripts.build_g07_live_provider_spec --output-root <external-inputs>",
+        "python scripts/run_trip_check_p6_g4_live_provider.py --candidate-run-spec <external-inputs>/candidate_run_spec.json --output-root <external-output> --live-env-file <external-env>",
+        "python -m scripts.run_qwen_model_predictions --output-dir <external-qwen-output> --role LOW_LATENCY_CANDIDATE --splits dev validation --concurrency 1 --deadline-seconds 7 --max-output-tokens 768"
       ],
       "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION",
       "readiness": "REQUIRES_EXISTING_ZERO_INCREMENT_AUTHORIZATION_AND_EXTERNAL_ENV"

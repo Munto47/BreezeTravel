@@ -45,9 +45,28 @@ GATE_EVIDENCE_LEVELS = {
 }
 PASS = "PASS"
 P6_UPSTREAM_REF = "origin/codex/trip-check-p6-candidate-evidence"
+G07_UPSTREAM_REF = "origin/codex/g07-candidate"
 P6_EVIDENCE_ROOT_PARENT = PureWindowsPath(
     "D:/munto/code/claudeProject/agentTravel-p6-artifacts/p6-candidate"
 )
+G07_EVIDENCE_ROOT_PARENT = PureWindowsPath(
+    "D:/munto/code/claudeProject/agentTravel-g07-evidence/g07-candidate"
+)
+_CANDIDATE_UPSTREAM_REFS = {P6_UPSTREAM_REF, G07_UPSTREAM_REF}
+
+
+def _candidate_policy(upstream_ref: str) -> tuple[PureWindowsPath, str]:
+    if upstream_ref == P6_UPSTREAM_REF:
+        return (
+            P6_EVIDENCE_ROOT_PARENT,
+            "025_miniapp_identity_and_upload_batches.sql",
+        )
+    if upstream_ref == G07_UPSTREAM_REF:
+        return (
+            G07_EVIDENCE_ROOT_PARENT,
+            "034_trip_understanding_screenshot_batches.sql",
+        )
+    raise P6ContractError("P6_CANDIDATE_RUN_SPEC_REPO_BINDING_INVALID")
 
 
 class P6ContractError(RuntimeError):
@@ -140,7 +159,7 @@ def _validate_repo_binding(value: Mapping[str, Any], reason: str) -> None:
         not isinstance(subject, str)
         or re.fullmatch(r"[0-9a-f]{40}", subject) is None
         or upstream != subject
-        or upstream_ref != P6_UPSTREAM_REF
+        or upstream_ref not in _CANDIDATE_UPSTREAM_REFS
         or value.get("dirty_tree") is not False
     ):
         raise P6ContractError(reason)
@@ -221,8 +240,11 @@ def validate_candidate_run_spec(value: Mapping[str, Any]) -> dict[str, Any]:
     if not _path_is_absolute_on_any_platform(evidence_root) or _path_has_parent_escape(evidence_root):
         raise P6ContractError("P6_EVIDENCE_ROOT_INVALID")
     normalized = PureWindowsPath(evidence_root)
-    if normalized.parent != P6_EVIDENCE_ROOT_PARENT or normalized.name != payload["subject_commit"]:
+    expected_parent, expected_migration = _candidate_policy(payload["upstream_ref"])
+    if normalized.parent != expected_parent or normalized.name != payload["subject_commit"]:
         raise P6ContractError("P6_EVIDENCE_ROOT_SUBJECT_BINDING_INVALID")
+    if payload["database"]["required_migration"] != expected_migration:
+        raise P6ContractError("P6_CANDIDATE_MIGRATION_BINDING_INVALID")
     return payload
 
 
@@ -303,12 +325,10 @@ def read_actual_repo_state(repo_root: Path) -> dict[str, Any]:
 
     upstream_short = git("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
     local_upstream_commit = git("rev-parse", "@{upstream}")
-    remote_line = git(
-        "ls-remote",
-        "--heads",
-        "origin",
-        "refs/heads/codex/trip-check-p6-candidate-evidence",
-    )
+    if upstream_short not in _CANDIDATE_UPSTREAM_REFS:
+        raise P6ContractError("P6_GIT_UPSTREAM_REF_INVALID")
+    remote_branch = upstream_short.removeprefix("origin/")
+    remote_line = git("ls-remote", "--heads", "origin", f"refs/heads/{remote_branch}")
     remote_parts = remote_line.split()
     if len(remote_parts) != 2 or re.fullmatch(r"[0-9a-f]{40}", remote_parts[0]) is None:
         raise P6ContractError("P6_GIT_REMOTE_READBACK_FAILED")
