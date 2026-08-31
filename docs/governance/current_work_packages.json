@@ -3,38 +3,38 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "Qwen与Provider固定snapshot绑定候选config、数据、模型和规则字节",
-      "相同snapshot重复执行得到确定性等价结果，config drift必须fail-closed",
-      "snapshot只证明冻结回放，不冒充live Provider、真人或生产证据",
-      "G0至G2只作为已保存checkpoint，不提前拼接为最终同subject候选PASS"
+      "AMap地点、步行、公交、天气与唯一选定Qwen模型使用既有零增量授权真实调用",
+      "live回执绑定候选commit/tree/config/data/model/rule/provider且只保存脱敏最小事实",
+      "任何缺失权限、密钥、调用或回读使G4保持NOT_READY/NOT_RUN，不以snapshot或fixture替代",
+      "G0至G3只作为已保存checkpoint，不提前拼接为最终同subject候选PASS"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/eval_data/g07_candidate",
-      "backend/tests/test_product_work_packages_v3.py"
+      "backend/eval_data/g07_candidate"
     ],
-    "base_commit": "34fc08d2677ffda42cd8560a01880b17d28da5e6",
+    "base_commit": "3685c6cb1f39c9fb6469da1aed85d8ffb5f018d4",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改snapshot、candidate config、数据、模型、规则、oracle或阈值来制造PASS",
-      "使用fixture、mock、历史summary或Agent常识冒充冻结snapshot执行",
+      "把snapshot、fixture、mock、历史summary或Agent常识冒充live Provider证据",
+      "记录或提交Provider密钥、完整原文、未脱敏响应、blind truth或外部环境文件",
+      "新增账号、付费、扩大Provider/数据权限、生产调用或公网部署",
       "改写G04/G05/G06历史回执、blind、oracle、数据或阈值",
-      "把G0至G2 checkpoint或未运行的后续层拼接成最终候选PASS",
+      "把G0至G3 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "在现有候选字节上执行G3冻结snapshot runner与drift拒绝测试，并保存绑定commit、tree、snapshot/config/data/model/rule哈希的耐久checkpoint。",
+    "minimum_change": "只读确认既有零增量Provider授权与仓库外环境就绪后，执行G4冻结live runner并把脱敏原始证据留在仓库外；仓库内只保存边界清晰的checkpoint。",
     "phase": "GATE_RUNNING",
     "preflight_entrypoints": [
-      "backend/tests/test_trip_check_p6_snapshot_runner.py",
-      "backend/tests/test_frozen_suggestion_snapshot.py",
-      "backend/tests/test_chained_suggestion_provider_snapshot.py"
+      "backend/tests/test_real_provider_evidence.py",
+      "backend/tests/test_trip_check_p6_live_provider_runner.py",
+      "backend/scripts/run_trip_check_p6_g4_live_provider.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G07-G3-FIXED-SNAPSHOT",
-    "stop_condition": "若G3只能通过修改冻结输入、oracle、阈值、模型选择或产品语义，则保留失败并停止该策略。",
-    "user_outcome": "候选版的模型与Provider冻结回放可确定性复验，任何配置或输入漂移都会被明确拒绝。",
+    "slice_id": "G07-G4-LIVE-PROVIDER",
+    "stop_condition": "若缺少既有授权/仓库外环境，或继续需要新账号、费用、扩大权限、修改blind/oracle/阈值或把非live证据升级，则G4保持NOT_READY并停止该策略。",
+    "user_outcome": "候选版对三城地点、路线、天气和语义的关键外部事实可由真实Provider脱敏回执复验，同时不泄露密钥或原始用户内容。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
