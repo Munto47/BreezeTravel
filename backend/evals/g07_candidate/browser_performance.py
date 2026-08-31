@@ -372,26 +372,21 @@ def _start_fixture_services(
     environment: Mapping[str, str],
 ) -> tuple[list[subprocess.Popen[bytes]], list[Any]]:
     backend = repo_root / "backend"
+    service_command = [
+        sys.executable,
+        "-m",
+        "scripts.run_g07_g5_browser_performance",
+        "service",
+    ]
     commands = {
-        "backend": [
-            sys.executable,
-            "-m",
-            "uvicorn",
-            "app.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "8999",
-        ],
+        "backend": [*service_command, "backend"],
         "understanding-worker": [
-            sys.executable,
-            "-m",
-            "app.trip_understanding.worker",
+            *service_command,
+            "understanding-worker",
         ],
         "map-worker": [
-            sys.executable,
-            "-m",
-            "app.trip_understanding.map_worker",
+            *service_command,
+            "map-worker",
         ],
     }
     creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -445,6 +440,32 @@ def _stop_fixture_services(
         stream.close()
 
 
+def _prepare_fixture_schema(
+    *, repo_root: Path, log_root: Path, environment: Mapping[str, str]
+) -> None:
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "scripts.migrate"],
+            cwd=repo_root / "backend",
+            env=dict(environment),
+            capture_output=True,
+            check=False,
+            timeout=180,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise P6ContractError("G07_G5_FIXTURE_SCHEMA_SETUP_FAILED") from exc
+    _write_text_new(
+        log_root / "schema-migrate.stdout.log",
+        result.stdout.decode("utf-8", errors="replace"),
+    )
+    _write_text_new(
+        log_root / "schema-migrate.stderr.log",
+        result.stderr.decode("utf-8", errors="replace"),
+    )
+    if result.returncode != 0:
+        raise P6ContractError("G07_G5_FIXTURE_SCHEMA_SETUP_FAILED")
+
+
 def run_browser_evidence(
     *,
     output_root: Path,
@@ -489,14 +510,20 @@ def run_browser_evidence(
     processes: list[subprocess.Popen[bytes]] = []
     streams: list[Any] = []
     try:
+        service_environment = _service_environment(
+            database_url=database_url,
+            database_admin_url=database_admin_url,
+            redis_url=redis_url,
+        )
+        _prepare_fixture_schema(
+            repo_root=repository,
+            log_root=logs,
+            environment=service_environment,
+        )
         processes, streams = _start_fixture_services(
             repo_root=repository,
             log_root=logs,
-            environment=_service_environment(
-                database_url=database_url,
-                database_admin_url=database_admin_url,
-                redis_url=redis_url,
-            ),
+            environment=service_environment,
         )
         result = _run_browser_command(
             repo_root=repository,

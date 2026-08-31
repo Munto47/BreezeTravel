@@ -38,7 +38,7 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "NONE",
-    "repair_review_cycle": 1,
+    "repair_review_cycle": 2,
     "slice_id": "G07-G5-BROWSER-PERFORMANCE",
     "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
     "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50条真实模型、地点、路线与持久化链证明关键等待时间不越界。",

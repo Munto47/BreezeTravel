@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 from pathlib import Path
 
 from evals.g07_candidate.browser_performance import (
@@ -15,6 +16,25 @@ from evals.trip_check_v1.p6.contracts_v1 import P6ContractError
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _run_fixture_service(role: str) -> int:
+    if os.name == "nt":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    if role == "backend":
+        import uvicorn
+
+        uvicorn.run("app.main:app", host="127.0.0.1", port=8999)
+        return 0
+    if role == "understanding-worker":
+        from app.trip_understanding.worker import main as worker_main
+
+        worker_main()
+        return 0
+    from app.trip_understanding.map_worker import main as map_worker_main
+
+    map_worker_main()
+    return 0
 
 
 def main() -> int:
@@ -36,7 +56,13 @@ def main() -> int:
         "--database-admin-url",
         default="postgresql://postgres:postgres@127.0.0.1:5432/postgres",
     )
+    service = subparsers.add_parser("service")
+    service.add_argument(
+        "role", choices=("backend", "understanding-worker", "map-worker")
+    )
     args = parser.parse_args()
+    if args.mode == "service":
+        return _run_fixture_service(args.role)
     try:
         if args.mode == "browser":
             receipt = run_browser_evidence(
