@@ -636,6 +636,16 @@ export default function ItineraryWorkspace({
                 </DialogAction>
               )}
               <DialogAction onClick={() => openDelete(dialog.item)} icon={<Trash2 className="h-4 w-4" />}>删除地点</DialogAction>
+              <DialogAction
+                onClick={() => {
+                  if (window.confirm(`删除“${dialog.item.card.name}”这张卡片？`)) {
+                    void applyDelete(dialog.item)
+                  }
+                }}
+                icon={<Trash2 className="h-4 w-4" />}
+              >
+                删除这张卡片
+              </DialogAction>
             </div>
             <p className="mt-4 text-xs leading-5 text-slate-500">卡片调整会自动保存，路线需要时再手动更新。</p>
           </AccessibleDialog>
