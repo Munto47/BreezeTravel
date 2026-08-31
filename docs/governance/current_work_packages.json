@@ -3,39 +3,38 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "fresh PostgreSQL与从既有034状态升级后的schema均可执行当前追加式migration",
-      "事务、CAS、幂等、lease takeover、restart与legacy兼容在同一候选subject通过",
-      "数据库检查失败保持G2不通过，不以SQLite、mock或普通pytest替代",
-      "G0与G1只作为已保存checkpoint，不提前拼接为最终同subject候选PASS"
+      "Qwen与Provider固定snapshot绑定候选config、数据、模型和规则字节",
+      "相同snapshot重复执行得到确定性等价结果，config drift必须fail-closed",
+      "snapshot只证明冻结回放，不冒充live Provider、真人或生产证据",
+      "G0至G2只作为已保存checkpoint，不提前拼接为最终同subject候选PASS"
     ],
     "allowed_paths": [
       "docs/governance",
       "backend/eval_data/g07_candidate",
       "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "4afb86210aafe03a6cebe4dac3da9cf2365a6c58",
+    "base_commit": "34fc08d2677ffda42cd8560a01880b17d28da5e6",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改migration、产品运行时或测试来制造PostgreSQL PASS",
-      "使用SQLite、mock、缓存结果或普通pytest冒充PostgreSQL执行",
+      "修改snapshot、candidate config、数据、模型、规则、oracle或阈值来制造PASS",
+      "使用fixture、mock、历史summary或Agent常识冒充冻结snapshot执行",
       "改写G04/G05/G06历史回执、blind、oracle、数据或阈值",
-      "把G0/G1 checkpoint或未运行的后续层拼接成最终候选PASS",
+      "把G0至G2 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "在现有候选字节上启动本地隔离PostgreSQL，执行G2冻结测试集合并保存绑定commit、tree、数据库版本、命令和结果的耐久checkpoint。",
+    "minimum_change": "在现有候选字节上执行G3冻结snapshot runner与drift拒绝测试，并保存绑定commit、tree、snapshot/config/data/model/rule哈希的耐久checkpoint。",
     "phase": "GATE_RUNNING",
     "preflight_entrypoints": [
-      "backend/tests/test_agent_gate_live_registry_postgres.py",
-      "backend/tests/test_g01_map_positive_postgres.py",
-      "backend/tests/test_trip_understanding_v3_postgres.py",
-      "backend/tests/test_screenshot_postgres_integration.py"
+      "backend/tests/test_trip_check_p6_snapshot_runner.py",
+      "backend/tests/test_frozen_suggestion_snapshot.py",
+      "backend/tests/test_chained_suggestion_provider_snapshot.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "NONE",
     "repair_review_cycle": 0,
-    "slice_id": "G07-G2-POSTGRESQL",
-    "stop_condition": "若G2只能通过修改产品/migration、降低门槛、使用非PostgreSQL替代品或要求生产数据库，则保留失败并停止该策略。",
-    "user_outcome": "候选版在真实本地PostgreSQL上可安装、升级，并在事务、并发、幂等、恢复和旧数据兼容路径上保持正确。",
+    "slice_id": "G07-G3-FIXED-SNAPSHOT",
+    "stop_condition": "若G3只能通过修改冻结输入、oracle、阈值、模型选择或产品语义，则保留失败并停止该策略。",
+    "user_outcome": "候选版的模型与Provider冻结回放可确定性复验，任何配置或输入漂移都会被明确拒绝。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
