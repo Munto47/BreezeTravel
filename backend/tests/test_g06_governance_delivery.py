@@ -120,8 +120,14 @@ def test_g06_required_ci_jobs_are_explicit_and_fail_closed() -> None:
     assert "frontend_build" in aggregator["needs"]
 
 
-def test_g06_binding_keeps_privacy_boundaries_and_historical_exception_exact() -> None:
-    goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
+def test_g06_archive_and_g07_binding_keep_privacy_and_exception_boundary_exact() -> None:
+    goal = (
+        REPOSITORY_ROOT
+        / "docs/governance/goals/completed/TC-VNEXT-G06-MEMORY-SHARE.md"
+    ).read_text(
+        encoding="utf-8"
+    )
+    current = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
         encoding="utf-8"
     )
     binding = json.loads(
@@ -134,9 +140,9 @@ def test_g06_binding_keeps_privacy_boundaries_and_historical_exception_exact() -
             encoding="utf-8"
         )
     )
-    assert binding["goal_id"] == registry["active_goal_id"] == "TC-VNEXT-G06-MEMORY-SHARE"
-    assert binding["status"] == "IN_PROGRESS"
-    assert registry["active_slice"]["work_kind"] == "PRODUCT"
+    assert binding["goal_id"] == registry["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
+    assert binding["status"] == "APPROVED"
+    assert registry["active_slice"]["work_kind"] == "GOAL_TRANSITION"
     for token in (
         "记忆默认关闭",
         "产品记忆不等于训练同意",
@@ -144,6 +150,9 @@ def test_g06_binding_keeps_privacy_boundaries_and_historical_exception_exact() -
         "清空全部旅行数据",
     ):
         assert token in goal
+    assert '"goal_archived": true' in goal
+    assert '"next_activated": true' in goal
+    assert "G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除" in current
 
     g04 = json.loads(
         (REPOSITORY_ROOT / "docs/governance/gate-results/G04.product-delivery.json").read_text(

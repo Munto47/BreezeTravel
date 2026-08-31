@@ -376,6 +376,11 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         "g05_postgresql",
         "g05_browser_e2e",
     )
+    g06_jobs = (
+        "g06_memory_share_targeted",
+        "g06_postgresql",
+        "g06_browser_e2e",
+    )
     for job_name in g04_jobs:
         assert f"\n  {job_name}:\n    name: {job_name}\n" in workflow
         assert jobs[job_name]["needs"] == "core-mainline-preflight"
@@ -387,6 +392,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         "core-mainline-preflight",
         *g04_jobs,
         *g05_jobs,
+        *g06_jobs,
     }
     assert sum(job.get("name") == "core-mainline" for job in jobs.values()) == 1
     enforcement = aggregator["steps"][0]["run"]
@@ -398,7 +404,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "run_g04_screenshot_parity" not in workflow
     assert workflow.count(
         "ref: ${{ github.event.pull_request.head.sha || github.sha }}"
-    ) == 9
+    ) == 12
     preflight_steps = jobs["core-mainline-preflight"]["steps"]
     scope_step = next(
         step for step in preflight_steps if step.get("name") == "Enforce product-mainline scope"
@@ -485,7 +491,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "python -m pytest -q @testFiles" in historical_regression["run"]
 
 
-def test_completed_g04_lifecycle_remains_verifiable_after_g06_activation() -> None:
+def test_completed_g04_lifecycle_remains_verifiable_after_g07_activation() -> None:
     current_goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
         encoding="utf-8"
     )
@@ -506,8 +512,8 @@ def test_completed_g04_lifecycle_remains_verifiable_after_g06_activation() -> No
     assert match is not None
     archived_state = json.loads(match.group("payload"))
 
-    assert current_goal.startswith("# APPROVED GOAL：V0.6")
-    assert registry["active_goal_id"] == "TC-VNEXT-G06-MEMORY-SHARE"
+    assert current_goal.startswith("# APPROVED GOAL：V0.9")
+    assert registry["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert archive.startswith("# COMPLETED GOAL：V0.4")
     assert archived_state == {
         "schema_version": "product-delivery-current-goal-state-v1",

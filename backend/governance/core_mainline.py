@@ -52,6 +52,7 @@ GOVERNANCE_EXACT = {
 GOAL_TRANSITION_EXACT_PATHS = {
     "backend/scripts/validate_core_mainline.py",
     "backend/tests/test_g04_governance_delivery.py",
+    "backend/tests/test_g06_governance_delivery.py",
     "backend/tests/test_governance_agent_gate_transition.py",
     "backend/tests/test_product_work_packages_v3.py",
 }

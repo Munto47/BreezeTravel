@@ -24,7 +24,7 @@ def _machine_state(document: str) -> dict[str, object]:
     return value
 
 
-def test_g04_and_g05_delivery_archives_remain_verifiable_after_transition() -> None:
+def test_g04_to_g06_delivery_archives_remain_verifiable_after_transition() -> None:
     g04_result = validate_delivery_receipt(REPOSITORY_ROOT, 4)
     g04_archive = (
         REPOSITORY_ROOT
@@ -35,25 +35,32 @@ def test_g04_and_g05_delivery_archives_remain_verifiable_after_transition() -> N
         REPOSITORY_ROOT
         / "docs/governance/goals/completed/TC-VNEXT-G05-CITY-KNOWLEDGE.md"
     ).read_text(encoding="utf-8")
+    g06_result = validate_delivery_receipt(REPOSITORY_ROOT, 6)
+    g06_archive = (
+        REPOSITORY_ROOT
+        / "docs/governance/goals/completed/TC-VNEXT-G06-MEMORY-SHARE.md"
+    ).read_text(encoding="utf-8")
 
     assert g04_result["verdict"] == "PASS", g04_result
     assert g05_result["verdict"] == "PASS", g05_result
+    assert g06_result["verdict"] == "PASS", g06_result
     assert g04_archive.startswith("# COMPLETED GOAL：V0.4 截图与文本一致")
     assert g05_archive.startswith("# COMPLETED GOAL：V0.5 三城有来源知识层")
-    for archive in (g04_archive, g05_archive):
+    assert g06_archive.startswith("# COMPLETED GOAL：V0.6 显式记忆与分享")
+    for archive in (g04_archive, g05_archive, g06_archive):
         assert '"goal_archived": true' in archive
         assert '"next_activated": true' in archive
     assert "33357640834" in g04_archive
     assert "33389553342" in g05_archive
     assert "33389970986" in g05_archive
+    assert "33402192501" in g06_archive
+    assert "33402780730" in g06_archive
 
 
-def test_g05_archive_and_g06_in_progress_product_binding_are_unambiguous() -> None:
+def test_g06_archive_and_g07_approved_binding_are_unambiguous() -> None:
     governance = REPOSITORY_ROOT / "docs/governance"
     current_goal = (governance / "CURRENT_GOAL.md").read_text(encoding="utf-8")
-    archive_path = governance / (
-        "goals/completed/TC-VNEXT-G05-CITY-KNOWLEDGE.md"
-    )
+    archive_path = governance / "goals/completed/TC-VNEXT-G06-MEMORY-SHARE.md"
     archive = archive_path.read_text(encoding="utf-8")
     binding = json.loads(
         (governance / "current_goal_binding.json").read_text(encoding="utf-8")
@@ -64,22 +71,24 @@ def test_g05_archive_and_g06_in_progress_product_binding_are_unambiguous() -> No
     current_state = _machine_state(current_goal)
     archived_state = _machine_state(archive)
 
-    assert list((governance / "goals/planned").glob("TC-VNEXT-G06-*.md")) == []
-    assert list((governance / "goals/completed").glob("TC-VNEXT-G05-*.md")) == [
+    assert list((governance / "goals/planned").glob("TC-VNEXT-G07-*.md")) == []
+    assert list((governance / "goals/completed").glob("TC-VNEXT-G06-*.md")) == [
         archive_path
     ]
     assert current_state == {
         "schema_version": "product-delivery-current-goal-state-v1",
         "program_id": "TC-VNEXT-2026",
-        "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-        "goal_status": "IN_PROGRESS",
-        "gate_profile": "PRODUCT_DELIVERY_GATE",
-        "required_gate": "Consent & Share Gate + PRODUCT_DELIVERY_PASS",
-        "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
-        "gate_result": "PRODUCT_DELIVERY_PASS",
+        "goal_id": "TC-VNEXT-G07-CANDIDATE",
+        "goal_status": "APPROVED",
+        "gate_profile": "HARDENED_CANDIDATE_GATE",
+        "required_gate": (
+            "Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS"
+        ),
+        "completion_status": "NOT_RUN",
+        "gate_result": "HARDENED_CANDIDATE_GATE_NOT_RUN",
         "goal_archived": False,
-        "last_completed_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
-        "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
+        "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+        "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
         "next_activated": False,
         "h1_status": "NOT_RUN",
         "public_network_status": "NOT_RUN",
@@ -97,16 +106,16 @@ def test_g05_archive_and_g06_in_progress_product_binding_are_unambiguous() -> No
     assert archived_state["next_goal_id"] == current_state["goal_id"]
     assert archived_state["next_activated"] is True
     assert binding["goal_id"] == registry["active_goal_id"] == current_state["goal_id"]
-    assert binding["goal_sequence"] == registry["active_goal_sequence"] == 6
-    assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
+    assert binding["goal_sequence"] == registry["active_goal_sequence"] == 7
+    assert binding["status"] == current_state["goal_status"] == "APPROVED"
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
-    assert registry["active_slice"]["work_kind"] == "PRODUCT"
-    assert registry["active_slice"]["phase"] == "EVIDENCE_FROZEN"
-    assert registry["active_slice"]["product_progress"] == "API+RUNTIME+UI"
+    assert registry["active_slice"]["work_kind"] == "GOAL_TRANSITION"
+    assert registry["active_slice"]["phase"] == "GOAL_TRANSITION"
+    assert registry["active_slice"]["product_progress"] == "NONE"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
-        "WP-G06-INTEGRATOR"
+        "WP-G07-INTEGRATOR"
     ]
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
@@ -117,34 +126,37 @@ def test_g05_archive_and_g06_in_progress_product_binding_are_unambiguous() -> No
     assert "待合并" not in completion
 
     for token in (
-        "consent合同通过后`033_user_memory_and_feedback.sql`",
-        "记忆默认关闭",
-        "产品记忆不等于训练同意",
-        "分享链接使用`/share/{share_ref}#s=<secret>`",
-        "当前registry只激活唯一集成者；本次未使用贡献Agent",
-        "H1/商业/公网/生产/release/deploy/`main`需批准",
+        "G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档",
+        "当前registry只激活唯一集成者的治理过渡",
+        "G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除",
+        "H1、公网、生产、商业：`NOT_RUN`",
+        "Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`",
     ):
         assert token in current_goal
 
 
-def test_g06_product_slice_accepts_current_diff_and_excludes_frozen_candidate_assets() -> None:
+def test_g07_transition_accepts_only_governance_and_excludes_candidate_assets() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
     allowed = registry["active_slice"]["allowed_paths"]
-    assert "backend/app/trip_understanding" in allowed
-    assert "frontend/src" in allowed
+    assert "docs/governance" in allowed
+    assert "backend/app/trip_understanding" not in allowed
+    assert "frontend/src" not in allowed
     assert not any(path.startswith("backend/evals/agent_gate_v1/") for path in allowed)
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
-    assert result["active_goal_id"] == "TC-VNEXT-G06-MEMORY-SHARE"
+    assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert result["package_count"] == 1
-    assert "backend/app/db/migrations/033_user_memory_and_feedback.sql" in result["changed_paths"]
-    assert any(path.startswith("backend/app/") for path in result["changed_paths"])
-    assert any(path.startswith("frontend/src/") for path in result["changed_paths"])
+    assert "docs/governance/CURRENT_GOAL.md" in result["changed_paths"]
+    assert "docs/governance/goals/completed/TC-VNEXT-G06-MEMORY-SHARE.md" in result[
+        "changed_paths"
+    ]
+    assert not any(path.startswith("backend/app/") for path in result["changed_paths"])
+    assert not any(path.startswith("frontend/src/") for path in result["changed_paths"])
     assert not any(
         path.startswith("backend/evals/agent_gate_v1/")
         for path in result["changed_paths"]
