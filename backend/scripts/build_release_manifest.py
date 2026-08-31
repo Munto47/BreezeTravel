@@ -14,6 +14,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from evals.agent_gate_v1.contracts import CandidateGateComponentReceipt
+from evals.agent_gate_v1.core_gate import CORE_CONFIG_ROOTS, CORE_DATA_ROOTS
+from evals.agent_gate_v1.path_security import read_external_snapshot
+
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
@@ -49,6 +53,12 @@ G07_VERIFICATION_MATRIX = (
     BACKEND / "eval_data" / "g07_candidate" / "verification_matrix_v1.json"
 )
 G07_THREAT_MODEL = BACKEND / "eval_data" / "g07_candidate" / "threat_model_v1.json"
+G07_COMPONENTS = {
+    "AUTOMATED_PRODUCT_GATE",
+    "LIVE_PROVIDER_GATE",
+    "MULTI_AGENT_PANEL",
+    "SEALED_AGENT_BLIND",
+}
 
 
 def sha256_file(path: Path) -> str | None:
@@ -466,10 +476,77 @@ def _verified_g07_bindings(run_spec: dict[str, object]) -> list[dict[str, object
     return sorted(verified, key=lambda item: (str(item["section"]), str(item["binding"])))
 
 
+def _g07_git_bundle_sha256(commit: str, roots: tuple[str, ...]) -> str:
+    raw = git("ls-tree", "-r", "--full-tree", commit, "--", *roots)
+    entries: list[list[str]] = []
+    for line in raw.splitlines():
+        metadata, path = line.split("\t", maxsplit=1)
+        _mode, object_type, object_id = metadata.split()
+        if object_type == "blob":
+            entries.append([path, object_type, object_id])
+    if not entries:
+        raise RuntimeError("G07 candidate Git bundle resolved no blobs")
+    return hashlib.sha256(
+        json.dumps(
+            sorted(entries),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def _verified_g07_components(
+    paths: list[Path],
+    *,
+    commit: str,
+    tree: str,
+    automated_contract_sha256: str,
+) -> dict[str, dict[str, object]]:
+    if not paths:
+        return {}
+    if len(paths) != len(G07_COMPONENTS):
+        raise RuntimeError("G07 manifest requires exactly four component receipts")
+    config_sha256 = _g07_git_bundle_sha256(commit, CORE_CONFIG_ROOTS)
+    data_sha256 = _g07_git_bundle_sha256(commit, CORE_DATA_ROOTS)
+    verified: dict[str, dict[str, object]] = {}
+    for path in paths:
+        snapshot = read_external_snapshot(path, ROOT)
+        try:
+            receipt = CandidateGateComponentReceipt.model_validate_json(snapshot.content)
+        except ValueError as exc:
+            raise RuntimeError(f"invalid G07 component receipt: {path.name}") from exc
+        if receipt.component in verified:
+            raise RuntimeError("G07 manifest received a duplicate component receipt")
+        if (
+            receipt.candidate_commit != commit
+            or receipt.candidate_tree != tree
+            or receipt.candidate_config_sha256 != config_sha256
+            or receipt.candidate_data_sha256 != data_sha256
+            or receipt.automated_gate_contract_sha256
+            != automated_contract_sha256
+        ):
+            raise RuntimeError("G07 component receipt candidate binding mismatch")
+        verified[receipt.component] = {
+            "receipt_sha256": snapshot.sha256,
+            "evidence_level": receipt.evidence_level,
+            "upstream_artifact_sha256": dict(
+                sorted(receipt.upstream_artifact_sha256.items())
+            ),
+            "verifier_sha256": receipt.verifier_sha256,
+            "isolation_mode": receipt.isolation_mode,
+            "human_evidence": False,
+            "production_evidence": False,
+        }
+    if set(verified) != G07_COMPONENTS:
+        raise RuntimeError("G07 manifest component receipt set is incomplete")
+    return dict(sorted(verified.items()))
+
+
 def build_g07_candidate_manifest(
     output_root: Path,
     *,
     require_clean: bool = False,
+    component_receipt_paths: list[Path] | None = None,
 ) -> Path:
     """Build a fail-closed TC-VNEXT G07 manifest without reusing legacy proof."""
 
@@ -495,6 +572,18 @@ def build_g07_candidate_manifest(
     ):
         raise RuntimeError("G07 candidate artifacts disagree on Goal")
     verified_bindings = _verified_g07_bindings(run_spec)
+    automated_contract_sha256 = next(
+        str(item["sha256"])
+        for item in verified_bindings
+        if item["binding"] == "automated_candidate_gate"
+    )
+    verified_components = _verified_g07_components(
+        component_receipt_paths or [],
+        commit=commit,
+        tree=tree,
+        automated_contract_sha256=automated_contract_sha256,
+    )
+    components_complete = set(verified_components) == G07_COMPONENTS
     gates = matrix.get("gates")
     if not isinstance(gates, list) or [item.get("gate_id") for item in gates] != [
         f"G{index}" for index in range(9)
@@ -514,6 +603,8 @@ def build_g07_candidate_manifest(
     ]
     if dirty:
         blockers.insert(0, "WORKING_TREE_NOT_CLEAN")
+    if not components_complete:
+        blockers.append("G07_COMPONENT_RECEIPTS_NOT_RUN")
     migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
     if not migrations or migrations[-1].name != G07_LATEST_MIGRATION:
         raise RuntimeError(f"G07 manifest requires latest migration {G07_LATEST_MIGRATION}")
@@ -540,6 +631,7 @@ def build_g07_candidate_manifest(
             else "CANDIDATE_EVIDENCE_INCOMPLETE"
         ),
         "candidate_gate_passed": all_pass,
+        "manifest_gate_status": "PASS" if components_complete else "NOT_RUN",
         "release_approval_granted": False,
         "deployment_requested": False,
         "main_merge_requested": False,
@@ -547,6 +639,11 @@ def build_g07_candidate_manifest(
         "verification_matrix": evidence_reference(G07_VERIFICATION_MATRIX),
         "threat_model": evidence_reference(G07_THREAT_MODEL),
         "verified_input_bindings": verified_bindings,
+        "component_receipts": verified_components,
+        "component_receipt_sha256": {
+            component: details["receipt_sha256"]
+            for component, details in verified_components.items()
+        },
         "latest_migration": G07_LATEST_MIGRATION,
         "migrations": [
             {"name": migration.name, "sha256": sha256_file(migration)}
@@ -575,10 +672,22 @@ def build_g07_candidate_manifest(
         "evidence_boundaries": {
             "fixture": "SEPARATE",
             "snapshot": "SEPARATE",
-            "live_provider": "NOT_RUN",
+            "live_provider": (
+                "VERIFIED_COMPONENT_RECEIPT"
+                if "LIVE_PROVIDER_GATE" in verified_components
+                else "NOT_RUN"
+            ),
             "browser": "NOT_RUN",
-            "multi_agent": "NOT_RUN",
-            "sealed_blind": "NOT_RUN",
+            "multi_agent": (
+                "VERIFIED_COMPONENT_RECEIPT"
+                if "MULTI_AGENT_PANEL" in verified_components
+                else "NOT_RUN"
+            ),
+            "sealed_blind": (
+                "VERIFIED_COMPONENT_RECEIPT"
+                if "SEALED_AGENT_BLIND" in verified_components
+                else "NOT_RUN"
+            ),
             "human_usability": "NOT_RUN",
             "public_network": "NOT_RUN",
             "production": "NOT_RUN",
@@ -629,6 +738,18 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=BACKEND / "evidence" / "releases")
     parser.add_argument("--require-clean", action="store_true")
     parser.add_argument("--profile", choices=("legacy", "g07"), default="legacy")
+    parser.add_argument("--component", action="append", type=Path, default=[])
     args = parser.parse_args()
     builder = build_g07_candidate_manifest if args.profile == "g07" else build
-    print(builder(args.output, require_clean=args.require_clean))
+    if args.profile == "legacy" and args.component:
+        parser.error("--component is only valid with --profile g07")
+    if args.profile == "g07":
+        print(
+            builder(
+                args.output,
+                require_clean=args.require_clean,
+                component_receipt_paths=args.component,
+            )
+        )
+    else:
+        print(builder(args.output, require_clean=args.require_clean))

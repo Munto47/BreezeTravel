@@ -5,10 +5,79 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
+from evals.agent_gate_v1.core_gate import CORE_CONFIG_ROOTS, CORE_DATA_ROOTS
+from scripts import build_release_manifest
 from scripts.build_release_manifest import build_g07_candidate_manifest
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def _write_json(path: Path, payload: dict[str, object]) -> None:
+    path.write_text(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _component_receipts(root: Path) -> list[Path]:
+    commit = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    tree = subprocess.run(
+        ["git", "-C", str(ROOT), "show", "-s", "--format=%T", commit],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    config_sha256 = build_release_manifest._g07_git_bundle_sha256(
+        commit, CORE_CONFIG_ROOTS
+    )
+    data_sha256 = build_release_manifest._g07_git_bundle_sha256(commit, CORE_DATA_ROOTS)
+    binding = json.loads(
+        (ROOT / "docs/governance/current_goal_binding.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    levels = {
+        "AUTOMATED_PRODUCT_GATE": "AUTOMATED_TEST",
+        "LIVE_PROVIDER_GATE": "LIVE_PROVIDER_EVIDENCE",
+        "MULTI_AGENT_PANEL": "MULTI_AGENT_SIMULATED_REVIEW",
+        "SEALED_AGENT_BLIND": "SEALED_AGENT_BLIND",
+    }
+    paths: list[Path] = []
+    for index, (component, evidence_level) in enumerate(levels.items(), start=1):
+        path = root / f"component-{index}.json"
+        _write_json(
+            path,
+            {
+                "candidate_commit": commit,
+                "candidate_tree": tree,
+                "candidate_config_sha256": config_sha256,
+                "candidate_data_sha256": data_sha256,
+                "automated_gate_contract_sha256": binding[
+                    "candidate_gate_contract_sha256"
+                ],
+                "component": component,
+                "evidence_level": evidence_level,
+                "upstream_artifact_sha256": {
+                    f"component_{index}.evidence": str(index) * 64
+                },
+                "verifier_sha256": "f" * 64,
+                "isolation_mode": (
+                    "FRESH_CLEAN_CHECKOUT"
+                    if component == "AUTOMATED_PRODUCT_GATE"
+                    else None
+                ),
+            },
+        )
+        paths.append(path)
+    return paths
 
 
 def test_g07_manifest_is_current_fail_closed_and_secret_free(tmp_path: Path) -> None:
@@ -53,6 +122,67 @@ def test_g07_run_spec_hash_bindings_match_current_candidate_inputs(tmp_path: Pat
         binding["binding"] == "text_card_90_case_contract"
         for binding in payload["verified_input_bindings"]
     )
+
+
+def test_g07_manifest_aggregates_only_complete_same_subject_components(
+    tmp_path: Path,
+) -> None:
+    components = _component_receipts(tmp_path)
+
+    target = build_g07_candidate_manifest(
+        tmp_path / "manifest",
+        component_receipt_paths=components,
+    )
+    payload = json.loads(target.read_text(encoding="utf-8"))
+
+    assert payload["manifest_gate_status"] == "PASS"
+    assert payload["candidate_gate_passed"] is False
+    assert payload["candidate_status"] == "CANDIDATE_EVIDENCE_INCOMPLETE"
+    assert set(payload["component_receipts"]) == build_release_manifest.G07_COMPONENTS
+    assert set(payload["component_receipt_sha256"]) == (
+        build_release_manifest.G07_COMPONENTS
+    )
+    assert "G07_COMPONENT_RECEIPTS_NOT_RUN" not in payload["release_blockers"]
+    assert payload["evidence_boundaries"]["live_provider"] == (
+        "VERIFIED_COMPONENT_RECEIPT"
+    )
+    assert payload["evidence_boundaries"]["multi_agent"] == (
+        "VERIFIED_COMPONENT_RECEIPT"
+    )
+    assert payload["evidence_boundaries"]["sealed_blind"] == (
+        "VERIFIED_COMPONENT_RECEIPT"
+    )
+    for path in components:
+        component = json.loads(path.read_text(encoding="utf-8"))["component"]
+        assert payload["component_receipt_sha256"][component] == hashlib.sha256(
+            path.read_bytes()
+        ).hexdigest()
+
+
+def test_g07_manifest_rejects_partial_duplicate_and_cross_subject_components(
+    tmp_path: Path,
+) -> None:
+    components = _component_receipts(tmp_path)
+
+    with pytest.raises(RuntimeError, match="exactly four"):
+        build_g07_candidate_manifest(
+            tmp_path / "partial",
+            component_receipt_paths=components[:3],
+        )
+    with pytest.raises(RuntimeError, match="duplicate"):
+        build_g07_candidate_manifest(
+            tmp_path / "duplicate",
+            component_receipt_paths=[components[0], components[0], *components[2:]],
+        )
+
+    drifted = json.loads(components[0].read_text(encoding="utf-8"))
+    drifted["candidate_commit"] = "0" * 40
+    _write_json(components[0], drifted)
+    with pytest.raises(RuntimeError, match="binding mismatch"):
+        build_g07_candidate_manifest(
+            tmp_path / "drifted",
+            component_receipt_paths=components,
+        )
 
 
 def test_g07_candidate_contract_receipt_binds_subject_git_bytes() -> None:
