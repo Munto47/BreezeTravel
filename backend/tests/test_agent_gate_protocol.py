@@ -972,7 +972,13 @@ def test_current_goal_document_machine_state_rejects_false_completion_or_activat
     product_binding.update(
         {
             "schema_version": "current-goal-binding-v2",
+            "goal_sequence": 6,
+            "goal_id": manifest.goal_bindings[5].goal_id,
+            "status": "IN_PROGRESS",
+            "predecessor_goal_id": manifest.goal_bindings[4].goal_id,
+            "predecessor_completion_commit": "a" * 40,
             "gate_profile": "CORE_AGENT_GATE",
+            "mainline_phase": "PRODUCT_ENHANCEMENT",
             "canonical_candidate_ref": "refs/heads/codex/trip-check-product-reset",
         }
     )

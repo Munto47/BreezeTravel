@@ -95,6 +95,7 @@ Goal type: CANDIDATE_HARDENING
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
 - 新功能请求进入未来Program，不在收口Goal扩展。
 - 所有`NOT_RUN`明确列出。
+- 当前合同`structurally_valid=true`只表示结构一致；历史Intake/Candidate仍不得改写或替代当前Gate，也不得因此宣称 `V1_CANDIDATE_READY`。
 - G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除；移除证据与候选commit绑定，不得扩大或重命名例外。
 - `HardeningDecision`只有两种：`NOT_REQUIRED_WITH_RATIONALE`记录威胁、替代控制和残余风险；`REQUIRED`只启用威胁模型点名的控制。不得因为旧代码存在默认恢复八角色签名、broker、远端anchor或OCI。
 
@@ -168,6 +169,7 @@ Goal type: CANDIDATE_HARDENING
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-31 | G06显式记忆与分享已交付、并入`develop`并完整归档；G07候选收口合同原子激活，尚未运行候选工作 | G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；回执`215770f2ad975ed89271047fa40780fdddbd02a0`；integration`9994be151923b9c349fc1129605777032a0b8ebe`；本治理过渡commit在提交后由远端readback记录 | G06首轮CI`33400646254 PASS`、回执tip CI`33402192501 PASS`、develop exact-tip CI`33402780730 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / G07_NOT_STARTED` | `Governance ratio=100% / atomic G06 archive and G07 activation only` | 合并本过渡PR；从新develop建立G07实现分支；首先修复并移除G04方案A两个历史失败例外，再冻结候选RunSpec和exact bindings | G07全Gate、live Provider、90条统计、50链、复审、blind、性能、可靠性、隐私、供应链均`NOT_RUN`；H1、公网、生产、商业、发布、部署和main仍未运行或未请求 | 校验归档/绑定/范围，提交push并通过过渡CI；合并后fresh readback再开始G07 preflight |
 | 2026-08-31 | G07已从最终G06→G07过渡tip建立隔离候选工作树；两个历史失败已在未修改基线上精确复现并定位为candidate manifest的validator/scorer/gate绑定过期 | baseline `ff36a10ecae98088742e9722da3f4bf3676f6d04`；本preflight checkpoint待提交 | fresh fetch/`ls-remote`一致；两节点原样`2 failed`，指纹均为`manifest evaluator/schema code binding mismatch`；当前schema/generator与清单一致，validator/scorer/gate三项不一致 | `LOCAL_AUTOMATED / EXACT_FAILURE_REPRODUCTION / CANDIDATE_HARDENING_PREFLIGHT` | `Product progress=EVAL_METRIC / G07_IN_PROGRESS` | `Governance ratio=preflight binding only` | 提交并远端回读preflight；只更新candidate manifest绑定并移除方案A执行器，再要求两节点和普通非P5全量pytest零失败 | G07其余Gate仍`NOT_RUN`；本checkpoint不接受exact-binding、不修改blind/oracle、不声明整仓绿 | 运行治理定向、scope guard与diff check，提交push后执行最小exact-binding修复 |
+| 2026-08-31 | G07候选不再把两个Trip NLU失败转换为批准例外；当前评测字节可直接验证同一数据，G01～G06累积普通后端合同已原生零失败 | preflight `e3db50d9e6ec6ae039ab4d672eac5b134d5c8e76`；exact-binding subject待提交 | 原两节点`2 passed`；candidate code bindings五项与当前字节完全一致；custody manifest SHA-256仍为`cab1056d3a435f7a4c576a97f0d6d75ef17b8d4ed6833721ea038b64db52b0ab`且10项数据/receipt hash全匹配；原生非P5全量`2052 passed, 43 skipped, 0 failed`，pytest exit `0`；Ruff与scope validation PASS | `LOCAL_AUTOMATED / EXACT_CANDIDATE_BINDING / NATIVE_FULL_REGRESSION_ZERO_FAILURE` | `Product progress=EVAL_METRIC / G07_EXACT_BINDING_REPAIRED` | `Governance ratio=targeted candidate manifest plus stale historical assertions; no product runtime change` | 提交、push并readback exact-binding subject；在其精确hash上生成耐久回执；随后冻结G07 RunSpec与全Gate矩阵 | 完整含P5套件、G0～G7、Provider、50链、复审、blind、性能、可靠性、隐私和供应链仍`NOT_RUN`；历史G04/G05/G06回执保留当时方案A事实，不得改写为历史零失败 | 完成治理定向、scope guard、Ruff与diff审查，提交push后建立subject-bound回执 |
 
 ## Auto-advance
 
@@ -177,9 +179,9 @@ Goal type: CANDIDATE_HARDENING
 ## Completion record
 
 - Status / Subject commits / Remote branch：`IN_PROGRESS / preflight checkpoint待提交 / origin/codex/g07-candidate待首次push`；
-- Verification / Evidence / Gate result / `structurally_valid`：`两个历史失败已精确复现 / LOCAL_AUTOMATED_PREFLIGHT / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
+- Verification / Evidence / Gate result / `structurally_valid`：`非P5全量2052 passed, 43 skipped, 0 failed / LOCAL_AUTOMATED_EXACT_BINDING / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`G06已交付，G07已在隔离fresh baseline开始候选收口 / G04两个历史例外尚未移除；候选全Gate与全部候选证据仍未运行 / false`；
+- User-visible result / Remaining risks / Goal archived：`G06已交付，G07当前候选已移除G04方案A执行路径并恢复普通后端零失败 / 候选全Gate与其余候选证据仍未运行 / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

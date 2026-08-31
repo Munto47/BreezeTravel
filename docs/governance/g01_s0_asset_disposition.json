@@ -196,13 +196,14 @@
     "source_api_additions": {
       "source": "packages/trip-check-client/openapi.current.json",
       "legacy_source": "packages/trip-check-client/openapi.json",
-      "observed_count": 24,
+      "observed_count": 33,
       "rules": [
         {
           "disposition": "ADAPT",
           "patterns": [
             "/api/trip-intakes/*",
             "/api/v3/me/*",
+            "/api/v3/shares/*",
             "/api/v3/screenshot-batches",
             "/api/v3/trip-understandings*"
           ]

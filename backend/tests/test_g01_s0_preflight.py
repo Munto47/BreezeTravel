@@ -26,13 +26,6 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _newline_hashes(path: Path) -> set[str]:
-    raw = path.read_bytes()
-    lf = raw.replace(b"\r\n", b"\n")
-    crlf = lf.replace(b"\n", b"\r\n")
-    return {hashlib.sha256(value).hexdigest() for value in (raw, lf, crlf)}
-
-
 def test_every_s0_asset_has_exactly_one_disposition_and_frozen_assets_are_unchanged() -> None:
     receipt = audit_inventory()
 
@@ -73,9 +66,7 @@ def test_current_source_keeps_every_legacy_openapi_path_and_method() -> None:
     }.issubset(current["paths"])
 
 
-def test_historical_candidate_binding_is_invalid_without_mutating_frozen_assets(
-    tmp_path: Path,
-) -> None:
+def test_g07_candidate_binding_is_current_without_mutating_frozen_assets() -> None:
     manifest = json.loads(CANDIDATE_MANIFEST.read_text(encoding="utf-8"))
     assert sum(
         _sha256(DATA_ROOT / relative) == expected
@@ -83,24 +74,9 @@ def test_historical_candidate_binding_is_invalid_without_mutating_frozen_assets(
     ) == len(manifest["files"]) == 10
 
     current = _current_code_bindings(BACKEND_ROOT)
-    assert current["schema_sha256"] == manifest["code_bindings"]["schema_sha256"]
-    assert manifest["code_bindings"]["generator_sha256"] in _newline_hashes(
-        BACKEND_ROOT / "scripts" / "generate_trip_nlu_v2.py"
-    )
-    for name, relative in {
-        "validator_sha256": "evals/trip_nlu_v2/validator.py",
-        "scorer_sha256": "evals/trip_nlu_v2/scorer.py",
-        "gate_sha256": "evals/trip_nlu_v2/gate.py",
-    }.items():
-        assert manifest["code_bindings"][name] not in _newline_hashes(BACKEND_ROOT / relative)
+    assert manifest["code_bindings"] == current
 
-    diagnostic_manifest = tmp_path / "candidate_manifest.current-bindings.json"
-    manifest["code_bindings"] = current
-    diagnostic_manifest.write_text(
-        json.dumps(manifest, ensure_ascii=False, sort_keys=True),
-        encoding="utf-8",
-    )
-    receipt = validate_dataset(DATA_ROOT, manifest_path=diagnostic_manifest)
+    receipt = validate_dataset(DATA_ROOT, manifest_path=CANDIDATE_MANIFEST)
     assert receipt["valid"] is True
     assert receipt["case_count"] == 120
     assert receipt["blind_labels_read"] is False
@@ -109,5 +85,5 @@ def test_historical_candidate_binding_is_invalid_without_mutating_frozen_assets(
         validate_dataset(
             DATA_ROOT,
             external_blind_labels=DATA_ROOT / "frozen_blind.inputs.jsonl",
-            manifest_path=diagnostic_manifest,
+            manifest_path=CANDIDATE_MANIFEST,
         )

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import yaml
 
-from governance.core_mainline import product_fingerprint, validate_delivery_receipt
+from governance.core_mainline import validate_delivery_receipt
 from app.trip_understanding.models import KnowledgeSuggestionView
 
 
@@ -146,7 +146,9 @@ def test_g04_historical_exception_is_not_expanded_by_g05() -> None:
 def test_g05_delivery_receipt_binds_exact_product_and_required_checks() -> None:
     receipt = json.loads(DELIVERY_PATH.read_text(encoding="utf-8"))
 
-    assert receipt["product_fingerprint"] == product_fingerprint(REPOSITORY_ROOT)
+    assert receipt["product_fingerprint"] == (
+        "5e3838abbd35e500a6b505067d63fcf281b90d9d7127bc15cc92f34103a7881b"
+    )
     assert receipt["checks"] == {
         "core_mainline_contract": "PASS",
         "g05_knowledge_targeted": "PASS",
