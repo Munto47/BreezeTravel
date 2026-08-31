@@ -5,7 +5,7 @@
   "gate_profile": "HARDENED_CANDIDATE_GATE",
   "goal_id": "TC-VNEXT-G07-CANDIDATE",
   "goal_sequence": 7,
-  "implementation_baseline_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
+  "implementation_baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
   "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
   "mainline_phase": "CANDIDATE_HARDENING",
   "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
@@ -13,8 +13,8 @@
   "predecessor_completion_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
   "predecessor_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G07_CANDIDATE_APPROVED",
+  "program_state": "G07_CANDIDATE_IN_PROGRESS",
   "schema_version": "current-goal-binding-v3",
-  "status": "APPROVED",
+  "status": "IN_PROGRESS",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

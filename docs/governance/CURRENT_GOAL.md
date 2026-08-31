@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.9 候选版收口
+# IN PROGRESS GOAL：V0.9 候选版收口
 
 Goal ID: TC-VNEXT-G07-CANDIDATE
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: CANDIDATE_HARDENING
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
@@ -9,7 +9,7 @@ Goal type: CANDIDATE_HARDENING
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G07-CANDIDATE",
-  "goal_status": "APPROVED",
+  "goal_status": "IN_PROGRESS",
   "gate_profile": "HARDENED_CANDIDATE_GATE",
   "required_gate": "Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS",
   "completion_status": "NOT_RUN",
@@ -35,12 +35,12 @@ Goal type: CANDIDATE_HARDENING
 - Product version：`V0.9`
 - Mainline phase：`CANDIDATE_HARDENING`
 - Gate profile：`HARDENED_CANDIDATE_GATE`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Activation：G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档
 - Governance transition baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`
 - Activation branch / worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`
-- Canonical implementation branch / worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，仅在本过渡PR合并并fresh readback后创建
-- Upstream / remote readback：`origin/develop` / `9994be151923b9c349fc1129605777032a0b8ebe`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
+- Canonical implementation branch / worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，已从fresh `origin/develop`创建
+- Upstream / remote readback：`origin/develop` / `ff36a10ecae98088742e9722da3f4bf3676f6d04`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
 - Predecessor：G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`、交付回执`215770f2ad975ed89271047fa40780fdddbd02a0`、PR #20 integration `9994be151923b9c349fc1129605777032a0b8ebe`；develop exact-tip GitHub Actions `33402780730 PASS`
 - Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
 - Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
@@ -48,8 +48,8 @@ Goal type: CANDIDATE_HARDENING
 ## Dependencies
 
 - 唯一激活依赖是G06归档且Consent & Share Gate与`PRODUCT_DELIVERY_PASS`通过；该依赖已由耐久回执、PR #20、`develop@9994be151923b9c349fc1129605777032a0b8ebe`远端readback和exact-tip CI满足。
-- 本治理过渡只完整归档G06并激活G07，不运行候选评测、Provider、性能、可靠性、blind、复审或产品代码。
-- 首个preflight填写branch/baseline、候选RunSpec、Provider绑定和全部required Gate矩阵；缺失项标记`NOT_RUN/NOT_READY`并自主修复，只有确需新授权或人工阶段时才按HITL处理，不能把缺失证据包装成PASS。
+- G06→G07治理过渡已由PR #21并入`develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`，G07独立实现工作树已建立；候选评测、Provider、性能、可靠性、blind与复审仍未运行。
+- 首个preflight先绑定fresh branch/baseline并修复G04方案A；随后冻结候选RunSpec、Provider绑定和全部required Gate矩阵。缺失项标记`NOT_RUN/NOT_READY`并自主修复，只有确需新授权或人工阶段时才按HITL处理，不能把缺失证据包装成PASS。
 - G04方案A恰好两个历史失败例外保持原样披露；G07首个阻断动作是修复并移除该例外，移除前不得接受exact-binding或宣称整仓pytest零失败。
 
 ## User Outcome
@@ -80,12 +80,12 @@ Goal type: CANDIDATE_HARDENING
 
 | Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
-| `WP-G07-INTEGRATOR` | 当前仅限治理过渡；候选实现路径在fresh baseline preflight后精确化 | G06冻结候选 | 完整候选合同、exact baseline和第一阻断动作可回读 | `INTEGRATOR_ONLY / GOAL_TRANSITION` |
+| `WP-G07-INTEGRATOR` | G07治理、候选评测/回执、既有CI及阻断修复；首切片仅限Trip NLU candidate manifest与方案A移除路径 | G06冻结候选 | fresh baseline可回读；两个历史失败恢复普通PASS；例外执行器不再生效 | `INTEGRATOR_ONLY / CANDIDATE_HARDENING` |
 | `WP-G07-PERFORMANCE` | 性能、资源预算和基准回执 | G01～G06冻结候选 | 主链P95与资源预算通过 | `NOT_STARTED` |
 | `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
 | `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
 
-当前registry只激活唯一集成者的治理过渡，不代表G07候选工作已开始。本过渡合并后，主对话从fresh `origin/develop`建立唯一实现分支，先移除G04方案A历史例外，再冻结候选RunSpec、全Gate矩阵和路径所有权。任何后续并行写入都需当时适用指令明确允许；否则由集成者串行执行可靠性/隐私材料→性能收口→同commit全量E2E/Gate→`HardeningDecision`、manifest和远端readback。
+当前registry只激活唯一集成者的G07候选加固切片。首切片先把Trip NLU candidate manifest精确绑定到当前validator/schema/scorer/gate/generator字节，并移除方案A运行时兼容判定；不修改数据内容、blind/oracle或历史交付回执。完成普通全量pytest零失败后，再冻结候选RunSpec、全Gate矩阵和后续路径所有权。任何后续并行写入都需当时适用指令明确允许；否则由集成者串行执行可靠性/隐私材料→性能收口→同commit全量E2E/Gate→`HardeningDecision`、manifest和远端readback。
 
 ## Decisions locked
 
@@ -142,7 +142,7 @@ Goal type: CANDIDATE_HARDENING
 ## Baseline
 
 - 激活baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`；治理过渡branch/worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`；
-- 候选实现branch/worktree预登记为`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，只在过渡合并后的fresh baseline创建；候选依赖锁、OpenAPI/migration/provider/model/dataset版本由首个preflight冻结；
+- 候选实现baseline：`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`；branch/worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`；候选依赖锁、OpenAPI/migration/provider/model/dataset版本由后续RunSpec切片冻结；
 - dirty tree或不同binding结果不得拼接；H1/production/commercial：`NOT_RUN`。
 
 ## Invariants
@@ -167,6 +167,7 @@ Goal type: CANDIDATE_HARDENING
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-31 | G06显式记忆与分享已交付、并入`develop`并完整归档；G07候选收口合同原子激活，尚未运行候选工作 | G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；回执`215770f2ad975ed89271047fa40780fdddbd02a0`；integration`9994be151923b9c349fc1129605777032a0b8ebe`；本治理过渡commit在提交后由远端readback记录 | G06首轮CI`33400646254 PASS`、回执tip CI`33402192501 PASS`、develop exact-tip CI`33402780730 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / G07_NOT_STARTED` | `Governance ratio=100% / atomic G06 archive and G07 activation only` | 合并本过渡PR；从新develop建立G07实现分支；首先修复并移除G04方案A两个历史失败例外，再冻结候选RunSpec和exact bindings | G07全Gate、live Provider、90条统计、50链、复审、blind、性能、可靠性、隐私、供应链均`NOT_RUN`；H1、公网、生产、商业、发布、部署和main仍未运行或未请求 | 校验归档/绑定/范围，提交push并通过过渡CI；合并后fresh readback再开始G07 preflight |
+| 2026-08-31 | G07已从最终G06→G07过渡tip建立隔离候选工作树；两个历史失败已在未修改基线上精确复现并定位为candidate manifest的validator/scorer/gate绑定过期 | baseline `ff36a10ecae98088742e9722da3f4bf3676f6d04`；本preflight checkpoint待提交 | fresh fetch/`ls-remote`一致；两节点原样`2 failed`，指纹均为`manifest evaluator/schema code binding mismatch`；当前schema/generator与清单一致，validator/scorer/gate三项不一致 | `LOCAL_AUTOMATED / EXACT_FAILURE_REPRODUCTION / CANDIDATE_HARDENING_PREFLIGHT` | `Product progress=EVAL_METRIC / G07_IN_PROGRESS` | `Governance ratio=preflight binding only` | 提交并远端回读preflight；只更新candidate manifest绑定并移除方案A执行器，再要求两节点和普通非P5全量pytest零失败 | G07其余Gate仍`NOT_RUN`；本checkpoint不接受exact-binding、不修改blind/oracle、不声明整仓绿 | 运行治理定向、scope guard与diff check，提交push后执行最小exact-binding修复 |
 
 ## Auto-advance
 
@@ -175,10 +176,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`APPROVED / G07候选subject尚未创建 / origin/codex/g07-candidate尚未创建`；
-- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / GOAL_TRANSITION_ONLY / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / preflight checkpoint待提交 / origin/codex/g07-candidate待首次push`；
+- Verification / Evidence / Gate result / `structurally_valid`：`两个历史失败已精确复现 / LOCAL_AUTOMATED_PREFLIGHT / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`G06已交付，G07仅完成可追溯激活 / G04两个历史例外移除、候选全Gate与全部候选证据均未运行 / false`；
+- User-visible result / Remaining risks / Goal archived：`G06已交付，G07已在隔离fresh baseline开始候选收口 / G04两个历史例外尚未移除；候选全Gate与全部候选证据仍未运行 / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

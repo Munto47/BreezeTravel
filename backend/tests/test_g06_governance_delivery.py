@@ -141,8 +141,8 @@ def test_g06_archive_and_g07_binding_keep_privacy_and_exception_boundary_exact()
         )
     )
     assert binding["goal_id"] == registry["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
-    assert binding["status"] == "APPROVED"
-    assert registry["active_slice"]["work_kind"] == "GOAL_TRANSITION"
+    assert binding["status"] == "IN_PROGRESS"
+    assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     for token in (
         "记忆默认关闭",
         "产品记忆不等于训练同意",

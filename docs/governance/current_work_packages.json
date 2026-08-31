@@ -3,29 +3,31 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "G06 Consent & Share Gate与PRODUCT_DELIVERY_PASS已通过并由PR #20合入develop",
-      "完整G06合同以COMPLETED状态归档且G06.product-delivery.json继续可回读",
-      "G07完整合同、唯一集成者、fresh baseline与G04方案A例外移除首动作原子激活"
+      "G07实现分支与工作树精确绑定fresh origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04",
+      "Trip NLU candidate manifest只更新当前validator/schema/scorer/gate/generator绑定且blind/oracle字节不变",
+      "方案A兼容判定不再执行，两个历史节点与普通非P5全量pytest均以原生退出码零失败"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/governance/core_mainline.py",
+      ".github/workflows/core-mainline.yml",
+      "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+      "backend/scripts/run_g04_non_p5_regression.py",
+      "backend/tests/test_g04_historical_compatibility.py",
       "backend/tests/test_g04_governance_delivery.py",
       "backend/tests/test_g06_governance_delivery.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_product_work_packages_v3.py"
+      "backend/tests/test_product_work_packages_v3.py",
+      "backend/tests/test_g07_candidate_exact_binding.py"
     ],
-    "base_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
+    "base_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改G07候选资产、产品运行时、migration、公共OpenAPI、依赖、blind或oracle作为过渡提交的一部分",
-      "在过渡PR合并和new baseline readback前创建G07候选产品提交",
-      "保留或扩大G04方案A历史失败例外进入G07 exact-binding验收",
+      "修改Trip NLU数据内容、custody manifest、sealed receipt、blind truth、oracle、阈值或产品运行时",
+      "把历史G04/G05/G06交付回执改写为普通pytest已通过",
+      "保留、扩大、重命名或静默跳过G04方案A历史失败例外",
       "新功能、新Provider、新费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "完整归档G06并原子激活G07合同、唯一集成者、fresh baseline和移除G04历史例外的首个阻断动作，不执行候选工作。",
-    "phase": "GOAL_TRANSITION",
+    "minimum_change": "只把Trip NLU candidate manifest绑定到当前候选评测字节，移除方案A兼容执行路径，并以原生pytest证明原两个节点和普通非P5全量零失败。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_product_delivery_governance.py",
       "backend/tests/test_governance_agent_gate_transition.py",
@@ -34,12 +36,12 @@
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "EVAL_METRIC",
     "repair_review_cycle": 0,
-    "slice_id": "G06-ARCHIVE-G07-ACTIVATION",
-    "stop_condition": "若G06交付或远端integration无法回读、fresh develop不再由G07接棒，或激活必须修改候选资产、扩大授权、降低Gate或保留G04历史例外进入exact-binding，则停止过渡并重新审计。",
-    "user_outcome": "显式记忆与分享完成归档后，项目进入候选收口；治理过渡不改变现有用户体验或候选资产。",
-    "work_kind": "GOAL_TRANSITION"
+    "slice_id": "G07-EXACT-BINDING-REPAIR",
+    "stop_condition": "若修复需要修改blind/oracle、数据内容、阈值或产品语义，或原生pytest出现新增失败，则停止接受exact-binding并重新诊断。",
+    "user_outcome": "候选版不再依赖两个已知失败的临时例外；同一数据在当前评测字节上可原生验证。",
+    "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "HARDENED_CANDIDATE_GATE",
@@ -70,7 +72,7 @@
         "候选RunSpec、Provider/model/dataset、G0至G7矩阵与exact binding在同一subject冻结",
         "H1、公网、生产、商业、发布、部署、release和main保持未运行或未请求"
       ],
-      "baseline_commit": "9994be151923b9c349fc1129605777032a0b8ebe",
+      "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
       "branch": "codex/g07-candidate",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
@@ -80,12 +82,14 @@
       "merge_order": 100,
       "owned_paths": [
         "docs/governance",
-        "backend/governance/core_mainline.py",
+        ".github/workflows/core-mainline.yml",
+        "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+        "backend/scripts/run_g04_non_p5_regression.py",
+        "backend/tests/test_g04_historical_compatibility.py",
         "backend/tests/test_g04_governance_delivery.py",
         "backend/tests/test_g06_governance_delivery.py",
-        "backend/tests/test_governance_agent_gate_transition.py",
-        "backend/tests/test_product_delivery_governance.py",
-        "backend/tests/test_product_work_packages_v3.py"
+        "backend/tests/test_product_work_packages_v3.py",
+        "backend/tests/test_g07_candidate_exact_binding.py"
       ],
       "package_id": "WP-G07-INTEGRATOR",
       "remote_branch": "origin/codex/g07-candidate",
@@ -95,7 +99,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G07_CANDIDATE_APPROVED",
+  "program_state": "G07_CANDIDATE_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
