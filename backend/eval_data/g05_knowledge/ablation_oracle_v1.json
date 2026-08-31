@@ -1,0 +1,24 @@
+{
+  "schema_version": "g05-knowledge-ablation-oracle-v1",
+  "dataset_id": "g05-three-city-g01-journeys-v1",
+  "cases": [
+    {"place_key": "beijing-palace-museum", "actionable_expected": true, "allowed_types": ["RESERVATION_ADVICE", "SEASON"]},
+    {"place_key": "beijing-jingshan", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "beijing-temple-of-heaven", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "beijing-qianmen", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "beijing-beihai", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "beijing-prince-kung", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "shanghai-bund", "actionable_expected": true, "allowed_types": ["NIGHT_VIEW"]},
+    {"place_key": "shanghai-yuyuan", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "shanghai-museum", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "shanghai-peoples-square", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "shanghai-nanjing-road", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "shanghai-suzhou-creek", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-broken-bridge", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-bai-causeway", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-solitary-hill", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-breeze-lotus", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-su-causeway", "actionable_expected": false, "allowed_types": []},
+    {"place_key": "hangzhou-leifeng", "actionable_expected": true, "allowed_types": ["SUITABLE_TIME"]}
+  ]
+}

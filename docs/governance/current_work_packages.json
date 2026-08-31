@@ -3,41 +3,65 @@
   "active_goal_sequence": 5,
   "active_slice": {
     "acceptance_refs": [
-      "G04 Screenshot Parity Gate与PRODUCT_DELIVERY_PASS已通过并由PR #16合入develop",
-      "完整G04合同以COMPLETED状态归档且正式交付回执继续可回读",
-      "G05完整合同、唯一集成者、032预授权边界与fresh product baseline原子激活"
+      "G05冻结18地点逐一处置，required/source binding为100%，未授权、过期使用均为0",
+      "032支持不可变版本、幂等导入、冲突抑制、claim/source撤回和使用回执",
+      "现有result动态装配最多3条脱敏建议，知识变化不改变ETag、POI、路线或HARD Finding",
+      "core_mainline_contract、g05_knowledge_targeted、g05_postgresql、frontend_build、g05_browser_e2e全部PASS"
     ],
     "allowed_paths": [
-      "docs/governance",
-      "backend/governance/core_mainline.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_delivery_governance.py",
+      ".github/workflows/core-mainline.yml",
+      "backend/app/api/trip_understandings_v3.py",
+      "backend/app/db/migrations/032_knowledge_claims.sql",
+      "backend/app/trip_understanding",
+      "backend/eval_data/g05_knowledge",
+      "backend/evals/g05_knowledge",
+      "backend/scripts/manage_g05_knowledge.py",
+      "backend/scripts/run_g05_knowledge_gate.py",
+      "backend/tests/test_g05_knowledge_ablation.py",
+      "backend/tests/test_g05_knowledge_admin.py",
+      "backend/tests/test_g05_knowledge_api.py",
+      "backend/tests/test_g05_knowledge_postgres.py",
+      "backend/tests/test_g05_knowledge_targeted.py",
+      "backend/tests/test_g05_governance_delivery.py",
+      "backend/tests/test_g05_source_admission.py",
+      "backend/tests/test_g04_governance_delivery.py",
       "backend/tests/test_product_work_packages_v3.py",
-      "backend/tests/test_g04_governance_delivery.py"
+      "docs/governance/CURRENT_GOAL.md",
+      "docs/governance/current_goal_binding.json",
+      "docs/governance/current_work_packages.json",
+      "docs/governance/gate-results/G05.product-delivery.json",
+      "frontend/e2e/g05-knowledge.spec.js",
+      "frontend/package.json",
+      "frontend/src",
+      "packages/trip-check-client/openapi.current.json",
+      "packages/trip-check-client/src/generated",
+      "packages/trip-check-client/src/v3.ts"
     ],
-    "base_commit": "c5a6f847f6c904dfaa81a397c2af878b18f089a6",
+    "base_commit": "d1fa4905807a7361ad2d4a5524a9e389312c0a74",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改G05产品运行时、032、公共OpenAPI、依赖或外部来源作为过渡提交的一部分",
-      "在过渡PR合并和新baseline readback前创建G05产品提交",
       "抓取小红书、绕过登录/robots/付费墙或使用许可不清来源",
-      "新账号、费用、pgvector、GraphRAG、H1、公网、生产、商业、发布、部署或main合并"
+      "让知识层决定POI、路线、营业硬事实、EvidenceFact或HARD Finding",
+      "新增pgvector、GraphRAG、抓取基础设施、运行时多Agent或公共RAG权威接口",
+      "新账号、费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "完整归档G04并原子激活G05合同、唯一集成者和预批准032边界，不实现G05产品代码。",
-    "phase": "GOAL_TRANSITION",
+    "minimum_change": "以合规官方来源交付可撤回KnowledgeClaim、动态建议投影和三城详情展示，同时对无来源类型与地点明确留缺口。",
+    "phase": "EVIDENCE_FROZEN",
     "preflight_entrypoints": [
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
+      "backend/scripts/run_g05_knowledge_gate.py",
+      "backend/tests/test_g05_governance_delivery.py",
+      "backend/tests/test_g05_knowledge_targeted.py",
+      "backend/tests/test_g05_knowledge_postgres.py",
       "backend/tests/test_product_work_packages_v3.py",
       "backend/scripts/validate_core_mainline.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "API+RUNTIME+UI",
     "repair_review_cycle": 0,
-    "slice_id": "G04-ARCHIVE-G05-ACTIVATION",
-    "stop_condition": "若G04交付或远端integration无法回读、fresh develop不再由G05接棒，或激活必须修改产品字节/扩大来源授权，则停止过渡并重新审计。",
-    "user_outcome": "截图入口完成归档后，项目进入三城有来源建议开发，现有截图与文本体验不受治理过渡影响。",
-    "work_kind": "GOAL_TRANSITION"
+    "slice_id": "G05-SOURCE-KNOWLEDGE-UI",
+    "stop_condition": "若来源无法逐项证明许可与时效、知识投影改变权威行程事实、需要新账号费用或未批准依赖，停止对应来源或机制并保留明确缺口。",
+    "user_outcome": "北京、上海、杭州地点详情可显示有来源、有时效、撤回后立即消失的可靠建议，知识缺失不阻断行程。",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
@@ -47,16 +71,27 @@
   "max_parallel_writers": 2,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
+  "delivery_evidence": {
+    "first_exact_tip_ci": {
+      "head_commit": "9dcd911c85688cc8b5783a37e8c03f6cee413baa",
+      "run_id": 33386769272,
+      "status": "PASS"
+    },
+    "product_fingerprint": "5e3838abbd35e500a6b505067d63fcf281b90d9d7127bc15cc92f34103a7881b",
+    "receipt_path": "docs/governance/gate-results/G05.product-delivery.json",
+    "state": "EVIDENCE_FROZEN"
+  },
   "next_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
   "next_goal_status": "DRAFT",
   "packages": [
     {
       "acceptance": [
-        "G05完整合同、032预授权边界和fresh baseline可远端回读",
-        "主对话是唯一非终态集成者，贡献任务在后续prompt binding提交前保持PROVISIONING_HOLD",
-        "来源准入先于KnowledgeClaim持久化和建议集成，未授权来源为0"
+        "来源准入先于KnowledgeClaim持久化，冻结18地点无静默补全且未授权来源为0",
+        "032 fresh与after-034、幂等导入、版本升级、claim/source撤回、冲突和使用回执均通过",
+        "三城用户建议、公开字段泄漏扫描、知识on/off消融和浏览器路径通过",
+        "required CI和PRODUCT_DELIVERY_PASS绑定exact tip"
       ],
-      "baseline_commit": "c5a6f847f6c904dfaa81a397c2af878b18f089a6",
+      "baseline_commit": "d1fa4905807a7361ad2d4a5524a9e389312c0a74",
       "branch": "codex/g05-city-knowledge",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
@@ -76,13 +111,15 @@
         "backend/evals/g05_knowledge",
         "backend/governance",
         "backend/scripts",
-        "backend/tests/test_g05_*.py",
+        "backend/tests",
         "docs/governance",
         "docs/product",
-        "frontend/e2e/g05-knowledge*.spec.js",
+        "frontend/e2e/g05-knowledge.spec.js",
+        "frontend/package.json",
         "frontend/src",
         "packages/trip-check-client/openapi.current.json",
-        "packages/trip-check-client/src/generated"
+        "packages/trip-check-client/src/generated",
+        "packages/trip-check-client/src/v3.ts"
       ],
       "package_id": "WP-G05-INTEGRATOR",
       "remote_branch": "origin/codex/g05-city-knowledge",
@@ -92,7 +129,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G05_CITY_KNOWLEDGE_APPROVED",
+  "program_state": "G05_CITY_KNOWLEDGE_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",

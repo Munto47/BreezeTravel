@@ -1,0 +1,59 @@
+{
+  "schema_version": "product-delivery-result-v1",
+  "goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "product_fingerprint": "5e3838abbd35e500a6b505067d63fcf281b90d9d7127bc15cc92f34103a7881b",
+  "checks": {
+    "core_mainline_contract": "PASS",
+    "g05_knowledge_targeted": "PASS",
+    "g05_postgresql": "PASS",
+    "frontend_build": "PASS",
+    "g05_browser_e2e": "PASS"
+  },
+  "verification": {
+    "knowledge_admission": "PASS / 18 frozen places / 4 admitted sources / 1 NOT_READY source / 4 claims / 15 explicit place gaps / 1 explicit claim-type gap / unauthorized 0 / expired use 0",
+    "knowledge_ablation": "PASS / precision 1.0 / unsupported 0 / actionability +16.67 percentage points / authoritative field changes 0 / P95 regression below 20 percent",
+    "g05_knowledge_targeted": "PASS / GitHub Actions 33386769272",
+    "g05_postgresql": "PASS / fresh and after-034 migration / distinct-bundle concurrency / idempotent replay / future version / version upgrade / conflict / concurrent withdrawal / usage receipt / privacy deletion",
+    "frontend_openapi_client_and_production_build": "PASS",
+    "g05_browser_journey": "PASS / AUTOMATED_FIXTURE_CI / Beijing, Shanghai, Hangzhou, neutral fallbacks and replacement isolation",
+    "core_mainline_aggregator": "PASS / GitHub Actions 33386769272",
+    "local_governance_guard": "46 passed / Ruff PASS / work-package validation PASS / diff check PASS"
+  },
+  "frozen_inputs": {
+    "admission_manifest_path": "backend/eval_data/g05_knowledge/admission_v1.json",
+    "admission_manifest_sha256": "f0776f865441af9a857ffb6c755e2407ae83ce1d2d1ffaba786cfe54998f3940",
+    "ablation_oracle_path": "backend/eval_data/g05_knowledge/ablation_oracle_v1.json",
+    "ablation_oracle_sha256": "d0bcf0691c98bac40bd4713f26487c88d8645766c791eef77d1ca161aceaefc7"
+  },
+  "remote_ci": {
+    "workflow": "Product mainline",
+    "run_id": 33386769272,
+    "run_url": "https://github.com/Munto47/BreezeTravel/actions/runs/33386769272",
+    "pull_request": 18,
+    "head_commit": "9dcd911c85688cc8b5783a37e8c03f6cee413baa",
+    "product_commit": "363daed34d25b991ad9699a7381ac0d64e658e8b",
+    "core_mainline": "PASS"
+  },
+  "historical_compatibility": {
+    "status": "PASS_WITH_APPROVED_HISTORICAL_EXCEPTION",
+    "owner_authorization": "SCHEME_A_APPROVED_2026-08-31",
+    "full_pytest_pass": false,
+    "approved_failure_count": 2,
+    "unexpected_failure_count": 0,
+    "scope_expanded_by_g05": false,
+    "removal_deadline": "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+  },
+  "source_policy": "OFFICIAL_OR_GOVERNMENT_PUBLIC_HTTPS_FACTS_ONLY",
+  "full_source_body_storage": "NONE",
+  "creator_content": "NOT_ADMITTED_NO_WRITTEN_AUTHORIZATION",
+  "xiaohongshu": "NOT_ACCESSED",
+  "safety_floor": "PASS",
+  "human_usability": "NOT_RUN",
+  "public_network_evidence": "NOT_RUN",
+  "production_evidence": "NOT_RUN",
+  "commercial_evidence": "NOT_RUN",
+  "release_evidence": "NOT_AUTHORIZED",
+  "main_merge_evidence": "NOT_AUTHORIZED",
+  "verdict": "PASS"
+}

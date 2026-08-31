@@ -122,6 +122,14 @@
             "title": "Category",
             "type": "string"
           },
+          "knowledge_suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeSuggestionView"
+            },
+            "maxItems": 3,
+            "title": "Knowledge Suggestions",
+            "type": "array"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -4446,6 +4454,55 @@
           }
         },
         "title": "JoinRoomRequest",
+        "type": "object"
+      },
+      "KnowledgeSuggestionView": {
+        "additionalProperties": false,
+        "properties": {
+          "freshness": {
+            "maxLength": 100,
+            "minLength": 3,
+            "title": "Freshness",
+            "type": "string"
+          },
+          "source_name": {
+            "maxLength": 200,
+            "minLength": 2,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_url": {
+            "maxLength": 1000,
+            "pattern": "^https://",
+            "title": "Source Url",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 300,
+            "minLength": 3,
+            "title": "Text",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "TYPICAL_DURATION",
+              "SUITABLE_TIME",
+              "NIGHT_VIEW",
+              "SEASON",
+              "RESERVATION_ADVICE"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "text",
+          "source_name",
+          "source_url",
+          "freshness"
+        ],
+        "title": "KnowledgeSuggestionView",
         "type": "object"
       },
       "LocationEntityType": {

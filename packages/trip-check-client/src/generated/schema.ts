@@ -2294,6 +2294,8 @@ export interface components {
             available_actions: ("VIEW_DETAILS" | "REPLACE" | "DELETE" | "MOVE")[];
             /** Category */
             category: string;
+            /** Knowledge Suggestions */
+            knowledge_suggestions?: components["schemas"]["KnowledgeSuggestionView"][];
             /** Name */
             name: string;
             /**
@@ -3856,6 +3858,22 @@ export interface components {
             nickname: string | null;
             /** User Id */
             user_id?: string | null;
+        };
+        /** KnowledgeSuggestionView */
+        KnowledgeSuggestionView: {
+            /** Freshness */
+            freshness: string;
+            /** Source Name */
+            source_name: string;
+            /** Source Url */
+            source_url: string;
+            /** Text */
+            text: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "TYPICAL_DURATION" | "SUITABLE_TIME" | "NIGHT_VIEW" | "SEASON" | "RESERVATION_ADVICE";
         };
         /**
          * LocationEntityType

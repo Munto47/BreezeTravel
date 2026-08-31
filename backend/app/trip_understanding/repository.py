@@ -41,6 +41,11 @@ from app.trip_understanding.map_repository import (
     MapRenderRepository,
     PostgresMapRenderRepositoryMixin,
 )
+from app.trip_understanding.knowledge_repository import (
+    InMemoryKnowledgeProjectionRepositoryMixin,
+    KnowledgeProjectionRepository,
+    PostgresKnowledgeProjectionRepositoryMixin,
+)
 from app.trip_understanding.models import (
     ActivityTextEditCommand,
     ClaimOutcome,
@@ -326,6 +331,7 @@ class TripUnderstandingRepository(
     MapRenderRepository,
     StayRecommendationRepository,
     G03Repository,
+    KnowledgeProjectionRepository,
     Protocol,
 ):
     async def create_demo(
@@ -544,6 +550,7 @@ class PostgresTripUnderstandingRepository(
     PostgresG03RepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
     PostgresMapRenderRepositoryMixin,
+    PostgresKnowledgeProjectionRepositoryMixin,
 ):
     def __init__(
         self,
@@ -3903,6 +3910,7 @@ class InMemoryTripUnderstandingRepository(
     InMemoryG03RepositoryMixin,
     InMemoryStayRecommendationRepositoryMixin,
     InMemoryMapRenderRepositoryMixin,
+    InMemoryKnowledgeProjectionRepositoryMixin,
 ):
     def __init__(self) -> None:
         self.sessions: dict[str, dict[str, Any]] = {}
@@ -3934,6 +3942,7 @@ class InMemoryTripUnderstandingRepository(
         self._init_map_store()
         self._init_stay_store()
         self._init_g03_store()
+        self._init_knowledge_store()
 
     async def create_demo(
         self,
@@ -5010,6 +5019,7 @@ class InMemoryTripUnderstandingRepository(
         self._delete_map_memory(resource.understanding_id)
         self._delete_stay_memory(resource.understanding_id)
         self._delete_g03_memory(resource.understanding_id)
+        self._delete_knowledge_memory(resource.understanding_id)
         for result_id, understanding_id in list(self.result_owners.items()):
             if understanding_id == resource.understanding_id:
                 self.results.pop(result_id, None)
