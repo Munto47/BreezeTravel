@@ -3,9 +3,10 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "G07实现分支与工作树精确绑定fresh origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04",
-      "Trip NLU candidate manifest只更新当前validator/schema/scorer/gate/generator绑定且blind/oracle字节不变",
-      "方案A兼容判定不再执行，两个历史节点与普通非P5全量pytest均以原生退出码零失败"
+      "G07候选RunSpec冻结同一commit/config/dataset/model/rule/provider及资源预算，所有未执行层保持NOT_RUN",
+      "Candidate Evidence Gate G0至G8矩阵逐项绑定可执行命令、耐久回执和阻断语义",
+      "当前v3 Goal与work-package绑定可由G07候选门原生读取，旧v2 fixture继续兼容",
+      "HardeningDecision威胁模型先于控制选择，不默认启用旧authority、broker、签名、remote anchor或OCI"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -21,17 +22,33 @@
       "backend/tests/test_agent_gate_protocol.py",
       "backend/tests/test_dual_entry_release_manifest.py",
       "backend/tests/test_product_work_packages_v3.py",
-      "backend/tests/test_g07_candidate_exact_binding.py"
+      "backend/tests/test_g07_candidate_exact_binding.py",
+      "backend/eval_data/g07_candidate",
+      "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
+      "backend/eval_data/agent_gate_v1/current_goal_binding.schema.json",
+      "backend/eval_data/agent_gate_v1/authority_policy.json",
+      "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/evals/agent_gate_v1/contracts.py",
+      "backend/evals/agent_gate_v1/candidate_gate.py",
+      "backend/governance/core_mainline.py",
+      "backend/governance/work_packages_v3.py",
+      "backend/scripts/generate_agent_gate_contracts.py",
+      "backend/scripts/build_release_manifest.py",
+      "backend/tests/test_g07_candidate_gate.py",
+      "backend/tests/test_g07_release_manifest.py",
+      "frontend/package.json",
+      "frontend/playwright.candidate.config.js"
     ],
     "base_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改Trip NLU数据内容、custody manifest、sealed receipt、blind truth、oracle、阈值或产品运行时",
+      "修改Trip NLU数据内容、custody manifest、sealed receipt、blind truth、oracle、阈值或产品运行时语义",
       "把历史G04/G05/G06交付回执改写为普通pytest已通过",
-      "保留、扩大、重命名或静默跳过G04方案A历史失败例外",
+      "把NOT_RUN、NOT_READY、fixture、snapshot或Agent审查包装成live、human、production或PASS",
+      "无威胁模型依据默认启用旧authority、broker、签名、remote anchor或OCI",
       "新功能、新Provider、新费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "只把Trip NLU candidate manifest绑定到当前候选评测字节，移除方案A兼容执行路径，并以原生pytest证明原两个节点和普通非P5全量零失败。",
+    "minimum_change": "冻结可执行且无历史跳过的G07候选RunSpec、G0至G8矩阵和威胁模型；让候选门向后兼容地读取当前v3治理绑定，并为TC-VNEXT生成不虚报PASS的候选manifest。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/tests/test_product_delivery_governance.py",
@@ -43,9 +60,9 @@
     "preflight_required_tokens": {},
     "product_progress": "EVAL_METRIC",
     "repair_review_cycle": 0,
-    "slice_id": "G07-EXACT-BINDING-REPAIR",
-    "stop_condition": "若修复需要修改blind/oracle、数据内容、阈值或产品语义，或原生pytest出现新增失败，则停止接受exact-binding并重新诊断。",
-    "user_outcome": "候选版不再依赖两个已知失败的临时例外；同一数据在当前评测字节上可原生验证。",
+    "slice_id": "G07-CANDIDATE-CONTRACT",
+    "stop_condition": "若合同冻结需要降低G0至G8门槛、修改blind/oracle或产品语义，或要求新增Provider权限/费用，则停止该策略并保留对应NOT_READY。",
+    "user_outcome": "候选版的每一项验收都能绑定同一候选字节和可执行证据；尚未运行的Provider、浏览器、blind或人工层不会被误报为通过。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
@@ -99,7 +116,22 @@
         "backend/tests/test_agent_gate_protocol.py",
         "backend/tests/test_dual_entry_release_manifest.py",
         "backend/tests/test_product_work_packages_v3.py",
-        "backend/tests/test_g07_candidate_exact_binding.py"
+        "backend/tests/test_g07_candidate_exact_binding.py",
+        "backend/eval_data/g07_candidate",
+        "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
+        "backend/eval_data/agent_gate_v1/current_goal_binding.schema.json",
+        "backend/eval_data/agent_gate_v1/authority_policy.json",
+        "backend/eval_data/agent_gate_v1/protocol_contract.json",
+        "backend/evals/agent_gate_v1/contracts.py",
+        "backend/evals/agent_gate_v1/candidate_gate.py",
+        "backend/governance/core_mainline.py",
+        "backend/governance/work_packages_v3.py",
+        "backend/scripts/generate_agent_gate_contracts.py",
+        "backend/scripts/build_release_manifest.py",
+        "backend/tests/test_g07_candidate_gate.py",
+        "backend/tests/test_g07_release_manifest.py",
+        "frontend/package.json",
+        "frontend/playwright.candidate.config.js"
       ],
       "package_id": "WP-G07-INTEGRATOR",
       "remote_branch": "origin/codex/g07-candidate",

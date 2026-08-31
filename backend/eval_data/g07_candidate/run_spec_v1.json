@@ -1,0 +1,126 @@
+{
+  "schema_version": "g07-candidate-run-spec-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "freeze_status": "FROZEN_INPUT_CONTRACT",
+  "candidate_subject": {
+    "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
+    "branch": "codex/g07-candidate",
+    "remote_ref": "refs/heads/codex/g07-candidate",
+    "execution_binding": "EXACT_CLEAN_COMMIT_AND_TREE_AT_EXECUTION",
+    "cross_commit_evidence_reuse": false
+  },
+  "toolchain": {
+    "ci_python": "3.11",
+    "ci_node": "20",
+    "postgres": "16",
+    "redis": "7.4.2-alpine",
+    "frontend_framework": "next-15.0.5"
+  },
+  "dependency_locks": {
+    "backend/requirements.txt": "97ad678173724a53e65dfbcc5cc3c4a09f4bd0c946dd215e22440baf972c6876",
+    "backend/requirements-dev.txt": "1d05db439c5b149aa89f87034120868ca73312eebebe25280da4fd756ccf9546",
+    "frontend/package-lock.json": "5e51c24ef5ed6352f24c53b3f08c65b47ab62733e5242a37afa1b4b9494570ee",
+    "miniapp/package-lock.json": "8dd1a38af3eefcf8d87388d510099ece365d9803f5e9845f7629c98dc181d6b4",
+    "packages/trip-check-client/package-lock.json": "4eaa042c71d13404a62382b14dedf7079d3cceb3fea397e416e66bef411d78a8"
+  },
+  "contract_bindings": {
+    "automated_candidate_gate": {
+      "path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
+      "sha256": "9500bbac2e931a71fe96c6ec8b296ce0d312f6ad9715e170f33eb1342d1dfba6"
+    },
+    "product_delivery_policy": {
+      "path": "docs/governance/product_delivery_gates.json",
+      "sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85"
+    },
+    "release_gates": {
+      "path": "docs/governance/RELEASE_GATES.md",
+      "sha256": "c6fc80ec927d0a34f3ee7ea9709be04324557c3239e4b26a1da17bd4d1913cf4"
+    },
+    "agent_gate_protocol": {
+      "path": "docs/governance/AGENT_GATE_PROTOCOL.md",
+      "sha256": "da458574410fb6922e987b1d7042b0b5d4ce0bc24ff0648bd835e593262d8db0"
+    },
+    "openapi_v3": {
+      "path": "packages/trip-check-client/openapi.current.json",
+      "sha256": "45706cc0b65a58302a2ae390041574057b8dab8744c842c71f8d4362ac029fec"
+    },
+    "latest_migration": {
+      "path": "backend/app/db/migrations/034_trip_understanding_screenshot_batches.sql",
+      "sha256": "8b8181333db7c556e83680f3717ee05a10ef5e2efa3d7284e91f36ce0b15f8ea",
+      "append_only_range": "001-034"
+    }
+  },
+  "evaluation_bindings": {
+    "text_card_90_case_contract": {
+      "path": "backend/eval_data/trip_text_cards_v1/dataset_contract.json",
+      "sha256": "e14203e190a3f0533a0c7c01b01b6aa7c96b45c9c2310c473f9df82758649bff",
+      "case_count": 90,
+      "splits": {
+        "dev": 54,
+        "validation": 18,
+        "frozen_blind": 18
+      }
+    },
+    "trip_nlu_120_case_candidate": {
+      "path": "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+      "sha256": "33b5b82459a98f2ae42e364d710128015d54108716c2775fe70c967670eaaedb",
+      "custody_manifest_sha256": "cab1056d3a435f7a4c576a97f0d6d75ef17b8d4ed6833721ea038b64db52b0ab"
+    },
+    "provider_binding": {
+      "path": "backend/eval_data/trip_text_cards_agent_v2/provider_binding.json",
+      "sha256": "9972689cc2bf5e2bd33533247d7386d9a58a2131784e4d34c87a99fb392268da",
+      "live_status": "NOT_RUN"
+    },
+    "model_panel": {
+      "path": "backend/eval_data/trip_text_cards_agent_v2/qwen_model_panel.json",
+      "sha256": "91bf4fec50601d56cfe907d82f48c3879b2f0084df19a576e945f03c3207d8e4",
+      "selected_model": "qwen3.7-flash-2026-07-15",
+      "selection_status": "FROZEN",
+      "candidate_replay_status": "NOT_RUN"
+    },
+    "model_runtime": {
+      "path": "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
+      "sha256": "a2e73a5e6c1213987cd24abbf697bda2956f8723cfb8e9c215a5cfd792d65625",
+      "deadline_ms": 7000,
+      "maximum_repair_calls": 1,
+      "max_concurrency": 1
+    }
+  },
+  "execution_budget": {
+    "statistical_case_count": 90,
+    "authentic_performance_chain_count": 50,
+    "max_incremental_cost_cny": 0,
+    "external_execution_requires_existing_zero_increment_authorization": true,
+    "new_provider_or_account_allowed": false,
+    "raw_provider_payload_in_git": false,
+    "failure_retry_limit_per_strategy": 2
+  },
+  "evidence_policy": {
+    "repository_allowed": [
+      "schema",
+      "prompt_hash",
+      "input_hash",
+      "aggregate_metric",
+      "redacted_finding",
+      "receipt_hash"
+    ],
+    "repository_forbidden": [
+      "raw_provider_response",
+      "blind_truth",
+      "raw_agent_output",
+      "credential",
+      "original_screenshot"
+    ],
+    "fixture_snapshot_live_browser_agent_blind_human_production_separated": true,
+    "unknown_or_not_run_is_pass": false
+  },
+  "authorization_boundaries": {
+    "h1": "NOT_RUN",
+    "public_network": "NOT_RUN",
+    "production": "NOT_RUN",
+    "commercial": "NOT_RUN",
+    "release": "NOT_REQUESTED",
+    "deployment": "NOT_REQUESTED",
+    "main_merge": "NOT_REQUESTED"
+  }
+}

@@ -43,6 +43,12 @@ P2_RELIABILITY_GATE = (
     BACKEND / "evidence" / "trip_check_v1" / "p2" / "reliability_gate_manifest.json"
 )
 P3_LATEST_MIGRATION = "027_trip_intake_revision_lineage.sql"
+G07_LATEST_MIGRATION = "034_trip_understanding_screenshot_batches.sql"
+G07_RUN_SPEC = BACKEND / "eval_data" / "g07_candidate" / "run_spec_v1.json"
+G07_VERIFICATION_MATRIX = (
+    BACKEND / "eval_data" / "g07_candidate" / "verification_matrix_v1.json"
+)
+G07_THREAT_MODEL = BACKEND / "eval_data" / "g07_candidate" / "threat_model_v1.json"
 
 
 def sha256_file(path: Path) -> str | None:
@@ -431,9 +437,198 @@ def build(output_root: Path, *, require_clean: bool = False) -> Path:
     return target
 
 
+def _verified_g07_bindings(run_spec: dict[str, object]) -> list[dict[str, object]]:
+    verified: list[dict[str, object]] = []
+    sections = ("contract_bindings", "evaluation_bindings")
+    for section_name in sections:
+        section = run_spec.get(section_name)
+        if not isinstance(section, dict):
+            raise RuntimeError(f"G07 RunSpec is missing {section_name}")
+        for binding_name, raw_binding in section.items():
+            if not isinstance(raw_binding, dict):
+                raise RuntimeError(f"G07 binding is invalid: {binding_name}")
+            path_value = raw_binding.get("path")
+            expected_sha256 = raw_binding.get("sha256")
+            if not isinstance(path_value, str) or not isinstance(expected_sha256, str):
+                raise RuntimeError(f"G07 binding is incomplete: {binding_name}")
+            path = ROOT / path_value
+            observed_sha256 = sha256_file(path)
+            if observed_sha256 != expected_sha256:
+                raise RuntimeError(f"G07 binding hash mismatch: {binding_name}")
+            verified.append(
+                {
+                    "binding": binding_name,
+                    "path": path_value,
+                    "sha256": observed_sha256,
+                    "section": section_name,
+                }
+            )
+    return sorted(verified, key=lambda item: (str(item["section"]), str(item["binding"])))
+
+
+def build_g07_candidate_manifest(
+    output_root: Path,
+    *,
+    require_clean: bool = False,
+) -> Path:
+    """Build a fail-closed TC-VNEXT G07 manifest without reusing legacy proof."""
+
+    commit = git("rev-parse", "HEAD")
+    tree = git("show", "-s", "--format=%T", "HEAD")
+    status = git("status", "--porcelain=v1", "--untracked-files=all")
+    dirty = bool(status)
+    if require_clean and dirty:
+        raise RuntimeError("G07 candidate manifest requires a clean working tree")
+    dirty_fingerprint, _ = working_tree_fingerprint() if dirty else ("", 0)
+    run_spec = json.loads(G07_RUN_SPEC.read_text(encoding="utf-8"))
+    matrix = json.loads(G07_VERIFICATION_MATRIX.read_text(encoding="utf-8"))
+    threat_model = json.loads(G07_THREAT_MODEL.read_text(encoding="utf-8"))
+    if run_spec.get("schema_version") != "g07-candidate-run-spec-v1":
+        raise RuntimeError("unsupported G07 RunSpec")
+    if matrix.get("schema_version") != "g07-verification-matrix-v1":
+        raise RuntimeError("unsupported G07 verification matrix")
+    if threat_model.get("schema_version") != "g07-candidate-threat-model-v1":
+        raise RuntimeError("unsupported G07 threat model")
+    if any(
+        value.get("goal_id") != "TC-VNEXT-G07-CANDIDATE"
+        for value in (run_spec, matrix, threat_model)
+    ):
+        raise RuntimeError("G07 candidate artifacts disagree on Goal")
+    verified_bindings = _verified_g07_bindings(run_spec)
+    gates = matrix.get("gates")
+    if not isinstance(gates, list) or [item.get("gate_id") for item in gates] != [
+        f"G{index}" for index in range(9)
+    ]:
+        raise RuntimeError("G07 verification matrix must define G0 through G8")
+    gate_status = {str(item["gate_id"]): str(item["status"]) for item in gates}
+    if any(status_value not in {"NOT_RUN", "NOT_READY", "PASS", "FAIL"} for status_value in gate_status.values()):
+        raise RuntimeError("G07 verification matrix contains an invalid status")
+    # This builder freezes and discloses the candidate inputs.  It deliberately
+    # cannot mint a PASS from editable matrix status fields; final G07 PASS is
+    # produced only by the candidate Gate from independently verified receipts.
+    all_pass = False
+    blockers = [
+        f"{gate_id}_{status_value}"
+        for gate_id, status_value in gate_status.items()
+        if status_value != "PASS"
+    ]
+    if dirty:
+        blockers.insert(0, "WORKING_TREE_NOT_CLEAN")
+    migrations = sorted((BACKEND / "app" / "db" / "migrations").glob("*.sql"))
+    if not migrations or migrations[-1].name != G07_LATEST_MIGRATION:
+        raise RuntimeError(f"G07 manifest requires latest migration {G07_LATEST_MIGRATION}")
+    release_id = (
+        f"g07-{commit}-dirty-{dirty_fingerprint[:12]}"
+        if dirty
+        else f"g07-{commit}"
+    )
+    payload = {
+        "schema_version": "tc-vnext-g07-candidate-manifest-v1",
+        "goal_id": "TC-VNEXT-G07-CANDIDATE",
+        "release_id": release_id,
+        "candidate_subject": {
+            "commit": commit,
+            "tree": tree,
+            "remote_ref": "refs/heads/codex/g07-candidate",
+            "working_tree_clean": not dirty,
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "manifest_generation_executes_tests": False,
+        "candidate_status": (
+            "VNEXT_CANDIDATE_READY_AGENT_VERIFIED"
+            if all_pass
+            else "CANDIDATE_EVIDENCE_INCOMPLETE"
+        ),
+        "candidate_gate_passed": all_pass,
+        "release_approval_granted": False,
+        "deployment_requested": False,
+        "main_merge_requested": False,
+        "run_spec": evidence_reference(G07_RUN_SPEC),
+        "verification_matrix": evidence_reference(G07_VERIFICATION_MATRIX),
+        "threat_model": evidence_reference(G07_THREAT_MODEL),
+        "verified_input_bindings": verified_bindings,
+        "latest_migration": G07_LATEST_MIGRATION,
+        "migrations": [
+            {"name": migration.name, "sha256": sha256_file(migration)}
+            for migration in migrations
+        ],
+        "gate_status": gate_status,
+        "release_blockers": blockers,
+        "historical_delivery_receipts": {
+            goal: evidence_reference(
+                ROOT / "docs" / "governance" / "gate-results" / f"{goal}.product-delivery.json"
+            )
+            for goal in ("G04", "G05", "G06")
+        },
+        "exact_binding_receipt": evidence_reference(
+            ROOT / "docs" / "governance" / "gate-results" / "G07.exact-binding.json"
+        ),
+        "candidate_materials": {
+            "controlled_demo": "NOT_RUN",
+            "video_90_seconds": "NOT_RUN",
+            "demo_script_5_minutes": "NOT_RUN",
+            "architecture_diagram": "NOT_RUN",
+            "recovery_sequence": "NOT_RUN",
+            "model_ablation": "NOT_RUN",
+            "known_boundaries": "RUNSPEC_BOUND",
+        },
+        "evidence_boundaries": {
+            "fixture": "SEPARATE",
+            "snapshot": "SEPARATE",
+            "live_provider": "NOT_RUN",
+            "browser": "NOT_RUN",
+            "multi_agent": "NOT_RUN",
+            "sealed_blind": "NOT_RUN",
+            "human_usability": "NOT_RUN",
+            "public_network": "NOT_RUN",
+            "production": "NOT_RUN",
+            "commercial": "NOT_RUN",
+        },
+        "claim_boundary": (
+            "This manifest is a fail-closed G07 evidence index. Historical delivery "
+            "receipts do not satisfy current candidate gates. Agent-verified candidate "
+            "status does not prove H1, public network, production, commercial, release, "
+            "deployment or main-branch approval."
+        ),
+    }
+    target = output_root / release_id / "release.json"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        raise RuntimeError("G07 candidate manifest already exists for this subject")
+    target.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    latest = output_root / "latest.json"
+    try:
+        manifest_reference = target.relative_to(ROOT).as_posix()
+        manifest_reference_kind = "workspace_relative"
+    except ValueError:
+        manifest_reference = str(target.resolve())
+        manifest_reference_kind = "absolute_external"
+    latest.write_text(
+        json.dumps(
+            {
+                "release_id": release_id,
+                "manifest": manifest_reference,
+                "manifest_reference_kind": manifest_reference_kind,
+                "sha256": sha256_file(target),
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return target
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=BACKEND / "evidence" / "releases")
     parser.add_argument("--require-clean", action="store_true")
+    parser.add_argument("--profile", choices=("legacy", "g07"), default="legacy")
     args = parser.parse_args()
-    print(build(args.output, require_clean=args.require_clean))
+    builder = build_g07_candidate_manifest if args.profile == "g07" else build
+    print(builder(args.output, require_clean=args.require_clean))

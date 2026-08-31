@@ -1,0 +1,119 @@
+{
+  "schema_version": "g07-verification-matrix-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "subject_policy": "EVERY_PASS_RECEIPT_MUST_BIND_ONE_FINAL_CLEAN_COMMIT_TREE_CONFIG_DATA_MODEL_RULE_PROVIDER_SET",
+  "overall_status": "NOT_RUN",
+  "gates": [
+    {
+      "gate_id": "G0",
+      "name": "DOCUMENT_SCHEMA",
+      "status": "NOT_RUN",
+      "required_proof": ["authority order", "OpenAPI", "append-only migrations 001-034", "risk register", "provider admission"],
+      "commands": [
+        "python -m pytest -q tests/test_product_delivery_governance.py tests/test_product_work_packages_v3.py tests/test_governance_agent_gate_transition.py tests/test_g07_candidate_gate.py tests/test_g07_release_manifest.py --timeout=180",
+        "python -m scripts.validate_core_mainline --base-ref ff36a10ecae98088742e9722da3f4bf3676f6d04"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G1",
+      "name": "OFFLINE",
+      "status": "NOT_RUN",
+      "required_proof": ["semantics", "place", "map", "stay", "audit", "privacy", "state machines", "failure paths", "90-case statistics"],
+      "commands": ["python -m pytest -q --timeout=180", "python -m ruff check ."],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G2",
+      "name": "POSTGRESQL",
+      "status": "NOT_RUN",
+      "required_proof": ["fresh and upgraded migration", "transaction", "CAS", "idempotency", "lease takeover", "restart", "legacy compatibility"],
+      "commands": [
+        "python -m pytest -q tests/test_*_postgres.py tests/test_screenshot_postgres_integration.py --timeout=180"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G3",
+      "name": "FIXED_SNAPSHOT",
+      "status": "NOT_RUN",
+      "required_proof": ["Qwen snapshot binding", "Provider snapshot binding", "deterministic replay", "config drift rejection"],
+      "commands": [
+        "python -m pytest -q tests/test_trip_check_p6_snapshot_runner.py tests/test_frozen_suggestion_snapshot.py tests/test_chained_suggestion_provider_snapshot.py --timeout=180"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G4",
+      "name": "LIVE_PROVIDER",
+      "status": "NOT_RUN",
+      "required_proof": ["AMap place", "AMap walking", "AMap transit", "weather", "selected Qwen model", "license-scoped redacted receipts"],
+      "commands": [
+        "python -m pytest -q tests/test_real_provider_evidence.py tests/test_trip_check_p6_live_provider_runner.py --timeout=180",
+        "python scripts/run_trip_check_p6_g4_live_provider.py --candidate-run-spec <external-final-spec> --output-root <external-output> --live-env-file <external-env>"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION",
+      "readiness": "REQUIRES_EXISTING_ZERO_INCREMENT_AUTHORIZATION_AND_EXTERNAL_ENV"
+    },
+    {
+      "gate_id": "G5",
+      "name": "BROWSER_PERFORMANCE",
+      "status": "NOT_RUN",
+      "required_proof": ["login and demo", "text and screenshot", "cards and edit", "map stale and rerender", "stay", "Top-3", "refresh", "disconnect", "partial failure", "50 authentic chains", "P95"],
+      "commands": [
+        "npm run build",
+        "npm run test:e2e:candidate",
+        "python -m pytest -q tests/test_trip_check_p6_performance_runner.py --timeout=180"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G6",
+      "name": "MANIFEST",
+      "status": "NOT_RUN",
+      "required_proof": ["same-subject aggregate", "config/data/model/rule/provider hashes", "component receipt hashes", "accurate NOT_RUN disclosure"],
+      "commands": [
+        "python -m scripts.build_release_manifest --profile g07 --output <external-output> --require-clean"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G7",
+      "name": "AGENT_GATE",
+      "status": "NOT_RUN",
+      "required_proof": ["three isolated reviewer roles", "ultra adjudication", "required sealed blind", "fresh clean checkout", "remote subject/tree readback"],
+      "commands": [
+        "python -m scripts.build_agent_gate_pass --development-checkout <clean-development-checkout> --candidate-commit <commit> --candidate-tree <tree> --component <automated> --component <live> --component <panel> --component <blind> --hardening-decision <decision> --output <external-output>"
+      ],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    },
+    {
+      "gate_id": "G8",
+      "name": "HARDENING_DECISION",
+      "status": "NOT_RUN",
+      "required_proof": ["threat model hash", "decision bound to candidate", "alternative controls", "residual risks", "only selected controls verified"],
+      "commands": ["validate HardeningDecisionReceipt against hardening_decision_receipt.schema.json"],
+      "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
+    }
+  ],
+  "reliability_faults": [
+    "QWEN_TIMEOUT_OR_SCHEMA_INVALID",
+    "POI_PARTIAL_FAILURE",
+    "ROUTE_PARTIAL_FAILURE",
+    "DUPLICATE_SUBMIT",
+    "CONCURRENT_EDIT",
+    "PROCESS_TERMINATION_AND_LEASE_TAKEOVER",
+    "LATE_MAP_RESULT",
+    "CONFIG_DRIFT",
+    "REDIS_LOSS",
+    "SCREENSHOT_CLEANUP_FAILURE",
+    "SENSITIVE_LOG_SCAN_ZERO_HITS"
+  ],
+  "non_proof_boundaries": {
+    "fixture_is_live": false,
+    "snapshot_is_live": false,
+    "agent_review_is_human": false,
+    "candidate_is_production": false,
+    "candidate_authorizes_release": false
+  }
+}

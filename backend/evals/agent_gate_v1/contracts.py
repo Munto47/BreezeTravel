@@ -1023,14 +1023,15 @@ class G07CandidateGatePassReceipt(StrictModel):
 
 class CurrentGoalBinding(StrictModel):
     schema_version: Literal[
-        "current-goal-binding-v1", "current-goal-binding-v2"
+        "current-goal-binding-v1", "current-goal-binding-v2", "current-goal-binding-v3"
     ] = "current-goal-binding-v1"
     program_id: Literal["TC-VNEXT-2026"] = "TC-VNEXT-2026"
     goal_sequence: int = Field(ge=1, le=7)
     goal_id: str = Field(pattern=r"^TC-VNEXT-G0[1-7]-[A-Z0-9-]+$")
     status: Literal["APPROVED", "IN_PROGRESS"]
     canonical_candidate_ref: Literal[
-        "refs/heads/codex/trip-check-product-reset"
+        "refs/heads/codex/trip-check-product-reset",
+        "refs/heads/codex/g07-candidate",
     ] = "refs/heads/codex/trip-check-product-reset"
     predecessor_goal_id: str
     predecessor_completion_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
@@ -1041,6 +1042,23 @@ class CurrentGoalBinding(StrictModel):
     work_package_registry_path: Literal[
         "docs/governance/current_work_packages.json"
     ] | None = None
+    implementation_baseline_commit: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{40}$",
+    )
+    last_completed_goal_id: str | None = None
+    next_goal_id: str | None = None
+    next_goal_status: str | None = None
+    program_state: str | None = None
+    candidate_gate_contract_path: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=300,
+    )
+    candidate_gate_contract_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+    )
 
     @model_validator(mode="after")
     def sequence_matches_goal(self) -> "CurrentGoalBinding":
@@ -1058,11 +1076,37 @@ class CurrentGoalBinding(StrictModel):
         if self.gate_profile != expected_profile:
             raise ValueError("current Goal uses the wrong Agent Gate profile")
         expected_phase = _mainline_phase_for_sequence(self.goal_sequence)
-        if self.schema_version == "current-goal-binding-v2":
+        if self.schema_version in {
+            "current-goal-binding-v2",
+            "current-goal-binding-v3",
+        }:
             if self.mainline_phase != expected_phase:
                 raise ValueError("current Goal uses the wrong mainline phase")
             if self.work_package_registry_path is None:
-                raise ValueError("current Goal v2 must bind the work package registry")
+                raise ValueError("current Goal v2/v3 must bind the work package registry")
+            if (
+                self.schema_version == "current-goal-binding-v3"
+                and self.goal_sequence == 7
+            ):
+                if self.canonical_candidate_ref != "refs/heads/codex/g07-candidate":
+                    raise ValueError("current Goal v3 must bind the G07 candidate ref")
+                required_v3 = (
+                    self.implementation_baseline_commit,
+                    self.last_completed_goal_id,
+                    self.next_goal_id,
+                    self.next_goal_status,
+                    self.program_state,
+                    self.candidate_gate_contract_path,
+                    self.candidate_gate_contract_sha256,
+                )
+                if any(value is None for value in required_v3):
+                    raise ValueError("current Goal v3 candidate binding is incomplete")
+                assert self.candidate_gate_contract_path is not None
+                candidate_path = self.candidate_gate_contract_path.replace("\\", "/")
+                if candidate_path.startswith("/") or ".." in Path(candidate_path).parts:
+                    raise ValueError(
+                        "candidate Gate contract path must be repository-relative"
+                    )
         else:
             # Historical commits remain readable without rewriting their v1 bytes.
             self.mainline_phase = expected_phase

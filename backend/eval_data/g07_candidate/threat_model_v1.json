@@ -1,0 +1,62 @@
+{
+  "schema_version": "g07-candidate-threat-model-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "scope": "LOCAL_AGENT_VERIFIED_CANDIDATE_BEFORE_H1_PUBLIC_NETWORK_PRODUCTION_RELEASE_OR_MAIN",
+  "identified_threats": [
+    {
+      "threat_id": "T1_CHECKOUT_CONTAMINATION",
+      "impact": "tests or receipts can reflect developer-only bytes",
+      "required_control": "fresh clean candidate checkout distinct from development checkout"
+    },
+    {
+      "threat_id": "T2_EVIDENCE_DRIFT",
+      "impact": "commit, tree, config, data, model, rule or provider can differ across components",
+      "required_control": "exact hashes in every component and fail-closed cross-component comparison"
+    },
+    {
+      "threat_id": "T3_RECEIPT_SUBSTITUTION",
+      "impact": "a summary PASS can replace required raw verification",
+      "required_control": "typed component receipts rebuilt from raw external artifacts by fixed verifiers"
+    },
+    {
+      "threat_id": "T4_REMOTE_REF_MOVEMENT",
+      "impact": "local candidate can differ from the pushed subject",
+      "required_control": "two remote subject/tree readbacks around final aggregation"
+    },
+    {
+      "threat_id": "T5_SECRET_OR_INTERNAL_DATA_LEAK",
+      "impact": "credentials, raw source, blind truth or internal identifiers can enter Git, logs, API or DOM",
+      "required_control": "repository allowlist plus log, public JSON and DOM scans with zero tolerance"
+    },
+    {
+      "threat_id": "T6_SCOPE_OVERCLAIM",
+      "impact": "agent or fixture evidence can be presented as human, public, production or commercial proof",
+      "required_control": "explicit NOT_RUN boundaries in RunSpec, manifest and final receipt"
+    }
+  ],
+  "alternative_controls": [
+    "fresh clean checkout with no authority secret mounts",
+    "exact commit/tree/config/data/model/rule/provider hashes",
+    "strict typed component receipts and deterministic revalidation",
+    "remote branch subject/tree readback before and after aggregation",
+    "privacy, secret, log, public JSON and DOM zero-hit scans",
+    "H1, public network, production, commercial, release, deployment and main remain NOT_RUN or NOT_REQUESTED"
+  ],
+  "controls_not_selected_by_default": [
+    "EXTERNAL_AUTHORITY",
+    "PURPOSE_SPECIFIC_BROKER",
+    "ROLE_SIGNATURES",
+    "IMMUTABLE_REMOTE_REF",
+    "ISOLATED_OCI"
+  ],
+  "provisional_decision": "NOT_REQUIRED_WITH_RATIONALE",
+  "decision_rationale": "The current claim is a local agent-verified candidate, not organizational independence or production assurance. The identified threats are covered by clean-checkout isolation, exact hash binding, strict revalidation, privacy scans and remote readback. Optional legacy controls would add custody complexity without closing the remaining human, organizational or production gaps.",
+  "residual_risks": [
+    "the same repository organization and account still control source, branch and CI",
+    "host or GitHub compromise is not independently attested",
+    "no human usability evidence exists",
+    "no public network, production SLO, commercial or release evidence exists"
+  ],
+  "decision_receipt_policy": "FINAL_HARDENING_DECISION_IS_EXTERNAL_AND_MUST_BIND_FINAL_CANDIDATE_COMMIT_TREE_AND_THIS_FILE_SHA256",
+  "status": "FROZEN_THREAT_MODEL_DECISION_NOT_YET_BOUND"
+}

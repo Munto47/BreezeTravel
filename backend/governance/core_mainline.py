@@ -15,6 +15,9 @@ BINDING_PATH = "docs/governance/current_goal_binding.json"
 REGISTRY_PATH = "docs/governance/current_work_packages.json"
 GUIDANCE_PATH = "AGENTS.md"
 CURRENT_GOAL_PATH = "docs/governance/CURRENT_GOAL.md"
+G07_CANDIDATE_CONTRACT_PATH = (
+    "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json"
+)
 OWNER_REVIEW_STATE = "CORE_MVP_OWNER_REVIEW_PENDING"
 OWNER_REVIEW_STATUS = "OWNER_REVIEW_PENDING"
 G03_GOAL_ID = "TC-VNEXT-G03-TOP3-AUDIT"
@@ -297,6 +300,13 @@ def _validate_active_files(
         raise CoreMainlineError("active Goal does not bind the product delivery contract")
     if binding.get("automated_gate_contract_sha256") != _sha256(root / CONTRACT_PATH):
         raise CoreMainlineError("product delivery contract hash binding differs")
+    if sequence == 7:
+        if binding.get("candidate_gate_contract_path") != G07_CANDIDATE_CONTRACT_PATH:
+            raise CoreMainlineError("G07 candidate Gate contract path differs")
+        if binding.get("candidate_gate_contract_sha256") != _sha256(
+            root / G07_CANDIDATE_CONTRACT_PATH
+        ):
+            raise CoreMainlineError("G07 candidate Gate contract hash differs")
     if registry.get("guidance_sha256") != _sha256(root / GUIDANCE_PATH):
         raise CoreMainlineError("work package registry does not bind current AGENTS.md")
     goal_state: dict[str, Any] | None = None

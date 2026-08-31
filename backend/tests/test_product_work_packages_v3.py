@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -110,6 +111,14 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
+    assert binding["candidate_gate_contract_path"] == (
+        "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json"
+    )
+    assert binding["candidate_gate_contract_sha256"] == (
+        hashlib.sha256(
+            (REPOSITORY_ROOT / binding["candidate_gate_contract_path"]).read_bytes()
+        ).hexdigest()
+    )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] == "IMPLEMENTING"
     assert registry["active_slice"]["product_progress"] == "EVAL_METRIC"
@@ -135,7 +144,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_exact_binding_slice_is_narrow_and_excludes_runtime_and_blind_assets() -> None:
+def test_g07_candidate_contract_slice_is_narrow_and_excludes_runtime_and_blind_assets() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -148,7 +157,12 @@ def test_g07_exact_binding_slice_is_narrow_and_excludes_runtime_and_blind_assets
     assert "frontend/src" not in allowed
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
-    assert not any(path.startswith("backend/evals/agent_gate_v1/") for path in allowed)
+    assert {
+        path for path in allowed if path.startswith("backend/evals/agent_gate_v1/")
+    } == {
+        "backend/evals/agent_gate_v1/candidate_gate.py",
+        "backend/evals/agent_gate_v1/contracts.py",
+    }
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
@@ -157,9 +171,33 @@ def test_g07_exact_binding_slice_is_narrow_and_excludes_runtime_and_blind_assets
     assert "docs/governance/CURRENT_GOAL.md" in result["changed_paths"]
     assert not any(path.startswith("backend/app/") for path in result["changed_paths"])
     assert not any(path.startswith("frontend/src/") for path in result["changed_paths"])
-    assert not any(
-        path.startswith("backend/evals/agent_gate_v1/")
+    assert {
+        path
         for path in result["changed_paths"]
+        if path.startswith("backend/evals/agent_gate_v1/")
+    } <= {
+        "backend/evals/agent_gate_v1/candidate_gate.py",
+        "backend/evals/agent_gate_v1/contracts.py",
+    }
+
+
+def test_only_two_agent_gate_files_are_mutable_in_the_g07_contract_slice() -> None:
+    registry = json.loads(
+        (
+            REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
+        ).read_text(encoding="utf-8")
+    )
+    active_slice = registry["active_slice"]
+
+    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
+        "backend/evals/agent_gate_v1/candidate_gate.py",
+        registry=registry,
+        active_slice=active_slice,
+    )
+    assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
+        "backend/evals/agent_gate_v1/final_gate.py",
+        registry=registry,
+        active_slice=active_slice,
     )
 
 

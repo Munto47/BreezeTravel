@@ -183,18 +183,44 @@ def _stable_schema(filename: str, schema: dict[str, object]) -> dict[str, object
             if isinstance(field_schema, dict):
                 field_schema["propertyNames"] = {"enum": allowed}
     if filename == "current_goal_binding.schema.json":
-        schema.setdefault("allOf", []).append(
-            {
-                "if": {
-                    "properties": {
-                        "schema_version": {"const": "current-goal-binding-v2"}
+        schema.setdefault("allOf", []).extend(
+            [
+                {
+                    "if": {
+                        "properties": {
+                            "schema_version": {
+                                "enum": [
+                                    "current-goal-binding-v2",
+                                    "current-goal-binding-v3",
+                                ]
+                            }
+                        },
+                        "required": ["schema_version"],
                     },
-                    "required": ["schema_version"],
+                    "then": {
+                        "required": ["mainline_phase", "work_package_registry_path"]
+                    },
                 },
-                "then": {
-                    "required": ["mainline_phase", "work_package_registry_path"]
+                {
+                    "if": {
+                        "properties": {
+                            "schema_version": {"const": "current-goal-binding-v3"}
+                        },
+                        "required": ["schema_version"],
+                    },
+                    "then": {
+                        "required": [
+                            "implementation_baseline_commit",
+                            "last_completed_goal_id",
+                            "next_goal_id",
+                            "next_goal_status",
+                            "program_state",
+                            "candidate_gate_contract_path",
+                            "candidate_gate_contract_sha256",
+                        ]
+                    },
                 },
-            }
+            ]
         )
     if filename == "automated_product_gate_contract.schema.json":
         schema.setdefault("allOf", []).append(
@@ -391,10 +417,18 @@ def _synchronize_authority_files(
         return
     current_binding = json.loads(current_binding_path.read_text(encoding="utf-8"))
     sequence = current_binding["goal_sequence"]
-    if current_binding.get("schema_version") == "current-goal-binding-v3" and sequence < 7:
-        # G01-G06 bind the independent product delivery contract. Candidate
-        # asset generation must never rewrite that active binding.
+    if current_binding.get("schema_version") == "current-goal-binding-v3":
+        # v3 always keeps the product-delivery contract as the mainline scope
+        # policy.  G07 additionally binds its executable candidate contract.
         current_binding["gate_profile"] = "PRODUCT_DELIVERY_GATE"
+        if sequence == 7:
+            current_binding["gate_profile"] = "HARDENED_CANDIDATE_GATE"
+            current_binding["candidate_gate_contract_path"] = (
+                "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json"
+            )
+            current_binding["candidate_gate_contract_sha256"] = goal_hashes[
+                "g07_automated_product_gate.json"
+            ]
     else:
         filename = Path(current_binding["automated_gate_contract_path"]).name
         current_binding["automated_gate_contract_sha256"] = goal_hashes[filename]

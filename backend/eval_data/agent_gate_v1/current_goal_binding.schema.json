@@ -5,7 +5,10 @@
       "if": {
         "properties": {
           "schema_version": {
-            "const": "current-goal-binding-v2"
+            "enum": [
+              "current-goal-binding-v2",
+              "current-goal-binding-v3"
+            ]
           }
         },
         "required": [
@@ -16,6 +19,29 @@
         "required": [
           "mainline_phase",
           "work_package_registry_path"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "current-goal-binding-v3"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "implementation_baseline_commit",
+          "last_completed_goal_id",
+          "next_goal_id",
+          "next_goal_status",
+          "program_state",
+          "candidate_gate_contract_path",
+          "candidate_gate_contract_sha256"
         ]
       }
     }
@@ -32,9 +58,39 @@
       "title": "Automated Gate Contract Sha256",
       "type": "string"
     },
+    "candidate_gate_contract_path": {
+      "anyOf": [
+        {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Gate Contract Path"
+    },
+    "candidate_gate_contract_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Candidate Gate Contract Sha256"
+    },
     "canonical_candidate_ref": {
-      "const": "refs/heads/codex/trip-check-product-reset",
       "default": "refs/heads/codex/trip-check-product-reset",
+      "enum": [
+        "refs/heads/codex/trip-check-product-reset",
+        "refs/heads/codex/g07-candidate"
+      ],
       "title": "Canonical Candidate Ref",
       "type": "string"
     },
@@ -57,6 +113,31 @@
       "title": "Goal Sequence",
       "type": "integer"
     },
+    "implementation_baseline_commit": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Implementation Baseline Commit"
+    },
+    "last_completed_goal_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Completed Goal Id"
+    },
     "mainline_phase": {
       "anyOf": [
         {
@@ -74,6 +155,30 @@
       "default": null,
       "title": "Mainline Phase"
     },
+    "next_goal_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Goal Id"
+    },
+    "next_goal_status": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Next Goal Status"
+    },
     "predecessor_completion_commit": {
       "pattern": "^[0-9a-f]{40}$",
       "title": "Predecessor Completion Commit",
@@ -89,11 +194,24 @@
       "title": "Program Id",
       "type": "string"
     },
+    "program_state": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Program State"
+    },
     "schema_version": {
       "default": "current-goal-binding-v1",
       "enum": [
         "current-goal-binding-v1",
-        "current-goal-binding-v2"
+        "current-goal-binding-v2",
+        "current-goal-binding-v3"
       ],
       "title": "Schema Version",
       "type": "string"

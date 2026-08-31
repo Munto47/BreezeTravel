@@ -1,6 +1,8 @@
 {
   "automated_gate_contract_path": "docs/governance/product_delivery_gates.json",
   "automated_gate_contract_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
+  "candidate_gate_contract_path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
+  "candidate_gate_contract_sha256": "9500bbac2e931a71fe96c6ec8b296ce0d312f6ad9715e170f33eb1342d1dfba6",
   "canonical_candidate_ref": "refs/heads/codex/g07-candidate",
   "gate_profile": "HARDENED_CANDIDATE_GATE",
   "goal_id": "TC-VNEXT-G07-CANDIDATE",

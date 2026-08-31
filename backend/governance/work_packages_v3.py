@@ -14,6 +14,11 @@ CURRENT_GOAL_PATH = Path("docs/governance/CURRENT_GOAL.md")
 GUIDANCE_PATH = Path("AGENTS.md")
 POLICY_PATH = Path("docs/governance/product_delivery_gates.json")
 FROZEN_AGENT_GATE_PREFIX = "backend/evals/agent_gate_v1/"
+G07_GOAL_ID = "TC-VNEXT-G07-CANDIDATE"
+G07_MUTABLE_AGENT_GATE_PATHS = {
+    "backend/evals/agent_gate_v1/candidate_gate.py",
+    "backend/evals/agent_gate_v1/contracts.py",
+}
 G04_GOAL_ID = "TC-VNEXT-G04-SCREENSHOT"
 G04_FORMAL_RECEIPT_PATH = "backend/governance/g04_screenshot_parity_receipt.json"
 G04_FORMAL_VALIDATOR_PATH = "backend/governance/g04_screenshot_parity.py"
@@ -92,6 +97,20 @@ def _stable_patch_id(root: Path, commit: str) -> str:
 
 def _is_within(path: str, roots: list[str]) -> bool:
     return any(path == root.rstrip("/") or path.startswith(f"{root.rstrip('/')}/") for root in roots)
+
+
+def _agent_gate_path_is_authorized_for_g07(
+    path: str,
+    *,
+    registry: dict[str, Any],
+    active_slice: dict[str, Any],
+) -> bool:
+    return (
+        registry.get("active_goal_id") == G07_GOAL_ID
+        and active_slice.get("work_kind") == "CANDIDATE_HARDENING"
+        and active_slice.get("slice_id") == "G07-CANDIDATE-CONTRACT"
+        and path in G07_MUTABLE_AGENT_GATE_PATHS
+    )
 
 
 def _working_paths(root: Path, base_commit: str) -> tuple[str, ...]:
@@ -313,7 +332,15 @@ def validate_registry_v3(
         if not isinstance(allowed, list) or not all(isinstance(item, str) for item in allowed):
             errors.append("ACTIVE_SLICE_ALLOWED_PATHS_INVALID")
         else:
-            if any(item.startswith(FROZEN_AGENT_GATE_PREFIX) for item in allowed):
+            if any(
+                item.startswith(FROZEN_AGENT_GATE_PREFIX)
+                and not _agent_gate_path_is_authorized_for_g07(
+                    item,
+                    registry=registry,
+                    active_slice=active_slice,
+                )
+                for item in allowed
+            ):
                 errors.append("FROZEN_AGENT_GATE_PATH_AUTHORIZED")
             if registry.get("active_goal_id") == G04_GOAL_ID:
                 for required_path in (
@@ -331,7 +358,15 @@ def validate_registry_v3(
                     changed_paths = _working_paths(root, base_commit)
                     if any(not _is_within(path, allowed) for path in changed_paths):
                         errors.append("ACTIVE_SLICE_SCOPE_VIOLATION")
-                    if any(path.startswith(FROZEN_AGENT_GATE_PREFIX) for path in changed_paths):
+                    if any(
+                        path.startswith(FROZEN_AGENT_GATE_PREFIX)
+                        and not _agent_gate_path_is_authorized_for_g07(
+                            path,
+                            registry=registry,
+                            active_slice=active_slice,
+                        )
+                        for path in changed_paths
+                    ):
                         errors.append("FROZEN_AGENT_GATE_CHANGED")
 
     return {

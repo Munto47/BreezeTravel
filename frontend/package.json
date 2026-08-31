@@ -16,6 +16,7 @@
     "test:e2e:g01": "playwright test e2e/trip-understanding-v3.spec.js -c playwright.config.js",
     "test:e2e:screenshot": "playwright test e2e/g04-screenshot-parity.spec.js -c playwright.product-delivery.config.js",
     "test:e2e:knowledge": "playwright test e2e/g05-knowledge.spec.js -c playwright.product-delivery.config.js",
+    "test:e2e:candidate": "playwright test -c playwright.candidate.config.js",
     "test:e2e:suggestions": "playwright test -c playwright.suggestions.config.js",
     "test:e2e:persistence": "playwright test -c playwright.persistence.config.js",
     "test:e2e:public": "playwright test -c playwright.config.js"
