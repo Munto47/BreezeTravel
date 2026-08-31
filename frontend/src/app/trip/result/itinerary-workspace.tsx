@@ -524,6 +524,7 @@ export default function ItineraryWorkspace({
                           type="button"
                           data-testid={`day-${dayIndex}-add`}
                           data-day-add={dayIndex}
+                          aria-label={`新增地点到 ${day.label}`}
                           disabled={locked}
                           onClick={() => onAdd(dayIndex, day.activities.length)}
                           className="flex min-h-[13rem] w-[10rem] shrink-0 snap-start flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-900/20 bg-emerald-50/30 px-4 text-center text-sm text-emerald-800 transition motion-reduce:transition-none hover:border-emerald-600 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"

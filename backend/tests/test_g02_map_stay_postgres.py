@@ -92,6 +92,8 @@ async def test_g02_postgres_persists_snapshot_selection_restart_and_zero_hidden_
         )
         stored = await repository.get_result(resource)
         assert stored is not None
+        assert stored.result.stay.status == "UNAVAILABLE"
+        assert (await repository.get_stay_view(resource)).status == "PREPARING"
         worker = MapRenderWorker(repository)
         assert await worker.run_once("g02-map", now=now)
         assert await worker.run_once("g02-stay", now=now)

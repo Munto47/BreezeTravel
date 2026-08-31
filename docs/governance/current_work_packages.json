@@ -15,10 +15,20 @@
       "backend/eval_data/g07_candidate",
       "backend/evals/g07_candidate",
       "backend/scripts/run_g07_g5_browser_performance.py",
-      "backend/tests/test_g07_browser_performance.py"
+      "backend/tests/test_g07_browser_performance.py",
+      "backend/app/trip_understanding/repository.py",
+      "backend/tests/test_g02_map_stay.py",
+      "backend/tests/test_g02_map_stay_postgres.py",
+      "backend/tests/test_g06_governance_delivery.py",
+      "backend/tests/test_product_work_packages_v3.py",
+      "backend/governance/core_mainline.py",
+      "frontend/src/app/trip/result/itinerary-workspace.tsx"
     ],
     "base_commit": "ade2435fe90646f4d1d13267bf0edd65857b0228",
-    "evidence_invalidated": [],
+    "evidence_invalidated": [
+      "G07_G5_SUBJECT_3e204e6_REJECTED",
+      "G07_G0_TO_G4_CHECKPOINTS_REQUIRE_FINAL_SUBJECT_RERUN"
+    ],
     "forbidden_mechanisms": [
       "把Playwright发现、构建成功、fixture或历史P6报告冒充本候选browser/P95证据",
       "修改用户旅程、性能阈值、样本数、blind、oracle或历史P6冻结资产以获得PASS",
@@ -27,19 +37,21 @@
       "把G0至G4 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "收紧现有test:e2e:g07的仓库外JSON绑定，按主线CI合同启动并清理隔离PostgreSQL/API/worker，再用独立G07 runner绑定完整浏览器报告与50条真实Qwen+AMap+PostgreSQL应用链；不修改冻结P6合同。",
-    "phase": "GATE_RUNNING",
+    "minimum_change": "保持46条旅程和断言不变：恢复Day级新增按钮的既有可访问名称，并让不可变行程结果保留其住宿投影、动态住宿任务状态只由独立stay-suggestions端点返回；不修改公共schema、冻结P6或Provider。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "frontend/playwright.candidate.config.js",
       "frontend/e2e",
       "backend/evals/trip_check_v1/p6/local_browser_runner.py",
       "backend/evals/trip_check_v1/p6/performance_runner.py",
-      "backend/tests/test_trip_check_p6_performance_runner.py"
+      "backend/tests/test_trip_check_p6_performance_runner.py",
+      "backend/app/trip_understanding/repository.py",
+      "frontend/src/app/trip/result/itinerary-workspace.tsx"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "RUNTIME+UI",
     "repair_review_cycle": 2,
-    "slice_id": "G07-G5-BROWSER-PERFORMANCE",
+    "slice_id": "G07-G5-PRODUCT-REGRESSION-REPAIR",
     "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
     "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50条真实模型、地点、路线与持久化链证明关键等待时间不越界。",
     "work_kind": "CANDIDATE_HARDENING"
@@ -109,8 +121,14 @@
         "backend/scripts/build_release_manifest.py",
         "backend/tests/test_g07_candidate_gate.py",
         "backend/tests/test_g07_release_manifest.py",
+        "backend/tests/test_g02_map_stay.py",
+        "backend/tests/test_g02_map_stay_postgres.py",
+        "backend/tests/test_g06_governance_delivery.py",
+        "backend/app/trip_understanding/repository.py",
+        "backend/governance/core_mainline.py",
         "frontend/package.json",
-        "frontend/playwright.candidate.config.js"
+        "frontend/playwright.candidate.config.js",
+        "frontend/src/app/trip/result/itinerary-workspace.tsx"
       ],
       "package_id": "WP-G07-INTEGRATOR",
       "remote_branch": "origin/codex/g07-candidate",

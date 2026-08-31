@@ -11,7 +11,7 @@ from app.trip_understanding.memory_share import (
     PreferenceMemoryView,
     ShareProjectionView,
 )
-from governance.core_mainline import product_fingerprint, validate_delivery_receipt
+from governance.core_mainline import product_fingerprint_at_commit, validate_delivery_receipt
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -168,7 +168,10 @@ def test_g06_archive_and_g07_binding_keep_privacy_and_exception_boundary_exact()
 def test_g06_delivery_receipt_binds_exact_product_and_required_checks() -> None:
     receipt = json.loads(DELIVERY_PATH.read_text(encoding="utf-8"))
 
-    assert receipt["product_fingerprint"] == product_fingerprint(REPOSITORY_ROOT)
+    product_commit = receipt["remote_ci"]["product_commit"]
+    assert receipt["product_fingerprint"] == product_fingerprint_at_commit(
+        REPOSITORY_ROOT, product_commit
+    )
     assert receipt["checks"] == {
         "core_mainline_contract": "PASS",
         "g06_memory_share_targeted": "PASS",

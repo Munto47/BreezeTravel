@@ -2286,13 +2286,8 @@ class PostgresTripUnderstandingRepository(
                 resource.understanding_id,
                 int(row["revision"]),
             )
-            stay = await self._project_stay_view(
-                conn,
-                resource.understanding_id,
-                int(row["revision"]),
-            )
         return StoredResult(
-            result=result.model_copy(update={"map": readiness, "stay": stay}),
+            result=result.model_copy(update={"map": readiness}),
             opaque_etag=row["opaque_etag"],
         )
 
@@ -4836,12 +4831,8 @@ class InMemoryTripUnderstandingRepository(
             resource.understanding_id,
             int(aggregate["current_revision"]),
         )
-        stay = self._memory_stay_view(
-            resource.understanding_id,
-            int(aggregate["current_revision"]),
-        )
         return stored.model_copy(
-            update={"result": stored.result.model_copy(update={"map": readiness, "stay": stay})}
+            update={"result": stored.result.model_copy(update={"map": readiness})}
         )
 
     async def apply_command(
