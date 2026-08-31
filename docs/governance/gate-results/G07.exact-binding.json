@@ -1,0 +1,76 @@
+{
+  "schema_version": "g07-exact-binding-result-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "gate_profile": "HARDENED_CANDIDATE_GATE",
+  "evidence_level": "LOCAL_AUTOMATED",
+  "subject": {
+    "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
+    "preflight_commit": "e3db50d9e6ec6ae039ab4d672eac5b134d5c8e76",
+    "candidate_commit": "2c90ea51323d0ffc819fa116ad76461760ece8f9",
+    "candidate_tree": "c2006d3b4c5063d0b9c6a1c1266757170478b2dc",
+    "branch": "codex/g07-candidate",
+    "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b"
+  },
+  "binding": {
+    "candidate_manifest_path": "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+    "candidate_manifest_sha256": "33b5b82459a98f2ae42e364d710128015d54108716c2775fe70c967670eaaedb",
+    "custody_manifest_path": "backend/eval_data/trip_nlu_v2/manifest.json",
+    "custody_manifest_sha256": "cab1056d3a435f7a4c576a97f0d6d75ef17b8d4ed6833721ea038b64db52b0ab",
+    "code_bindings": {
+      "gate_sha256": "6469db3eb556aaf016fdb89fa757385433389c02ddb5628f624b44f059c84683",
+      "generator_sha256": "b8853f04db846fe72b77d8428b289eb2472aea4adae443bbaa69ee49e320756f",
+      "schema_sha256": "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f",
+      "scorer_sha256": "b602297e3c6f6697c116772b7976c78fea11f4c0279b2b1e3f218383cb320be5",
+      "validator_sha256": "9acf725ad2b827083841f3e7ad16cda0740ca868181c6a3e995c2a0bdafc574e"
+    },
+    "data_file_count": 10,
+    "data_files_match_custody_manifest": true,
+    "blind_oracle_bytes_changed": false
+  },
+  "exception_removal": {
+    "runner_path": "backend/scripts/run_g04_non_p5_regression.py",
+    "runner_sha256": "bf1cf7db12b7fd60f7b131fdd44f87728f1f01c78db9993ae0d796486a706526",
+    "g01_guard_path": "backend/scripts/check_g01_s0.py",
+    "g01_guard_sha256": "5896aee00c59970bec5baa5c02a3aa4610142b6c2fb5b4d8190d29f0d9f4669b",
+    "exact_binding_test_path": "backend/tests/test_g07_candidate_exact_binding.py",
+    "exact_binding_test_sha256": "752c1f9142e1229c299ff01ee232cb9cfccd35717562516951ed6756521b9252",
+    "legacy_exception_test_deleted": true,
+    "approved_exception_applied": false,
+    "approved_failure_count": 0,
+    "unexpected_failure_count": 0,
+    "full_pytest_pass": true,
+    "native_pytest_exit_code": 0
+  },
+  "verification": {
+    "command": "python -m scripts.run_g04_non_p5_regression",
+    "passed": 2052,
+    "skipped": 43,
+    "failed": 0,
+    "warnings": 38,
+    "targeted_original_nodes": "2 passed",
+    "governance_targeted": "55 passed",
+    "ruff": "PASS",
+    "scope_validation": "PASS",
+    "diff_check": "PASS"
+  },
+  "historical_receipts": {
+    "mutated": false,
+    "G04_sha256": "734f0fcc12cb06caab26781829cd4de07aa2ad3774120cc633c30b1e919d884f",
+    "G05_sha256": "105c43052eac0412890cc3aee785c5cbb251ee39c09376d5c3575de2b2d7ba20",
+    "G06_sha256": "af0af31903f985ef791cf8a9a8eb478828912f3fc4cc901d4e43d1c2b45c9388"
+  },
+  "remaining": {
+    "full_backend_including_p5": "NOT_RUN",
+    "g0_to_g7_candidate_matrix": "NOT_RUN",
+    "live_provider": "NOT_RUN",
+    "sealed_blind": "NOT_RUN",
+    "human_usability": "NOT_RUN",
+    "public_network": "NOT_RUN",
+    "production": "NOT_RUN",
+    "commercial": "NOT_RUN",
+    "release": "NOT_REQUESTED",
+    "deployment": "NOT_REQUESTED",
+    "main_merge": "NOT_REQUESTED"
+  },
+  "verdict": "PASS"
+}
