@@ -12,8 +12,8 @@ Goal type: PRODUCT_ENHANCEMENT
   "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Screenshot Parity Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "next_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
@@ -164,6 +164,7 @@ Goal type: PRODUCT_ENHANCEMENT
 | 2026-08-31 | PR #16第四次运行已让预检、截图定向与浏览器E2E通过，真实PostgreSQL生命周期也通过；Linux暴露OpenAPI跨Pydantic渲染漂移和历史套件缺少字体/Windows junction环境，现以无产品字节变化的规范化与兼容层修复 | OpenAPI规范化 `e903c44`；历史Linux兼容 `d865622`；本治理checkpoint待提交 | 远端`core-mainline-preflight`、`g04_screenshot_targeted`、`g04_browser_e2e` PASS；`g04_postgresql`生命周期PASS后全量回归`2480 passed, 20 skipped, 40 failed, 8 errors`；双平台OpenAPI check、client typecheck/build、治理回归`14 passed`及Ruff PASS；产品指纹仍为`5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3` | `REMOTE_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / CI_ENVIRONMENT_DIAGNOSTIC` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=environment noise isolated, delivery not yet claimed` | 重跑前端与Linux历史全量套件；确认环境噪声清除后处理冻结Trip NLU冲突；耐久`PRODUCT_DELIVERY_PASS` | 第四次远端aggregator FAIL；前端未进入bundle build；全量失败多数为字体/Pydantic/Windows命令环境，且两项冻结Trip NLU合同冲突仍真实存在 | push/readback跨平台修复并在真实GitHub clone上复跑四项Job |
 | 2026-08-31 | PR #16已在冻结真实head上通过截图定向、浏览器、前端、PostgreSQL生命周期及完整P5历史回归；全部普通环境兼容问题已排除，只剩`develop`继承的两条冻结Trip NLU绑定冲突 | exact subject `4f2d7a1391d0ab2c10037c2b6a1f608e9e21b467`；本治理checkpoint待提交 | CI `33330291863`：preflight、`g04_screenshot_targeted`、`frontend_build`、`g04_browser_e2e` PASS；P5 exact ABI为Pillow 12.2.0/FreeType 2.14.3/RAQM 0.10.3/FriBidi 1.0.10/HarfBuzz 13.2.1且`497 passed, 1 skipped`；PostgreSQL生命周期`3 passed`，非P5整仓`2031 passed, 19 skipped, 2 failed` | `REMOTE_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / EXACT_HISTORICAL_RENDERER_ABI / OWNER_DECISION_REQUIRED / TEMP_SOURCE_CLEANUP_CONFIRMATION_PENDING` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=all authorized compatibility work exhausted; delivery not claimed` | Owner选择精确历史兼容例外或另行授权冻结candidate manifest重绑，并在动作时确认删除两个Git外临时证据源目录；随后重跑required CI并生成耐久`PRODUCT_DELIVERY_PASS` | 两项失败在`origin/develop@2d74a2cf`已存在；相关冻结字节与G04 tip一致，治理状态为`HISTORICAL_BINDING_INVALID / FROZEN`且`mutation_authority: NONE`；另有26张公开许可截图源副本位于`%TEMP%/breezetravel-g04-quality-dpr2-01a052`和`%TEMP%/breezetravel-g04-planned-source-HvEVdK`，上传运行时副本与测试容器已清理，但Windows UI删除需动作时确认 | 请求Owner回复“批准方案A，并确认删除两个临时截图目录”；随后保持manifest、validator、测试字节和指标门槛不变实现精确历史兼容例外，使用文件管理器删除两目录并复核，再完成Gate |
 | 2026-08-31 | Owner批准方案A；非P5整仓现完整执行并仅对两个精确历史失败应用临时兼容判定，两个Git外许可截图源目录按Owner后续指示保留 | 本方案A checkpoint待提交 | 保护器与治理定向`49 passed`；原始两节点仍为固定指纹`2 failed`；最终完整非P5为`2033 passed, 37 skipped, 2 failed`且原始pytest exit `1`，机器结果`PASS_WITH_APPROVED_HISTORICAL_EXCEPTION`；collection/internal/interrupt/额外/缺失/重复/换阶段/换指纹均为0；`check_g01_s0` PASS且`frozen_diff=[]`；Ruff、work-package validation、diff check PASS；独立只读审查`APPROVE` | `OWNER_AUTHORIZATION / LOCAL_AUTOMATED / EXACT_HISTORICAL_COMPATIBILITY / FROZEN_BYTES_READBACK / INDEPENDENT_AGENT_REVIEW` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=temporary fail-closed compatibility; delivery not yet claimed` | 提交、push/readback方案A并重跑全部required CI；CI通过后生成耐久`PRODUCT_DELIVERY_PASS` | 该结果不是普通backend full pytest零失败；例外必须在G07 exact-binding验收前移除。两个本地来源目录保留但不属于运行时临时文件，运行时清理Gate与receipt要求不变 | 复核最终diff和冻结hash，提交push/readback后等待PR #16 required CI |
+| 2026-08-31 | 截图上传、清理、OCR、统一卡片主链与首页体验已同时通过真实Paddle一致性Gate和全部远端产品门禁；正式交付回执已生成 | 方案A远端subject `79e99555baa97c2d3d75b77c9d50ed158df36327`；delivery receipt为本checkpoint | GitHub Actions `33356743620`：preflight、截图定向、PostgreSQL+非P5、Windows精确P5、前端生产构建、浏览器E2E与`core-mainline`全部PASS；正式Paddle receipt SHA-256 `9231f448d534bd9c23c8d5b3149871eb4528bc244729c5fccac4a36007f4c855`；产品指纹`5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3` | `REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / REMOTE_AUTOMATED / REAL_POSTGRESQL / BROWSER_E2E_FIXTURE / EXACT_HISTORICAL_RENDERER_ABI / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #16合入`develop`，再独立归档G04并激活G05 | 方案A不是普通全量pytest零失败，须在G07 exact-binding前移除；Qwen-VL、H1、公网、生产、商业、发布、`main`均未运行或未授权；两个Git外来源目录按Owner决定保留 | 本地运行`validate_core_mainline --require-delivery-pass`，提交push并等待PR #16精确tip门禁 |
 
 ## Auto-advance
 
@@ -172,11 +173,11 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Completion record
 
-- Status：`PENDING`；Subject commits / Remote branch：激活后逐checkpoint填写；
-- Verification / Evidence / Gate result / structurally_valid：`LOCAL_AUTOMATED_REGRESSION_COMPLETE / REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / PRODUCT_DELIVERY_NOT_RUN / true`（`structurally_valid=true`）；
+- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品候选`525af072c47a3f318d88c722bf8067d6ff30907c`，方案A`79e99555baa97c2d3d75b77c9d50ed158df36327`，delivery receipt为本checkpoint / `origin/codex/g04-screenshot-integration`；
+- Verification / Evidence / Gate result / structurally_valid：`REMOTE_REQUIRED_CI_PASS / REAL_PADDLE_LICENSED_SCREENSHOT_PARITY + REAL_POSTGRESQL + BROWSER_E2E_FIXTURE + EXACT_HISTORICAL_RENDERER_ABI / PRODUCT_DELIVERY_PASS / true`（`structurally_valid=true`）；
 - 当前结构有效或G04自动验证通过，不得因此宣称 `V1_CANDIDATE_READY`；该发布门仍不在本Goal授权和证据范围内。
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
-- User-visible result / Remaining risks / Goal archived / Next activated：`截图入口候选与Screenshot Parity Gate已完成，方案A已获Owner批准且两个Git外许可截图源目录按Owner决定保留，PRODUCT_DELIVERY_PASS尚未生成 / 临时精确历史兼容例外须在G07 exact-binding验收前移除；当前仍需required CI与耐久PRODUCT_DELIVERY_PASS / false / false`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`截图入口与文本入口的一致卡片体验已通过Screenshot Parity Gate并生成PRODUCT_DELIVERY_PASS，两个Git外许可截图源目录按Owner决定保留 / PR #16尚未在回执精确tip通过远端门禁并合入develop；临时精确历史兼容例外须在G07 exact-binding验收前移除 / false / false`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
