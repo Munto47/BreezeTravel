@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -475,17 +476,50 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "python -m pytest -q @testFiles" in historical_regression["run"]
 
 
-def test_current_g04_lifecycle_has_frozen_formal_pass_before_delivery() -> None:
+def test_completed_g04_lifecycle_remains_verifiable_after_g05_activation() -> None:
     current_goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
         encoding="utf-8"
     )
+    archive = (
+        REPOSITORY_ROOT
+        / "docs/governance/goals/completed/TC-VNEXT-G04-SCREENSHOT.md"
+    ).read_text(encoding="utf-8")
     registry = json.loads(
         (REPOSITORY_ROOT / "docs/governance/current_work_packages.json").read_text(
             encoding="utf-8"
         )
     )
+    match = re.search(
+        r"<!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE\n(?P<payload>\{.*?\})\n-->",
+        archive,
+        re.DOTALL,
+    )
+    assert match is not None
+    archived_state = json.loads(match.group("payload"))
 
-    assert current_goal.startswith("# IN_PROGRESS GOAL")
-    assert registry["delivery_evidence"]["state"] == "EVIDENCE_FROZEN"
-    assert registry["delivery_evidence"]["formal_parity"]["status"] == "PASS"
+    assert current_goal.startswith("# APPROVED GOAL：V0.5")
+    assert registry["active_goal_id"] == "TC-VNEXT-G05-CITY-KNOWLEDGE"
+    assert archive.startswith("# COMPLETED GOAL：V0.4")
+    assert archived_state == {
+        "schema_version": "product-delivery-current-goal-state-v1",
+        "program_id": "TC-VNEXT-2026",
+        "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+        "goal_status": "COMPLETED",
+        "gate_profile": "PRODUCT_DELIVERY_GATE",
+        "required_gate": "Screenshot Parity Gate + PRODUCT_DELIVERY_PASS",
+        "completion_status": "DELIVERY_INTEGRATED",
+        "gate_result": "PRODUCT_DELIVERY_PASS",
+        "goal_archived": True,
+        "last_completed_goal_id": "TC-VNEXT-G04-SCREENSHOT",
+        "next_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
+        "next_activated": True,
+        "h1_status": "NOT_RUN",
+        "public_network_status": "NOT_RUN",
+        "production_status": "NOT_RUN",
+        "commercial_status": "NOT_RUN",
+        "release_status": "NOT_REQUESTED",
+        "deployment_status": "NOT_REQUESTED",
+        "main_merge_status": "NOT_REQUESTED",
+    }
+    assert validate_delivery_receipt(REPOSITORY_ROOT, 4)["verdict"] == "PASS"
     assert validate_registry_v3(REPOSITORY_ROOT)["verdict"] == "PASS"

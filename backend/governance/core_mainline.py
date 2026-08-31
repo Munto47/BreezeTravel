@@ -49,6 +49,13 @@ GOVERNANCE_EXACT = {
     "docs/product/PROJECT_CHARTER.md",
     "docs/product/TRIP_CHECK_SPEC.md",
 }
+GOAL_TRANSITION_EXACT_PATHS = {
+    "backend/scripts/validate_core_mainline.py",
+    "backend/tests/test_g04_governance_delivery.py",
+    "backend/tests/test_governance_agent_gate_transition.py",
+    "backend/tests/test_product_work_packages_v3.py",
+}
+GOAL_TRANSITION_TEST_PREFIXES = ("backend/tests/test_product_delivery_",)
 
 
 class CoreMainlineError(ValueError):
@@ -223,6 +230,15 @@ def _matches_any(path: str, patterns: list[str]) -> bool:
 
 def _is_governance(path: str) -> bool:
     return path in GOVERNANCE_EXACT or path.startswith(GOVERNANCE_PREFIXES)
+
+
+def _is_goal_transition_path(path: str) -> bool:
+    return (
+        _is_governance(path)
+        or path.startswith("backend/governance/")
+        or path in GOAL_TRANSITION_EXACT_PATHS
+        or path.startswith(GOAL_TRANSITION_TEST_PREFIXES)
+    )
 
 
 def _validate_contract(contract: dict[str, Any]) -> None:
@@ -531,15 +547,7 @@ def validate_core_mainline(
         if work_kind != "GOAL_TRANSITION" and not bootstrap:
             errors.append("GOVERNANCE_ONLY_SLICE")
     if work_kind == "GOAL_TRANSITION":
-        illegal = [
-            path
-            for path in paths
-            if not _is_governance(path)
-            and not path.startswith("backend/governance/")
-            and path != "backend/scripts/validate_core_mainline.py"
-            and not path.startswith("backend/tests/test_product_delivery_")
-            and path != "backend/tests/test_governance_agent_gate_transition.py"
-        ]
+        illegal = [path for path in paths if not _is_goal_transition_path(path)]
         if illegal:
             errors.append("GOAL_TRANSITION_CHANGED_PRODUCT")
 
