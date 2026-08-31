@@ -617,6 +617,24 @@ export default function ItineraryWorkspace({
               <DialogAction onClick={() => { closeDialog(false); onEdit(dialog.item) }} icon={<Pencil className="h-4 w-4" />}>编辑文字</DialogAction>
               <DialogAction onClick={() => { closeDialog(false); onReplace(dialog.item) }} icon={<Replace className="h-4 w-4" />}>替换地点</DialogAction>
               <DialogAction onClick={() => openMove(dialog.item)} icon={<ArrowLeftRight className="h-4 w-4" />}>移动位置</DialogAction>
+              {dialog.item.dayIndex < localDays.length && (
+                <DialogAction
+                  onClick={() => {
+                    const item = dialog.item
+                    const targetDay = localDays[item.dayIndex]
+                    closeDialog(false)
+                    void applyMove(
+                      item,
+                      item.dayIndex + 1,
+                      targetDay.activities.length,
+                      `${item.card.name} 已移到 ${targetDay.label}。路线需要手动更新。`,
+                    )
+                  }}
+                  icon={<ArrowRight className="h-4 w-4" />}
+                >
+                  移到后一天
+                </DialogAction>
+              )}
               <DialogAction onClick={() => openDelete(dialog.item)} icon={<Trash2 className="h-4 w-4" />}>删除地点</DialogAction>
             </div>
             <p className="mt-4 text-xs leading-5 text-slate-500">卡片调整会自动保存，路线需要时再手动更新。</p>

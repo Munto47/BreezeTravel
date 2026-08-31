@@ -27,6 +27,7 @@
     "base_commit": "ade2435fe90646f4d1d13267bf0edd65857b0228",
     "evidence_invalidated": [
       "G07_G5_SUBJECT_3e204e6_REJECTED",
+      "G07_G5_SUBJECT_243c2c6_BROWSER_REJECTED",
       "G07_G0_TO_G4_CHECKPOINTS_REQUIRE_FINAL_SUBJECT_RERUN"
     ],
     "forbidden_mechanisms": [
@@ -37,7 +38,7 @@
       "把G0至G4 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "保持46条旅程和断言不变：恢复Day级新增按钮的既有可访问名称，并让不可变行程结果保留其住宿投影、动态住宿任务状态只由独立stay-suggestions端点返回；不修改公共schema、冻结P6或Provider。",
+    "minimum_change": "保持46条旅程和断言不变：保留已修复的Day级新增按钮与稳定住宿投影，并在非末日地点详情恢复既有的‘移到后一天’快捷入口；复用ACTIVITY_MOVE移动到下一日末尾，同时保留通用‘移动位置’，不修改公共schema、冻结P6或Provider。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "frontend/playwright.candidate.config.js",
@@ -50,7 +51,7 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME+UI",
-    "repair_review_cycle": 2,
+    "repair_review_cycle": 3,
     "slice_id": "G07-G5-PRODUCT-REGRESSION-REPAIR",
     "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
     "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50条真实模型、地点、路线与持久化链证明关键等待时间不越界。",
