@@ -316,7 +316,7 @@
     },
     {
       "automated_gate_contract_path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
-      "automated_gate_contract_sha256": "9500bbac2e931a71fe96c6ec8b296ce0d312f6ad9715e170f33eb1342d1dfba6",
+      "automated_gate_contract_sha256": "f8d6f20da8d781af8894f45c11ebd10576e373fcbd45cc76c82c47e46421122a",
       "gate_profile": "HARDENED_CANDIDATE_GATE",
       "goal_id": "TC-VNEXT-G07-CANDIDATE",
       "goal_sequence": 7,

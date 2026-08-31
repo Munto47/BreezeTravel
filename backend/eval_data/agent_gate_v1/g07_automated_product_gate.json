@@ -74,11 +74,11 @@
       "argv": [
         "npm",
         "run",
-        "test:e2e:candidate"
+        "test:e2e:g07"
       ],
       "check_id": "g07.browser_candidate_full_journey",
       "timeout_seconds": 2400,
-      "workdir": "frontend"
+      "workdir": "backend/eval_data/g07_candidate/browser_runner"
     },
     {
       "argv": [

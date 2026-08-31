@@ -62,7 +62,7 @@
       "required_proof": ["login and demo", "text and screenshot", "cards and edit", "map stale and rerender", "stay", "Top-3", "refresh", "disconnect", "partial failure", "50 authentic chains", "P95"],
       "commands": [
         "npm run build",
-        "npm run test:e2e:candidate",
+        "npm run test:e2e:g07",
         "python -m pytest -q tests/test_trip_check_p6_performance_runner.py --timeout=180"
       ],
       "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"

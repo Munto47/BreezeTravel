@@ -26,7 +26,7 @@
   "contract_bindings": {
     "automated_candidate_gate": {
       "path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
-      "sha256": "9500bbac2e931a71fe96c6ec8b296ce0d312f6ad9715e170f33eb1342d1dfba6"
+      "sha256": "f8d6f20da8d781af8894f45c11ebd10576e373fcbd45cc76c82c47e46421122a"
     },
     "product_delivery_policy": {
       "path": "docs/governance/product_delivery_gates.json",
