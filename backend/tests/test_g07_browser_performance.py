@@ -8,6 +8,8 @@ import pytest
 from evals.g07_candidate.browser_performance import (
     EXPECTED_BROWSER_FILE_COUNTS,
     PERFORMANCE_CHAIN_COUNT,
+    _browser_database_name,
+    _service_environment,
     run_live_performance_evidence,
     validate_browser_report,
 )
@@ -68,6 +70,25 @@ def test_browser_report_requires_all_46_exact_subject_tests() -> None:
 def test_browser_report_rejects_skipped_test() -> None:
     with pytest.raises(P6ContractError, match="G07_G5_BROWSER_MATRIX_FAILED"):
         validate_browser_report(_browser_report(skipped=1), SUBJECT)
+
+
+def test_browser_fixture_services_are_isolated_from_provider_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "must-not-propagate")
+    monkeypatch.setenv("AMAP_API_KEY", "must-not-propagate")
+    environment = _service_environment(
+        database_url="postgresql://postgres:postgres@127.0.0.1:55433/browser",
+        database_admin_url="postgresql://postgres:postgres@127.0.0.1:55433/postgres",
+        redis_url="redis://127.0.0.1:56379",
+    )
+    assert environment["QWEN_API_KEY"] == ""
+    assert environment["AMAP_API_KEY"] == ""
+    assert environment["TRIP_UNDERSTANDING_PROVIDER_MODE"] == "fixture"
+    assert environment["DATABASE_URL"].startswith("postgresql+asyncpg://")
+    assert _browser_database_name(SUBJECT) == (
+        "breezetravel_g07_browser_777777777777"
+    )
 
 
 def _chain(*, cards_ms: float = 4_000.0) -> dict[str, object]:

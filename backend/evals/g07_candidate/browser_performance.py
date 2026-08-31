@@ -1,16 +1,23 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import math
 import os
 import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
 from collections import Counter
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+
+import asyncpg
 
 from evals.g07_candidate.live_spec_builder import (
     G07_EVIDENCE_ROOT_PARENT,
@@ -23,7 +30,11 @@ from evals.trip_check_v1.p6.contracts_v1 import (
     digest,
     file_sha256,
 )
-from scripts.smoke_g01_live_persistence import _run as _run_live_chain
+from scripts.smoke_g01_live_persistence import (
+    _database_url,
+    _migrate,
+    _run as _run_live_chain,
+)
 
 
 EXPECTED_BROWSER_FILE_COUNTS = {
@@ -282,11 +293,165 @@ def _run_browser_command(
         raise P6ContractError("G07_G5_BROWSER_EXECUTION_FAILED") from exc
 
 
+def _browser_database_name(subject_commit: str) -> str:
+    return f"breezetravel_g07_browser_{subject_commit[:12]}"
+
+
+async def _create_browser_database(admin_url: str, database_name: str) -> str:
+    connection = await asyncpg.connect(admin_url)
+    try:
+        exists = await connection.fetchval(
+            "SELECT 1 FROM pg_database WHERE datname = $1", database_name
+        )
+        if exists:
+            raise P6ContractError("G07_G5_BROWSER_DATABASE_ALREADY_EXISTS")
+        await connection.execute(f'CREATE DATABASE "{database_name}"')
+    finally:
+        await connection.close()
+    database_url = _database_url(admin_url, database_name)
+    try:
+        await _migrate(database_url)
+    except Exception:
+        await _drop_browser_database(admin_url, database_name)
+        raise
+    return database_url
+
+
+async def _drop_browser_database(admin_url: str, database_name: str) -> None:
+    connection = await asyncpg.connect(admin_url)
+    try:
+        await connection.execute(
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1",
+            database_name,
+        )
+        await connection.execute(f'DROP DATABASE IF EXISTS "{database_name}"')
+    finally:
+        await connection.close()
+
+
+def _service_environment(
+    *, database_url: str, database_admin_url: str, redis_url: str
+) -> dict[str, str]:
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "DATABASE_URL": database_url.replace(
+                "postgresql://", "postgresql+asyncpg://", 1
+            ),
+            "TEST_DATABASE_ADMIN_URL": database_admin_url,
+            "REDIS_URL": redis_url,
+            "RUNTIME_PROFILE": "local_fixture",
+            "TRIP_UNDERSTANDING_PROVIDER_MODE": "fixture",
+            "SCREENSHOT_OCR_MODE": "fixture",
+            "AMAP_MOCK": "true",
+            "DEV_LOGIN_BYPASS": "true",
+            "JWT_SECRET_KEY": "g07-browser-local-only-secret-2026",
+            "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY": (
+                "g07-browser-source-encryption-key-2026"
+            ),
+            "DEEPSEEK_API_KEY": "",
+            "OPENAI_API_KEY": "",
+            "QWEN_API_KEY": "",
+            "AMAP_API_KEY": "",
+            "QWEATHER_API_KEY": "",
+            "QWEATHER_PRIVATE_KEY": "",
+            "QWEATHER_KEY_ID": "",
+            "QWEATHER_PROJECT_ID": "",
+            "LANGCHAIN_TRACING_V2": "false",
+            "LANGSMITH_TRACING": "false",
+            "RUN_SERVICE_INTEGRATION": "1",
+        }
+    )
+    return environment
+
+
+def _start_fixture_services(
+    *,
+    repo_root: Path,
+    log_root: Path,
+    environment: Mapping[str, str],
+) -> tuple[list[subprocess.Popen[bytes]], list[Any]]:
+    backend = repo_root / "backend"
+    commands = {
+        "backend": [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "app.main:app",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8999",
+        ],
+        "understanding-worker": [
+            sys.executable,
+            "-m",
+            "app.trip_understanding.worker",
+        ],
+        "map-worker": [
+            sys.executable,
+            "-m",
+            "app.trip_understanding.map_worker",
+        ],
+    }
+    creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    processes: list[subprocess.Popen[bytes]] = []
+    streams: list[Any] = []
+    try:
+        for name, command in commands.items():
+            stream = (log_root / f"{name}.log").open("xb")
+            streams.append(stream)
+            processes.append(
+                subprocess.Popen(
+                    command,
+                    cwd=backend,
+                    env=dict(environment),
+                    stdout=stream,
+                    stderr=subprocess.STDOUT,
+                    creationflags=creation_flags,
+                )
+            )
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            if any(process.poll() is not None for process in processes):
+                raise P6ContractError("G07_G5_FIXTURE_SERVICE_EXITED")
+            try:
+                with urllib.request.urlopen(
+                    "http://127.0.0.1:8999/health", timeout=1
+                ) as response:
+                    if response.status == 200:
+                        return processes, streams
+            except (OSError, urllib.error.URLError):
+                time.sleep(0.25)
+        raise P6ContractError("G07_G5_FIXTURE_SERVICE_NOT_READY")
+    except Exception:
+        _stop_fixture_services(processes, streams)
+        raise
+
+
+def _stop_fixture_services(
+    processes: Sequence[subprocess.Popen[bytes]], streams: Sequence[Any]
+) -> None:
+    for process in reversed(processes):
+        if process.poll() is None:
+            process.terminate()
+    for process in reversed(processes):
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=10)
+    for stream in streams:
+        stream.close()
+
+
 def run_browser_evidence(
     *,
     output_root: Path,
     log_root: Path,
     repo_root: Path,
+    database_admin_url: str,
+    redis_url: str = "redis://127.0.0.1:6379",
     formal: bool = True,
     subject_commit: str | None = None,
     candidate_tree: str | None = None,
@@ -317,13 +482,32 @@ def run_browser_evidence(
     output.mkdir(parents=True, exist_ok=True)
     logs.mkdir(parents=True, exist_ok=True)
     report_path = output / "playwright-report.json"
-    result = _run_browser_command(
-        repo_root=repository,
-        report_path=report_path,
-        test_output=output / "test-results",
-        subject_commit=binding["subject_commit"],
-        command_runner=command_runner,
+    database_name = _browser_database_name(binding["subject_commit"])
+    database_url = asyncio.run(
+        _create_browser_database(database_admin_url, database_name)
     )
+    processes: list[subprocess.Popen[bytes]] = []
+    streams: list[Any] = []
+    try:
+        processes, streams = _start_fixture_services(
+            repo_root=repository,
+            log_root=logs,
+            environment=_service_environment(
+                database_url=database_url,
+                database_admin_url=database_admin_url,
+                redis_url=redis_url,
+            ),
+        )
+        result = _run_browser_command(
+            repo_root=repository,
+            report_path=report_path,
+            test_output=output / "test-results",
+            subject_commit=binding["subject_commit"],
+            command_runner=command_runner,
+        )
+    finally:
+        _stop_fixture_services(processes, streams)
+        asyncio.run(_drop_browser_database(database_admin_url, database_name))
     _write_text_new(logs / "playwright.stdout.log", result.stdout or "")
     _write_text_new(logs / "playwright.stderr.log", result.stderr or "")
     if result.returncode != 0:
@@ -346,6 +530,9 @@ def run_browser_evidence(
         **proof,
         "coverage": list(BROWSER_COVERAGE),
         "provider_credentials_available_to_browser": False,
+        "database_source": "ISOLATED_POSTGRESQL_APPLICATION_TABLES",
+        "isolated_database_destroyed_after_receipt": True,
+        "fixture_service_process_count": 3,
         "live_provider_evidence": False,
         "public_e2e_evidence": False,
         "human_evidence": False,

@@ -24,6 +24,11 @@ def main() -> int:
     browser.add_argument("--output-root", required=True, type=Path)
     browser.add_argument("--log-root", required=True, type=Path)
     browser.add_argument("--repo-root", type=Path, default=BACKEND_ROOT.parent)
+    browser.add_argument(
+        "--database-admin-url",
+        default="postgresql://postgres:postgres@127.0.0.1:5432/postgres",
+    )
+    browser.add_argument("--redis-url", default="redis://127.0.0.1:6379")
     performance = subparsers.add_parser("performance")
     performance.add_argument("--output-root", required=True, type=Path)
     performance.add_argument("--repo-root", type=Path, default=BACKEND_ROOT.parent)
@@ -38,6 +43,8 @@ def main() -> int:
                 output_root=args.output_root,
                 log_root=args.log_root,
                 repo_root=args.repo_root,
+                database_admin_url=args.database_admin_url,
+                redis_url=args.redis_url,
             )
         else:
             receipt = asyncio.run(
