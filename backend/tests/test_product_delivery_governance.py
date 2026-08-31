@@ -210,10 +210,7 @@ def test_delivery_receipt_ignores_not_run_g07_items(tmp_path: Path) -> None:
         validate_delivery_receipt(root, 1)
 
 
-def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_work(
-    tmp_path: Path,
-) -> None:
-    root, base = _delivery_repo(tmp_path)
+def _activate_g02_transition(root: Path) -> None:
     binding_path = root / "docs/governance/current_goal_binding.json"
     binding = json.loads(binding_path.read_text(encoding="utf-8"))
     binding.update(
@@ -286,6 +283,13 @@ def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_wor
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("G03 stops for owner review.\n", encoding="utf-8")
+
+
+def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_work(
+    tmp_path: Path,
+) -> None:
+    root, base = _delivery_repo(tmp_path)
+    _activate_g02_transition(root)
     _commit(root, "archive G01 and activate G02")
 
     report = validate_core_mainline(root, base_ref=base)
@@ -296,6 +300,36 @@ def test_atomic_g01_to_g02_transition_uses_g01_receipt_and_activates_product_wor
     assert report.goal_sequence == 2
     assert report.delivery_goal_sequence == 1
     assert validate_delivery_receipt(root, report.delivery_goal_sequence)["verdict"] == "PASS"
+
+
+def test_goal_transition_allows_only_explicit_governance_test_paths(
+    tmp_path: Path,
+) -> None:
+    root, base = _delivery_repo(tmp_path)
+    _activate_g02_transition(root)
+    for relative in (
+        "backend/tests/test_g04_governance_delivery.py",
+        "backend/tests/test_product_work_packages_v3.py",
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("def test_governance_contract():\n    pass\n", encoding="utf-8")
+    _commit(root, "transition with explicit governance tests")
+
+    allowed = validate_core_mainline(root, base_ref=base)
+
+    assert allowed.verdict == "PASS"
+    assert allowed.work_kind == "GOAL_TRANSITION"
+    assert allowed.product_progress == ()
+
+    product_test = root / "backend/tests/test_trip_runtime.py"
+    product_test.write_text("def test_runtime():\n    pass\n", encoding="utf-8")
+    _commit(root, "attempt product test in goal transition")
+
+    rejected = validate_core_mainline(root, base_ref=base)
+
+    assert rejected.verdict == "FAIL"
+    assert "GOAL_TRANSITION_CHANGED_PRODUCT" in rejected.errors
 
 
 def _write_active_g03_repair(
