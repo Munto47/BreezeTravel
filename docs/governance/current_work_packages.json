@@ -15,6 +15,7 @@
       "backend/evals/trip_check_v1/p6/contracts_v1.py",
       "backend/evals/trip_check_v1/p6/candidate_run_spec_v1.schema.json",
       "backend/scripts/build_g07_live_provider_spec.py",
+      "backend/scripts/run_g07_g4_live_provider.py",
       "backend/tests/test_g07_live_provider_spec.py"
     ],
     "base_commit": "3685c6cb1f39c9fb6469da1aed85d8ffb5f018d4",
@@ -27,7 +28,7 @@
       "把G0至G3 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "向后兼容地让历史P6 live runner识别当前G07规范分支和034 migration，并由专用builder从G07冻结合同生成仓库外exact-subject适配spec；随后执行固定live矩阵，原始证据只留在仓库外。",
+    "minimum_change": "先把首版策略触碰的两份历史P6文件恢复为baseline原字节，再由独立G07 builder/runner从冻结合同生成仓库外exact-subject spec并执行固定live矩阵；原始证据只留在仓库外。",
     "phase": "GATE_RUNNING",
     "preflight_entrypoints": [
       "backend/tests/test_real_provider_evidence.py",
