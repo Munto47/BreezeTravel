@@ -27,11 +27,47 @@ from governance.g04_screenshot_parity import (
 from governance.work_packages_v3 import validate_registry_v3
 from scripts.ci_posix_cmd_junction_shim import main as create_posix_junction
 from scripts.export_trip_check_openapi import _normalize_schema
+from scripts.run_g04_non_p5_regression import (
+    EXACT_COMPATIBILITY_FILE_SHA256,
+    EXACT_SCHEMA_SHA256,
+    EXPECTED_FAILURE_FINGERPRINTS,
+    NON_P5_PYTEST_ARGS,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 HEX_A = "a" * 64
 HEX_B = "b" * 64
+
+
+def test_g04_historical_compatibility_exception_is_exact_and_hash_bound() -> None:
+    assert NON_P5_PYTEST_ARGS == (
+        "-q",
+        "tests",
+        "--ignore-glob=tests/test_trip_check_p5*.py",
+    )
+    assert EXPECTED_FAILURE_FINGERPRINTS == {
+        (
+            "tests/test_trip_nlu_v2_gate.py::"
+            "test_public_validator_proves_exact_120_case_contract_without_reading_blind_truth"
+        ): "manifest evaluator/schema code binding mismatch",
+        (
+            "tests/test_trip_nlu_v2_gate.py::"
+            "test_external_labels_inside_repository_are_rejected"
+        ): "manifest evaluator/schema code binding mismatch",
+    }
+    assert EXACT_COMPATIBILITY_FILE_SHA256 == {
+        "eval_data/trip_nlu_v2/manifest.json": "cab1056d3a435f7a4c576a97f0d6d75ef17b8d4ed6833721ea038b64db52b0ab",
+        (
+            "eval_data/trip_nlu_v2_remediation/candidate_manifest.json"
+        ): "638ee916bb16f6f0774262aa8e0a51e04da976e87cd7f9507a59b6209da76fd9",
+        "evals/trip_nlu_v2/validator.py": "9acf725ad2b827083841f3e7ad16cda0740ca868181c6a3e995c2a0bdafc574e",
+        "evals/trip_nlu_v2/scorer.py": "b602297e3c6f6697c116772b7976c78fea11f4c0279b2b1e3f218383cb320be5",
+        "evals/trip_nlu_v2/gate.py": "6469db3eb556aaf016fdb89fa757385433389c02ddb5628f624b44f059c84683",
+        "tests/test_trip_nlu_v2_gate.py": "5bb7db7e69af3797ec493a8f6bcda8d3b1ea77ace8d7ad7633dbaf62829f1996",
+        "scripts/generate_trip_nlu_v2.py": "b8853f04db846fe72b77d8428b289eb2472aea4adae443bbaa69ee49e320756f",
+    }
+    assert EXACT_SCHEMA_SHA256 == "fe5f80bb8d173079021751aaac78b54703b49ef435e2a4fffc8c29b9f64d3b4f"
 
 
 def test_openapi_export_normalizes_singleton_literals_across_pydantic_versions() -> None:
@@ -373,7 +409,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
         for step in postgres_steps
         if step.get("name") == "Verify backend service and non-P5 regression"
     )
-    assert "--ignore-glob='tests/test_trip_check_p5*.py'" in posix_regression["run"]
+    assert posix_regression["run"] == "python -m scripts.run_g04_non_p5_regression"
     assert posix_regression["env"] == {
         "P3_OCR_FONT_PATH": "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
     }

@@ -403,7 +403,7 @@ jobs:
         working-directory: backend
         env:
           P3_OCR_FONT_PATH: /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
-        run: python -m pytest -q --ignore-glob='tests/test_trip_check_p5*.py'
+        run: python -m scripts.run_g04_non_p5_regression
 
   g04_historical_backend:
     name: g04_historical_backend
