@@ -187,7 +187,7 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / preflight e3db50d、exact-binding 2c90ea5、receipt 7324957、candidate-contract 91fee72、G1 repair 4afb862、G0-G1 receipt 34fc08d、G2 receipt 3685c6c、G3 receipt 127dbc9、rejected G4 adapter 3903a30、independent adapter a59a43c、G4 live subject 770a6d2 / origin/codex/g07-candidate@770a6d2远端回读一致`；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / preflight e3db50d、exact-binding 2c90ea5、receipt 7324957、candidate-contract 91fee72、G1 repair 4afb862、G0-G1 receipt 34fc08d、G2 receipt 3685c6c、G3 receipt 127dbc9、rejected G4 adapter 3903a30、independent adapter a59a43c、G4 live subject 770a6d2、G4 receipt ade2435 / origin/codex/g07-candidate@ade2435远端回读一致`；
 - Verification / Evidence / Gate result / `structurally_valid`：`G0定向38 passed；G1 checkpoint完整2556 passed；G2 PostgreSQL 23 passed；G3 snapshot 31 passed；独立G4 runner exact-tip全量2563 passed, 44 skipped, 0 failed；G4 live地图/天气18次与Qwen 72次均完整成功 / LIVE_PROVIDER_EVIDENCE_EXACT_REMOTE_SUBJECT / G4_CHECKPOINT_PASS_BUT_HARDENED_CANDIDATE_GATE_NOT_RUN / true`；checkpoint不等于最终同subject候选通过，Qwen质量评分与blind仍未运行；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
 - User-visible result / Remaining risks / Goal archived：`G06已交付；G07已移除G04方案A执行路径、恢复普通后端零失败、冻结候选合同并完成G4真实Provider回读 / G0～G8尚未在同一最终subject全部通过，真实browser、50链、复审、blind、manifest与最终HardeningDecision仍未运行 / false`；

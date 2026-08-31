@@ -5,7 +5,7 @@
     "acceptance_refs": [
       "候选浏览器矩阵在clean exact subject执行全部7个用户旅程文件，46项不得skip、flaky或unexpected",
       "覆盖文本、截图、逐日卡、编辑、地图陈旧/手动更新、住宿、Top-3、刷新恢复、断线续传与局部失败",
-      "同一候选subject执行50条受控真实应用链并保存原始样本哈希，主链P95不得超过冻结阈值",
+      "同一候选subject执行50条真实Qwen+AMap+PostgreSQL应用链并保存脱敏样本哈希，主链P95不得超过冻结阈值",
       "browser fixture、内部性能、live Provider、H1、公网、生产与商业证据继续分层披露"
     ],
     "allowed_paths": [
@@ -17,17 +17,17 @@
       "backend/scripts/run_g07_g5_browser_performance.py",
       "backend/tests/test_g07_browser_performance.py"
     ],
-    "base_commit": "770a6d2b36d7916a34fa75e6d1e4a7fc446d7a38",
+    "base_commit": "ade2435fe90646f4d1d13267bf0edd65857b0228",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
       "把Playwright发现、构建成功、fixture或历史P6报告冒充本候选browser/P95证据",
       "修改用户旅程、性能阈值、样本数、blind、oracle或历史P6冻结资产以获得PASS",
       "复用跨commit浏览器报告、伪造50链、跳过失败或将flaky/skip计为PASS",
-      "在browser/performance切片发出Provider调用、H1招募、公网或生产请求",
+      "让浏览器fixture接触Provider凭据，或让50链使用未准入Provider、新账号、新付费、H1、公网或生产请求",
       "把G0至G4 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "补齐缺失的test:e2e:g07入口，并用独立G07 runner绑定当前候选的完整浏览器JSON报告与50条应用链性能样本；不修改冻结P6合同。",
+    "minimum_change": "收紧现有test:e2e:g07的仓库外JSON绑定，并用独立G07 runner绑定当前候选的完整浏览器报告与50条真实Qwen+AMap+PostgreSQL应用链；不修改冻结P6合同。",
     "phase": "GATE_RUNNING",
     "preflight_entrypoints": [
       "frontend/playwright.candidate.config.js",
@@ -41,7 +41,7 @@
     "repair_review_cycle": 0,
     "slice_id": "G07-G5-BROWSER-PERFORMANCE",
     "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
-    "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50链性能证据证明关键等待时间不越界。",
+    "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50条真实模型、地点、路线与持久化链证明关键等待时间不越界。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
