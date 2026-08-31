@@ -6,6 +6,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from evals.agent_gate_v1.candidate_component_verifiers import (
+    CandidateComponentVerificationError,
+    verify_candidate_component_receipt,
+)
 from evals.agent_gate_v1.contracts import (
     AutomatedProductGateContract,
     CandidateGateComponentReceipt,
@@ -282,6 +286,15 @@ def verify_g07_candidate_gate_pass(
             or receipt.automated_gate_contract_sha256 != contract_sha256
         ):
             raise CandidateGateError("G07 component candidate binding mismatch")
+        try:
+            verify_candidate_component_receipt(
+                receipt=receipt,
+                repository_root=root,
+            )
+        except CandidateComponentVerificationError as exc:
+            raise CandidateGateError(
+                f"G07 component raw verification failed: {receipt.component}"
+            ) from exc
         component_hashes[receipt.component] = snapshot.sha256
         if receipt.component == "AUTOMATED_PRODUCT_GATE":
             automated_isolation = receipt.isolation_mode

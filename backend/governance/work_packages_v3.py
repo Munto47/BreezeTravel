@@ -16,6 +16,7 @@ POLICY_PATH = Path("docs/governance/product_delivery_gates.json")
 FROZEN_AGENT_GATE_PREFIX = "backend/evals/agent_gate_v1/"
 G07_GOAL_ID = "TC-VNEXT-G07-CANDIDATE"
 G07_MUTABLE_AGENT_GATE_PATHS = {
+    "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
     "backend/evals/agent_gate_v1/candidate_gate.py",
     "backend/evals/agent_gate_v1/contracts.py",
 }
@@ -108,7 +109,8 @@ def _agent_gate_path_is_authorized_for_g07(
     return (
         registry.get("active_goal_id") == G07_GOAL_ID
         and active_slice.get("work_kind") == "CANDIDATE_HARDENING"
-        and active_slice.get("slice_id") == "G07-CANDIDATE-CONTRACT"
+        and active_slice.get("slice_id")
+        in {"G07-CANDIDATE-CONTRACT", "G07-COMPONENT-RAW-REVALIDATION"}
         and path in G07_MUTABLE_AGENT_GATE_PATHS
     )
 

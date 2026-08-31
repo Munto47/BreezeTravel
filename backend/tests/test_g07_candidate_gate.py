@@ -17,6 +17,15 @@ from evals.agent_gate_v1.contracts import CurrentGoalBinding
 from scripts import build_agent_gate_pass
 
 
+@pytest.fixture(autouse=True)
+def _stub_component_raw_revalidation(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        candidate_gate,
+        "verify_candidate_component_receipt",
+        lambda **_kwargs: {"verdict": "PASS"},
+    )
+
+
 def _git(root: Path, *args: str) -> str:
     result = subprocess.run(
         ["git", "-C", str(root), *args],
@@ -280,6 +289,7 @@ def _component(
         "SEALED_AGENT_BLIND": "SEALED_AGENT_BLIND",
     }
     return {
+        "schema_version": "candidate-gate-component-receipt-v2",
         "goal_id": "TC-VNEXT-G07-CANDIDATE",
         "candidate_commit": commit,
         "candidate_tree": tree,
@@ -288,8 +298,15 @@ def _component(
         "automated_gate_contract_sha256": contract_sha,
         "component": component,
         "evidence_level": levels[component],
+        "upstream_artifact_path": {
+            "evidence.bundle": "C:/g07-external/evidence.bundle"
+        },
         "upstream_artifact_sha256": {"evidence.bundle": "1" * 64},
+        "verifier_path": (
+            "backend/evals/agent_gate_v1/candidate_component_verifiers.py"
+        ),
         "verifier_sha256": "2" * 64,
+        "verification_summary_sha256": "3" * 64,
         "isolation_mode": isolation,
     }
 
@@ -313,6 +330,15 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    verified_components: list[str] = []
+    monkeypatch.setattr(
+        candidate_gate,
+        "verify_candidate_component_receipt",
+        lambda *, receipt, repository_root: verified_components.append(
+            receipt.component
+        )
+        or {"verdict": "PASS"},
+    )
     (
         root,
         development,
@@ -381,6 +407,12 @@ def test_g07_not_required_uses_fresh_checkout_without_control_receipts(
     )
     assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
     assert receipt.selected_control_receipt_sha256 == {}
+    assert set(verified_components) == {
+        "AUTOMATED_PRODUCT_GATE",
+        "LIVE_PROVIDER_GATE",
+        "MULTI_AGENT_PANEL",
+        "SEALED_AGENT_BLIND",
+    }
     drifted_decision = external / "drifted-decision.json"
     payload = json.loads(decision.read_text(encoding="utf-8"))
     payload["threat_model_sha256"] = "0" * 64

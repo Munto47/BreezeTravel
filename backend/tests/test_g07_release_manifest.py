@@ -56,6 +56,7 @@ def _component_receipts(root: Path) -> list[Path]:
         _write_json(
             path,
             {
+                "schema_version": "candidate-gate-component-receipt-v2",
                 "candidate_commit": commit,
                 "candidate_tree": tree,
                 "candidate_config_sha256": config_sha256,
@@ -65,10 +66,20 @@ def _component_receipts(root: Path) -> list[Path]:
                 ],
                 "component": component,
                 "evidence_level": evidence_level,
+                "upstream_artifact_path": {
+                    f"component_{index}.evidence": str(
+                        (root / f"component-{index}.evidence").resolve()
+                    )
+                },
                 "upstream_artifact_sha256": {
                     f"component_{index}.evidence": str(index) * 64
                 },
+                "verifier_path": (
+                    "backend/evals/agent_gate_v1/"
+                    "candidate_component_verifiers.py"
+                ),
                 "verifier_sha256": "f" * 64,
+                "verification_summary_sha256": "e" * 64,
                 "isolation_mode": (
                     "FRESH_CLEAN_CHECKOUT"
                     if component == "AUTOMATED_PRODUCT_GATE"
@@ -126,7 +137,17 @@ def test_g07_run_spec_hash_bindings_match_current_candidate_inputs(tmp_path: Pat
 
 def test_g07_manifest_aggregates_only_complete_same_subject_components(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    verified_components: list[str] = []
+    monkeypatch.setattr(
+        build_release_manifest,
+        "verify_candidate_component_receipt",
+        lambda *, receipt, repository_root: verified_components.append(
+            receipt.component
+        )
+        or {"verdict": "PASS"},
+    )
     components = _component_receipts(tmp_path)
 
     target = build_g07_candidate_manifest(
@@ -142,6 +163,7 @@ def test_g07_manifest_aggregates_only_complete_same_subject_components(
     assert set(payload["component_receipt_sha256"]) == (
         build_release_manifest.G07_COMPONENTS
     )
+    assert set(verified_components) == build_release_manifest.G07_COMPONENTS
     assert "G07_COMPONENT_RECEIPTS_NOT_RUN" not in payload["release_blockers"]
     assert payload["evidence_boundaries"]["live_provider"] == (
         "VERIFIED_COMPONENT_RECEIPT"
@@ -161,7 +183,13 @@ def test_g07_manifest_aggregates_only_complete_same_subject_components(
 
 def test_g07_manifest_rejects_partial_duplicate_and_cross_subject_components(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(
+        build_release_manifest,
+        "verify_candidate_component_receipt",
+        lambda **_kwargs: {"verdict": "PASS"},
+    )
     components = _component_receipts(tmp_path)
 
     with pytest.raises(RuntimeError, match="exactly four"):

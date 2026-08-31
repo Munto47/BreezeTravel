@@ -14,6 +14,10 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
+from evals.agent_gate_v1.candidate_component_verifiers import (
+    CandidateComponentVerificationError,
+    verify_candidate_component_receipt,
+)
 from evals.agent_gate_v1.contracts import CandidateGateComponentReceipt
 from evals.agent_gate_v1.core_gate import CORE_CONFIG_ROOTS, CORE_DATA_ROOTS
 from evals.agent_gate_v1.path_security import read_external_snapshot
@@ -526,6 +530,15 @@ def _verified_g07_components(
             != automated_contract_sha256
         ):
             raise RuntimeError("G07 component receipt candidate binding mismatch")
+        try:
+            verify_candidate_component_receipt(
+                receipt=receipt,
+                repository_root=ROOT,
+            )
+        except CandidateComponentVerificationError as exc:
+            raise RuntimeError(
+                f"G07 component raw verification failed: {receipt.component}"
+            ) from exc
         verified[receipt.component] = {
             "receipt_sha256": snapshot.sha256,
             "evidence_level": receipt.evidence_level,
@@ -533,6 +546,7 @@ def _verified_g07_components(
                 sorted(receipt.upstream_artifact_sha256.items())
             ),
             "verifier_sha256": receipt.verifier_sha256,
+            "verification_summary_sha256": receipt.verification_summary_sha256,
             "isolation_mode": receipt.isolation_mode,
             "human_evidence": False,
             "production_evidence": False,

@@ -936,8 +936,8 @@ class HardeningControlVerificationReceipt(StrictModel):
 
 
 class CandidateGateComponentReceipt(StrictModel):
-    schema_version: Literal["candidate-gate-component-receipt-v1"] = (
-        "candidate-gate-component-receipt-v1"
+    schema_version: Literal["candidate-gate-component-receipt-v2"] = (
+        "candidate-gate-component-receipt-v2"
     )
     goal_id: Literal["TC-VNEXT-G07-CANDIDATE"] = "TC-VNEXT-G07-CANDIDATE"
     candidate_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
@@ -947,8 +947,13 @@ class CandidateGateComponentReceipt(StrictModel):
     automated_gate_contract_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     component: AgentGateComponent
     evidence_level: EvidenceLevel
+    upstream_artifact_path: dict[str, str] = Field(min_length=1, max_length=100)
     upstream_artifact_sha256: dict[str, str] = Field(min_length=1, max_length=100)
+    verifier_path: Literal[
+        "backend/evals/agent_gate_v1/candidate_component_verifiers.py"
+    ] = "backend/evals/agent_gate_v1/candidate_component_verifiers.py"
     verifier_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    verification_summary_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     isolation_mode: Literal[
         "FRESH_CLEAN_CHECKOUT", "OCI_EPHEMERAL_NO_HOST_MOUNTS"
     ] | None = None
@@ -971,12 +976,23 @@ class CandidateGateComponentReceipt(StrictModel):
                 raise ValueError("automated candidate component requires isolation mode")
         elif self.isolation_mode is not None:
             raise ValueError("only automated candidate evidence may claim isolation")
+        if set(self.upstream_artifact_path) != set(self.upstream_artifact_sha256):
+            raise ValueError("candidate component artifact path/hash keys disagree")
+        if len(set(self.upstream_artifact_path.values())) != len(
+            self.upstream_artifact_path
+        ):
+            raise ValueError("candidate component artifact paths must be unique")
         if any(
             not re.fullmatch(r"[a-z][a-z0-9_.-]{2,79}", key)
             or not re.fullmatch(r"[0-9a-f]{64}", value)
             for key, value in self.upstream_artifact_sha256.items()
         ):
             raise ValueError("candidate component evidence bindings are invalid")
+        if any(
+            not Path(value).is_absolute() or len(value) > 500
+            for value in self.upstream_artifact_path.values()
+        ):
+            raise ValueError("candidate component artifact paths must be absolute")
         return self
 
 

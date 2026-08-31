@@ -710,6 +710,12 @@ def generate(
             "candidate_gate.py": _sha256(
                 BACKEND_ROOT / "evals" / "agent_gate_v1" / "candidate_gate.py"
             ),
+            "candidate_component_verifiers.py": _sha256(
+                BACKEND_ROOT
+                / "evals"
+                / "agent_gate_v1"
+                / "candidate_component_verifiers.py"
+            ),
         },
     }
     _write_json(general_root / "protocol_contract.json", general_contract)
