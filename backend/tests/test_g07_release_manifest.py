@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from scripts.build_release_manifest import build_g07_candidate_manifest
@@ -52,3 +53,29 @@ def test_g07_run_spec_hash_bindings_match_current_candidate_inputs(tmp_path: Pat
         binding["binding"] == "text_card_90_case_contract"
         for binding in payload["verified_input_bindings"]
     )
+
+
+def test_g07_candidate_contract_receipt_binds_subject_git_bytes() -> None:
+    receipt = json.loads(
+        (
+            ROOT / "docs/governance/gate-results/G07.candidate-contract.json"
+        ).read_text(encoding="utf-8")
+    )
+    subject = receipt["subject_commit"]
+    tree = subprocess.run(
+        ["git", "-C", str(ROOT), "show", "-s", "--format=%T", subject],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+
+    assert tree == receipt["subject_tree"]
+    assert receipt["remote_subject"] == subject
+    assert receipt["verdict"] == "G07_CANDIDATE_CONTRACT_FROZEN"
+    for path, expected_sha256 in receipt["artifact_sha256"].items():
+        content = subprocess.run(
+            ["git", "-C", str(ROOT), "show", f"{subject}:{path}"],
+            check=True,
+            capture_output=True,
+        ).stdout
+        assert hashlib.sha256(content).hexdigest() == expected_sha256
