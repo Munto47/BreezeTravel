@@ -1,0 +1,57 @@
+{
+  "schema_version": "product-delivery-result-v1",
+  "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b",
+  "checks": {
+    "core_mainline_contract": "PASS",
+    "g06_memory_share_targeted": "PASS",
+    "g06_postgresql": "PASS",
+    "frontend_build": "PASS",
+    "g06_browser_e2e": "PASS"
+  },
+  "verification": {
+    "consent_and_memory": "PASS / all three purposes default off / memory, product feedback and training-eval independent / allowlisted structured preferences only / view, update and physical clear",
+    "feedback": "PASS / owner authorized / purpose consent required / idempotent minimal events / subject reference hash only / feedback does not enable training-eval",
+    "sharing": "PASS / minimal UserFacingTripResult projection / HMAC-derived non-enumerable reference and secret / fragment cleared before exchange / secret sent in body only / one-hour HttpOnly capability / expiry and revoke enforced",
+    "deletion": "PASS / trip deletion removes feedback, shares and sessions / account travel clear removes preferences and feedback and revokes every share / fresh readback",
+    "g06_memory_share_targeted": "PASS / GitHub Actions 33400646254",
+    "g06_postgresql": "PASS / 033 fresh and after-034 / concurrent idempotent share / hash-only secret and capability storage / exchange, read, revoke and deletion lifecycle",
+    "frontend_openapi_client_and_production_build": "PASS / GitHub Actions 33400646254",
+    "g06_browser_journey": "PASS / AUTOMATED_FIXTURE_CI / default-off consent, structured preference CRUD, fragment clearing, minimal DOM, feedback separation and revoke",
+    "core_mainline_aggregator": "PASS / GitHub Actions 33400646254",
+    "local_governance_guard": "34 passed / targeted and privacy 27 passed / PostgreSQL 3 passed / browser 3 passed / Ruff, work-package validation and diff check PASS"
+  },
+  "remote_ci": {
+    "workflow": "Product mainline",
+    "run_id": 33400646254,
+    "run_url": "https://github.com/Munto47/BreezeTravel/actions/runs/33400646254",
+    "pull_request": 20,
+    "head_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+    "product_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+    "core_mainline": "PASS"
+  },
+  "historical_compatibility": {
+    "status": "PASS_WITH_APPROVED_HISTORICAL_EXCEPTION",
+    "owner_authorization": "SCHEME_A_APPROVED_2026-08-31",
+    "full_pytest_pass": false,
+    "approved_failure_count": 2,
+    "unexpected_failure_count": 0,
+    "scope_expanded_by_g06": false,
+    "removal_deadline": "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+  },
+  "memory_default": "OFF",
+  "feedback_default": "OFF",
+  "training_eval_default": "OFF",
+  "raw_source_screenshot_chat_memory": "NONE",
+  "share_projection_internal_fields": "NONE",
+  "share_recipient_authority": "READ_ONLY",
+  "safety_floor": "PASS",
+  "human_usability": "NOT_RUN",
+  "public_network_evidence": "NOT_RUN",
+  "production_evidence": "NOT_RUN",
+  "commercial_evidence": "NOT_RUN",
+  "release_evidence": "NOT_AUTHORIZED",
+  "main_merge_evidence": "NOT_AUTHORIZED",
+  "verdict": "PASS"
+}

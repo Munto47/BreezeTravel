@@ -28,14 +28,14 @@
       "第三方CRM或analytics、新账号、费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "交付默认关闭的结构化偏好、独立数据用途同意、最小反馈事件与可撤回可过期只读分享。",
-    "phase": "PRODUCT_ENHANCEMENT",
+    "phase": "EVIDENCE_FROZEN",
     "preflight_entrypoints": [
       "backend/tests/test_trip_understanding_v3_api.py",
       "backend/tests/test_g04_public_privacy_boundaries.py",
       "backend/tests/test_g04_private_data_maintenance.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "IN_PROGRESS",
+    "product_progress": "API+RUNTIME+UI",
     "repair_review_cycle": 0,
     "slice_id": "G06-CONSENT-MEMORY-SHARE",
     "stop_condition": "若G05交付或远端integration无法回读、fresh develop不再由G06接棒，或激活必须修改产品字节、扩大数据授权或削弱删除与consent边界，则停止过渡并重新审计。",
@@ -50,6 +50,16 @@
   "max_parallel_writers": 2,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
+  "delivery_evidence": {
+    "first_exact_tip_ci": {
+      "head_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+      "run_id": 33400646254,
+      "status": "PASS"
+    },
+    "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b",
+    "receipt_path": "docs/governance/gate-results/G06.product-delivery.json",
+    "state": "EVIDENCE_FROZEN"
+  },
   "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
   "next_goal_status": "DRAFT",
   "packages": [

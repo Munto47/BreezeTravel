@@ -11,12 +11,16 @@ from app.trip_understanding.memory_share import (
     PreferenceMemoryView,
     ShareProjectionView,
 )
+from governance.core_mainline import product_fingerprint, validate_delivery_receipt
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/core-mainline.yml"
 MIGRATION_PATH = (
     REPOSITORY_ROOT / "backend/app/db/migrations/033_user_memory_and_feedback.sql"
+)
+DELIVERY_PATH = (
+    REPOSITORY_ROOT / "docs/governance/gate-results/G06.product-delivery.json"
 )
 
 
@@ -150,3 +154,32 @@ def test_g06_binding_keeps_privacy_boundaries_and_historical_exception_exact() -
     assert g04["unexpected_failure_count"] == 0
     assert g04["full_pytest_pass"] is False
     assert g04["removal_deadline"] == "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+
+
+def test_g06_delivery_receipt_binds_exact_product_and_required_checks() -> None:
+    receipt = json.loads(DELIVERY_PATH.read_text(encoding="utf-8"))
+
+    assert receipt["product_fingerprint"] == product_fingerprint(REPOSITORY_ROOT)
+    assert receipt["checks"] == {
+        "core_mainline_contract": "PASS",
+        "g06_memory_share_targeted": "PASS",
+        "g06_postgresql": "PASS",
+        "frontend_build": "PASS",
+        "g06_browser_e2e": "PASS",
+    }
+    assert receipt["remote_ci"] == {
+        "workflow": "Product mainline",
+        "run_id": 33400646254,
+        "run_url": "https://github.com/Munto47/BreezeTravel/actions/runs/33400646254",
+        "pull_request": 20,
+        "head_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+        "product_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+        "core_mainline": "PASS",
+    }
+    compatibility = receipt["historical_compatibility"]
+    assert compatibility["approved_failure_count"] == 2
+    assert compatibility["unexpected_failure_count"] == 0
+    assert compatibility["full_pytest_pass"] is False
+    assert compatibility["scope_expanded_by_g06"] is False
+    assert compatibility["removal_deadline"] == "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+    assert validate_delivery_receipt(REPOSITORY_ROOT, 6)["verdict"] == "PASS"

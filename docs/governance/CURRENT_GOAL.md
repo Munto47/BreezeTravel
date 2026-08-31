@@ -12,8 +12,8 @@ Goal type: PRODUCT_ENHANCEMENT
   "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Consent & Share Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
   "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
@@ -168,7 +168,7 @@ Goal type: PRODUCT_ENHANCEMENT
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-31 | G05三城有来源建议已并入`develop`并完整归档；G06显式记忆与分享合同原子激活，尚未修改G06产品代码或创建033 | 治理过渡commit在提交后由远端readback记录；精确产品基线`c416dcdc40fcef2aef56627ab28c6f4049dc7dd9` | G05回执tip CI `33389553342 PASS`；PR #18 `MERGED`；develop exact-tip GitHub Actions `33389970986 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic archive and activation only` | 合并本治理过渡PR；从新develop创建G06实现分支，先完成删除/auth/privacy preflight与consent合同，再进入033和产品切片 | G06产品、033、删除fresh readback、权限/分享、PostgreSQL、浏览器与交付Gate均`NOT_RUN`；G04两个精确历史例外仍须在G07移除 | 校验归档/绑定/范围，提交push并通过受保护PR；合并后fresh readback再建立唯一G06实现分支 |
-| 2026-08-31 | 用户已可主动开启并查看、修改、清空结构化旅行偏好；产品反馈和训练/评测同意独立；登录行程可创建7天只读分享并撤销 | 待首个G06产品checkpoint提交；exact baseline `e383eeef39b0246ce35dd3cb8481a02bbebd1130` | 删除/auth/privacy preflight `18 passed`；G06定向`5 passed`；033 PostgreSQL fresh/after-034/运行时`3 passed`；browser `3 passed`；frontend build、OpenAPI/client build、Ruff、治理29项`PASS` | `AUTOMATED_TEST / LOCAL_PRODUCT_SLICE_PASS` | `Product progress=memory + consent + feedback + share end-to-end` | `Governance ratio=checkpoint binding only` | 提交并push subject，通过exact-tip CI后生成耐久`G06.product-delivery.json`，再次CI并受保护PR合入`develop` | 当前证据为本地fixture/自动化；远端CI、交付回执与集成尚`NOT_RUN`；G04两个精确历史例外保持不变并须在G07移除 | 完成最终diff审查、checkpoint push和exact-tip CI |
+| 2026-08-31 | 用户已可主动开启并查看、修改、清空结构化旅行偏好；产品反馈和训练/评测同意独立；登录行程可创建7天只读分享并撤销；耐久G06交付回执已生成 | 产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；delivery receipt为本checkpoint；exact baseline `e383eeef39b0246ce35dd3cb8481a02bbebd1130` | 删除/auth/privacy preflight `18 passed`；G06定向`5 passed`；033 PostgreSQL fresh/after-034/运行时`3 passed`；browser `3 passed`；frontend build、OpenAPI/client build、Ruff、治理34项`PASS`；GitHub Actions `33400646254`全部required jobs与聚合门禁`PASS`；产品指纹`c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b` | `REMOTE_AUTOMATED / REAL_POSTGRESQL / AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / CONSENT_AND_SHARE_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #20合入`develop`，再独立归档G06并激活G07 | 浏览器为自动fixture而非公网或真人证据；G04两个精确历史例外保持不变并须在G07 exact-binding前移除 | 本地验证delivery receipt，提交push并等待PR #20回执tip的完整CI |
 
 ## Auto-advance
 
@@ -177,10 +177,10 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 首个G06产品checkpoint待提交 / origin/codex/g06-memory-share待首次push`；
-- Verification / Evidence / Gate result / `structurally_valid`：`LOCAL_TARGETED_PASS / AUTOMATED_FIXTURE_AND_POSTGRESQL / PRODUCT_DELIVERY_NOT_RUN / true`；本地通过不代表远端产品交付；
+- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`，delivery receipt为本checkpoint / `origin/codex/g06-memory-share`；
+- Verification / Evidence / Gate result / `structurally_valid`：`REMOTE_REQUIRED_CI_PASS / REAL_POSTGRESQL + AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS / true`；回执精确tip CI与远端合入仍待完成；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；公网、release、deploy和`main`同样未运行或未请求；
-- User-visible result / Remaining risks / Goal archived / Next activated：`显式结构化偏好、独立反馈/训练同意和可撤销只读分享已完成本地端到端实现 / 远端CI、耐久交付回执和develop集成仍未运行；G04两个历史例外保持原样 / false / false`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`显式结构化偏好、独立反馈/训练同意和可撤销只读分享已生成PRODUCT_DELIVERY_PASS / 回执精确tip CI、PR #20合入与远端readback待完成；G04两个历史例外须在G07 exact-binding前移除 / false / false`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
