@@ -11,7 +11,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
-from app.api import audits, imports, repairs, screenshot_batches_v3, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_understandings_v3, trip_workspaces, members
+from app.api import audits, imports, memory_share_v3, repairs, screenshot_batches_v3, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_understandings_v3, trip_workspaces, members
 from app.api import auth as auth_api
 from app.api import e2e as e2e_api
 from app.api import user_profile
@@ -223,6 +223,11 @@ app.include_router(
     trip_understandings_v3.account_router,
     prefix="/api",
     tags=["trip-understandings-v3-account"],
+)
+app.include_router(
+    memory_share_v3.router,
+    prefix="/api",
+    tags=["memory-share-v3"],
 )
 
 

@@ -12,8 +12,8 @@
   "predecessor_completion_commit": "c416dcdc40fcef2aef56627ab28c6f4049dc7dd9",
   "predecessor_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G06_MEMORY_SHARE_APPROVED",
+  "program_state": "G06_MEMORY_SHARE_IN_PROGRESS",
   "schema_version": "current-goal-binding-v3",
-  "status": "APPROVED",
+  "status": "IN_PROGRESS",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

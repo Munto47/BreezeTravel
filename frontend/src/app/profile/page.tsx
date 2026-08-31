@@ -251,7 +251,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 id="travel-data-privacy-title" className="text-sm font-semibold text-gray-800">账号旅行数据</h2>
-              <p className="mt-1 text-xs leading-5 text-gray-500">清空所有新版行程原文、卡片和派生结果；不会删除登录账号或个人资料。此操作不可恢复。</p>
+              <p className="mt-1 text-xs leading-5 text-gray-500">清空所有新版行程原文、卡片、结构化偏好和反馈，并撤销全部分享；不会删除登录账号或个人资料。此操作不可恢复。</p>
             </div>
           </div>
 

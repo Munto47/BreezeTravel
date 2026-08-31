@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 
 import ItineraryWorkspace from './itinerary-workspace'
+import MemorySharePanel from './memory-share-panel'
 import {
   type ActivityCardView,
   type MapRenderView,
@@ -1354,6 +1355,10 @@ export default function TripResultPage() {
               onRetry={retryChecks}
             />
           </div>
+
+          {user && activeMode !== 'DEMO' && resourceRef ? (
+            <MemorySharePanel resourceRef={resourceRef} />
+          ) : null}
 
           <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5" aria-labelledby="trip-privacy-title">
             <div className="flex items-start gap-3">

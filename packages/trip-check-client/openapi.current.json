@@ -1935,6 +1935,20 @@
         "title": "ConfirmedIntakeValues",
         "type": "object"
       },
+      "ConsentUpdateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "ConsentUpdateRequest",
+        "type": "object"
+      },
       "ConstraintCheck": {
         "properties": {
           "constraint_id": {
@@ -2422,6 +2436,28 @@
           "trip_date_range"
         ],
         "title": "CreateWorkspaceRequest",
+        "type": "object"
+      },
+      "DataConsentView": {
+        "additionalProperties": false,
+        "properties": {
+          "feedback_enabled": {
+            "default": false,
+            "title": "Feedback Enabled",
+            "type": "boolean"
+          },
+          "memory_enabled": {
+            "default": false,
+            "title": "Memory Enabled",
+            "type": "boolean"
+          },
+          "training_eval_enabled": {
+            "default": false,
+            "title": "Training Eval Enabled",
+            "type": "boolean"
+          }
+        },
+        "title": "DataConsentView",
         "type": "object"
       },
       "DateRange": {
@@ -3213,6 +3249,62 @@
           "message"
         ],
         "title": "ExtractionIssue",
+        "type": "object"
+      },
+      "FeedbackAcceptedView": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "RECORDED",
+            "default": "RECORDED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "title": "FeedbackAcceptedView",
+        "type": "object"
+      },
+      "FeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "event_type": {
+            "enum": [
+              "CORRECTION",
+              "ADOPTED",
+              "REJECTED",
+              "VOLUNTARY"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "subject_ref": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Ref"
+          },
+          "subject_type": {
+            "enum": [
+              "TRIP",
+              "ACTIVITY",
+              "KNOWLEDGE_SUGGESTION"
+            ],
+            "title": "Subject Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_type",
+          "subject_type"
+        ],
+        "title": "FeedbackRequest",
         "type": "object"
       },
       "FinalTipsArtifact": {
@@ -7252,6 +7344,70 @@
         "title": "PreferenceItem",
         "type": "object"
       },
+      "PreferenceMemoryView": {
+        "additionalProperties": false,
+        "properties": {
+          "dining_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Dining Preferences",
+            "type": "array"
+          },
+          "hotel_preferences": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 3,
+            "title": "Hotel Preferences",
+            "type": "array"
+          },
+          "intensity": {
+            "anyOf": [
+              {
+                "enum": [
+                  "RELAXED",
+                  "BALANCED",
+                  "FULL"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity"
+          },
+          "preferred_start_time": {
+            "anyOf": [
+              {
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Start Time"
+          },
+          "walking_tolerance_minutes": {
+            "anyOf": [
+              {
+                "maximum": 120.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Walking Tolerance Minutes"
+          }
+        },
+        "title": "PreferenceMemoryView",
+        "type": "object"
+      },
       "PreferencePolarity": {
         "enum": [
           "LIKE",
@@ -9683,6 +9839,57 @@
         "title": "SendCodeRequest",
         "type": "object"
       },
+      "ShareCreateRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_in_days": {
+            "default": 7,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Expires In Days",
+            "type": "integer"
+          }
+        },
+        "title": "ShareCreateRequest",
+        "type": "object"
+      },
+      "ShareCreatedView": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "share_url": {
+            "title": "Share Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "share_url",
+          "expires_at"
+        ],
+        "title": "ShareCreatedView",
+        "type": "object"
+      },
+      "ShareExchangeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "secret": {
+            "maxLength": 100,
+            "minLength": 40,
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "title": "Secret",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret"
+        ],
+        "title": "ShareExchangeRequest",
+        "type": "object"
+      },
       "ShareLink": {
         "properties": {
           "created_at": {
@@ -9807,6 +10014,89 @@
           }
         },
         "title": "ShareLinkCreateRequest",
+        "type": "object"
+      },
+      "ShareListItemView": {
+        "additionalProperties": false,
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "share_ref": {
+            "title": "Share Ref",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ACTIVE",
+              "REVOKED",
+              "EXPIRED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "share_ref",
+          "expires_at",
+          "status"
+        ],
+        "title": "ShareListItemView",
+        "type": "object"
+      },
+      "ShareProjectionView": {
+        "additionalProperties": false,
+        "properties": {
+          "accommodation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accommodation"
+          },
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/app__trip_understanding__memory_share__SharedDayView"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "destination": {
+            "title": "Destination",
+            "type": "string"
+          },
+          "message": {
+            "default": "这是朋友分享的只读行程。",
+            "title": "Message",
+            "type": "string"
+          },
+          "party_size": {
+            "title": "Party Size",
+            "type": "string"
+          },
+          "schedule": {
+            "title": "Schedule",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "destination",
+          "schedule",
+          "party_size",
+          "days"
+        ],
+        "title": "ShareProjectionView",
         "type": "object"
       },
       "ShareResponse": {
@@ -9960,6 +10250,45 @@
         "title": "SharedAcknowledgementView",
         "type": "object"
       },
+      "SharedActivityView": {
+        "additionalProperties": false,
+        "properties": {
+          "area_or_address": {
+            "title": "Area Or Address",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "enum": [
+              "可直接查看",
+              "地点待确认"
+            ],
+            "title": "Note",
+            "type": "string"
+          },
+          "time_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Hint"
+          }
+        },
+        "required": [
+          "name",
+          "area_or_address",
+          "note"
+        ],
+        "title": "SharedActivityView",
+        "type": "object"
+      },
       "SharedConstraintWriteContext": {
         "description": "Recipient-only optimistic-concurrency token for a constrained write.",
         "properties": {
@@ -9973,37 +10302,6 @@
           "expected_base_revision"
         ],
         "title": "SharedConstraintWriteContext",
-        "type": "object"
-      },
-      "SharedDayView": {
-        "properties": {
-          "date": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Date"
-          },
-          "day_index": {
-            "title": "Day Index",
-            "type": "integer"
-          },
-          "stops": {
-            "items": {
-              "$ref": "#/components/schemas/SharedStopView"
-            },
-            "title": "Stops",
-            "type": "array"
-          }
-        },
-        "required": [
-          "day_index"
-        ],
-        "title": "SharedDayView",
         "type": "object"
       },
       "SharedFindingView": {
@@ -10130,7 +10428,7 @@
           },
           "days": {
             "items": {
-              "$ref": "#/components/schemas/SharedDayView"
+              "$ref": "#/components/schemas/app__api__members__SharedDayView"
             },
             "title": "Days",
             "type": "array"
@@ -13328,6 +13626,37 @@
         "title": "WorkspaceWriteETags",
         "type": "object"
       },
+      "app__api__members__SharedDayView": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "day_index": {
+            "title": "Day Index",
+            "type": "integer"
+          },
+          "stops": {
+            "items": {
+              "$ref": "#/components/schemas/SharedStopView"
+            },
+            "title": "Stops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day_index"
+        ],
+        "title": "SharedDayView",
+        "type": "object"
+      },
       "app__audit__models__EvidenceFreshness": {
         "enum": [
           "FRESH",
@@ -13415,6 +13744,28 @@
         ],
         "title": "EvidenceFreshness",
         "type": "string"
+      },
+      "app__trip_understanding__memory_share__SharedDayView": {
+        "additionalProperties": false,
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/SharedActivityView"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "activities"
+        ],
+        "title": "SharedDayView",
+        "type": "object"
       }
     }
   },
@@ -20567,6 +20918,208 @@
         ]
       }
     },
+    "/api/v3/me/data-consents": {
+      "get": {
+        "operationId": "get_data_consents_api_v3_me_data_consents_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Data Consents",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
+    "/api/v3/me/data-consents/{purpose}": {
+      "put": {
+        "operationId": "set_data_consent_api_v3_me_data_consents__purpose__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "purpose",
+            "required": true,
+            "schema": {
+              "enum": [
+                "memory",
+                "feedback",
+                "training-eval"
+              ],
+              "title": "Purpose",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataConsentView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Data Consent",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
+    "/api/v3/me/shares": {
+      "get": {
+        "operationId": "list_my_shares_api_v3_me_shares_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ShareListItemView"
+                  },
+                  "title": "Response List My Shares Api V3 Me Shares Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Shares",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
+    "/api/v3/me/shares/{share_ref}": {
+      "delete": {
+        "operationId": "revoke_my_share_api_v3_me_shares__share_ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_ref",
+            "required": true,
+            "schema": {
+              "title": "Share Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Revoke My Share",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
     "/api/v3/me/travel-data": {
       "delete": {
         "operationId": "delete_account_travel_data_api_v3_me_travel_data_delete",
@@ -20679,6 +21232,142 @@
         ]
       }
     },
+    "/api/v3/me/travel-preferences": {
+      "delete": {
+        "operationId": "clear_travel_preferences_api_v3_me_travel_preferences_delete",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Travel Preferences",
+        "tags": [
+          "memory-share-v3"
+        ]
+      },
+      "get": {
+        "operationId": "get_travel_preferences_api_v3_me_travel_preferences_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PreferenceMemoryView"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Travel Preferences Api V3 Me Travel Preferences Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Travel Preferences",
+        "tags": [
+          "memory-share-v3"
+        ]
+      },
+      "put": {
+        "operationId": "save_travel_preferences_api_v3_me_travel_preferences_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferenceMemoryView"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferenceMemoryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Travel Preferences",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
     "/api/v3/screenshot-batches": {
       "post": {
         "operationId": "create_screenshot_batch_api_v3_screenshot_batches_post",
@@ -20759,6 +21448,93 @@
         "summary": "Create Screenshot Batch",
         "tags": [
           "screenshot-batches-v3"
+        ]
+      }
+    },
+    "/api/v3/shares/{share_ref}": {
+      "get": {
+        "operationId": "read_shared_trip_api_v3_shares__share_ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_ref",
+            "required": true,
+            "schema": {
+              "title": "Share Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareProjectionView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Shared Trip",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
+    "/api/v3/shares/{share_ref}/exchange": {
+      "post": {
+        "operationId": "exchange_share_secret_api_v3_shares__share_ref__exchange_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "share_ref",
+            "required": true,
+            "schema": {
+              "title": "Share Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareExchangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exchange Share Secret",
+        "tags": [
+          "memory-share-v3"
         ]
       }
     },
@@ -21390,6 +22166,84 @@
         ]
       }
     },
+    "/api/v3/trip-understandings/{public_resource_id}/feedback": {
+      "post": {
+        "operationId": "record_trip_feedback_api_v3_trip_understandings__public_resource_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedbackAcceptedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Trip Feedback",
+        "tags": [
+          "memory-share-v3"
+        ]
+      }
+    },
     "/api/v3/trip-understandings/{public_resource_id}/map-renders": {
       "post": {
         "operationId": "request_map_render_api_v3_trip_understandings__public_resource_id__map_renders_post",
@@ -21669,6 +22523,84 @@
         "summary": "Get Trip Understanding Result",
         "tags": [
           "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/shares": {
+      "post": {
+        "operationId": "create_trip_share_api_v3_trip_understandings__public_resource_id__shares_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareCreatedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Trip Share",
+        "tags": [
+          "memory-share-v3"
         ]
       }
     },
