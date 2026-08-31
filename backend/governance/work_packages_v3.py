@@ -110,7 +110,11 @@ def _agent_gate_path_is_authorized_for_g07(
         registry.get("active_goal_id") == G07_GOAL_ID
         and active_slice.get("work_kind") == "CANDIDATE_HARDENING"
         and active_slice.get("slice_id")
-        in {"G07-CANDIDATE-CONTRACT", "G07-COMPONENT-RAW-REVALIDATION"}
+        in {
+            "G07-CANDIDATE-CONTRACT",
+            "G07-COMPONENT-RAW-REVALIDATION",
+            "G07-SEALED-ONE-SHOT",
+        }
         and path in G07_MUTABLE_AGENT_GATE_PATHS
     )
 

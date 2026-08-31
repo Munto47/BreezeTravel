@@ -169,8 +169,6 @@ def test_g07_component_revalidation_slice_is_narrow_and_binds_fixed_verifier() -
         if path.startswith("backend/evals/agent_gate_v1/")
     } == {
         "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
-        "backend/evals/agent_gate_v1/candidate_gate.py",
-        "backend/evals/agent_gate_v1/contracts.py",
     }
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
@@ -195,7 +193,7 @@ def test_g07_component_revalidation_slice_is_narrow_and_binds_fixed_verifier() -
     }
 
 
-def test_only_candidate_component_gate_files_are_mutable_in_revalidation_slice() -> None:
+def test_only_candidate_component_verifier_is_mutable_in_sealed_slice() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -203,11 +201,6 @@ def test_only_candidate_component_gate_files_are_mutable_in_revalidation_slice()
     )
     active_slice = registry["active_slice"]
 
-    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
-        "backend/evals/agent_gate_v1/candidate_gate.py",
-        registry=registry,
-        active_slice=active_slice,
-    )
     assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
         "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
         registry=registry,

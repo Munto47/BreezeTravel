@@ -3,31 +3,26 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "T3 receipt substitution必须由candidate Git固定verifier重新打开仓库外原始工件并重新计算组件PASS",
-      "component receipt必须绑定verifier path/hash、artifact path/hash与稳定verification summary hash",
-      "未知schema、缺失原始工件、路径/hash漂移、手写PASS、跨subject或verifier漂移均须fail-closed",
-      "不启用未被最终HardeningDecision选择的签名、broker、OCI或外部authority控制",
+      "sealed custodian只读取冻结18条输入、仓库外真值与同subject预测并由Git固定scorer重新计算全部阈值",
+      "普通开发者不读取blind真值内容；两份xhigh reference与一份fresh ultra裁决先于唯一sealed评分冻结",
+      "blind输入/真值/原始agent输出不进入Git，跨subject、缺失、hash漂移、阈值失败或重复尝试均fail-closed",
+      "四类v2 component receipt必须继续通过a3a6a10引入的固定原始工件重验证",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/eval_data/agent_gate_v1/candidate_gate_component_receipt.schema.json",
-      "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
       "backend/eval_data/agent_gate_v1/protocol_contract.json",
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
-      "backend/evals/agent_gate_v1/candidate_gate.py",
-      "backend/evals/agent_gate_v1/contracts.py",
       "backend/governance/work_packages_v3.py",
       "backend/scripts/build_g07_candidate_component.py",
-      "backend/scripts/build_release_manifest.py",
       "backend/scripts/generate_agent_gate_contracts.py",
+      "backend/scripts/run_g07_sealed_candidate.py",
       "backend/tests/test_agent_gate_protocol.py",
       "backend/tests/test_g07_candidate_component_verifiers.py",
-      "backend/tests/test_g07_candidate_gate.py",
-      "backend/tests/test_g07_release_manifest.py",
+      "backend/tests/test_g07_sealed_candidate.py",
       "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "aaa0e9b329b84ce5423bbeed2440e893be628043",
+    "base_commit": "a3a6a10cafa212f7217f5bf027f128f5902fa92a",
     "evidence_invalidated": [
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN"
     ],
@@ -39,21 +34,20 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "把candidate component receipt升级为v2，新增固定候选verifier和只写一次builder；最终candidate Gate与manifest均调用同一固定重验证入口，拒绝只带自报hash的v1摘要。",
+    "minimum_change": "新增G07专用sealed custodian runner：从冻结输入直接运行选定Qwen和保守AMap，保存仓库外脱敏预测/Provider回执；接收两份隔离reference和fresh ultra真值后，由固定验证器从原始输入、真值、预测重算阈值。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
-      "backend/evals/agent_gate_v1/candidate_gate.py",
-      "backend/evals/agent_gate_v1/contracts.py",
       "backend/scripts/build_g07_candidate_component.py",
-      "backend/tests/test_g07_candidate_component_verifiers.py"
+      "backend/scripts/run_g07_sealed_candidate.py",
+      "backend/tests/test_g07_sealed_candidate.py"
     ],
     "preflight_required_tokens": {},
     "product_progress": "EVAL_METRIC",
     "repair_review_cycle": 1,
-    "slice_id": "G07-COMPONENT-RAW-REVALIDATION",
-    "stop_condition": "若固定重验证必须依赖未选择的authority控制或无法从当前G0至G7原始工件重建结论，则该组件保持NOT_RUN，不得退回摘要自报PASS。",
-    "user_outcome": "候选版不会因为四份手写PASS摘要而通过；每个组件都必须由当前候选代码重新读取实际证据并得出同一结论。",
+    "slice_id": "G07-SEALED-ONE-SHOT",
+    "stop_condition": "若需要修改冻结18条输入、真值、oracle、阈值或读取sealed结果后再修产品，则本次候选FAIL并停止；不得启动第二次同subject sealed评分。",
+    "user_outcome": "最终候选的旅游语义与地点质量由未参与开发的隔离任务在18条盲测上一次性验收，失败不会被调参或摘要覆盖。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
@@ -121,8 +115,10 @@
         "backend/scripts/generate_agent_gate_contracts.py",
         "backend/scripts/build_release_manifest.py",
         "backend/scripts/build_g07_candidate_component.py",
+        "backend/scripts/run_g07_sealed_candidate.py",
         "backend/tests/test_g07_candidate_gate.py",
         "backend/tests/test_g07_candidate_component_verifiers.py",
+        "backend/tests/test_g07_sealed_candidate.py",
         "backend/tests/test_g07_release_manifest.py",
         "backend/tests/test_g02_map_stay.py",
         "backend/tests/test_g02_map_stay_postgres.py",
