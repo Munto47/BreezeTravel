@@ -3,40 +3,44 @@
   "active_goal_sequence": 6,
   "active_slice": {
     "acceptance_refs": [
-      "G05 Knowledge Admission Gate与PRODUCT_DELIVERY_PASS已通过并由PR #18合入develop",
-      "完整G05合同以COMPLETED状态归档且耐久交付回执继续可回读",
-      "G06完整合同、唯一集成者、033预授权边界与fresh product baseline原子激活"
+      "G01删除、现有认证与公共隐私边界的18项定向测试通过",
+      "记忆default-off，产品记忆、产品反馈与训练评测同意彼此独立",
+      "分享仅消费最小用户投影，fragment secret仅通过body交换HttpOnly capability"
     ],
     "allowed_paths": [
+      ".github/workflows/core-mainline.yml",
+      "backend/app/api",
+      "backend/app/db/migrations/033_user_memory_and_feedback.sql",
+      "backend/app/main.py",
+      "backend/app/trip_understanding",
+      "backend/tests",
       "docs/governance",
-      "backend/tests/test_g04_governance_delivery.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_product_work_packages_v3.py"
+      "frontend/e2e",
+      "frontend/src",
+      "packages/trip-check-client/openapi.current.json",
+      "packages/trip-check-client/src/generated",
+      "packages/trip-check-client/src/v3.ts"
     ],
-    "base_commit": "c416dcdc40fcef2aef56627ab28c6f4049dc7dd9",
+    "base_commit": "e383eeef39b0246ce35dd3cb8481a02bbebd1130",
     "evidence_invalidated": [],
     "forbidden_mechanisms": [
-      "修改G06产品运行时、033、公共OpenAPI、依赖或外部服务作为过渡提交的一部分",
-      "在过渡PR合并和新baseline readback前创建G06产品提交",
       "长期保存原始攻略、截图或聊天，或把产品记忆、反馈与训练同意合并",
       "第三方CRM或analytics、新账号、费用、H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "完整归档G05并原子激活G06合同、唯一集成者和预批准033边界，不实现G06产品代码。",
-    "phase": "GOAL_TRANSITION",
+    "minimum_change": "交付默认关闭的结构化偏好、独立数据用途同意、最小反馈事件与可撤回可过期只读分享。",
+    "phase": "EVIDENCE_FROZEN",
     "preflight_entrypoints": [
-      "backend/tests/test_product_delivery_governance.py",
-      "backend/tests/test_governance_agent_gate_transition.py",
-      "backend/tests/test_product_work_packages_v3.py",
-      "backend/scripts/validate_core_mainline.py"
+      "backend/tests/test_trip_understanding_v3_api.py",
+      "backend/tests/test_g04_public_privacy_boundaries.py",
+      "backend/tests/test_g04_private_data_maintenance.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "NONE",
+    "product_progress": "API+RUNTIME+UI",
     "repair_review_cycle": 0,
-    "slice_id": "G05-ARCHIVE-G06-ACTIVATION",
+    "slice_id": "G06-CONSENT-MEMORY-SHARE",
     "stop_condition": "若G05交付或远端integration无法回读、fresh develop不再由G06接棒，或激活必须修改产品字节、扩大数据授权或削弱删除与consent边界，则停止过渡并重新审计。",
-    "user_outcome": "三城知识建议完成归档后，项目进入显式记忆与可撤销分享开发，现有行程、知识、地图和核验体验不受治理过渡影响。",
-    "work_kind": "GOAL_TRANSITION"
+    "user_outcome": "用户可主动开启并管理结构化旅行偏好，独立选择反馈和训练用途，并创建可撤回的朋友只读行程链接。",
+    "work_kind": "PRODUCT"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "PRODUCT_DELIVERY_GATE",
@@ -46,6 +50,16 @@
   "max_parallel_writers": 2,
   "max_prepared_next_goal_packages": 2,
   "mismatch_policy": "READ_ONLY",
+  "delivery_evidence": {
+    "first_exact_tip_ci": {
+      "head_commit": "e3de1b57b014439ec16eb0034e8b7e47867053d0",
+      "run_id": 33400646254,
+      "status": "PASS"
+    },
+    "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b",
+    "receipt_path": "docs/governance/gate-results/G06.product-delivery.json",
+    "state": "EVIDENCE_FROZEN"
+  },
   "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
   "next_goal_status": "DRAFT",
   "packages": [
@@ -56,7 +70,7 @@
         "记忆default-off且产品记忆、反馈和训练同意分离",
         "分享只消费用户投影，fragment secret不进入服务端URL并可撤销、过期"
       ],
-      "baseline_commit": "c416dcdc40fcef2aef56627ab28c6f4049dc7dd9",
+      "baseline_commit": "e383eeef39b0246ce35dd3cb8481a02bbebd1130",
       "branch": "codex/g06-memory-share",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
@@ -92,7 +106,7 @@
     }
   ],
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G06_MEMORY_SHARE_APPROVED",
+  "program_state": "G06_MEMORY_SHARE_IN_PROGRESS",
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",

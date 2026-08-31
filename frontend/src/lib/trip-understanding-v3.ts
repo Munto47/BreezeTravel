@@ -174,6 +174,49 @@ export interface TravelDataDeletionStatusView {
   next_action: 'NONE' | 'RETRY'
 }
 
+export interface DataConsentView {
+  memory_enabled: boolean
+  feedback_enabled: boolean
+  training_eval_enabled: boolean
+}
+
+export interface PreferenceMemoryView {
+  walking_tolerance_minutes: number | null
+  preferred_start_time: string | null
+  dining_preferences: Array<'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'>
+  hotel_preferences: Array<'CHAIN' | 'NEAR_TRANSIT' | 'QUIET' | 'CENTRAL'>
+  intensity: 'RELAXED' | 'BALANCED' | 'FULL' | null
+}
+
+export interface ShareCreatedView {
+  share_url: string
+  expires_at: string
+}
+
+export interface ShareListItemView {
+  share_ref: string
+  expires_at: string
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
+}
+
+export interface ShareProjectionView {
+  title: string
+  destination: string
+  schedule: string
+  party_size: string
+  days: Array<{
+    label: string
+    activities: Array<{
+      name: string
+      area_or_address: string
+      time_hint: string | null
+      note: '可直接查看' | '地点待确认'
+    }>
+  }>
+  accommodation: string | null
+  message: string
+}
+
 export interface MaterializedTripView {
   status: 'READY'
   message: string
@@ -741,6 +784,117 @@ export async function readTravelDataDeletionStatus(): Promise<TravelDataDeletion
   })
   if (!response.ok) throw new Error('ACCOUNT_TRAVEL_DELETE_STATUS_FAILED')
   return response.json() as Promise<TravelDataDeletionStatusView>
+}
+
+export async function readDataConsents(): Promise<DataConsentView> {
+  const response = await fetch('/api/v3/me/data-consents', {
+    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('CONSENT_READ_FAILED')
+  return response.json() as Promise<DataConsentView>
+}
+
+export async function setDataConsent(
+  purpose: 'memory' | 'feedback' | 'training-eval',
+  enabled: boolean,
+): Promise<DataConsentView> {
+  const response = await fetch(`/api/v3/me/data-consents/${purpose}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!response.ok) throw new Error('CONSENT_UPDATE_FAILED')
+  return response.json() as Promise<DataConsentView>
+}
+
+export async function readPreferenceMemory(): Promise<PreferenceMemoryView | null> {
+  const response = await fetch('/api/v3/me/travel-preferences', {
+    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('PREFERENCE_READ_FAILED')
+  return response.json() as Promise<PreferenceMemoryView | null>
+}
+
+export async function savePreferenceMemory(
+  value: PreferenceMemoryView,
+): Promise<PreferenceMemoryView> {
+  const response = await fetch('/api/v3/me/travel-preferences', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify(value),
+  })
+  if (!response.ok) throw new Error('PREFERENCE_SAVE_FAILED')
+  return response.json() as Promise<PreferenceMemoryView>
+}
+
+export async function clearPreferenceMemory(): Promise<void> {
+  const response = await fetch('/api/v3/me/travel-preferences', {
+    method: 'DELETE', credentials: 'include', headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('PREFERENCE_CLEAR_FAILED')
+}
+
+export async function submitTripFeedback(
+  publicResourceId: string,
+  eventType: 'CORRECTION' | 'ADOPTED' | 'REJECTED' | 'VOLUNTARY',
+): Promise<void> {
+  const scope = `feedback:${publicResourceId}:${eventType}`
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/feedback`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': operationRequestKey(scope),
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ event_type: eventType, subject_type: 'TRIP' }),
+    },
+  )
+  if (!response.ok) throw new Error(response.status === 409 ? 'FEEDBACK_NOT_ENABLED' : 'FEEDBACK_FAILED')
+  rotateOperationRequestKey(scope)
+}
+
+export async function createTripShare(
+  publicResourceId: string,
+  expiresInDays = 7,
+): Promise<ShareCreatedView> {
+  const scope = `create-share:${publicResourceId}`
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/shares`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': operationRequestKey(scope),
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ expires_in_days: expiresInDays }),
+    },
+  )
+  if (!response.ok) throw new Error('SHARE_CREATE_FAILED')
+  const view = await response.json() as ShareCreatedView
+  rotateOperationRequestKey(scope)
+  return view
+}
+
+export async function readMyShares(): Promise<ShareListItemView[]> {
+  const response = await fetch('/api/v3/me/shares', {
+    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('SHARE_LIST_FAILED')
+  return response.json() as Promise<ShareListItemView[]>
+}
+
+export async function revokeShare(shareRef: string): Promise<void> {
+  const response = await fetch(`/api/v3/me/shares/${encodeURIComponent(shareRef)}`, {
+    method: 'DELETE', credentials: 'include', headers: authorizationHeaders(),
+  })
+  if (!response.ok) throw new Error('SHARE_REVOKE_FAILED')
 }
 
 export function tripUnderstandingEventsUrl(publicResourceId: string): string {

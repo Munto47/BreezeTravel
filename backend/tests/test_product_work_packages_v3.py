@@ -48,7 +48,7 @@ def test_g04_and_g05_delivery_archives_remain_verifiable_after_transition() -> N
     assert "33389970986" in g05_archive
 
 
-def test_g05_archive_and_g06_approved_activation_are_unambiguous() -> None:
+def test_g05_archive_and_g06_in_progress_product_binding_are_unambiguous() -> None:
     governance = REPOSITORY_ROOT / "docs/governance"
     current_goal = (governance / "CURRENT_GOAL.md").read_text(encoding="utf-8")
     archive_path = governance / (
@@ -72,11 +72,11 @@ def test_g05_archive_and_g06_approved_activation_are_unambiguous() -> None:
         "schema_version": "product-delivery-current-goal-state-v1",
         "program_id": "TC-VNEXT-2026",
         "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-        "goal_status": "APPROVED",
+        "goal_status": "IN_PROGRESS",
         "gate_profile": "PRODUCT_DELIVERY_GATE",
         "required_gate": "Consent & Share Gate + PRODUCT_DELIVERY_PASS",
-        "completion_status": "PENDING",
-        "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+        "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+        "gate_result": "PRODUCT_DELIVERY_PASS",
         "goal_archived": False,
         "last_completed_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
         "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
@@ -98,12 +98,12 @@ def test_g05_archive_and_g06_approved_activation_are_unambiguous() -> None:
     assert archived_state["next_activated"] is True
     assert binding["goal_id"] == registry["active_goal_id"] == current_state["goal_id"]
     assert binding["goal_sequence"] == registry["active_goal_sequence"] == 6
-    assert binding["status"] == current_state["goal_status"] == "APPROVED"
+    assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
-    assert registry["active_slice"]["work_kind"] == "GOAL_TRANSITION"
-    assert registry["active_slice"]["phase"] == "GOAL_TRANSITION"
-    assert registry["active_slice"]["product_progress"] == "NONE"
+    assert registry["active_slice"]["work_kind"] == "PRODUCT"
+    assert registry["active_slice"]["phase"] == "EVIDENCE_FROZEN"
+    assert registry["active_slice"]["product_progress"] == "API+RUNTIME+UI"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G06-INTEGRATOR"
@@ -121,33 +121,30 @@ def test_g05_archive_and_g06_approved_activation_are_unambiguous() -> None:
         "记忆默认关闭",
         "产品记忆不等于训练同意",
         "分享链接使用`/share/{share_ref}#s=<secret>`",
-        "当前registry只激活唯一集成者的治理占位",
+        "当前registry只激活唯一集成者；本次未使用贡献Agent",
         "H1/商业/公网/生产/release/deploy/`main`需批准",
     ):
         assert token in current_goal
 
 
-def test_g06_transition_excludes_product_and_accepts_current_diff() -> None:
+def test_g06_product_slice_accepts_current_diff_and_excludes_frozen_candidate_assets() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
     allowed = registry["active_slice"]["allowed_paths"]
+    assert "backend/app/trip_understanding" in allowed
+    assert "frontend/src" in allowed
     assert not any(path.startswith("backend/evals/agent_gate_v1/") for path in allowed)
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
     assert result["active_goal_id"] == "TC-VNEXT-G06-MEMORY-SHARE"
     assert result["package_count"] == 1
-    assert (
-        "docs/governance/goals/completed/TC-VNEXT-G05-CITY-KNOWLEDGE.md"
-        in result["changed_paths"]
-    )
-    assert not any(
-        path.startswith(("backend/app/", "frontend/src/"))
-        for path in result["changed_paths"]
-    )
+    assert "backend/app/db/migrations/033_user_memory_and_feedback.sql" in result["changed_paths"]
+    assert any(path.startswith("backend/app/") for path in result["changed_paths"])
+    assert any(path.startswith("frontend/src/") for path in result["changed_paths"])
     assert not any(
         path.startswith("backend/evals/agent_gate_v1/")
         for path in result["changed_paths"]

@@ -159,3 +159,46 @@ export interface PublicChangeAdopted {
   map_readiness: 'NEEDS_UPDATE'
   checks: PublicTripChecksView
 }
+
+export interface DataConsentView {
+  memory_enabled: boolean
+  feedback_enabled: boolean
+  training_eval_enabled: boolean
+}
+
+export interface PreferenceMemoryView {
+  walking_tolerance_minutes: number | null
+  preferred_start_time: string | null
+  dining_preferences: Array<'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'>
+  hotel_preferences: Array<'CHAIN' | 'NEAR_TRANSIT' | 'QUIET' | 'CENTRAL'>
+  intensity: 'RELAXED' | 'BALANCED' | 'FULL' | null
+}
+
+export interface ShareCreatedView {
+  share_url: string
+  expires_at: string
+}
+
+export interface ShareListItemView {
+  share_ref: string
+  expires_at: string
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED'
+}
+
+export interface ShareProjectionView {
+  title: string
+  destination: string
+  schedule: string
+  party_size: string
+  days: Array<{
+    label: string
+    activities: Array<{
+      name: string
+      area_or_address: string
+      time_hint: string | null
+      note: '可直接查看' | '地点待确认'
+    }>
+  }>
+  accommodation: string | null
+  message: string
+}

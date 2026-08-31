@@ -1845,6 +1845,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/me/data-consents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Data Consents */
+        get: operations["get_data_consents_api_v3_me_data_consents_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/me/data-consents/{purpose}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Data Consent */
+        put: operations["set_data_consent_api_v3_me_data_consents__purpose__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/me/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Shares */
+        get: operations["list_my_shares_api_v3_me_shares_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/me/shares/{share_ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke My Share */
+        delete: operations["revoke_my_share_api_v3_me_shares__share_ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/me/travel-data": {
         parameters: {
             query?: never;
@@ -1879,6 +1947,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/me/travel-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Travel Preferences */
+        get: operations["get_travel_preferences_api_v3_me_travel_preferences_get"];
+        /** Save Travel Preferences */
+        put: operations["save_travel_preferences_api_v3_me_travel_preferences_put"];
+        post?: never;
+        /** Clear Travel Preferences */
+        delete: operations["clear_travel_preferences_api_v3_me_travel_preferences_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/screenshot-batches": {
         parameters: {
             query?: never;
@@ -1890,6 +1977,40 @@ export interface paths {
         put?: never;
         /** Create Screenshot Batch */
         post: operations["create_screenshot_batch_api_v3_screenshot_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/shares/{share_ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Shared Trip */
+        get: operations["read_shared_trip_api_v3_shares__share_ref__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/shares/{share_ref}/exchange": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Exchange Share Secret */
+        post: operations["exchange_share_secret_api_v3_shares__share_ref__exchange_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2032,6 +2153,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record Trip Feedback */
+        post: operations["record_trip_feedback_api_v3_trip_understandings__public_resource_id__feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/map-renders": {
         parameters: {
             query?: never;
@@ -2094,6 +2232,23 @@ export interface paths {
         get: operations["get_trip_understanding_result_api_v3_trip_understandings__public_resource_id__result_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Trip Share */
+        post: operations["create_trip_share_api_v3_trip_understandings__public_resource_id__shares_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2960,6 +3115,11 @@ export interface components {
              */
             start_date: string;
         };
+        /** ConsentUpdateRequest */
+        ConsentUpdateRequest: {
+            /** Enabled */
+            enabled: boolean;
+        };
         /** ConstraintCheck */
         ConstraintCheck: {
             /** Constraint Id */
@@ -3145,6 +3305,24 @@ export interface components {
             trip_date_range: components["schemas"]["TripDateRange"];
             /** Workspace Id */
             workspace_id?: string | null;
+        };
+        /** DataConsentView */
+        DataConsentView: {
+            /**
+             * Feedback Enabled
+             * @default false
+             */
+            feedback_enabled: boolean;
+            /**
+             * Memory Enabled
+             * @default false
+             */
+            memory_enabled: boolean;
+            /**
+             * Training Eval Enabled
+             * @default false
+             */
+            training_eval_enabled: boolean;
         };
         /** DateRange */
         DateRange: {
@@ -3397,6 +3575,30 @@ export interface components {
             field_path: string;
             /** Message */
             message: string;
+        };
+        /** FeedbackAcceptedView */
+        FeedbackAcceptedView: {
+            /**
+             * Status
+             * @default RECORDED
+             * @constant
+             */
+            status: "RECORDED";
+        };
+        /** FeedbackRequest */
+        FeedbackRequest: {
+            /**
+             * Event Type
+             * @enum {string}
+             */
+            event_type: "CORRECTION" | "ADOPTED" | "REJECTED" | "VOLUNTARY";
+            /** Subject Ref */
+            subject_ref?: string | null;
+            /**
+             * Subject Type
+             * @enum {string}
+             */
+            subject_type: "TRIP" | "ACTIVITY" | "KNOWLEDGE_SUGGESTION";
         };
         /** FinalTipsArtifact */
         FinalTipsArtifact: {
@@ -4817,6 +5019,19 @@ export interface components {
             /** Value */
             value?: unknown;
         };
+        /** PreferenceMemoryView */
+        PreferenceMemoryView: {
+            /** Dining Preferences */
+            dining_preferences?: string[];
+            /** Hotel Preferences */
+            hotel_preferences?: string[];
+            /** Intensity */
+            intensity?: ("RELAXED" | "BALANCED" | "FULL") | null;
+            /** Preferred Start Time */
+            preferred_start_time?: string | null;
+            /** Walking Tolerance Minutes */
+            walking_tolerance_minutes?: number | null;
+        };
         /**
          * PreferencePolarity
          * @enum {string}
@@ -5700,6 +5915,29 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** ShareCreateRequest */
+        ShareCreateRequest: {
+            /**
+             * Expires In Days
+             * @default 7
+             */
+            expires_in_days: number;
+        };
+        /** ShareCreatedView */
+        ShareCreatedView: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Share Url */
+            share_url: string;
+        };
+        /** ShareExchangeRequest */
+        ShareExchangeRequest: {
+            /** Secret */
+            secret: string;
+        };
         /** ShareLink */
         ShareLink: {
             /**
@@ -5737,6 +5975,41 @@ export interface components {
             recipient_member_id?: string | null;
             /** Scopes */
             scopes?: components["schemas"]["ShareScope"][];
+        };
+        /** ShareListItemView */
+        ShareListItemView: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Share Ref */
+            share_ref: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ACTIVE" | "REVOKED" | "EXPIRED";
+        };
+        /** ShareProjectionView */
+        ShareProjectionView: {
+            /** Accommodation */
+            accommodation?: string | null;
+            /** Days */
+            days: components["schemas"]["app__trip_understanding__memory_share__SharedDayView"][];
+            /** Destination */
+            destination: string;
+            /**
+             * Message
+             * @default 这是朋友分享的只读行程。
+             */
+            message: string;
+            /** Party Size */
+            party_size: string;
+            /** Schedule */
+            schedule: string;
+            /** Title */
+            title: string;
         };
         /** ShareResponse */
         ShareResponse: {
@@ -5786,6 +6059,20 @@ export interface components {
             /** Required */
             required: boolean;
         };
+        /** SharedActivityView */
+        SharedActivityView: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Name */
+            name: string;
+            /**
+             * Note
+             * @enum {string}
+             */
+            note: "可直接查看" | "地点待确认";
+            /** Time Hint */
+            time_hint?: string | null;
+        };
         /**
          * SharedConstraintWriteContext
          * @description Recipient-only optimistic-concurrency token for a constrained write.
@@ -5793,15 +6080,6 @@ export interface components {
         SharedConstraintWriteContext: {
             /** Expected Base Revision */
             expected_base_revision: number;
-        };
-        /** SharedDayView */
-        SharedDayView: {
-            /** Date */
-            date?: string | null;
-            /** Day Index */
-            day_index: number;
-            /** Stops */
-            stops?: components["schemas"]["SharedStopView"][];
         };
         /**
          * SharedFindingView
@@ -5854,7 +6132,7 @@ export interface components {
             /** Content Hash */
             content_hash: string;
             /** Days */
-            days: components["schemas"]["SharedDayView"][];
+            days: components["schemas"]["app__api__members__SharedDayView"][];
             /** Revision */
             revision: number;
             /** Trip End Date */
@@ -6986,6 +7264,15 @@ export interface components {
             /** Itinerary */
             itinerary?: string | null;
         };
+        /** SharedDayView */
+        app__api__members__SharedDayView: {
+            /** Date */
+            date?: string | null;
+            /** Day Index */
+            day_index: number;
+            /** Stops */
+            stops?: components["schemas"]["SharedStopView"][];
+        };
         /**
          * EvidenceFreshness
          * @enum {string}
@@ -7016,6 +7303,13 @@ export interface components {
          * @enum {string}
          */
         app__templates__models__EvidenceFreshness: "FRESH" | "STALE" | "UNAVAILABLE" | "CONFLICTING";
+        /** SharedDayView */
+        app__trip_understanding__memory_share__SharedDayView: {
+            /** Activities */
+            activities: components["schemas"]["SharedActivityView"][];
+            /** Label */
+            label: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -10795,6 +11089,136 @@ export interface operations {
             };
         };
     };
+    get_data_consents_api_v3_me_data_consents_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataConsentView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_data_consent_api_v3_me_data_consents__purpose__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                purpose: "memory" | "feedback" | "training-eval";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConsentUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataConsentView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_shares_api_v3_me_shares_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareListItemView"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_my_share_api_v3_me_shares__share_ref__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                share_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_account_travel_data_api_v3_me_travel_data_delete: {
         parameters: {
             query?: never;
@@ -10862,6 +11286,101 @@ export interface operations {
             };
         };
     };
+    get_travel_preferences_api_v3_me_travel_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceMemoryView"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_travel_preferences_api_v3_me_travel_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferenceMemoryView"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceMemoryView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_travel_preferences_api_v3_me_travel_preferences_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_screenshot_batch_api_v3_screenshot_batches_post: {
         parameters: {
             query?: never;
@@ -10888,6 +11407,70 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScreenshotBatchAcceptedView"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_shared_trip_api_v3_shares__share_ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                share_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareProjectionView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exchange_share_secret_api_v3_shares__share_ref__exchange_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                share_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareExchangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -11185,6 +11768,44 @@ export interface operations {
             };
         };
     };
+    record_trip_feedback_api_v3_trip_understandings__public_resource_id__feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackAcceptedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     request_map_render_api_v3_trip_understandings__public_resource_id__map_renders_post: {
         parameters: {
             query?: never;
@@ -11317,6 +11938,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TripUnderstandingProgressView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_trip_share_api_v3_trip_understandings__public_resource_id__shares_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareCreatedView"];
                 };
             };
             /** @description Validation Error */

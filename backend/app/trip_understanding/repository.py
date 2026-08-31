@@ -46,6 +46,11 @@ from app.trip_understanding.knowledge_repository import (
     KnowledgeProjectionRepository,
     PostgresKnowledgeProjectionRepositoryMixin,
 )
+from app.trip_understanding.memory_share import (
+    InMemoryMemoryShareRepositoryMixin,
+    MemoryShareRepository,
+    PostgresMemoryShareRepositoryMixin,
+)
 from app.trip_understanding.models import (
     ActivityTextEditCommand,
     ClaimOutcome,
@@ -332,6 +337,7 @@ class TripUnderstandingRepository(
     StayRecommendationRepository,
     G03Repository,
     KnowledgeProjectionRepository,
+    MemoryShareRepository,
     Protocol,
 ):
     async def create_demo(
@@ -551,6 +557,7 @@ class PostgresTripUnderstandingRepository(
     PostgresStayRecommendationRepositoryMixin,
     PostgresMapRenderRepositoryMixin,
     PostgresKnowledgeProjectionRepositoryMixin,
+    PostgresMemoryShareRepositoryMixin,
 ):
     def __init__(
         self,
@@ -3244,6 +3251,37 @@ class PostgresTripUnderstandingRepository(
                         now,
                     )
                     return TravelDataDeletionOutcome(view=view)
+            # G06 privacy cascade is part of the same account-deletion
+            # transaction as the authoritative trip aggregates. A failed
+            # screenshot cleanup therefore cannot leave a partial result.
+            await conn.execute(
+                """
+                DELETE FROM g06_share_sessions
+                WHERE share_ref IN (
+                    SELECT share_ref FROM g06_share_links WHERE owner_user_id = $1
+                )
+                """,
+                user_id,
+            )
+            await conn.execute(
+                "UPDATE g06_share_links SET revoked_at = COALESCE(revoked_at, $2) WHERE owner_user_id = $1",
+                user_id,
+                now,
+            )
+            await conn.execute(
+                "DELETE FROM g06_feedback_events WHERE owner_user_id = $1",
+                user_id,
+            )
+            await conn.execute(
+                "DELETE FROM g06_preference_profiles WHERE user_id = $1",
+                user_id,
+            )
+            # The legacy free-text memory tables are frozen compatibility
+            # assets, but account travel-data deletion must still remove any
+            # old business values so they cannot survive the G06 clear action.
+            await conn.execute("DELETE FROM memory_audit_log WHERE user_id = $1", user_id)
+            await conn.execute("DELETE FROM user_preferences WHERE user_id = $1", user_id)
+            await conn.execute("DELETE FROM user_memory_settings WHERE user_id = $1", user_id)
             rows = await conn.fetch(
                 """
                 SELECT understanding_id, public_resource_id
@@ -3911,6 +3949,7 @@ class InMemoryTripUnderstandingRepository(
     InMemoryStayRecommendationRepositoryMixin,
     InMemoryMapRenderRepositoryMixin,
     InMemoryKnowledgeProjectionRepositoryMixin,
+    InMemoryMemoryShareRepositoryMixin,
 ):
     def __init__(self) -> None:
         self.sessions: dict[str, dict[str, Any]] = {}
@@ -3943,6 +3982,7 @@ class InMemoryTripUnderstandingRepository(
         self._init_stay_store()
         self._init_g03_store()
         self._init_knowledge_store()
+        self._init_memory_share_store()
 
     async def create_demo(
         self,
@@ -5020,6 +5060,7 @@ class InMemoryTripUnderstandingRepository(
         self._delete_stay_memory(resource.understanding_id)
         self._delete_g03_memory(resource.understanding_id)
         self._delete_knowledge_memory(resource.understanding_id)
+        self._delete_g06_trip_memory(resource.understanding_id)
         for result_id, understanding_id in list(self.result_owners.items()):
             if understanding_id == resource.understanding_id:
                 self.results.pop(result_id, None)
@@ -5179,6 +5220,7 @@ class InMemoryTripUnderstandingRepository(
         ):
             if deletion_record[1:] == ("USER", subject_hash):
                 self.trip_deletion_idempotency.pop(deletion_key, None)
+        self._clear_g06_account_memory(user_id)
         view = TravelDataDeletionStatusView(
             status="COMPLETED",
             message="旅行数据已清空",

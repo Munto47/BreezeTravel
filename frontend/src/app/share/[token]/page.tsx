@@ -9,6 +9,7 @@ import { api, ApiRequestError } from '@/lib/api'
 import { randomUuid } from '@/lib/randomUuid'
 import { useAuthStore } from '@/stores/authStore'
 import type { SharedWorkspaceView } from '@/types/workspace'
+import type { ShareProjectionView } from '@/lib/trip-understanding-v3'
 
 type ConstraintForm = {
   type: string
@@ -35,6 +36,7 @@ export default function SharedItineraryPage() {
   const token = typeof params.token === 'string' ? params.token : ''
   const { user, isHydrated, hydrate } = useAuthStore()
   const [shared, setShared] = useState<SharedWorkspaceView | null>(null)
+  const [modernShare, setModernShare] = useState<ShareProjectionView | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<'acknowledge' | 'constraint' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -65,8 +67,53 @@ export default function SharedItineraryPage() {
     }
   }
 
+  const loadModernOrLegacy = async () => {
+    if (!token) {
+      setError('链接格式无效。')
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const secret = window.location.hash.startsWith('#s=')
+      ? window.location.hash.slice(3)
+      : ''
+    if (secret) {
+      // Remove the fragment before the first network request. The secret is
+      // exchanged only in the request body and never becomes a URL, Referer,
+      // log or analytics value.
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      const exchange = await fetch(`/api/v3/shares/${encodeURIComponent(token)}/exchange`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret }),
+      }).catch(() => null)
+      if (!exchange?.ok) {
+        setError('此链接不存在、已过期或已被撤销。')
+        setLoading(false)
+        return
+      }
+    }
+    const modern = await fetch(`/api/v3/shares/${encodeURIComponent(token)}`, {
+      credentials: 'include',
+      cache: 'no-store',
+    }).catch(() => null)
+    if (modern?.ok) {
+      setModernShare(await modern.json() as ShareProjectionView)
+      setLoading(false)
+      return
+    }
+    if (secret) {
+      setError('此链接不存在、已过期或已被撤销。')
+      setLoading(false)
+      return
+    }
+    await load()
+  }
+
   useEffect(() => { hydrate() }, [hydrate])
-  useEffect(() => { if (isHydrated) void load() }, [isHydrated, token])
+  useEffect(() => { if (isHydrated) void loadModernOrLegacy() }, [isHydrated, token])
 
   const acknowledge = async () => {
     if (!canAcknowledge || busy) return
@@ -123,6 +170,20 @@ export default function SharedItineraryPage() {
 
   if (!isHydrated || loading) {
     return <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center p-6 text-sm text-slate-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" />读取受限行程…</main>
+  }
+
+  if (modernShare) {
+    return (
+      <main className="mx-auto min-h-screen max-w-3xl bg-slate-50 p-4 sm:p-8" data-testid="g06-shared-trip">
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+          <div className="flex items-start gap-3"><LockKeyhole className="mt-0.5 h-5 w-5 shrink-0 text-emerald-700" /><div><h1 className="text-lg font-semibold text-slate-900">{modernShare.title}</h1><p className="mt-1 text-sm text-slate-600">{modernShare.message}</p></div></div>
+          <div className="mt-4 grid gap-2 text-xs text-slate-600 sm:grid-cols-3"><p>目的地：{modernShare.destination}</p><p>时间：{modernShare.schedule}</p><p>出行：{modernShare.party_size}</p></div>
+          {modernShare.accommodation ? <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-900">住宿：{modernShare.accommodation}</p> : null}
+        </section>
+        <section className="mt-4 space-y-3" aria-label="只读行程">{modernShare.days.map((day) => <article key={day.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 className="font-semibold text-slate-900">{day.label}</h2>{day.activities.length === 0 ? <p className="mt-3 text-sm text-slate-500">当天暂无地点</p> : <ol className="mt-3 space-y-2">{day.activities.map((activity, index) => <li key={`${day.label}-${index}`} className="rounded-xl bg-slate-50 p-3"><p className="text-sm font-medium text-slate-900">{activity.name}</p><p className="mt-1 text-xs text-slate-600">{activity.time_hint ?? '时间待定'} · {activity.area_or_address}</p><p className="mt-1 text-[11px] text-slate-500">{activity.note}</p></li>)}</ol>}</article>)}</section>
+        <p className="mt-4 text-center text-xs text-slate-500">只读分享；不提供编辑、路线计算或账号权限。</p>
+      </main>
+    )
   }
 
   if (!shared) {

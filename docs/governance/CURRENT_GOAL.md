@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.6 显式记忆与分享
+# IN_PROGRESS GOAL：V0.6 显式记忆与分享
 
 Goal ID: TC-VNEXT-G06-MEMORY-SHARE
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: PRODUCT_ENHANCEMENT
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
@@ -9,11 +9,11 @@ Goal type: PRODUCT_ENHANCEMENT
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-  "goal_status": "APPROVED",
+  "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Consent & Share Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
   "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
@@ -35,12 +35,13 @@ Goal type: PRODUCT_ENHANCEMENT
 - Product version：`V0.6`
 - Mainline phase：`PRODUCT_ENHANCEMENT`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Goal type：`PRODUCT_ENHANCEMENT`
 - Governance transition baseline：`origin/develop@c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`
+- Exact implementation baseline：`origin/develop@e383eeef39b0246ce35dd3cb8481a02bbebd1130`
 - Activation branch / worktree：`codex/g05-g06-transition` / `D:/munto/code/claudeProject/agentTravel-g05-g06-transition`
 - Canonical implementation branch / worktree：`codex/g06-memory-share` / `D:/munto/code/claudeProject/agentTravel-g06-integration`，在本治理过渡PR合并后从新的fresh `origin/develop`创建
-- Upstream / remote readback：`origin/develop` / `c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
+- Upstream / remote readback：`origin/develop` / `e383eeef39b0246ce35dd3cb8481a02bbebd1130`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
 - Predecessor：G05 product `363daed34d25b991ad9699a7381ac0d64e658e8b`、delivery receipt `4000c814973c16a13424b7294e3131743ed32ef7`、PR #18 integration `c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；develop exact-tip GitHub Actions `33389970986 PASS`
 - Required gate：`Consent & Share Gate + PRODUCT_DELIVERY_PASS`
 - Next Goal：`TC-VNEXT-G07-CANDIDATE`
@@ -78,12 +79,12 @@ Goal type: PRODUCT_ENHANCEMENT
 
 | Package | Owned paths（首个产品preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
-| `WP-G06-INTEGRATOR` | governance、033、共享schema/repository/API、OpenAPI/client、分享UI、CI与最终E2E | 本过渡PR合并后的fresh `origin/develop` | Consent & Share Gate与`PRODUCT_DELIVERY_PASS` | `INTEGRATOR_ONLY / PRODUCT_NOT_STARTED` |
-| `WP-G06-CONSENT-MEMORY` | consent、结构化偏好、查看/修改/清空 | G01删除合同 + 033由集成者编号 | default-off、删除fresh readback | `NOT_STARTED` |
-| `WP-G06-SHARE-PROJECTION` | 分享投影、创建/撤销/只读访问 | UserFacingTripResult | token摘要、不可枚举、撤销后不可访问 | `NOT_STARTED` |
-| `WP-G06-FEEDBACK` | 地点纠正、删除/替换、建议反馈事件 | 独立训练consent | 最小事件且无原文/聊天长期留存 | `NOT_STARTED / WAITING_FOR_WRITER_SLOT_AFTER_BINDING` |
+| `WP-G06-INTEGRATOR` | governance、033、共享schema/repository/API、OpenAPI/client、分享UI、CI与最终E2E | fresh `origin/develop@e383eeef39b0246ce35dd3cb8481a02bbebd1130` | Consent & Share Gate与`PRODUCT_DELIVERY_PASS` | `INTEGRATOR_ONLY / IN_PROGRESS` |
+| `WP-G06-CONSENT-MEMORY` | consent、结构化偏好、查看/修改/清空 | G01删除合同 + 033由集成者编号 | default-off、删除fresh readback | `INTEGRATED / LOCAL_VERIFIED` |
+| `WP-G06-SHARE-PROJECTION` | 分享投影、创建/撤销/只读访问 | UserFacingTripResult | token摘要、不可枚举、撤销后不可访问 | `INTEGRATED / LOCAL_VERIFIED` |
+| `WP-G06-FEEDBACK` | 地点纠正、删除/替换、建议反馈事件 | 独立训练consent | 最小事件且无原文/聊天长期留存 | `INTEGRATED / LOCAL_VERIFIED` |
 
-当前registry只激活唯一集成者的治理占位，不代表G06产品已开始。过渡PR合并后，主对话从新的fresh `origin/develop`建立实现分支，为三包生成完整v1提示词并登记独立用户可见功能对话、branch/worktree、prompt hash与exact baseline；先启动两个包，第三包`WAITING_FOR_WRITER_SLOT`，有一个经集成者验收冻结后再启动。子Agent只读复核/诊断，不得写产品代码或改状态。全部冻结后，集成者串行完成consent/权限领域→API/持久化→分享UI→隐私E2E。贡献包不得修改治理、migration、共享OpenAPI生成物或锁文件，不得自行合并；最多两轮修复复审。
+当前registry只激活唯一集成者；本次未使用贡献Agent。集成者已按consent/权限领域→API/持久化→分享UI→隐私E2E串行完成本地产品切片，远端CI、耐久回执和`develop`集成仍待执行。
 
 ## Decisions locked
 
@@ -143,7 +144,7 @@ Goal type: PRODUCT_ENHANCEMENT
 
 - 治理过渡branch/upstream：`codex/g05-g06-transition` / `origin/develop@c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；G06产品分支在过渡PR合并后从新的远端subject创建，并在首个checkpoint记录exact implementation baseline；
 - G05 product / delivery receipt / integration：`363daed34d25b991ad9699a7381ac0d64e658e8b` / `4000c814973c16a13424b7294e3131743ed32ef7` / `c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；PR #18与远端CI均`PASS`；
-- G01 source deletion fresh readback和现有auth/privacy threat model在首个G06 preflight执行，当前证据状态为`NOT_RUN`，不得由历史测试推断通过；
+- G01 source deletion fresh readback和现有auth/privacy threat model已在exact implementation baseline执行：18项定向测试`PASS`；
 - 旧memory/Yjs/room只作frozen asset，不是consent证明；H1/商业：`NOT_RUN`。
 
 ## Invariants
@@ -167,6 +168,7 @@ Goal type: PRODUCT_ENHANCEMENT
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-31 | G05三城有来源建议已并入`develop`并完整归档；G06显式记忆与分享合同原子激活，尚未修改G06产品代码或创建033 | 治理过渡commit在提交后由远端readback记录；精确产品基线`c416dcdc40fcef2aef56627ab28c6f4049dc7dd9` | G05回执tip CI `33389553342 PASS`；PR #18 `MERGED`；develop exact-tip GitHub Actions `33389970986 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic archive and activation only` | 合并本治理过渡PR；从新develop创建G06实现分支，先完成删除/auth/privacy preflight与consent合同，再进入033和产品切片 | G06产品、033、删除fresh readback、权限/分享、PostgreSQL、浏览器与交付Gate均`NOT_RUN`；G04两个精确历史例外仍须在G07移除 | 校验归档/绑定/范围，提交push并通过受保护PR；合并后fresh readback再建立唯一G06实现分支 |
+| 2026-08-31 | 用户已可主动开启并查看、修改、清空结构化旅行偏好；产品反馈和训练/评测同意独立；登录行程可创建7天只读分享并撤销；耐久G06交付回执已生成 | 产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；delivery receipt为本checkpoint；exact baseline `e383eeef39b0246ce35dd3cb8481a02bbebd1130` | 删除/auth/privacy preflight `18 passed`；G06定向`5 passed`；033 PostgreSQL fresh/after-034/运行时`3 passed`；browser `3 passed`；frontend build、OpenAPI/client build、Ruff、治理34项`PASS`；GitHub Actions `33400646254`全部required jobs与聚合门禁`PASS`；产品指纹`c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b` | `REMOTE_AUTOMATED / REAL_POSTGRESQL / AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / CONSENT_AND_SHARE_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #20合入`develop`，再独立归档G06并激活G07 | 浏览器为自动fixture而非公网或真人证据；G04两个精确历史例外保持不变并须在G07 exact-binding前移除 | 本地验证delivery receipt，提交push并等待PR #20回执tip的完整CI |
 
 ## Auto-advance
 
@@ -175,10 +177,10 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`APPROVED / G06产品尚无subject / origin/codex/g06-memory-share尚未创建`；
-- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / GOAL_TRANSITION_ONLY / PRODUCT_DELIVERY_NOT_RUN / true`；结构有效不代表G06产品交付；
+- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`，delivery receipt为本checkpoint / `origin/codex/g06-memory-share`；
+- Verification / Evidence / Gate result / `structurally_valid`：`REMOTE_REQUIRED_CI_PASS / REAL_POSTGRESQL + AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS / true`；回执精确tip CI与远端合入仍待完成；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；公网、release、deploy和`main`同样未运行或未请求；
-- User-visible result / Remaining risks / Goal archived / Next activated：`G05知识建议已交付，G06仅完成可追溯激活 / G01删除与auth/privacy preflight、G06产品、033、自动化、浏览器和交付回执均未运行 / false / false`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`显式结构化偏好、独立反馈/训练同意和可撤销只读分享已生成PRODUCT_DELIVERY_PASS / 回执精确tip CI、PR #20合入与远端readback待完成；G04两个历史例外须在G07 exact-binding前移除 / false / false`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions
