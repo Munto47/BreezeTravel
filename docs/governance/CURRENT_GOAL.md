@@ -1,22 +1,22 @@
-# IN_PROGRESS GOAL：V0.6 显式记忆与分享
+# APPROVED GOAL：V0.9 候选版收口
 
-Goal ID: TC-VNEXT-G06-MEMORY-SHARE
-Status: IN_PROGRESS
-Goal type: PRODUCT_ENHANCEMENT
+Goal ID: TC-VNEXT-G07-CANDIDATE
+Status: APPROVED
+Goal type: CANDIDATE_HARDENING
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
 {
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
-  "goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
-  "goal_status": "IN_PROGRESS",
-  "gate_profile": "PRODUCT_DELIVERY_GATE",
-  "required_gate": "Consent & Share Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
-  "gate_result": "PRODUCT_DELIVERY_PASS",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "goal_status": "APPROVED",
+  "gate_profile": "HARDENED_CANDIDATE_GATE",
+  "required_gate": "Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS",
+  "completion_status": "NOT_RUN",
+  "gate_result": "HARDENED_CANDIDATE_GATE_NOT_RUN",
   "goal_archived": false,
-  "last_completed_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
-  "next_goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
+  "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
   "next_activated": false,
   "h1_status": "NOT_RUN",
   "public_network_status": "NOT_RUN",
@@ -30,164 +30,163 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Metadata
 
-- Goal ID：`TC-VNEXT-G06-MEMORY-SHARE`
+- Goal ID：`TC-VNEXT-G07-CANDIDATE`
 - Program ID：`TC-VNEXT-2026`
-- Product version：`V0.6`
-- Mainline phase：`PRODUCT_ENHANCEMENT`
-- Gate profile：`PRODUCT_DELIVERY_GATE`
-- Status：`IN_PROGRESS`
-- Goal type：`PRODUCT_ENHANCEMENT`
-- Governance transition baseline：`origin/develop@c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`
-- Exact implementation baseline：`origin/develop@e383eeef39b0246ce35dd3cb8481a02bbebd1130`
-- Activation branch / worktree：`codex/g05-g06-transition` / `D:/munto/code/claudeProject/agentTravel-g05-g06-transition`
-- Canonical implementation branch / worktree：`codex/g06-memory-share` / `D:/munto/code/claudeProject/agentTravel-g06-integration`，在本治理过渡PR合并后从新的fresh `origin/develop`创建
-- Upstream / remote readback：`origin/develop` / `e383eeef39b0246ce35dd3cb8481a02bbebd1130`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
-- Predecessor：G05 product `363daed34d25b991ad9699a7381ac0d64e658e8b`、delivery receipt `4000c814973c16a13424b7294e3131743ed32ef7`、PR #18 integration `c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；develop exact-tip GitHub Actions `33389970986 PASS`
-- Required gate：`Consent & Share Gate + PRODUCT_DELIVERY_PASS`
-- Next Goal：`TC-VNEXT-G07-CANDIDATE`
+- Product version：`V0.9`
+- Mainline phase：`CANDIDATE_HARDENING`
+- Gate profile：`HARDENED_CANDIDATE_GATE`
+- Status：`APPROVED`
+- Activation：G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档
+- Governance transition baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`
+- Activation branch / worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`
+- Canonical implementation branch / worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，仅在本过渡PR合并并fresh readback后创建
+- Upstream / remote readback：`origin/develop` / `9994be151923b9c349fc1129605777032a0b8ebe`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
+- Predecessor：G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`、交付回执`215770f2ad975ed89271047fa40780fdddbd02a0`、PR #20 integration `9994be151923b9c349fc1129605777032a0b8ebe`；develop exact-tip GitHub Actions `33402780730 PASS`
+- Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
+- Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
 
 ## Dependencies
 
-- 唯一激活依赖是G05归档且Knowledge Admission Gate与`PRODUCT_DELIVERY_PASS`通过；该依赖已由耐久回执、PR #18、`develop@c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`远端readback和exact-tip CI满足。
-- 本治理过渡只完整归档G05并激活G06，不实现记忆、分享、反馈、033、公共API、UI或Provider调用。
-- 首个G06 preflight在过渡PR合并后填写fresh implementation baseline，并回读G01 source删除、现有认证边界与privacy threat model；缺失lane标记`NOT_READY`并继续其他安全独立切片，不能把source删除推迟到本Goal。
-- G04方案A两个精确历史失败例外保持原样，必须在G07 exact-binding验收前移除；G06不得扩大例外或宣称整仓pytest零失败。
+- 唯一激活依赖是G06归档且Consent & Share Gate与`PRODUCT_DELIVERY_PASS`通过；该依赖已由耐久回执、PR #20、`develop@9994be151923b9c349fc1129605777032a0b8ebe`远端readback和exact-tip CI满足。
+- 本治理过渡只完整归档G06并激活G07，不运行候选评测、Provider、性能、可靠性、blind、复审或产品代码。
+- 首个preflight填写branch/baseline、候选RunSpec、Provider绑定和全部required Gate矩阵；缺失项标记`NOT_RUN/NOT_READY`并自主修复，只有确需新授权或人工阶段时才按HITL处理，不能把缺失证据包装成PASS。
+- G04方案A恰好两个历史失败例外保持原样披露；G07首个阻断动作是修复并移除该例外，移除前不得接受exact-binding或宣称整仓pytest零失败。
 
 ## User Outcome
 
-用户可以主动选择记住步行容忍度、出发时间、餐饮、酒店和强度偏好，随时查看、修改或清空；还可以生成朋友可读、可撤销的分享行程，而不重新引入房间号和项目黑话。
+用户可在候选环境稳定完成登录/体验、文本或截图输入、卡片编辑、地图查看与手动更新、住宿选择、Top-3核验、建议采纳、偏好和分享；每项能力有同一候选commit的可回读证据。
 
 ## Scope
 
-- memory consent、view/update/delete；
-- 结构化`PreferenceMemory`；
-- correction/adoption/rejection/voluntary feedback；
-- training/eval consent分离；
-- 最小披露`ShareProjection`；
-- 不可枚举、可撤销、可过期分享token；
-- 权限、删除、恢复和审计；
-- 用户友好分享UI。
+- 只修复现有主链阻断和candidate regression；
+- 性能、无障碍、隐私、安全和恢复；
+- model/provider snapshot与live矩阵；
+- PostgreSQL、并发、幂等、lease和重启；
+- controlled public demo材料；
+- architecture/recovery diagrams；
+- model ablation；
+- release manifest与最终disclosure。
+- 将旧manifest生成器适配TC-VNEXT Goal/Gate、v3 OpenAPI、新数据集和同绑定receipts；旧360/三城测试只作历史兼容。
 
 ## Pre-approved actions
 
-- consent合同通过后`033_user_memory_and_feedback.sql`；
-- 新memory和share v3 API；
-- 现有认证与PostgreSQL；
-- 不新增第三方CRM、analytics或数据仓库。
+- 不预批准新产品功能、migration或Provider；
+- 允许在既有合同内修复候选阻断；
+- 允许当前已有零增量费用Provider Gate；
+- 允许受控demo artifact、视频脚本和manifest；
+- 公网部署本身仍需人工批准。
 
 ## Parallel work packages
 
-| Package | Owned paths（首个产品preflight精确化） | Dependencies | Acceptance | Activation state |
+| Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
-| `WP-G06-INTEGRATOR` | governance、033、共享schema/repository/API、OpenAPI/client、分享UI、CI与最终E2E | fresh `origin/develop@e383eeef39b0246ce35dd3cb8481a02bbebd1130` | Consent & Share Gate与`PRODUCT_DELIVERY_PASS` | `INTEGRATOR_ONLY / IN_PROGRESS` |
-| `WP-G06-CONSENT-MEMORY` | consent、结构化偏好、查看/修改/清空 | G01删除合同 + 033由集成者编号 | default-off、删除fresh readback | `INTEGRATED / LOCAL_VERIFIED` |
-| `WP-G06-SHARE-PROJECTION` | 分享投影、创建/撤销/只读访问 | UserFacingTripResult | token摘要、不可枚举、撤销后不可访问 | `INTEGRATED / LOCAL_VERIFIED` |
-| `WP-G06-FEEDBACK` | 地点纠正、删除/替换、建议反馈事件 | 独立训练consent | 最小事件且无原文/聊天长期留存 | `INTEGRATED / LOCAL_VERIFIED` |
+| `WP-G07-INTEGRATOR` | 当前仅限治理过渡；候选实现路径在fresh baseline preflight后精确化 | G06冻结候选 | 完整候选合同、exact baseline和第一阻断动作可回读 | `INTEGRATOR_ONLY / GOAL_TRANSITION` |
+| `WP-G07-PERFORMANCE` | 性能、资源预算和基准回执 | G01～G06冻结候选 | 主链P95与资源预算通过 | `NOT_STARTED` |
+| `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
+| `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
 
-当前registry只激活唯一集成者；本次未使用贡献Agent。集成者已按consent/权限领域→API/持久化→分享UI→隐私E2E串行完成本地产品切片，远端CI、耐久回执和`develop`集成仍待执行。
+当前registry只激活唯一集成者的治理过渡，不代表G07候选工作已开始。本过渡合并后，主对话从fresh `origin/develop`建立唯一实现分支，先移除G04方案A历史例外，再冻结候选RunSpec、全Gate矩阵和路径所有权。任何后续并行写入都需当时适用指令明确允许；否则由集成者串行执行可靠性/隐私材料→性能收口→同commit全量E2E/Gate→`HardeningDecision`、manifest和远端readback。
 
 ## Decisions locked
 
-- 记忆默认关闭。
-- 不长期保存原始攻略、截图或聊天。
-- G06只新增结构化偏好和反馈consent，不改变G01的30天source TTL和删除权。
-- 产品记忆不等于训练同意。
-- 用户删除必须真实删除或匿名化并可回读。
-- 分享只使用用户投影，不含内部字段。
-- 不恢复六位房间号作为入口。
-- 分享接收者默认只读。
-- 分享链接使用`/share/{share_ref}#s=<secret>`：fragment只在浏览器内使用，页面在任何日志/分析启动前以请求体换取短期HttpOnly capability并立即清除fragment。secret不得进入服务端可见URL、访问日志、Referer或分析事件；删除行程/清空账号旅行数据必须撤销相关分享并清理session与缓存。
-- 提交反馈不代表训练/评测授权；数据用途同意是独立、默认关闭且可撤销的资源。“清空全部旅行数据”固定清除偏好和反馈并撤销全部分享。
+- 候选commit上重新运行G0～G7。
+- 历史证据不得拼接。
+- 自动/fixture/live/browser/public/human分层披露。
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
+- 新功能请求进入未来Program，不在收口Goal扩展。
+- 所有`NOT_RUN`明确列出。
+- G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除；移除证据与候选commit绑定，不得扩大或重命名例外。
+- `HardeningDecision`只有两种：`NOT_REQUIRED_WITH_RATIONALE`记录威胁、替代控制和残余风险；`REQUIRED`只启用威胁模型点名的控制。不得因为旧代码存在默认恢复八角色签名、broker、远端anchor或OCI。
 
 ## Non-goals
 
-- 多人实时协同/Yjs；
-- 自动社交发布；
-- 广告画像；
-- 未经同意训练；
-- CRM和增长自动化；
+- 新城市深核验；
+- 新模型/Provider；
+- 一键登录；
+- 新知识来源；
 - 商业付费；
-- G07产品或候选收口工作；
-- H1、公网、生产、发布、部署、release或`main`合并。
+- H1招募和consent；
+- 自动部署、release或`main`合并。
 
-## Acceptance / Gate
+## Acceptance
 
-完全继承Consent & Share Gate：
+完全继承Candidate Evidence Gate：
 
-- default-off；
-- view/update/delete全通过；
-- 原文/截图/聊天长期留存0；
-- consent分离；
-- 越权0；
-- token不可枚举、fragment交换后立即清除、撤销/过期有效；
-- 分享页内部字段0；
-- 删除后fresh readback无残留业务值；
-- 当前记忆/分享定向测试、PostgreSQL 033、client/OpenAPI、frontend build与browser E2E全部PASS，并生成耐久`PRODUCT_DELIVERY_PASS`。
+- G0～G7同一subject全部PASS，并取得`HARDENED_CANDIDATE_GATE_PASS`；
+- 所有版本零容忍0；
+- browser主链、刷新、断线、并发、重启、partial和performance通过；
+- Provider许可与隐私无阻断；
+- 受控demo、90秒视频、5分钟脚本、架构图、恢复图、消融和manifest可回读；
+- final disclosure准确列出candidate、NOT_RUN和风险；
+- clean tree、push和远端readback。
+- `HardeningDecision`与候选commit绑定；所选控制全部实际验证，未选控制明确为`NOT_REQUIRED_WITH_RATIONALE`而非伪装PASS。
 
 ## Verification
 
-- consent状态机；
-- PostgreSQL 033；
-- access control、IDOR、fragment-to-cookie交换和token；
-- deletion/recovery；
-- public payload/DOM scan；
-- browser memory/share/revoke；
-- privacy/secret；
-- 当前记忆/分享用户旅程定向测试与浏览器E2E；候选复审和blind留到G07；
-- H1、公网、生产、商业：`NOT_RUN`。
+- full backend pytest/Ruff；
+- frontend/miniapp适用build；
+- PostgreSQL fresh/existing migration；
+- snapshot/replay；
+- live Provider矩阵；
+- browser E2E和P95；
+- accessibility/security/privacy；
+- release manifest hash/readback；
+- 三角色Agent审查、fresh ultra裁决、全部所需sealed agent blind与clean checkout fresh readback；
+- H1、production、commercial：`NOT_RUN`。
 
 ## Authority
 
-- `AGENTS.md`、Charter、Spec、v3 API、Architecture；Program、Roadmap、Release Gates、Product Delivery Gate、Product Mainline Execution Guide、Provider Admission、Risk Register；ADR-011、ADR-012、ADR-013、ADR-014。
+- `AGENTS.md`、全部Blueprint产品/架构/治理权威、Agent Gate Protocol、Product Mainline Execution Guide、ADR-007～ADR-012、ADR-013、ADR-014；
+- G01～G06 completed归档、当前候选RunSpec和同subject evidence；历史V1 manifest仅作baseline。
 
 ## Baseline
 
-- 治理过渡branch/upstream：`codex/g05-g06-transition` / `origin/develop@c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；G06产品分支在过渡PR合并后从新的远端subject创建，并在首个checkpoint记录exact implementation baseline；
-- G05 product / delivery receipt / integration：`363daed34d25b991ad9699a7381ac0d64e658e8b` / `4000c814973c16a13424b7294e3131743ed32ef7` / `c416dcdc40fcef2aef56627ab28c6f4049dc7dd9`；PR #18与远端CI均`PASS`；
-- G01 source deletion fresh readback和现有auth/privacy threat model已在exact implementation baseline执行：18项定向测试`PASS`；
-- 旧memory/Yjs/room只作frozen asset，不是consent证明；H1/商业：`NOT_RUN`。
+- 激活baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`；治理过渡branch/worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`；
+- 候选实现branch/worktree预登记为`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，只在过渡合并后的fresh baseline创建；候选依赖锁、OpenAPI/migration/provider/model/dataset版本由首个preflight冻结；
+- dirty tree或不同binding结果不得拼接；H1/production/commercial：`NOT_RUN`。
 
 ## Invariants
 
-- 记忆default-off、字段allowlist、可查看/更改/清空；产品记忆/反馈/训练同意分离；
-- 删除是fresh readback可证明的真实删除或不可逆匿名化，不保留业务值；
-- 分享只消费UserFacing投影，token不可枚举、可撤销、过期且接收者默认只读；
-- 原文/截图/聊天不进入长期记忆，内部ID/证据不进入分享或分析。
+- 不新增产品功能、不降低Gate、不修改blind/oracle；
+- G0～G7同一subject/config/dataset/model/rule/provider重新运行；
+- fixture/snapshot/live/browser/public/human/commercial分层；UNKNOWN/NOT_RUN不算PASS；
+- Provider许可、隐私删除、内部字段和事实正确性均为阻断项；
+- `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不自动授权H1、公网、生产、release或`main`。
 
 ## Budget
 
-- 只保存已批准结构化偏好字段和最小反馈事件；token TTL、访问频率和审计保留期在RunSpec冻结；
-- 不新增CRM、analytics、仓库、外部分享账号或付费服务；每切片checkpoint。
+- 只使用G01～G06已准入账号/Provider和现有无增量费用矩阵；候选RunSpec冻结并记录总调用/token/延迟/成本；
+- 失败策略最多两次，同一blocker两个切片无改善触发独立诊断；每切片checkpoint。
 
 ## HITL
 
-训练/eval consent范围、第三方共享、外部analytics/CRM、付费、新依赖、H1/商业/公网/生产/release/deploy/`main`需批准。
+新功能/schema/migration/依赖/Provider、费用、修改blind、公开demo部署、H1招募/consent、release/`main`需批准。
 
 ## Checkpoint ledger
 
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
-| 2026-08-31 | G05三城有来源建议已并入`develop`并完整归档；G06显式记忆与分享合同原子激活，尚未修改G06产品代码或创建033 | 治理过渡commit在提交后由远端readback记录；精确产品基线`c416dcdc40fcef2aef56627ab28c6f4049dc7dd9` | G05回执tip CI `33389553342 PASS`；PR #18 `MERGED`；develop exact-tip GitHub Actions `33389970986 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / atomic archive and activation only` | 合并本治理过渡PR；从新develop创建G06实现分支，先完成删除/auth/privacy preflight与consent合同，再进入033和产品切片 | G06产品、033、删除fresh readback、权限/分享、PostgreSQL、浏览器与交付Gate均`NOT_RUN`；G04两个精确历史例外仍须在G07移除 | 校验归档/绑定/范围，提交push并通过受保护PR；合并后fresh readback再建立唯一G06实现分支 |
-| 2026-08-31 | 用户已可主动开启并查看、修改、清空结构化旅行偏好；产品反馈和训练/评测同意独立；登录行程可创建7天只读分享并撤销；耐久G06交付回执已生成 | 产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；delivery receipt为本checkpoint；exact baseline `e383eeef39b0246ce35dd3cb8481a02bbebd1130` | 删除/auth/privacy preflight `18 passed`；G06定向`5 passed`；033 PostgreSQL fresh/after-034/运行时`3 passed`；browser `3 passed`；frontend build、OpenAPI/client build、Ruff、治理34项`PASS`；GitHub Actions `33400646254`全部required jobs与聚合门禁`PASS`；产品指纹`c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b` | `REMOTE_AUTOMATED / REAL_POSTGRESQL / AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / CONSENT_AND_SHARE_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #20合入`develop`，再独立归档G06并激活G07 | 浏览器为自动fixture而非公网或真人证据；G04两个精确历史例外保持不变并须在G07 exact-binding前移除 | 本地验证delivery receipt，提交push并等待PR #20回执tip的完整CI |
+| 2026-08-31 | G06显式记忆与分享已交付、并入`develop`并完整归档；G07候选收口合同原子激活，尚未运行候选工作 | G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`；回执`215770f2ad975ed89271047fa40780fdddbd02a0`；integration`9994be151923b9c349fc1129605777032a0b8ebe`；本治理过渡commit在提交后由远端readback记录 | G06首轮CI`33400646254 PASS`、回执tip CI`33402192501 PASS`、develop exact-tip CI`33402780730 PASS`；fresh fetch、`rev-parse`与`ls-remote`一致 | `PRODUCT_DELIVERY_PASS / REMOTE_INTEGRATION_PASS / GOAL_TRANSITION` | `Product progress=NONE / G07_NOT_STARTED` | `Governance ratio=100% / atomic G06 archive and G07 activation only` | 合并本过渡PR；从新develop建立G07实现分支；首先修复并移除G04方案A两个历史失败例外，再冻结候选RunSpec和exact bindings | G07全Gate、live Provider、90条统计、50链、复审、blind、性能、可靠性、隐私、供应链均`NOT_RUN`；H1、公网、生产、商业、发布、部署和main仍未运行或未请求 | 校验归档/绑定/范围，提交push并通过过渡CI；合并后fresh readback再开始G07 preflight |
 
 ## Auto-advance
 
-- Required gate：`Consent & Share Gate + PRODUCT_DELIVERY_PASS`；Next template：`TC-VNEXT-G07-CANDIDATE.md`；
-- subject push/readback、耐久`PRODUCT_DELIVERY_PASS`、clean tree、无Stop后，最终归档，并原子更新Goal binding与work-package registry激活G07；不登记外部ledger、不预创建authority generation；H1/商业不自动启动。
+- Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
+- 不自动创建或激活H1 Goal，不自动部署、公网、release、商业或合并`main`；必须等待用户明确批准。
 
 ## Completion record
 
-- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`，delivery receipt为本checkpoint / `origin/codex/g06-memory-share`；
-- Verification / Evidence / Gate result / `structurally_valid`：`REMOTE_REQUIRED_CI_PASS / REAL_POSTGRESQL + AUTOMATED_FIXTURE_BROWSER / PRODUCT_DELIVERY_PASS / true`；回执精确tip CI与远端合入仍待完成；
-- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；公网、release、deploy和`main`同样未运行或未请求；
-- User-visible result / Remaining risks / Goal archived / Next activated：`显式结构化偏好、独立反馈/训练同意和可撤销只读分享已生成PRODUCT_DELIVERY_PASS / 回执精确tip CI、PR #20合入与远端readback待完成；G04两个历史例外须在G07 exact-binding前移除 / false / false`；
-- Promotion decision：`NOT_REQUESTED`。
+- Status / Subject commits / Remote branch：`APPROVED / G07候选subject尚未创建 / origin/codex/g07-candidate尚未创建`；
+- Verification / Evidence / Gate result / `structurally_valid`：`NOT_RUN / GOAL_TRANSITION_ONLY / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；结构有效不代表候选通过；
+- H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
+- User-visible result / Remaining risks / Goal archived：`G06已交付，G07仅完成可追溯激活 / G04两个历史例外移除、候选全Gate与全部候选证据均未运行 / false`；
+- Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
+- Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 
 ## Stop conditions
 
-- 无法保证删除或consent分离；
-- 需要保存原文实现个性化；
-- 需要实时协同扩大范围；
-- 需要第三方账号、付费服务或外部数据共享；
-- 分享无法避免越权或内部泄漏；
-- fresh `origin/develop`不再由G06合法接棒，或激活必须修改产品字节。
+- 需要新增产品功能才能通过；
+- 需要降低任何Gate；
+- 需要拼接历史证据；
+- 需要新增Provider权限/费用，或隐私/事实矛盾只能通过改变Gate解决；
+- 需要公网部署、H1、付费、release或`main`；
+- 需要降低candidate blocker门槛而非继续技术诊断。
