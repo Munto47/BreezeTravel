@@ -121,7 +121,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] == "IMPLEMENTING"
-    assert registry["active_slice"]["product_progress"] == "RUNTIME+UI"
+    assert registry["active_slice"]["product_progress"] == "EVAL_METRIC"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR"
@@ -144,7 +144,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_gate_slice_is_narrow_and_binds_the_registered_regression_repair() -> None:
+def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -156,8 +156,10 @@ def test_g07_gate_slice_is_narrow_and_binds_the_registered_regression_repair() -
     assert "docs/governance" in allowed
     assert "backend/app/trip_understanding" not in allowed
     assert "frontend/src" not in allowed
-    assert "backend/app/trip_understanding/repository.py" in allowed
-    assert "frontend/src/app/trip/result/itinerary-workspace.tsx" in allowed
+    assert "backend/app/trip_understanding/repository.py" not in allowed
+    assert "frontend/src/app/trip/result/itinerary-workspace.tsx" not in allowed
+    assert "backend/scripts/build_release_manifest.py" in allowed
+    assert "backend/tests/test_g07_release_manifest.py" in allowed
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
     assert not any(path.startswith("backend/evals/agent_gate_v1/") for path in allowed)
@@ -167,12 +169,12 @@ def test_g07_gate_slice_is_narrow_and_binds_the_registered_regression_repair() -
     assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert result["package_count"] == 1
     assert "docs/governance/CURRENT_GOAL.md" in result["changed_paths"]
-    assert {
+    assert not {
         path for path in result["changed_paths"] if path.startswith("backend/app/")
-    } == {"backend/app/trip_understanding/repository.py"}
-    assert {
+    }
+    assert not {
         path for path in result["changed_paths"] if path.startswith("frontend/src/")
-    } == {"frontend/src/app/trip/result/itinerary-workspace.tsx"}
+    }
     assert {
         path
         for path in result["changed_paths"]

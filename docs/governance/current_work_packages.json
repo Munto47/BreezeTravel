@@ -3,59 +3,46 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "候选浏览器矩阵在clean exact subject执行全部7个用户旅程文件，46项不得skip、flaky或unexpected",
-      "覆盖文本、截图、逐日卡、编辑、地图陈旧/手动更新、住宿、Top-3、刷新恢复、断线续传与局部失败",
-      "同一候选subject执行50条真实Qwen+AMap+PostgreSQL应用链并保存脱敏样本哈希，主链P95不得超过冻结阈值",
-      "browser fixture、内部性能、live Provider、H1、公网、生产与商业证据继续分层披露"
+      "G6 manifest只聚合同一candidate commit/tree/config/data/model/rule/provider的独立可验证component receipts",
+      "manifest builder不得从verification matrix可编辑状态或历史checkpoint推导PASS",
+      "缺失、跨subject、hash漂移、未知schema、重复Gate或NOT_RUN披露不准确必须fail-closed",
+      "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "frontend/package.json",
-      "frontend/playwright.candidate.config.js",
       "backend/eval_data/g07_candidate",
-      "backend/evals/g07_candidate",
-      "backend/scripts/run_g07_g5_browser_performance.py",
-      "backend/tests/test_g07_browser_performance.py",
-      "backend/app/trip_understanding/repository.py",
-      "backend/tests/test_g02_map_stay.py",
-      "backend/tests/test_g02_map_stay_postgres.py",
-      "backend/tests/test_g06_governance_delivery.py",
-      "backend/tests/test_product_work_packages_v3.py",
-      "backend/governance/core_mainline.py",
-      "frontend/src/app/trip/result/itinerary-workspace.tsx"
+      "backend/eval_data/agent_gate_v1",
+      "backend/scripts/build_release_manifest.py",
+      "backend/tests/test_g07_release_manifest.py",
+      "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "ade2435fe90646f4d1d13267bf0edd65857b0228",
+    "base_commit": "87bb9767bbddd08f4ca038d2612bd9a73c4af27d",
     "evidence_invalidated": [
-      "G07_G5_SUBJECT_3e204e6_REJECTED",
-      "G07_G5_SUBJECT_243c2c6_BROWSER_REJECTED",
-      "G07_G5_SUBJECT_a7fc87f_BROWSER_REJECTED",
-      "G07_G0_TO_G4_CHECKPOINTS_REQUIRE_FINAL_SUBJECT_RERUN"
+      "G07_G0_TO_G5_CHECKPOINTS_REQUIRE_FINAL_SUBJECT_RERUN"
     ],
     "forbidden_mechanisms": [
-      "把Playwright发现、构建成功、fixture或历史P6报告冒充本候选browser/P95证据",
-      "修改用户旅程、性能阈值、样本数、blind、oracle或历史P6冻结资产以获得PASS",
-      "复用跨commit浏览器报告、伪造50链、跳过失败或将flaky/skip计为PASS",
-      "让浏览器fixture接触Provider凭据，或让50链使用未准入Provider、新账号、新付费、H1、公网或生产请求",
-      "把G0至G4 checkpoint或未运行的后续层拼接成最终候选PASS",
+      "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
+      "接受跨commit/tree、跨RunSpec、hash不匹配、缺失或重复component receipt",
+      "在仓库内保存Provider原始请求响应、blind输入/真值、密钥或用户数据",
+      "修改blind、oracle、候选阈值或历史P6冻结资产以获得PASS",
+      "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "保持46条旅程和断言不变：保留已修复的Day级新增按钮、稳定住宿投影和‘移到后一天’，并在地点详情恢复带原确认语义的‘删除这张卡片’快捷入口；复用ACTIVITY_DELETE，同时保留新版可访问删除面板，不修改公共schema、冻结P6或Provider。",
+    "minimum_change": "扩展既有G07 manifest builder，使其接收仓库外独立component receipts并验证同一subject/tree、Gate唯一性、receipt hash和固定bindings；任何缺失或NOT_RUN保持不通过，不修改产品运行时。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "frontend/playwright.candidate.config.js",
-      "frontend/e2e",
-      "backend/evals/trip_check_v1/p6/local_browser_runner.py",
-      "backend/evals/trip_check_v1/p6/performance_runner.py",
-      "backend/tests/test_trip_check_p6_performance_runner.py",
-      "backend/app/trip_understanding/repository.py",
-      "frontend/src/app/trip/result/itinerary-workspace.tsx"
+      "backend/scripts/build_release_manifest.py",
+      "backend/tests/test_g07_release_manifest.py",
+      "backend/eval_data/g07_candidate/run_spec_v1.json",
+      "backend/eval_data/g07_candidate/verification_matrix_v1.json",
+      "backend/eval_data/agent_gate_v1/g07_candidate_gate_pass_receipt.schema.json"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME+UI",
-    "repair_review_cycle": 4,
-    "slice_id": "G07-G5-PRODUCT-REGRESSION-REPAIR",
-    "stop_condition": "若真实浏览器或50链超过冻结阈值，则保存失败证据并诊断产品/runner；不得缩减旅程、样本数或阈值。若需要产品语义修改，先使当前候选证据失效并回到repair切片。",
-    "user_outcome": "候选版的完整用户主链可在真实浏览器中连续完成，并有同一版本绑定的50条真实模型、地点、路线与持久化链证明关键等待时间不越界。",
+    "product_progress": "EVAL_METRIC",
+    "repair_review_cycle": 0,
+    "slice_id": "G07-G6-MANIFEST-AGGREGATION",
+    "stop_condition": "若现有component receipt schema不足以验证同subject或hash，则新增最小候选专用验证合同；不得修改历史回执、将缺失证据标为PASS或通过读取blind内容补证。",
+    "user_outcome": "候选版每一项通过证据都能被同一清单按精确版本和哈希回读，缺失或不同版本的证据不会被误拼成可发布候选。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
