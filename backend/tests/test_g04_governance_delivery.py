@@ -485,7 +485,7 @@ def test_sequence_four_has_explicit_fixture_and_historical_jobs_not_a_real_paddl
     assert "python -m pytest -q @testFiles" in historical_regression["run"]
 
 
-def test_completed_g04_lifecycle_remains_verifiable_after_g05_activation() -> None:
+def test_completed_g04_lifecycle_remains_verifiable_after_g06_activation() -> None:
     current_goal = (REPOSITORY_ROOT / "docs/governance/CURRENT_GOAL.md").read_text(
         encoding="utf-8"
     )
@@ -506,8 +506,8 @@ def test_completed_g04_lifecycle_remains_verifiable_after_g05_activation() -> No
     assert match is not None
     archived_state = json.loads(match.group("payload"))
 
-    assert current_goal.startswith("# IN_PROGRESS GOAL：V0.5")
-    assert registry["active_goal_id"] == "TC-VNEXT-G05-CITY-KNOWLEDGE"
+    assert current_goal.startswith("# APPROVED GOAL：V0.6")
+    assert registry["active_goal_id"] == "TC-VNEXT-G06-MEMORY-SHARE"
     assert archive.startswith("# COMPLETED GOAL：V0.4")
     assert archived_state == {
         "schema_version": "product-delivery-current-goal-state-v1",
