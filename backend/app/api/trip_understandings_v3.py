@@ -20,6 +20,11 @@ from app.trip_understanding.errors import (
     ResourceNotReadyError,
     ResourceNotFoundError,
     RevisionConflictError,
+    ScreenshotBatchAlreadyUsedError,
+    ScreenshotBatchExpiredError,
+    ScreenshotBatchNotFoundError,
+    ScreenshotBatchNotReadyError,
+    ScreenshotBatchUnusableError,
 )
 from app.trip_understanding.map_render import MapRenderAcceptedView, MapRenderView
 from app.trip_understanding.models import (
@@ -225,6 +230,31 @@ async def create_trip_understanding(
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"code": "TOO_MANY_ACTIVE_REQUESTS", "message": "已有两份行程正在整理，请稍后再试"},
+        ) from exc
+    except ScreenshotBatchNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "SCREENSHOT_BATCH_NOT_FOUND", "message": "没有找到这组截图"},
+        ) from exc
+    except ScreenshotBatchExpiredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={"code": "SCREENSHOT_BATCH_EXPIRED", "message": "这组截图已过期，请重新选择"},
+        ) from exc
+    except ScreenshotBatchAlreadyUsedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "SCREENSHOT_BATCH_ALREADY_USED", "message": "这组截图已用于另一份行程"},
+        ) from exc
+    except ScreenshotBatchNotReadyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "SCREENSHOT_BATCH_NOT_READY", "message": "截图仍在读取，请稍后再试"},
+        ) from exc
+    except ScreenshotBatchUnusableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "SCREENSHOT_BATCH_UNUSABLE", "message": "这组截图无法使用，请重新选择"},
         ) from exc
     if cookie_value is not None:
         _set_capability_cookie(response, cookie_value)

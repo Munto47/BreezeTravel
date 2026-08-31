@@ -1,0 +1,56 @@
+{
+  "schema_version": "product-delivery-result-v1",
+  "goal_id": "TC-VNEXT-G04-SCREENSHOT",
+  "gate_profile": "PRODUCT_DELIVERY_GATE",
+  "product_fingerprint": "5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3",
+  "checks": {
+    "core_mainline_contract": "PASS",
+    "g04_screenshot_targeted": "PASS",
+    "g04_postgresql": "PASS",
+    "g04_historical_backend": "PASS",
+    "frontend_build": "PASS",
+    "g04_browser_e2e": "PASS"
+  },
+  "verification": {
+    "screenshot_parity_gate": "PASS / REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / critical-field F1 1.0 / reading-order adjacency-F1 1.0 / low-confidence confirmation recall 1.0 / cleanup receipt coverage 1.0 / P95 551.451 ms",
+    "g04_screenshot_targeted": "PASS / GitHub Actions 33356743620",
+    "g04_postgresql_and_non_p5_regression": "PASS / PostgreSQL lifecycle PASS / 2033 passed, 37 skipped, 2 approved historical failures / PASS_WITH_APPROVED_HISTORICAL_EXCEPTION",
+    "g04_historical_p5": "497 passed, 1 skipped / Windows 2022 exact renderer ABI",
+    "frontend_openapi_client_and_production_build": "PASS",
+    "g04_browser_journey": "PASS / AUTOMATED_FIXTURE_CI",
+    "core_mainline_aggregator": "PASS / GitHub Actions 33356743620",
+    "local_governance_guard": "49 passed / Ruff PASS / work-package validation PASS / frozen_diff empty"
+  },
+  "g04_formal_parity_receipt": {
+    "path": "backend/governance/g04_screenshot_parity_receipt.json",
+    "sha256": "9231f448d534bd9c23c8d5b3149871eb4528bc244729c5fccac4a36007f4c855",
+    "candidate_commit": "525af072c47a3f318d88c722bf8067d6ff30907c",
+    "product_fingerprint": "5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3"
+  },
+  "remote_ci": {
+    "workflow": "Product mainline",
+    "run_id": 33356743620,
+    "run_url": "https://github.com/Munto47/BreezeTravel/actions/runs/33356743620",
+    "head_commit": "79e99555baa97c2d3d75b77c9d50ed158df36327",
+    "core_mainline": "PASS"
+  },
+  "historical_compatibility": {
+    "status": "PASS_WITH_APPROVED_HISTORICAL_EXCEPTION",
+    "owner_authorization": "SCHEME_A_APPROVED_2026-08-31",
+    "raw_pytest_exit_code": 1,
+    "full_pytest_pass": false,
+    "approved_failure_count": 2,
+    "unexpected_failure_count": 0,
+    "removal_deadline": "BEFORE_G07_EXACT_BINDING_ACCEPTANCE"
+  },
+  "safety_floor": "PASS",
+  "source_directory_disposition": "OWNER_RETAINED_OUTSIDE_GIT_NOT_RUNTIME_TEMP",
+  "qwen_vl_evidence": "NOT_RUN_NO_EXACT_BINDING",
+  "human_usability": "NOT_RUN",
+  "public_network_evidence": "NOT_RUN",
+  "production_evidence": "NOT_RUN",
+  "commercial_evidence": "NOT_RUN",
+  "release_evidence": "NOT_AUTHORIZED",
+  "main_merge_evidence": "NOT_AUTHORIZED",
+  "verdict": "PASS"
+}

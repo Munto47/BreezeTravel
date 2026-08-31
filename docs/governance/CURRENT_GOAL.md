@@ -1,7 +1,7 @@
-# APPROVED GOAL：V0.4 截图与文本一致
+# IN_PROGRESS GOAL：V0.4 截图与文本一致
 
 Goal ID: TC-VNEXT-G04-SCREENSHOT
-Status: APPROVED
+Status: IN_PROGRESS
 Goal type: PRODUCT_ENHANCEMENT
 
 <!-- PRODUCT_DELIVERY_CURRENT_GOAL_STATE
@@ -9,11 +9,11 @@ Goal type: PRODUCT_ENHANCEMENT
   "schema_version": "product-delivery-current-goal-state-v1",
   "program_id": "TC-VNEXT-2026",
   "goal_id": "TC-VNEXT-G04-SCREENSHOT",
-  "goal_status": "APPROVED",
+  "goal_status": "IN_PROGRESS",
   "gate_profile": "PRODUCT_DELIVERY_GATE",
   "required_gate": "Screenshot Parity Gate + PRODUCT_DELIVERY_PASS",
-  "completion_status": "PENDING",
-  "gate_result": "PRODUCT_DELIVERY_NOT_RUN",
+  "completion_status": "DELIVERY_VERIFIED_PENDING_INTEGRATION",
+  "gate_result": "PRODUCT_DELIVERY_PASS",
   "goal_archived": false,
   "last_completed_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "next_goal_id": "TC-VNEXT-G05-CITY-KNOWLEDGE",
@@ -35,7 +35,7 @@ Goal type: PRODUCT_ENHANCEMENT
 - Mainline phase：`PRODUCT_ENHANCEMENT`
 - Gate profile：`PRODUCT_DELIVERY_GATE`
 - Required gate：`Screenshot Parity Gate + PRODUCT_DELIVERY_PASS`
-- Status：`APPROVED`
+- Status：`IN_PROGRESS`
 - Product baseline：`origin/develop@0531c0642f437932fb4e305a0a99fbb66b19e4bc`
 - Activation branch：`codex/g04-activation`
 - Canonical implementation branch：`codex/g04-screenshot-integration`
@@ -84,9 +84,9 @@ Goal type: PRODUCT_ENHANCEMENT
 | Package | Branch / worktree | Owned outcome | Initial state |
 |---|---|---|---|
 | `WP-G04-INTEGRATOR` | `codex/g04-screenshot-integration` / `...-g04-integration` | governance、034、共享API/持久化/worker、OpenAPI/client、首页装配、CI、最终E2E | `IN_PROGRESS` |
-| `WP-G04-EPHEMERAL-UPLOAD` | `codex/g04-ephemeral-upload` / `...-g04-upload` | 有界multipart、临时文件、终态清理 | 提示词绑定后`IN_PROGRESS` |
-| `WP-G04-PADDLE-OCR` | `codex/g04-paddle-ocr` / `...-g04-ocr` | Paddle、阅读顺序、bbox/span、评测runner | 提示词绑定后`IN_PROGRESS` |
-| `WP-G04-VL-PARITY` | `codex/g04-vl-parity` / `...-g04-vl-parity` | VL消融合同和隔离截图输入组件 | `WAITING_FOR_WRITER_SLOT` |
+| `WP-G04-EPHEMERAL-UPLOAD` | `codex/g04-ephemeral-upload` / `...-g04-upload` | 有界multipart、临时文件、终态清理 | `MERGED`（`9403a989`） |
+| `WP-G04-PADDLE-OCR` | `codex/g04-paddle-ocr` / `...-g04-ocr` | Paddle、阅读顺序、bbox/span、评测runner | `MERGED`（`f1c75d95`） |
+| `WP-G04-VL-PARITY` | `codex/g04-vl-parity` / `...-g04-vl-parity` | VL消融合同和隔离截图输入组件 | `MERGED`（`206312c0`） |
 
 主对话是唯一集成者。三个长期贡献包必须使用用户可见独立任务、独立branch/worktree和完整prompt hash；子Agent只可只读标注、复核或诊断。集成者加最多两个贡献writer同时活动；任一前两包经集成者验收冻结后才启动VL/UI包。贡献包不得改治理、migration、共享OpenAPI/生成物或锁文件，不得自行合并。集成顺序固定为OCR→上传/清理→共享持久化/API→VL/UI→OpenAPI/client/homepage→E2E，每个问题最多两轮修复复审。
 
@@ -117,12 +117,17 @@ Goal type: PRODUCT_ENHANCEMENT
 - Ruff、backend full suite、OpenAPI导出、shared client generate/typecheck/build、frontend build；
 - Playwright登录、多图顺序/删除、partial、刷新、断线、卡片/地图/住宿/Top-3与DOM隐私；
 - 许可清晰真实来源与SYNTHETIC格式集分层；两个隔离Agent转写与一个新裁决仅记`MULTI_AGENT_SIMULATED_REVIEW`；
+- sequence 4的`g04_screenshot_targeted / g04_postgresql / frontend_build / g04_browser_e2e`是四个独立CI job；其中OCR固定为fixture，只证明自动回归，不生成或替代真实Paddle截图一致性证据；
+- `PRODUCT_DELIVERY_PASS`必须回读已纳入Git的脱敏正式receipt，并同时校验receipt文件hash、候选commit/tree、跨平台稳定product fingerprint、Paddle 3.7.0/PaddlePaddle 3.3.1、hardware hash、冻结oracle/runner/scorer hash及3图并发1的2次预热+20次测量；缺失、过期、空分母、循环oracle、`NOT_EVALUABLE`或非PASS均失败关闭；
+- 真实许可原图只可位于Git外临时证据目录；正式receipt仅保存许可清单与清理回执hash，不保存原图、OCR原文、bbox、置信度或本机路径；
 - H1、公网、生产、商业：`NOT_RUN`。
 
 ## Authority
 
 - 权威继承`AGENTS.md`、Charter、Trip Check Spec、v3 API Contract、Architecture、Program、Roadmap、Release Gates、Product Delivery Gate、Provider Admission、Risk Register及ADR-007、ADR-009、ADR-011、ADR-012、ADR-013、ADR-014。
 - 本轮Owner批准：激活G04、上述追加v3截图API、`034_trip_understanding_screenshot_batches.sql`、独立功能任务/worktree、离线/本地自动验证、checkpoint commit/push和受保护`develop` PR。
+- 2026-08-31 Owner批准方案A作为临时`HISTORICAL_BINDING_INVALID_FROZEN`兼容例外：完整运行非P5套件，只允许两条已登记Trip NLU节点在`call`阶段以固定`manifest evaluator/schema code binding mismatch`指纹失败；预期失败缺失、增加、重复、换阶段、换指纹，或collection/internal/interrupt/退出码异常均失败关闭。例外同时绑定base/candidate manifest、validator、scorer、gate、原测试、generator和运行时schema的当前hash，不授权修改任何冻结资产或阈值，并须在G07 exact-binding验收前移除。
+- Owner随后明确两个Git外许可截图源目录无需删除；它们保持为Owner控制的本地评测来源副本，不属于上传API运行时临时文件、数据库或Git证据。此决定不改变所有运行时终态原图清理及receipt 100%的产品Gate。
 - 未授权：新账号/费用、对象存储、付费OCR、扩大外部数据、真人招募/consent、sealed blind修改、H1、公网、生产、release/deploy和`main`合并。
 
 ## Non-goals
@@ -148,6 +153,18 @@ Goal type: PRODUCT_ENHANCEMENT
 | 时间 | 用户结果 | Commit | Verification | Evidence level | Product progress | Governance ratio | Remaining | Risk/failure | Next autonomous action |
 |---|---|---|---|---|---|---|---|---|---|
 | 2026-08-30 | Owner已批准截图入口；G04完整合同、034授权和唯一集成者从fresh develop激活 | activation commit待提交 | fresh fetch/ls-remote一致；根工作树和历史脏工作树保持不动；Paddle依赖/硬件readback | `LOCAL_READBACK / OWNER_AUTHORIZATION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / authorized activation only` | 提示词/任务绑定、三个贡献包、产品实现与Gate | 当前无eligible Qwen-VL binding；真实来源截图集待许可清晰化 | push/readback激活提交并经PR合入develop，再绑定三个用户可见任务 |
+| 2026-08-30 | 三个用户可见功能任务已创建并绑定独立branch/worktree；Upload与OCR可在远端绑定后启动，VL等待writer名额 | binding commit待提交 | PR #15/core-mainline PASS并合入`develop@2d74a2cf`；三份prompt hash和dialogue/worktree readback | `LOCAL_READBACK / REMOTE_AUTOMATED` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=100% / GOVERNANCE_SCOPE_GUARD binding exception` | 贡献包实现、冻结、串行集成和G04 Gate | Codex管理的独立worktree路径替代计划中的建议路径，隔离与branch合同不变 | 提交并push prompt binding，随后把两个活动任务切到binding commit并发送完整提示词 |
+| 2026-08-30 | OCR、上传清理与VL/UI三个用户可见贡献包均已冻结、远端回读并按OCR→Upload→VL/UI顺序集成；共享截图主链进入总集成 | `f1c75d95` / `9403a989` / `206312c0`；registry checkpoint `313c5347` | 三包远端tip与ready commit一致；stable patch-id一致；45项贡献测试与Ruff通过 | `REMOTE_AUTOMATED / MULTI_DIALOGUE_CONTRIBUTION` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=control-plane checkpoint` | 034、原子幂等、TTL、OpenAPI、浏览器和最终Gate | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；真实Paddle与真实来源Gate仍需单独实跑 | 集成者完成共享持久化/API/前端/CI并运行Screenshot Parity Gate |
+| 2026-08-30 | G04四项自动检查拆为独立CI job，fixture回归与真实Paddle一致性Gate建立机器可判别边界 | 工作树待集成者checkpoint | 治理定向测试覆盖receipt缺失、`NOT_EVALUABLE`、空分母、循环oracle、候选过期、Paddle/hardware与2+20绑定 | `LOCAL_AUTOMATED / GOVERNANCE_CONTRACT_ONLY` | `Product progress=RUNTIME+UI / IN_PROGRESS` | `Governance ratio=delivery evidence fail-closed` | 真实许可数据、真实Paddle执行、全量产品检查和耐久delivery receipt | 当前正式receipt状态仍为`NOT_RUN`，不得推断Screenshot Parity Gate通过 | 完成产品验收后生成脱敏正式receipt，再生成并验证G04 product-delivery receipt |
+| 2026-08-31 | 截图批次、034持久化、原子一次性消费、隐私清理、统一语义主链、首页与独立CI聚合已形成可验证候选；许可真实截图oracle已由双隔离转写加独立裁决冻结 | 本候选提交（提交后远端readback） | G04定向`137 passed, 1 skipped`；自然路线/正式Gate`38 passed`；Ruff PASS；Windows临时文件安全`47 passed`，Linux容器`36 passed, 2 skipped`；fresh/031 PostgreSQL真实升级与事务测试PASS；live fixture Playwright `5 passed`；OpenAPI、client typecheck/build、frontend production build PASS | `LOCAL_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / MULTI_AGENT_SIMULATED_REVIEW / LICENSED_REAL_SCREENSHOT_DATASET` | `Product progress=RUNTIME+UI / VERIFYING` | `Governance ratio=product candidate plus fail-closed evidence contract` | 真实Paddle 2+20、backend full suite终态与耐久delivery receipt | Qwen-VL保持`NOT_RUN_NO_EXACT_BINDING`；正式Paddle receipt尚未生成；全量后端仅剩冻结Trip NLU旧manifest与当前validator绑定相互矛盾的2项历史失败，未改冻结资产 | 冻结并push候选commit，回读远端tip后运行真实Paddle；继续寻找不改冻结资产的全量回归解法 |
+| 2026-08-31 | 许可真实截图已在冻结候选上通过Screenshot Parity Gate；失败首轮暴露同起点嵌套字段排序缺陷，改用紧框优先几何规则后复跑通过，原图终态删除 | candidate `525af072c47a3f318d88c722bf8067d6ff30907c`；正式receipt待本checkpoint提交 | PaddleOCR 3.7.0/PaddlePaddle 3.3.1 GPU；关键字段F1、reading adjacency-F1、低置信确认召回、清理覆盖率均`1.0`；地点precision/recall下降`0pp`；严重错误/泄漏`0`；3图2+20 P95 `551.451ms` | `REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / LICENSED_REAL / MULTI_AGENT_SIMULATED_REVIEW` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=formal evidence frozen, delivery not yet claimed` | backend full suite历史2项冲突、耐久`PRODUCT_DELIVERY_PASS`、远端CI与PR | cuDNN编译9.9/加载9.5.1但主ABI一致；Qwen-VL仍`NOT_RUN_NO_EXACT_BINDING`；H1/公网/生产/商业未运行 | 提交push/readback脱敏正式receipt，再完成delivery receipt和远端主线验证 |
+| 2026-08-31 | 草稿PR #16已绑定正式证据tip；首次远端预检发现PR合成merge commit被误作第一父遍历起点，现改为显式校验真实PR head SHA，未放松工作包顺序规则 | CI修复 `b0e573d`；本治理checkpoint待提交 | 同一base/head本地`validate_core_mainline` PASS；工作流合同与回归`11 passed`；Ruff/diff检查PASS；产品指纹仍为`5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3` | `LOCAL_AUTOMATED / REMOTE_CI_DIAGNOSTIC` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=CI provenance fix, delivery not yet claimed` | 重跑PR #16四项远端Job；backend full suite历史2项冻结冲突；耐久`PRODUCT_DELIVERY_PASS` | 首次远端CI为预检FAIL且四项G04 Job未运行，不能计为远端产品通过 | push/readback修复checkpoint并等待PR #16真实head上的完整CI |
+| 2026-08-31 | PR #16第二次预检确认工作流已传入真实head，但工作包子校验仍硬编码合成`HEAD`；现把同一head显式传播到第一父链证明，保留原顺序和冻结commit要求 | 子校验修复 `696581c`；本治理checkpoint待提交 | 工作包/交付治理回归`21 passed`；Ruff/diff检查PASS；显式非checkout head单测覆盖参数传播 | `LOCAL_AUTOMATED / REMOTE_CI_DIAGNOSTIC` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=validator provenance fix, delivery not yet claimed` | 第三次重跑PR #16；backend full suite历史2项冻结冲突；耐久`PRODUCT_DELIVERY_PASS` | 第二次远端CI仍为预检FAIL且四项G04 Job未运行，不能计为远端产品通过 | push/readback参数传播修复并等待完整远端CI |
+| 2026-08-31 | PR #16第三次预检已通过范围约束；随后合同测试确认直接校验调用仍看到GitHub合成merge checkout，现让预检及四个G04 Job统一检出冻结PR真实tip | checkout修复 `1d2c317`；本治理checkpoint待提交 | 工作包/交付治理回归`21 passed`；Ruff/diff检查PASS；五个checkout均由合同测试绑定PR head SHA | `LOCAL_AUTOMATED / REMOTE_CI_DIAGNOSTIC` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=exact-tip CI binding, delivery not yet claimed` | 第四次重跑PR #16；backend full suite历史2项冻结冲突；耐久`PRODUCT_DELIVERY_PASS` | 第三次远端CI在合同测试FAIL且四项G04 Job未运行，不能计为远端产品通过 | push/readback精确tip checkout并等待完整远端CI |
+| 2026-08-31 | PR #16第四次运行已让预检、截图定向与浏览器E2E通过，真实PostgreSQL生命周期也通过；Linux暴露OpenAPI跨Pydantic渲染漂移和历史套件缺少字体/Windows junction环境，现以无产品字节变化的规范化与兼容层修复 | OpenAPI规范化 `e903c44`；历史Linux兼容 `d865622`；本治理checkpoint待提交 | 远端`core-mainline-preflight`、`g04_screenshot_targeted`、`g04_browser_e2e` PASS；`g04_postgresql`生命周期PASS后全量回归`2480 passed, 20 skipped, 40 failed, 8 errors`；双平台OpenAPI check、client typecheck/build、治理回归`14 passed`及Ruff PASS；产品指纹仍为`5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3` | `REMOTE_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / CI_ENVIRONMENT_DIAGNOSTIC` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=environment noise isolated, delivery not yet claimed` | 重跑前端与Linux历史全量套件；确认环境噪声清除后处理冻结Trip NLU冲突；耐久`PRODUCT_DELIVERY_PASS` | 第四次远端aggregator FAIL；前端未进入bundle build；全量失败多数为字体/Pydantic/Windows命令环境，且两项冻结Trip NLU合同冲突仍真实存在 | push/readback跨平台修复并在真实GitHub clone上复跑四项Job |
+| 2026-08-31 | PR #16已在冻结真实head上通过截图定向、浏览器、前端、PostgreSQL生命周期及完整P5历史回归；全部普通环境兼容问题已排除，只剩`develop`继承的两条冻结Trip NLU绑定冲突 | exact subject `4f2d7a1391d0ab2c10037c2b6a1f608e9e21b467`；本治理checkpoint待提交 | CI `33330291863`：preflight、`g04_screenshot_targeted`、`frontend_build`、`g04_browser_e2e` PASS；P5 exact ABI为Pillow 12.2.0/FreeType 2.14.3/RAQM 0.10.3/FriBidi 1.0.10/HarfBuzz 13.2.1且`497 passed, 1 skipped`；PostgreSQL生命周期`3 passed`，非P5整仓`2031 passed, 19 skipped, 2 failed` | `REMOTE_AUTOMATED / POSTGRESQL_INTEGRATION / BROWSER_E2E_FIXTURE / EXACT_HISTORICAL_RENDERER_ABI / OWNER_DECISION_REQUIRED / TEMP_SOURCE_CLEANUP_CONFIRMATION_PENDING` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=all authorized compatibility work exhausted; delivery not claimed` | Owner选择精确历史兼容例外或另行授权冻结candidate manifest重绑，并在动作时确认删除两个Git外临时证据源目录；随后重跑required CI并生成耐久`PRODUCT_DELIVERY_PASS` | 两项失败在`origin/develop@2d74a2cf`已存在；相关冻结字节与G04 tip一致，治理状态为`HISTORICAL_BINDING_INVALID / FROZEN`且`mutation_authority: NONE`；另有26张公开许可截图源副本位于`%TEMP%/breezetravel-g04-quality-dpr2-01a052`和`%TEMP%/breezetravel-g04-planned-source-HvEVdK`，上传运行时副本与测试容器已清理，但Windows UI删除需动作时确认 | 请求Owner回复“批准方案A，并确认删除两个临时截图目录”；随后保持manifest、validator、测试字节和指标门槛不变实现精确历史兼容例外，使用文件管理器删除两目录并复核，再完成Gate |
+| 2026-08-31 | Owner批准方案A；非P5整仓现完整执行并仅对两个精确历史失败应用临时兼容判定，两个Git外许可截图源目录按Owner后续指示保留 | 本方案A checkpoint待提交 | 保护器与治理定向`49 passed`；原始两节点仍为固定指纹`2 failed`；最终完整非P5为`2033 passed, 37 skipped, 2 failed`且原始pytest exit `1`，机器结果`PASS_WITH_APPROVED_HISTORICAL_EXCEPTION`；collection/internal/interrupt/额外/缺失/重复/换阶段/换指纹均为0；`check_g01_s0` PASS且`frozen_diff=[]`；Ruff、work-package validation、diff check PASS；独立只读审查`APPROVE` | `OWNER_AUTHORIZATION / LOCAL_AUTOMATED / EXACT_HISTORICAL_COMPATIBILITY / FROZEN_BYTES_READBACK / INDEPENDENT_AGENT_REVIEW` | `Product progress=RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=temporary fail-closed compatibility; delivery not yet claimed` | 提交、push/readback方案A并重跑全部required CI；CI通过后生成耐久`PRODUCT_DELIVERY_PASS` | 该结果不是普通backend full pytest零失败；例外必须在G07 exact-binding验收前移除。两个本地来源目录保留但不属于运行时临时文件，运行时清理Gate与receipt要求不变 | 复核最终diff和冻结hash，提交push/readback后等待PR #16 required CI |
+| 2026-08-31 | 截图上传、清理、OCR、统一卡片主链与首页体验已同时通过真实Paddle一致性Gate和全部远端产品门禁；正式交付回执已生成 | 方案A远端subject `79e99555baa97c2d3d75b77c9d50ed158df36327`；delivery receipt为本checkpoint | GitHub Actions `33356743620`：preflight、截图定向、PostgreSQL+非P5、Windows精确P5、前端生产构建、浏览器E2E与`core-mainline`全部PASS；正式Paddle receipt SHA-256 `9231f448d534bd9c23c8d5b3149871eb4528bc244729c5fccac4a36007f4c855`；产品指纹`5dd2f43d2a429450088613079afe692967f47692412a3ca142feb9f7654872b3` | `REAL_PADDLE_LICENSED_SCREENSHOT_PARITY / REMOTE_AUTOMATED / REAL_POSTGRESQL / BROWSER_E2E_FIXTURE / EXACT_HISTORICAL_RENDERER_ABI / PRODUCT_DELIVERY_PASS` | `Product progress=API+RUNTIME+UI / SCREENSHOT_PARITY_PASS` | `Governance ratio=durable delivery receipt; pending protected integration` | push/readback本回执，在回执精确tip重跑required CI，经PR #16合入`develop`，再独立归档G04并激活G05 | 方案A不是普通全量pytest零失败，须在G07 exact-binding前移除；Qwen-VL、H1、公网、生产、商业、发布、`main`均未运行或未授权；两个Git外来源目录按Owner决定保留 | 本地运行`validate_core_mainline --require-delivery-pass`，提交push并等待PR #16精确tip门禁 |
 
 ## Auto-advance
 
@@ -156,10 +173,11 @@ Goal type: PRODUCT_ENHANCEMENT
 
 ## Completion record
 
-- Status：`PENDING`；Subject commits / Remote branch：激活后逐checkpoint填写；
-- Verification / Evidence / Gate result / structurally_valid：`NOT_RUN / NOT_RUN / PRODUCT_DELIVERY_NOT_RUN / true`；
+- Status：`IN_PROGRESS / DELIVERY_VERIFIED_PENDING_INTEGRATION`；Subject commits / Remote branch：产品候选`525af072c47a3f318d88c722bf8067d6ff30907c`，方案A`79e99555baa97c2d3d75b77c9d50ed158df36327`，delivery receipt为本checkpoint / `origin/codex/g04-screenshot-integration`；
+- Verification / Evidence / Gate result / structurally_valid：`REMOTE_REQUIRED_CI_PASS / REAL_PADDLE_LICENSED_SCREENSHOT_PARITY + REAL_POSTGRESQL + BROWSER_E2E_FIXTURE + EXACT_HISTORICAL_RENDERER_ABI / PRODUCT_DELIVERY_PASS / true`（`structurally_valid=true`）；
+- 当前结构有效或G04自动验证通过，不得因此宣称 `V1_CANDIDATE_READY`；该发布门仍不在本Goal授权和证据范围内。
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；
-- User-visible result / Remaining risks / Goal archived / Next activated：`PENDING / PENDING / false / false`；
+- User-visible result / Remaining risks / Goal archived / Next activated：`截图入口与文本入口的一致卡片体验已通过Screenshot Parity Gate并生成PRODUCT_DELIVERY_PASS，两个Git外许可截图源目录按Owner决定保留 / PR #16尚未在回执精确tip通过远端门禁并合入develop；临时精确历史兼容例外须在G07 exact-binding验收前移除 / false / false`；
 - Promotion decision：`NOT_REQUESTED`。
 
 ## Stop conditions

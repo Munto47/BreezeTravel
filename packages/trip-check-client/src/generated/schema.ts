@@ -1879,6 +1879,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/screenshot-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Screenshot Batch */
+        post: operations["create_screenshot_batch_api_v3_screenshot_batches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings": {
         parameters: {
             query?: never;
@@ -3053,7 +3070,8 @@ export interface components {
              * @enum {string}
              */
             mode: "FULL";
-            source: components["schemas"]["TextSourceRequest"];
+            /** Source */
+            source: components["schemas"]["TextSourceRequest"] | components["schemas"]["ScreenshotBatchSourceRequest"];
         };
         /** CreateImportRequest */
         CreateImportRequest: {
@@ -5559,6 +5577,33 @@ export interface components {
             /** Trip Days */
             trip_days?: number | null;
         };
+        /** ScreenshotBatchAcceptedView */
+        ScreenshotBatchAcceptedView: {
+            /** Batch Ref */
+            batch_ref: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Message */
+            message: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "COMPLETE" | "PARTIAL";
+        };
+        /** ScreenshotBatchSourceRequest */
+        ScreenshotBatchSourceRequest: {
+            /** Batch Ref */
+            batch_ref: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "SCREENSHOT_BATCH";
+        };
         /** ScreenshotImportResult */
         ScreenshotImportResult: {
             /** Cleanup Receipts */
@@ -6178,8 +6223,8 @@ export interface components {
             /** Text */
             text: string;
             /**
-             * Type
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             type: "TEXT";
         };
@@ -9074,6 +9119,7 @@ export interface operations {
                 unfinished_only?: boolean;
             };
             header?: {
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9108,6 +9154,7 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9147,6 +9194,7 @@ export interface operations {
                 unfinished?: boolean;
             };
             header?: {
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9181,6 +9229,7 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9214,6 +9263,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9250,6 +9300,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9285,6 +9336,7 @@ export interface operations {
             query?: never;
             header?: {
                 "If-Match"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9325,6 +9377,7 @@ export interface operations {
             query?: never;
             header?: {
                 "If-Match"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9672,6 +9725,7 @@ export interface operations {
             query?: never;
             header?: {
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9711,6 +9765,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9747,6 +9802,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -9783,6 +9839,7 @@ export interface operations {
             header?: {
                 "If-Match"?: string | null;
                 "Idempotency-Key"?: string | null;
+                "X-Breeze-Diagnostic-Key"?: string | null;
                 authorization?: string;
             };
             path: {
@@ -10774,6 +10831,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TravelDataDeletionStatusView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_screenshot_batch_api_v3_screenshot_batches_post: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization?: string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    screenshots: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScreenshotBatchAcceptedView"];
                 };
             };
             /** @description Validation Error */

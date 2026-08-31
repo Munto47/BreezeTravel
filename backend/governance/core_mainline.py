@@ -187,7 +187,7 @@ def _tracked_product_paths(root: Path) -> tuple[str, ...]:
 
 
 def product_fingerprint(root: Path) -> str:
-    """Bind delivery evidence to product/runtime bytes, not docs or gate scripts."""
+    """Bind evidence to Git-clean product bytes, independent of checkout EOLs."""
 
     digest = hashlib.sha256()
     for relative in _tracked_product_paths(root):
@@ -195,7 +195,8 @@ def product_fingerprint(root: Path) -> str:
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
         if path.is_file():
-            digest.update(path.read_bytes())
+            blob_id = _git(root, "hash-object", "--path", relative, "--", relative)
+            digest.update(blob_id.encode("ascii"))
         else:
             digest.update(b"<deleted>")
         digest.update(b"\0")
@@ -465,6 +466,20 @@ def validate_core_mainline(
         )
     )
     errors: list[str] = []
+    if (
+        sequence == 4
+        and registry.get("active_goal_id") == G04_GOAL_ID
+        and registry.get("schema_version") == "work-package-registry-v3"
+        and registry.get("packages")
+    ):
+        from governance.work_packages_v3 import validate_registry_v3
+
+        work_packages = validate_registry_v3(root, head_ref=head_ref)
+        if work_packages["verdict"] != "PASS":
+            errors.extend(
+                f"WORK_PACKAGE_V3_{code}"
+                for code in work_packages["error_codes"]
+            )
 
     if (
         base_has_contract
@@ -495,9 +510,10 @@ def validate_core_mainline(
         if _matches_any(path, deferred_patterns) and path not in repair_path_exemptions
     )
 
-    if sequence <= 3 and not bootstrap:
+    if sequence <= 6 and not bootstrap:
         if frozen_changes:
             errors.append("FROZEN_G07_ASSET_CHANGED")
+    if sequence <= 3 and not bootstrap:
         if deferred_changes:
             errors.append("DEFERRED_DETAIL_WORK_CHANGED")
 
@@ -584,5 +600,25 @@ def validate_delivery_receipt(root: Path, goal_sequence: int) -> dict[str, Any]:
         raise CoreMainlineError("current Goal product delivery checks are incomplete")
     if receipt.get("verdict") != "PASS":
         raise CoreMainlineError("current Goal delivery result is not PASS")
+    if goal_sequence == 4:
+        from governance.g04_screenshot_parity import (
+            G04ParityReceiptError,
+            validate_g04_delivery_evidence,
+        )
+
+        current_fingerprint = (
+            product_fingerprint(root)
+            if not isinstance(active_sequence, int) or active_sequence <= goal_sequence
+            else None
+        )
+        try:
+            validate_g04_delivery_evidence(
+                root,
+                receipt,
+                expected_product_fingerprint=recorded_fingerprint,
+                current_product_fingerprint=current_fingerprint,
+            )
+        except G04ParityReceiptError as exc:
+            raise CoreMainlineError(f"G04 formal parity evidence is invalid: {exc}") from exc
     # G07 evidence is deliberately absent from G01-G06 receipts and is never consulted here.
     return receipt

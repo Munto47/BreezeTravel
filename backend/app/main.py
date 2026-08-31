@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 import time
 import uuid
@@ -9,7 +11,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import chat, optimize, room, recommend, weather, evidence, tasks, memories
-from app.api import audits, imports, repairs, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_understandings_v3, trip_workspaces, members
+from app.api import audits, imports, repairs, screenshot_batches_v3, suggestions, templates, trip_briefs, trip_check_advice, trip_check_runs, trip_intakes, trip_understandings_v3, trip_workspaces, members
 from app.api import auth as auth_api
 from app.api import e2e as e2e_api
 from app.api import user_profile
@@ -32,9 +34,11 @@ from app.importing.upload_batches import (
     ScreenshotUploadBatchService,
 )
 from app.trip_understanding.access_log import install_trip_understanding_access_log_filter
+from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 
 
 install_trip_understanding_access_log_filter()
+logger = logging.getLogger(__name__)
 
 # ── LangSmith 可观测性（Sprint 5）─────────────────────────────────────────
 # 在任何 LangChain/LangGraph 对象创建之前设置环境变量，
@@ -65,6 +69,19 @@ async def lifespan(app: FastAPI):
     # ── startup ──────────────────────────────────────────────────────────
     _m.set_val("startup_time", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     cfg = get_settings()
+    screenshot_recovery_grace_seconds = max(
+        cfg.screenshot_staging_deadline_seconds
+        + cfg.screenshot_ocr_batch_deadline_seconds
+        + 30.0,
+        cfg.screenshot_maintenance_interval_seconds,
+    )
+    try:
+        initial_screenshot_recovery = await asyncio.to_thread(
+            screenshot_batches_v3.recover_orphaned_local_screenshot_files,
+            minimum_age_seconds=screenshot_recovery_grace_seconds,
+        )
+    except Exception:
+        raise RuntimeError("local screenshot recovery failed safely") from None
     # Validate the byte-exact frozen Suggestion artifact before opening any
     # service dependency.  Each Suggestion request validates it again, so a
     # post-startup file replacement also fails closed.
@@ -83,9 +100,62 @@ async def lifespan(app: FastAPI):
         repository=PostgresScreenshotUploadBatchRepository(pool),
         asset_repository=screenshot_assets,
     ).recover_expired()
+    trip_understanding_repository = PostgresTripUnderstandingRepository(pool)
+
+    async def reconcile_local_screenshot_recovery(report) -> None:
+        reconcilable = screenshot_batches_v3.reconcilable_local_screenshot_recovery(
+            report,
+            minimum_age_seconds=screenshot_recovery_grace_seconds,
+        )
+        if not reconcilable.batches and not reconcilable.issues:
+            return
+        await trip_understanding_repository.reconcile_local_screenshot_recovery(
+            reconcilable,
+            now=datetime.now(timezone.utc),
+        )
+        acknowledged = await asyncio.to_thread(
+            screenshot_batches_v3.acknowledge_local_screenshot_recovery,
+            reconcilable,
+        )
+        if not acknowledged:
+            raise RuntimeError(
+                "local screenshot recovery ledger changed before acknowledgement"
+            )
+
+    # This is deliberately fail-closed at startup. The write-ahead ledger has
+    # already retained locator-only evidence if PostgreSQL is unavailable.
+    await reconcile_local_screenshot_recovery(initial_screenshot_recovery)
+    screenshot_recovery_stop = asyncio.Event()
+
+    async def recover_local_screenshots_periodically() -> None:
+        while not screenshot_recovery_stop.is_set():
+            try:
+                await asyncio.wait_for(
+                    screenshot_recovery_stop.wait(),
+                    timeout=cfg.screenshot_maintenance_interval_seconds,
+                )
+            except TimeoutError:
+                try:
+                    report = await asyncio.to_thread(
+                        screenshot_batches_v3.recover_orphaned_local_screenshot_files,
+                        minimum_age_seconds=screenshot_recovery_grace_seconds,
+                    )
+                    await reconcile_local_screenshot_recovery(report)
+                except Exception:
+                    # No locators, paths, source text, or image bytes enter logs.
+                    logger.error("local screenshot recovery reconciliation failed safely")
+
     if cfg.checkpoint_bootstrap_on_start:
         await agent_graph.init_persistent_graph()
-    yield
+    screenshot_recovery_task = asyncio.create_task(
+        recover_local_screenshots_periodically(),
+        name="g04-local-screenshot-recovery",
+    )
+    try:
+        yield
+    finally:
+        screenshot_recovery_stop.set()
+        await screenshot_recovery_task
     # ── shutdown ─────────────────────────────────────────────────────────
     from app.services.background_tasks import shutdown as shutdown_background_tasks
     await shutdown_background_tasks()
@@ -139,6 +209,11 @@ app.include_router(repairs.router, prefix="/api", tags=["repairs"])
 app.include_router(members.router, prefix="/api", tags=["members"])
 app.include_router(templates.router, prefix="/api", tags=["route-templates"])
 app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
+app.include_router(
+    screenshot_batches_v3.router,
+    prefix="/api",
+    tags=["screenshot-batches-v3"],
+)
 app.include_router(
     trip_understandings_v3.router,
     prefix="/api",

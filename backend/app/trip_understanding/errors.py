@@ -38,6 +38,26 @@ class SourceUnavailableError(TripUnderstandingError):
     pass
 
 
+class ScreenshotBatchNotFoundError(TripUnderstandingError):
+    pass
+
+
+class ScreenshotBatchExpiredError(TripUnderstandingError):
+    pass
+
+
+class ScreenshotBatchAlreadyUsedError(TripUnderstandingError):
+    pass
+
+
+class ScreenshotBatchNotReadyError(TripUnderstandingError):
+    pass
+
+
+class ScreenshotBatchUnusableError(TripUnderstandingError):
+    pass
+
+
 class RevisionConflictError(TripUnderstandingError):
     pass
 

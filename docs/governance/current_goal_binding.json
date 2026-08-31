@@ -12,8 +12,8 @@
   "predecessor_completion_commit": "0531c0642f437932fb4e305a0a99fbb66b19e4bc",
   "predecessor_goal_id": "TC-VNEXT-G03-TOP3-AUDIT",
   "program_id": "TC-VNEXT-2026",
-  "program_state": "G04_SCREENSHOT_APPROVED",
+  "program_state": "G04_SCREENSHOT_IN_PROGRESS",
   "schema_version": "current-goal-binding-v3",
-  "status": "APPROVED",
+  "status": "IN_PROGRESS",
   "work_package_registry_path": "docs/governance/current_work_packages.json"
 }

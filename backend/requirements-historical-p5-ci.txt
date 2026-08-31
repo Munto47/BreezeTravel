@@ -1,0 +1,31 @@
+# CI-only compatibility profile for the immutable Trip Check P5 regression.
+#
+# The historical receipts were produced with CPython 3.13, Pydantic 2.10.4,
+# Pillow 12.2.0, and the Microsoft YaHei font verified by the workflow.  The
+# production dependency profile remains authoritative for runtime services.
+# Paddle is intentionally absent: these tests exercise frozen OCR receipts and
+# never invoke a live OCR provider.  asyncpg 0.31.0 is the first repository-
+# compatible pin here with a CPython 3.13 Windows wheel; no database is opened.
+
+pytest==8.3.5
+pytest-asyncio==0.25.3
+pytest-randomly==3.16.0
+pytest-timeout==2.3.1
+
+pydantic==2.10.4
+pydantic-settings==2.5.2
+jsonschema>=4.23,<5
+Pillow==12.2.0
+
+asyncpg==0.31.0
+pgvector==0.3.5
+aiohttp==3.10.10
+
+langchain-core==1.4.0
+langgraph==1.2.2
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+
+numpy==2.3.5
+scikit-learn==1.8.0
+ortools==9.15.6755

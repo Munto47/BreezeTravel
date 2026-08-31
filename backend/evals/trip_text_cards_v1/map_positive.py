@@ -198,6 +198,18 @@ class MatrixMapRepository:
         self._jobs[job.map_job_id] = job
         return job
 
+    async def claim_next_stay(
+        self,
+        *,
+        worker_id: str,
+        now: datetime,
+        lease_seconds: int,
+    ):
+        """The frozen map matrix has no stay-suggestion work by construction."""
+
+        del worker_id, now, lease_seconds
+        return None
+
     async def load_map_plan(self, job: MapRenderJobRecord) -> MapRenderPlan:
         return self._plans[job.understanding_id]
 

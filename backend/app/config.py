@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import ConfigDict
+from pydantic import ConfigDict, model_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -147,7 +147,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "031_day_index_trip_bridge.sql"
+    required_migration: str = "034_trip_understanding_screenshot_batches.sql"
 
     # Trip Understanding v3 anonymous-demo boundary.  The signing key falls
     # back to the existing JWT secret so local fixture stacks need no new
@@ -162,6 +162,22 @@ class Settings(BaseSettings):
     trip_understanding_sse_poll_seconds: float = 0.25
     trip_understanding_sse_max_seconds: float = 15.0
     trip_understanding_provider_mode: Literal["fixture", "live"] = "fixture"
+    screenshot_batch_temp_root: str = ""
+    screenshot_batch_ttl_minutes: int = 15
+    screenshot_staging_deadline_seconds: float = 60.0
+    screenshot_ocr_mode: Literal["paddle", "fixture"] = "paddle"
+    screenshot_ocr_detection_model: str = "PP-OCRv5_mobile_det"
+    screenshot_ocr_recognition_model: str = "PP-OCRv5_mobile_rec"
+    screenshot_ocr_detection_model_dir: str = ""
+    screenshot_ocr_recognition_model_dir: str = ""
+    screenshot_ocr_device: str = ""
+    screenshot_ocr_per_image_deadline_seconds: float = 15.0
+    screenshot_ocr_batch_deadline_seconds: float = 45.0
+    screenshot_ocr_low_confidence_threshold: float = 0.85
+    screenshot_maintenance_interval_seconds: float = 30.0
+    screenshot_maintenance_batch_size: int = 100
+    legacy_import_diagnostics_enabled: bool = False
+    legacy_import_diagnostics_key: str = ""
     qwen_api_key: str = ""
     qwen_api_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_model_catalog_url: str = "https://dashscope.aliyuncs.com/api/v1/models"
@@ -215,6 +231,25 @@ class Settings(BaseSettings):
 
     # ── CORS ──────────────────────────────────────────────────────────
     cors_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+
+    @model_validator(mode="after")
+    def validate_public_secret_separation(self) -> "Settings":
+        if self.runtime_profile != "public":
+            return self
+        secrets = {
+            "jwt": self.jwt_secret_key.strip(),
+            "cookie": self.trip_understanding_cookie_signing_key.strip(),
+            "source": self.trip_understanding_source_encryption_key.strip(),
+        }
+        if any(len(value) < 32 for value in secrets.values()):
+            raise ValueError(
+                "public runtime requires explicit 32-character JWT, cookie, and source secrets"
+            )
+        if secrets["jwt"] == "change-me-in-production-please":
+            raise ValueError("public runtime cannot use the default JWT secret")
+        if len(set(secrets.values())) != len(secrets):
+            raise ValueError("public runtime secrets must be independent")
+        return self
 
     # ── 派生属性（运行时计算，不从环境变量读取） ───────────────────────
     @property

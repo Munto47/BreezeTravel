@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from evals.agent_gate_v1 import core_gate
-from evals.agent_gate_v1.contracts import ActiveSlice
+from evals.agent_gate_v1.contracts import ActiveSlice, CurrentGoalBinding
 from evals.agent_gate_v1.core_gate import CoreCandidateContext, _read_remote_candidate
 from evals.agent_gate_v1.scope_guard import (
     POLICY_HASH_PATHS,
@@ -498,25 +499,27 @@ def test_freeze_marker_commit_is_the_formal_core_candidate(
 
     # The Agent Gate is a frozen G07 asset. Exercise its legacy v2 contract,
     # never the active product-delivery v3 binding.
-    binding_payload = json.loads(
-        (
-            REPOSITORY_ROOT / "docs/governance/current_goal_binding.json"
-        ).read_text(encoding="utf-8")
-    )
-    binding_payload.update(
-        {
-            "schema_version": "current-goal-binding-v2",
-            "gate_profile": "CORE_AGENT_GATE",
-        }
-    )
+    contract_path = "backend/eval_data/agent_gate_v1/g01_automated_product_gate.json"
+    binding_payload = CurrentGoalBinding(
+        schema_version="current-goal-binding-v2",
+        goal_sequence=1,
+        goal_id="TC-VNEXT-G01-TEXT-CARDS",
+        status="IN_PROGRESS",
+        predecessor_goal_id="TC-BP-G00-BLUEPRINT",
+        predecessor_completion_commit="f3b5f3e0c36ff3977f826bd82a83b3150a2e97ac",
+        automated_gate_contract_path=contract_path,
+        automated_gate_contract_sha256=hashlib.sha256(
+            (REPOSITORY_ROOT / contract_path).read_bytes()
+        ).hexdigest(),
+        gate_profile="CORE_AGENT_GATE",
+        mainline_phase="CORE_MVP",
+        work_package_registry_path="docs/governance/current_work_packages.json",
+    ).model_dump(mode="json")
     binding_bytes = json.dumps(binding_payload).encode("utf-8")
     automated_contract_sha256 = binding_payload[
         "automated_gate_contract_sha256"
     ]
-    goal_bytes = (
-        b"Goal ID: TC-VNEXT-G01-TEXT-CARDS\n"
-        b"Product progress=NONE\nProduct progress=NONE\n"
-    )
+    goal_bytes = b"Goal ID: TC-VNEXT-G01-TEXT-CARDS\nProduct progress=NONE\nProduct progress=NONE\n"
     original_blob = core_gate._git_blob
 
     def fake_blob(repo: Path, commit: str, path: str) -> bytes:

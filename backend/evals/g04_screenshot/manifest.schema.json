@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/g04-screenshot-parity-manifest-v1.json",
+  "title": "G04 Screenshot Parity Manifest V1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cases", "performance"],
+  "properties": {
+    "schema_version": {"const": "g04-screenshot-parity-manifest-v1"},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/case"}
+    },
+    "performance": {"$ref": "#/$defs/performance"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "uniqueStrings": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "license_name", "license_reference"],
+          "properties": {
+            "evidence_tier": {"const": "LICENSED_REAL_SCREENSHOT"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "license_name": {"type": "string", "minLength": 1},
+            "license_reference": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "license_name", "license_reference"],
+          "properties": {
+            "evidence_tier": {"const": "LICENSED_DERIVED_TEXT_SCREENSHOT"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "license_name": {"type": "string", "minLength": 1},
+            "license_reference": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_tier", "source_sha256", "synthetic_spec_sha256"],
+          "properties": {
+            "evidence_tier": {"const": "SYNTHETIC_FORMAT_ONLY"},
+            "source_sha256": {"$ref": "#/$defs/sha256"},
+            "synthetic_spec_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
+    "seriousError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "item_id"],
+      "properties": {
+        "category": {
+          "enum": ["WRONG_CITY", "WRONG_CATEGORY", "DESCRIPTION_AS_PLACE", "URL_AS_PLACE"]
+        },
+        "item_id": {"type": "string", "minLength": 1, "maxLength": 200}
+      }
+    },
+    "placeOracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oracle_id", "expected_text", "activity_role", "metric_eligibility"],
+      "properties": {
+        "oracle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,99}$"},
+        "expected_text": {"type": "string", "minLength": 1, "maxLength": 200},
+        "activity_role": {
+          "enum": ["PLANNED", "OPTIONAL", "REFERENCE", "EXCLUDED", "PASS_THROUGH"]
+        },
+        "metric_eligibility": {"enum": ["ELIGIBLE", "NOT_APPLICABLE"]}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"metric_eligibility": {"const": "ELIGIBLE"}},
+            "required": ["metric_eligibility"]
+          },
+          "then": {
+            "properties": {"activity_role": {"const": "PLANNED"}},
+            "required": ["activity_role"]
+          }
+        }
+      ]
+    },
+    "evaluatedPlaceMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "oracle_items", "reference_executable_places",
+        "text_executable_places", "screenshot_executable_places"
+      ],
+      "properties": {
+        "status": {"const": "EVALUATED"},
+        "oracle_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/placeOracle"}
+        },
+        "reference_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "text_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "screenshot_executable_places": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        }
+      }
+    },
+    "notApplicablePlaceMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status", "reason", "oracle_items", "reference_executable_places",
+        "text_executable_places", "screenshot_executable_places"
+      ],
+      "properties": {
+        "status": {"const": "NOT_APPLICABLE"},
+        "reason": {
+          "enum": [
+            "OCR_ONLY_SCOPE", "REFERENCE_CONTROL_ROLE", "LOW_CONFIDENCE_CONTROL",
+            "SYNTHETIC_FORMAT_ONLY", "DERIVED_NOT_EVALUABLE"
+          ]
+        },
+        "oracle_items": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/placeOracle"}
+        },
+        "reference_executable_places": {"const": "NOT_APPLICABLE"},
+        "text_executable_places": {"const": "NOT_APPLICABLE"},
+        "screenshot_executable_places": {"const": "NOT_APPLICABLE"}
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id", "source", "metric_scope", "expected_key_fields",
+        "observed_key_fields", "expected_reading_order", "observed_reading_order",
+        "expected_low_confidence_fields", "observed_confirmation_fields",
+        "place_metric", "serious_errors"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,99}$"},
+        "source": {"$ref": "#/$defs/source"},
+        "metric_scope": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "REAL_OCR_READING",
+              "REAL_PLANNED_PARITY",
+              "REAL_LOW_CONFIDENCE_CONTROL",
+              "REFERENCE_CONTROL",
+              "SYNTHETIC_FORMAT_CONTROL"
+            ]
+          }
+        },
+        "expected_key_fields": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "observed_key_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "expected_reading_order": {
+          "allOf": [{"$ref": "#/$defs/uniqueStrings"}, {"minItems": 1}]
+        },
+        "observed_reading_order": {"$ref": "#/$defs/uniqueStrings"},
+        "expected_low_confidence_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "observed_confirmation_fields": {"$ref": "#/$defs/uniqueStrings"},
+        "place_metric": {
+          "oneOf": [
+            {"$ref": "#/$defs/evaluatedPlaceMetric"},
+            {"$ref": "#/$defs/notApplicablePlaceMetric"}
+          ]
+        },
+        "serious_errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/seriousError"}
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "warmup_runs", "measured_runs", "image_count", "image_width",
+        "image_height", "max_concurrency", "durations_ms"
+      ],
+      "properties": {
+        "warmup_runs": {"const": 2},
+        "measured_runs": {"const": 20},
+        "image_count": {"const": 3},
+        "image_width": {"const": 1080},
+        "image_height": {"const": 1920},
+        "max_concurrency": {"const": 1},
+        "durations_ms": {
+          "type": "array",
+          "minItems": 20,
+          "maxItems": 20,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    }
+  }
+}

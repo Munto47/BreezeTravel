@@ -271,9 +271,20 @@ class TextSourceRequest(StrictModel):
         return self
 
 
+class ScreenshotBatchSourceRequest(StrictModel):
+    type: Literal["SCREENSHOT_BATCH"]
+    batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+
+
+FullSourceRequest = Annotated[
+    TextSourceRequest | ScreenshotBatchSourceRequest,
+    Field(discriminator="type"),
+]
+
+
 class CreateFullRequest(StrictModel):
     mode: Literal["FULL"]
-    source: TextSourceRequest
+    source: FullSourceRequest
 
 
 CreateTripUnderstandingRequest = Annotated[
@@ -288,6 +299,90 @@ class TripUnderstandingAcceptedView(StrictModel):
     message: str = "正在整理每天行程"
     result_url: str
     events_url: str
+
+
+class ScreenshotBatchAcceptedView(StrictModel):
+    batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    expires_at: datetime
+    outcome: Literal["COMPLETE", "PARTIAL"]
+    message: str
+
+
+class ScreenshotBatchCreateOutcome(StrictModel):
+    accepted: ScreenshotBatchAcceptedView
+    replayed: bool = False
+
+
+class ScreenshotBatchAssetInput(StrictModel):
+    upload_position: int = Field(ge=0, le=5)
+    content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    media_type: Literal["image/png", "image/jpeg", "image/webp"]
+    byte_size: int = Field(gt=0, le=10 * 1024 * 1024)
+    storage_locator: str = Field(min_length=32, max_length=256)
+    ocr_status: Literal["PENDING", "SUCCEEDED", "FAILED", "TIMED_OUT", "NO_TEXT"]
+
+
+class ScreenshotCleanupReceiptInput(StrictModel):
+    upload_position: int | None = Field(default=None, ge=0, le=5)
+    attempt_number: int = Field(ge=1, le=3)
+    terminal_reason: str = Field(min_length=1, max_length=80)
+    cleanup_status: Literal["DELETED", "ALREADY_ABSENT", "DELETE_FAILED"]
+    attempted_at: datetime
+    error_category: str | None = Field(default=None, max_length=120)
+
+
+class ScreenshotBatchPersistenceInput(StrictModel):
+    batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    owner_user_id: str = Field(min_length=1, max_length=200)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_document_json: str = Field(min_length=1)
+    source_document_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    semantic_text_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    outcome: Literal["COMPLETE", "PARTIAL"]
+    expires_at: datetime
+    assets: tuple[ScreenshotBatchAssetInput, ...] = Field(min_length=1, max_length=6)
+    cleanup_receipts: tuple[ScreenshotCleanupReceiptInput, ...] = Field(min_length=1)
+
+
+class ScreenshotBatchClaimInput(StrictModel):
+    batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    owner_user_id: str = Field(min_length=1, max_length=200)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expires_at: datetime
+    assets: tuple[ScreenshotBatchAssetInput, ...] = Field(min_length=1, max_length=6)
+
+
+class ScreenshotCleanupPersistenceInput(StrictModel):
+    owner_user_id: str = Field(min_length=1, max_length=200)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    assets: tuple[ScreenshotBatchAssetInput, ...] = Field(default=(), max_length=6)
+    cleanup_receipts: tuple[ScreenshotCleanupReceiptInput, ...] = Field(min_length=1)
+    privacy_blocked: bool = False
+
+
+class ScreenshotBatchFailurePersistenceInput(StrictModel):
+    batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
+    owner_user_id: str = Field(min_length=1, max_length=200)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+    request_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    status: Literal["FAILED", "CANCELLED", "TIMED_OUT", "PRIVACY_BLOCKED"]
+    expires_at: datetime
+    last_error_category: str = Field(min_length=1, max_length=120)
+    assets: tuple[ScreenshotBatchAssetInput, ...] = Field(default=(), max_length=6)
+    cleanup_receipts: tuple[ScreenshotCleanupReceiptInput, ...] = Field(default=())
+
+
+class ConfirmationSourceSpan(StrictModel):
+    start: int = Field(ge=0)
+    end: int = Field(gt=0)
+
+    @model_validator(mode="after")
+    def span_is_non_empty(self) -> "ConfirmationSourceSpan":
+        if self.end <= self.start:
+            raise ValueError("confirmation source span must be non-empty")
+        return self
 
 
 class TripUnderstandingProgressView(StrictModel):
@@ -443,8 +538,10 @@ class TripUnderstandingJobRecord(StrictModel):
 
 
 class TripUnderstandingSourcePayload(StrictModel):
-    source_type: Literal["FIXED_DEMO", "TEXT"]
+    source_type: Literal["FIXED_DEMO", "TEXT", "SCREENSHOT_OCR"]
     text: str
+    requires_confirmation_spans: tuple[ConfirmationSourceSpan, ...] = ()
+    partial_source: bool = False
 
 
 class PipelineOutput(StrictModel):

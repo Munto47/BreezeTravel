@@ -41,16 +41,16 @@ _DAY_HEADING_RE = re.compile(
     re.IGNORECASE,
 )
 _URL_TOKEN_RE = re.compile(r"https?://[^\s，。；！？]+", re.IGNORECASE)
-_CLAUSE_BOUNDARIES = "，,。！？；;\n"
+_CLAUSE_BOUNDARIES = "，,。！？；;：:\n"
 _PLANNED_ACTION_PATTERN = (
     r"(?:确定行程是|确定游览|依次到|随后前往|步行到|先到|先去|先逛|"
-    r"再去|再到|再逛|上午看|下午看|上午安排|下午安排|游览|参观|"
-    r"打卡|安排|前往|逛|去)"
+    r"再去|再到|再逛|上午看|下午看|上午安排|下午安排|来到|可游览?|"
+    r"游览(?!线(?:路)?)|参观|打卡|安排|前往|逛|去)"
 )
 _PLANNED_ACTION_RE = re.compile(
     rf"{_PLANNED_ACTION_PATTERN}\s*"
-    rf"(?P<names>[^，,。！？；;\n]*?)"
-    rf"(?={_PLANNED_ACTION_PATTERN}|[，,。！？；;\n]|$)"
+    rf"(?P<names>[^，,。！？；;：:\n]*?)"
+    rf"(?={_PLANNED_ACTION_PATTERN}|[，,。！？；;：:\n]|$)"
 )
 _LEADING_PLANNED_ACTION_RE = re.compile(rf"^{_PLANNED_ACTION_PATTERN}")
 _PLAN_TRAILING_MARKERS = (
@@ -76,6 +76,13 @@ _OPTIONAL_CUES = (
     "可以不去",
     "可以完全不去",
     "可以考虑",
+    "可以选择",
+    "可选择",
+    "也可以",
+    "可以继续",
+    "后续可游",
+    "若选择",
+    "如果选择",
     "顺路再去",
 )
 _PASS_THROUGH_CUES = ("路过", "经过", "途经", "换乘", "中转")
@@ -128,6 +135,10 @@ _NON_PLACE_ATOMIC_MARKERS = (
     "放在前面",
     "逐日计划",
     "当天计划",
+    "旅途",
+    "游览线",
+    "游览线路",
+    "线路",
     "午饭时间",
     "返回住处",
     "分钟",
@@ -188,6 +199,13 @@ _EXPLICIT_ROLE_PATTERNS: tuple[tuple[ActivityRole, re.Pattern[str]], ...] = (
         ),
     ),
     (
+        ActivityRole.PASS_THROUGH,
+        re.compile(
+            rf"(?:经由|经)\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*"
+            rf"(?:往返|通过|前往)"
+        ),
+    ),
+    (
         ActivityRole.REFERENCE,
         re.compile(
             rf"(?P<name>{_ATOMIC_ROLE_NAME_PATTERN})\s*只是从.*?"
@@ -218,6 +236,35 @@ class _PlaceFact:
     city: str
     longitude: float
     latitude: float
+
+
+@dataclass(frozen=True)
+class _SourceView:
+    """Semantic view that retains a reversible code-point mapping.
+
+    Screenshot OCR emits visual rows, so a place name may be split at a row
+    boundary (for example ``门\n票站``).  Parsing the reversible view lets the
+    semantic proposal use the intact atomic name while the evidence quote and
+    half-open span still point at the exact original source text.
+    """
+
+    text: str
+    source_positions: tuple[int, ...]
+
+    def source_span(self, start: int, end: int) -> tuple[int, int]:
+        if start < 0 or end <= start or end > len(self.source_positions):
+            raise ValueError("semantic span is outside the source view")
+        return self.source_positions[start], self.source_positions[end - 1] + 1
+
+
+@dataclass(frozen=True)
+class _MentionCandidate:
+    start: int
+    end: int
+    name: str
+    cities: frozenset[str]
+    role_hint: ActivityRole | None = None
+    day_hint: int | None = None
 
 
 def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
@@ -264,6 +311,51 @@ def _load_catalog() -> tuple[dict[str, list[_PlaceFact]], str]:
 
 
 _PLACES_BY_NAME, CONTROLLED_PLACE_SNAPSHOT_SHA256 = _load_catalog()
+
+
+def _semantic_source_view(source_text: str) -> _SourceView:
+    text: list[str] = []
+    source_positions: list[int] = []
+    index = 0
+    raw_line_start = 0
+    while index < len(source_text):
+        character = source_text[index]
+        if character not in "\r\n":
+            text.append(character)
+            source_positions.append(index)
+            index += 1
+            continue
+
+        newline_start = index
+        visual_line_length = len(
+            source_text[raw_line_start:newline_start].strip(" \t")
+        )
+        if character == "\r" and index + 1 < len(source_text) and source_text[index + 1] == "\n":
+            index += 2
+        else:
+            index += 1
+        raw_line_start = index
+        next_content = index
+        while next_content < len(source_text) and source_text[next_content] in " \t":
+            next_content += 1
+        previous = next((item for item in reversed(text) if not item.isspace()), "")
+        following = source_text[next_content : next_content + 12]
+        starts_bullet = bool(re.match(r"(?:[•*]|-\s)", following))
+        starts_day = _DAY_HEADING_RE.match(source_text, next_content) is not None
+        is_semantic_boundary = (
+            not previous
+            or previous in "。！？；;：:"
+            or starts_bullet
+            or starts_day
+            or visual_line_length < 12
+        )
+        if is_semantic_boundary:
+            text.append("\n")
+            source_positions.append(newline_start)
+        else:
+            index = next_content
+
+    return _SourceView(text="".join(text), source_positions=tuple(source_positions))
 
 
 def _day_headings(source_text: str) -> list[tuple[int, int]]:
@@ -329,10 +421,16 @@ def _role_for_context(
 ) -> ActivityRole | None:
     clause = _clause_for_position(source_text, start, end)
     context = source_text[max(0, start - 24) : start]
+    local_before = source_text[max(0, start - 4) : start]
+    local_after = source_text[end : min(len(source_text), end + 6)]
     if _is_meta_activity_clause(clause):
         return ActivityRole.REFERENCE
     if any(cue in clause for cue in _EXCLUDED_CUES):
         return ActivityRole.EXCLUDED
+    if re.search(r"(?:经由|经)\s*$", local_before) and re.match(
+        r"\s*(?:往返|通过|前往)", local_after
+    ):
+        return ActivityRole.PASS_THROUGH
     if any(cue in clause for cue in _OPTIONAL_CUES):
         return ActivityRole.OPTIONAL
     if any(cue in clause for cue in ("不去", "不要去")):
@@ -399,13 +497,13 @@ def _explicit_role_candidates(
     *,
     url_spans: list[tuple[int, int]],
     occupied: list[tuple[int, int]],
-) -> list[tuple[int, int, str, set[str]]]:
-    candidates: list[tuple[int, int, str, set[str]]] = []
+) -> list[_MentionCandidate]:
+    candidates: list[_MentionCandidate] = []
     for clause_match in re.finditer(r"[^。；;\n]+", source_text):
         clause = clause_match.group(0)
         if _is_meta_activity_clause(clause):
             continue
-        for _role, pattern in _EXPLICIT_ROLE_PATTERNS:
+        for role, pattern in _EXPLICIT_ROLE_PATTERNS:
             for match in pattern.finditer(clause):
                 start = clause_match.start() + match.start("name")
                 end = clause_match.start() + match.end("name")
@@ -422,8 +520,15 @@ def _explicit_role_candidates(
                 ):
                     continue
                 occupied.append(span)
-                cities = _candidate_cities(name)
-                candidates.append((start, end, name, cities))
+                candidates.append(
+                    _MentionCandidate(
+                        start=start,
+                        end=end,
+                        name=name,
+                        cities=frozenset(_candidate_cities(name)),
+                        role_hint=role,
+                    )
+                )
     return candidates
 
 
@@ -434,19 +539,59 @@ def _trim_plan_capture(
 ) -> tuple[int, int] | None:
     selected = source_text[start:end]
     leading = len(selected) - len(selected.lstrip(" \t：:'‘\"“"))
-    trailing = len(selected.rstrip(" \t：:'’\"”"))
     start += leading
-    end = start + max(0, trailing - leading)
+    value = selected[leading:].rstrip(" \t：:'’\"”")
+    end = start + len(value)
     if start >= end:
         return None
-    value = source_text[start:end]
     cut = min(
-        (position for marker in _PLAN_TRAILING_MARKERS if (position := value.find(marker)) >= 0),
+        (
+            position
+            for marker in (*_PLAN_TRAILING_MARKERS, "（", "(")
+            if (position := value.find(marker)) >= 0
+        ),
         default=len(value),
     )
     value = value[:cut].rstrip(" \t：:'’\"”")
     end = start + len(value)
     return (start, end) if start < end else None
+
+
+def _atomic_capture_pieces(
+    source_text: str,
+    start: int,
+    end: int,
+) -> list[tuple[int, int]]:
+    memo: dict[tuple[int, int], list[tuple[int, int]] | None] = {}
+
+    def split(piece_start: int, piece_end: int) -> list[tuple[int, int]] | None:
+        key = (piece_start, piece_end)
+        if key in memo:
+            return memo[key]
+        value = source_text[piece_start:piece_end]
+        if value in _PLACES_BY_NAME:
+            result = [(piece_start, piece_end)]
+            memo[key] = result
+            return result
+        best: list[tuple[int, int]] | None = None
+        for connector in re.finditer(r"、|→|⇒|->|及|与|和|或", value):
+            left_end = piece_start + connector.start()
+            right_start = piece_start + connector.end()
+            if left_end <= piece_start or right_start >= piece_end:
+                continue
+            left = split(piece_start, left_end)
+            right = split(right_start, piece_end)
+            if left is None or right is None:
+                continue
+            combined = [*left, *right]
+            if best is None or len(combined) > len(best):
+                best = combined
+        if best is None and _is_atomic_place_text(value):
+            best = [(piece_start, piece_end)]
+        memo[key] = best
+        return best
+
+    return split(start, end) or []
 
 
 def _append_plan_capture(
@@ -456,45 +601,15 @@ def _append_plan_capture(
     *,
     url_spans: list[tuple[int, int]],
     occupied: list[tuple[int, int]],
-    candidates: list[tuple[int, int, str, set[str]]],
+    candidates: list[_MentionCandidate],
+    role_hint: ActivityRole | None = None,
+    day_hint: int | None = None,
 ) -> None:
     trimmed = _trim_plan_capture(source_text, start, end)
     if trimmed is None:
         return
     start, end = trimmed
-    value = source_text[start:end]
-    if value in _PLACES_BY_NAME:
-        pieces = [(start, end)]
-    elif "、" in value:
-        pieces = []
-        cursor = 0
-        for connector in re.finditer("、", value):
-            pieces.append((start + cursor, start + connector.start()))
-            cursor = connector.end()
-        pieces.append((start + cursor, end))
-        if not all(
-            piece_start < piece_end
-            and _is_atomic_place_text(source_text[piece_start:piece_end])
-            for piece_start, piece_end in pieces
-        ):
-            pieces = [(start, end)]
-    else:
-        pieces = [(start, end)]
-        for connector_value in ("与", "和"):
-            for connector in re.finditer(connector_value, value):
-                split_pieces = [
-                    (start, start + connector.start()),
-                    (start + connector.end(), end),
-                ]
-                if all(
-                    piece_start < piece_end
-                    and _is_atomic_place_text(source_text[piece_start:piece_end])
-                    for piece_start, piece_end in split_pieces
-                ):
-                    pieces = split_pieces
-                    break
-            if len(pieces) > 1:
-                break
+    pieces = _atomic_capture_pieces(source_text, start, end)
     for piece_start, piece_end in pieces:
         name = source_text[piece_start:piece_end]
         span = (piece_start, piece_end)
@@ -508,8 +623,227 @@ def _append_plan_capture(
         ):
             continue
         occupied.append(span)
-        cities = _candidate_cities(name)
-        candidates.append((piece_start, piece_end, name, cities))
+        candidates.append(
+            _MentionCandidate(
+                start=piece_start,
+                end=piece_end,
+                name=name,
+                cities=frozenset(_candidate_cities(name)),
+                role_hint=role_hint,
+                day_hint=day_hint,
+            )
+        )
+
+
+def _route_title_candidates(
+    source_text: str,
+    *,
+    url_spans: list[tuple[int, int]],
+    occupied: list[tuple[int, int]],
+) -> tuple[list[_MentionCandidate], list[tuple[int, int]]]:
+    candidates: list[_MentionCandidate] = []
+    route_sections: list[tuple[int, int]] = []
+    route_day = 0
+    day_headings = _day_headings(source_text)
+    pattern = re.compile(r"(?m)^[ \t]*[•*]\s*(?P<route>[^\n]+)")
+    for match in pattern.finditer(source_text):
+        route_start = match.start("route")
+        route_end = match.end("route")
+        route_text = source_text[route_start:route_end].strip()
+        prefix = re.match(
+            r"(?:第\s*[一二三四五六七八九十0-9]+\s*天\s*)?"
+            r"(?:路线|行程)\s*[：:]\s*",
+            route_text,
+        )
+        if prefix:
+            route_start += prefix.end()
+            route_text = source_text[route_start:route_end].strip()
+            route_end = route_start + len(route_text)
+        if (
+            any(marker in route_text for marker in "，,。！？；;：:")
+            or any(
+                marker in route_text
+                for marker in (
+                    "早晨",
+                    "上午",
+                    "下午",
+                    "海拔",
+                    "时间",
+                    "营地",
+                    "距离",
+                    "累计",
+                    "小时",
+                    "公里",
+                    "旅途",
+                )
+            )
+        ):
+            continue
+        token_matches = list(
+            re.finditer(r"[A-Za-z\u4e00-\u9fff·]{2,20}", route_text)
+        )
+        if len(token_matches) < 2:
+            continue
+        between_values = [
+            route_text[left.end() : right.start()]
+            for left, right in zip(token_matches, token_matches[1:])
+        ]
+        if not all(re.fullmatch(r"(?:\s+|\s*(?:→|⇒|->)\s*)", item) for item in between_values):
+            continue
+        if len(token_matches) == 2 and not any(
+            re.search(r"→|⇒|->", item) for item in between_values
+        ):
+            continue
+        if not all(_is_atomic_place_text(item.group(0)) for item in token_matches):
+            continue
+        explicit_day = _day_for_position(match.end(), day_headings)
+        route_day = explicit_day or route_day + 1
+        route_sections.append((match.start(), route_day))
+        for token in token_matches:
+            _append_plan_capture(
+                source_text,
+                route_start + token.start(),
+                route_start + token.end(),
+                url_spans=url_spans,
+                occupied=occupied,
+                candidates=candidates,
+                role_hint=ActivityRole.PLANNED,
+                day_hint=route_day,
+            )
+    return candidates, route_sections
+
+
+def _route_day_for_position(
+    position: int,
+    route_sections: list[tuple[int, int]],
+) -> int | None:
+    route_day = None
+    for start, candidate in route_sections:
+        if start > position:
+            break
+        route_day = candidate
+    return route_day
+
+
+def _natural_route_candidates(
+    source_text: str,
+    *,
+    url_spans: list[tuple[int, int]],
+    occupied: list[tuple[int, int]],
+    route_sections: list[tuple[int, int]],
+) -> list[_MentionCandidate]:
+    candidates: list[_MentionCandidate] = []
+    route_pair = re.compile(
+        rf"(?:由|从)\s*(?P<origin>{_ATOMIC_ROLE_NAME_PATTERN}?)\s*"
+        rf"(?P<travel_mode>乘(?:坐)?[A-Za-z\u4e00-\u9fff]{{0,8}}?|步行|驾车|走)\s*"
+        rf"(?:前往|到达|到)\s*(?P<destination>{_ATOMIC_ROLE_NAME_PATTERN})"
+    )
+    for match in route_pair.finditer(source_text):
+        day_hint = _route_day_for_position(match.start(), route_sections)
+        for group in ("origin", "destination"):
+            is_transfer_origin = group == "origin" and (
+                match.group("travel_mode").startswith("乘")
+                or match.group("travel_mode") == "驾车"
+            )
+            _append_plan_capture(
+                source_text,
+                match.start(group),
+                match.end(group),
+                url_spans=url_spans,
+                occupied=occupied,
+                candidates=candidates,
+                role_hint=(
+                    ActivityRole.PASS_THROUGH
+                    if is_transfer_origin
+                    else ActivityRole.PLANNED
+                    if day_hint is not None
+                    else None
+                ),
+                day_hint=None if is_transfer_origin else day_hint,
+            )
+
+    visit_destination = re.compile(
+        rf"(?:到|前往)\s*(?P<name>{_ATOMIC_ROLE_NAME_PATTERN}?)\s*"
+        rf"(?:游览|参观|打卡)"
+    )
+    for match in visit_destination.finditer(source_text):
+        _append_plan_capture(
+            source_text,
+            match.start("name"),
+            match.end("name"),
+            url_spans=url_spans,
+            occupied=occupied,
+            candidates=candidates,
+        )
+    return candidates
+
+
+def _elevation_route_candidates(
+    source_text: str,
+    *,
+    url_spans: list[tuple[int, int]],
+    occupied: list[tuple[int, int]],
+    route_sections: list[tuple[int, int]],
+) -> list[_MentionCandidate]:
+    """Recover an explicit ordered hiking route from its elevation row.
+
+    OCR engines commonly remove the visible spaces in a Chinese route title,
+    while the following elevation row retains deterministic ``name(value)``
+    separators.  The row is treated as a plan only when the immediately
+    preceding context says that this is the current day's journey.  Standalone
+    elevation descriptions remain references.
+    """
+
+    candidates: list[_MentionCandidate] = []
+    headings = _day_headings(source_text)
+    pattern = re.compile(
+        r"(?:海拔(?:高度)?|海拔)\s*[：:]\s*(?P<body>[^\n。]+)"
+    )
+    for match in pattern.finditer(source_text):
+        current_line_start = source_text.rfind("\n", 0, match.start()) + 1
+        previous_line_end = max(0, current_line_start - 1)
+        previous_line_start = source_text.rfind(
+            "\n",
+            0,
+            previous_line_end,
+        ) + 1
+        context = source_text[previous_line_start : match.start()]
+        if not (
+            re.search(r"(?:这一天|第\s*[一二三四五六七八九十0-9]+\s*天)", context)
+            and any(cue in context for cue in ("旅程", "旅途", "走到", "穿越"))
+        ):
+            continue
+        explicit_day = _day_for_position(match.start(), headings)
+        current_route_day = _route_day_for_position(match.start(), route_sections)
+        prior_days = [
+            day for start, day in route_sections if start <= match.start()
+        ]
+        day_hint = (
+            explicit_day
+            or current_route_day
+            or (max(prior_days, default=0) + 1)
+        )
+        # The elevation row itself establishes the fallback route section.
+        # Keeping the marker at this row prevents an earlier narrative sentence
+        # from outranking the explicit ordered list when OCR collapsed the title.
+        route_sections.append((match.start(), day_hint))
+        body_start = match.start("body")
+        for item in re.finditer(
+            r"(?P<name>[A-Za-z\u4e00-\u9fff·]{2,20})\s*\([^()\n]{1,40}\)",
+            match.group("body"),
+        ):
+            _append_plan_capture(
+                source_text,
+                body_start + item.start("name"),
+                body_start + item.end("name"),
+                url_spans=url_spans,
+                occupied=occupied,
+                candidates=candidates,
+                role_hint=ActivityRole.PLANNED,
+                day_hint=day_hint,
+            )
+    route_sections.sort()
+    return candidates
 
 
 def _planned_atomic_candidates(
@@ -517,8 +851,12 @@ def _planned_atomic_candidates(
     *,
     url_spans: list[tuple[int, int]],
     occupied: list[tuple[int, int]],
-) -> list[tuple[int, int, str, set[str]]]:
-    candidates: list[tuple[int, int, str, set[str]]] = []
+) -> list[_MentionCandidate]:
+    candidates, route_sections = _route_title_candidates(
+        source_text,
+        url_spans=url_spans,
+        occupied=occupied,
+    )
     for match in _PLANNED_ACTION_RE.finditer(source_text):
         if _is_meta_activity_clause(
             _sentence_for_position(source_text, match.start(), match.end())
@@ -532,6 +870,23 @@ def _planned_atomic_candidates(
             occupied=occupied,
             candidates=candidates,
         )
+
+    candidates.extend(
+        _elevation_route_candidates(
+            source_text,
+            url_spans=url_spans,
+            occupied=occupied,
+            route_sections=route_sections,
+        )
+    )
+    candidates.extend(
+        _natural_route_candidates(
+            source_text,
+            url_spans=url_spans,
+            occupied=occupied,
+            route_sections=route_sections,
+        )
+    )
 
     heading_matches = list(_DAY_HEADING_RE.finditer(source_text))
     for index, heading in enumerate(heading_matches):
@@ -599,10 +954,10 @@ def _planned_atomic_candidates(
 
 def _destination(
     source_text: str,
-    candidates: list[tuple[int, int, str, set[str]]],
+    candidates: list[_MentionCandidate],
     headings: list[tuple[int, int]],
 ) -> tuple[str, DestinationBasis]:
-    candidate_spans = [(start, end) for start, end, *_ in candidates]
+    candidate_spans = [(item.start, item.end) for item in candidates]
     explicit: list[str] = []
     for city in _DEEP_CITIES:
         for match in re.finditer(re.escape(city), source_text):
@@ -613,15 +968,21 @@ def _destination(
         return explicit[0], DestinationBasis.EXPLICIT
     planned_cities = {
         city
-        for start, _end, _name, cities in candidates
-        if _role_for_context(
-            source_text,
-            start,
-            _end,
-            has_day=_day_for_position(start, headings) is not None,
+        for candidate in candidates
+        if (
+            candidate.role_hint
+            or _role_for_context(
+                source_text,
+                candidate.start,
+                candidate.end,
+                has_day=(
+                    candidate.day_hint is not None
+                    or _day_for_position(candidate.start, headings) is not None
+                ),
+            )
         )
         == ActivityRole.PLANNED
-        for city in cities
+        for city in candidate.cities
     }
     if len(planned_cities) == 1:
         return next(iter(planned_cities)), DestinationBasis.SOFT_ASSUMPTION
@@ -638,70 +999,112 @@ class DeterministicTextInferenceProvider:
 
     async def propose(self, source_text: str) -> InferenceProposal:
         source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
-        headings = _day_headings(source_text)
-        url_spans = [(match.start(), match.end()) for match in _URL_TOKEN_RE.finditer(source_text)]
+        source_view = _semantic_source_view(source_text)
+        semantic_text = source_view.text
+        headings = _day_headings(semantic_text)
+        url_spans = [
+            (match.start(), match.end())
+            for match in _URL_TOKEN_RE.finditer(semantic_text)
+        ]
         occupied: list[tuple[int, int]] = []
         candidates = _planned_atomic_candidates(
-            source_text,
+            semantic_text,
             url_spans=url_spans,
             occupied=occupied,
         )
         candidates.extend(
             _explicit_role_candidates(
-                source_text,
+                semantic_text,
                 url_spans=url_spans,
                 occupied=occupied,
             )
         )
         for name in sorted(_PLACES_BY_NAME, key=len, reverse=True):
             cities = {item.city for item in _PLACES_BY_NAME[name]}
-            for match in re.finditer(re.escape(name), source_text):
+            for match in re.finditer(re.escape(name), semantic_text):
                 span = (match.start(), match.end())
                 if _inside_url(match.start(), url_spans):
                     continue
                 if any(not (span[1] <= start or span[0] >= end) for start, end in occupied):
                     continue
                 occupied.append(span)
-                candidates.append((span[0], span[1], name, cities))
-        candidates.sort(key=lambda item: (item[0], item[1]))
+                candidates.append(
+                    _MentionCandidate(
+                        start=span[0],
+                        end=span[1],
+                        name=name,
+                        cities=frozenset(cities),
+                    )
+                )
+        candidates.sort(key=lambda item: (item.start, item.end))
 
-        destination, destination_basis = _destination(source_text, candidates, headings)
+        destination, destination_basis = _destination(
+            semantic_text,
+            candidates,
+            headings,
+        )
         day_sequences: dict[int, int] = {}
+        emitted: set[tuple[str, ActivityRole, int | None]] = set()
         mentions: list[ProposedMention] = []
-        for start, end, name, _cities in candidates:
-            explicit_day = _day_for_position(start, headings)
-            role = _role_for_context(
-                source_text,
-                start,
-                end,
+        for candidate in candidates:
+            explicit_day = candidate.day_hint or _day_for_position(
+                candidate.start,
+                headings,
+            )
+            role = candidate.role_hint or _role_for_context(
+                semantic_text,
+                candidate.start,
+                candidate.end,
                 has_day=explicit_day is not None,
             )
             if role is None:
                 continue
             meta_description = _is_meta_activity_clause(
-                _clause_for_position(source_text, start, end)
+                _clause_for_position(
+                    semantic_text,
+                    candidate.start,
+                    candidate.end,
+                )
             )
             day_index = explicit_day if role == ActivityRole.PLANNED else None
             if role == ActivityRole.PLANNED and day_index is None:
                 day_index = 1
+            signature = (candidate.name, role, day_index)
+            if signature in emitted:
+                continue
+            emitted.add(signature)
             sequence_index = day_sequences.get(day_index or 0, 0)
             day_sequences[day_index or 0] = sequence_index + 1
-            facts = _PLACES_BY_NAME.get(name, []) if not meta_description else []
+            facts = (
+                _PLACES_BY_NAME.get(candidate.name, [])
+                if not meta_description
+                else []
+            )
             category = (
                 facts[0].category
                 if facts and len({item.category for item in facts}) == 1
-                else _atomic_category_hint(name) if not meta_description else None
+                else (
+                    _atomic_category_hint(candidate.name)
+                    if not meta_description
+                    else None
+                )
+            )
+            source_start, source_end = source_view.source_span(
+                candidate.start,
+                candidate.end,
             )
             mentions.append(
                 ProposedMention(
                     mention_id=f"mention-{len(mentions) + 1}",
-                    raw_text=source_text[start:end],
-                    span_start=start,
-                    span_end=end,
+                    raw_text=source_text[source_start:source_end],
+                    span_start=source_start,
+                    span_end=source_end,
                     role=role,
                     day_index=day_index,
                     sequence_index=sequence_index,
-                    atomic_place_name=None if meta_description else name,
+                    atomic_place_name=(
+                        None if meta_description else candidate.name
+                    ),
                     category_hint=category,
                 )
             )
