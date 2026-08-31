@@ -3,24 +3,25 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "G6 manifest只聚合同一candidate commit/tree/config/data/model/rule/provider的独立可验证component receipts",
-      "manifest builder不得从verification matrix可编辑状态或历史checkpoint推导PASS",
-      "缺失、跨subject、hash漂移、未知schema、重复Gate或NOT_RUN披露不准确必须fail-closed",
+      "首轮三角色与fresh ultra裁决采纳的两个P1和一个当前范围P2必须全部修复",
+      "描述或历史句不得因Day标题升级为PLANNED地点，只有原子PLANNED地点可进入Provider检索",
+      "多城市部分失败继续保持公开NEEDS_CONFIRMATION，但内部必须保留成功Provider事实与回执",
+      "trip-understanding与share实际路径标识均不得进入访问日志",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/eval_data/g07_candidate",
-      "backend/eval_data/agent_gate_v1",
-      "backend/evals/agent_gate_v1/candidate_gate.py",
-      "backend/scripts/build_release_manifest.py",
-      "backend/tests/test_g07_candidate_gate.py",
-      "backend/tests/test_g07_release_manifest.py",
+      "backend/app/trip_understanding/access_log.py",
+      "backend/app/trip_understanding/full_text.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/app/trip_understanding/qwen_provider.py",
+      "backend/tests/test_g03r_trip_semantics.py",
+      "backend/tests/test_trip_understanding_v3.py",
       "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "87bb9767bbddd08f4ca038d2612bd9a73c4af27d",
+    "base_commit": "2c7513e7b455b734350c8ed73ee4642c7c246514",
     "evidence_invalidated": [
-      "G07_G0_TO_G5_CHECKPOINTS_REQUIRE_FINAL_SUBJECT_RERUN"
+      "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -30,21 +31,22 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "扩展既有G07 manifest builder，使其验证仓库外四组件的同一subject/tree/config/data/contract，并让最终candidate Gate同时验证HardeningDecision绑定的候选威胁模型hash；任何缺失或NOT_RUN保持不通过，不修改产品运行时。",
+    "minimum_change": "按首轮独立裁决逐项做最小修复：阻止描述和历史句成为计划地点；保留多城市部分成功的内部Provider事实但不改变公开保守状态；覆盖share路径日志脱敏。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "backend/scripts/build_release_manifest.py",
-      "backend/tests/test_g07_release_manifest.py",
-      "backend/eval_data/g07_candidate/run_spec_v1.json",
-      "backend/eval_data/g07_candidate/verification_matrix_v1.json",
-      "backend/eval_data/agent_gate_v1/g07_candidate_gate_pass_receipt.schema.json"
+      "backend/app/trip_understanding/qwen_provider.py",
+      "backend/app/trip_understanding/full_text.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/app/trip_understanding/access_log.py",
+      "backend/tests/test_g03r_trip_semantics.py",
+      "backend/tests/test_trip_understanding_v3.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "EVAL_METRIC",
-    "repair_review_cycle": 0,
-    "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若现有component receipt schema不足以验证同subject或hash，则新增最小候选专用验证合同；不得修改历史回执、将缺失证据标为PASS或通过读取blind内容补证。",
-    "user_outcome": "候选版每一项通过证据都能被同一清单按精确版本和哈希回读，缺失或不同版本的证据不会被误拼成可发布候选。",
+    "product_progress": "RUNTIME",
+    "repair_review_cycle": 1,
+    "slice_id": "G07-REVIEW-REPAIR-ROUND-1",
+    "stop_condition": "若修复需要改变公开API、放宽PLANNED原子地点门、在公开投影暴露Provider内部事实或降低审查严重度，则停止该策略并重新裁决。",
+    "user_outcome": "描述性攻略不会被误做成地点卡，多城市Provider局部失败不会丢失已取得的内部事实，共享链接标识不会进入访问日志。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,

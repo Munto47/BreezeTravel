@@ -45,7 +45,7 @@ _CLAUSE_BOUNDARIES = "，,。！？；;：:\n"
 _PLANNED_ACTION_PATTERN = (
     r"(?:确定行程是|确定游览|依次到|随后前往|步行到|先到|先去|先逛|"
     r"再去|再到|再逛|上午看|下午看|上午安排|下午安排|来到|可游览?|"
-    r"游览(?!线(?:路)?)|参观|打卡|安排|前往|逛|去)"
+    r"游览(?!线(?:路)?)|参观|打卡|安排|前往|逛|去(?!年|过))"
 )
 _PLANNED_ACTION_RE = re.compile(
     rf"{_PLANNED_ACTION_PATTERN}\s*"
@@ -412,6 +412,28 @@ def _is_meta_activity_clause(clause: str) -> bool:
     ) or ("朋友转来" in clause and "笔记" in clause)
 
 
+def _is_descriptive_reference_clause(clause: str) -> bool:
+    if _PLANNED_ACTION_RE.search(clause):
+        return False
+    return any(
+        cue in clause
+        for cue in (
+            "去年",
+            "前年",
+            "曾经",
+            "历史上",
+            "过去",
+            "此前",
+            "当年",
+            "世界文化遗产",
+            "游客很多",
+        )
+    ) or re.search(
+        r"(?:是|为|位于|坐落于|建于|始建于|被誉为|属于|拥有)[^。！？；;]*$",
+        clause,
+    ) is not None
+
+
 def _role_for_context(
     source_text: str,
     start: int,
@@ -438,6 +460,8 @@ def _role_for_context(
     if any(cue in clause for cue in _PASS_THROUGH_CUES):
         return ActivityRole.PASS_THROUGH
     if any(cue in clause for cue in _REFERENCE_CUES):
+        return ActivityRole.REFERENCE
+    if _is_descriptive_reference_clause(clause):
         return ActivityRole.REFERENCE
     if has_day or any(cue in context[-12:] for cue in _PLANNED_CUES):
         return ActivityRole.PLANNED
@@ -937,10 +961,14 @@ def _planned_atomic_candidates(
                 candidates=candidates,
             )
 
-        if not any(
-            not (segment_end <= old_start or segment_start >= old_end)
-            for old_start, old_end in occupied
-        ) and all(marker not in segment for marker in "，,；;"):
+        if (
+            not _is_descriptive_reference_clause(segment)
+            and not any(
+                not (segment_end <= old_start or segment_start >= old_end)
+                for old_start, old_end in occupied
+            )
+            and all(marker not in segment for marker in "，,；;")
+        ):
             _append_plan_capture(
                 source_text,
                 absolute_start,

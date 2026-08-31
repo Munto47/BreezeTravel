@@ -429,6 +429,15 @@ class TripUnderstandingPipeline:
             )
             for city, (outcome, _unavailable) in zip(cities, results, strict=True)
         ]
+        successful_place_candidates = [
+            {
+                "city": city,
+                "place": outcome.place.model_dump(mode="json"),
+                "receipt": outcome.receipt,
+            }
+            for city, (outcome, _unavailable) in zip(cities, results, strict=True)
+            if outcome.place is not None
+        ]
         if not unavailable and not ambiguous and len(matches) == 1:
             selected_city, selected = matches[0]
             return (
@@ -458,6 +467,7 @@ class TripUnderstandingPipeline:
                     "multi_city_resolution": True,
                     "queried_cities": list(cities),
                     "city_receipt_sha256": receipt_hashes,
+                    "successful_place_candidates": successful_place_candidates,
                     "external_calls": external_calls,
                 }
             ),

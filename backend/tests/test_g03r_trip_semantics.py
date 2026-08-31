@@ -59,6 +59,55 @@ def test_qwen_day_titles_and_source_order_override_model_array_order() -> None:
     assert [item.sequence_index for item in normalized] == [0, 0, 0, 0, 0]
 
 
+def test_qwen_day_title_does_not_upgrade_a_descriptive_reference_to_planned() -> None:
+    source = "北京。Day 1 故宫是世界文化遗产。"
+    start, end = _span(source, "故宫")
+    draft = QwenSemanticDraft.model_validate(
+        {
+            "destination": {
+                "basis": "EXPLICIT",
+                "evidence_span_start": 0,
+                "evidence_span_end": 2,
+            },
+            "mentions": [
+                {
+                    "span_start": start,
+                    "span_end": end,
+                    "role": "REFERENCE",
+                    "atomic_place_name": "故宫",
+                }
+            ],
+        }
+    )
+
+    normalized, _destination, counts = (
+        QwenStructuredInferenceProvider._proposal_from_draft(source, draft)
+    )
+
+    assert [(item.atomic_place_name, item.role.value, item.day_index) for item in normalized] == [
+        ("故宫", "REFERENCE", None)
+    ]
+    assert counts["local_role_reclassification_count"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source",
+    (
+        "北京。Day 1 故宫是世界文化遗产。",
+        "北京。Day 1 去年故宫游客很多。",
+    ),
+)
+async def test_local_fallback_keeps_day_descriptions_out_of_planned_cards(
+    source: str,
+) -> None:
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [item for item in proposal.mentions if item.role.value == "PLANNED"] == []
+    assert all(item.atomic_place_name != "故宫是世界文化遗产" for item in proposal.mentions)
+    assert all(item.atomic_place_name != "年故宫游客很多" for item in proposal.mentions)
+
+
 @pytest.mark.asyncio
 async def test_local_fallback_uses_nearest_supported_day_title() -> None:
     source = (

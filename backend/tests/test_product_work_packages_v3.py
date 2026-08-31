@@ -121,7 +121,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] == "IMPLEMENTING"
-    assert registry["active_slice"]["product_progress"] == "EVAL_METRIC"
+    assert registry["active_slice"]["product_progress"] == "RUNTIME"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR"
@@ -144,7 +144,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
+def test_g07_review_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -158,23 +158,34 @@ def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
     assert "frontend/src" not in allowed
     assert "backend/app/trip_understanding/repository.py" not in allowed
     assert "frontend/src/app/trip/result/itinerary-workspace.tsx" not in allowed
-    assert "backend/scripts/build_release_manifest.py" in allowed
-    assert "backend/tests/test_g07_release_manifest.py" in allowed
+    assert {
+        path for path in allowed if path.startswith("backend/app/trip_understanding/")
+    } == {
+        "backend/app/trip_understanding/access_log.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/qwen_provider.py",
+    }
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
     assert {
         path
         for path in allowed
         if path.startswith("backend/evals/agent_gate_v1/")
-    } == {"backend/evals/agent_gate_v1/candidate_gate.py"}
+    } == set()
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
     assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert result["package_count"] == 1
     assert "docs/governance/CURRENT_GOAL.md" in result["changed_paths"]
-    assert not {
+    assert {
         path for path in result["changed_paths"] if path.startswith("backend/app/")
+    } <= {
+        "backend/app/trip_understanding/access_log.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/qwen_provider.py",
     }
     assert not {
         path for path in result["changed_paths"] if path.startswith("frontend/src/")
@@ -189,7 +200,7 @@ def test_g07_gate_slice_is_narrow_and_binds_manifest_aggregation() -> None:
     }
 
 
-def test_only_candidate_gate_is_mutable_inside_the_g07_contract_slice() -> None:
+def test_agent_gate_implementation_is_read_only_inside_the_g07_review_repair_slice() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -197,7 +208,7 @@ def test_only_candidate_gate_is_mutable_inside_the_g07_contract_slice() -> None:
     )
     active_slice = registry["active_slice"]
 
-    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
+    assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
         "backend/evals/agent_gate_v1/candidate_gate.py",
         registry=registry,
         active_slice=active_slice,

@@ -414,6 +414,98 @@ async def test_multi_city_text_searches_each_explicit_deep_city_and_only_adopts_
     assert output.resolution_receipt["place_external_call_count"] == 6
 
 
+@pytest.mark.asyncio
+async def test_multi_city_partial_outage_preserves_successful_place_facts_internally() -> None:
+    source = "北京、杭州两地行程。Day 1 去北京西站。"
+
+    class Provider:
+        async def propose(self, source_text: str):
+            start = source_text.index("北京西站")
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name="北京、杭州",
+                destination_basis="SOFT_ASSUMPTION",
+                mentions=[
+                    ProposedMention(
+                        mention_id="partial-multi-city",
+                        raw_text="北京西站",
+                        span_start=start,
+                        span_end=start + len("北京西站"),
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=0,
+                        atomic_place_name="北京西站",
+                    )
+                ],
+                binding={"provider": "multi-city-test", "external_calls": 0},
+            )
+
+    class Resolver:
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del atomic_place_name, category_hint
+            if city == "杭州":
+                raise PlaceProviderUnavailableError(
+                    "DEADLINE_EXCEEDED",
+                    provider_binding={"provider": "multi-city-test", "city": city},
+                    external_call_count=1,
+                )
+            return ResolvedPlace(
+                canonical_place_id="provider-beijing-west-station",
+                name="北京西站",
+                category="交通节点",
+                area_or_address="北京市丰台区莲花池东路118号",
+                provider_binding={
+                    "provider": "multi-city-test",
+                    "city": city,
+                    "request_sha256": "a" * 64,
+                    "response_sha256": "b" * 64,
+                    "external_calls": 1,
+                },
+            )
+
+    output = await TripUnderstandingPipeline(Provider(), Resolver()).run(source)
+    activity = output.activities[0]
+
+    assert activity.place is None
+    assert activity.resolution_status.value == "NEEDS_CONFIRMATION"
+    candidates = activity.resolver_receipt["successful_place_candidates"]
+    assert candidates == [
+        {
+            "city": "北京",
+            "place": {
+                "canonical_place_id": "provider-beijing-west-station",
+                "name": "北京西站",
+                "category": "交通节点",
+                "area_or_address": "北京市丰台区莲花池东路118号",
+                "provider_binding": {
+                    "provider": "multi-city-test",
+                    "city": "北京",
+                    "request_sha256": "a" * 64,
+                    "response_sha256": "b" * 64,
+                    "external_calls": 1,
+                },
+            },
+            "receipt": {
+                "status": "AUTO_MATCHED",
+                "provider": "multi-city-test",
+                "city": "北京",
+                "request_sha256": "a" * 64,
+                "response_sha256": "b" * 64,
+                "external_calls": 1,
+            },
+        }
+    ]
+    public = output.public_result.model_dump(mode="json")
+    assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+    assert "provider-beijing-west-station" not in json.dumps(public, ensure_ascii=False)
+
+
 def test_non_deep_chinese_destination_does_not_inherit_reference_city_lane() -> None:
     source = "南京两日攻略。参考北京玩法，但 Day 1 去中山陵。"
 
@@ -794,6 +886,16 @@ def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -
     redacted = redact_trip_understanding_path(path)
     assert redacted == "/api/v3/trip-understandings/{public_resource_id}/result?x=1"
     assert "visible-resource-secret" not in redacted
+    share_paths = (
+        "/api/v3/shares/share-real/exchange",
+        "/api/v3/me/shares/share-real",
+    )
+    for share_path in share_paths:
+        redacted_share_path = redact_trip_understanding_path(share_path)
+        assert "share-real" not in redacted_share_path
+        assert redacted_share_path.endswith("/shares/{share_ref}/exchange") or (
+            redacted_share_path == "/api/v3/me/shares/{share_ref}"
+        )
 
 
 @pytest.mark.asyncio

@@ -4,11 +4,18 @@ import logging
 import re
 
 
-RESOURCE_PATH_RE = re.compile(r"(/api/v3/trip-understandings/)[^/?\s]+")
+PRIVATE_PATH_ID_RES = (
+    (re.compile(r"(/api/v3/trip-understandings/)[^/?\s]+"), "public_resource_id"),
+    (re.compile(r"(/api/v3/shares/)[^/?\s]+"), "share_ref"),
+    (re.compile(r"(/api/v3/me/shares/)[^/?\s]+"), "share_ref"),
+)
 
 
 def redact_trip_understanding_path(value: str) -> str:
-    return RESOURCE_PATH_RE.sub(r"\1{public_resource_id}", value)
+    redacted = value
+    for pattern, placeholder in PRIVATE_PATH_ID_RES:
+        redacted = pattern.sub(rf"\1{{{placeholder}}}", redacted)
+    return redacted
 
 
 class TripUnderstandingAccessLogFilter(logging.Filter):

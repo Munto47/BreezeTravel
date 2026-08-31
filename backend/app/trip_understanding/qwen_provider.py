@@ -306,6 +306,31 @@ def _is_meta_activity_clause(clause: str) -> bool:
     )
 
 
+def _is_descriptive_reference_clause(clause: str) -> bool:
+    if any(
+        marker in clause
+        for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED]
+    ):
+        return False
+    return any(
+        marker in clause
+        for marker in (
+            "去年",
+            "前年",
+            "曾经",
+            "历史上",
+            "过去",
+            "此前",
+            "当年",
+            "世界文化遗产",
+            "游客很多",
+        )
+    ) or re.search(
+        r"(?:是|为|位于|坐落于|建于|始建于|被誉为|属于|拥有)[^。！？；;]*$",
+        clause,
+    ) is not None
+
+
 def _local_activity_role(
     source_text: str,
     position: int,
@@ -324,10 +349,9 @@ def _local_activity_role(
         return ActivityRole.PASS_THROUGH
     if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.REFERENCE]):
         return ActivityRole.REFERENCE
-    if (
-        any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED])
-        or _DAY_HEADING_RE.search(clause)
-    ):
+    if _is_descriptive_reference_clause(clause):
+        return ActivityRole.REFERENCE
+    if any(marker in clause for marker in _ROLE_CONTEXT_MARKERS[ActivityRole.PLANNED]):
         return ActivityRole.PLANNED
     return proposed_role
 
