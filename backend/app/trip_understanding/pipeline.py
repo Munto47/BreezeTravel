@@ -332,6 +332,11 @@ class TripUnderstandingPipeline:
         self.max_executable_activities = max_executable_activities
         self.max_place_concurrency = max_place_concurrency
 
+    async def aclose(self) -> None:
+        close = getattr(self.place_resolver, "aclose", None)
+        if close is not None:
+            await close()
+
     async def _resolve_place(
         self,
         item: CompiledActivity,

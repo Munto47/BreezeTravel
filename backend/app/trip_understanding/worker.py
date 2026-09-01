@@ -200,7 +200,10 @@ async def run_forever() -> None:
             if not processed:
                 await asyncio.sleep(settings.trip_understanding_worker_poll_seconds)
     finally:
-        await close_pool()
+        try:
+            await full_pipeline.aclose()
+        finally:
+            await close_pool()
 
 
 def main() -> None:

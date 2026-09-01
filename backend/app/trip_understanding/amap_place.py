@@ -654,6 +654,19 @@ class AmapPlaceResolver:
         self.endpoint = endpoint
         self.deadline_seconds = deadline_seconds
         self.client = client
+        self._owned_client: httpx.AsyncClient | None = None
+
+    def _http_client(self) -> httpx.AsyncClient:
+        if self.client is not None:
+            return self.client
+        if self._owned_client is None:
+            self._owned_client = httpx.AsyncClient(timeout=self.deadline_seconds)
+        return self._owned_client
+
+    async def aclose(self) -> None:
+        if self._owned_client is not None:
+            await self._owned_client.aclose()
+            self._owned_client = None
 
     @staticmethod
     def _no_call_receipt(
@@ -725,15 +738,11 @@ class AmapPlaceResolver:
         started = time.perf_counter()
         observed_at = datetime.now(UTC)
         try:
-            if self.client is not None:
-                response = await self.client.get(
-                    self.endpoint,
-                    params=params,
-                    timeout=self.deadline_seconds,
-                )
-            else:
-                async with httpx.AsyncClient(timeout=self.deadline_seconds) as client:
-                    response = await client.get(self.endpoint, params=params)
+            response = await self._http_client().get(
+                self.endpoint,
+                params=params,
+                timeout=self.deadline_seconds,
+            )
             response.raise_for_status()
             payload = response.json()
         except httpx.TimeoutException as exc:

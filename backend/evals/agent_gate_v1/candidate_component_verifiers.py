@@ -17,7 +17,13 @@ from evals.agent_gate_v1.contracts import (
 )
 from evals.agent_gate_v1.path_security import ArtifactSnapshot, read_external_snapshot
 from evals.agent_gate_v1.validator import AgentGateValidationError, verify_review_panel
-from evals.g07_candidate.browser_performance import _p95, validate_browser_report
+from evals.g07_candidate.browser_performance import (
+    PERFORMANCE_CHAIN_COUNT,
+    PERFORMANCE_THRESHOLDS_MS,
+    _p95,
+    _validate_chain,
+    validate_browser_report,
+)
 from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest
 from evals.trip_text_cards_agent_v2.contracts import (
     AgentCanonicalPlaceLabel,
@@ -442,32 +448,69 @@ def _verify_browser_and_performance(
     cards_p95 = _p95(
         [float(item["create_to_editable_cards_ms"]) for item in samples]
     )
+    try:
+        for sample in samples:
+            _validate_chain(
+                sample,
+                {
+                    "subject_commit": receipt.candidate_commit,
+                    "candidate_tree": receipt.candidate_tree,
+                },
+            )
+    except (KeyError, TypeError, ValueError, P6ContractError) as exc:
+        raise CandidateComponentVerificationError(
+            "live performance sample does not recompute to PASS"
+        ) from exc
+    qwen_external_call_count = sum(
+        int(item["qwen_external_calls"]) for item in samples
+    )
+    qwen_repair_call_count = sum(int(item["qwen_repair_calls"]) for item in samples)
+    route_external_call_count = sum(
+        int(item["route_external_call_count"]) for item in samples
+    )
+    usable_map_count = sum(
+        item["initial_map_terminal_status"] in {"AVAILABLE", "LIMITED"}
+        for item in samples
+    )
+    editable_partial_result_count = sum(
+        item["public_result_status"] == "PARTIAL_RESULT" for item in samples
+    )
+    edit_triggered_route_call_count = sum(
+        int(item["automatic_route_calls_after_edit"]) for item in samples
+    )
+    public_forbidden_key_count = sum(
+        int(item["public_forbidden_key_count"]) for item in samples
+    )
     if (
-        len(samples) != 50
-        or len({item.get("chain_id") for item in samples}) != 50
-        or any(
-            item.get("candidate_commit") != receipt.candidate_commit
-            or item.get("candidate_tree") != receipt.candidate_tree
-            or item.get("qwen_external_calls") != 1
-            or item.get("route_external_call_count") != 6
-            or item.get("automatic_route_calls_after_edit") != 0
-            or item.get("public_forbidden_key_count") != 0
-            or item.get("raw_request_or_response_retained") is not False
-            for item in samples
-        )
+        len(samples) != PERFORMANCE_CHAIN_COUNT
+        or len({item.get("chain_id") for item in samples})
+        != PERFORMANCE_CHAIN_COUNT
         or not _receipt_digest_is_valid(performance)
         or performance.get("status") != "PASS"
         or performance.get("subject_commit") != receipt.candidate_commit
         or performance.get("candidate_tree") != receipt.candidate_tree
-        or performance.get("sample_count") != 50
+        or performance.get("sample_count") != PERFORMANCE_CHAIN_COUNT
         or performance.get("sample_file_sha256")
         != snapshots["live.g5_performance_samples"].sha256
+        or performance.get("thresholds_ms") != PERFORMANCE_THRESHOLDS_MS
         or performance.get("threshold_failures") != []
-        or performance.get("qwen_external_call_count") != 50
-        or performance.get("route_external_call_count") != 300
-        or performance.get("usable_map_count") != 50
-        or performance.get("public_forbidden_key_count") != 0
-        or performance.get("edit_triggered_route_call_count") != 0
+        or performance.get("qwen_external_call_count")
+        != qwen_external_call_count
+        or performance.get("qwen_repair_call_count") != qwen_repair_call_count
+        or performance.get("route_external_call_count")
+        != route_external_call_count
+        or performance.get("usable_map_count") != usable_map_count
+        or performance.get("editable_partial_result_count")
+        != editable_partial_result_count
+        or performance.get("public_forbidden_key_count")
+        != public_forbidden_key_count
+        or performance.get("edit_triggered_route_call_count")
+        != edit_triggered_route_call_count
+        or performance.get("orphan_database_count") != 0
+        or performance.get("raw_request_or_response_retained") is not False
+        or performance.get("blind_inputs_read") != 0
+        or performance.get("blind_truth_read") != 0
+        or performance.get("human_evidence") is not False
         or performance.get("metrics", {}).get("create_to_progress_p95_ms")
         != progress_p95
         or performance.get("metrics", {}).get("create_to_editable_cards_p95_ms")
@@ -480,7 +523,7 @@ def _verify_browser_and_performance(
         )
     return {
         "browser_test_count": int(browser_proof["test_count"]),
-        "performance_sample_count": 50,
+        "performance_sample_count": PERFORMANCE_CHAIN_COUNT,
         "create_to_progress_p95_ms": progress_p95,
         "create_to_editable_cards_p95_ms": cards_p95,
     }

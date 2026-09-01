@@ -144,7 +144,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_component_revalidation_slice_is_narrow_and_binds_fixed_verifier() -> None:
+def test_g07_performance_repair_slice_is_narrow_and_binds_fixed_verifier() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -158,8 +158,12 @@ def test_g07_component_revalidation_slice_is_narrow_and_binds_fixed_verifier() -
     assert "frontend/src" not in allowed
     assert "backend/app/trip_understanding/repository.py" not in allowed
     assert "frontend/src/app/trip/result/itinerary-workspace.tsx" not in allowed
-    assert not {
+    assert {
         path for path in allowed if path.startswith("backend/app/trip_understanding/")
+    } == {
+        "backend/app/trip_understanding/amap_place.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/worker.py",
     }
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
@@ -176,8 +180,12 @@ def test_g07_component_revalidation_slice_is_narrow_and_binds_fixed_verifier() -
     assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert result["package_count"] == 1
     assert "docs/governance/current_work_packages.json" in result["changed_paths"]
-    assert not {
+    assert {
         path for path in result["changed_paths"] if path.startswith("backend/app/")
+    } == {
+        "backend/app/trip_understanding/amap_place.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/worker.py",
     }
     assert not {
         path for path in result["changed_paths"] if path.startswith("frontend/src/")

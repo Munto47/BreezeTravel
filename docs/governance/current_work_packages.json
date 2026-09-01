@@ -12,21 +12,27 @@
     "allowed_paths": [
       "docs/governance",
       "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/app/trip_understanding/amap_place.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/app/trip_understanding/worker.py",
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
       "backend/governance/work_packages_v3.py",
       "backend/scripts/build_g07_candidate_component.py",
       "backend/scripts/generate_agent_gate_contracts.py",
       "backend/scripts/run_g07_sealed_candidate.py",
+      "backend/scripts/smoke_g01_live_persistence.py",
+      "backend/tests/test_amap_trip_understanding.py",
       "backend/tests/test_agent_gate_protocol.py",
       "backend/tests/test_g07_candidate_component_verifiers.py",
       "backend/tests/test_g07_sealed_candidate.py",
       "backend/tests/test_product_work_packages_v3.py",
       "frontend/e2e/trip-understanding-v3.spec.js"
     ],
-    "base_commit": "7ce4e8c2bb582b62586b94479bdfea8f35c5306e",
+    "base_commit": "b705f29cd60e340ae693cdd443c697ec89297397",
     "evidence_invalidated": [
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
-      "G07_FINAL_0E7FB2B_LIVE_AND_BROWSER_EVIDENCE_DIAGNOSTIC_ONLY"
+      "G07_FINAL_0E7FB2B_LIVE_AND_BROWSER_EVIDENCE_DIAGNOSTIC_ONLY",
+      "G07_FINAL_B705F29_BROWSER_PASS_PERFORMANCE_FAIL_DIAGNOSTIC_ONLY"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -36,7 +42,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "修复G07浏览器旅程中的可访问名称子串歧义：活动标题断言使用exact匹配，仍要求目标活动标题真实可见且不改产品、旅程、覆盖或门槛；随后换新subject重建全部正式证据。",
+    "minimum_change": "修复50条真实应用链暴露的地点Provider连接复用缺口：同一worker内复用受限HTTP连接池并在终态显式关闭，保持Qwen配置、8秒P95门槛、50条样本和旅程不变；同时让固定验证器按原始样本重算实际路线调用，不假设PARTIAL_RESULT也必有6次调用。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",

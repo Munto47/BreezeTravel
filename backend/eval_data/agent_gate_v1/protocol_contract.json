@@ -28,7 +28,7 @@
   "contract_code_sha256": {
     "authority.py": "5335813e4d8cadf603f4e9f025cd6905489881d7b0ae7cc035e22b2a21f22599",
     "automation_isolation.py": "3c8d1636d2ab1d8345018f0492d0b521e496fec494db72f3f2372d85d2fc760f",
-    "candidate_component_verifiers.py": "035e66072a177fa28e3af56dc87f64e962261ad02bb58e4a5a872235928efbc5",
+    "candidate_component_verifiers.py": "cbab2df492fa2810073934c76b24e47f3bf32848815a2212e4188f40d0288985",
     "candidate_gate.py": "e867a4fb4131c339de2616e21fe9567fd362303b34bbfcb256aa0a69789d9247",
     "component_builders.py": "ad784b32978acd0e43cbd2830f67ff38c4533922e4e795dddeac4da4fcae3e5a",
     "component_verifiers.py": "a6044789b0f5559daf23a44440817949363a106b82334236f69184e86da32996",

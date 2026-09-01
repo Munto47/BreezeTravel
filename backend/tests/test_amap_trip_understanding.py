@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import httpx
 import pytest
 
@@ -54,6 +56,49 @@ def _client(payload: dict[str, object], observed: list[httpx.Request]) -> httpx.
         )
 
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+
+@pytest.mark.asyncio
+async def test_amap_owned_client_is_reused_and_closed(monkeypatch) -> None:
+    observed: list[httpx.Request] = []
+    created: list[httpx.AsyncClient] = []
+    real_async_client = httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        observed.append(request)
+        return httpx.Response(
+            200,
+            json={"status": "1", "infocode": "10000", "pois": [_poi()]},
+            headers={"x-request-id": f"provider-request-{len(observed)}"},
+        )
+
+    def client_factory(*args, **kwargs):
+        del args
+        client = real_async_client(
+            transport=httpx.MockTransport(handler),
+            timeout=kwargs.get("timeout"),
+        )
+        created.append(client)
+        return client
+
+    monkeypatch.setattr(httpx, "AsyncClient", client_factory)
+    resolver = AmapPlaceResolver(api_key="test-only")
+    outcomes = await asyncio.gather(
+        resolver.resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点"
+        ),
+        resolver.resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点"
+        ),
+    )
+
+    assert all(outcome.place is not None for outcome in outcomes)
+    assert len(created) == 1
+    assert len(observed) == 2
+    assert created[0].is_closed is False
+    await resolver.aclose()
+    assert created[0].is_closed is True
+    await resolver.aclose()
 
 
 @pytest.mark.asyncio
