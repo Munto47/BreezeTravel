@@ -3,6 +3,7 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
+      "252f43d第三轮final fresh panel经ultra裁决为FAIL；4个P1、3个IN_CURRENT_GOAL P2和1个P3全部ACCEPTED，当前stop condition已触发",
       "400ce17三角色xhigh与fresh ultra裁决为FAIL；4个P1与2个IN_CURRENT_GOAL P2被接受，公开evidence_gap的第二份P1为DUPLICATE",
       "公开住宿建议不得出现Evidence术语；资料保存失败只显示稳定中文恢复提示；公开OpenAPI、JSON、client与DOM同步脱敏",
       "明确多城行程必须逐城保守检索，其他城市行程不得继承参考城市；引用、预约说明、比较句与泛称住宿不得形成地点调用或卡片",
@@ -37,6 +38,7 @@
     ],
     "base_commit": "400ce176149634d23cadb46288abaf3b20c80f8d",
     "evidence_invalidated": [
+      "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
       "G07_FINAL_0E7FB2B_LIVE_AND_BROWSER_EVIDENCE_DIAGNOSTIC_ONLY",
       "G07_FINAL_B705F29_BROWSER_PASS_PERFORMANCE_FAIL_DIAGNOSTIC_ONLY",
@@ -51,7 +53,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "第三轮只修复400ce17 fresh panel裁决接受的六个独立缺陷：把住宿路线缺口并入现有用户说明并移除evidence_gap；资料保存失败使用稳定中文提示；确定性fallback识别明确多城/其他城市头部并拒绝引用、预约说明、比较句、泛称住宿；understanding/map/stay完成和失败校验attempt；同步更新发生实际变化的公开OpenAPI exact hash绑定。保持Provider、migration、模型、冻结输入、阈值、oracle与blind字节不变。",
+    "minimum_change": "停止检查点只记录252f43d第三轮final fresh panel的逐字节绑定FAIL、fail-closed组件拒绝和NOT_RUN边界；不得继续产品修复、启动第四轮复审、运行sealed blind或生成最终候选PASS。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/app/trip_understanding/full_text.py",
@@ -67,7 +69,7 @@
     "product_progress": "RUNTIME",
     "repair_review_cycle": 3,
     "slice_id": "G07-PANEL-REPAIR-3-FINAL",
-    "stop_condition": "第三轮fresh受影响复审若仍接受任何当前范围P0/P1，或修复需要新增产品功能、修改冻结18条输入/真值/oracle/阈值、读取sealed结果后再改产品，则候选FAIL并停止；不得启动第四轮复审或同subject第二次sealed评分。",
+    "stop_condition": "已触发：252f43d第三轮fresh受影响复审接受4个当前范围P1，候选FAIL并停止；不得启动第四轮复审、继续当前切片产品修复、运行sealed blind或生成最终候选PASS。",
     "user_outcome": "多城和引用语义不会把地点搜错城市或生成假卡；住宿与资料页只显示普通用户能理解的说明；相同worker ID重用时旧任务也不能覆盖新attempt。",
     "work_kind": "CANDIDATE_HARDENING"
   },
