@@ -6,7 +6,7 @@
       "sealed custodian只读取冻结18条输入、仓库外真值与同subject预测并由Git固定scorer重新计算全部阈值",
       "普通开发者不读取blind真值内容；两份xhigh reference与一份fresh ultra裁决先于唯一sealed评分冻结",
       "blind输入/真值/原始agent输出不进入Git，跨subject、缺失、hash漂移、阈值失败或重复尝试均fail-closed",
-      "四类v2 component receipt必须继续通过a3a6a10引入的固定原始工件重验证",
+      "四类v2 component receipt必须继续通过7ce4e8c收紧的固定原始工件重验证",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
@@ -22,7 +22,7 @@
       "backend/tests/test_g07_sealed_candidate.py",
       "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "a3a6a10cafa212f7217f5bf027f128f5902fa92a",
+    "base_commit": "7ce4e8c2bb582b62586b94479bdfea8f35c5306e",
     "evidence_invalidated": [
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN"
     ],
@@ -34,7 +34,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "新增G07专用sealed custodian runner：从冻结输入直接运行选定Qwen和保守AMap，保存仓库外脱敏预测/Provider回执；接收两份隔离reference和fresh ultra真值后，由固定验证器从原始输入、真值、预测重算阈值。",
+    "minimum_change": "在7ce4e8c已冻结的sealed runner与固定验证器上执行唯一正式证据重建：自动化、live、browser/performance、三角色/ultra与sealed blind全部绑定同一新subject，再生成四份v2回执和最终候选结论。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
@@ -47,7 +47,7 @@
     "repair_review_cycle": 1,
     "slice_id": "G07-SEALED-ONE-SHOT",
     "stop_condition": "若需要修改冻结18条输入、真值、oracle、阈值或读取sealed结果后再修产品，则本次候选FAIL并停止；不得启动第二次同subject sealed评分。",
-    "user_outcome": "最终候选的旅游语义与地点质量由未参与开发的隔离任务在18条盲测上一次性验收，失败不会被调参或摘要覆盖。",
+    "user_outcome": "最终候选的旅游语义与地点质量由未参与开发的隔离任务在18条盲测上一次性验收，且最终候选门从原始工件重新验证全部四类证据。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
