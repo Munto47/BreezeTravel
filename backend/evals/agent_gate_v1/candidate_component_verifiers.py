@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -18,7 +20,11 @@ from evals.agent_gate_v1.validator import AgentGateValidationError, verify_revie
 from evals.g07_candidate.browser_performance import _p95, validate_browser_report
 from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest
 from evals.trip_text_cards_agent_v2.contracts import (
+    AgentCanonicalPlaceLabel,
+    AgentInferenceCaseOutputV2,
     AgentPredictionRunEnvelope,
+    ProviderReceiptRef,
+    ProviderRuntimeEffectReceipt,
     SealedAgentReferenceBundle,
     validate_agent_case_annotation,
 )
@@ -74,6 +80,36 @@ def _canonical_sha256(value: object) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     )
+
+
+def _is_sha256(value: object) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def _timestamp(value: object) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError("Provider timestamp is missing")
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _forbidden_raw_keys(value: object) -> set[str]:
+    forbidden = {
+        "api_key",
+        "authorization",
+        "credential",
+        "raw_request",
+        "raw_response",
+        "secret",
+        "token",
+    }
+    if isinstance(value, dict):
+        own = {str(key).casefold() for key in value} & forbidden
+        return own | set().union(
+            *(_forbidden_raw_keys(child) for child in value.values()), set()
+        )
+    if isinstance(value, list):
+        return set().union(*(_forbidden_raw_keys(child) for child in value), set())
+    return set()
 
 
 def _json(snapshot: ArtifactSnapshot, label: str) -> dict[str, Any]:
@@ -549,7 +585,10 @@ def _verify_sealed(
         "sealed.inputs",
         "sealed.truth",
         "sealed.predictions",
+        "sealed.inference_outputs",
         "sealed.prediction_envelope",
+        "sealed.runtime",
+        "sealed.reference_input",
     }
     _require_keys(snapshots, required, receipt.component)
     source_cases = _jsonl(
@@ -557,6 +596,15 @@ def _verify_sealed(
     )
     predictions = _jsonl(
         snapshots["sealed.predictions"], TextCardPrediction, "sealed predictions"
+    )
+    inference_outputs = _jsonl(
+        snapshots["sealed.inference_outputs"],
+        AgentInferenceCaseOutputV2,
+        "sealed inference outputs",
+    )
+    runtime = _json(snapshots["sealed.runtime"], "sealed runtime")
+    reference_input = _json(
+        snapshots["sealed.reference_input"], "sealed reference input"
     )
     try:
         truth = SealedAgentReferenceBundle.model_validate_json(
@@ -568,10 +616,65 @@ def _verify_sealed(
         thresholds = SealedAgentBlindThresholds.model_validate_json(
             _git_blob(root, receipt.candidate_commit, SEALED_THRESHOLDS_PATH)
         )
+        model_panel_bytes = _git_blob(
+            root,
+            receipt.candidate_commit,
+            "backend/eval_data/trip_text_cards_agent_v2/qwen_model_panel.json",
+        )
+        model_panel = json.loads(model_panel_bytes)
+        provider_binding_bytes = _git_blob(
+            root,
+            receipt.candidate_commit,
+            "backend/eval_data/trip_text_cards_agent_v2/provider_binding.json",
+        )
+        provider_binding = json.loads(provider_binding_bytes)
     except ValueError as exc:
         raise CandidateComponentVerificationError(
             "invalid sealed blind artifact"
         ) from exc
+    candidates = model_panel.get("candidates")
+    low_latency = [
+        item
+        for item in candidates
+        if isinstance(item, dict)
+        and item.get("role") == "LOW_LATENCY_CANDIDATE"
+    ] if isinstance(candidates, list) else []
+    qwen_provider = provider_binding.get("qwen")
+    if (
+        len(low_latency) != 1
+        or not isinstance(low_latency[0].get("exact_model_id"), str)
+        or not isinstance(qwen_provider, dict)
+    ):
+        raise CandidateComponentVerificationError(
+            "sealed Qwen candidate binding is invalid"
+        )
+    expected_qwen = {
+        "exact_model_id": low_latency[0]["exact_model_id"],
+        "endpoint_sha256": qwen_provider.get("inference_endpoint_sha256"),
+        "model_panel_sha256": _sha256(model_panel_bytes),
+        "prompt_sha256": _sha256(
+            _git_blob(
+                root,
+                receipt.candidate_commit,
+                "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_prompt.md",
+            )
+        ),
+        "schema_sha256": _sha256(
+            _git_blob(
+                root,
+                receipt.candidate_commit,
+                "backend/eval_data/trip_text_cards_agent_v2/qwen_semantic_draft.schema.json",
+            )
+        ),
+        "config_sha256": _sha256(
+            _git_blob(
+                root,
+                receipt.candidate_commit,
+                "backend/eval_data/trip_text_cards_agent_v2/qwen_inference_config.json",
+            )
+        ),
+        "provider_binding_sha256": _sha256(provider_binding_bytes),
+    }
     if (
         len(source_cases) != 18
         or any(case.split != "frozen_blind" for case in source_cases)
@@ -581,8 +684,65 @@ def _verify_sealed(
         or envelope.candidate_commit != receipt.candidate_commit
         or envelope.candidate_tree != receipt.candidate_tree
         or envelope.split != "frozen_blind"
+        or envelope.model_binding_sha256 != expected_qwen["model_panel_sha256"]
+        or envelope.prompt_sha256 != expected_qwen["prompt_sha256"]
+        or envelope.schema_sha256 != expected_qwen["schema_sha256"]
+        or envelope.config_sha256 != expected_qwen["config_sha256"]
+        or envelope.provider_binding_sha256
+        != expected_qwen["provider_binding_sha256"]
         or envelope.predictions_sha256
         != snapshots["sealed.predictions"].sha256
+        or envelope.inference_outputs_sha256
+        != snapshots["sealed.inference_outputs"].sha256
+        or envelope.inference_receipt_bundle_sha256
+        != snapshots["sealed.runtime"].sha256
+        or [item.text_card_prediction for item in inference_outputs]
+        != predictions
+        or [item.destination_prediction for item in inference_outputs]
+        != envelope.destination_predictions
+        or runtime.get("candidate_commit") != receipt.candidate_commit
+        or runtime.get("candidate_tree") != receipt.candidate_tree
+        or runtime.get("input_sha256") != snapshots["sealed.inputs"].sha256
+        or runtime.get("predictions_sha256")
+        != snapshots["sealed.predictions"].sha256
+        or runtime.get("inference_outputs_sha256")
+        != snapshots["sealed.inference_outputs"].sha256
+        or runtime.get("reference_input_sha256")
+        != snapshots["sealed.reference_input"].sha256
+        or runtime.get("case_count") != 18
+        or runtime.get("qwen_external_call_count") != 18
+        or runtime.get("qwen_repair_call_count") != 0
+        or not isinstance(runtime.get("amap_external_call_count"), int)
+        or int(runtime["amap_external_call_count"]) < 1
+        or runtime.get("blind_truth_read") != 0
+        or runtime.get("raw_request_or_response_retained") is not False
+        or runtime.get("human_evidence") is not False
+        or runtime.get("verdict") != "CAPTURE_COMPLETE"
+        or reference_input.get("candidate_commit") != receipt.candidate_commit
+        or reference_input.get("candidate_tree") != receipt.candidate_tree
+        or reference_input.get("input_sha256") != snapshots["sealed.inputs"].sha256
+        or reference_input.get("case_count") != 18
+        or reference_input.get("provider_effect_case_count") != 18
+        or reference_input.get("candidate_predictions_visible") is not False
+        or reference_input.get("raw_provider_response_retained") is not False
+        or truth.attestation.input_bundle_sha256
+        != snapshots["sealed.reference_input"].sha256
+        or truth.attestation.prompt_sha256
+        != _sha256(
+            _git_blob(
+                root,
+                receipt.candidate_commit,
+                "backend/eval_data/trip_text_cards_agent_v2/prompts/adjudication.md",
+            )
+        )
+        or truth.attestation.output_schema_sha256
+        != _sha256(
+            _git_blob(
+                root,
+                receipt.candidate_commit,
+                "backend/eval_data/trip_text_cards_agent_v2/sealed_agent_reference.schema.json",
+            )
+        )
     ):
         raise CandidateComponentVerificationError(
             "sealed blind candidate or coverage binding mismatch"
@@ -595,8 +755,304 @@ def _verify_sealed(
             "sealed truth does not cover frozen inputs in source order"
         )
     try:
+        reference_cases = reference_input.get("cases")
+        if (
+            not isinstance(reference_cases, list)
+            or [
+                item.get("case_id")
+                for item in reference_cases
+                if isinstance(item, dict)
+            ]
+            != [case.case_id for case in source_cases]
+            or reference_input.get("provider_binding_sha256")
+            != _sha256(
+                _git_blob(
+                    root,
+                    receipt.candidate_commit,
+                    "backend/eval_data/trip_text_cards_agent_v2/provider_binding.json",
+                )
+            )
+        ):
+            raise ValueError("sealed Provider reference coverage drifted")
+        facts_by_case: dict[str, dict[tuple[str, str], dict[str, Any]]] = {}
+        unique_runtime_effects: dict[str, ProviderRuntimeEffectReceipt] = {}
+        for source_case, reference_case in zip(
+            source_cases, reference_cases, strict=True
+        ):
+            if (
+                not isinstance(reference_case, dict)
+                or reference_case.get("source_sha256")
+                != source_case.normalized_input_sha256
+            ):
+                raise ValueError("sealed Provider reference source drifted")
+            effects = reference_case.get("provider_effects")
+            if not isinstance(effects, list):
+                raise ValueError("sealed Provider reference effects are invalid")
+            case_facts: dict[tuple[str, str], dict[str, Any]] = {}
+            for effect in effects:
+                if (
+                    not isinstance(effect, dict)
+                    or effect.get("query_is_role_neutral") is not True
+                ):
+                    raise ValueError("sealed Provider query selected a candidate role")
+                runtime_effect = ProviderRuntimeEffectReceipt.model_validate(
+                    effect.get("provider_runtime_effect")
+                )
+                provider_receipt = ProviderReceiptRef.model_validate(
+                    effect.get("provider_receipt")
+                )
+                canonical_raw = effect.get("canonical_place")
+                canonical_place = (
+                    AgentCanonicalPlaceLabel.model_validate(canonical_raw)
+                    if canonical_raw is not None
+                    else None
+                )
+                if (
+                    runtime_effect.effect_id != provider_receipt.runtime_effect_id
+                    or provider_receipt.runtime_effect_receipt_sha256
+                    != _canonical_sha256(runtime_effect.model_dump(mode="json"))
+                    or provider_receipt.provider_binding_sha256
+                    != reference_input["provider_binding_sha256"]
+                    or provider_receipt.provider_binding_sha256
+                    != runtime_effect.provider_binding_sha256
+                    or provider_receipt.request_sha256
+                    != runtime_effect.request_sha256
+                    or provider_receipt.response_sha256
+                    != runtime_effect.response_sha256
+                    or provider_receipt.resolution_status
+                    != runtime_effect.resolution_status
+                    or provider_receipt.queried_city
+                    != runtime_effect.queried_city
+                    or provider_receipt.queried_source_name
+                    != runtime_effect.queried_source_name
+                    or provider_receipt.observed_at
+                    != runtime_effect.completed_at
+                    or provider_receipt.accepted_source_name
+                    != (
+                        provider_receipt.queried_source_name
+                        if runtime_effect.resolution_status == "MATCHED"
+                        else None
+                    )
+                    or provider_receipt.queried_city
+                    != effect.get("queried_city")
+                    or provider_receipt.queried_source_name
+                    != effect.get("queried_source_name")
+                    or (canonical_place is None)
+                    != (provider_receipt.resolution_status != "MATCHED")
+                    or (
+                        canonical_place is not None
+                        and (
+                            canonical_place.provider_receipt != provider_receipt
+                            or canonical_place.place_id != runtime_effect.place_id
+                            or canonical_place.name != runtime_effect.name
+                            or canonical_place.city != runtime_effect.city
+                            or canonical_place.category != runtime_effect.category
+                        )
+                    )
+                ):
+                    raise ValueError("sealed Provider reference fact drifted")
+                prior = unique_runtime_effects.setdefault(
+                    runtime_effect.effect_id, runtime_effect
+                )
+                if prior != runtime_effect:
+                    raise ValueError("sealed Provider runtime effect is inconsistent")
+                key = (
+                    provider_receipt.queried_city,
+                    provider_receipt.queried_source_name,
+                )
+                if key in case_facts:
+                    raise ValueError("duplicate sealed Provider reference fact")
+                case_facts[key] = {
+                    "provider_runtime_effect": runtime_effect,
+                    "provider_receipt": provider_receipt.model_dump(mode="json"),
+                    "canonical_place": (
+                        canonical_place.model_dump(mode="json")
+                        if canonical_place is not None
+                        else None
+                    ),
+                }
+            facts_by_case[source_case.case_id] = case_facts
+        if sum(
+            effect.external_call_count for effect in unique_runtime_effects.values()
+        ) != int(runtime["amap_external_call_count"]):
+            raise ValueError("sealed AMap call count drifted from reference facts")
+        qwen_external_calls = 0
+        qwen_repair_calls = 0
+        for source_case, inference_output in zip(
+            source_cases, inference_outputs, strict=True
+        ):
+            prediction = inference_output.text_card_prediction
+            binding = prediction.provider_binding
+            inference_binding = binding.get("inference_binding")
+            effects = binding.get("provider_effects")
+            if (
+                inference_output.case_id != source_case.case_id
+                or inference_output.source_sha256
+                != source_case.normalized_input_sha256
+                or prediction.source_sha256 != source_case.normalized_input_sha256
+                or binding.get("execution_mode") != "LIVE"
+                or binding.get("raw_request_or_response_retained") is not False
+                or _forbidden_raw_keys(binding)
+                or not isinstance(inference_binding, dict)
+                or not isinstance(effects, list)
+                or len(effects) != len(prediction.mentions)
+                or binding.get("provider_effects_sha256")
+                != _canonical_sha256(effects)
+            ):
+                raise ValueError("sealed inference output binding drifted")
+            calls = inference_binding.get("calls")
+            if (
+                inference_binding.get("provider") != "QWEN"
+                or inference_binding.get("execution_mode") != "LIVE"
+                or inference_binding.get("exact_model_id")
+                != expected_qwen["exact_model_id"]
+                or inference_binding.get("endpoint_sha256")
+                != expected_qwen["endpoint_sha256"]
+                or inference_binding.get("model_panel_sha256")
+                != expected_qwen["model_panel_sha256"]
+                or inference_binding.get("prompt_sha256")
+                != expected_qwen["prompt_sha256"]
+                or inference_binding.get("prompt_artifact_sha256")
+                != expected_qwen["prompt_sha256"]
+                or inference_binding.get("schema_sha256")
+                != expected_qwen["schema_sha256"]
+                or inference_binding.get("schema_artifact_sha256")
+                != expected_qwen["schema_sha256"]
+                or inference_binding.get("config_sha256")
+                != expected_qwen["config_sha256"]
+                or inference_binding.get("config_artifact_sha256")
+                != expected_qwen["config_sha256"]
+                or inference_binding.get("max_concurrency") != 1
+                or inference_binding.get("deadline_ms") != 7000
+                or inference_binding.get("max_output_tokens") != 768
+                or inference_binding.get("external_calls") != 1
+                or inference_binding.get("repair_call_count") != 0
+                or inference_binding.get("raw_request_or_response_retained")
+                is not False
+                or not isinstance(calls, list)
+                or len(calls) != 1
+            ):
+                raise ValueError("sealed Qwen per-case binding drifted")
+            call = calls[0]
+            if (
+                not isinstance(call, dict)
+                or call.get("outcome") != "RESPONSE_RECEIVED"
+                or not _is_sha256(call.get("request_sha256"))
+                or not _is_sha256(call.get("response_sha256"))
+                or not isinstance(call.get("input_tokens"), int)
+                or int(call["input_tokens"]) < 0
+                or not isinstance(call.get("output_tokens"), int)
+                or int(call["output_tokens"]) < 0
+                or _timestamp(call.get("completed_at"))
+                < _timestamp(call.get("started_at"))
+                or inference_binding.get("input_tokens")
+                != call.get("input_tokens")
+                or inference_binding.get("output_tokens")
+                != call.get("output_tokens")
+            ):
+                raise ValueError("sealed Qwen call receipt drifted")
+            qwen_external_calls += int(inference_binding["external_calls"])
+            qwen_repair_calls += int(inference_binding["repair_call_count"])
+            for mention, effect in zip(prediction.mentions, effects, strict=True):
+                if (
+                    not isinstance(effect, dict)
+                    or effect.get("raw_text") != mention.raw_text
+                    or effect.get("span_start") != mention.span_start
+                    or effect.get("span_end") != mention.span_end
+                    or effect.get("role") != mention.role
+                    or effect.get("day_index") != mention.day_index
+                    or effect.get("atomic_place_name")
+                    != mention.atomic_place_name
+                    or effect.get("eligible_for_place_search")
+                    != mention.eligible_for_place_search
+                    or effect.get("resolution_status")
+                    != mention.resolution_status
+                ):
+                    raise ValueError("sealed candidate Provider projection drifted")
+                if not mention.eligible_for_place_search:
+                    continue
+                expected_fact = facts_by_case[source_case.case_id].get(
+                    (prediction.destination_name, mention.atomic_place_name or "")
+                )
+                if expected_fact is None:
+                    raise ValueError("sealed candidate used an unbound Provider query")
+                provider_receipt = ProviderReceiptRef.model_validate(
+                    expected_fact["provider_receipt"]
+                )
+                expected_status = {
+                    "MATCHED": "AUTO_MATCHED",
+                    "AMBIGUOUS": "NEEDS_CONFIRMATION",
+                    "UNRESOLVED": "UNRESOLVED",
+                }[provider_receipt.resolution_status]
+                runtime_effect = expected_fact["provider_runtime_effect"]
+                resolver_receipt = effect.get("resolver_receipt")
+                place = effect.get("place")
+                canonical = expected_fact["canonical_place"]
+                called_hashes_match = (
+                    runtime_effect.external_call_count == 0
+                    or (
+                        isinstance(resolver_receipt, dict)
+                        and resolver_receipt.get("request_sha256")
+                        == runtime_effect.request_sha256
+                        and resolver_receipt.get("response_sha256")
+                        == runtime_effect.response_sha256
+                    )
+                )
+                if (
+                    mention.resolution_status != expected_status
+                    or not isinstance(resolver_receipt, dict)
+                    or not called_hashes_match
+                    or resolver_receipt.get("external_calls")
+                    != runtime_effect.external_call_count
+                    or (place is None) != (canonical is None)
+                    or (
+                        isinstance(place, dict)
+                        and isinstance(canonical, dict)
+                        and (
+                            place.get("canonical_place_id")
+                            != canonical.get("place_id")
+                            or place.get("name") != canonical.get("name")
+                            or place.get("category") != canonical.get("category")
+                            or mention.canonical_place_id
+                            != canonical.get("place_id")
+                            or mention.canonical_city != canonical.get("city")
+                            or mention.canonical_category
+                            != canonical.get("category")
+                        )
+                    )
+                ):
+                    raise ValueError("sealed candidate Provider fact drifted")
+        if (
+            qwen_external_calls != int(runtime["qwen_external_call_count"])
+            or qwen_repair_calls != int(runtime["qwen_repair_call_count"])
+        ):
+            raise ValueError("sealed Qwen aggregate drifted")
         for case in truth.agent_reference_cases:
             validate_agent_case_annotation(case, source_by_id[case.case_id])
+            for mention in case.mentions:
+                if not mention.executable_place:
+                    continue
+                provider_receipt = mention.provider_resolution_receipt
+                if provider_receipt is None:
+                    raise ValueError("sealed executable place lost Provider receipt")
+                expected = facts_by_case[case.case_id].get(
+                    (
+                        provider_receipt.queried_city,
+                        provider_receipt.queried_source_name,
+                    )
+                )
+                actual_canonical = (
+                    mention.canonical_place.model_dump(mode="json")
+                    if mention.canonical_place is not None
+                    else None
+                )
+                if (
+                    expected is None
+                    or provider_receipt.model_dump(mode="json")
+                    != expected["provider_receipt"]
+                    or actual_canonical != expected["canonical_place"]
+                ):
+                    raise ValueError("sealed truth used an unbound Provider fact")
         score = score_predictions(
             source_cases=source_cases,
             gold_cases=truth.agent_reference_cases,
