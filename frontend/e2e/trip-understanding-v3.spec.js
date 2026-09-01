@@ -79,7 +79,9 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   await expect(page).toHaveURL(/\/trip\/result$/)
   await expect(page.getByTestId('trip-days').locator('section')).toHaveCount(3)
   for (const names of EXPECTED_DAYS) {
-    for (const name of names) await expect(page.getByRole('heading', { name })).toBeVisible()
+    for (const name of names) {
+      await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
+    }
   }
   await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
   const finalResultResponse = await page.request.get(new URL(accepted.result_url, page.url()).toString())

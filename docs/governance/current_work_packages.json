@@ -20,11 +20,13 @@
       "backend/tests/test_agent_gate_protocol.py",
       "backend/tests/test_g07_candidate_component_verifiers.py",
       "backend/tests/test_g07_sealed_candidate.py",
-      "backend/tests/test_product_work_packages_v3.py"
+      "backend/tests/test_product_work_packages_v3.py",
+      "frontend/e2e/trip-understanding-v3.spec.js"
     ],
     "base_commit": "7ce4e8c2bb582b62586b94479bdfea8f35c5306e",
     "evidence_invalidated": [
-      "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN"
+      "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
+      "G07_FINAL_0E7FB2B_LIVE_AND_BROWSER_EVIDENCE_DIAGNOSTIC_ONLY"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -34,7 +36,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "在7ce4e8c已冻结的sealed runner与固定验证器上执行唯一正式证据重建：自动化、live、browser/performance、三角色/ultra与sealed blind全部绑定同一新subject，再生成四份v2回执和最终候选结论。",
+    "minimum_change": "修复G07浏览器旅程中的可访问名称子串歧义：活动标题断言使用exact匹配，仍要求目标活动标题真实可见且不改产品、旅程、覆盖或门槛；随后换新subject重建全部正式证据。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
@@ -127,6 +129,7 @@
         "backend/governance/core_mainline.py",
         "frontend/package.json",
         "frontend/playwright.candidate.config.js",
+        "frontend/e2e/trip-understanding-v3.spec.js",
         "frontend/src/app/trip/result/itinerary-workspace.tsx"
       ],
       "package_id": "WP-G07-INTEGRATOR",
