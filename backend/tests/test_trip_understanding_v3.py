@@ -889,13 +889,16 @@ def test_signed_capability_is_tamper_evident_and_access_log_path_is_redacted() -
     share_paths = (
         "/api/v3/shares/share-real/exchange",
         "/api/v3/me/shares/share-real",
+        "/api/share/share-real/responses",
     )
     for share_path in share_paths:
         redacted_share_path = redact_trip_understanding_path(share_path)
         assert "share-real" not in redacted_share_path
-        assert redacted_share_path.endswith("/shares/{share_ref}/exchange") or (
-            redacted_share_path == "/api/v3/me/shares/{share_ref}"
-        )
+        assert redacted_share_path in {
+            "/api/v3/shares/{share_ref}/exchange",
+            "/api/v3/me/shares/{share_ref}",
+            "/api/share/{share_token}/responses",
+        }
 
 
 @pytest.mark.asyncio

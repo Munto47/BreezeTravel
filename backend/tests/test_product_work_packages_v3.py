@@ -144,7 +144,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_performance_repair_slice_is_narrow_and_binds_fixed_verifier() -> None:
+def test_g07_panel_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -161,19 +161,25 @@ def test_g07_performance_repair_slice_is_narrow_and_binds_fixed_verifier() -> No
     assert {
         path for path in allowed if path.startswith("backend/app/trip_understanding/")
     } == {
-        "backend/app/trip_understanding/amap_place.py",
+        "backend/app/trip_understanding/access_log.py",
         "backend/app/trip_understanding/pipeline.py",
-        "backend/app/trip_understanding/worker.py",
+    }
+    assert {path for path in allowed if path.startswith("backend/app/api/")} == {
+        "backend/app/api/members.py",
+    }
+    assert "backend/app/main.py" in allowed
+    assert {
+        path for path in allowed if path.startswith("frontend/src/")
+    } == {
+        "frontend/src/app/share/[token]/page.tsx",
+        "frontend/src/types/workspace.ts",
     }
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
-    assert {
-        path
+    assert not any(
+        path.startswith("backend/evals/agent_gate_v1/")
         for path in allowed
-        if path.startswith("backend/evals/agent_gate_v1/")
-    } == {
-        "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
-    }
+    )
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
@@ -183,25 +189,24 @@ def test_g07_performance_repair_slice_is_narrow_and_binds_fixed_verifier() -> No
     assert {
         path for path in result["changed_paths"] if path.startswith("backend/app/")
     } == {
-        "backend/app/trip_understanding/amap_place.py",
+        "backend/app/api/members.py",
+        "backend/app/main.py",
+        "backend/app/trip_understanding/access_log.py",
         "backend/app/trip_understanding/pipeline.py",
-        "backend/app/trip_understanding/worker.py",
-    }
-    assert not {
-        path for path in result["changed_paths"] if path.startswith("frontend/src/")
     }
     assert {
-        path
-        for path in result["changed_paths"]
-        if path.startswith("backend/evals/agent_gate_v1/")
-    } <= {
-        "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
-        "backend/evals/agent_gate_v1/candidate_gate.py",
-        "backend/evals/agent_gate_v1/contracts.py",
+        path for path in result["changed_paths"] if path.startswith("frontend/src/")
+    } == {
+        "frontend/src/app/share/[token]/page.tsx",
+        "frontend/src/types/workspace.ts",
     }
+    assert not any(
+        path.startswith("backend/evals/agent_gate_v1/")
+        for path in result["changed_paths"]
+    )
 
 
-def test_only_candidate_component_verifier_is_mutable_in_sealed_slice() -> None:
+def test_agent_gate_verifier_is_immutable_during_panel_repair() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -209,15 +214,21 @@ def test_only_candidate_component_verifier_is_mutable_in_sealed_slice() -> None:
     )
     active_slice = registry["active_slice"]
 
-    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
+    assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
         "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
         registry=registry,
         active_slice=active_slice,
     )
+    sealed_slice = {**active_slice, "slice_id": "G07-SEALED-ONE-SHOT"}
+    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
+        "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
+        registry=registry,
+        active_slice=sealed_slice,
+    )
     assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
         "backend/evals/agent_gate_v1/final_gate.py",
         registry=registry,
-        active_slice=active_slice,
+        active_slice=sealed_slice,
     )
 
 

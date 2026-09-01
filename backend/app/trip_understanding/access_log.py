@@ -8,6 +8,7 @@ PRIVATE_PATH_ID_RES = (
     (re.compile(r"(/api/v3/trip-understandings/)[^/?\s]+"), "public_resource_id"),
     (re.compile(r"(/api/v3/shares/)[^/?\s]+"), "share_ref"),
     (re.compile(r"(/api/v3/me/shares/)[^/?\s]+"), "share_ref"),
+    (re.compile(r"(/api/share/)[^/?\s]+"), "share_token"),
 )
 
 

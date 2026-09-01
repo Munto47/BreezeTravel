@@ -36,6 +36,19 @@ from app.trip_understanding.models import (
 URL_RE = re.compile(r"https?://", re.IGNORECASE)
 SENTENCE_MARKERS = set("。！？；\n")
 ATOMIC_PLACE_RE = re.compile(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_-]+")
+GENERIC_ACTIVITY_RE = re.compile(
+    r"(?:"
+    r"(?:吃|用|享用)?(?:早|午|晚)(?:饭|餐)|"
+    r"(?:自由|自行)活动|"
+    r"(?:在)?(?:酒店|宾馆|民宿|住处)?休息|"
+    r"(?:随便)?看看?风景|"
+    r"用餐|就餐|吃饭"
+    r")"
+)
+DINING_CONTEXT_RE = re.compile(
+    r"(?:早餐|早饭|午餐|午饭|晚餐|晚饭|用餐|就餐|吃饭|吃)"
+    r"\s*(?:安排|选择|打算|准备)?\s*(?:去|到|在)?\s*$"
+)
 FORBIDDEN_PLACE_MARKERS = (
     "预约",
     "说明",
@@ -148,9 +161,40 @@ def is_atomic_planned_place(mention) -> bool:
         return False
     if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
         return False
+    if GENERIC_ACTIVITY_RE.fullmatch(candidate):
+        return False
     if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
         return False
     return re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is not None
+
+
+def _apply_contextual_category_hints(
+    source_text: str,
+    proposal: InferenceProposal,
+) -> InferenceProposal:
+    """Recover a narrow category only when source wording is explicit.
+
+    The hint constrains Provider selection; it never invents a place.  Name-
+    based or model-supplied categories continue to win, while an explicit meal
+    cue immediately before an otherwise ambiguous place name prevents a hotel
+    or attraction with the same short name from being auto-selected.
+    """
+
+    mentions = []
+    changed = False
+    for mention in proposal.mentions:
+        category_hint = mention.category_hint
+        if category_hint is None and mention.role == ActivityRole.PLANNED:
+            local_before = source_text[max(0, mention.span_start - 18) : mention.span_start]
+            if DINING_CONTEXT_RE.search(local_before):
+                category_hint = "餐饮"
+        if category_hint != mention.category_hint:
+            changed = True
+            mention = mention.model_copy(update={"category_hint": category_hint})
+        mentions.append(mention)
+    if not changed:
+        return proposal
+    return proposal.model_copy(update={"mentions": mentions})
 
 
 class EvidenceCompiler:
@@ -492,7 +536,10 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal = await self.inference_provider.propose(source_text)
+        proposal = _apply_contextual_category_hints(
+            source_text,
+            await self.inference_provider.propose(source_text),
+        )
         search_cities = resolution_cities(source_text, proposal.destination_name)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()

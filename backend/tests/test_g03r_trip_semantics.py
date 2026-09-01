@@ -411,3 +411,47 @@ async def test_resolver_and_public_cards_share_the_same_atomic_planned_gate() ->
     cards = [card.name for day in output.public_result.days for card in day.activities]
 
     assert resolver.calls == eligible == cards == ["未知地点甲"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "source",
+    (
+        "北京 Day 1：上午去吃午饭。",
+        "北京 Day 1：下午安排自由活动。",
+        "北京 Day 1：晚上去酒店休息。",
+        "北京 Day 1：上午去看看风景。",
+    ),
+)
+async def test_generic_activity_prose_never_becomes_an_executable_place(
+    source: str,
+) -> None:
+    class Resolver:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def resolve(
+            self,
+            *,
+            city: str,
+            atomic_place_name: str,
+            category_hint: str | None = None,
+        ):
+            del city, category_hint
+            self.calls.append(atomic_place_name)
+            return None
+
+    resolver = Resolver()
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run(source)
+
+    assert resolver.calls == []
+    assert output.compiler_receipt["eligible_place_count"] == 0
+    assert output.resolution_receipt["attempted_count"] == 0
+    assert [
+        card
+        for day in output.public_result.days
+        for card in day.activities
+    ] == []

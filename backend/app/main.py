@@ -6,7 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -164,11 +164,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="BreezeTravel — AI 智能旅行协同规划系统",
-    description=(
-        "基于 LangGraph ReAct + Critic + Advanced RAG + MCP Server 的旅行规划系统。\n\n"
-        "Sprint 5 新增：Critic 反思节点 / LangSmith 追踪 / MCP Server / 本地显式验证"
-    ),
+    title="BreezeTravel 行程查",
+    description="把文字或截图整理成逐日行程卡片、路线和少量可直接采纳的建议。",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -182,33 +179,72 @@ app.add_middleware(
 )
 
 # ── 业务路由 ──────────────────────────────────────────────────────────────
-app.include_router(chat.router, prefix="/api", tags=["chat"])
-app.include_router(optimize.router, prefix="/api", tags=["optimize"])
-app.include_router(themes.router, prefix="/api", tags=["themes"])
-app.include_router(edit_api.router, prefix="/api", tags=["edit"])
-# user_profile 必须在 room 之前注册，否则 /user/{user_id} 会抢先匹配 /user/rooms 等路径
-app.include_router(user_profile.router, prefix="/api", tags=["user"])
-app.include_router(room.router, prefix="/api", tags=["room"])
-app.include_router(recommend.router, prefix="/api", tags=["recommend"])
-app.include_router(weather.router, prefix="/api", tags=["weather"])
-app.include_router(auth_api.router, prefix="/api", tags=["auth"])
-app.include_router(places_persist.router, prefix="/api", tags=["places"])
-app.include_router(cities.router, prefix="/api", tags=["cities"])
-app.include_router(evidence.router, prefix="/api", tags=["evidence"])
-app.include_router(e2e_api.router, prefix="/api", tags=["e2e"])
-app.include_router(tasks.router, prefix="/api", tags=["tasks"])
-app.include_router(memories.router, prefix="/api", tags=["memory"])
-app.include_router(trip_workspaces.router, prefix="/api", tags=["trip-workspaces"])
-app.include_router(audits.router, prefix="/api", tags=["audits"])
-app.include_router(imports.router, prefix="/api", tags=["imports"])
-app.include_router(trip_intakes.router, prefix="/api", tags=["trip-intakes"])
-app.include_router(trip_briefs.router, prefix="/api", tags=["trip-briefs"])
-app.include_router(trip_check_runs.router, prefix="/api", tags=["trip-check-runs"])
-app.include_router(trip_check_advice.router, prefix="/api", tags=["trip-check-advice"])
-app.include_router(repairs.router, prefix="/api", tags=["repairs"])
-app.include_router(members.router, prefix="/api", tags=["members"])
-app.include_router(templates.router, prefix="/api", tags=["route-templates"])
-app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
+# Public runtime exposes only authentication/profile plus the current v3
+# product mainline below.  The old room/chat/workspace/audit/repair/import
+# surfaces remain available in local and test profiles for compatibility
+# regression, but cannot enter public OpenAPI or receive public requests.
+def _router_subset(source: APIRouter, allowed_paths: set[str]) -> APIRouter:
+    subset = APIRouter()
+    subset.routes.extend(
+        route
+        for route in source.routes
+        if getattr(route, "path", None) in allowed_paths
+    )
+    return subset
+
+
+if settings.runtime_profile == "public":
+    app.include_router(
+        _router_subset(
+            user_profile.router,
+            {"/user/me", "/user/profile"},
+        ),
+        prefix="/api",
+        tags=["user"],
+    )
+    app.include_router(
+        _router_subset(
+            auth_api.router,
+            {
+                "/auth/wechat/login",
+                "/auth/send-code",
+                "/auth/email-register",
+                "/auth/email-login",
+                "/auth/verify",
+            },
+        ),
+        prefix="/api",
+        tags=["auth"],
+    )
+else:
+    app.include_router(user_profile.router, prefix="/api", tags=["user"])
+    app.include_router(auth_api.router, prefix="/api", tags=["auth"])
+    app.include_router(chat.router, prefix="/api", tags=["chat"])
+    app.include_router(optimize.router, prefix="/api", tags=["optimize"])
+    app.include_router(themes.router, prefix="/api", tags=["themes"])
+    app.include_router(edit_api.router, prefix="/api", tags=["edit"])
+    # user_profile is registered above room so /user/{user_id} cannot capture
+    # compatibility paths such as /user/rooms.
+    app.include_router(room.router, prefix="/api", tags=["room"])
+    app.include_router(recommend.router, prefix="/api", tags=["recommend"])
+    app.include_router(weather.router, prefix="/api", tags=["weather"])
+    app.include_router(places_persist.router, prefix="/api", tags=["places"])
+    app.include_router(cities.router, prefix="/api", tags=["cities"])
+    app.include_router(evidence.router, prefix="/api", tags=["evidence"])
+    app.include_router(e2e_api.router, prefix="/api", tags=["e2e"])
+    app.include_router(tasks.router, prefix="/api", tags=["tasks"])
+    app.include_router(memories.router, prefix="/api", tags=["memory"])
+    app.include_router(trip_workspaces.router, prefix="/api", tags=["trip-workspaces"])
+    app.include_router(audits.router, prefix="/api", tags=["audits"])
+    app.include_router(imports.router, prefix="/api", tags=["imports"])
+    app.include_router(trip_intakes.router, prefix="/api", tags=["trip-intakes"])
+    app.include_router(trip_briefs.router, prefix="/api", tags=["trip-briefs"])
+    app.include_router(trip_check_runs.router, prefix="/api", tags=["trip-check-runs"])
+    app.include_router(trip_check_advice.router, prefix="/api", tags=["trip-check-advice"])
+    app.include_router(repairs.router, prefix="/api", tags=["repairs"])
+    app.include_router(members.router, prefix="/api", tags=["members"])
+    app.include_router(templates.router, prefix="/api", tags=["route-templates"])
+    app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
 app.include_router(
     screenshot_batches_v3.router,
     prefix="/api",
@@ -240,6 +276,8 @@ async def health_check():
 
     返回 200 即表示服务正常，可处理请求。
     """
+    if settings.runtime_profile == "public":
+        return {"status": "ok"}
     return {
         "status": "ok",
         "suggestion_provider": suggestion_provider_health(get_settings()),
@@ -258,7 +296,10 @@ async def health_check():
     }
 
 
-@app.get("/metrics", tags=["ops"])
+internal_ops_router = APIRouter()
+
+
+@internal_ops_router.get("/metrics", tags=["ops"])
 async def metrics():
     """
     业务指标端点（轻量版，可对接 Prometheus 抓取）
@@ -322,9 +363,17 @@ async def metrics():
     }
 
 
-@app.get("/metrics/prometheus", response_class=PlainTextResponse, tags=["ops"])
+@internal_ops_router.get(
+    "/metrics/prometheus",
+    response_class=PlainTextResponse,
+    tags=["ops"],
+)
 async def prometheus_metrics_endpoint():
     return PlainTextResponse(prometheus_metrics.render(), media_type="text/plain; version=0.0.4")
+
+
+if settings.runtime_profile != "public":
+    app.include_router(internal_ops_router)
 
 
 # ── 请求计数中间件 ─────────────────────────────────────────────────────────
