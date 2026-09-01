@@ -180,7 +180,6 @@ class StayCandidateView(StrictModel):
     commute_summary: str
     max_single_leg_minutes: int = Field(ge=0)
     transfer_count: int = Field(ge=0)
-    evidence_gap: str | None = None
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
     selected: bool = False

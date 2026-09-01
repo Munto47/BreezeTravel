@@ -121,7 +121,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] == "IMPLEMENTING"
-    assert registry["active_slice"]["product_progress"] == "EVAL_METRIC"
+    assert registry["active_slice"]["product_progress"] == "RUNTIME"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR"
@@ -153,27 +153,32 @@ def test_g07_panel_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
     active_slice = registry["active_slice"]
     allowed = active_slice["allowed_paths"]
     assert active_slice["slice_id"].startswith("G07-")
+    assert active_slice["repair_review_cycle"] == 3
     assert "docs/governance" in allowed
     assert "backend/app/trip_understanding" not in allowed
     assert "frontend/src" not in allowed
-    assert "backend/app/trip_understanding/repository.py" not in allowed
+    assert "backend/app/trip_understanding/repository.py" in allowed
     assert "frontend/src/app/trip/result/itinerary-workspace.tsx" not in allowed
     assert {
         path for path in allowed if path.startswith("backend/app/trip_understanding/")
     } == {
-        "backend/app/trip_understanding/access_log.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/map_repository.py",
+        "backend/app/trip_understanding/models.py",
         "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/repository.py",
+        "backend/app/trip_understanding/stay_repository.py",
     }
-    assert {path for path in allowed if path.startswith("backend/app/api/")} == {
-        "backend/app/api/members.py",
-    }
-    assert "backend/app/main.py" in allowed
+    assert not any(path.startswith("backend/app/api/") for path in allowed)
+    assert "backend/app/main.py" not in allowed
     assert {
         path for path in allowed if path.startswith("frontend/src/")
     } == {
-        "frontend/src/app/share/[token]/page.tsx",
-        "frontend/src/types/workspace.ts",
+        "frontend/src/app/profile/page.tsx",
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
     }
+    assert "backend/eval_data/g07_candidate/run_spec_v1.json" in allowed
     assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
     assert not any(
@@ -189,16 +194,19 @@ def test_g07_panel_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
     assert {
         path for path in result["changed_paths"] if path.startswith("backend/app/")
     } == {
-        "backend/app/api/members.py",
-        "backend/app/main.py",
-        "backend/app/trip_understanding/access_log.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/map_repository.py",
+        "backend/app/trip_understanding/models.py",
         "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/repository.py",
+        "backend/app/trip_understanding/stay_repository.py",
     }
     assert {
         path for path in result["changed_paths"] if path.startswith("frontend/src/")
     } == {
-        "frontend/src/app/share/[token]/page.tsx",
-        "frontend/src/types/workspace.ts",
+        "frontend/src/app/profile/page.tsx",
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/src/lib/trip-understanding-v3.ts",
     }
     assert not any(
         path.startswith("backend/evals/agent_gate_v1/")

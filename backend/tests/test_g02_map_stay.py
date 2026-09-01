@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pytest
@@ -10,12 +10,13 @@ from fastapi.testclient import TestClient
 from app.api.trip_understandings_v3 import get_trip_understanding_repository
 from app.main import app
 from app.trip_understanding.amap_route import AmapRouteProvider
-from app.trip_understanding.errors import RouteProviderUnavailableError
+from app.trip_understanding.errors import JobLeaseLostError, RouteProviderUnavailableError
 from app.trip_understanding.map_render import MapRenderPlan, MapStop, PlanRevisionRef
 from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
 from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
+from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
 from app.trip_understanding.stay import (
     ControlledStayRouteProvider,
     StayCandidate,
@@ -230,6 +231,62 @@ async def test_stay_modes_fail_independently_and_all_missing_candidates_are_hidd
     ).recommend(plan, observed_at=observed_at)
     assert no_modes.status == "UNAVAILABLE"
     assert no_modes.candidates == []
+
+
+@pytest.mark.asyncio
+async def test_stay_attempt_fences_stale_completion_and_failure_for_reused_worker_id() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    now = datetime(2026, 9, 2, tzinfo=timezone.utc)
+    await repository.create_demo(
+        capability_hash="f" * 64,
+        idempotency_key="stay-attempt-fencing",
+        request_hash=DEMO_CREATE_REQUEST_HASH,
+        now=now,
+        ttl_hours=24,
+    )
+    assert await TripUnderstandingWorker(repository).run_once(
+        "stay-fencing-understanding",
+        now=now,
+    )
+    assert await MapRenderWorker(repository).run_once(
+        "stay-fencing-map",
+        now=now + timedelta(seconds=1),
+    )
+
+    stale = await repository.claim_next_stay(
+        worker_id="reused-stay-worker",
+        now=now + timedelta(seconds=2),
+        lease_seconds=5,
+    )
+    assert stale is not None
+    output = await StayRecommendationEngine(
+        ManyHotelsProvider(),
+        ControlledStayRouteProvider(),
+    ).recommend(
+        await repository.load_stay_plan(stale),
+        observed_at=now + timedelta(seconds=2),
+    )
+    replacement = await repository.claim_next_stay(
+        worker_id="reused-stay-worker",
+        now=now + timedelta(seconds=8),
+        lease_seconds=30,
+    )
+    assert replacement is not None
+    assert replacement.attempt == stale.attempt + 1
+
+    await repository.fail_stay_job(
+        stale,
+        category="STALE_STAY_FAILURE",
+        now=now + timedelta(seconds=9),
+    )
+    assert repository.stay_jobs[stale.stay_job_id]["status"] == "BUILDING"
+    assert repository.stay_jobs[stale.stay_job_id]["attempt"] == replacement.attempt
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_stay_job(
+            stale,
+            output,
+            now=now + timedelta(seconds=9),
+        )
 
 
 @pytest.mark.asyncio

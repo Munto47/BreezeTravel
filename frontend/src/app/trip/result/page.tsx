@@ -1791,7 +1791,6 @@ function StayPanel({
               <span className="rounded-xl bg-slate-50 px-2.5 py-2">共 {candidate.transfer_count} 次换乘</span>
             </div>
             <p className="mt-3 text-xs leading-5 text-slate-500">{candidate.reason}</p>
-            {candidate.evidence_gap && <p className="mt-2 text-xs leading-5 text-amber-700">{candidate.evidence_gap}</p>}
             {!candidate.selected && candidate.available_actions.includes('CHOOSE_STAY') && (
               <button
                 data-testid="choose-stay"

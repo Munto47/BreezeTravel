@@ -3666,6 +3666,7 @@ class PostgresTripUnderstandingRepository(
             if (
                 current_job["status"] != "RUNNING"
                 or current_job["lease_owner"] != job.lease_owner
+                or current_job["attempt"] != job.attempt
                 or current_job["lease_until"] <= now
             ):
                 raise JobLeaseLostError("understanding job lease was lost before completion")
@@ -3910,7 +3911,12 @@ class PostgresTripUnderstandingRepository(
                 "SELECT status, lease_owner, attempt, max_attempts FROM trip_understanding_jobs WHERE job_id = $1 FOR UPDATE",
                 job.job_id,
             )
-            if row is None or row["status"] != "RUNNING" or row["lease_owner"] != job.lease_owner:
+            if (
+                row is None
+                or row["status"] != "RUNNING"
+                or row["lease_owner"] != job.lease_owner
+                or row["attempt"] != job.attempt
+            ):
                 return
             retryable = row["attempt"] < row["max_attempts"]
             await conn.execute(
@@ -5356,6 +5362,7 @@ class InMemoryTripUnderstandingRepository(
         if (
             item["status"] != "RUNNING"
             or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
             or item["lease_until"] <= now
         ):
             raise JobLeaseLostError("understanding job lease was lost before completion")
@@ -5419,7 +5426,12 @@ class InMemoryTripUnderstandingRepository(
         now: datetime,
     ) -> None:
         item = self.jobs.get(job.job_id)
-        if item is None or item["status"] != "RUNNING" or item["lease_owner"] != job.lease_owner:
+        if (
+            item is None
+            or item["status"] != "RUNNING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+        ):
             return
         retryable = item["attempt"] < item["max_attempts"]
         item.update(

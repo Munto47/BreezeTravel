@@ -10099,65 +10099,6 @@
         "title": "ShareProjectionView",
         "type": "object"
       },
-      "ShareResponse": {
-        "properties": {
-          "action": {
-            "$ref": "#/components/schemas/ShareResponseAction"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "itinerary_revision": {
-            "exclusiveMinimum": 0.0,
-            "title": "Itinerary Revision",
-            "type": "integer"
-          },
-          "member_constraint_revision": {
-            "anyOf": [
-              {
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Member Constraint Revision"
-          },
-          "member_id": {
-            "minLength": 1,
-            "title": "Member Id",
-            "type": "string"
-          },
-          "response_id": {
-            "minLength": 1,
-            "title": "Response Id",
-            "type": "string"
-          },
-          "share_link_id": {
-            "minLength": 1,
-            "title": "Share Link Id",
-            "type": "string"
-          },
-          "workspace_id": {
-            "minLength": 1,
-            "title": "Workspace Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "response_id",
-          "share_link_id",
-          "workspace_id",
-          "itinerary_revision",
-          "member_id",
-          "action"
-        ],
-        "title": "ShareResponse",
-        "type": "object"
-      },
       "ShareResponseAction": {
         "enum": [
           "ACKNOWLEDGE",
@@ -10181,17 +10122,17 @@
               }
             ]
           },
-          "expected_base_revision": {
+          "constraint_write_token": {
             "anyOf": [
               {
-                "minimum": 0.0,
-                "type": "integer"
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Expected Base Revision"
+            "title": "Constraint Write Token"
           },
           "profile": {
             "anyOf": [
@@ -10289,141 +10230,10 @@
         "title": "SharedActivityView",
         "type": "object"
       },
-      "SharedConstraintWriteContext": {
-        "description": "Recipient-only optimistic-concurrency token for a constrained write.",
-        "properties": {
-          "expected_base_revision": {
-            "minimum": 0.0,
-            "title": "Expected Base Revision",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "expected_base_revision"
-        ],
-        "title": "SharedConstraintWriteContext",
-        "type": "object"
-      },
-      "SharedFindingView": {
-        "description": "Finding display intentionally excludes internal input/evidence/member IDs.",
-        "properties": {
-          "affected_days": {
-            "items": {
-              "type": "integer"
-            },
-            "title": "Affected Days",
-            "type": "array"
-          },
-          "affected_stop_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Affected Stop Ids",
-            "type": "array"
-          },
-          "confirmation_action": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmation Action"
-          },
-          "finding_id": {
-            "title": "Finding Id",
-            "type": "string"
-          },
-          "message": {
-            "title": "Message",
-            "type": "string"
-          },
-          "reason_code": {
-            "title": "Reason Code",
-            "type": "string"
-          },
-          "repairable": {
-            "title": "Repairable",
-            "type": "boolean"
-          },
-          "rule_id": {
-            "title": "Rule Id",
-            "type": "string"
-          },
-          "severity": {
-            "title": "Severity",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "finding_id",
-          "rule_id",
-          "status",
-          "severity",
-          "reason_code",
-          "message",
-          "affected_days",
-          "affected_stop_ids",
-          "repairable"
-        ],
-        "title": "SharedFindingView",
-        "type": "object"
-      },
-      "SharedReportView": {
-        "properties": {
-          "audit_rule_set_version": {
-            "title": "Audit Rule Set Version",
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "title": "Created At",
-            "type": "string"
-          },
-          "findings": {
-            "items": {
-              "$ref": "#/components/schemas/SharedFindingView"
-            },
-            "title": "Findings",
-            "type": "array"
-          },
-          "itinerary_revision": {
-            "title": "Itinerary Revision",
-            "type": "integer"
-          },
-          "overall_status": {
-            "title": "Overall Status",
-            "type": "string"
-          },
-          "report_id": {
-            "title": "Report Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "report_id",
-          "itinerary_revision",
-          "audit_rule_set_version",
-          "overall_status",
-          "created_at"
-        ],
-        "title": "SharedReportView",
-        "type": "object"
-      },
-      "SharedRevisionView": {
+      "SharedItineraryView": {
         "properties": {
           "city": {
             "title": "City",
-            "type": "string"
-          },
-          "content_hash": {
-            "title": "Content Hash",
             "type": "string"
           },
           "days": {
@@ -10432,10 +10242,6 @@
             },
             "title": "Days",
             "type": "array"
-          },
-          "revision": {
-            "title": "Revision",
-            "type": "integer"
           },
           "trip_end_date": {
             "title": "Trip End Date",
@@ -10447,26 +10253,32 @@
           }
         },
         "required": [
-          "revision",
-          "content_hash",
           "city",
           "trip_start_date",
           "trip_end_date",
           "days"
         ],
-        "title": "SharedRevisionView",
+        "title": "SharedItineraryView",
+        "type": "object"
+      },
+      "SharedResponseAccepted": {
+        "properties": {
+          "accepted": {
+            "const": true,
+            "default": true,
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "title": "SharedResponseAccepted",
         "type": "object"
       },
       "SharedStopView": {
-        "description": "The immutable itinerary fields a recipient needs, without workspace metadata.",
+        "description": "User-facing stop fields without internal identifiers or lock metadata.",
         "properties": {
           "category": {
             "title": "Category",
             "type": "string"
-          },
-          "day_index": {
-            "title": "Day Index",
-            "type": "integer"
           },
           "end_time": {
             "anyOf": [
@@ -10479,36 +10291,13 @@
             ],
             "title": "End Time"
           },
-          "fixed_commitment": {
-            "title": "Fixed Commitment",
-            "type": "boolean"
-          },
-          "locked": {
-            "title": "Locked",
-            "type": "boolean"
+          "name": {
+            "title": "Name",
+            "type": "string"
           },
           "notes": {
             "title": "Notes",
             "type": "string"
-          },
-          "order_index": {
-            "title": "Order Index",
-            "type": "integer"
-          },
-          "place_id": {
-            "title": "Place Id",
-            "type": "string"
-          },
-          "raw_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Raw Name"
           },
           "start_time": {
             "anyOf": [
@@ -10520,10 +10309,6 @@
               }
             ],
             "title": "Start Time"
-          },
-          "stop_id": {
-            "title": "Stop Id",
-            "type": "string"
           },
           "visit_duration_minutes": {
             "anyOf": [
@@ -10538,64 +10323,102 @@
           }
         },
         "required": [
-          "stop_id",
-          "place_id",
-          "day_index",
-          "order_index",
-          "fixed_commitment",
-          "locked",
+          "name",
           "category",
           "notes"
         ],
         "title": "SharedStopView",
         "type": "object"
       },
-      "SharedWorkspaceView": {
-        "description": "A redacted, captured share projection; never a workspace capability.",
+      "SharedSuggestionView": {
+        "description": "Plain-language advice derived from a captured report.",
         "properties": {
-          "acknowledgement": {
-            "$ref": "#/components/schemas/SharedAcknowledgementView"
+          "affected_days": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Affected Days",
+            "type": "array"
           },
-          "constraint_write_context": {
+          "level": {
+            "enum": [
+              "必须调整",
+              "可以更好",
+              "需要确认"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "suggested_action": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/SharedConstraintWriteContext"
+                "type": "string"
               },
               {
                 "type": "null"
               }
-            ]
+            ],
+            "title": "Suggested Action"
+          }
+        },
+        "required": [
+          "level",
+          "message",
+          "affected_days"
+        ],
+        "title": "SharedSuggestionView",
+        "type": "object"
+      },
+      "SharedWorkspaceView": {
+        "description": "Strict ordinary-user projection; never a workspace capability.",
+        "properties": {
+          "acknowledgement": {
+            "$ref": "#/components/schemas/SharedAcknowledgementView"
+          },
+          "can_acknowledge": {
+            "title": "Can Acknowledge",
+            "type": "boolean"
+          },
+          "can_add_preference": {
+            "title": "Can Add Preference",
+            "type": "boolean"
+          },
+          "constraint_write_token": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraint Write Token"
           },
           "itinerary": {
-            "$ref": "#/components/schemas/SharedRevisionView"
+            "$ref": "#/components/schemas/SharedItineraryView"
           },
           "recipient_bound": {
             "title": "Recipient Bound",
             "type": "boolean"
           },
-          "report": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/SharedReportView"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "scopes": {
+          "suggestions": {
             "items": {
-              "$ref": "#/components/schemas/ShareScope"
+              "$ref": "#/components/schemas/SharedSuggestionView"
             },
-            "title": "Scopes",
-            "type": "array",
-            "uniqueItems": true
+            "title": "Suggestions",
+            "type": "array"
           }
         },
         "required": [
           "itinerary",
-          "scopes",
           "recipient_bound",
+          "can_acknowledge",
+          "can_add_preference",
           "acknowledgement"
         ],
         "title": "SharedWorkspaceView",
@@ -10737,17 +10560,6 @@
           "commute_summary": {
             "title": "Commute Summary",
             "type": "string"
-          },
-          "evidence_gap": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Evidence Gap"
           },
           "max_single_leg_minutes": {
             "minimum": 0.0,
@@ -13770,8 +13582,8 @@
     }
   },
   "info": {
-    "description": "基于 LangGraph ReAct + Critic + Advanced RAG + MCP Server 的旅行规划系统。\n\nSprint 5 新增：Critic 反思节点 / LangSmith 追踪 / MCP Server / 本地显式验证",
-    "title": "BreezeTravel — AI 智能旅行协同规划系统",
+    "description": "把文字或截图整理成逐日行程卡片、路线和少量可直接采纳的建议。",
+    "title": "BreezeTravel 行程查",
     "version": "2.0.0"
   },
   "openapi": "3.1.0",
@@ -16343,7 +16155,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ShareResponse"
+                  "$ref": "#/components/schemas/SharedResponseAccepted"
                 }
               }
             },

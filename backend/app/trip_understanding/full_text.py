@@ -23,6 +23,14 @@ from app.trip_understanding.pipeline import (
 
 _CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
 _DEEP_CITIES = frozenset({"北京", "上海", "杭州"})
+_MULTI_DEEP_CITY_HEADER_RE = re.compile(
+    r"^\s*(?P<cities>(?:北京|上海|杭州)(?:\s*[、，,和与/]\s*(?:北京|上海|杭州))+?)"
+    r"\s*(?:两地|三地|多地)?(?:游|行程|攻略|旅行)"
+)
+_BASIC_CITY_HEADER_RE = re.compile(
+    r"^\s*(?P<city>[\u4e00-\u9fff]{2,6}?)[一二两三四五六七八九十0-9]+"
+    r"(?:日|天)(?:游|行程|攻略|旅行)"
+)
 _DAY_NUMBER = {
     "一": 1,
     "二": 2,
@@ -415,6 +423,10 @@ def _is_meta_activity_clause(clause: str) -> bool:
 def _is_descriptive_reference_clause(clause: str) -> bool:
     if _PLANNED_ACTION_RE.search(clause):
         return False
+    if any(cue in clause for cue in ("预约说明", "预约流程")):
+        return True
+    if re.search(r"(?:相比|比|不如)[^。！？；;]*(?:更|较|热门|有名|适合|值得)", clause):
+        return True
     return any(
         cue in clause
         for cue in (
@@ -434,6 +446,17 @@ def _is_descriptive_reference_clause(clause: str) -> bool:
     ) is not None
 
 
+def _inside_quoted_text(source_text: str, position: int) -> bool:
+    for opening, closing in (("“", "”"), ('"', '"'), ("‘", "’"), ("'", "'")):
+        left = source_text.rfind(opening, 0, position)
+        if left < 0:
+            continue
+        right = source_text.find(closing, left + 1)
+        if right >= position:
+            return True
+    return False
+
+
 def _role_for_context(
     source_text: str,
     start: int,
@@ -445,6 +468,8 @@ def _role_for_context(
     context = source_text[max(0, start - 24) : start]
     local_before = source_text[max(0, start - 4) : start]
     local_after = source_text[end : min(len(source_text), end + 6)]
+    if _inside_quoted_text(source_text, start):
+        return ActivityRole.REFERENCE
     if _is_meta_activity_clause(clause):
         return ActivityRole.REFERENCE
     if any(cue in clause for cue in _EXCLUDED_CUES):
@@ -985,6 +1010,18 @@ def _destination(
     candidates: list[_MentionCandidate],
     headings: list[tuple[int, int]],
 ) -> tuple[str, DestinationBasis]:
+    multi_city = _MULTI_DEEP_CITY_HEADER_RE.search(source_text)
+    if multi_city:
+        city_text = multi_city.group("cities")
+        cities = sorted(
+            (city for city in ("北京", "上海", "杭州") if city in city_text),
+            key=city_text.index,
+        )
+        if len(cities) >= 2:
+            return "、".join(cities), DestinationBasis.EXPLICIT
+    basic_city = _BASIC_CITY_HEADER_RE.search(source_text)
+    if basic_city:
+        return basic_city.group("city").removesuffix("市"), DestinationBasis.EXPLICIT
     candidate_spans = [(item.start, item.end) for item in candidates]
     explicit: list[str] = []
     for city in _DEEP_CITIES:

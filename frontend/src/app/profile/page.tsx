@@ -80,8 +80,8 @@ export default function ProfilePage() {
       updateUser({ nickname: nickname.trim() || user!.nickname, avatarUrl: avatarUrl || undefined })
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    } catch (e: unknown) {
-      toast(e instanceof Error ? e.message : '保存失败，请重试', 'error')
+    } catch {
+      toast('保存失败，请稍后重试', 'error')
     } finally {
       setSaving(false)
     }

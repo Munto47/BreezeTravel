@@ -105,9 +105,28 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
                 capability_hash="b" * 64,
                 now=now,
             )
-        job = await repository.claim_next(worker_id="postgres-worker", now=now, lease_seconds=30)
+        stale_job = await repository.claim_next(
+            worker_id="postgres-reused-worker",
+            now=now,
+            lease_seconds=5,
+        )
+        assert stale_job is not None
+        job = await repository.claim_next(
+            worker_id="postgres-reused-worker",
+            now=now + timedelta(seconds=6),
+            lease_seconds=30,
+        )
         assert job is not None
+        assert job.attempt == 2
         output = await build_demo_pipeline().run(DEMO_SOURCE_TEXT)
+        await repository.fail_job(
+            stale_job,
+            category="STALE_FAILURE",
+            now=now + timedelta(seconds=7),
+        )
+        with pytest.raises(JobLeaseLostError):
+            await repository.complete_job(stale_job, output, now=now + timedelta(seconds=7))
+        now += timedelta(seconds=7)
         assert await repository.complete_job(job, output, now=now) is False
         assert await repository.complete_job(job, output, now=now) is True
 
@@ -333,7 +352,7 @@ Day 3：颐和园、圆明园。
         assert requested_map.accepted.status == "PREPARING"
         assert replayed_map.replayed is True
         old_map_claim = await repository.claim_next_map(
-            worker_id="postgres-old-map-worker",
+            worker_id="postgres-reused-map-worker",
             now=now + timedelta(seconds=1),
             lease_seconds=5,
         )
@@ -343,11 +362,17 @@ Day 3：颐和园、圆明园。
             observed_at=now + timedelta(seconds=1),
         )
         replacement_map_claim = await repository.claim_next_map(
-            worker_id="postgres-new-map-worker",
+            worker_id="postgres-reused-map-worker",
             now=now + timedelta(seconds=7),
             lease_seconds=30,
         )
         assert replacement_map_claim is not None
+        assert replacement_map_claim.attempt == old_map_claim.attempt + 1
+        await repository.fail_map_job(
+            old_map_claim,
+            category="STALE_MAP_FAILURE",
+            now=now + timedelta(seconds=8),
+        )
         with pytest.raises(JobLeaseLostError):
             await repository.complete_map_job(
                 old_map_claim,

@@ -74,6 +74,7 @@ FORBIDDEN_PUBLIC_KEYS = {
     "hash",
     "revision",
     "receipt",
+    "evidence_gap",
     "run",
     "stage",
 }
@@ -510,6 +511,85 @@ def test_non_deep_chinese_destination_does_not_inherit_reference_city_lane() -> 
     source = "南京两日攻略。参考北京玩法，但 Day 1 去中山陵。"
 
     assert resolution_cities(source, "南京") == ("南京",)
+
+
+@pytest.mark.asyncio
+async def test_deterministic_destination_keeps_explicit_multi_city_and_reference_boundaries() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    multi_resolver = RecordingResolver()
+    multi = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        multi_resolver,
+    ).run("北京、杭州两地游。Day 1 去北京西站。Day 2 去南宋御街。")
+    assert multi.destination == {"name": "北京、杭州", "status": "EXPLICIT"}
+    assert set(multi_resolver.calls) == {
+        (city, place)
+        for city in ("北京", "杭州")
+        for place in ("北京西站", "南宋御街")
+    }
+
+    basic_resolver = RecordingResolver()
+    basic = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        basic_resolver,
+    ).run("南京两日游。参考北京玩法。Day 1 去中山陵。")
+    assert basic.destination == {"name": "南京", "status": "EXPLICIT"}
+    assert basic_resolver.calls == [("南京", "中山陵")]
+
+
+@pytest.mark.asyncio
+async def test_deterministic_fallback_rejects_reference_booking_comparison_and_generic_lodging() -> None:
+    class UnavailableInferenceProvider:
+        async def propose(self, source_text: str):
+            del source_text
+            raise InferenceProviderUnavailableError(
+                "DEADLINE_EXCEEDED",
+                provider_binding={"provider": "qwen-test-double"},
+                external_call_count=1,
+            )
+
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    for source in (
+        "北京。朋友说“Day 1 去故宫博物院”，但这只是引用，不是本次安排。",
+        "北京。Day 1 故宫博物院预约说明。",
+        "北京。Day 1 故宫博物院比天坛公园更热门。",
+    ):
+        resolver = RecordingResolver()
+        output = await build_full_text_pipeline(
+            UnavailableInferenceProvider(),
+            resolver,
+        ).run(source)
+        assert output.inference_binding["fallback_used"] is True
+        assert resolver.calls == []
+        assert all(day.activities == [] for day in output.public_result.days)
+
+    route_resolver = RecordingResolver()
+    route = await build_full_text_pipeline(
+        UnavailableInferenceProvider(),
+        route_resolver,
+    ).run("北京。Day 1 从酒店步行到故宫博物院。")
+    assert route_resolver.calls == [("北京", "故宫博物院")]
+    assert [
+        activity.name
+        for day in route.public_result.days
+        for activity in day.activities
+    ] == ["故宫博物院"]
 
 
 @pytest.mark.asyncio
@@ -1049,7 +1129,7 @@ async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> No
         now=now,
         ttl_hours=24,
     )
-    first = await repository.claim_next(worker_id="worker-old", now=now, lease_seconds=5)
+    first = await repository.claim_next(worker_id="reused-worker", now=now, lease_seconds=5)
     assert first is not None
     assert await repository.claim_next(
         worker_id="worker-early",
@@ -1057,12 +1137,15 @@ async def test_expired_lease_is_reclaimed_and_stale_worker_cannot_commit() -> No
         lease_seconds=5,
     ) is None
     replacement = await repository.claim_next(
-        worker_id="worker-new",
+        worker_id="reused-worker",
         now=now + timedelta(seconds=6),
         lease_seconds=30,
     )
     assert replacement is not None
     assert replacement.attempt == 2
+    await repository.fail_job(first, category="STALE_FAILURE", now=now + timedelta(seconds=7))
+    assert repository.jobs[first.job_id]["status"] == "RUNNING"
+    assert repository.jobs[first.job_id]["attempt"] == 2
     output = await TripUnderstandingPipeline(
         FixedBeijingDemoInferenceProvider(),
         FixedBeijingPlaceResolver(),
@@ -1304,7 +1387,7 @@ async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
         now=now + timedelta(seconds=1),
     )
     old_claim = await repository.claim_next_map(
-        worker_id="old-map-worker",
+        worker_id="reused-map-worker",
         now=now + timedelta(seconds=2),
         lease_seconds=5,
     )
@@ -1312,11 +1395,18 @@ async def test_map_lease_takeover_and_late_old_revision_are_isolated() -> None:
     old_plan = await repository.load_map_plan(old_claim)
     old_output = await MapRenderer().render(old_plan, observed_at=now + timedelta(seconds=2))
     replacement = await repository.claim_next_map(
-        worker_id="new-map-worker",
+        worker_id="reused-map-worker",
         now=now + timedelta(seconds=8),
         lease_seconds=30,
     )
     assert replacement is not None
+    await repository.fail_map_job(
+        old_claim,
+        category="STALE_MAP_FAILURE",
+        now=now + timedelta(seconds=9),
+    )
+    assert repository.map_jobs[old_claim.map_job_id]["status"] == "BUILDING"
+    assert repository.map_jobs[old_claim.map_job_id]["attempt"] == 2
     with pytest.raises(JobLeaseLostError):
         await repository.complete_map_job(
             old_claim,

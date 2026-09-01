@@ -6011,27 +6011,6 @@ export interface components {
             /** Title */
             title: string;
         };
-        /** ShareResponse */
-        ShareResponse: {
-            action: components["schemas"]["ShareResponseAction"];
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at?: string;
-            /** Itinerary Revision */
-            itinerary_revision: number;
-            /** Member Constraint Revision */
-            member_constraint_revision?: number | null;
-            /** Member Id */
-            member_id: string;
-            /** Response Id */
-            response_id: string;
-            /** Share Link Id */
-            share_link_id: string;
-            /** Workspace Id */
-            workspace_id: string;
-        };
         /**
          * ShareResponseAction
          * @enum {string}
@@ -6041,8 +6020,8 @@ export interface components {
         ShareResponseRequest: {
             action: components["schemas"]["ShareResponseAction"];
             constraint?: components["schemas"]["MemberConstraintDraft"] | null;
-            /** Expected Base Revision */
-            expected_base_revision?: number | null;
+            /** Constraint Write Token */
+            constraint_write_token?: string | null;
             profile?: components["schemas"]["TravelerProfile"] | null;
         };
         /**
@@ -6073,116 +6052,78 @@ export interface components {
             /** Time Hint */
             time_hint?: string | null;
         };
-        /**
-         * SharedConstraintWriteContext
-         * @description Recipient-only optimistic-concurrency token for a constrained write.
-         */
-        SharedConstraintWriteContext: {
-            /** Expected Base Revision */
-            expected_base_revision: number;
-        };
-        /**
-         * SharedFindingView
-         * @description Finding display intentionally excludes internal input/evidence/member IDs.
-         */
-        SharedFindingView: {
-            /** Affected Days */
-            affected_days: number[];
-            /** Affected Stop Ids */
-            affected_stop_ids: string[];
-            /** Confirmation Action */
-            confirmation_action?: string | null;
-            /** Finding Id */
-            finding_id: string;
-            /** Message */
-            message: string;
-            /** Reason Code */
-            reason_code: string;
-            /** Repairable */
-            repairable: boolean;
-            /** Rule Id */
-            rule_id: string;
-            /** Severity */
-            severity: string;
-            /** Status */
-            status: string;
-        };
-        /** SharedReportView */
-        SharedReportView: {
-            /** Audit Rule Set Version */
-            audit_rule_set_version: string;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /** Findings */
-            findings?: components["schemas"]["SharedFindingView"][];
-            /** Itinerary Revision */
-            itinerary_revision: number;
-            /** Overall Status */
-            overall_status: string;
-            /** Report Id */
-            report_id: string;
-        };
-        /** SharedRevisionView */
-        SharedRevisionView: {
+        /** SharedItineraryView */
+        SharedItineraryView: {
             /** City */
             city: string;
-            /** Content Hash */
-            content_hash: string;
             /** Days */
             days: components["schemas"]["app__api__members__SharedDayView"][];
-            /** Revision */
-            revision: number;
             /** Trip End Date */
             trip_end_date: string;
             /** Trip Start Date */
             trip_start_date: string;
         };
+        /** SharedResponseAccepted */
+        SharedResponseAccepted: {
+            /**
+             * Accepted
+             * @default true
+             * @constant
+             */
+            accepted: true;
+        };
         /**
          * SharedStopView
-         * @description The immutable itinerary fields a recipient needs, without workspace metadata.
+         * @description User-facing stop fields without internal identifiers or lock metadata.
          */
         SharedStopView: {
             /** Category */
             category: string;
-            /** Day Index */
-            day_index: number;
             /** End Time */
             end_time?: string | null;
-            /** Fixed Commitment */
-            fixed_commitment: boolean;
-            /** Locked */
-            locked: boolean;
+            /** Name */
+            name: string;
             /** Notes */
             notes: string;
-            /** Order Index */
-            order_index: number;
-            /** Place Id */
-            place_id: string;
-            /** Raw Name */
-            raw_name?: string | null;
             /** Start Time */
             start_time?: string | null;
-            /** Stop Id */
-            stop_id: string;
             /** Visit Duration Minutes */
             visit_duration_minutes?: number | null;
         };
         /**
+         * SharedSuggestionView
+         * @description Plain-language advice derived from a captured report.
+         */
+        SharedSuggestionView: {
+            /** Affected Days */
+            affected_days: number[];
+            /**
+             * Level
+             * @enum {string}
+             */
+            level: "必须调整" | "可以更好" | "需要确认";
+            /** Message */
+            message: string;
+            /** Suggested Action */
+            suggested_action?: string | null;
+        };
+        /**
          * SharedWorkspaceView
-         * @description A redacted, captured share projection; never a workspace capability.
+         * @description Strict ordinary-user projection; never a workspace capability.
          */
         SharedWorkspaceView: {
             acknowledgement: components["schemas"]["SharedAcknowledgementView"];
-            constraint_write_context?: components["schemas"]["SharedConstraintWriteContext"] | null;
-            itinerary: components["schemas"]["SharedRevisionView"];
+            /** Can Acknowledge */
+            can_acknowledge: boolean;
+            /** Can Add Preference */
+            can_add_preference: boolean;
+            /** Constraint Write Token */
+            constraint_write_token?: string | null;
+            itinerary: components["schemas"]["SharedItineraryView"];
             /** Recipient Bound */
             recipient_bound: boolean;
-            report?: components["schemas"]["SharedReportView"] | null;
-            /** Scopes */
-            scopes: components["schemas"]["ShareScope"][];
+            /** Suggestions */
+            suggestions?: components["schemas"]["SharedSuggestionView"][];
         };
         /** SoftPreference */
         SoftPreference: {
@@ -6240,8 +6181,6 @@ export interface components {
             category: string;
             /** Commute Summary */
             commute_summary: string;
-            /** Evidence Gap */
-            evidence_gap?: string | null;
             /** Max Single Leg Minutes */
             max_single_leg_minutes: number;
             /** Name */
@@ -8883,7 +8822,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ShareResponse"];
+                    "application/json": components["schemas"]["SharedResponseAccepted"];
                 };
             };
             /** @description Validation Error */

@@ -88,7 +88,6 @@ export interface StayCandidateView {
   commute_summary: string
   max_single_leg_minutes: number
   transfer_count: number
-  evidence_gap: string | null
   reason: string
   available_actions: Array<'CHOOSE_STAY'>
   selected: boolean

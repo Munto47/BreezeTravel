@@ -51,6 +51,12 @@ def _candidate_view(row: Any, *, selected: bool = False) -> StayCandidateView:
     missing = int(row["missing_leg_count"])
     maximum = int(row["max_single_leg_minutes"])
     transfers = int(row["transfer_count"])
+    base_reason = (
+        "已作为所有过夜日的住宿"
+        if selected
+        else f"综合全程往返和换乘后排在前列，共 {transfers} 次换乘"
+    )
+    route_limit = f"；有 {missing} 段路线暂时无法完整比较" if missing else ""
     return StayCandidateView(
         candidate_token=row["public_candidate_token"],
         name=row["name"],
@@ -60,12 +66,7 @@ def _candidate_view(row: Any, *, selected: bool = False) -> StayCandidateView:
         commute_summary=f"全程首末站通勤中，最久一程约 {maximum} 分钟",
         max_single_leg_minutes=maximum,
         transfer_count=transfers,
-        evidence_gap=(f"有 {missing} 段路线暂缺完整依据" if missing else None),
-        reason=(
-            "已作为所有过夜日的住宿"
-            if selected
-            else f"综合全程往返和换乘后排在前列，共 {transfers} 次换乘"
-        ),
+        reason=f"{base_reason}{route_limit}",
         available_actions=[] if selected else ["CHOOSE_STAY"],
         selected=selected,
     )
@@ -476,6 +477,7 @@ class PostgresStayRecommendationRepositoryMixin:
                 current is None
                 or current["status"] != "BUILDING"
                 or current["lease_owner"] != job.lease_owner
+                or current["attempt"] != job.attempt
                 or current["lease_until"] <= now
             ):
                 raise JobLeaseLostError("stay job lease was lost before completion")
@@ -607,7 +609,12 @@ class PostgresStayRecommendationRepositoryMixin:
                 "SELECT * FROM trip_stay_recommendation_jobs WHERE stay_job_id = $1 FOR UPDATE",
                 job.stay_job_id,
             )
-            if row is None or row["status"] != "BUILDING" or row["lease_owner"] != job.lease_owner:
+            if (
+                row is None
+                or row["status"] != "BUILDING"
+                or row["lease_owner"] != job.lease_owner
+                or row["attempt"] != job.attempt
+            ):
                 return
             if row["attempt"] < row["max_attempts"]:
                 await conn.execute(
@@ -1193,7 +1200,12 @@ class InMemoryStayRecommendationRepositoryMixin:
             if item["output"].snapshot_sha256 != output.snapshot_sha256:
                 raise IdempotencyConflictError("stay snapshot binding mismatch")
             return True
-        if item["status"] != "BUILDING" or item["lease_owner"] != job.lease_owner or item["lease_until"] <= now:
+        if (
+            item["status"] != "BUILDING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+            or item["lease_until"] <= now
+        ):
             raise JobLeaseLostError("stay job lease was lost before completion")
         if output.plan_ref != job.plan_ref or output.policy_hash != job.policy_hash:
             raise ValueError("stay output is not bound to the claimed plan")
@@ -1216,7 +1228,12 @@ class InMemoryStayRecommendationRepositoryMixin:
         now: datetime,
     ) -> None:
         item = self.stay_jobs.get(job.stay_job_id)
-        if item is None or item["status"] != "BUILDING" or item["lease_owner"] != job.lease_owner:
+        if (
+            item is None
+            or item["status"] != "BUILDING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+        ):
             return
         if item["attempt"] < item["max_attempts"]:
             item.update(

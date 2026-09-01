@@ -897,6 +897,7 @@ class PostgresMapRenderRepositoryMixin:
             if (
                 current["status"] != "BUILDING"
                 or current["lease_owner"] != job.lease_owner
+                or current["attempt"] != job.attempt
                 or current["lease_until"] <= now
             ):
                 raise JobLeaseLostError("map job lease was lost before completion")
@@ -1033,7 +1034,12 @@ class PostgresMapRenderRepositoryMixin:
                 """,
                 job.map_job_id,
             )
-            if row is None or row["status"] != "BUILDING" or row["lease_owner"] != job.lease_owner:
+            if (
+                row is None
+                or row["status"] != "BUILDING"
+                or row["lease_owner"] != job.lease_owner
+                or row["attempt"] != job.attempt
+            ):
                 return
             retryable = row["attempt"] < row["max_attempts"]
             if retryable:
@@ -1452,6 +1458,7 @@ class InMemoryMapRenderRepositoryMixin:
         if (
             item["status"] != "BUILDING"
             or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
             or item["lease_until"] <= now
         ):
             raise JobLeaseLostError("map job lease was lost before completion")
@@ -1482,7 +1489,12 @@ class InMemoryMapRenderRepositoryMixin:
         now: datetime,
     ) -> None:
         item = self.map_jobs.get(job.map_job_id)
-        if item is None or item["status"] != "BUILDING" or item["lease_owner"] != job.lease_owner:
+        if (
+            item is None
+            or item["status"] != "BUILDING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+        ):
             return
         if item["attempt"] < item["max_attempts"]:
             item.update(

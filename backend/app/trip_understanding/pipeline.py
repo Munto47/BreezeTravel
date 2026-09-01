@@ -62,6 +62,15 @@ FORBIDDEN_PLACE_MARKERS = (
     "分钟",
 )
 DEEP_CITIES = ("北京", "上海", "杭州")
+MULTI_DEEP_CITY_HEADER_RE = re.compile(
+    r"^\s*(?P<cities>(?:北京|上海|杭州)(?:\s*[、，,和与/]\s*(?:北京|上海|杭州))+?)"
+    r"\s*(?:两地|三地|多地)?(?:游|行程|攻略|旅行)"
+)
+BASIC_CITY_HEADER_RE = re.compile(
+    r"^\s*(?P<city>[\u4e00-\u9fff]{2,6}?)[一二两三四五六七八九十0-9]+"
+    r"(?:日|天)(?:游|行程|攻略|旅行)"
+)
+GENERIC_PLACE_NAMES = frozenset({"酒店", "宾馆", "民宿", "住处", "住宿"})
 
 
 def _ordered_deep_cities(value: str) -> tuple[str, ...]:
@@ -73,6 +82,16 @@ def _ordered_deep_cities(value: str) -> tuple[str, ...]:
     return tuple(city for _position, city in sorted(positions))
 
 
+def _itinerary_header_cities(source_text: str) -> tuple[str, ...]:
+    multi_city = MULTI_DEEP_CITY_HEADER_RE.search(source_text)
+    if multi_city:
+        return _ordered_deep_cities(multi_city.group("cities"))
+    basic_city = BASIC_CITY_HEADER_RE.search(source_text)
+    if basic_city:
+        return (basic_city.group("city").removesuffix("市"),)
+    return ()
+
+
 def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...]:
     """Return conservative city-limited search lanes for one itinerary.
 
@@ -82,6 +101,9 @@ def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...
     basic-only lane and are rejected by the live resolver without a call.
     """
 
+    header_cities = _itinerary_header_cities(source_text)
+    if header_cities:
+        return header_cities
     destination_cities = _ordered_deep_cities(destination_name)
     if destination_cities:
         return destination_cities
@@ -153,6 +175,8 @@ def is_atomic_planned_place(mention) -> bool:
         return False
     candidate = (mention.atomic_place_name or "").strip()
     if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
+        return False
+    if candidate in GENERIC_PLACE_NAMES:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
     if candidate != raw_candidate:

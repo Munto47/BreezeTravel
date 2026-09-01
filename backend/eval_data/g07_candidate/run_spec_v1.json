@@ -42,7 +42,7 @@
     },
     "openapi_v3": {
       "path": "packages/trip-check-client/openapi.current.json",
-      "sha256": "45706cc0b65a58302a2ae390041574057b8dab8744c842c71f8d4362ac029fec"
+      "sha256": "6a8e99e11d5b2dfec35fb2698fad59601a07d07c5018d8f0d03803c6023ea461"
     },
     "latest_migration": {
       "path": "backend/app/db/migrations/034_trip_understanding_screenshot_batches.sql",

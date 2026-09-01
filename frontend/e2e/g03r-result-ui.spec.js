@@ -970,7 +970,6 @@ function interactionStayView(withCandidate = false) {
       commute_summary: '通勤较均衡',
       max_single_leg_minutes: 28,
       transfer_count: 1,
-      evidence_gap: null,
       reason: '方便衔接每天首末站。',
       available_actions: ['CHOOSE_STAY'],
       selected: false,

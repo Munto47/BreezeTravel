@@ -96,11 +96,13 @@ import json
 import asyncio
 from app.main import app
 schema = app.openapi()
+schema_json = json.dumps(schema, ensure_ascii=False)
 print(json.dumps({
     'paths': sorted(schema.get('paths', {})),
     'schemas': sorted(schema.get('components', {}).get('schemas', {})),
     'info': schema.get('info', {}),
     'health': asyncio.run(__import__('app.main', fromlist=['health_check']).health_check()),
+    'has_evidence_gap': 'evidence_gap' in schema_json,
 }))
 """
     environment = os.environ.copy()
@@ -148,11 +150,23 @@ print(json.dumps({
     assert "/api/v3/trip-understandings" in paths
     assert "/api/v3/me/travel-data" in paths
     assert payload["health"] == {"status": "ok"}
+    assert payload["has_evidence_gap"] is False
     public_schema = json.dumps(payload, ensure_ascii=False)
     assert not any(
         token in public_schema
         for token in ("LangGraph", "ReAct", "Critic", "Advanced RAG", "MCP Server")
     )
+
+
+def test_profile_save_failure_copy_does_not_render_backend_error_details() -> None:
+    source = (
+        BACKEND_ROOT.parent / "frontend" / "src" / "app" / "profile" / "page.tsx"
+    ).read_text(encoding="utf-8")
+    save_handler = source[
+        source.index("const handleSave") : source.index("const handleDeleteAllTravelData")
+    ]
+    assert "toast('保存失败，请稍后重试', 'error')" in save_handler
+    assert "e.message" not in save_handler
 
 
 def test_test_profile_keeps_legacy_routes_for_compatibility_regression() -> None:
