@@ -169,6 +169,31 @@ class ResilientStructuredInferenceProvider:
             )
             return proposal.model_copy(update={"binding": fallback_binding})
 
+    async def aclose(self) -> None:
+        await _close_async_resources(self.primary, self.fallback)
+
+
+async def _close_async_resources(*resources: object) -> None:
+    """Best-effort close every distinct async resource, then surface an error."""
+
+    first_error: Exception | None = None
+    seen: set[int] = set()
+    for resource in resources:
+        identity = id(resource)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        close = getattr(resource, "aclose", None)
+        if close is None:
+            continue
+        try:
+            await close()
+        except Exception as exc:
+            if first_error is None:
+                first_error = exc
+    if first_error is not None:
+        raise first_error
+
 
 def is_atomic_planned_place(mention) -> bool:
     if mention.role != ActivityRole.PLANNED or mention.day_index is None:
@@ -401,9 +426,7 @@ class TripUnderstandingPipeline:
         self.max_place_concurrency = max_place_concurrency
 
     async def aclose(self) -> None:
-        close = getattr(self.place_resolver, "aclose", None)
-        if close is not None:
-            await close()
+        await _close_async_resources(self.inference_provider, self.place_resolver)
 
     async def _resolve_place(
         self,

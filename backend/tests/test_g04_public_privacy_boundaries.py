@@ -169,6 +169,21 @@ def test_profile_save_failure_copy_does_not_render_backend_error_details() -> No
     assert "e.message" not in save_handler
 
 
+def test_profile_load_failure_is_explicit_and_recoverable() -> None:
+    source = (
+        BACKEND_ROOT.parent / "frontend" / "src" / "app" / "profile" / "page.tsx"
+    ).read_text(encoding="utf-8")
+    load_handler = source[
+        source.index("api.get<UserProfile>") : source.index("const handleAvatarChange")
+    ]
+
+    assert "setProfileLoadFailed(true)" in load_handler
+    assert ".catch(() => {})" not in load_handler
+    assert 'data-testid="profile-load-error"' in source
+    assert 'data-testid="retry-profile-load"' in source
+    assert "你的资料没有被清空，请稍后重试。" in source
+
+
 def test_test_profile_keeps_legacy_routes_for_compatibility_regression() -> None:
     from app.main import app
 

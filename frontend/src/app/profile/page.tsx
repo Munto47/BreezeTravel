@@ -29,6 +29,9 @@ export default function ProfilePage() {
   const { user, updateUser, isHydrated, hydrate, logout } = useAuthStore()
   const toast = useToastStore(s => s.toast)
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false)
+  const [profileLoadAttempt, setProfileLoadAttempt] = useState(0)
   const [nickname, setNickname] = useState('')
   const [birthday, setBirthday] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -50,13 +53,20 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!user) return
+    setProfileLoading(true)
+    setProfileLoadFailed(false)
     api.get<UserProfile>('/api/user/me').then(p => {
       setProfile(p)
       setNickname(p.nickname || '')
       setBirthday(p.birthday || '')
       setAvatarUrl(p.avatar_url || '')
-    }).catch(() => {})
-  }, [user])
+    }).catch(() => {
+      setProfile(null)
+      setProfileLoadFailed(true)
+    }).finally(() => {
+      setProfileLoading(false)
+    })
+  }, [user, profileLoadAttempt])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -134,6 +144,29 @@ export default function ProfilePage() {
     </div>
   )
   if (!user) return null
+  if (profileLoading || (!profile && !profileLoadFailed)) return (
+    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center px-4">
+      <p role="status" className="rounded-2xl bg-white px-5 py-4 text-sm text-gray-500 shadow-glass">
+        正在读取个人资料…
+      </p>
+    </div>
+  )
+  if (profileLoadFailed) return (
+    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center px-4">
+      <div data-testid="profile-load-error" role="alert" className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-glass">
+        <p className="text-sm font-medium text-gray-800">个人资料暂时无法读取</p>
+        <p className="mt-2 text-xs leading-5 text-gray-500">你的资料没有被清空，请稍后重试。</p>
+        <button
+          data-testid="retry-profile-load"
+          type="button"
+          onClick={() => setProfileLoadAttempt(attempt => attempt + 1)}
+          className="btn-coral mt-4 px-5 py-2.5 text-sm"
+        >
+          重新读取
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30">

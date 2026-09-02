@@ -35,6 +35,12 @@ class _FakeCompletions:
 class _FakeClient:
     def __init__(self, outputs: list[str]) -> None:
         self.chat = SimpleNamespace(completions=_FakeCompletions(outputs))
+        self.closed = False
+        self.close_calls = 0
+
+    async def close(self) -> None:
+        self.close_calls += 1
+        self.closed = True
 
 
 def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
@@ -61,6 +67,40 @@ def _valid_output(source: str, *, basis: str = "EXPLICIT") -> str:
         },
         ensure_ascii=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_does_not_close_an_injected_client() -> None:
+    client = _FakeClient([])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    await provider.aclose()
+
+    assert client.closed is False
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_closes_its_owned_client_once(monkeypatch) -> None:
+    from app.trip_understanding import qwen_provider as qwen_module
+
+    client = _FakeClient([])
+    monkeypatch.setattr(qwen_module, "AsyncOpenAI", lambda **_kwargs: client)
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+    )
+
+    await provider.aclose()
+    await provider.aclose()
+
+    assert client.closed is True
+    assert client.close_calls == 1
 
 
 @pytest.mark.asyncio

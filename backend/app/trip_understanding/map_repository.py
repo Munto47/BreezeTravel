@@ -871,13 +871,6 @@ class PostgresMapRenderRepositoryMixin:
     ) -> bool:
         if output.plan_ref != job.plan_ref or output.route_config_hash != job.route_config_hash:
             raise ValueError("map output is not bound to the claimed plan")
-        geometry_cache = self._get_geometry_cache()
-        for edge in output.edges:
-            for fact in (edge.walking, edge.transit):
-                if fact.geometry:
-                    fact.geometry_ref = await geometry_cache.put(
-                        [point.model_dump(mode="json") for point in fact.geometry]
-                    )
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
             current = await conn.fetchrow(
@@ -901,6 +894,16 @@ class PostgresMapRenderRepositoryMixin:
                 or current["lease_until"] <= now
             ):
                 raise JobLeaseLostError("map job lease was lost before completion")
+            geometry_cache = self._get_geometry_cache()
+            for edge in output.edges:
+                for fact in (edge.walking, edge.transit):
+                    if fact.geometry:
+                        fact.geometry_ref = await geometry_cache.put(
+                            [
+                                point.model_dump(mode="json")
+                                for point in fact.geometry
+                            ]
+                        )
             snapshot_id = str(uuid4())
             available_count = sum(edge.available for edge in output.edges)
             await conn.execute(

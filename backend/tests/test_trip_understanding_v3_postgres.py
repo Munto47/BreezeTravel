@@ -23,6 +23,7 @@ from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import ActivityMoveCommand
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
+from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
 from app.trip_understanding.source_crypto import SourceCipher
 
@@ -78,9 +79,11 @@ async def test_postgres_demo_idempotency_lease_events_and_public_projection() ->
             await migration_connection.close()
 
         pool = await asyncpg.create_pool(database_dsn, min_size=2, max_size=4)
+        geometry_cache = InMemoryRouteGeometryCache()
         repository = PostgresTripUnderstandingRepository(
             pool,
             SourceCipher("postgres-integration-root-secret"),
+            geometry_cache,
         )
         now = datetime.now(timezone.utc)
         created = await repository.create_demo(
@@ -373,12 +376,14 @@ Day 3：颐和园、圆明园。
             category="STALE_MAP_FAILURE",
             now=now + timedelta(seconds=8),
         )
+        cached_geometry_before_stale_completion = dict(geometry_cache._items)
         with pytest.raises(JobLeaseLostError):
             await repository.complete_map_job(
                 old_map_claim,
                 old_map_output,
                 now=now + timedelta(seconds=8),
             )
+        assert geometry_cache._items == cached_geometry_before_stale_completion
         replacement_map_output = await MapRenderer().render(
             await repository.load_map_plan(replacement_map_claim),
             observed_at=now + timedelta(seconds=8),

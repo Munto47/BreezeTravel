@@ -618,11 +618,16 @@ class QwenStructuredInferenceProvider:
             or frozen_config.get("max_output_tokens") != max_output_tokens
         ):
             raise ValueError("live Qwen runtime disagrees with frozen limits")
-        self.client = client or AsyncOpenAI(
-            api_key=api_key,
-            base_url=self.base_url,
-            timeout=deadline_seconds,
-            max_retries=0,
+        self._owned_client = client is None
+        self.client = (
+            client
+            if client is not None
+            else AsyncOpenAI(
+                api_key=api_key,
+                base_url=self.base_url,
+                timeout=deadline_seconds,
+                max_retries=0,
+            )
         )
         self.prompt_sha256 = _sha256_text(self.prompt)
         self.prompt_artifact_sha256 = hashlib.sha256(prompt_bytes).hexdigest()
@@ -644,6 +649,12 @@ class QwenStructuredInferenceProvider:
         )
         self.schema_sha256 = self.schema_artifact_sha256
         self.config_sha256 = self.config_artifact_sha256
+
+    async def aclose(self) -> None:
+        if not self._owned_client:
+            return
+        await self.client.close()
+        self._owned_client = False
 
     async def _call(
         self,

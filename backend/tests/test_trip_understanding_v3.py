@@ -31,6 +31,7 @@ from app.trip_understanding.full_text import (
 from app.trip_understanding.map_render import (
     ROUTE_CONFIG_SHA256,
     ControlledFixtureRouteProvider,
+    MapRenderJobRecord,
     MapRenderPlan,
     MapRenderer,
     MapStop,
@@ -52,8 +53,16 @@ from app.trip_understanding.models import (
     ProposedMention,
     ResolvedPlace,
 )
-from app.trip_understanding.pipeline import TripUnderstandingPipeline, resolution_cities
-from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
+from app.trip_understanding.pipeline import (
+    ResilientStructuredInferenceProvider,
+    TripUnderstandingPipeline,
+    resolution_cities,
+)
+from app.trip_understanding.repository import (
+    InMemoryTripUnderstandingRepository,
+    PostgresTripUnderstandingRepository,
+)
+from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
 from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH, TripUnderstandingApplicationService
 from app.trip_understanding.source_crypto import SourceCipher
 from app.trip_understanding.worker import TripUnderstandingWorker
@@ -78,6 +87,129 @@ FORBIDDEN_PUBLIC_KEYS = {
     "run",
     "stage",
 }
+
+
+@pytest.mark.asyncio
+async def test_pipeline_closes_inference_and_place_resources_even_after_one_failure() -> None:
+    closed: list[str] = []
+
+    class Closable:
+        def __init__(self, name: str, *, fail: bool = False) -> None:
+            self.name = name
+            self.fail = fail
+
+        async def aclose(self) -> None:
+            closed.append(self.name)
+            if self.fail:
+                raise RuntimeError(f"{self.name} close failed")
+
+    primary = Closable("primary", fail=True)
+    fallback = Closable("fallback")
+    resolver = Closable("resolver")
+    pipeline = TripUnderstandingPipeline(
+        ResilientStructuredInferenceProvider(primary, fallback),
+        resolver,
+    )
+
+    with pytest.raises(RuntimeError, match="primary close failed"):
+        await pipeline.aclose()
+
+    assert closed == ["primary", "fallback", "resolver"]
+
+
+@pytest.mark.asyncio
+async def test_stale_postgres_map_attempt_does_not_write_geometry_cache() -> None:
+    now = datetime(2026, 9, 3, tzinfo=timezone.utc)
+    plan = MapRenderPlan(
+        understanding_id="stale-map-understanding",
+        plan_ref=PlanRevisionRef(
+            kind="UNDERSTANDING",
+            aggregate_id="stale-map-understanding",
+            revision=1,
+            stop_set_hash="a" * 64,
+        ),
+        route_config_hash=ROUTE_CONFIG_SHA256,
+        stops=[
+            MapStop(
+                day_index=1,
+                day_label="Day 1",
+                sequence_index=0,
+                canonical_place_id="place-a",
+                name="故宫博物院",
+                resolution_status="AUTO_MATCHED",
+                city="北京",
+                longitude=116.397,
+                latitude=39.918,
+            ),
+            MapStop(
+                day_index=1,
+                day_label="Day 1",
+                sequence_index=1,
+                canonical_place_id="place-b",
+                name="景山公园",
+                resolution_status="AUTO_MATCHED",
+                city="北京",
+                longitude=116.396,
+                latitude=39.925,
+            ),
+        ],
+    )
+    output = await MapRenderer().render(plan, observed_at=now)
+    job = MapRenderJobRecord(
+        map_job_id="stale-map-job",
+        understanding_id=plan.understanding_id,
+        plan_ref_id="stale-plan-ref",
+        plan_ref=plan.plan_ref,
+        route_config_hash=plan.route_config_hash,
+        status="BUILDING",
+        lease_owner="reused-map-worker",
+        lease_until=now + timedelta(seconds=5),
+        attempt=1,
+        max_attempts=3,
+        started_at=now,
+    )
+
+    class Context:
+        def __init__(self, value) -> None:
+            self.value = value
+
+        async def __aenter__(self):
+            return self.value
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class Connection:
+        def transaction(self):
+            return Context(self)
+
+        async def fetchrow(self, query, *_args):
+            if "trip_map_render_snapshots" in query:
+                return None
+            return {
+                "status": "BUILDING",
+                "lease_owner": job.lease_owner,
+                "attempt": 2,
+                "lease_until": now + timedelta(seconds=30),
+            }
+
+    class Pool:
+        def __init__(self) -> None:
+            self.connection = Connection()
+
+        def acquire(self):
+            return Context(self.connection)
+
+    geometry_cache = InMemoryRouteGeometryCache()
+    repository = PostgresTripUnderstandingRepository(
+        Pool(),
+        geometry_cache=geometry_cache,
+    )
+
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_map_job(job, output, now=now + timedelta(seconds=6))
+
+    assert geometry_cache._items == {}
 
 
 def _walk_keys(value):
