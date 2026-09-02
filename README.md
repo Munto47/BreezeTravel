@@ -10,7 +10,7 @@ BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图�
 
 ## 当前状态
 
-当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01文本卡片主链已进入实现与Gate收口，准确状态和`NOT_RUN`项以当前Goal为准；G02～G07仍是已批准但未激活的目标合同，不能把计划当成已实现。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01～G06已经归档；G07候选收口仍标记为`IN_PROGRESS`，但2026-09-02第三轮final panel已触发停止条件，候选未通过，不得自行开启第四轮修复或sealed blind。远端停止点是`codex/g07-candidate@71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`；跨电脑续工说明见[工作区交接检查点](docs/governance/WORKSPACE_HANDOFF_2026-09-02.md)。H1、公网、生产、商业、发布、部署和`main`合并仍为`NOT_RUN`或未请求。
 
 `origin/develop`是唯一集成基线；当前分支收口、已合并资产和冻结分支见[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)。新开发不得从历史实验分支继续生长。
 
