@@ -11,8 +11,8 @@ from evals.trip_check_v1.p6.contracts_v1 import P6ContractError, digest, file_sh
 
 
 G07_RUN_SPEC_RELATIVE = "backend/eval_data/g07_candidate/run_spec_v1.json"
-G07_UPSTREAM_REF = "origin/codex/g07-candidate"
-G07_REMOTE_REF = "refs/heads/codex/g07-candidate"
+G07_UPSTREAM_REF = "origin/codex/g07-candidate-cycle-2"
+G07_REMOTE_REF = "refs/heads/codex/g07-candidate-cycle-2"
 G07_LATEST_MIGRATION = "034_trip_understanding_screenshot_batches.sql"
 G07_EVIDENCE_ROOT_PARENT = PureWindowsPath(
     "D:/munto/code/claudeProject/agentTravel-g07-evidence/g07-candidate"
@@ -141,7 +141,7 @@ def _verify_g07_contract(repo_root: Path) -> dict[str, str]:
         and run_spec.get("goal_id") == "TC-VNEXT-G07-CANDIDATE"
         and run_spec.get("freeze_status") == "FROZEN_INPUT_CONTRACT"
         and isinstance(candidate, Mapping)
-        and candidate.get("branch") == "codex/g07-candidate"
+        and candidate.get("branch") == "codex/g07-candidate-cycle-2"
         and candidate.get("remote_ref") == G07_REMOTE_REF
         and candidate.get("cross_commit_evidence_reuse") is False
     ):

@@ -89,7 +89,8 @@
       "default": "refs/heads/codex/trip-check-product-reset",
       "enum": [
         "refs/heads/codex/trip-check-product-reset",
-        "refs/heads/codex/g07-candidate"
+        "refs/heads/codex/g07-candidate",
+        "refs/heads/codex/g07-candidate-cycle-2"
       ],
       "title": "Canonical Candidate Ref",
       "type": "string"

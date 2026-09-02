@@ -138,7 +138,7 @@
     "automated_product_gate_receipt.schema.json": "930321965bf2577d16e334a18b5d5d6225ff5733e5dfaf36ba96ace958d0c4fc",
     "automated_product_verification_receipt.schema.json": "9cb303844d1963a9b91eab5d804b0b0cf15f1d581acf727dc6a47b5694e93011",
     "candidate_gate_component_receipt.schema.json": "d1842fa7bbf00340813047725de8d92cadefe4ddc2ce3bdd7efd6801a88cd8f3",
-    "current_goal_binding.schema.json": "717b9842e8480073991831bafa6ac206c4afd4de5ad1c57797e4ba0cb4cda513",
+    "current_goal_binding.schema.json": "bb698553ba814aa3f956e6727512c781786c73071563138a813689977bf087e3",
     "current_goal_document_state.schema.json": "77caa7fb3951b5f95d3157bd222450dd50397f3128d8fc7a0d41ae139fd07d54",
     "external_signer_conformance_receipt.schema.json": "d839481e16f1a887bcdbc75252b26e219aec6ccaf4f2a1a1409bbc1684416cab",
     "g07_candidate_gate_pass_receipt.schema.json": "6cd37e338cd786d7754e6e669ef3211c8df1f6f7ccf44a57a99f26152eeba8da",

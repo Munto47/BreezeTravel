@@ -634,7 +634,7 @@ def build_g07_candidate_manifest(
         "candidate_subject": {
             "commit": commit,
             "tree": tree,
-            "remote_ref": "refs/heads/codex/g07-candidate",
+            "remote_ref": "refs/heads/codex/g07-candidate-cycle-2",
             "working_tree_clean": not dirty,
         },
         "created_at": datetime.now(timezone.utc).isoformat(),

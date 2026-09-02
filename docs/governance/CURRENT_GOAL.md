@@ -39,8 +39,8 @@ Goal type: CANDIDATE_HARDENING
 - Activation：G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档
 - Governance transition baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`
 - Activation branch / worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`
-- Canonical implementation branch / worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`，已从fresh `origin/develop`创建
-- Upstream / remote readback：`origin/develop` / `ff36a10ecae98088742e9722da3f4bf3676f6d04`，2026-08-31 fresh fetch、`rev-parse`与`ls-remote`三方一致
+- Canonical implementation branch / worktree：`codex/g07-candidate-cycle-2` / `D:/CODEX/BreezeTravel`；项目所有者于2026-09-02明确批准第二候选修复周期
+- Upstream / remote readback：交接基线`origin/codex/workspace-handoff-20260902@76f92b1f9ad1592cee256417658c13c3a5c858e7`，其父为原候选停止点`71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`，并保留`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`祖先；2026-09-02 fresh fetch与`ls-remote`一致
 - Predecessor：G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`、交付回执`215770f2ad975ed89271047fa40780fdddbd02a0`、PR #20 integration `9994be151923b9c349fc1129605777032a0b8ebe`；develop exact-tip GitHub Actions `33402780730 PASS`
 - Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
 - Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
@@ -85,7 +85,7 @@ Goal type: CANDIDATE_HARDENING
 | `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
 | `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
 
-当前registry只激活唯一集成者的G07候选加固切片。exact-binding切片已完成并由`G07.exact-binding.json`绑定；当前切片冻结候选RunSpec、G0～G8矩阵和威胁模型，移除自动合同中的历史pytest跳过与不存在命令，并让G07候选门向后兼容地读取当前v3治理绑定。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。之后由集成者串行执行可靠性/隐私材料→性能收口→同commit全量E2E/Gate→`HardeningDecision`、manifest和远端readback。
+当前registry只激活唯一集成者的第二候选周期合同切片。它先把RunSpec、live/browser/sealed/manifest和v3 Goal binding精确重绑定到`codex/g07-candidate-cycle-2`；上一周期全部PASS组件与stop checkpoint只作失败历史，不能拼接。合同通过并远端回读后，才切换到第一轮产品修复切片，逐项复现并关闭第三轮panel接受的findings。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -143,7 +143,8 @@ Goal type: CANDIDATE_HARDENING
 ## Baseline
 
 - 激活baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`；治理过渡branch/worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`；
-- 候选实现baseline：`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`；branch/worktree：`codex/g07-candidate` / `D:/munto/code/claudeProject/agentTravel-g07-candidate`；候选依赖锁、OpenAPI/migration/provider/model/dataset版本由后续RunSpec切片冻结；
+- 第一候选周期baseline：`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`；原分支`codex/g07-candidate`停止于`71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`，不得再写入；
+- 第二候选周期baseline：`origin/codex/workspace-handoff-20260902@76f92b1f9ad1592cee256417658c13c3a5c858e7`；branch/worktree：`codex/g07-candidate-cycle-2` / `D:/CODEX/BreezeTravel`；仍以`origin/develop@ff36a10`为集成祖先，不把交接提交或上一周期组件视为Gate PASS；
 - dirty tree或不同binding结果不得拼接；H1/production/commercial：`NOT_RUN`。
 
 ## Invariants
@@ -198,6 +199,7 @@ Goal type: CANDIDATE_HARDENING
 | 2026-09-02 | `400ce17`的自动、live、browser与50链全部通过，但第二轮修复复核三角色均FAIL；fresh ultra裁决采纳4个P1和2个当前范围P2，证明住宿公开字段、资料错误提示、多城/引用/非原子语义及attempt fencing仍直接阻断用户结果 | rejected subject `400ce176149634d23cadb46288abaf3b20c80f8d`；tree `4fd4f8fb25b0401fbd10fb07651a27caf97ec400`；三份review SHA分别为`84d97e99`、`43f55845`、`09bea500`，ultra裁决SHA为`4ab4d02a`；第三轮repair subject待提交 | review/adjudication schema、commit/tree/config/data、input/prompt/schema/evidence hash、任务隔离和时间顺序全部PASS；裁决`FAIL / accepted P1=4 / accepted in-scope P2=2 / scenario union complete`；主任务逐条复现：多城和南京reference城市错误、引用/预约说明/比较句/泛称酒店产生Provider调用或卡片、`evidence_gap`进入公开OpenAPI/JSON/client/DOM、资料页透传后端code、同worker ID旧attempt可把attempt-2置为SUCCEEDED | `MULTI_AGENT_SIMULATED_REVIEW_FAIL / EXACT_LOCAL_REPRODUCTION / THIRD_REVIEW_REPAIR_AUTHORIZED_BY_PROTOCOL` | `Product progress=RUNTIME+SEMANTIC+PRIVACY+RELIABILITY / CANDIDATE_REPAIR` | `Governance ratio=third-round scope and stop condition before product edits` | 只做六项最小修复并加入反例；完整本地/PostgreSQL/前后端验证后提交新subject，重建全部正式证据并执行最后一轮fresh受影响复审 | 本轮是协议允许前提记录后的第三轮；若fresh复审仍接受当前范围P0/P1则停止，不启动第四轮或sealed；`400ce17`全部PASS组件仅作诊断且不得拼接；sealed仍从未启动 | 原子更新repair-3范围与停止条件后实施修复；保持Provider、migration、模型、冻结输入、阈值、oracle和blind字节不变 |
 | 2026-09-02 | 第三轮六项最小修复已完成：多城/其他城市与引用内容不再错搜或成卡，公开住宿与资料失败提示完成脱敏，三类任务的同worker旧attempt均被fencing；公开OpenAPI exact绑定已同步 | repair基于`400ce176149634d23cadb46288abaf3b20c80f8d`；新subject为本checkpoint | 新反例`5 passed`、公共隐私`6 passed`、语义/地图/Provider扩大回归`77 passed`；真实PostgreSQL understanding/map/stay路径`2 passed`且临时数据库零残留；frontend typecheck/build与client typecheck/build PASS；首轮完整后端`2589 passed, 44 skipped, 6 failed`，六项精确为OpenAPI旧hash和上一轮无runtime假设，更新exact hash与本轮精确范围后manifest/registry/Agent Gate/G01定向`73 passed`、Ruff与G01 frozen diff PASS | `LOCAL_RUNTIME_REPAIR / CONTROLLED_POSTGRESQL / FAILED_FULL_RUN_PRESERVED / GOVERNANCE_EXACT_BINDING_REPAIRED` | `Product progress=RUNTIME+SEMANTIC+PRIVACY+RELIABILITY / CANDIDATE_REPAIR` | `Governance ratio=OpenAPI exact hash、第三轮精确范围与失败checkpoint；未改Gate/阈值/blind` | 提交、push并远端回读新subject；在clean exact tip重建自动、live、browser/performance与第三轮fresh panel | 首轮完整回归不得记为PASS；44项skip不计PASS；新subject的全量、live、browser、panel、四组件、sealed和最终Gate均待重建；若第三轮panel接受任何范围内P0/P1即停止 | 完成diff/敏感信息复核并创建可恢复subject；从空证据根执行最终矩阵，panel PASS前不启动sealed |
 | 2026-09-02 | `252f43d`自动化、live Provider、46项浏览器与50条应用链均通过，但第三轮final fresh panel正式FAIL；ultra裁决接受4个P1、3个当前范围P2和1个P3，当前候选被停止条件拒绝 | rejected subject `252f43d758761edcd131ba651d8275f09b7f3791`；tree `d08b6d303de48a8adf7475679ce785b14c06628c`；自动组件SHA `25604a7a`、live组件SHA `bf6b5f78`、三份review SHA `6db28744`/`772c888b`/`5876a9b5`、裁决SHA `2c881962`；本治理stop-checkpoint commit提交后由远端readback记录 | fresh exact-tip隔离全量`2595 passed, 44 skipped, 0 failed`；真实PostgreSQL repair路径`2 passed`；frontend/client typecheck+build与Ruff PASS；自动组件与live组件均PASS，browser `46 passed`，50链卡片P95 `5499.14ms <= 8000ms`；8/8来源finding无遗漏无重复、scenario union complete、checks_not_run=0；正式panel组件生成器以exit 2拒绝把FAIL铸成PASS且未产生输出 | `AUTOMATED_TEST_PASS + LIVE_PROVIDER_EVIDENCE_PASS + MULTI_AGENT_SIMULATED_REVIEW_FAIL / STOP_CONDITION_TRIGGERED` | `Product progress=RUNTIME / CANDIDATE_REJECTED` | `Governance ratio=stop checkpoint only; no product/Gate/threshold/blind change` | 当前合同下无后续自主产品动作；只提交、push并远端回读`G07.final-panel-stop-checkpoint.json`后停止 | 成立问题包括跨城错配、引用/预约说明误成行程、非原子/二选一误成卡、mixed-role丢失计划地点、资料读取失败伪装空资料、stale map cache副作用与推理Provider未关闭；sealed/final Gate均`NOT_RUN`，G07未完成且不归档 | 校验stop receipt、治理/范围与远端subject；禁止第四轮、sealed、H1、公网、生产、商业、发布、部署和main |
+| 2026-09-02 | 项目所有者明确批准开启第二候选修复周期；新分支从远端交接提交建立，上一周期FAIL和停止条件完整保留为历史边界 | baseline `76f92b1f9ad1592cee256417658c13c3a5c858e7`；branch `codex/g07-candidate-cycle-2`；本合同重绑定subject待提交 | fresh fetch、三远端ref readback和分支祖先关系已核对；产品测试、Provider、browser、panel与sealed在新周期均`NOT_RUN` | `OWNER_AUTHORIZATION / REMOTE_HANDOFF_BASELINE / CONTRACT_REBINDING` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=second-cycle authorization and exact branch binding only` | 完成RunSpec与Gate适配重绑定、定向测试、提交push和远端readback；随后激活第一轮产品修复切片 | 上一周期所有组件不得复用；最新accepted findings尚未在本机以新周期用例重新复现；H1/公网/生产/商业/发布/部署/main仍未运行或未请求 | 验证合同fail-closed后切换到第一轮语义、恢复与资源生命周期修复，不运行sealed |
 
 ## Auto-advance
 
@@ -206,10 +208,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 252f43d第三轮final fresh panel正式FAIL且stop condition已触发；候选被拒绝，不启动第四轮或sealed blind / origin/codex/g07-candidate`；
-- Verification / Evidence / Gate result / `structurally_valid`：`exact-tip隔离全量2595 passed/44 skipped/0 failed、真实PostgreSQL 2 passed、frontend/client typecheck+build与Ruff PASS；自动与live组件PASS，browser 46 passed，50链卡片P95 5499.14ms；第三轮三角色+ultra裁决8/8 findings完整，accepted P1=4/P2=3/P3=1，panel FAIL，组件构建器fail-closed拒绝输出 / AUTOMATED_TEST + LIVE_PROVIDER_EVIDENCE + MULTI_AGENT_SIMULATED_REVIEW_FAIL / HARDENED_CANDIDATE_GATE_NOT_RUN_STOP_CONDITION_TRIGGERED / true`；第四轮复审、sealed blind、四组件完整聚合和最终Gate均`NOT_RUN`；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 第二候选周期已由owner批准，合同重绑定正在进行 / origin/codex/g07-candidate-cycle-2`；
+- Verification / Evidence / Gate result / `structurally_valid`：`新周期仅完成远端交接baseline与分支祖先核对；合同定向、产品测试、真实PostgreSQL、live、browser、performance、panel、sealed与最终Gate均NOT_RUN / OWNER_AUTHORIZATION + REMOTE_HANDOFF_BASELINE / HARDENED_CANDIDATE_GATE_NOT_RUN / 待合同校验`；上一周期结果保持`AUTOMATED_TEST_PASS + LIVE_PROVIDER_EVIDENCE_PASS + MULTI_AGENT_SIMULATED_REVIEW_FAIL`且不可复用；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`G06已交付；G07候选已完成自动、live、浏览器与性能验证，但final panel证明跨城、引用/预约、非原子/二选一、资料失败恢复及资源副作用仍不可靠，不能晋级 / 当前合同禁止第四轮修复与sealed；若要开启新候选周期或改变停止规则，必须由owner明确决定，不能由实现者自行放宽；P4 Windows子进程一次非确定性超时仍保留 / false`；
+- User-visible result / Remaining risks / Goal archived：`G06已交付；G07第二候选周期已启动但尚无新产品结果 / 必须重新复现并修复跨城、引用预约、非原子二选一、mixed-role、资料失败、stale map副作用和Provider生命周期问题；P4 Windows子进程一次非确定性超时仍保留 / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 
@@ -221,5 +223,6 @@ Goal type: CANDIDATE_HARDENING
 - 需要新增Provider权限/费用，或隐私/事实矛盾只能通过改变Gate解决；
 - 需要公网部署、H1、付费、release或`main`；
 - 需要降低candidate blocker门槛而非继续技术诊断。
-- 第三轮fresh受影响复审仍接受任何当前范围P0/P1；此时不得启动第四轮复审或sealed blind。
-- 该条件已由`252f43d`第三轮final fresh panel的4个当前范围P1触发；停止状态记录于`G07.final-panel-stop-checkpoint.json`。
+- 第一候选周期的停止条件已由`252f43d`触发，状态永久保留于`G07.final-panel-stop-checkpoint.json`；该历史状态不得被改写为PASS。
+- 第二候选周期同一finding最多执行两种可验证修复策略；仍失败时采用诚实保守降级或请求owner决定，不得降低Gate。
+- 第二候选周期final fresh panel若仍接受任何当前范围P0/P1，则候选继续FAIL并在sealed blind前停止。

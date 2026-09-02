@@ -46,7 +46,7 @@ def test_g07_live_spec_binds_current_contract_and_migrations(tmp_path: Path) -> 
     spec, path = _built(tmp_path)
     assert spec["subject_commit"] == SUBJECT
     assert spec["candidate_tree"] == TREE
-    assert spec["upstream_ref"] == "origin/codex/g07-candidate"
+    assert spec["upstream_ref"] == "origin/codex/g07-candidate-cycle-2"
     assert spec["migration"]["latest"] == (
         "034_trip_understanding_screenshot_batches.sql"
     )

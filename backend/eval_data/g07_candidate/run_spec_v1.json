@@ -4,8 +4,8 @@
   "freeze_status": "FROZEN_INPUT_CONTRACT",
   "candidate_subject": {
     "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
-    "branch": "codex/g07-candidate",
-    "remote_ref": "refs/heads/codex/g07-candidate",
+    "branch": "codex/g07-candidate-cycle-2",
+    "remote_ref": "refs/heads/codex/g07-candidate-cycle-2",
     "execution_binding": "EXACT_CLEAN_COMMIT_AND_TREE_AT_EXECUTION",
     "cross_commit_evidence_reuse": false
   },

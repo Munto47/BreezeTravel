@@ -109,6 +109,9 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert binding["goal_id"] == registry["active_goal_id"] == current_state["goal_id"]
     assert binding["goal_sequence"] == registry["active_goal_sequence"] == 7
     assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
+    assert binding["canonical_candidate_ref"] == (
+        "refs/heads/codex/g07-candidate-cycle-2"
+    )
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]
     assert binding["candidate_gate_contract_path"] == (
@@ -121,7 +124,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] == "IMPLEMENTING"
-    assert registry["active_slice"]["product_progress"] == "RUNTIME"
+    assert registry["active_slice"]["product_progress"] == "NONE"
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR"
@@ -136,7 +139,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
 
     for token in (
         "G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档",
-        "当前registry只激活唯一集成者的G07候选加固切片",
+        "当前registry只激活唯一集成者的第二候选周期合同切片",
         "G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除",
         "H1、公网、生产、商业：`NOT_RUN`",
         "Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`",
@@ -144,7 +147,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_panel_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
+def test_g07_cycle_2_contract_slice_is_narrow_and_rebinds_candidate_ref() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -152,69 +155,43 @@ def test_g07_panel_repair_slice_is_narrow_and_binds_accepted_findings() -> None:
     )
     active_slice = registry["active_slice"]
     allowed = active_slice["allowed_paths"]
-    assert active_slice["slice_id"].startswith("G07-")
-    assert active_slice["repair_review_cycle"] == 3
+    assert active_slice["slice_id"] == "G07-CANDIDATE-CONTRACT"
+    assert active_slice["candidate_cycle"] == 2
+    assert active_slice["repair_review_cycle"] == 0
+    assert active_slice["product_progress"] == "NONE"
     assert "docs/governance" in allowed
     assert "backend/app/trip_understanding" not in allowed
     assert "frontend/src" not in allowed
-    assert "backend/app/trip_understanding/repository.py" in allowed
-    assert "frontend/src/app/trip/result/itinerary-workspace.tsx" not in allowed
-    assert {
-        path for path in allowed if path.startswith("backend/app/trip_understanding/")
-    } == {
-        "backend/app/trip_understanding/full_text.py",
-        "backend/app/trip_understanding/map_repository.py",
-        "backend/app/trip_understanding/models.py",
-        "backend/app/trip_understanding/pipeline.py",
-        "backend/app/trip_understanding/repository.py",
-        "backend/app/trip_understanding/stay_repository.py",
+    assert set(allowed) == {
+        "docs/governance",
+        "backend/eval_data/agent_gate_v1/current_goal_binding.schema.json",
+        "backend/eval_data/agent_gate_v1/protocol_contract.json",
+        "backend/eval_data/g07_candidate/run_spec_v1.json",
+        "backend/evals/agent_gate_v1/contracts.py",
+        "backend/evals/g07_candidate/browser_performance.py",
+        "backend/evals/g07_candidate/live_spec_builder.py",
+        "backend/scripts/build_release_manifest.py",
+        "backend/scripts/run_g07_sealed_candidate.py",
+        "backend/tests/test_g07_candidate_gate.py",
+        "backend/tests/test_g07_live_provider_spec.py",
+        "backend/tests/test_product_work_packages_v3.py",
+        "backend/tests/test_g07_release_manifest.py",
+        "backend/tests/test_g07_sealed_candidate.py",
     }
-    assert not any(path.startswith("backend/app/api/") for path in allowed)
-    assert "backend/app/main.py" not in allowed
-    assert {
-        path for path in allowed if path.startswith("frontend/src/")
-    } == {
-        "frontend/src/app/profile/page.tsx",
-        "frontend/src/app/trip/result/page.tsx",
-        "frontend/src/lib/trip-understanding-v3.ts",
-    }
-    assert "backend/eval_data/g07_candidate/run_spec_v1.json" in allowed
-    assert "backend/eval_data/trip_nlu_v2/manifest.json" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
-    assert not any(
-        path.startswith("backend/evals/agent_gate_v1/")
-        for path in allowed
-    )
 
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
     assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
     assert result["package_count"] == 1
     assert "docs/governance/current_work_packages.json" in result["changed_paths"]
-    assert {
-        path for path in result["changed_paths"] if path.startswith("backend/app/")
-    } == {
-        "backend/app/trip_understanding/full_text.py",
-        "backend/app/trip_understanding/map_repository.py",
-        "backend/app/trip_understanding/models.py",
-        "backend/app/trip_understanding/pipeline.py",
-        "backend/app/trip_understanding/repository.py",
-        "backend/app/trip_understanding/stay_repository.py",
-    }
-    assert {
-        path for path in result["changed_paths"] if path.startswith("frontend/src/")
-    } == {
-        "frontend/src/app/profile/page.tsx",
-        "frontend/src/app/trip/result/page.tsx",
-        "frontend/src/lib/trip-understanding-v3.ts",
-    }
-    assert not any(
-        path.startswith("backend/evals/agent_gate_v1/")
+    assert all(
+        any(path == root or path.startswith(f"{root}/") for root in allowed)
         for path in result["changed_paths"]
     )
 
 
-def test_agent_gate_verifier_is_immutable_during_panel_repair() -> None:
+def test_agent_gate_verifier_is_bounded_during_cycle_2_contract_rebinding() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -222,8 +199,8 @@ def test_agent_gate_verifier_is_immutable_during_panel_repair() -> None:
     )
     active_slice = registry["active_slice"]
 
-    assert not work_packages_v3._agent_gate_path_is_authorized_for_g07(
-        "backend/evals/agent_gate_v1/candidate_component_verifiers.py",
+    assert work_packages_v3._agent_gate_path_is_authorized_for_g07(
+        "backend/evals/agent_gate_v1/contracts.py",
         registry=registry,
         active_slice=active_slice,
     )

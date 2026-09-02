@@ -68,7 +68,7 @@ def _candidate_repository(
     _git(root, "config", "user.email", "gate@example.test")
     _git(root, "config", "user.name", "Gate Test")
     branch = (
-        "codex/g07-candidate"
+        "codex/g07-candidate-cycle-2"
         if binding_version == "current-goal-binding-v3"
         else "codex/trip-check-product-reset"
     )
@@ -229,7 +229,7 @@ def _candidate_repository(
         binding.update(
             {
                 "program_id": "TC-VNEXT-2026",
-                "canonical_candidate_ref": "refs/heads/codex/g07-candidate",
+                "canonical_candidate_ref": "refs/heads/codex/g07-candidate-cycle-2",
                 "implementation_baseline_commit": baseline,
                 "last_completed_goal_id": "TC-VNEXT-G06-MEMORY-SHARE",
                 "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
@@ -488,7 +488,7 @@ def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
     monkeypatch.setattr(
         candidate_gate,
         "_read_remote_candidate",
-        lambda *_args: ("refs/heads/codex/g07-candidate", commit, tree),
+        lambda *_args: ("refs/heads/codex/g07-candidate-cycle-2", commit, tree),
     )
 
     receipt = verify_g07_candidate_gate_pass(
@@ -502,7 +502,7 @@ def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
         output_path=external / "pass.json",
     )
 
-    assert receipt.remote_ref == "refs/heads/codex/g07-candidate"
+    assert receipt.remote_ref == "refs/heads/codex/g07-candidate-cycle-2"
     assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
 
 

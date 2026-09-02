@@ -3,7 +3,7 @@
   "automated_gate_contract_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "candidate_gate_contract_path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
   "candidate_gate_contract_sha256": "f8d6f20da8d781af8894f45c11ebd10576e373fcbd45cc76c82c47e46421122a",
-  "canonical_candidate_ref": "refs/heads/codex/g07-candidate",
+  "canonical_candidate_ref": "refs/heads/codex/g07-candidate-cycle-2",
   "gate_profile": "HARDENED_CANDIDATE_GATE",
   "goal_id": "TC-VNEXT-G07-CANDIDATE",
   "goal_sequence": 7,
