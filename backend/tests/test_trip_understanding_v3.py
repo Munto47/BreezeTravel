@@ -725,6 +725,92 @@ async def test_deterministic_fallback_rejects_reference_booking_comparison_and_g
 
 
 @pytest.mark.asyncio
+async def test_deterministic_fallback_keeps_mixed_planned_and_reference_roles_local() -> None:
+    source = "北京一日游。Day 1 去故宫博物院并参考天坛公园的预约说明。"
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    by_name = {
+        item.atomic_place_name: item
+        for item in proposal.mentions
+        if item.atomic_place_name
+    }
+    assert by_name["故宫博物院"].role == ActivityRole.PLANNED
+    assert by_name["故宫博物院"].day_index == 1
+    assert by_name["天坛公园"].role == ActivityRole.REFERENCE
+    assert by_name["天坛公园"].day_index is None
+
+
+@pytest.mark.asyncio
+async def test_deterministic_fallback_does_not_turn_either_or_into_cards() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run("北京一日游。Day 1 去故宫博物院或天坛公园。")
+
+    assert resolver.calls == []
+    assert all(day.activities == [] for day in output.public_result.days)
+
+
+@pytest.mark.asyncio
+async def test_booking_description_with_embedded_day_action_remains_reference() -> None:
+    proposal = await DeterministicTextInferenceProvider().propose(
+        "北京随手记。预约说明写着 Day 1 去故宫博物院。"
+    )
+
+    palace = next(
+        item for item in proposal.mentions if item.atomic_place_name == "故宫博物院"
+    )
+    assert palace.role == ActivityRole.REFERENCE
+    assert palace.day_index is None
+
+
+@pytest.mark.asyncio
+async def test_reported_cross_city_provider_result_is_not_auto_matched() -> None:
+    source = "北京一日游。Day 1 去故宫博物院。"
+
+    class WrongCityResolver:
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            assert city == "北京"
+            return ResolvedPlace(
+                canonical_place_id="wrong-city-palace",
+                name=atomic_place_name,
+                category="景点",
+                area_or_address="上海市黄浦区测试地址",
+                provider_binding={
+                    "provider": "wrong-city-test",
+                    "city": "上海市",
+                    "external_calls": 1,
+                },
+            )
+
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        WrongCityResolver(),
+    ).run(source)
+
+    activity = next(
+        item
+        for item in output.activities
+        if item.compiled.mention.atomic_place_name == "故宫博物院"
+    )
+    assert activity.place is None
+    assert activity.resolution_status.value == "NEEDS_CONFIRMATION"
+    assert activity.resolver_receipt["status"] == "NO_UNIQUE_MATCH"
+    assert activity.resolver_receipt["failure_category"] == "CROSS_CITY_PROVIDER_RESULT"
+
+
+@pytest.mark.asyncio
 async def test_typed_inference_outage_uses_explicit_local_fallback_and_returns_editable_partial() -> None:
     class UnavailableInferenceProvider:
         async def propose(self, source_text: str):

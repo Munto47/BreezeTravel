@@ -4,25 +4,21 @@
   "active_slice": {
     "acceptance_refs": [
       "项目所有者于2026-09-02明确批准开启新的G07候选修复周期并要求按指导文档持续开发",
-      "第二候选周期合同已在a602d5a远端回读；上一周期FAIL和全部PASS组件只作为历史输入，不作为本切片PASS证据",
-      "资料读取失败必须呈现可恢复的用户友好状态，不得继续渲染默认空资料或泄漏后端错误",
-      "失去lease的地图attempt不得在权威fencing检查前写入可重建几何缓存",
-      "TripUnderstandingPipeline关闭时必须同时释放地点解析器与推理Provider；多个关闭失败仍应尽力释放全部资源",
+      "repair-1已在3e1b0cd远端回读并关闭资料失败、stale map缓存副作用和Provider生命周期；其结果不替代本语义切片验证",
+      "多城行程的地点只能在有明确城市归属或唯一安全匹配时自动落卡，不得把其他城市同名点错配到当前日",
+      "引用、预约说明、比较或住宿描述不得因同一子句含计划动作而整体升级为PLANNED",
+      "二选一、斜杠候选、比较句等非原子地点不得自动搜索或生成多个确定卡片",
+      "同一行混合REFERENCE/OPTIONAL与PLANNED内容时必须保留明确计划地点，不得因整句角色判定而丢失",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
+      "backend/app/trip_understanding/full_text.py",
       "backend/app/trip_understanding/pipeline.py",
-      "backend/app/trip_understanding/qwen_provider.py",
-      "backend/app/trip_understanding/map_repository.py",
       "backend/tests/test_trip_understanding_v3.py",
-      "backend/tests/test_qwen_trip_understanding.py",
-      "backend/tests/test_g02_map_stay.py",
-      "backend/tests/test_trip_understanding_v3_postgres.py",
-      "backend/tests/test_g04_public_privacy_boundaries.py",
-      "frontend/src/app/profile/page.tsx"
+      "backend/tests/test_g03r_trip_semantics.py"
     ],
-    "base_commit": "a602d5a79580779d018d12dbf67d8a8a6eb397c5",
+    "base_commit": "3e1b0cdf168d7f291e0096d21cb600abab4e9245",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -39,20 +35,19 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "增加资料加载的显式失败状态，把地图几何缓存写入移到lease/attempt权威fencing之后，并让流水线关闭推理Provider；只加入对应反例，不改变公共API、模型、Provider选择、数据集、阈值或blind/oracle。",
+    "minimum_change": "在确定性语义fallback和现有跨城解析边界内做子句局部角色/原子性收紧，并加入四类反例；不改变公共API、模型prompt、Provider选择、数据集、阈值或blind/oracle。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "backend/app/trip_understanding/pipeline.py",
-      "backend/app/trip_understanding/map_repository.py",
-      "frontend/src/app/profile/page.tsx"
+      "backend/app/trip_understanding/full_text.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME+UI+RELIABILITY",
+    "product_progress": "RUNTIME+SEMANTIC",
     "candidate_cycle": 2,
     "repair_review_cycle": 1,
-    "slice_id": "G07-REPAIR-1-RECOVERY-LIFECYCLE",
-    "stop_condition": "任一反例无法在两种最小策略内关闭时，保持候选FAIL并采用诚实可恢复降级；不得弱化lease fencing、隐藏资料错误、跳过资源关闭或提前运行sealed blind。",
-    "user_outcome": "资料暂时读取失败时用户能看到可重试状态，过期地图任务不再留下缓存副作用，后台推理连接在任务结束后可靠释放。",
+    "slice_id": "G07-REPAIR-1-CONSERVATIVE-SEMANTICS",
+    "stop_condition": "任一语义finding在两种最小策略内仍无法关闭时，保留地点待确认或不自动落卡的诚实降级并保持候选FAIL；不得扩大城市搜索、放宽原子性、修改模型prompt/数据/阈值或提前运行sealed blind。",
+    "user_outcome": "多城和混合说明文本只生成用户真正计划且城市归属安全的地点卡片；引用、预约、比较和二选一内容不会被误当成确定行程。",
     "work_kind": "BLOCKING_DEFECT"
   },
   "e2e_after_all_merges": true,

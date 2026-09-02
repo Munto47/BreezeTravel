@@ -455,27 +455,49 @@ class TripUnderstandingPipeline:
                 True,
             )
         if isinstance(raw_outcome, PlaceResolutionOutcome):
-            return raw_outcome, False
-        if isinstance(raw_outcome, ResolvedPlace):
-            return (
-                PlaceResolutionOutcome(
-                    place=raw_outcome,
-                    receipt={
-                        "status": "AUTO_MATCHED",
-                        **raw_outcome.provider_binding,
-                    },
-                ),
-                False,
+            outcome = raw_outcome
+        elif isinstance(raw_outcome, ResolvedPlace):
+            outcome = PlaceResolutionOutcome(
+                place=raw_outcome,
+                receipt={
+                    "status": "AUTO_MATCHED",
+                    **raw_outcome.provider_binding,
+                },
             )
-        return (
-            PlaceResolutionOutcome(
+        else:
+            outcome = PlaceResolutionOutcome(
                 receipt={
                     "status": "NO_UNIQUE_MATCH",
                     "external_calls": 0,
                 }
+            )
+        reported_cities = [outcome.receipt.get("city")]
+        if outcome.place is not None:
+            reported_cities.append(outcome.place.provider_binding.get("city"))
+        mismatched_city = next(
+            (
+                reported
+                for reported in reported_cities
+                if isinstance(reported, str)
+                and reported.strip().removesuffix("市")
+                != city.strip().removesuffix("市")
             ),
-            False,
+            None,
         )
+        if outcome.place is not None and mismatched_city is not None:
+            return (
+                PlaceResolutionOutcome(
+                    receipt={
+                        **outcome.receipt,
+                        "status": "NO_UNIQUE_MATCH",
+                        "failure_category": "CROSS_CITY_PROVIDER_RESULT",
+                        "requested_city": city,
+                        "reported_city": mismatched_city,
+                    }
+                ),
+                False,
+            )
+        return outcome, False
 
     async def _resolve_place_across_cities(
         self,

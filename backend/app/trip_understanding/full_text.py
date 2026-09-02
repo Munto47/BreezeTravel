@@ -70,6 +70,11 @@ _PLAN_TRAILING_MARKERS = (
     "才是逐日计划",
     "了解预约流程",
     "了解预约",
+    "并参考",
+    "并听说",
+    "仅作备选",
+    "只作参考",
+    "作为备选",
 )
 _EXCLUDED_CUES = ("明确不去", "已经决定排除", "决定排除", "排除", "取消", "跳过", "不安排", "放弃")
 _OPTIONAL_CUES = (
@@ -421,12 +426,12 @@ def _is_meta_activity_clause(clause: str) -> bool:
 
 
 def _is_descriptive_reference_clause(clause: str) -> bool:
-    if _PLANNED_ACTION_RE.search(clause):
-        return False
     if any(cue in clause for cue in ("预约说明", "预约流程")):
         return True
     if re.search(r"(?:相比|比|不如)[^。！？；;]*(?:更|较|热门|有名|适合|值得)", clause):
         return True
+    if _PLANNED_ACTION_RE.search(clause):
+        return False
     return any(
         cue in clause
         for cue in (
@@ -643,6 +648,50 @@ def _atomic_capture_pieces(
     return split(start, end) or []
 
 
+def _contains_non_atomic_choice(value: str) -> bool:
+    return re.search(r"(?:或者|或是|还是|二选一|[/／])", value) is not None or (
+        "或" in value and value not in _PLACES_BY_NAME
+    )
+
+
+def _planned_action_role_hint(
+    source_text: str,
+    action_start: int,
+    name_start: int,
+    name_end: int,
+) -> ActivityRole | None:
+    if _inside_quoted_text(source_text, action_start):
+        return None
+    clause = _clause_for_position(source_text, action_start, name_end)
+    if re.search(r"(?:相比|比|不如)[^。！？；;]*(?:更|较|热门|有名|适合|值得)", clause):
+        return None
+    left = max(
+        source_text.rfind(marker, 0, action_start)
+        for marker in _CLAUSE_BOUNDARIES
+    ) + 1
+    prefix = source_text[left:name_start]
+    for boundary in ("但是", "不过", "而是", "但"):
+        position = prefix.rfind(boundary)
+        if position >= 0:
+            prefix = prefix[position + len(boundary) :]
+            break
+    blocking_cues = (
+        *_EXCLUDED_CUES,
+        *_OPTIONAL_CUES,
+        *_PASS_THROUGH_CUES,
+        *_REFERENCE_CUES,
+        "预约说明",
+        "预约流程",
+        "不去",
+        "不要去",
+    )
+    if any(cue in prefix for cue in blocking_cues):
+        return None
+    if prefix.rstrip().endswith(("不", "不要", "不准备", "不打算")):
+        return None
+    return ActivityRole.PLANNED
+
+
 def _append_plan_capture(
     source_text: str,
     start: int,
@@ -658,6 +707,9 @@ def _append_plan_capture(
     if trimmed is None:
         return
     start, end = trimmed
+    if _contains_non_atomic_choice(source_text[start:end]):
+        occupied.append((start, end))
+        return
     pieces = _atomic_capture_pieces(source_text, start, end)
     for piece_start, piece_end in pieces:
         name = source_text[piece_start:piece_end]
@@ -918,6 +970,12 @@ def _planned_atomic_candidates(
             url_spans=url_spans,
             occupied=occupied,
             candidates=candidates,
+            role_hint=_planned_action_role_hint(
+                source_text,
+                match.start(),
+                match.start("names"),
+                match.end("names"),
+            ),
         )
 
     candidates.extend(
