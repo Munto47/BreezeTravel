@@ -85,7 +85,7 @@ Goal type: CANDIDATE_HARDENING
 | `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
 | `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
 
-当前registry只激活唯一集成者的Windows跟踪文本字节稳定性切片。恢复/生命周期与语义修复已分别在`3e1b0cd`、`02780a2`远端回读；本切片修复扩大回归发现的普通源码与三城词典CRLF检出漂移，同时保留冻结证据和历史CRLF的现有例外，不修改产品逻辑、数据或测试期望。上一周期全部PASS组件与stop checkpoint只作失败历史，不能拼接；任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+当前registry只激活唯一集成者的非原子选择OPTIONAL提及兼容修复切片。恢复/生命周期、语义修复与Windows字节稳定性已分别在`3e1b0cd`、`02780a2`、`3db53a5`远端回读；本切片只恢复已知二选一地点的可见OPTIONAL提及，同时继续禁止Provider搜索和确定卡片，不修改地点数据、模型、阈值或测试目标。上一周期全部PASS组件与stop checkpoint只作失败历史，不能拼接；任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
