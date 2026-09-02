@@ -628,7 +628,7 @@ def _atomic_capture_pieces(
             memo[key] = result
             return result
         best: list[tuple[int, int]] | None = None
-        for connector in re.finditer(r"、|→|⇒|->|及|与|和|或", value):
+        for connector in re.finditer(r"、|→|⇒|->|及|与|和|或|[/／]", value):
             left_end = piece_start + connector.start()
             right_start = piece_start + connector.end()
             if left_end <= piece_start or right_start >= piece_end:
@@ -708,7 +708,27 @@ def _append_plan_capture(
         return
     start, end = trimmed
     if _contains_non_atomic_choice(source_text[start:end]):
-        occupied.append((start, end))
+        for piece_start, piece_end in _atomic_capture_pieces(source_text, start, end):
+            name = source_text[piece_start:piece_end]
+            span = (piece_start, piece_end)
+            if (
+                _inside_url(piece_start, url_spans)
+                or any(
+                    not (piece_end <= old_start or piece_start >= old_end)
+                    for old_start, old_end in occupied
+                )
+            ):
+                continue
+            occupied.append(span)
+            candidates.append(
+                _MentionCandidate(
+                    start=piece_start,
+                    end=piece_end,
+                    name=name,
+                    cities=frozenset(_candidate_cities(name)),
+                    role_hint=ActivityRole.OPTIONAL,
+                )
+            )
         return
     pieces = _atomic_capture_pieces(source_text, start, end)
     for piece_start, piece_end in pieces:

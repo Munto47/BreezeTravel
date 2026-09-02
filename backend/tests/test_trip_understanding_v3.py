@@ -752,11 +752,20 @@ async def test_deterministic_fallback_does_not_turn_either_or_into_cards() -> No
             return None
 
     resolver = RecordingResolver()
+    source = "北京一日游。Day 1 去故宫博物院或天坛公园。"
+    proposal = await DeterministicTextInferenceProvider().propose(source)
     output = await TripUnderstandingPipeline(
         DeterministicTextInferenceProvider(),
         resolver,
-    ).run("北京一日游。Day 1 去故宫博物院或天坛公园。")
+    ).run(source)
 
+    assert [
+        (item.atomic_place_name, item.role, item.day_index)
+        for item in proposal.mentions
+    ] == [
+        ("故宫博物院", ActivityRole.OPTIONAL, None),
+        ("天坛公园", ActivityRole.OPTIONAL, None),
+    ]
     assert resolver.calls == []
     assert all(day.activities == [] for day in output.public_result.days)
 
