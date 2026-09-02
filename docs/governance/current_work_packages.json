@@ -4,20 +4,18 @@
   "active_slice": {
     "acceptance_refs": [
       "项目所有者于2026-09-02明确批准开启新的G07候选修复周期并要求按指导文档持续开发",
-      "Windows字节稳定性已在3db53a5远端回读；扩大非P5回归暴露语义修复把整段二选一标为occupied后丢失原有OPTIONAL提及",
-      "已知地点组成的二选一或斜杠候选必须保留为可见OPTIONAL提及，以维持自然路线信息完整性",
-      "非原子选择仍不得成为PLANNED、不得触发Provider搜索，也不得生成确定地点卡片",
-      "修复必须使自然路线既有9项回归和二选一精确反例同时通过，不修改测试期望、地点数据、模型或Provider",
-      "本切片只调整确定性fallback对非原子选择的占位策略并补充回归；不修改API、数据、阈值或blind/oracle",
+      "OPTIONAL兼容修复已在61bd343远端回读；生产依赖下语义/地点扩大回归124 passed",
+      "Web生产构建、共享client构建、小程序typecheck与7项单测通过，但微信构建在ProgressPlugin配置校验前失败",
+      "@tarojs/webpack5-runner 4.2.1声明webpack peer精确为5.91.0，当前^5.91.0无锁解析到5.110.2并触发不兼容",
+      "只把miniapp的webpack devDependency固定为5.91.0，重装后必须同时通过typecheck、7项单测和微信生产构建",
+      "不得通过关闭schema校验、修改Taro/webpack内部代码、跳过构建或放宽测试来获得PASS",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/app/trip_understanding/full_text.py",
-      "backend/tests/test_trip_understanding_natural_routes.py",
-      "backend/tests/test_trip_understanding_v3.py"
+      "miniapp/package.json"
     ],
-    "base_commit": "3db53a56b3dd2b6ebeea1ee9cb96ca3269f1a5a9",
+    "base_commit": "61bd343cb76f7bc8f2d21447a61ed00495e4aee6",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -34,18 +32,18 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "非原子选择命中计划动作时不再占用整段，使受控已知地点继续由上下文分类为OPTIONAL；保持is_atomic_planned_place为false且Provider调用/确定卡片为0。",
+    "minimum_change": "将miniapp/package.json中的webpack从^5.91.0固定为Taro runner精确peer 5.91.0；不新增锁文件、不改源码或测试。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "backend/app/trip_understanding/full_text.py"
+      "miniapp/package.json"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME+SEMANTIC",
+    "product_progress": "RUNTIME",
     "candidate_cycle": 2,
     "repair_review_cycle": 1,
-    "slice_id": "G07-REPAIR-2-NON-ATOMIC-OPTIONAL-MENTION",
-    "stop_condition": "若保留OPTIONAL提及会重新触发Provider或确定卡片，则维持保守不落卡并将候选保持NOT_READY；不得把二选一提升为PLANNED、修改数据或放宽断言。",
-    "user_outcome": "用户仍能看到备选路线中的已知地点，但系统不会擅自把二选一当成确定行程或发起地点搜索。",
+    "slice_id": "G07-MINIAPP-WEBPACK-REPRODUCIBLE-BUILD",
+    "stop_condition": "若精确5.91.0仍无法通过微信构建，则保持候选NOT_READY并诊断Taro/Node ABI；不得修改第三方内部代码、关闭校验、跳过构建或扩大依赖升级。",
+    "user_outcome": "小程序在无历史node_modules的干净安装后可重复完成类型检查、单测和微信生产构建。",
     "work_kind": "BLOCKING_DEFECT"
   },
   "e2e_after_all_merges": true,
