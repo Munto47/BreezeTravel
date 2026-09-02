@@ -4,21 +4,21 @@
   "active_slice": {
     "acceptance_refs": [
       "项目所有者于2026-09-02明确批准开启新的G07候选修复周期并要求按指导文档持续开发",
-      "repair-1已在3e1b0cd远端回读并关闭资料失败、stale map缓存副作用和Provider生命周期；其结果不替代本语义切片验证",
-      "多城行程的地点只能在有明确城市归属或唯一安全匹配时自动落卡，不得把其他城市同名点错配到当前日",
-      "引用、预约说明、比较或住宿描述不得因同一子句含计划动作而整体升级为PLANNED",
-      "二选一、斜杠候选、比较句等非原子地点不得自动搜索或生成多个确定卡片",
-      "同一行混合REFERENCE/OPTIONAL与PLANNED内容时必须保留明确计划地点，不得因整句角色判定而丢失",
+      "语义修复已在02780a2远端回读；本切片只处理扩大回归发现的Windows跟踪文本字节漂移，不重开已关闭的产品findings",
+      "普通跟踪文本和三城地点词典在Windows fresh checkout必须保持LF；冻结证据与历史CRLF路径继续服从更具体的现有例外",
+      "三城地点词典的Git blob为LF且运行时严格拒绝CRLF；Windows fresh checkout必须加载900项词典",
+      "修复后原2项AMap断言必须通过，地点匹配逻辑、候选计数定义和测试期望均不得修改",
+      "本切片只增加跨平台文本字节稳定性的gitattributes声明，不修改源码内容、词典内容、Provider、API、模型、数据、阈值或blind/oracle",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "backend/app/trip_understanding/full_text.py",
-      "backend/app/trip_understanding/pipeline.py",
-      "backend/tests/test_trip_understanding_v3.py",
-      "backend/tests/test_g03r_trip_semantics.py"
+      ".gitattributes",
+      "backend/app/trip_understanding/three_city_place_lexicon_v1.jsonl",
+      "backend/tests/test_amap_trip_understanding.py",
+      "backend/tests/test_g03r_place_resolution.py"
     ],
-    "base_commit": "3e1b0cdf168d7f291e0096d21cb600abab4e9245",
+    "base_commit": "02780a2394da353ec65c8d5fb4bb969f17e0774d",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -35,20 +35,20 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "在确定性语义fallback和现有跨城解析边界内做子句局部角色/原子性收紧，并加入四类反例；不改变公共API、模型prompt、Provider选择、数据集、阈值或blind/oracle。",
+    "minimum_change": "为普通跟踪文本建立text=auto eol=lf默认值，并保留现有冻结证据与历史CRLF例外；为三城词典补充显式LF属性；不修改产品源码、词典或匹配运行时代码。",
     "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
-      "backend/app/trip_understanding/pipeline.py",
-      "backend/app/trip_understanding/full_text.py"
+      ".gitattributes",
+      "backend/app/trip_understanding/three_city_place_lexicon_v1.jsonl"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME+SEMANTIC",
+    "product_progress": "NONE",
     "candidate_cycle": 2,
     "repair_review_cycle": 1,
-    "slice_id": "G07-REPAIR-1-CONSERVATIVE-SEMANTICS",
-    "stop_condition": "任一语义finding在两种最小策略内仍无法关闭时，保留地点待确认或不自动落卡的诚实降级并保持候选FAIL；不得扩大城市搜索、放宽原子性、修改模型prompt/数据/阈值或提前运行sealed blind。",
-    "user_outcome": "多城和混合说明文本只生成用户真正计划且城市归属安全的地点卡片；引用、预约、比较和二选一内容不会被误当成确定行程。",
-    "work_kind": "BLOCKING_DEFECT"
+    "slice_id": "G07-WINDOWS-TRACKED-TEXT-BYTE-STABILITY",
+    "stop_condition": "若eol属性不能在fresh Windows checkout恢复跟踪文本的Git字节与900项词典严格加载，则保持候选NOT_READY并切换到隔离clean-checkout诊断；不得放宽哈希/词典严格校验、改测试计数或修改产品数据。",
+    "user_outcome": "Windows环境与CI使用相同的源码和地点词典字节，避免哈希契约漂移或词典静默退化。",
+    "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "HARDENED_CANDIDATE_GATE",
