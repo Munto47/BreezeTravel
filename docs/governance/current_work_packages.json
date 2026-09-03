@@ -23,7 +23,11 @@
       "第四候选周期只做目的地恢复的最小保守修复：仅接受有明确城市证据的来源文本，不把同行人、攻略修饰语或地点名片段升级为城市；修复后重跑全部正式候选矩阵",
       "cf55f31冻结候选的正式自动化在1846项文本产品矩阵中复现地图worker偶发一次执行后仍PREPARING；隔离重复4轮复现，不能作为环境噪声重跑到绿",
       "第五候选周期只修复默认实时钟与单调钟换算造成的下游地图job短暂未来时间竞态；注入时钟测试语义保持不变",
-      "8af2f20的干净LF检出复现历史G04-G06收据哈希受工作树换行影响；历史文件本身未变，精确绑定必须核对Git blob而不是平台相关工作树字节"
+      "8af2f20的干净LF检出复现历史G04-G06收据哈希受工作树换行影响；历史文件本身未变，精确绑定必须核对Git blob而不是平台相关工作树字节",
+      "f61661f候选的fresh PRODUCT_UX复审发现公开/about仍宣传已撤销的截图流程，且正式小程序缺少可编辑软假设、地点详情、新增、文字编辑、替换与移动能力，属于当前用户旅程P1",
+      "f61661f候选的fresh SEMANTIC_DOMAIN复审复现预约说明冒号后的地点和‘如果还有时间’条件备选会误成PLANNED并调用Provider，二选一文本还会产生畸形OPTIONAL片段",
+      "f61661f候选的fresh RELIABILITY_SECURITY复审通过；Provider响应后提交前崩溃窗口为诚实降级且不重复调用的P2，浏览器首次焦点时序与低/中依赖告警为P3，不阻止本轮产品修复",
+      "第六候选周期采用最小保守修复：公开文案只承诺文本；语义边界宁可OPTIONAL/REFERENCE而不误建卡；小程序补齐已存在公共命令支持的核心改卡能力和统一状态颜色"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -52,6 +56,7 @@
       "frontend/playwright.candidate.config.js",
       "frontend/e2e/g03r-result-ui.spec.js",
       "frontend/src/app/page.tsx",
+      "frontend/src/app/about/page.tsx",
       "frontend/src/app/trip/result/page.tsx",
       "frontend/src/components/layout/UserMenu.tsx",
       "frontend/src/lib/trip-understanding-v3.ts",
@@ -60,6 +65,7 @@
       "miniapp/package-lock.json",
       "miniapp/src/pages/home/index.tsx",
       "miniapp/src/pages/trip/index.tsx",
+      "miniapp/src/pages/trip/index.scss",
       "miniapp/src/lib/api.ts",
       "miniapp/src/lib/storage.ts",
       "miniapp/tsconfig.json",
@@ -97,7 +103,8 @@
       "G07_FINAL_A56A1CE_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_OCR_SUPPLY_CHAIN_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_FINAL_3C40D79_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
       "G07_FINAL_CF55F31_AUTOMATED_MAP_JOB_CLOCK_RACE_CANDIDATE_REJECTED",
-      "G07_FINAL_8AF2F20_AUTOMATED_HISTORICAL_RECEIPT_EOL_BINDING_REJECTED"
+      "G07_FINAL_8AF2F20_AUTOMATED_HISTORICAL_RECEIPT_EOL_BINDING_REJECTED",
+      "G07_FINAL_F61661F_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_AND_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -107,9 +114,8 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "保持产品字节不变，将历史G04-G06收据完整性校验绑定到已提交Git blob，消除CRLF/LF工作树差异；随后从新精确候选重跑正式矩阵。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "8db906d1fc10271ea21398783432c53db5473c23",
+    "minimum_change": "修正公开文本能力说明；在确定性降级中把预约说明和条件备选保守归为REFERENCE/OPTIONAL并安全切分二选一；复用现有公共命令为小程序补齐假设编辑、地点详情、新增、文字编辑、替换、移动和一致的蓝色待确认状态。OCR继续不处理、不验证。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -118,11 +124,11 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "candidate_cycle": 5,
-    "repair_review_cycle": 2,
+    "candidate_cycle": 6,
+    "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若干净检出的历史收据完整性校验仍受工作树换行影响、地图worker单次执行稳定性重复测试失败、目的地边界反例仍能覆盖正确城市、公开旧页面仍可达、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
-    "user_outcome": "公开产品只接收攻略文字，并能从自然中文中保守识别真实目的地而不把同行人、修饰语或地点名误当城市；随后完成完整新候选验证并交付owner真人体验。",
+    "stop_condition": "若预约说明或条件备选仍能成为计划卡并调用Provider、二选一仍产生畸形地点、小程序仍不能完成核心改卡、公开页面仍宣传截图/OCR、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
+    "user_outcome": "公开产品只接收攻略文字，语义降级不把预约说明或条件备选伪装成计划卡；Web和微信小程序都能查看地点并完成核心改卡，随后完成完整新候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
@@ -248,12 +254,14 @@
         "frontend/src/types/workspace.ts",
         "frontend/src/app/trip/result/itinerary-workspace.tsx",
         "frontend/src/app/page.tsx",
+        "frontend/src/app/about/page.tsx",
         "frontend/src/middleware.ts",
         "frontend/src/components/layout/UserMenu.tsx",
         "miniapp/package.json",
         "miniapp/package-lock.json",
         "miniapp/src/pages/home/index.tsx",
         "miniapp/src/pages/trip/index.tsx",
+        "miniapp/src/pages/trip/index.scss",
         "miniapp/src/lib/api.ts",
         "miniapp/src/lib/storage.ts",
         "miniapp/tsconfig.json",
