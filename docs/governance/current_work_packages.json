@@ -18,7 +18,9 @@
       "正式panel因产品review FAIL与scenario union不完整而fail-closed；sealed blind和最终HARDENED_CANDIDATE_GATE保持NOT_RUN，blind attempt未消耗",
       "owner明确下一候选只按旧页面/内部信息泄漏、关键依赖、一次完整验证的顺序推进，不扩建旧P5环境、回执平台或通用治理",
       "项目所有者于2026-09-03明确撤销OCR需求、处理和验证；历史截图/OCR资产冻结且不进入当前公开产品或Gate",
-      "第三候选周期完成文本主链、公开边界和依赖安全后交付owner真人体验"
+      "第三候选周期完成文本主链、公开边界和依赖安全后交付owner真人体验",
+      "3c40d79冻结候选的fresh SEMANTIC_DOMAIN复审以5/5自然文本边界稳定复现目的地过度捕获：一家三口、第一次来北京、周末安排、北京故宫或广州北京路会覆盖模型正确城市，属于错城与公开错误目的地P1",
+      "第四候选周期只做目的地恢复的最小保守修复：仅接受有明确城市证据的来源文本，不把同行人、攻略修饰语或地点名片段升级为城市；修复后重跑全部正式候选矩阵"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -85,7 +87,8 @@
       "G07_FINAL_B705F29_BROWSER_PASS_PERFORMANCE_FAIL_DIAGNOSTIC_ONLY",
       "G07_FINAL_18597B1_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY",
       "G07_FINAL_400CE17_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY",
-      "G07_FINAL_A56A1CE_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_OCR_SUPPLY_CHAIN_PANEL_FAIL_CANDIDATE_REJECTED"
+      "G07_FINAL_A56A1CE_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_OCR_SUPPLY_CHAIN_PANEL_FAIL_CANDIDATE_REJECTED",
+      "G07_FINAL_3C40D79_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -95,9 +98,8 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "按owner新边界让公开产品只接受文本并从当前Gate移除OCR；关闭旧页面与内部信息泄漏，修正Top-3配色，再升级已有关键生产依赖。历史截图/OCR资产保留但生产默认关闭。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "fe321bd5ac80e7ec51096b800b331d699fbd8169",
+    "minimum_change": "修复文本目的地恢复过度捕获：来源兜底只能接受明确、可验证的城市表达，不得让同行人、修饰语或地点名片段覆盖模型正确目的地；加入五类真实中文边界回归。OCR继续不处理、不验证。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -106,11 +108,11 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "candidate_cycle": 3,
-    "repair_review_cycle": 0,
+    "candidate_cycle": 4,
+    "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若公开旧页面仍可达、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
-    "user_outcome": "公开产品只接收攻略文字并稳定生成可执行行程；旧诊断/房间入口和内部字段对普通用户不可达，关键依赖无critical，然后完成一次新候选验证并交付owner真人体验。",
+    "stop_condition": "若目的地边界反例仍能覆盖正确城市、公开旧页面仍可达、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
+    "user_outcome": "公开产品只接收攻略文字，并能从自然中文中保守识别真实目的地而不把同行人、修饰语或地点名误当城市；随后完成完整新候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
