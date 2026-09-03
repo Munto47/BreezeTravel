@@ -5,11 +5,11 @@
   "evidence_level": "LOCAL_AUTOMATED",
   "subject": {
     "baseline_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
-    "preflight_commit": "f95f64ce10a0b7712cd370f768a62b5e5e0fdff6",
-    "candidate_commit": "7ed8fb34ba9d8d8133de02f3c7a6c0be8c2969dd",
-    "candidate_tree": "500a463aa283e887020966e51278e6c678cdb179",
+    "preflight_commit": "485a27534b93da9adff781af2bea11b5869d1f45",
+    "candidate_commit": "166c5038d3aa7665234c80d4274ec2c5ae2bd22d",
+    "candidate_tree": "5292460d4b5ede28c778a999eda935a986668328",
     "branch": "codex/g07-candidate-cycle-2",
-    "product_fingerprint": "977ace5f1f3baa04e4bb38708036b9bca47746ff0b4d7f41d6ddecf801758468"
+    "product_fingerprint": "57f712505966ade7fe6638da7cecbfcb36c8d6bfdb8a864ad23aef6bdf3f7c70"
   },
   "binding": {
     "candidate_manifest_path": "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -43,12 +43,12 @@
   },
   "verification": {
     "command": "python -m pytest (current text-only suite; frozen OCR, screenshot, G04 and legacy P5 suites excluded by candidate contract)",
-    "passed": 1846,
+    "passed": 1847,
     "skipped": 41,
     "failed": 0,
     "warnings": 7,
-    "targeted_original_nodes": "143 passed",
-    "governance_targeted": "4 passed",
+    "targeted_original_nodes": "95 passed; flaky API journey repeated 20/20",
+    "governance_targeted": "5 passed",
     "ruff": "PASS",
     "scope_validation": "PASS",
     "diff_check": "PASS"
