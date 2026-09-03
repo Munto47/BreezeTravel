@@ -20,7 +20,7 @@ from app.trip_understanding.models import (
     ProposedMention,
     StrictModel,
 )
-from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.pipeline import canonical_sha256, normalized_destination_name
 
 
 _PROMPT_PATH = (
@@ -821,6 +821,13 @@ class QwenStructuredInferenceProvider:
                 raise ValueError("DESTINATION_SPAN_MISMATCH")
         else:
             destination_name = destination.name
+        source_destination_name = normalized_destination_name(
+            source_text,
+            destination_name,
+        )
+        if source_destination_name != destination_name:
+            destination_name = source_destination_name
+            normalization_counts["destination_span_relocation_count"] += 1
 
         mentions: list[ProposedMention] = []
         seen_spans: set[tuple[int, int]] = set()

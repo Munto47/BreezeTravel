@@ -216,6 +216,31 @@ async def test_qwen_provider_returns_model_neutral_proposal_and_redacted_receipt
 
 
 @pytest.mark.asyncio
+async def test_qwen_provider_recovers_explicit_destination_from_source_context() -> None:
+    source = "这是一份围绕北京的三天攻略。Day 1 去故宫博物院。"
+    output = json.loads(_valid_output(source))
+    wrong_start = source.index("三")
+    output["destination"] = {
+        "basis": "EXPLICIT",
+        "evidence_span_start": wrong_start,
+        "evidence_span_end": wrong_start + 1,
+    }
+    client = _FakeClient([json.dumps(output, ensure_ascii=False)])
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=client,
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.destination_name == "北京"
+    assert proposal.destination_basis == DestinationBasis.EXPLICIT
+    assert proposal.binding["destination_span_relocation_count"] == 1
+
+
+@pytest.mark.asyncio
 async def test_qwen_provider_uses_at_most_one_schema_repair() -> None:
     source = "北京 Day 1 去故宫博物院。"
     client = _FakeClient(["{}", _valid_output(source)])

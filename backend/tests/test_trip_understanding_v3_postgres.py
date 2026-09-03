@@ -499,6 +499,42 @@ Day 3：颐和园、圆明园。
                 "action": "DELETE_SOURCE",
             }
         )
+        private_planned_text = "仅供内部参考的联系电话 010-00000000"
+        async with pool.acquire() as conn:
+            source_revision = await conn.fetchval(
+                """
+                SELECT MAX(revision) FROM trip_understanding_revisions
+                WHERE understanding_id = $1
+                """,
+                full_resource.understanding_id,
+            )
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_activities (
+                    activity_id, understanding_id, revision, public_activity_token,
+                    day_index, sequence_index, role, mention_text, atomic_place_name,
+                    category_hint, time_hint, eligible_for_place_search,
+                    resolution_status, canonical_place_id, resolver_receipt_json, created_at
+                ) VALUES (
+                    $1, $2, $3, $4, 1, 999, 'PLANNED', $5, NULL,
+                    NULL, NULL, FALSE, 'NOT_ELIGIBLE', NULL, '{}'::jsonb, $6
+                )
+                """,
+                str(uuid4()),
+                full_resource.understanding_id,
+                source_revision,
+                "private-planned-token-1234567890",
+                private_planned_text,
+                now,
+            )
+            assert await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM trip_understanding_activities
+                WHERE understanding_id = $1 AND mention_text = $2
+                """,
+                full_resource.understanding_id,
+                private_planned_text,
+            ) == 1
         source_delete = await repository.delete_source(
             full_resource,
             user_id=owner_user_id,
@@ -543,7 +579,7 @@ Day 3：颐和园、圆明园。
             assert await conn.fetchval(
                 """
                 SELECT COUNT(*) FROM trip_understanding_activities
-                WHERE understanding_id = $1 AND role <> 'PLANNED'
+                WHERE understanding_id = $1
                 """,
                 full_resource.understanding_id,
             ) == 0

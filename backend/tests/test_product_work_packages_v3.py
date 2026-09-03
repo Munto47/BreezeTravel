@@ -157,6 +157,7 @@ def test_g07_cycle_2_active_slice_remains_narrow_and_bound_to_candidate_ref() ->
     assert active_slice["slice_id"] in {
         "G07-CANDIDATE-CONTRACT",
         "G07-COMPONENT-RAW-REVALIDATION",
+        "G07-PANEL-P1-REPAIR-1",
         "G07-SEALED-ONE-SHOT",
     }
     assert active_slice["candidate_cycle"] == 2

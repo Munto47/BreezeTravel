@@ -70,6 +70,12 @@ BASIC_CITY_HEADER_RE = re.compile(
     r"^\s*(?P<city>[\u4e00-\u9fff]{2,6}?)[一二两三四五六七八九十0-9]+"
     r"(?:日|天)(?:游|行程|攻略|旅行)"
 )
+DESTINATION_CONTEXT_RE = re.compile(
+    r"(?:围绕|一段|整理|关于)\s*"
+    r"(?P<cities>[\u4e00-\u9fff]{2,6}(?:\s*[、，,和与/]\s*[\u4e00-\u9fff]{2,6}){0,2})"
+    r"\s*的"
+)
+CITY_SEPARATOR_RE = re.compile(r"\s*[、，,和与/]\s*")
 GENERIC_PLACE_NAMES = frozenset({"酒店", "宾馆", "民宿", "住处", "住宿"})
 
 
@@ -82,14 +88,36 @@ def _ordered_deep_cities(value: str) -> tuple[str, ...]:
     return tuple(city for _position, city in sorted(positions))
 
 
-def _itinerary_header_cities(source_text: str) -> tuple[str, ...]:
+def source_destination_cities(source_text: str) -> tuple[str, ...]:
+    """Recover only source-explicit destination cities from itinerary framing.
+
+    This intentionally does not treat every occurrence of a city token as the
+    trip destination: names such as ``北京路步行街`` may be places in another
+    city.  The accepted forms are itinerary headers and explicit framing such
+    as ``围绕北京的`` or ``一段北京、上海的``.
+    """
+
     multi_city = MULTI_DEEP_CITY_HEADER_RE.search(source_text)
     if multi_city:
         return _ordered_deep_cities(multi_city.group("cities"))
+    contextual = DESTINATION_CONTEXT_RE.search(source_text)
+    if contextual:
+        cities = tuple(
+            city.strip().removesuffix("市")
+            for city in CITY_SEPARATOR_RE.split(contextual.group("cities"))
+            if city.strip()
+        )
+        if cities:
+            return cities
     basic_city = BASIC_CITY_HEADER_RE.search(source_text)
     if basic_city:
         return (basic_city.group("city").removesuffix("市"),)
     return ()
+
+
+def normalized_destination_name(source_text: str, destination_name: str) -> str:
+    source_cities = source_destination_cities(source_text)
+    return "、".join(source_cities) if source_cities else destination_name
 
 
 def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...]:
@@ -101,7 +129,7 @@ def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...
     basic-only lane and are rejected by the live resolver without a call.
     """
 
-    header_cities = _itinerary_header_cities(source_text)
+    header_cities = source_destination_cities(source_text)
     if header_cities:
         return header_cities
     destination_cities = _ordered_deep_cities(destination_name)
@@ -609,6 +637,18 @@ class TripUnderstandingPipeline:
             source_text,
             await self.inference_provider.propose(source_text),
         )
+        destination_name = normalized_destination_name(
+            source_text,
+            proposal.destination_name,
+        )
+        if destination_name != proposal.destination_name:
+            binding = dict(proposal.binding)
+            binding["destination_source_recovery_count"] = int(
+                binding.get("destination_source_recovery_count", 0)
+            ) + 1
+            proposal = proposal.model_copy(
+                update={"destination_name": destination_name, "binding": binding}
+            )
         search_cities = resolution_cities(source_text, proposal.destination_name)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()

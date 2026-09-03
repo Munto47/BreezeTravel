@@ -326,6 +326,35 @@ async def test_g04_postgres_upgrade_encryption_atomic_consume_and_ttl_purge() ->
             "SELECT COUNT(*) FROM trip_understanding_source_claims WHERE source_id = $1",
             source_binding["source_id"],
         ) == 1
+        private_planned_text = "截图中的私人集合说明 010-00000000"
+        await pool.execute(
+            """
+            INSERT INTO trip_understanding_activities (
+                activity_id, understanding_id, revision, public_activity_token,
+                day_index, sequence_index, role, mention_text, atomic_place_name,
+                category_hint, time_hint, eligible_for_place_search,
+                resolution_status, canonical_place_id, resolver_receipt_json, created_at
+            ) VALUES (
+                $1, $2, $3, $4, 1, 999, 'PLANNED', $5, NULL,
+                NULL, NULL, FALSE, 'NOT_ELIGIBLE', NULL, '{}'::jsonb, $6
+            )
+            """,
+            str(uuid4()),
+            source_binding["understanding_id"],
+            source_binding["revision"],
+            "ttl-private-token-123456789012",
+            private_planned_text,
+            now,
+        )
+        assert await pool.fetchval(
+            """
+            SELECT COUNT(*) FROM trip_understanding_activities
+            WHERE understanding_id = $1 AND revision = $2 AND mention_text = $3
+            """,
+            source_binding["understanding_id"],
+            source_binding["revision"],
+            private_planned_text,
+        ) == 1
 
         second_ref = "B" * 43
         expiry_payload = _payload(
@@ -354,6 +383,16 @@ async def test_g04_postgres_upgrade_encryption_atomic_consume_and_ttl_purge() ->
         ) == 1
         assert await pool.fetchval(
             "SELECT COUNT(*) FROM trip_understanding_source_claims WHERE source_id = $1",
+            source_binding["source_id"],
+        ) == 0
+        assert await pool.fetchval(
+            """
+            SELECT COUNT(*) FROM trip_understanding_activities AS activity
+            JOIN trip_understanding_revisions AS revision
+              ON revision.understanding_id = activity.understanding_id
+             AND revision.revision = activity.revision
+            WHERE revision.source_id = $1
+            """,
             source_binding["source_id"],
         ) == 0
         assert await pool.fetchval(

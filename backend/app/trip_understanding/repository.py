@@ -2187,6 +2187,16 @@ class PostgresTripUnderstandingRepository(
                     "DELETE FROM trip_understanding_source_claims WHERE source_id = $1",
                     row["source_id"],
                 )
+                await conn.execute(
+                    """
+                    DELETE FROM trip_understanding_activities AS activity
+                    USING trip_understanding_revisions AS revision
+                    WHERE revision.source_id = $1
+                      AND activity.understanding_id = revision.understanding_id
+                      AND activity.revision = revision.revision
+                    """,
+                    row["source_id"],
+                )
                 receipt_hash = canonical_sha256(
                     {
                         "source_id": row["source_id"],
@@ -2832,10 +2842,7 @@ class PostgresTripUnderstandingRepository(
                     resource.understanding_id,
                 )
                 await conn.execute(
-                    """
-                    DELETE FROM trip_understanding_activities
-                    WHERE understanding_id = $1 AND role <> 'PLANNED'
-                    """,
+                    "DELETE FROM trip_understanding_activities WHERE understanding_id = $1",
                     resource.understanding_id,
                 )
                 await conn.execute(
