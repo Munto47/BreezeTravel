@@ -69,6 +69,7 @@
       "backend/app/trip_understanding/repository.py",
       "backend/tests/test_g03r_trip_semantics.py",
       "backend/tests/test_qwen_trip_understanding.py",
+      "backend/tests/test_trip_understanding_v3.py",
       "backend/tests/test_trip_understanding_v3_postgres.py",
       "backend/tests/test_g04_screenshot_postgres.py",
       "backend/tests/test_g01_delivery_samples.py",
