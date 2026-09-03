@@ -105,7 +105,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "修复默认运行时时钟换算使刚创建的地图job偶发落在下一次worker观察时间之后的竞态；默认路径直接使用UTC墙钟，显式注入时间仍保持单调推进。OCR继续不处理、不验证。",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "05e42c7d4136335d551eddc85d9292dd92f72949",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
