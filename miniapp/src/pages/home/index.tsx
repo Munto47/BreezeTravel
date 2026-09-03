@@ -33,8 +33,8 @@ export default function HomePage() {
       commandRegistry.complete(scope)
       saveLastTripResourceId(accepted.public_resource_id)
       await Taro.navigateTo({ url: `/pages/trip/index?publicResourceId=${accepted.public_resource_id}` })
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+    } catch {
+      setError('暂时无法生成行程，请稍后重试。')
     } finally {
       setBusy(false)
     }
@@ -59,7 +59,7 @@ export default function HomePage() {
       <View className='card form-card'>
         <Text className='label'>攻略或行程文字</Text>
         <Textarea className='textarea' maxlength={50000} value={rawText} placeholder='例如：第1天 09:00 颐和园…' onInput={event => setRawText(event.detail.value)} />
-        {error ? <Text className='error'>{error}</Text> : null}
+        {error ? <Text className='feedback'>{error}</Text> : null}
         <Button className='primary' disabled={!canSubmit || busy} loading={busy} onClick={createTrip}>
           {busy ? '正在整理…' : '生成每日行程'}
         </Button>

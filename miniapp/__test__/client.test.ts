@@ -5,6 +5,8 @@ import {
   type TransportRequest,
   type TransportResponse,
 } from '@breezetravel/trip-check-client'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 class RecordingTransport implements JsonTransport {
   requests: TransportRequest[] = []
@@ -83,5 +85,28 @@ describe('shared TripCheckClient', () => {
       { command_type: 'ACTIVITY_MOVE', activity_token: 'activity-1', target_day_index: 2, target_position: 1 },
     ])
     expect(transport.requests.map(item => item.headers?.['If-Match'])).toEqual(['"etag-1"', '"etag-2"', '"etag-3"'])
+  })
+
+  test('ordinary miniapp failures use safe copy and non-red feedback', () => {
+    const pageSources = [
+      'src/pages/home/index.tsx',
+      'src/pages/login/index.tsx',
+      'src/pages/trip/index.tsx',
+    ].map(relativePath => readFileSync(resolve(__dirname, '..', relativePath), 'utf8'))
+    const feedbackStyles = [
+      'src/pages/home/index.scss',
+      'src/pages/login/index.scss',
+      'src/pages/trip/index.scss',
+    ].map(relativePath => readFileSync(resolve(__dirname, '..', relativePath), 'utf8'))
+
+    for (const source of pageSources) {
+      expect(source).not.toMatch(/caught\s+instanceof\s+Error\s*\?\s*caught\.message/)
+      expect(source).not.toMatch(/String\(caught\)/)
+      expect(source).toContain("className='feedback'")
+    }
+    for (const stylesheet of feedbackStyles) {
+      expect(stylesheet).toMatch(/\.feedback\s*\{[^}]*color:\s*#175cd3;/)
+      expect(stylesheet).not.toMatch(/\.feedback\s*\{[^}]*#b42318/)
+    }
   })
 })

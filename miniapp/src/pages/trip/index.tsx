@@ -131,8 +131,8 @@ export default function TripPage() {
         return
       }
       await prepareChecks()
-    } catch (caught) {
-      if (active.current) setError(caught instanceof Error ? caught.message : '暂时无法读取行程，请稍后重试。')
+    } catch {
+      if (active.current) setError('暂时无法读取行程，请稍后重试。')
     }
   }
 
@@ -177,8 +177,8 @@ export default function TripPage() {
       setEditor(null)
       await load()
       return true
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : failureMessage)
+    } catch {
+      setError(failureMessage)
       return false
     } finally {
       setBusy('')
@@ -290,8 +290,8 @@ export default function TripPage() {
       commandRegistry.complete(scope)
       setMap({ status: value.status, message: value.message, days: [], available_actions: [] })
       timer.current = setTimeout(() => void loadEnhancements(), 1000)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '路线暂时无法更新。')
+    } catch {
+      setError('路线暂时无法更新，请稍后再试。')
     } finally {
       setBusy('')
     }
@@ -315,8 +315,8 @@ export default function TripPage() {
       setChecks(null)
       setChangePreview(null)
       await loadEnhancements()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '住宿暂时无法选择。')
+    } catch {
+      setError('住宿暂时无法选择，请稍后再试。')
     } finally {
       setBusy('')
     }
@@ -334,8 +334,8 @@ export default function TripPage() {
       )
       commandRegistry.complete(scope)
       setChangePreview(value)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '暂时无法预览这项调整。')
+    } catch {
+      setError('暂时无法预览这项调整。')
     } finally {
       setBusy('')
     }
@@ -359,8 +359,8 @@ export default function TripPage() {
       setChangePreview(null)
       checksPrepared.current = true
       await load()
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : '暂时无法采纳这项调整。')
+    } catch {
+      setError('暂时无法采纳这项调整。')
     } finally {
       setBusy('')
     }
@@ -377,7 +377,7 @@ export default function TripPage() {
         <Text className='heading'>你的每日行程</Text>
         <Text className='subtle'>地点不确定时会明确标成“需要确认”，不会硬猜。</Text>
       </View>
-      {error ? <Text className='error'>{error}</Text> : null}
+      {error ? <Text className='feedback'>{error}</Text> : null}
 
       <View className='card section'>
         <Text className='section-title'>当前假设</Text>
