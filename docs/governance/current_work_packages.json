@@ -27,7 +27,9 @@
       "f61661f候选的fresh PRODUCT_UX复审发现公开/about仍宣传已撤销的截图流程，且正式小程序缺少可编辑软假设、地点详情、新增、文字编辑、替换与移动能力，属于当前用户旅程P1",
       "f61661f候选的fresh SEMANTIC_DOMAIN复审复现预约说明冒号后的地点和‘如果还有时间’条件备选会误成PLANNED并调用Provider，二选一文本还会产生畸形OPTIONAL片段",
       "f61661f候选的fresh RELIABILITY_SECURITY复审通过；Provider响应后提交前崩溃窗口为诚实降级且不重复调用的P2，浏览器首次焦点时序与低/中依赖告警为P3，不阻止本轮产品修复",
-      "第六候选周期采用最小保守修复：公开文案只承诺文本；语义边界宁可OPTIONAL/REFERENCE而不误建卡；小程序补齐已存在公共命令支持的核心改卡能力和统一状态颜色"
+      "第六候选周期采用最小保守修复：公开文案只承诺文本；语义边界宁可OPTIONAL/REFERENCE而不误建卡；小程序补齐已存在公共命令支持的核心改卡能力和统一状态颜色",
+      "1d02a53候选的fresh三方复审均无P0/P1且语义复审103项通过，但PRODUCT_UX复审确认小程序普通失败直接显示底层Error.message并统一使用红色，属于当前范围P2；候选拒绝且sealed blind未启动",
+      "第七候选周期只做用户安全错误文案和非红普通失败提示：不得显示底层异常、Provider或内部字段；仅可靠硬冲突可继续使用红色"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -104,7 +106,8 @@
       "G07_FINAL_3C40D79_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
       "G07_FINAL_CF55F31_AUTOMATED_MAP_JOB_CLOCK_RACE_CANDIDATE_REJECTED",
       "G07_FINAL_8AF2F20_AUTOMATED_HISTORICAL_RECEIPT_EOL_BINDING_REJECTED",
-      "G07_FINAL_F61661F_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_AND_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED"
+      "G07_FINAL_F61661F_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_AND_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
+      "G07_FINAL_1D02A53_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -114,9 +117,8 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "修正公开文本能力说明；在确定性降级中把预约说明和条件备选保守归为REFERENCE/OPTIONAL并安全切分二选一；复用现有公共命令为小程序补齐假设编辑、地点详情、新增、文字编辑、替换、移动和一致的蓝色待确认状态。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "8ba061439a5f6d541c2a1d6beea3704a382d3dcf",
+    "minimum_change": "把小程序首页、登录和行程操作的底层异常统一收敛为用户安全的动作级文案；普通读取、编辑、路线、住宿和建议失败使用中性信息样式，不使用红色。OCR继续不处理、不验证。",
+    "phase": "REPAIR_ACTIVE",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -125,11 +127,11 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "candidate_cycle": 6,
+    "candidate_cycle": 7,
     "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若预约说明或条件备选仍能成为计划卡并调用Provider、二选一仍产生畸形地点、小程序仍不能完成核心改卡、公开页面仍宣传截图/OCR、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
-    "user_outcome": "公开产品只接收攻略文字，语义降级不把预约说明或条件备选伪装成计划卡；Web和微信小程序都能查看地点并完成核心改卡，随后完成完整新候选验证并交付owner真人体验。",
+    "stop_condition": "若小程序仍显示底层异常或把普通Provider/路线/住宿不可用显示为红色，或既有文本主链、核心改卡、公开脱敏、语义边界与供应链安全回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
+    "user_outcome": "公开产品只接收攻略文字；Web和微信小程序能安全生成、查看和修改行程，普通失败使用可理解且非红的提示，不泄漏底层异常；随后完成完整新候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
