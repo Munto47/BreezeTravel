@@ -51,7 +51,7 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "将五条交付样例中的多城目的地断言同步为已修复的明确城市列表，并让受限POSIX兼容脚本在Windows以原生mklink /J创建同等目录junction；冻结CI UTF-8环境由正式执行器提供。",
-    "phase": "IMPLEMENTING",
+    "phase": "VERIFYING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -59,10 +59,10 @@
       "backend/tests/test_product_work_packages_v3.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME_COMPATIBILITY",
+    "product_progress": "EVAL_METRIC",
     "candidate_cycle": 2,
     "repair_review_cycle": 2,
-    "slice_id": "G07-AUTOMATED-COMPONENT-REPAIR-2",
+    "slice_id": "G07-SEALED-ONE-SHOT",
     "stop_condition": "若两种最小实现仍不能让原文明示城市稳定覆盖公开目的地与Provider搜索通道，则采用目的地待确认且禁止自动地点匹配的保守降级；若结构化卡片无法与原文活动安全分离，则删除全部活动投影并从不可逆revision结果重建公开卡片；不得修改Qwen数据、scorer、panel合同或blind。",
     "user_outcome": "同一最终候选真实完成从文字或截图到每日卡片、地点与路线核验、Top-3建议和采纳后复检，并取得可回读的候选级证据。",
     "work_kind": "CANDIDATE_HARDENING"
