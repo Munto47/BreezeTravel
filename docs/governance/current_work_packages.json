@@ -108,7 +108,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "保持产品字节不变，将历史G04-G06收据完整性校验绑定到已提交Git blob，消除CRLF/LF工作树差异；随后从新精确候选重跑正式矩阵。OCR继续不处理、不验证。",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "8db906d1fc10271ea21398783432c53db5473c23",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
