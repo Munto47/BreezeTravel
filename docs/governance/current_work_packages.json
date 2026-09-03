@@ -29,7 +29,9 @@
       "f61661f候选的fresh RELIABILITY_SECURITY复审通过；Provider响应后提交前崩溃窗口为诚实降级且不重复调用的P2，浏览器首次焦点时序与低/中依赖告警为P3，不阻止本轮产品修复",
       "第六候选周期采用最小保守修复：公开文案只承诺文本；语义边界宁可OPTIONAL/REFERENCE而不误建卡；小程序补齐已存在公共命令支持的核心改卡能力和统一状态颜色",
       "1d02a53候选的fresh三方复审均无P0/P1且语义复审103项通过，但PRODUCT_UX复审确认小程序普通失败直接显示底层Error.message并统一使用红色，属于当前范围P2；候选拒绝且sealed blind未启动",
-      "第七候选周期只做用户安全错误文案和非红普通失败提示：不得显示底层异常、Provider或内部字段；仅可靠硬冲突可继续使用红色"
+      "第七候选周期只做用户安全错误文案和非红普通失败提示：不得显示底层异常、Provider或内部字段；仅可靠硬冲突可继续使用红色",
+      "c6f3cf2候选完整自动组件原生拒绝PASS：两个治理测试仍把动态candidate_cycle硬编码为6；知识建议微秒级性能比值单轮23.6%后独立复跑通过，判定为计时抖动但失败证据保留且候选拒绝",
+      "第八候选周期只移除治理测试对历史周期号的重复硬编码，继续验证候选为后续周期、范围与远端绑定；不修改知识性能阈值、实现、数据或Gate"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -110,7 +112,8 @@
       "G07_FINAL_CF55F31_AUTOMATED_MAP_JOB_CLOCK_RACE_CANDIDATE_REJECTED",
       "G07_FINAL_8AF2F20_AUTOMATED_HISTORICAL_RECEIPT_EOL_BINDING_REJECTED",
       "G07_FINAL_F61661F_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_AND_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
-      "G07_FINAL_1D02A53_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED"
+      "G07_FINAL_1D02A53_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED",
+      "G07_FINAL_C6F3CF2_AUTOMATED_GOVERNANCE_HARDCODE_AND_KNOWLEDGE_MICROBENCH_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -120,9 +123,8 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "把小程序首页、登录和行程操作的底层异常统一收敛为用户安全的动作级文案；普通读取、编辑、路线、住宿和建议失败使用中性信息样式，不使用红色。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "d2a672de1b19b58e460000ef39ae745318b6713b",
+    "minimum_change": "把治理测试从历史候选周期6的精确数字改为持续有效的后续候选约束，同时保留工作类型、阶段、路径所有权、远端分支和blind边界校验。OCR继续不处理、不验证。",
+    "phase": "REPAIR_ACTIVE",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -131,10 +133,10 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "candidate_cycle": 7,
+    "candidate_cycle": 8,
     "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若小程序仍显示底层异常或把普通Provider/路线/住宿不可用显示为红色，或既有文本主链、核心改卡、公开脱敏、语义边界与供应链安全回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
+    "stop_condition": "若治理测试仍把动态候选周期绑定到历史数字，或既有小程序安全文案、文本主链、核心改卡、公开脱敏、语义边界与供应链安全回归，则不得冻结候选；知识性能真实超阈值时继续调查，不修改阈值；不重新建设或验证OCR。",
     "user_outcome": "公开产品只接收攻略文字；Web和微信小程序能安全生成、查看和修改行程，普通失败使用可理解且非红的提示，不泄漏底层异常；随后完成完整新候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },

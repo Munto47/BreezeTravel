@@ -125,11 +125,12 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
     assert registry["active_slice"]["phase"] in {
         "IMPLEMENTING",
+        "REPAIR_ACTIVE",
         "PREFLIGHT",
         "EVIDENCE_FROZEN",
         "GATE_RUNNING",
     }
-    assert registry["active_slice"]["candidate_cycle"] == 6
+    assert registry["active_slice"]["candidate_cycle"] >= 2
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR"
@@ -151,7 +152,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         assert token in current_goal
 
 
-def test_g07_cycle_6_active_slice_remains_narrow_and_bound_to_candidate_ref() -> None:
+def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref() -> None:
     registry = json.loads(
         (
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
@@ -166,7 +167,7 @@ def test_g07_cycle_6_active_slice_remains_narrow_and_bound_to_candidate_ref() ->
         "G07-AUTOMATED-COMPONENT-REPAIR-2",
         "G07-SEALED-ONE-SHOT",
     }
-    assert active_slice["candidate_cycle"] == 6
+    assert active_slice["candidate_cycle"] >= 2
     assert isinstance(active_slice["repair_review_cycle"], int)
     assert active_slice["repair_review_cycle"] >= 0
     assert active_slice["work_kind"] == "CANDIDATE_HARDENING"

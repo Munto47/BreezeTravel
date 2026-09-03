@@ -221,6 +221,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-03 | 小程序不再把API/Provider底层异常显示给普通用户；登录、生成、读取、编辑、地图、住宿和建议的普通失败统一为动作级安全文案及蓝色信息提示 | repair subject `d2a672de1b19b58e460000ef39ae745318b6713b`；tree `6bac7d2b9ee50080b3939ce87b30bb9304755a8f`；final evidence subject为本checkpoint | 静态泄漏反例、TypeScript与Jest `6 passed`；微信生产构建PASS；生产依赖无critical/high，仅保留1 low与2 moderate；core-mainline与diff check PASS；repair subject和GitHub远端回读一致 | `LOCAL_AUTOMATED + MINIAPP_BUILD_PASS + SUPPLY_CHAIN_HIGH_SEVERITY_PASS + REMOTE_READBACK` | `Product progress=UI+PRIVACY / CANDIDATE_REPAIR` | `Governance ratio=一项用户可见失败呈现修复、回归与冻结checkpoint；无Gate/阈值/oracle/blind变化` | 冻结新候选并从全新干净checkout和空Git外证据根重跑完整自动化、真实模型/地图、PostgreSQL、浏览器、性能与fresh panel；panel通过后才运行sealed | 当前只完成定向修复验证，上一候选全部正式证据不可拼接；Provider STARTED崩溃窗口继续作为后置P2；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 提交、push并远端回读冻结候选；创建exact clean checkout和新证据根，按矩阵顺序执行 |
 
+| 2026-09-03 | `c6f3cf2`完整自动组件因两个candidate_cycle=6历史硬编码断言与一次知识建议微秒级性能比值抖动拒绝PASS；候选停止，真实Provider、panel和sealed均未启动 | rejected subject `c6f3cf22ef0c8868d9d6e0c78c99e5f01ed9d4d3`；tree `7619dec18e3c41796b41511d0165f93f5b53644c`；第八周期激活subject为本checkpoint | 自动组件`1847 passed, 41 skipped, 3 failed`；两项治理失败均为期望6而实际合法周期7；知识消融本轮P95回归23.6%后同代码独立复跑PASS，未修改阈值或实现；失败组件未生成PASS回执 | `AUTOMATED_TEST_FAIL / FAIL_CLOSED_HISTORY_PRESERVED / TRANSIENT_MICROBENCH_INVESTIGATED` | `Product progress=EVAL_METRIC / CANDIDATE_REPAIR` | `Governance ratio=失败checkpoint和两个历史周期断言；无产品、Gate、阈值、模型、Provider、数据、oracle或blind变化` | 把治理测试改为持续有效的后续候选约束，定向验证后冻结新候选并从空证据根重跑完整自动组件 | `c6f3cf2`不得晋级；知识性能若在新候选再次真实超阈值则进入产品性能调查；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 完成两项治理断言修复、core-mainline和定向回归，提交push并冻结第八候选 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
