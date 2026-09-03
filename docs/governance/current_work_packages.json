@@ -96,8 +96,7 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "按owner新边界让公开产品只接受文本并从当前Gate移除OCR；关闭旧页面与内部信息泄漏，修正Top-3配色，再升级已有关键生产依赖。历史截图/OCR资产保留但生产默认关闭。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "9821b9dcf80898c09ea851e723f18d41fa7de466",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",

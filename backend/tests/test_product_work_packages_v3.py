@@ -123,7 +123,12 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         ).hexdigest()
     )
     assert registry["active_slice"]["work_kind"] == "CANDIDATE_HARDENING"
-    assert registry["active_slice"]["phase"] in {"IMPLEMENTING", "VERIFYING"}
+    assert registry["active_slice"]["phase"] in {
+        "IMPLEMENTING",
+        "PREFLIGHT",
+        "EVIDENCE_FROZEN",
+        "GATE_RUNNING",
+    }
     assert registry["active_slice"]["candidate_cycle"] == 3
     assert registry["max_parallel_writers"] == 2
     assert [package["package_id"] for package in registry["packages"]] == [
