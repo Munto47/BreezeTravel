@@ -1863,6 +1863,11 @@ test('home is text-only and every legacy product entrance returns to it', async 
   await expect(page.locator('input[type="file"]')).toHaveCount(0)
   await expect(page.getByText(/截图|OCR|识别图片/)).toHaveCount(0)
 
+  await page.getByRole('button', { name: '产品说明' }).first().click()
+  await expect(page).toHaveURL(/\/about$/)
+  await expect(page.getByText(/上传截图|截图处理|OCR|识别图片/)).toHaveCount(0)
+  await page.getByRole('button', { name: '返回首页' }).click()
+
   for (const legacyPath of ['/history', '/import', '/intake', '/room/example', '/templates', '/workspace/example']) {
     await page.goto(legacyPath)
     await expect(page).toHaveURL(/\/$/)

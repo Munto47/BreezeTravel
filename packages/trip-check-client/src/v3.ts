@@ -15,6 +15,15 @@ export interface TripUnderstandingProgressView {
 }
 
 export type TripUnderstandingCommand =
+  | {
+      command_type: 'ACTIVITY_INSERT'
+      day_index: number
+      position: number
+      name: string
+      category?: string
+      area_or_address?: string
+      time_hint?: string | null
+    }
   | { command_type: 'ACTIVITY_DELETE'; activity_token: string }
   | {
       command_type: 'ACTIVITY_MOVE'
@@ -27,6 +36,11 @@ export type TripUnderstandingCommand =
       activity_token: string
       name?: string
       time_hint?: string | null
+    }
+  | {
+      command_type: 'PLACE_REPLACE'
+      activity_token: string
+      replacement: { name: string; category: string; area_or_address: string }
     }
   | {
       command_type: 'ASSUMPTION_SET'

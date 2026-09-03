@@ -10,11 +10,21 @@
 .section-title { font-size: 30rpx; font-weight: 750; }
 .badge { padding: 6rpx 12rpx; border-radius: 999rpx; background: #eef1f5; color: #475467; font-size: 19rpx; }
 .badge.confirmed, .badge.succeeded, .badge.satisfied { background: #e8f7ee; color: #067647; }
-.badge.partial, .badge.waiting, .badge.needs_confirmation, .badge.violated { background: #fff4e5; color: #b54708; }
+.badge.partial, .badge.waiting, .badge.violated { background: #fff4e5; color: #b54708; }
+.badge.needs_confirmation { background: #eff8ff; color: #175cd3; }
 .badge.failed, .badge.privacy_blocked { background: #ffedeb; color: #b42318; }
 .copy { display: block; margin-top: 14rpx; color: #475467; font-size: 24rpx; line-height: 1.65; }
 .label { display: block; margin: 22rpx 0 10rpx; color: #667085; font-size: 23rpx; }
 .field { padding: 20rpx; border: 1rpx solid #e4e7ec; border-radius: 16rpx; background: #fbfcfd; font-size: 26rpx; }
+.assumption-row { display: flex; align-items: center; justify-content: space-between; gap: 20rpx; padding-top: 18rpx; }
+.assumption-copy { min-width: 0; flex: 1; }
+.compact-label, .compact-copy { margin-top: 0; }
+.details { margin-top: 16rpx; padding: 18rpx; border-radius: 14rpx; background: #f8fafc; }
+.suggestion { display: block; margin-top: 12rpx; color: #475467; font-size: 22rpx; line-height: 1.55; }
+.action-grid { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 18rpx; }
+.text-action { width: auto; min-width: 128rpx; height: 64rpx; margin: 0; padding: 0 18rpx; border: 1rpx solid #d0d5dd; border-radius: 14rpx; background: #fff; color: #344054; font-size: 22rpx; line-height: 64rpx; }
+.danger-action { color: #b42318; }
+.editor-panel { border-color: #b2ddff; background: #f8fcff; }
 .primary { margin-top: 24rpx; border-radius: 18rpx; background: #172033; color: #fff; font-size: 25rpx; }
 .secondary { border: 1rpx solid #d0d5dd; border-radius: 18rpx; background: #fff; color: #344054; font-size: 24rpx; }
 .compact { margin-top: 20rpx; }

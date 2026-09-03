@@ -65,6 +65,9 @@ _PLAN_TRAILING_MARKERS = (
     "了解预约",
     "并参考",
     "并听说",
+    "二选一",
+    "看体力决定",
+    "视体力决定",
     "仅作备选",
     "只作参考",
     "作为备选",
@@ -77,6 +80,7 @@ _OPTIONAL_CUES = (
     "时间允许",
     "时间充裕",
     "如果有时间",
+    "如果还有时间",
     "如果当天太累",
     "如果太累",
     "可以不去",
@@ -466,7 +470,14 @@ def _role_for_context(
     context = source_text[max(0, start - 24) : start]
     local_before = source_text[max(0, start - 4) : start]
     local_after = source_text[end : min(len(source_text), end + 6)]
+    sentence_start = max(
+        source_text.rfind(marker, 0, start)
+        for marker in "。！？；;\n"
+    ) + 1
+    sentence_prefix = source_text[sentence_start:start]
     if _inside_quoted_text(source_text, start):
+        return ActivityRole.REFERENCE
+    if any(cue in sentence_prefix for cue in ("预约说明", "预约流程")):
         return ActivityRole.REFERENCE
     if _is_meta_activity_clause(clause):
         return ActivityRole.REFERENCE
@@ -621,7 +632,10 @@ def _atomic_capture_pieces(
             memo[key] = result
             return result
         best: list[tuple[int, int]] | None = None
-        for connector in re.finditer(r"、|→|⇒|->|及|与|和|或|[/／]", value):
+        for connector in re.finditer(
+            r"或者|或是|还是|、|→|⇒|->|及|与|和|或|[/／]",
+            value,
+        ):
             left_end = piece_start + connector.start()
             right_start = piece_start + connector.end()
             if left_end <= piece_start or right_start >= piece_end:
@@ -663,6 +677,11 @@ def _planned_action_role_hint(
         for marker in _CLAUSE_BOUNDARIES
     ) + 1
     prefix = source_text[left:name_start]
+    sentence_start = max(
+        source_text.rfind(marker, 0, action_start)
+        for marker in "。！？；;\n"
+    ) + 1
+    sentence_prefix = source_text[sentence_start:name_start]
     for boundary in ("但是", "不过", "而是", "但"):
         position = prefix.rfind(boundary)
         if position >= 0:
@@ -678,6 +697,8 @@ def _planned_action_role_hint(
         "不去",
         "不要去",
     )
+    if any(cue in sentence_prefix for cue in ("预约说明", "预约流程")):
+        return ActivityRole.REFERENCE
     if any(cue in prefix for cue in blocking_cues):
         return None
     if prefix.rstrip().endswith(("不", "不要", "不准备", "不打算")):

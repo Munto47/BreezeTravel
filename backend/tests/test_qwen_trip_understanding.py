@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
-from app.trip_understanding.models import DestinationBasis
+from app.trip_understanding.models import ActivityRole, DestinationBasis
 from app.trip_understanding.qwen_provider import (
     QwenStructuredInferenceProvider,
     qwen_effective_run_config_sha256,
@@ -575,6 +575,39 @@ async def test_qwen_provider_derives_sequence_from_source_order() -> None:
 
     assert [item.raw_text for item in proposal.mentions] == ["故宫博物院", "天坛"]
     assert [item.sequence_index for item in proposal.mentions] == [0, 1]
+
+
+@pytest.mark.asyncio
+async def test_qwen_provider_reclassifies_booking_colon_place_as_reference() -> None:
+    source = "北京两日游。预约说明：Day 2 去天坛公园完成预约，不是当天行程。"
+    start = source.index("天坛公园")
+    output = {
+        "destination": {
+            "basis": "EXPLICIT",
+            "evidence_span_start": 0,
+            "evidence_span_end": 2,
+        },
+        "mentions": [
+            {
+                "span_start": start,
+                "span_end": start + len("天坛公园"),
+                "role": "PLANNED",
+                "atomic_place_name": "天坛公园",
+            }
+        ],
+    }
+    provider = QwenStructuredInferenceProvider(
+        api_key="test-only",
+        base_url="https://provider.example/v1",
+        model="qwen-exact-snapshot",
+        client=_FakeClient([json.dumps(output, ensure_ascii=False)]),
+    )
+
+    proposal = await provider.propose(source)
+
+    assert proposal.mentions[0].role == ActivityRole.REFERENCE
+    assert proposal.mentions[0].day_index is None
+    assert proposal.binding["local_role_reclassification_count"] == 1
 
 
 @pytest.mark.asyncio

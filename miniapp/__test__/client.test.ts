@@ -57,4 +57,31 @@ describe('shared TripCheckClient', () => {
     expect(publicClient.createWorkspace).toBeUndefined()
     expect(publicClient.createScreenshotBatch).toBeUndefined()
   })
+
+  test('shared client carries every miniapp card editing command', async () => {
+    const transport = new RecordingTransport()
+    transport.responses.push(
+      { status: 200, data: { status: 'APPLIED', changed_days: ['Day 1'], map_readiness: 'NEEDS_UPDATE' }, headers: { etag: 'next-1' } },
+      { status: 200, data: { status: 'APPLIED', changed_days: ['Day 1'], map_readiness: 'NEEDS_UPDATE' }, headers: { etag: 'next-2' } },
+      { status: 200, data: { status: 'APPLIED', changed_days: ['Day 1'], map_readiness: 'NEEDS_UPDATE' }, headers: { etag: 'next-3' } },
+    )
+    const client = new TripCheckClient(transport)
+
+    await client.applyTripUnderstandingCommand('trip-1', {
+      command_type: 'ACTIVITY_INSERT', day_index: 1, position: 0, name: '景山公园', category: '景点', area_or_address: '东城区', time_hint: '下午',
+    }, 'etag-1', 'insert-1')
+    await client.applyTripUnderstandingCommand('trip-1', {
+      command_type: 'PLACE_REPLACE', activity_token: 'activity-1', replacement: { name: '北海公园', category: '景点', area_or_address: '西城区' },
+    }, 'etag-2', 'replace-1')
+    await client.applyTripUnderstandingCommand('trip-1', {
+      command_type: 'ACTIVITY_MOVE', activity_token: 'activity-1', target_day_index: 2, target_position: 1,
+    }, 'etag-3', 'move-1')
+
+    expect(transport.requests.map(item => item.body)).toEqual([
+      { command_type: 'ACTIVITY_INSERT', day_index: 1, position: 0, name: '景山公园', category: '景点', area_or_address: '东城区', time_hint: '下午' },
+      { command_type: 'PLACE_REPLACE', activity_token: 'activity-1', replacement: { name: '北海公园', category: '景点', area_or_address: '西城区' } },
+      { command_type: 'ACTIVITY_MOVE', activity_token: 'activity-1', target_day_index: 2, target_position: 1 },
+    ])
+    expect(transport.requests.map(item => item.headers?.['If-Match'])).toEqual(['"etag-1"', '"etag-2"', '"etag-3"'])
+  })
 })

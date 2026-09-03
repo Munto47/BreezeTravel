@@ -913,6 +913,64 @@ async def test_booking_description_with_embedded_day_action_remains_reference() 
 
 
 @pytest.mark.asyncio
+async def test_booking_colon_and_conditional_option_never_become_planned_cards() -> None:
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    source = (
+        "北京两日游。Day 1 去故宫博物院。"
+        "预约说明：Day 2 去天坛公园完成预约，不是当天行程。"
+        "如果还有时间可以去颐和园。"
+    )
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+    output = await TripUnderstandingPipeline(
+        DeterministicTextInferenceProvider(),
+        resolver,
+    ).run(source)
+    roles = {
+        item.atomic_place_name: item.role
+        for item in proposal.mentions
+        if item.atomic_place_name
+    }
+
+    assert roles["天坛公园"] == ActivityRole.REFERENCE
+    assert roles["颐和园"] == ActivityRole.OPTIONAL
+    assert resolver.calls == [("北京", "故宫博物院")]
+    assert [
+        activity.name
+        for day in output.public_result.days
+        for activity in day.activities
+    ] == ["故宫博物院"]
+
+
+@pytest.mark.asyncio
+async def test_non_atomic_choices_keep_clean_optional_place_names() -> None:
+    source = (
+        "北京两日游。Day 1 去故宫博物院或者颐和园二选一。"
+        "Day 2 去景山公园/北海公园看体力决定。"
+    )
+    proposal = await DeterministicTextInferenceProvider().propose(source)
+
+    assert [
+        (item.atomic_place_name, item.role, item.day_index)
+        for item in proposal.mentions
+        if item.atomic_place_name
+    ] == [
+        ("故宫博物院", ActivityRole.OPTIONAL, None),
+        ("颐和园", ActivityRole.OPTIONAL, None),
+        ("景山公园", ActivityRole.OPTIONAL, None),
+        ("北海公园", ActivityRole.OPTIONAL, None),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_reported_cross_city_provider_result_is_not_auto_matched() -> None:
     source = "北京一日游。Day 1 去故宫博物院。"
 
