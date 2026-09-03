@@ -101,7 +101,7 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "修复文本目的地恢复过度捕获：来源兜底只能接受明确、可验证的城市表达，不得让同行人、修饰语或地点名片段覆盖模型正确目的地；加入五类真实中文边界回归。OCR继续不处理、不验证。",
-    "phase": "IMPLEMENTING",
+    "phase": "PREFLIGHT",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
