@@ -121,13 +121,13 @@ def test_exact_binding_receipt_binds_subject_and_preserves_historical_receipts()
         )
     assert receipt["historical_receipts"] == {
         "mutated": False,
-        "G04_sha256": _sha256(
-            BACKEND_ROOT.parent / "docs/governance/gate-results/G04.product-delivery.json"
+        "G04_sha256": _git_blob_sha256(
+            "HEAD", "docs/governance/gate-results/G04.product-delivery.json"
         ),
-        "G05_sha256": _sha256(
-            BACKEND_ROOT.parent / "docs/governance/gate-results/G05.product-delivery.json"
+        "G05_sha256": _git_blob_sha256(
+            "HEAD", "docs/governance/gate-results/G05.product-delivery.json"
         ),
-        "G06_sha256": _sha256(
-            BACKEND_ROOT.parent / "docs/governance/gate-results/G06.product-delivery.json"
+        "G06_sha256": _git_blob_sha256(
+            "HEAD", "docs/governance/gate-results/G06.product-delivery.json"
         ),
     }

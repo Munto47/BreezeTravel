@@ -22,7 +22,8 @@
       "3c40d79冻结候选的fresh SEMANTIC_DOMAIN复审以5/5自然文本边界稳定复现目的地过度捕获：一家三口、第一次来北京、周末安排、北京故宫或广州北京路会覆盖模型正确城市，属于错城与公开错误目的地P1",
       "第四候选周期只做目的地恢复的最小保守修复：仅接受有明确城市证据的来源文本，不把同行人、攻略修饰语或地点名片段升级为城市；修复后重跑全部正式候选矩阵",
       "cf55f31冻结候选的正式自动化在1846项文本产品矩阵中复现地图worker偶发一次执行后仍PREPARING；隔离重复4轮复现，不能作为环境噪声重跑到绿",
-      "第五候选周期只修复默认实时钟与单调钟换算造成的下游地图job短暂未来时间竞态；注入时钟测试语义保持不变"
+      "第五候选周期只修复默认实时钟与单调钟换算造成的下游地图job短暂未来时间竞态；注入时钟测试语义保持不变",
+      "8af2f20的干净LF检出复现历史G04-G06收据哈希受工作树换行影响；历史文件本身未变，精确绑定必须核对Git blob而不是平台相关工作树字节"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -43,6 +44,7 @@
       "backend/evals/g07_candidate/browser_performance.py",
       "backend/tests/test_g07_browser_performance.py",
       "backend/tests/test_trip_understanding_v3_api.py",
+      "backend/tests/test_g07_candidate_exact_binding.py",
       "backend/tests/test_governance_agent_gate_transition.py",
       "frontend/package.json",
       "frontend/package-lock.json",
@@ -94,7 +96,8 @@
       "G07_FINAL_400CE17_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY",
       "G07_FINAL_A56A1CE_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_OCR_SUPPLY_CHAIN_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_FINAL_3C40D79_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
-      "G07_FINAL_CF55F31_AUTOMATED_MAP_JOB_CLOCK_RACE_CANDIDATE_REJECTED"
+      "G07_FINAL_CF55F31_AUTOMATED_MAP_JOB_CLOCK_RACE_CANDIDATE_REJECTED",
+      "G07_FINAL_8AF2F20_AUTOMATED_HISTORICAL_RECEIPT_EOL_BINDING_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -104,9 +107,8 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "修复默认运行时时钟换算使刚创建的地图job偶发落在下一次worker观察时间之后的竞态；默认路径直接使用UTC墙钟，显式注入时间仍保持单调推进。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "05e42c7d4136335d551eddc85d9292dd92f72949",
+    "minimum_change": "保持产品字节不变，将历史G04-G06收据完整性校验绑定到已提交Git blob，消除CRLF/LF工作树差异；随后从新精确候选重跑正式矩阵。OCR继续不处理、不验证。",
+    "phase": "IMPLEMENTING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -118,7 +120,7 @@
     "candidate_cycle": 5,
     "repair_review_cycle": 2,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若地图worker单次执行稳定性重复测试失败、目的地边界反例仍能覆盖正确城市、公开旧页面仍可达、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
+    "stop_condition": "若干净检出的历史收据完整性校验仍受工作树换行影响、地图worker单次执行稳定性重复测试失败、目的地边界反例仍能覆盖正确城市、公开旧页面仍可达、普通用户仍能看到内部字段、关键生产依赖仍有critical/high，或文本主链回归，则不得冻结候选；不重新建设或验证OCR，不扩建通用治理。",
     "user_outcome": "公开产品只接收攻略文字，并能从自然中文中保守识别真实目的地而不把同行人、修饰语或地点名误当城市；随后完成完整新候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
