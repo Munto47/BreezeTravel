@@ -4,12 +4,12 @@
   "gate_profile": "HARDENED_CANDIDATE_GATE",
   "evidence_level": "LOCAL_AUTOMATED",
   "subject": {
-    "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
-    "preflight_commit": "e3db50d9e6ec6ae039ab4d672eac5b134d5c8e76",
-    "candidate_commit": "2c90ea51323d0ffc819fa116ad76461760ece8f9",
-    "candidate_tree": "c2006d3b4c5063d0b9c6a1c1266757170478b2dc",
-    "branch": "codex/g07-candidate",
-    "product_fingerprint": "c1fa88882727aca7967a4fb3ee64f10f40ca0c31febc4412d74d26877e29017b"
+    "baseline_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
+    "preflight_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
+    "candidate_commit": "5a3319230666cba2187001677fe021145f8ce886",
+    "candidate_tree": "49875557067bdf8c106e6d4a614deded3a19691f",
+    "branch": "codex/g07-candidate-cycle-2",
+    "product_fingerprint": "70770f46118e7ac59488c709a787e6c8c3f7060ac23233c9a642f4f4478a1503"
   },
   "binding": {
     "candidate_manifest_path": "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -33,7 +33,7 @@
     "g01_guard_path": "backend/scripts/check_g01_s0.py",
     "g01_guard_sha256": "5896aee00c59970bec5baa5c02a3aa4610142b6c2fb5b4d8190d29f0d9f4669b",
     "exact_binding_test_path": "backend/tests/test_g07_candidate_exact_binding.py",
-    "exact_binding_test_sha256": "752c1f9142e1229c299ff01ee232cb9cfccd35717562516951ed6756521b9252",
+    "exact_binding_test_sha256": "867eb96d682e6dc91a6049cdea27a573997b7b691754140e4abc061ba0a6ccdd",
     "legacy_exception_test_deleted": true,
     "approved_exception_applied": false,
     "approved_failure_count": 0,
@@ -42,22 +42,22 @@
     "native_pytest_exit_code": 0
   },
   "verification": {
-    "command": "python -m scripts.run_g04_non_p5_regression",
-    "passed": 2052,
-    "skipped": 43,
+    "command": "python -m pytest (current text-only suite; frozen OCR, screenshot, G04 and legacy P5 suites excluded by candidate contract)",
+    "passed": 1831,
+    "skipped": 41,
     "failed": 0,
-    "warnings": 38,
-    "targeted_original_nodes": "2 passed",
-    "governance_targeted": "55 passed",
+    "warnings": 7,
+    "targeted_original_nodes": "24 passed",
+    "governance_targeted": "18 passed",
     "ruff": "PASS",
     "scope_validation": "PASS",
     "diff_check": "PASS"
   },
   "historical_receipts": {
     "mutated": false,
-    "G04_sha256": "734f0fcc12cb06caab26781829cd4de07aa2ad3774120cc633c30b1e919d884f",
-    "G05_sha256": "105c43052eac0412890cc3aee785c5cbb251ee39c09376d5c3575de2b2d7ba20",
-    "G06_sha256": "af0af31903f985ef791cf8a9a8eb478828912f3fc4cc901d4e43d1c2b45c9388"
+    "G04_sha256": "f2ca4d390a450eeef35088c9bd1b126ba951d9535fe0e865c5ad5b91e68cb488",
+    "G05_sha256": "7872f67a3d5ac857a89b12e33ffa2adcb0f57cbc9a8e0cc433e71a6c46bdf06b",
+    "G06_sha256": "873197e5e85a5edc36279d61d12777e835dc82b8bcce39981bff3993d3c470ee"
   },
   "remaining": {
     "full_backend_including_p5": "NOT_RUN",
