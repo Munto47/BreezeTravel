@@ -3,19 +3,20 @@
   "active_goal_sequence": 7,
   "active_slice": {
     "acceptance_refs": [
-      "项目所有者于2026-09-02明确批准开启新的G07候选修复周期并要求按指导文档持续开发",
-      "OPTIONAL兼容修复已在61bd343远端回读；生产依赖下语义/地点扩大回归124 passed",
-      "Web生产构建、共享client构建、小程序typecheck与7项单测通过，但微信构建在ProgressPlugin配置校验前失败",
-      "@tarojs/webpack5-runner 4.2.1声明webpack peer精确为5.91.0，当前^5.91.0无锁解析到5.110.2并触发不兼容",
-      "只把miniapp的webpack devDependency固定为5.91.0，重装后必须同时通过typecheck、7项单测和微信生产构建",
-      "不得通过关闭schema校验、修改Taro/webpack内部代码、跳过构建或放宽测试来获得PASS",
+      "项目所有者于2026-09-03明确要求在f10fc6b之后的最终候选上重跑完整OCR、真实模型/地图Provider、PostgreSQL、浏览器、性能、独立复审与sealed blind Gate",
+      "小程序webpack精确依赖修复已在f10fc6b远端回读，Web、共享client与微信小程序构建均已通过",
+      "全部正式证据必须绑定同一新候选commit/tree/config/data/model/rule/provider集合，上一周期与f10fc6b以前的结果只作诊断",
+      "独立复审与sealed blind必须使用隔离任务；原始Agent输出、Provider响应和blind truth留在Git外",
+      "任何失败保持NOT_READY并进入最小修复切片；产品字节变化后重新执行受影响及最终全矩阵，不降低门槛或修改oracle/blind",
       "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
     ],
     "allowed_paths": [
       "docs/governance",
-      "miniapp/package.json"
+      "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+      "backend/eval_data/g07_candidate/run_spec_v1.json",
+      "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "61bd343cb76f7bc8f2d21447a61ed00495e4aee6",
+    "base_commit": "f10fc6b95a834d12c4bb85ad8212c6f28764c605",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -32,19 +33,22 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "将miniapp/package.json中的webpack从^5.91.0固定为Taro runner精确peer 5.91.0；不新增锁文件、不改源码或测试。",
-    "phase": "IMPLEMENTING",
+    "minimum_change": "结清f10fc6b小程序修复并把动态工作切片测试改为验证持续有效的G07边界；随后只在Git外生成同一候选的完整正式证据。",
+    "phase": "VERIFYING",
     "preflight_entrypoints": [
-      "miniapp/package.json"
+      "docs/governance/current_work_packages.json",
+      "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
+      "backend/eval_data/g07_candidate/run_spec_v1.json",
+      "backend/tests/test_product_work_packages_v3.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME",
+    "product_progress": "EVAL_METRIC",
     "candidate_cycle": 2,
     "repair_review_cycle": 1,
-    "slice_id": "G07-MINIAPP-WEBPACK-REPRODUCIBLE-BUILD",
-    "stop_condition": "若精确5.91.0仍无法通过微信构建，则保持候选NOT_READY并诊断Taro/Node ABI；不得修改第三方内部代码、关闭校验、跳过构建或扩大依赖升级。",
-    "user_outcome": "小程序在无历史node_modules的干净安装后可重复完成类型检查、单测和微信生产构建。",
-    "work_kind": "BLOCKING_DEFECT"
+    "slice_id": "G07-SEALED-ONE-SHOT",
+    "stop_condition": "任一OCR、真实Provider、PostgreSQL、浏览器、性能、独立复审或sealed blind组件失败时不得生成最终PASS；先保留失败证据并切换到最小修复范围，修复后使用新候选和未消费blind tranche重建全部必需证据。",
+    "user_outcome": "同一最终候选真实完成从文字或截图到每日卡片、地点与路线核验、Top-3建议和采纳后复检，并取得可回读的候选级证据。",
+    "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
   "gate_profile": "HARDENED_CANDIDATE_GATE",

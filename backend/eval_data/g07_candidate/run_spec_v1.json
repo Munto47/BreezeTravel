@@ -63,7 +63,7 @@
     },
     "trip_nlu_120_case_candidate": {
       "path": "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
-      "sha256": "33b5b82459a98f2ae42e364d710128015d54108716c2775fe70c967670eaaedb",
+      "sha256": "742fca1833d723f2bee333b4f5593e9beedd79c8f863f8c2439960489a810666",
       "custody_manifest_sha256": "cab1056d3a435f7a4c576a97f0d6d75ef17b8d4ed6833721ea038b64db52b0ab"
     },
     "provider_binding": {
