@@ -121,7 +121,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "把小程序首页、登录和行程操作的底层异常统一收敛为用户安全的动作级文案；普通读取、编辑、路线、住宿和建议失败使用中性信息样式，不使用红色。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "d2a672de1b19b58e460000ef39ae745318b6713b",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
