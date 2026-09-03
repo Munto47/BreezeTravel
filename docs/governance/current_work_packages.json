@@ -14,6 +14,7 @@
       "docs/governance",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
       "backend/eval_data/g07_candidate/run_spec_v1.json",
+      "backend/eval_data/agent_gate_v1/protocol_contract.json",
       "backend/tests/test_product_work_packages_v3.py"
     ],
     "base_commit": "f10fc6b95a834d12c4bb85ad8212c6f28764c605",
@@ -33,7 +34,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "结清f10fc6b小程序修复并把动态工作切片测试改为验证持续有效的G07边界；随后只在Git外生成同一候选的完整正式证据。",
+    "minimum_change": "将候选清单绑定恢复为干净检出的Git字节，并只刷新实际过期的协议代码哈希；随后从新提交在Git外重建全部正式证据。",
     "phase": "VERIFYING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
@@ -44,7 +45,7 @@
     "preflight_required_tokens": {},
     "product_progress": "EVAL_METRIC",
     "candidate_cycle": 2,
-    "repair_review_cycle": 1,
+    "repair_review_cycle": 2,
     "slice_id": "G07-SEALED-ONE-SHOT",
     "stop_condition": "任一OCR、真实Provider、PostgreSQL、浏览器、性能、独立复审或sealed blind组件失败时不得生成最终PASS；先保留失败证据并切换到最小修复范围，修复后使用新候选和未消费blind tranche重建全部必需证据。",
     "user_outcome": "同一最终候选真实完成从文字或截图到每日卡片、地点与路线核验、Top-3建议和采纳后复检，并取得可回读的候选级证据。",
