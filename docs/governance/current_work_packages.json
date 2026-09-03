@@ -115,7 +115,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "修正公开文本能力说明；在确定性降级中把预约说明和条件备选保守归为REFERENCE/OPTIONAL并安全切分二选一；复用现有公共命令为小程序补齐假设编辑、地点详情、新增、文字编辑、替换、移动和一致的蓝色待确认状态。OCR继续不处理、不验证。",
-    "phase": "PREFLIGHT",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "8ba061439a5f6d541c2a1d6beea3704a382d3dcf",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
