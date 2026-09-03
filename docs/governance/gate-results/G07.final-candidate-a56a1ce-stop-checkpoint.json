@@ -4,6 +4,8 @@
   "candidate_cycle": 2,
   "checkpoint_status": "STOP_CONDITION_TRIGGERED",
   "final_candidate_admissible": false,
+  "checkpoint_receipt_commit": "bb5498646c357903d56b2f71c566bae38e55c8b0",
+  "checkpoint_receipt_remote_readback": "bb5498646c357903d56b2f71c566bae38e55c8b0",
   "subject": {
     "commit": "a56a1ce3ebc6d96f39e28753f5a6f1168eab7563",
     "tree": "e2d3b006f87e106568b11783700392586291cc92",
