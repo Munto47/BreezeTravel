@@ -17,5 +17,6 @@
     },
     "types": ["@tarojs/taro", "node"]
   },
-  "include": ["src", "config", "global.d.ts", "../packages/trip-check-client/src"]
+  "include": ["src", "config", "global.d.ts", "../packages/trip-check-client/src"],
+  "exclude": ["src/lib/screenshot-flow.ts", "src/lib/workflow.ts"]
 }

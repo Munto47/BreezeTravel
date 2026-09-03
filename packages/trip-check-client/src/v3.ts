@@ -14,6 +14,32 @@ export interface TripUnderstandingProgressView {
   retry_after_ms: number
 }
 
+export type TripUnderstandingCommand =
+  | { command_type: 'ACTIVITY_DELETE'; activity_token: string }
+  | {
+      command_type: 'ACTIVITY_MOVE'
+      activity_token: string
+      target_day_index: number
+      target_position: number
+    }
+  | {
+      command_type: 'ACTIVITY_TEXT_EDIT'
+      activity_token: string
+      name?: string
+      time_hint?: string | null
+    }
+  | {
+      command_type: 'ASSUMPTION_SET'
+      key: 'destination' | 'calendar' | 'party_size'
+      value: string
+    }
+
+export interface CommandAppliedView {
+  status: 'APPLIED'
+  changed_days: string[]
+  map_readiness: 'NEEDS_UPDATE'
+}
+
 export interface AssumptionChipView {
   key: 'destination' | 'calendar' | 'party_size'
   label: string

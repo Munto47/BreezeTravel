@@ -35,7 +35,7 @@ G01～G06使用`PRODUCT_DELIVERY_GATE`，只检查当前用户旅程和针对性
 - `TEXT_CARDS_READY`：V0.1文本到可信卡片开发门禁通过。
 - `MAP_STAY_READY`：V0.2地图与住宿门禁通过。
 - `TOP3_AUDIT_READY`：V0.3核心核验门禁通过。
-- `SCREENSHOT_PARITY_READY`：V0.4截图一致性门禁通过。
+- `SCREENSHOT_PARITY_READY`：只表示历史V0.4回执；OCR要求已撤销，不进入当前候选或真人体验声明。
 - `CITY_KNOWLEDGE_READY`：V0.5知识层准入通过。
 - `MEMORY_SHARE_READY`：V0.6 consent与分享门禁通过。
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`：G07同绑定Candidate Gate与Agent Gate通过；不含真人、生产或商业证据。
@@ -133,18 +133,9 @@ G00必须同时满足：
 - `calendar_basis=DAY_INDEX_ONLY`可materialize且不伪造日期/确认；ABSOLUTE与DAY_INDEX_ONLY lineage、ETag和map/stay current pointer回读100%一致。
 - G03通过后交付演示脚本、已知边界和验证结果，状态切换为`CORE_MVP_OWNER_REVIEW_PENDING`，不自动激活G04。
 
-## 6. Screenshot Parity Gate — G04
+## 6. Screenshot Parity Gate — G04（历史冻结）
 
-- PNG/JPEG/WebP、1～6张、单张≤10MB；
-- multipart批次返回owner-bound不透明引用；JSON Base64输入0，跨账号/过期/重复终态消费0；
-- 真实来源OCR关键字段F1≥95%；
-- 低置信关键字段确认召回100%；
-- 冻结paired set上阅读顺序adjacency-F1≥97%；
-- 使用两个隔离Agent转写和新的ultra裁决形成同源文本基线，截图端到端可执行地点precision/recall下降各≤1个百分点、严重错城/错类别/整句地点仍为0；Agent结果不得称为人工校正；
-- 原图泄漏0，成功/失败/取消/超时/TTL终态清理receipt 100%；OCR文本/bbox删除遵循SourceDocument合同；
-- 三张1080×1920图片在候选RunSpec冻结CPU/GPU/内存和并发1环境下P95≤12秒；
-- Qwen-VL若晋级，关键字段、阅读顺序、卡片结果、bbox来源追踪和P95均不得低于PaddleOCR，且至少一项错误率相对下降≥20%；
-- synthetic、自动视觉复核、`MULTI_AGENT_SIMULATED_REVIEW`分别披露；真人OCR只在另行批准并实际运行后记为`HUMAN_USABILITY`，不阻断G04。
+项目所有者于2026-09-03撤销OCR要求。既有G04门禁和回执只保留历史事实，不再重跑、修复或拼入当前候选。公开产品不接收截图，当前Candidate Gate、性能、Agent复审、blind和真人体验都不得要求或验证OCR。未来图片理解需另立非OCR合同。
 
 ## 7. Knowledge Admission Gate — G05
 
@@ -171,7 +162,7 @@ G00必须同时满足：
 - 记忆默认关闭；
 - 只保存结构化偏好；
 - 查看、更改、清空和删除全部可回读；
-- 原文、截图、聊天默认长期留存0；
+- 原文、聊天默认长期留存0；
 - 训练/评测consent与产品记忆consent分离；
 - 分享token不可枚举、可撤销、过期并最小披露；链接fragment只能用于一次body交换，换得HttpOnly capability后立即清除；
 - 分享秘密进入服务端可见URL、访问日志、Referer或分析事件为0；
@@ -213,7 +204,6 @@ G0～G6必须在候选commit重新运行。旧manifest、不同dirty tree或不�
 | 迟到地图任务 | 只写旧revision |
 | config漂移 | 新任务或`CONFIG_MISMATCH`，不拼接 |
 | Redis丢失 | 权威状态不改变 |
-| screenshot cleanup失败 | `PRIVACY_BLOCKED` |
 
 Trace与日志敏感字段扫描必须0命中。
 

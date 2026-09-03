@@ -6,22 +6,6 @@ export interface TripUnderstandingAcceptedView {
   events_url: string
 }
 
-export interface ScreenshotBatchAcceptedView {
-  batch_ref: string
-  expires_at: string
-  outcome: 'COMPLETE' | 'PARTIAL'
-  message: string
-}
-
-export interface PendingScreenshotAttempt {
-  ownerUserId: string
-  expiresAt: string
-  uploadKey: string
-  createKey: string
-  batchRef: string
-  outcome: 'COMPLETE' | 'PARTIAL'
-}
-
 export interface TripUnderstandingProgressView {
   status: 'PROCESSING'
   message: string
@@ -269,46 +253,6 @@ export function createTripRequestKey(): string {
   return requestKey()
 }
 
-const PENDING_SCREENSHOT_ATTEMPT_KEY = 'bt_g04_pending_screenshot_attempt'
-
-export function clearPendingScreenshotAttempt(): void {
-  if (typeof window === 'undefined') return
-  sessionStorage.removeItem(PENDING_SCREENSHOT_ATTEMPT_KEY)
-}
-
-export function savePendingScreenshotAttempt(value: PendingScreenshotAttempt): void {
-  if (typeof window === 'undefined') return
-  sessionStorage.setItem(PENDING_SCREENSHOT_ATTEMPT_KEY, JSON.stringify(value))
-}
-
-export function readPendingScreenshotAttempt(
-  ownerUserId: string,
-): PendingScreenshotAttempt | null {
-  if (typeof window === 'undefined') return null
-  const raw = sessionStorage.getItem(PENDING_SCREENSHOT_ATTEMPT_KEY)
-  if (!raw) return null
-  try {
-    const value = JSON.parse(raw) as Partial<PendingScreenshotAttempt>
-    if (
-      value.ownerUserId !== ownerUserId
-      || typeof value.expiresAt !== 'string'
-      || Date.parse(value.expiresAt) <= Date.now()
-      || typeof value.uploadKey !== 'string'
-      || typeof value.createKey !== 'string'
-      || typeof value.batchRef !== 'string'
-      || !/^[A-Za-z0-9_-]{43}$/.test(value.batchRef)
-      || (value.outcome !== 'COMPLETE' && value.outcome !== 'PARTIAL')
-    ) {
-      clearPendingScreenshotAttempt()
-      return null
-    }
-    return value as PendingScreenshotAttempt
-  } catch {
-    clearPendingScreenshotAttempt()
-    return null
-  }
-}
-
 function authorizationHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {}
   const token = localStorage.getItem('authToken')
@@ -338,7 +282,6 @@ export function clearTripUnderstandingSession(): void {
     'bt_active_trip_event_cursor',
     'bt_active_trip_etag',
     'bt_active_trip_source_deleted',
-    PENDING_SCREENSHOT_ATTEMPT_KEY,
   ]) sessionStorage.removeItem(key)
   for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = sessionStorage.key(index)
@@ -375,73 +318,6 @@ export async function createFullTripUnderstanding(text: string): Promise<TripUnd
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')
     if (response.status === 429) throw new Error('ACTIVE_LIMIT_REACHED')
     throw new Error('FULL_CREATE_FAILED')
-  }
-  return response.json() as Promise<TripUnderstandingAcceptedView>
-}
-
-async function responseErrorCode(response: Response, fallback: string): Promise<string> {
-  try {
-    const value = await response.json() as { detail?: { code?: unknown } }
-    const code = value.detail?.code
-    return typeof code === 'string' && /^[A-Z0-9_]{3,80}$/.test(code) ? code : fallback
-  } catch {
-    return fallback
-  }
-}
-
-export async function uploadScreenshotBatch(
-  files: File[],
-  idempotencyKey: string,
-): Promise<ScreenshotBatchAcceptedView> {
-  const form = new FormData()
-  files.forEach((file) => form.append('screenshots', file))
-  let response: Response
-  try {
-    response = await fetch('/api/v3/screenshot-batches', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Idempotency-Key': idempotencyKey,
-        ...authorizationHeaders(),
-      },
-      body: form,
-    })
-  } catch {
-    throw new Error('SCREENSHOT_REQUEST_UNKNOWN')
-  }
-  if (!response.ok) {
-    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
-    throw new Error(await responseErrorCode(response, 'SCREENSHOT_UPLOAD_FAILED'))
-  }
-  return response.json() as Promise<ScreenshotBatchAcceptedView>
-}
-
-export async function createFullTripUnderstandingFromScreenshot(
-  batchRef: string,
-  idempotencyKey: string,
-): Promise<TripUnderstandingAcceptedView> {
-  let response: Response
-  try {
-    response = await fetch('/api/v3/trip-understandings', {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Idempotency-Key': idempotencyKey,
-        ...authorizationHeaders(),
-      },
-      body: JSON.stringify({
-        mode: 'FULL',
-        source: { type: 'SCREENSHOT_BATCH', batch_ref: batchRef },
-      }),
-    })
-  } catch {
-    throw new Error('SCREENSHOT_REQUEST_UNKNOWN')
-  }
-  if (!response.ok) {
-    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
-    if (response.status === 429) throw new Error('ACTIVE_LIMIT_REACHED')
-    throw new Error(await responseErrorCode(response, 'SCREENSHOT_CREATE_FAILED'))
   }
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }

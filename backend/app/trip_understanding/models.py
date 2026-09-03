@@ -310,10 +310,7 @@ class ScreenshotBatchSourceRequest(StrictModel):
     batch_ref: str = Field(pattern=r"^[A-Za-z0-9_-]{43}$")
 
 
-FullSourceRequest = Annotated[
-    TextSourceRequest | ScreenshotBatchSourceRequest,
-    Field(discriminator="type"),
-]
+FullSourceRequest = TextSourceRequest
 
 
 class CreateFullRequest(StrictModel):

@@ -3,7 +3,7 @@
   "goal_id": "TC-VNEXT-G07-CANDIDATE",
   "freeze_status": "FROZEN_INPUT_CONTRACT",
   "candidate_subject": {
-    "baseline_commit": "ff36a10ecae98088742e9722da3f4bf3676f6d04",
+    "baseline_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
     "branch": "codex/g07-candidate-cycle-2",
     "remote_ref": "refs/heads/codex/g07-candidate-cycle-2",
     "execution_binding": "EXACT_CLEAN_COMMIT_AND_TREE_AT_EXECUTION",
@@ -14,19 +14,19 @@
     "ci_node": "20",
     "postgres": "16",
     "redis": "7.4.2-alpine",
-    "frontend_framework": "next-15.0.5"
+    "frontend_framework": "next-15.5.25"
   },
   "dependency_locks": {
     "backend/requirements.txt": "97ad678173724a53e65dfbcc5cc3c4a09f4bd0c946dd215e22440baf972c6876",
     "backend/requirements-dev.txt": "1d05db439c5b149aa89f87034120868ca73312eebebe25280da4fd756ccf9546",
-    "frontend/package-lock.json": "5e51c24ef5ed6352f24c53b3f08c65b47ab62733e5242a37afa1b4b9494570ee",
-    "miniapp/package-lock.json": "8dd1a38af3eefcf8d87388d510099ece365d9803f5e9845f7629c98dc181d6b4",
+    "frontend/package-lock.json": "adf669ef49c33fa4ef325a7cdf085fee600a26a66a9406116d23f1f5ca15aa58",
+    "miniapp/package-lock.json": "23e8fa6eb2a8ec9419e5ffcf1740904d8adb73510ecddedc5590feb5682fc2b9",
     "packages/trip-check-client/package-lock.json": "4eaa042c71d13404a62382b14dedf7079d3cceb3fea397e416e66bef411d78a8"
   },
   "contract_bindings": {
     "automated_candidate_gate": {
       "path": "backend/eval_data/agent_gate_v1/g07_automated_product_gate.json",
-      "sha256": "f8d6f20da8d781af8894f45c11ebd10576e373fcbd45cc76c82c47e46421122a"
+      "sha256": "917dabd1674701d3581fb580d6667638d211c3cb4e0deaa61433d78311b6d195"
     },
     "product_delivery_policy": {
       "path": "docs/governance/product_delivery_gates.json",
@@ -34,7 +34,7 @@
     },
     "release_gates": {
       "path": "docs/governance/RELEASE_GATES.md",
-      "sha256": "c6fc80ec927d0a34f3ee7ea9709be04324557c3239e4b26a1da17bd4d1913cf4"
+      "sha256": "2d11865f1086038007b098af133daabf594c57754522b610447fa70a8645099d"
     },
     "agent_gate_protocol": {
       "path": "docs/governance/AGENT_GATE_PROTOCOL.md",
@@ -42,7 +42,7 @@
     },
     "openapi_v3": {
       "path": "packages/trip-check-client/openapi.current.json",
-      "sha256": "6a8e99e11d5b2dfec35fb2698fad59601a07d07c5018d8f0d03803c6023ea461"
+      "sha256": "65eebbaf46161478776780683f2e8d20768144e922a92b39d3e2ef852ec138c0"
     },
     "latest_migration": {
       "path": "backend/app/db/migrations/034_trip_understanding_screenshot_batches.sql",

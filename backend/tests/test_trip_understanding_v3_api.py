@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import jwt
 import pytest
@@ -212,6 +213,47 @@ def test_demo_api_create_events_result_refresh_and_session_isolation() -> None:
         "ASSUMPTION_SET",
     ):
         assert f'"{command_type}"' in openapi_text
+
+
+def test_public_full_contract_accepts_text_only() -> None:
+    client, _repository, app = _client()
+    app.dependency_overrides[get_optional_user] = lambda: "text-only-user"
+
+    rejected = client.post(
+        "/api/v3/trip-understandings",
+        headers={"Idempotency-Key": "screenshot-source-rejected"},
+        json={
+            "mode": "FULL",
+            "source": {"type": "SCREENSHOT_BATCH", "batch_ref": "legacy-batch"},
+        },
+    )
+
+    assert rejected.status_code == 422
+    openapi_text = json.dumps(app.openapi(), ensure_ascii=False)
+    assert "ScreenshotBatchSourceRequest" not in openapi_text
+    assert "screenshot-batches" not in openapi_text
+
+    checked_in = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "packages/trip-check-client/openapi.current.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert all(
+        path == "/health"
+        or path.startswith(("/api/v3/", "/api/auth/", "/api/user/"))
+        for path in checked_in["paths"]
+    )
+    public_contract = json.dumps(checked_in, ensure_ascii=False)
+    for internal_name in (
+        "Screenshot",
+        "TripWorkspace",
+        "AuditReport",
+        "EvidenceSnapshot",
+        "RepairOption",
+        "RunSpec",
+    ):
+        assert internal_name not in public_contract
 
 
 def test_full_api_requires_login_and_uses_user_owned_persistent_chain() -> None:

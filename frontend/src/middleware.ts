@@ -10,5 +10,12 @@ export function middleware(request: NextRequest) {
 
 
 export const config = {
-  matcher: ['/import'],
+  matcher: [
+    '/history/:path*',
+    '/import/:path*',
+    '/intake/:path*',
+    '/room/:path*',
+    '/templates/:path*',
+    '/workspace/:path*',
+  ],
 }

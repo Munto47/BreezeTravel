@@ -40,8 +40,7 @@ from scripts.smoke_g01_live_persistence import (
 EXPECTED_BROWSER_FILE_COUNTS = {
     "g02-product-delivery.spec.js": 1,
     "g03-product-delivery.spec.js": 1,
-    "g03r-result-ui.spec.js": 29,
-    "g04-screenshot-parity.spec.js": 5,
+    "g03r-result-ui.spec.js": 30,
     "g05-knowledge.spec.js": 3,
     "g06-memory-share.spec.js": 3,
     "trip-understanding-v3.spec.js": 4,
@@ -54,7 +53,7 @@ PERFORMANCE_THRESHOLDS_MS = {
 }
 BROWSER_COVERAGE = (
     "DEMO_AND_LOGIN",
-    "TEXT_AND_SCREENSHOT",
+    "TEXT_INPUT",
     "DAY_CARDS_AND_EDIT",
     "MAP_STALE_AND_MANUAL_RERENDER",
     "STAY_AND_TOP3",
@@ -342,7 +341,6 @@ def _service_environment(
             "REDIS_URL": redis_url,
             "RUNTIME_PROFILE": "local_fixture",
             "TRIP_UNDERSTANDING_PROVIDER_MODE": "fixture",
-            "SCREENSHOT_OCR_MODE": "fixture",
             "AMAP_MOCK": "true",
             "DEV_LOGIN_BYPASS": "true",
             "JWT_SECRET_KEY": "g07-browser-local-only-secret-2026",

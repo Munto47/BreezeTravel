@@ -17,7 +17,6 @@ from app.trip_understanding.models import (
     ScreenshotBatchClaimInput,
     ScreenshotBatchFailurePersistenceInput,
     ScreenshotBatchPersistenceInput,
-    ScreenshotBatchSourceRequest,
     ScreenshotCleanupPersistenceInput,
     StaySelectionOutcome,
     TripUnderstandingCommand,
@@ -68,15 +67,6 @@ class TripUnderstandingApplicationService:
         now: datetime | None = None,
     ) -> CreateOutcome:
         request_hash = canonical_sha256(body.model_dump(mode="json"))
-        if isinstance(body.source, ScreenshotBatchSourceRequest):
-            return await self.repository.create_full_from_screenshot(
-                owner_user_id=owner_user_id,
-                batch_ref=body.source.batch_ref,
-                idempotency_key=idempotency_key,
-                request_hash=request_hash,
-                now=now or datetime.now(timezone.utc),
-                retention_days=self.full_retention_days,
-            )
         return await self.repository.create_full(
             owner_user_id=owner_user_id,
             source_text=body.source.text,

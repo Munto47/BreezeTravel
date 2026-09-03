@@ -18,6 +18,15 @@
         "-m",
         "pytest",
         "-q",
+        "--ignore-glob=*ocr*",
+        "--ignore-glob=*screenshot*",
+        "--ignore-glob=*test_g04_*",
+        "--ignore-glob=*test_trip_intake*",
+        "--ignore-glob=*test_trip_check_p5_*",
+        "--ignore-glob=*test_g01_text_card_dataset.py",
+        "--ignore-glob=*test_g01_s0_preflight.py",
+        "--ignore-glob=*test_g04_formal_gate.py",
+        "--ignore-glob=*test_g05_governance_delivery.py",
         "--timeout=180"
       ],
       "check_id": "backend.current_suite",
@@ -44,11 +53,31 @@
       "argv": [
         "npm",
         "run",
+        "audit:production"
+      ],
+      "check_id": "frontend.production_dependency_audit",
+      "timeout_seconds": 600,
+      "workdir": "frontend"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
         "typecheck"
       ],
       "check_id": "shared_client.typecheck",
       "timeout_seconds": 600,
       "workdir": "packages/trip-check-client"
+    },
+    {
+      "argv": [
+        "npm",
+        "run",
+        "audit:production"
+      ],
+      "check_id": "miniapp.production_dependency_audit",
+      "timeout_seconds": 600,
+      "workdir": "miniapp"
     },
     {
       "argv": [

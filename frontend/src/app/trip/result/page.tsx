@@ -1496,8 +1496,8 @@ function TripCheckPanel({
 }) {
   const labelClass = {
     必须调整: 'bg-rose-50 text-rose-700',
-    可以更好: 'bg-blue-50 text-blue-700',
-    需要确认: 'bg-amber-50 text-amber-800',
+    可以更好: 'bg-amber-50 text-amber-800',
+    需要确认: 'bg-blue-50 text-blue-700',
   }
   return (
     <section

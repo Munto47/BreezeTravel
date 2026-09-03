@@ -165,7 +165,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="BreezeTravel 行程查",
-    description="把文字或截图整理成逐日行程卡片、路线和少量可直接采纳的建议。",
+    description="把攻略文字整理成逐日行程卡片、路线和少量可直接采纳的建议。",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -245,11 +245,12 @@ else:
     app.include_router(members.router, prefix="/api", tags=["members"])
     app.include_router(templates.router, prefix="/api", tags=["route-templates"])
     app.include_router(suggestions.router, prefix="/api", tags=["suggestions"])
-app.include_router(
-    screenshot_batches_v3.router,
-    prefix="/api",
-    tags=["screenshot-batches-v3"],
-)
+if settings.legacy_import_diagnostics_enabled and settings.runtime_profile != "public":
+    app.include_router(
+        screenshot_batches_v3.router,
+        prefix="/api",
+        tags=["legacy-screenshot-diagnostics"],
+    )
 app.include_router(
     trip_understandings_v3.router,
     prefix="/api",

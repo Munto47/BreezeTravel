@@ -5,8 +5,6 @@ import {
   type JsonTransport,
   type TransportRequest,
   type TransportResponse,
-  type UploadRequest,
-  type UploadTransport,
 } from '@breezetravel/trip-check-client'
 
 import { readSession } from './storage'
@@ -40,28 +38,4 @@ export const taroJsonTransport: JsonTransport = {
   },
 }
 
-export const taroUploadTransport: UploadTransport = {
-  async upload<T>(request: UploadRequest): Promise<TransportResponse<T>> {
-    const { path, filePath, fieldName, headers = {} } = request
-    const response = await Taro.uploadFile({
-      url: `${API_BASE}${path}`,
-      filePath,
-      name: fieldName,
-      header: authHeaders(headers),
-      timeout: 60_000,
-    })
-    let data: T
-    try {
-      data = JSON.parse(response.data) as T
-    } catch {
-      data = { detail: { code: 'INVALID_SERVER_RESPONSE', message: '服务端返回了无法解析的数据' } } as T
-    }
-    return {
-      status: response.statusCode,
-      data,
-      headers: normalizeHeaders(response.header as Record<string, unknown>),
-    }
-  },
-}
-
-export const tripCheckClient = new TripCheckClient(taroJsonTransport, taroUploadTransport)
+export const tripCheckClient = new TripCheckClient(taroJsonTransport)

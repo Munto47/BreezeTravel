@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { User, History, LogOut, ChevronDown } from 'lucide-react'
+import { User, LogOut, ChevronDown } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 
 export function UserMenu() {
@@ -53,11 +53,6 @@ export function UserMenu() {
             icon={<User className="w-3.5 h-3.5" />}
             label="个人信息"
             onClick={() => { setOpen(false); router.push('/profile') }}
-          />
-          <MenuItem
-            icon={<History className="w-3.5 h-3.5" />}
-            label="旅行历史"
-            onClick={() => { setOpen(false); router.push('/history') }}
           />
           <div className="border-t border-gray-50 mt-1 pt-1">
             <MenuItem

@@ -1,24 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, CheckCircle2, Compass, FileText, Map, ShieldCheck, Sparkles } from 'lucide-react'
 
 import {
-  clearPendingScreenshotAttempt,
   clearTripUnderstandingSession,
-  createFullTripUnderstandingFromScreenshot,
   createDemoTripUnderstanding,
   createFullTripUnderstanding,
-  createTripRequestKey,
-  PendingScreenshotAttempt,
-  readPendingScreenshotAttempt,
-  savePendingScreenshotAttempt,
-  uploadScreenshotBatch,
 } from '@/lib/trip-understanding-v3'
-import G04ScreenshotSource, {
-  G04ScreenshotSourceState,
-} from '@/components/g04-screenshot-source'
 import { useAuthStore } from '@/stores/authStore'
 
 
@@ -26,37 +16,14 @@ export default function HomePage() {
   const router = useRouter()
   const { user, isHydrated, hydrate } = useAuthStore()
   const [isStarting, setIsStarting] = useState(false)
-  const [creatingMode, setCreatingMode] = useState<'text' | 'screenshot' | null>(null)
+  const [creatingMode, setCreatingMode] = useState<'text' | null>(null)
   const [sourceText, setSourceText] = useState('')
-  const [screenshotFiles, setScreenshotFiles] = useState<File[]>([])
-  const [screenshotState, setScreenshotState] = useState<G04ScreenshotSourceState>('idle')
-  const screenshotUploadKey = useRef<string | null>(null)
-  const screenshotCreateKey = useRef<string | null>(null)
-  const [pendingScreenshotAttempt, setPendingScreenshotAttempt] = useState<PendingScreenshotAttempt | null>(null)
   const [error, setError] = useState('')
   const isCreating = creatingMode !== null
 
   useEffect(() => {
     hydrate()
   }, [hydrate])
-
-  useEffect(() => {
-    if (!isHydrated) return
-    if (!user) {
-      clearPendingScreenshotAttempt()
-      setPendingScreenshotAttempt(null)
-      screenshotUploadKey.current = null
-      screenshotCreateKey.current = null
-      return
-    }
-    const pending = readPendingScreenshotAttempt(user.userId)
-    setPendingScreenshotAttempt(pending)
-    if (!pending) return
-    screenshotUploadKey.current = pending.uploadKey
-    screenshotCreateKey.current = pending.createKey
-    setScreenshotState('retryable')
-    setError('截图已读取，可以继续生成行程卡片。')
-  }, [isHydrated, user])
 
   const rememberAcceptedResource = (publicResourceId: string, mode: 'DEMO' | 'FULL') => {
     clearTripUnderstandingSession()
@@ -108,111 +75,6 @@ export default function HomePage() {
     }
   }
 
-  const replaceScreenshotFiles = (files: File[]) => {
-    setScreenshotFiles(files)
-    setScreenshotState('idle')
-    setError('')
-    screenshotUploadKey.current = null
-    screenshotCreateKey.current = null
-    clearPendingScreenshotAttempt()
-    setPendingScreenshotAttempt(null)
-  }
-
-  const createFromScreenshots = async () => {
-    if (isCreating) return
-    if (!user) {
-      router.push('/login')
-      return
-    }
-    if (screenshotFiles.length < 1 && pendingScreenshotAttempt === null) {
-      setError('请先选择 1–6 张行程截图。')
-      return
-    }
-    setCreatingMode('screenshot')
-    setScreenshotState('reading')
-    setError('')
-    const uploadKey = screenshotUploadKey.current ?? createTripRequestKey()
-    const createKey = screenshotCreateKey.current ?? createTripRequestKey()
-    screenshotUploadKey.current = uploadKey
-    screenshotCreateKey.current = createKey
-    let activePending = pendingScreenshotAttempt
-    try {
-      const uploaded = activePending
-        ? null
-        : await uploadScreenshotBatch(screenshotFiles, uploadKey)
-      if (!activePending) {
-        if (!uploaded) throw new Error('SCREENSHOT_UPLOAD_FAILED')
-        activePending = {
-          ownerUserId: user.userId,
-          expiresAt: uploaded.expires_at,
-          uploadKey,
-          createKey,
-          batchRef: uploaded.batch_ref,
-          outcome: uploaded.outcome,
-        }
-        savePendingScreenshotAttempt(activePending)
-        setPendingScreenshotAttempt(activePending)
-      }
-      if (activePending.outcome === 'PARTIAL') setScreenshotState('partial')
-      const accepted = await createFullTripUnderstandingFromScreenshot(
-        activePending.batchRef,
-        activePending.createKey,
-      )
-      rememberAcceptedResource(accepted.public_resource_id, 'FULL')
-      setScreenshotFiles([])
-      screenshotUploadKey.current = null
-      screenshotCreateKey.current = null
-      setPendingScreenshotAttempt(null)
-      router.push('/trip/result')
-    } catch (createError) {
-      const code = createError instanceof Error ? createError.message : ''
-      const preserveAttempt = new Set([
-        'ACTIVE_LIMIT_REACHED',
-        'REQUEST_IN_PROGRESS',
-        'SCREENSHOT_BATCH_NOT_READY',
-        'SCREENSHOT_REQUEST_UNKNOWN',
-      ]).has(code)
-      if (code === 'LOGIN_REQUIRED') {
-        setError('登录状态已失效，请重新登录。')
-      } else if (code === 'ACTIVE_LIMIT_REACHED') {
-        setError('已有两份行程正在整理，请稍后再试。')
-      } else if (code === 'SCREENSHOT_TEXT_NOT_FOUND') {
-        setError('没有在这些截图中找到可用文字，请换一组更清晰的图片。')
-      } else if (code === 'SCREENSHOT_BATCH_EXPIRED') {
-        setError('这组截图已过期，请重新选择。')
-        screenshotUploadKey.current = null
-        screenshotCreateKey.current = null
-      } else if (code === 'SCREENSHOT_BATCH_INVALID' || code === 'SCREENSHOT_BATCH_TOO_LARGE') {
-        setError('图片格式、数量或大小不符合要求，请调整后再试。')
-        screenshotUploadKey.current = null
-        screenshotCreateKey.current = null
-      } else if (code === 'SCREENSHOT_CLEANUP_RETRY_REQUIRED') {
-        setError('图片暂时未能安全清理，本次未生成行程，请稍后重试。')
-      } else if (code === 'REQUEST_IN_PROGRESS' || code === 'SCREENSHOT_BATCH_NOT_READY') {
-        setError('截图仍在安全处理中，请稍后使用同一次请求重试。')
-      } else if (code === 'SCREENSHOT_REQUEST_UNKNOWN') {
-        setError('网络中断，结果暂时未知；请直接重试，不要重新选择图片。')
-      } else if (code === 'IDEMPOTENCY_KEY_REUSED' && activePending) {
-        const nextCreateKey = createTripRequestKey()
-        const rotated = { ...activePending, createKey: nextCreateKey }
-        screenshotCreateKey.current = nextCreateKey
-        savePendingScreenshotAttempt(rotated)
-        setPendingScreenshotAttempt(rotated)
-        setError('创建请求需要重新确认，已保留读取完成的截图，请再试一次。')
-      } else {
-        setError('这次没有读取完成，所选图片仍保留在当前页面，可以重试。')
-      }
-      if (!preserveAttempt && !(code === 'IDEMPOTENCY_KEY_REUSED' && activePending)) {
-        clearPendingScreenshotAttempt()
-        setPendingScreenshotAttempt(null)
-        screenshotUploadKey.current = null
-        screenshotCreateKey.current = null
-      }
-      setScreenshotState('retryable')
-      setCreatingMode(null)
-    }
-  }
-
   return (
     <main className="min-h-screen overflow-hidden bg-[#f8f7f2] text-slate-900">
       <div className="pointer-events-none fixed inset-0">
@@ -252,7 +114,7 @@ export default function HomePage() {
               <span className="block text-emerald-700">每天都能照着走的卡片</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-slate-600 sm:text-lg">
-              登录后直接粘贴长攻略或选择截图，我们会整理成逐日卡片；没有把握的地点会留给你确认。未登录也可以先体验固定的北京三日示例。
+              登录后直接粘贴长攻略，我们会整理成逐日卡片；没有把握的地点会留给你确认。未登录也可以先体验固定的北京三日示例。
             </p>
 
             {isHydrated && user && (
@@ -283,33 +145,6 @@ export default function HomePage() {
                     {creatingMode !== 'text' && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                   </button>
                 </div>
-                <div className="my-5 flex items-center gap-3 text-xs text-slate-400" aria-hidden="true">
-                  <span className="h-px flex-1 bg-slate-200" />
-                  或者
-                  <span className="h-px flex-1 bg-slate-200" />
-                </div>
-                <G04ScreenshotSource
-                  files={screenshotFiles}
-                  onFilesChange={replaceScreenshotFiles}
-                  onRetry={createFromScreenshots}
-                  state={screenshotState}
-                  disabled={isCreating}
-                  className="border-0 bg-[#fbfaf7] shadow-none"
-                />
-                {screenshotState !== 'retryable' && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      data-testid="create-screenshot-trip"
-                      type="button"
-                      onClick={createFromScreenshots}
-                      disabled={isCreating || (screenshotFiles.length === 0 && pendingScreenshotAttempt === null)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {creatingMode === 'screenshot' ? '正在读取并整理截图…' : '用截图生成逐日卡片'}
-                      {creatingMode !== 'screenshot' && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 

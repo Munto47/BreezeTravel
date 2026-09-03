@@ -29,7 +29,7 @@
       "status": "NOT_RUN",
       "required_proof": ["fresh and upgraded migration", "transaction", "CAS", "idempotency", "lease takeover", "restart", "legacy compatibility"],
       "commands": [
-        "python -m pytest -q tests/test_*_postgres.py tests/test_screenshot_postgres_integration.py --timeout=180"
+        "python -m pytest -q tests/test_*_postgres.py --ignore-glob=*screenshot* --timeout=180"
       ],
       "receipt": "REPOSITORY_EXTERNAL_AT_EXECUTION"
     },
@@ -61,7 +61,7 @@
       "gate_id": "G5",
       "name": "BROWSER_PERFORMANCE",
       "status": "NOT_RUN",
-      "required_proof": ["login and demo", "text and screenshot", "cards and edit", "map stale and rerender", "stay", "Top-3", "refresh", "disconnect", "partial failure", "50 authentic chains", "P95"],
+      "required_proof": ["login and demo", "text input", "cards and edit", "map stale and rerender", "stay", "Top-3", "refresh", "disconnect", "partial failure", "50 authentic chains", "P95"],
       "commands": [
         "npm run build",
         "npm run test:e2e:g07",
@@ -110,7 +110,6 @@
     "LATE_MAP_RESULT",
     "CONFIG_DRIFT",
     "REDIS_LOSS",
-    "SCREENSHOT_CLEANUP_FAILURE",
     "SENSITIVE_LOG_SCAN_ZERO_HITS"
   ],
   "non_proof_boundaries": {

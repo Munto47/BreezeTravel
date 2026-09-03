@@ -4,14 +4,14 @@
 
 BreezeTravel 只建设「行程查」：
 
-> 用户粘贴攻略或上传截图，不填写前置表单，也不理解项目术语；系统自动生成高准确率的逐日行程卡片，提前准备路线地图，再用少量、可靠、可直接采纳的建议帮助用户把行程变得真正可执行。
+> 用户粘贴攻略文字，不填写前置表单，也不理解项目术语；系统自动生成高准确率的逐日行程卡片，提前准备路线地图，再用少量、可靠、可直接采纳的建议帮助用户把行程变得真正可执行。
 
 北京、上海、杭州提供深度地点、路线和核验能力。其他国内城市可进行基础语义整理和卡片生成，但不得暗示已经通过同等级 Provider、知识或真人门禁。
 
 当前权威主链：
 
 ```text
-Text / Screenshot
+Text
 → SourceDocument
 → TripUnderstandingRevision
 → DayDraft / ActivityMention / SourceClaim
@@ -62,7 +62,7 @@ HTTP ETag只能是不可逆、不透明的CAS validator，不能编码可恢复r
 - `ItineraryRevision` 不可变；任何有语义的编辑或建议采纳创建新 revision。
 - `AuditEngine` 是 Finding 唯一权威。`UNKNOWN`、`UNAVAILABLE` 和局部失败不得计为 PASS。
 - 确定性事实与建议性判断分开。热门、时段、典型时长、餐饮和酒店偏好必须以建议性语气展示依据。
-- 原始截图只进入短期临时存储，不得进入数据库、日志或 Git，成功、失败、取消和超时终态都删除。OCR文本、阅读顺序和bbox来源映射作为加密`SourceDocument`继承30天上限和主动删除；删除后只保留不可逆hash、结构化结果、版本和清理回执。
+- 当前产品、公开运行时和候选验证不要求、不处理、也不验证 OCR。公开入口只接受文本；截图上传、PaddleOCR、OCR文本、阅读顺序、bbox、真实OCR样本和OCR性能门槛均退出当前产品合同。既有截图/OCR代码、migration和历史回执只作为冻结兼容资产保留，生产默认关闭，不得进入普通用户页面、公共OpenAPI、当前Gate或完成声明。未来如恢复图片理解，必须由项目所有者批准新的非OCR产品合同和独立隐私边界，不能静默复活旧G04 OCR链。
 
 采用 Next.js/React + FastAPI/Pydantic + PostgreSQL 的模块化单体。不得为技术关键词新增微服务、消息队列、Kafka、Temporal、Kubernetes、GraphRAG 或运行时多 Agent。
 
@@ -95,7 +95,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 
 暂不抓取小红书；RAG 只允许检索有来源和时效的建议性 `KnowledgeClaim`，不得决定地点身份、路线或硬事实。
 
-用户记忆必须显式开启、结构化、可查看、可更改、可删除。原始攻略、截图和聊天默认不进入长期记忆，训练或评测使用需要单独同意。
+用户记忆必须显式开启、结构化、可查看、可更改、可删除。原始攻略和聊天默认不进入长期记忆，训练或评测使用需要单独同意。
 
 ## 6. 产品主线与执行比例
 
@@ -118,6 +118,7 @@ MapFreshness: CURRENT | STALE（按snapshot与current PlanRevisionRef比较）
 - G01～G03合同激活后冻结；增加范围、提高门槛或修改校验器必须由项目所有者通过CODEOWNERS审批。`develop`只经PR和唯一必选检查`core-mainline`更新，不设置日常bypass。
 - G03通过后不得自动进入G04；状态固定切换为`CORE_MVP_OWNER_REVIEW_PENDING`，交付可运行主链、演示脚本、已知边界和验证结果，等待项目所有者体验验收。
 - 测试通过、receipt或签名都不是用户体验或真人证据；未运行的模型、Provider、blind、真人和生产证据继续如实写`NOT_RUN`。
+- 项目所有者于2026-09-03明确撤销OCR产品要求。历史G04截图/OCR Goal、数据、测试、回执和migration只读保留，不再是G07或后续真人体验的前置条件；当前自动化、浏览器、性能、复审、blind和发布清单不得运行或要求OCR场景，也不得把历史OCR PASS拼入当前候选。
 
 每个切片在`current_work_packages.json.active_slice`登记用户结果、当前Goal验收引用、工作类型、最小改动、允许路径、禁止机制、`repair_review_cycle`、产品进展和停止条件，并在提交前运行`python -m scripts.validate_core_mainline`。机器合同的唯一权威为`docs/governance/product_delivery_gates.json`。
 

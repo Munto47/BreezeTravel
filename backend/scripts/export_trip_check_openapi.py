@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from importlib import import_module
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -10,9 +11,6 @@ from typing import Any
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
-
-app = import_module("app.main").app
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # ``openapi.json`` is the immutable 99-path G01 compatibility snapshot.
@@ -47,7 +45,22 @@ def _normalize_schema(value: Any, *, path: tuple[str, ...] = ()) -> Any:
     return normalized
 
 
+def _load_public_app():
+    # Contract generation must never inherit a developer profile: that would
+    # publish frozen room/import/audit routes through the shared client.
+    os.environ.update(
+        {
+            "RUNTIME_PROFILE": "public",
+            "JWT_SECRET_KEY": "openapi-only-jwt-secret-000000000001",
+            "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY": "openapi-only-cookie-secret-00000001",
+            "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY": "openapi-only-source-secret-00000001",
+        }
+    )
+    return import_module("app.main").app
+
+
 def rendered_schema() -> str:
+    app = _load_public_app()
     schema = _normalize_schema(app.openapi())
     return json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 

@@ -54,7 +54,7 @@ Goal type: CANDIDATE_HARDENING
 
 ## User Outcome
 
-用户可在候选环境稳定完成登录/体验、文本或截图输入、卡片编辑、地图查看与手动更新、住宿选择、Top-3核验、建议采纳、偏好和分享；每项能力有同一候选commit的可回读证据。
+用户可在候选环境稳定完成登录/体验、文本输入、卡片编辑、地图查看与手动更新、住宿选择、Top-3核验、建议采纳、偏好和分享；每项能力有同一候选commit的可回读证据。项目所有者已撤销OCR要求，截图/OCR不再进入公开产品或候选验收。
 
 ## Scope
 
@@ -66,6 +66,7 @@ Goal type: CANDIDATE_HARDENING
 - architecture/recovery diagrams；
 - model ablation；
 - release manifest与最终disclosure。
+- 将历史截图/OCR入口从公开Web、小程序、公共后端路由和当前Gate中移除；既有实现与证据只读冻结，不删除历史数据或migration。
 - 将旧manifest生成器适配TC-VNEXT Goal/Gate、v3 OpenAPI、新数据集和同绑定receipts；旧360/三城测试只作历史兼容。
 
 ## Pre-approved actions
@@ -121,6 +122,7 @@ Goal type: CANDIDATE_HARDENING
 - final disclosure准确列出candidate、NOT_RUN和风险；
 - clean tree、push和远端readback。
 - `HardeningDecision`与候选commit绑定；所选控制全部实际验证，未选控制明确为`NOT_REQUIRED_WITH_RATIONALE`而非伪装PASS。
+- OCR、截图上传、真实OCR样本、OCR性能和截图browser场景均不属于当前候选验收，不得以`NOT_RUN`阻断或以历史PASS充数。
 
 ## Verification
 
@@ -152,6 +154,7 @@ Goal type: CANDIDATE_HARDENING
 - 不新增产品功能、不降低Gate、不修改blind/oracle；
 - G0～G7同一subject/config/dataset/model/rule/provider重新运行；
 - fixture/snapshot/live/browser/public/human/commercial分层；UNKNOWN/NOT_RUN不算PASS；
+- 当前公开输入只接受文本；历史截图/OCR资产生产默认关闭且不进入Gate。
 - Provider许可、隐私删除、内部字段和事实正确性均为阻断项；
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不自动授权H1、公网、生产、release或`main`。
 

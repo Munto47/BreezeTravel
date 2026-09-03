@@ -1852,4 +1852,19 @@ test('public result DOM contains no provider URL or internal implementation voca
   expect(publicDom).not.toMatch(/interaction-(?:token|r\d)|activity_token|public_resource_id|Provider|AMap|高德|revision|receipt|\bUID\b|\bhash\b/i)
   expect(publicDom).not.toMatch(/https:\/\/(?:restapi\.)?amap\.com|provider[_-]?(?:url|resource)/i)
   expect(fixture.calls().directProviderRequests).toBe(0)
+  await expect(page.getByText('可以更好', { exact: true }).first()).toHaveClass(/bg-amber-50/)
+  await expect(page.getByText('需要确认', { exact: true }).first()).toHaveClass(/bg-blue-50/)
+})
+
+
+test('home is text-only and every legacy product entrance returns to it', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '把攻略变成 每天都能照着走的卡片' })).toBeVisible()
+  await expect(page.locator('input[type="file"]')).toHaveCount(0)
+  await expect(page.getByText(/截图|OCR|识别图片/)).toHaveCount(0)
+
+  for (const legacyPath of ['/history', '/import', '/intake', '/room/example', '/templates', '/workspace/example']) {
+    await page.goto(legacyPath)
+    await expect(page).toHaveURL(/\/$/)
+  }
 })

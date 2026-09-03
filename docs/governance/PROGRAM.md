@@ -13,7 +13,7 @@
 按固定顺序把 BreezeTravel 从旧房间/表单/逐句 POI 搜索体验迁移为：
 
 ```text
-随便粘贴文本或上传截图
+随便粘贴攻略文字
 → 高准确率逐日卡片
 → 后台准备、手动更新的真实路线地图
 → 整程住宿与用餐补全
@@ -31,7 +31,7 @@
 | 1 | `CORE_MVP` | V0.1 可信卡片 | `TC-VNEXT-G01-TEXT-CARDS` | 长文本直接生成可编辑逐日卡片 | G00 | Text Card Gate |
 | 2 | `CORE_MVP` | V0.2 地图与住宿 | `TC-VNEXT-G02-MAP-STAY` | 打开地图即看步行/公交；修改后手动更新；选择整程酒店 | G01 | Map & Stay Gate |
 | 3 | `CORE_MVP` | V0.3 核心行程查 | `TC-VNEXT-G03-TOP3-AUDIT` | 只看到最重要三个问题并可修复 | G02 | Top-3 Audit Gate |
-| 4 | `PRODUCT_ENHANCEMENT` | V0.4 截图一致性 | `TC-VNEXT-G04-SCREENSHOT` | 截图得到与文本同等级卡片 | G03 | Screenshot Parity Gate |
+| 4 | `PRODUCT_ENHANCEMENT` | 历史V0.4截图资产 | `TC-VNEXT-G04-SCREENSHOT` | 已归档；OCR要求于2026-09-03由项目所有者撤销，不再进入当前产品或候选Gate | G03 | Historical only |
 | 5 | `PRODUCT_ENHANCEMENT` | V0.5 三城知识层 | `TC-VNEXT-G05-CITY-KNOWLEDGE` | 更可靠的时长、时段、夜景、季节和预约建议 | G04 | Knowledge Admission Gate |
 | 6 | `PRODUCT_ENHANCEMENT` | V0.6 个性化与分享 | `TC-VNEXT-G06-MEMORY-SHARE` | 显式记忆偏好并分享用户友好行程 | G05 | Consent & Share Gate |
 | 7 | `CANDIDATE_HARDENING` | V0.9 候选版 | `TC-VNEXT-G07-CANDIDATE` | 稳定、快速、隐私合规、可演示 | G06 | Candidate G0～G7 |
@@ -131,12 +131,11 @@ G01～G03只阻断直接破坏当前旅程或安全底线的可复现P0/P1；P2/
 - 复用现有 EvidenceSnapshot、AuditEngine、Advice、EditCommand 和 postcheck；
 - 执行必需的 `031_day_index_trip_bridge.sql`，建立 `PlanRevisionRef` materialization lineage、`calendar_basis=ABSOLUTE|DAY_INDEX_ONLY`、nullable calendar range和软人数来源；不得虚构日期或伪装用户确认。
 
-### G04
+### G04（历史归档）
 
-- 追加登录态multipart `POST /api/v3/screenshot-batches`和`source.type=SCREENSHOT_BATCH`；返回短期owner-bound不透明引用，禁止Base64 JSON；
-- 复用PaddleOCR基线和统一语义编译器，原图所有终态清理；OCR文本/bbox映射继承SourceDocument TTL和主动删除；
-- Qwen-VL只作消融实验，不因模型存在自动晋级；
-- 不预批准新对象存储或付费 OCR。
+- 既有截图上传、PaddleOCR、Qwen-VL消融、数据、migration、测试与回执只读保留，不再构成当前产品能力或后续Goal依赖；
+- 公开运行时、公共OpenAPI、用户界面、候选Gate、性能和真人体验均不得要求、处理或验证OCR；
+- 未来图片理解只能由项目所有者批准新的非OCR产品合同，不得静默恢复历史G04链。
 
 ### G05
 

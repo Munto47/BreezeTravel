@@ -224,7 +224,7 @@ Top-3排序由确定性 severity、confidence tier、actionability 和 itinerary
 
 - PostgreSQL：understanding/itinerary revision、run、lease、幂等命令、map/stay snapshot、receipt、evidence、finding、advice、lineage。
 - Redis：缓存、限流、短期路线几何和可重建协调；丢失不能改变权威结论。
-- 临时文件：原始截图；所有终态删除。OCR文本、阅读顺序和bbox映射进入加密`SourceDocument`并继承source TTL/主动删除，原始像素不得进入PostgreSQL。
+- 当前产品不接收截图、不处理或验证OCR，也不创建图片临时文件。既有截图/OCR模块和migration为冻结兼容资产，生产默认关闭；未来图片理解必须另行批准并重新定义临时数据边界。
 - SSE：用户进度投影；断线不取消后台工作。
 - LangGraph checkpoint：可恢复计算进度，不是业务状态或 exactly-once 证明。
 

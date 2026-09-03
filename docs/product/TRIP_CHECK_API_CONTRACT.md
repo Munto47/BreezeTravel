@@ -143,14 +143,9 @@ S0首先冻结DEMO边界；随后FULL文本纵向切片在同一持久链上开�
   - 只发送“正在整理每天行程 / 正在核对地点 / 卡片已可用 / 地图准备中”等用户事件；
   - 不发送模型、Provider、Run stage 或错误详情。
 
-### 3.1a G04 截图输入扩展
+### 3.1a 图片与 OCR 边界
 
-G01的`FULL + TEXT`边界保持不变。G04只以追加方式开放：
-
-- `POST /api/v3/screenshot-batches`：登录态multipart上传1～6张PNG/JPEG/WebP，单张≤10MB；禁止JSON Base64；返回短期、不透明、绑定owner且不可跨账号使用的`batch_ref`和过期时间；
-- `POST /api/v3/trip-understandings`增加`{"mode":"FULL","source":{"type":"SCREENSHOT_BATCH","batch_ref":"..."}}`分支；理解任务只能消费有效、未终态的owner批次；
-- 成功、失败、取消、超时和未消费TTL到期都删除原始像素；清理失败内部为`PRIVACY_BLOCKED`，任务不得宣称成功；
-- OCR文本、阅读顺序和bbox映射作为加密`SourceDocument`继承文本source的30天上限和主动删除；普通结果、DOM与日志不返回OCR框、原文映射或模型信息。
+当前公共合同只有`FULL + TEXT`，不开放截图上传或`SCREENSHOT_BATCH`来源，不处理或验证OCR。历史`/api/v3/screenshot-batches`及截图分支只作为非公开冻结兼容资产保留，生产默认关闭，不进入公共OpenAPI、客户端生成物或当前候选Gate。未来图片理解需要新的项目所有者批准和版本化合同。
 
 `POST 202 + SSE` 必须由持久化 `TripUnderstandingJob`、lease、attempt、event游标和终态结果指针支撑；不得依赖进程内临时任务。`DEMO`绑定HttpOnly、SameSite匿名capability，秘密值永不进入URL/JSON/日志；result/events/commands仍做资源级授权，未claim内容24小时后清除。G01必须实现一次性 `POST /api/v3/trip-understandings/{id}/claim`：用户登录后原子转移体验内容所有权、轮换resource ID并废止匿名capability；成功`200`返回新`public_resource_id`和不透明ETag，并用`Location`指向新资源，旧ID随后返回`410`。materialize、audit和share必须登录。
 
@@ -249,7 +244,7 @@ Program 预批准的附加式目标：
 - 日志：不记录原始文本、原图、完整 prompt、Authorization、密钥或可还原身份字段。
 - Demo：精确示例 hash 可使用冻结回执；匿名编辑短期存在，保存前要求登录。
 - 登录用户原始文本和可还原SourceClaim：加密保存，默认最长30天或直到用户删除行程/账号，以先到者为准；到期后保留不可逆hash、结构化结果、版本和删除回执。
-- 截图OCR文本、阅读顺序和bbox来源映射适用同一30天上限和主动删除；原始像素只在短期上传存储中存在并在所有终态清理。
+- 历史截图/OCR资产不属于当前公共产品合同；当前运行时不得接收或生成相关数据。
 - G01必须提供source主动删除、行程删除和账号删除的级联清理与可回读删除回执；G06只新增偏好和反馈consent，不延后source隐私。
 
 本合同是目标接口，不代表当前分支已实现。
