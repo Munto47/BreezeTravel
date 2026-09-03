@@ -123,6 +123,8 @@ class TripUnderstandingWorker:
         monotonic_started = time.monotonic()
 
         def operation_now() -> datetime:
+            if now is None:
+                return datetime.now(timezone.utc)
             return observed_at + timedelta(seconds=time.monotonic() - monotonic_started)
 
         job = await self.repository.claim_next(

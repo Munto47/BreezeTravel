@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+import app.trip_understanding.worker as understanding_worker_module
 from app.trip_understanding.access_log import redact_trip_understanding_path
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.demo import (
@@ -89,6 +90,34 @@ FORBIDDEN_PUBLIC_KEYS = {
     "run",
     "stage",
 }
+
+
+@pytest.mark.asyncio
+async def test_default_understanding_worker_does_not_schedule_map_in_the_future(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed_at = datetime(2026, 9, 3, tzinfo=timezone.utc)
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls, tz):
+            assert tz is timezone.utc
+            return observed_at
+
+    monkeypatch.setattr(understanding_worker_module, "datetime", FixedDateTime)
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    await service.create_demo(
+        capability_hash="c" * 64,
+        idempotency_key="default-clock-map-readiness",
+        now=observed_at,
+    )
+
+    assert await TripUnderstandingWorker(repository).run_once("clock-worker") is True
+    assert await MapRenderWorker(repository).run_once(
+        "clock-map-worker",
+        now=observed_at,
+    ) is True
 
 
 @pytest.mark.asyncio
