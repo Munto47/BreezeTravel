@@ -53,7 +53,15 @@ async def predict_case(case: TextCardInputCase) -> TextCardPrediction:
                 eligible_for_place_search=activity.compiled.eligible_for_place_search,
                 resolution_status=activity.resolution_status.value,
                 canonical_place_id=place.canonical_place_id if place else None,
-                canonical_city=output.proposal.destination_name if place else None,
+                canonical_city=(
+                    str(
+                        activity.resolver_receipt.get("selected_city")
+                        or activity.resolver_receipt.get("city")
+                        or output.proposal.destination_name
+                    )
+                    if place
+                    else None
+                ),
                 canonical_category=place.category if place else None,
             )
         )

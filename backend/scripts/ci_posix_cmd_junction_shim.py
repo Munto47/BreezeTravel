@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import subprocess
 import sys
 
 
@@ -25,6 +26,16 @@ def main(arguments: list[str] | None = None) -> int:
 
     link = Path(args[3])
     target = Path(args[4])
+    if os.name == "nt":
+        completed = subprocess.run(
+            ["cmd", "/d", "/c", "mklink", "/J", str(link), str(target)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            print(completed.stderr or completed.stdout, file=sys.stderr)
+        return completed.returncode
     try:
         os.symlink(target, link, target_is_directory=True)
     except OSError as exc:

@@ -58,7 +58,7 @@ def test_posix_cmd_shim_only_creates_the_legacy_junction_equivalent(tmp_path: Pa
     link = tmp_path / "junction"
 
     assert create_posix_junction(["/c", "mklink", "/J", str(link), str(target)]) == 0
-    assert link.is_symlink()
+    assert link.is_symlink() or link.is_junction()
     assert link.resolve() == target.resolve()
     assert create_posix_junction(["/c", "echo", "unsafe", str(link), str(target)]) == 2
 
