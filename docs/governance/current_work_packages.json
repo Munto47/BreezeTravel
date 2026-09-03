@@ -13,7 +13,10 @@
       "全部正式证据必须绑定同一新候选commit/tree/config/data/model/rule/provider集合，上一周期与f10fc6b以前的结果只作诊断",
       "独立复审与sealed blind必须使用隔离任务；原始Agent输出、Provider响应和blind truth留在Git外",
       "任何失败保持NOT_READY并进入最小修复切片；产品字节变化后重新执行受影响及最终全矩阵，不降低门槛或修改oracle/blind",
-      "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求"
+      "H1、公网、生产、商业、发布、部署、release与main继续明确NOT_RUN或未请求",
+      "a56a1ce最终候选的自动化、真实Qwen/地图、PostgreSQL、浏览器和50链性能已通过，但真实OCR为INVALID_OR_INCOMPLETE、供应链FAIL、fresh panel接受2个P1和2个当前范围P2",
+      "正式panel因产品review FAIL与scenario union不完整而fail-closed；sealed blind和最终HARDENED_CANDIDATE_GATE保持NOT_RUN，blind attempt未消耗",
+      "owner明确下一候选只按旧页面/内部信息泄漏、真实OCR样本、关键依赖、一次完整验证的顺序推进，不扩建旧P5环境、回执平台或通用治理"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -40,7 +43,8 @@
       "G07_FINAL_0E7FB2B_LIVE_AND_BROWSER_EVIDENCE_DIAGNOSTIC_ONLY",
       "G07_FINAL_B705F29_BROWSER_PASS_PERFORMANCE_FAIL_DIAGNOSTIC_ONLY",
       "G07_FINAL_18597B1_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY",
-      "G07_FINAL_400CE17_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY"
+      "G07_FINAL_400CE17_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_PANEL_FAIL_DIAGNOSTIC_ONLY",
+      "G07_FINAL_A56A1CE_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_OCR_SUPPLY_CHAIN_PANEL_FAIL_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -50,7 +54,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "将五条交付样例中的多城目的地断言同步为已修复的明确城市列表，并让受限POSIX兼容脚本在Windows以原生mklink /J创建同等目录junction；冻结CI UTF-8环境由正式执行器提供。",
+    "minimum_change": "只登记a56a1ce完整重跑的通过项、真实OCR/供应链/fresh panel失败与sealed NOT_RUN；不修改该候选产品字节、Gate、阈值、oracle或blind。",
     "phase": "VERIFYING",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
@@ -63,8 +67,8 @@
     "candidate_cycle": 2,
     "repair_review_cycle": 2,
     "slice_id": "G07-SEALED-ONE-SHOT",
-    "stop_condition": "若两种最小实现仍不能让原文明示城市稳定覆盖公开目的地与Provider搜索通道，则采用目的地待确认且禁止自动地点匹配的保守降级；若结构化卡片无法与原文活动安全分离，则删除全部活动投影并从不可逆revision结果重建公开卡片；不得修改Qwen数据、scorer、panel合同或blind。",
-    "user_outcome": "同一最终候选真实完成从文字或截图到每日卡片、地点与路线核验、Top-3建议和采纳后复检，并取得可回读的候选级证据。",
+    "stop_condition": "a56a1ce final fresh panel已接受当前范围P1，真实OCR未完成且供应链仍有critical，当前候选正式停止并不得进入sealed；新候选按owner指定产品优先级另行推进。",
+    "user_outcome": "已对同一a56a1ce候选完成可执行的自动化、真实模型/地图、PostgreSQL、浏览器、性能与独立复审；候选因主线隐私P1、OCR缺证和供应链风险被诚实拒绝，暂不交付真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,

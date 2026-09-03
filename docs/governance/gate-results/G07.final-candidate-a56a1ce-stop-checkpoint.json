@@ -1,0 +1,150 @@
+{
+  "schema_version": "g07-final-candidate-stop-checkpoint-v1",
+  "goal_id": "TC-VNEXT-G07-CANDIDATE",
+  "candidate_cycle": 2,
+  "checkpoint_status": "STOP_CONDITION_TRIGGERED",
+  "final_candidate_admissible": false,
+  "subject": {
+    "commit": "a56a1ce3ebc6d96f39e28753f5a6f1168eab7563",
+    "tree": "e2d3b006f87e106568b11783700392586291cc92",
+    "base_requested_by_owner": "f10fc6b95a834d12c4bb85ad8212c6f28764c605",
+    "remote_ref": "refs/heads/codex/g07-candidate-cycle-2",
+    "remote_commit_readback": "a56a1ce3ebc6d96f39e28753f5a6f1168eab7563"
+  },
+  "components": {
+    "automated_product_gate": {
+      "status": "PASS",
+      "receipt_sha256": "6865b0e82261ab1195bc287f36248bebe7e8b4a6488c47eea80a2e84ad2bf0bc",
+      "backend": "2605 passed, 50 skipped, 0 failed",
+      "browser_fixture_tests": 46,
+      "frontend_client_miniapp_builds": "PASS"
+    },
+    "licensed_real_ocr": {
+      "status": "INVALID_OR_INCOMPLETE",
+      "receipt_sha256": "ddb924ac77e3da3db25205076fb13908fe50ba6755b1950b7df1881c239c6db6",
+      "reason": "the four exact frozen licensed source images are absent; reconstructed or synthetic images were not substituted",
+      "required_sources": [
+        {
+          "file": "wikivoyage-yuntaishan-oldid220410.jpg",
+          "sha256": "e4b666ceb257058f7bc618be6b4d0dd59b7056a86966ffdb345b59652a824070"
+        },
+        {
+          "file": "wikivoyage-zhangjiajie-oldid221547.jpg",
+          "sha256": "f23dba93b46e8fe9e576d2016cc3fb5f196ecf6dd946f1af69e2b7a862360d7b"
+        },
+        {
+          "file": "wikivoyage-qinling-oldid133737.jpg",
+          "sha256": "acafa8716f12c789d5832e0a01ddffa4d8801514a796af5775e78ffbaa36fddf"
+        },
+        {
+          "file": "wikivoyage-yuntaishan-oldid220410-low-confidence-control.jpg",
+          "sha256": "ce741d0cd0ff773e3c0ca859117fda61669ffac3fbd992ef5051f9262ceefd9c"
+        }
+      ]
+    },
+    "live_provider_gate": {
+      "status": "PASS",
+      "receipt_sha256": "cad725f29f60bbc5e7dc4100fe6ce8d7a7e92b79b15273f1e8210f986f7d6001",
+      "map_weather_calls": 18,
+      "qwen_cases": 72,
+      "qwen_schema_valid": 72,
+      "qwen_repair_calls": 0,
+      "qwen_p95_ms": 5662.696,
+      "preserved_failed_attempt": "first identical-config run had 2 deadline partials; the single allowed retry passed 72/72"
+    },
+    "postgresql_matrix": {
+      "status": "PASS",
+      "test_count": 21,
+      "junit_sha256": "1fa5e0a1abd392eb1c31a31a7bfc8c89debc055dbfbd0ac400983ca3dffcde0c"
+    },
+    "browser": {
+      "status": "PASS",
+      "test_count": 46,
+      "receipt_sha256": "b013ffc021a8983b4682eab8af3723916c1add2ac2a775a0fc419bccec72e278",
+      "evidence_level": "LOCAL_CONTROLLED_BROWSER_FIXTURE",
+      "public_e2e_evidence": false,
+      "preserved_failed_attempt": "first run used stale Playwright browser assets and executed no passing formal matrix; npm ci restored the frozen lockfile before the passing rerun"
+    },
+    "live_performance": {
+      "status": "PASS",
+      "sample_count": 50,
+      "create_to_editable_cards_p95_ms": 6148.205,
+      "threshold_ms": 8000.0,
+      "create_to_progress_p95_ms": 12.333,
+      "route_external_call_count": 300,
+      "edit_triggered_route_call_count": 0,
+      "usable_map_count": 50,
+      "receipt_sha256": "26a81c1634feeeff5454b62ef1db393a42c64f78b98278004d02a13244f1e724"
+    },
+    "supply_chain": {
+      "status": "FAIL",
+      "receipt_sha256": "b0a033b590d54d2572bbf093399b66fbd49c3bce4ee728c72b430cd596a323c7",
+      "frontend_production_vulnerabilities": 8,
+      "frontend_critical": 1,
+      "miniapp_production_vulnerabilities": 7,
+      "miniapp_critical": 2,
+      "trip_check_client_production_vulnerabilities": 0,
+      "fix_applied": false,
+      "reason": "dependency repair would create a new candidate and invalidate exact-subject evidence"
+    }
+  },
+  "final_fresh_panel": {
+    "review_count": 3,
+    "review_sha256": {
+      "product_ux": "d24e7561fbfee9e122d178b079fec7cead529c7ba4bbd3805e9f5508fd595ab6",
+      "semantic_domain": "ec7e529cfe4b9403fde888060bce3dffa0ddcc5258a22842fa032a2ce186c39d",
+      "reliability_security": "927f43a90338776d786179898b1a5cc5682e3d20126c7f4248af6c8c853a0cfe"
+    },
+    "review_verdicts": {
+      "product_ux": "FAIL",
+      "semantic_domain": "PASS",
+      "reliability_security": "PASS"
+    },
+    "adjudication_sha256": "604347eb190232f111658913c03c91d8034b459e5063b49bf787dd243aa08181",
+    "adjudication_verdict": "FAIL",
+    "accepted_p0_count": 0,
+    "accepted_p1_count": 2,
+    "accepted_in_scope_p2_count": 2,
+    "required_scenario_union_complete": false,
+    "human_evidence": false,
+    "evidence_level": "MULTI_AGENT_SIMULATED_REVIEW",
+    "accepted_findings": [
+      "public history navigation enters an unavailable legacy room flow and renders non-hard failures red (P1)",
+      "ordinary authenticated users can access legacy diagnostic pages that expose internal fields, model and Provider details (P1)",
+      "Top-3 optimize and confirm colors are reversed from the frozen product contract (P2)",
+      "inference and route calls lack a durable STARTED receipt at the pre-completion crash boundary (P2)"
+    ]
+  },
+  "fail_closed_result": {
+    "multi_agent_panel": "FAIL",
+    "formal_validator_result": "every reviewer must pass before adjudication can pass",
+    "sealed_agent_blind": "NOT_RUN",
+    "blind_attempt_consumed": false,
+    "final_hardened_candidate_gate": "NOT_RUN"
+  },
+  "stop_enforcement": {
+    "trigger": "the final fresh panel accepted current-scope P1 findings; licensed OCR is incomplete; supply-chain critical advisories remain",
+    "further_repair_in_same_candidate": "NOT_ALLOWED_BECAUSE_IT_WOULD_CHANGE_THE_SUBJECT",
+    "next_candidate_cycle": "REQUIRES_OWNER_DIRECTION",
+    "new_ocr_baseline": "REQUIRES_OWNER_APPROVAL_IF_EXACT_FROZEN_SOURCES_CANNOT_BE_RECOVERED"
+  },
+  "evidence_storage": {
+    "root": "D:/munto/code/claudeProject/agentTravel-g07-evidence/g07-candidate/a56a1ce3ebc6d96f39e28753f5a6f1168eab7563",
+    "repository_contains_only": "aggregate hashes and this fail-closed checkpoint",
+    "credentials_committed": false,
+    "raw_provider_payload_committed": false,
+    "blind_input_or_truth_read": false
+  },
+  "not_run": [
+    "SEALED_AGENT_BLIND",
+    "FINAL_HARDENED_CANDIDATE_GATE",
+    "H1_HUMAN_USABILITY",
+    "PUBLIC_NETWORK",
+    "PRODUCTION",
+    "COMMERCIAL",
+    "RELEASE",
+    "DEPLOYMENT",
+    "MAIN_MERGE"
+  ],
+  "completed_at": "2026-09-03T07:55:54.7322234+00:00"
+}
