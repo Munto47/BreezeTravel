@@ -56,7 +56,9 @@ from app.trip_understanding.models import (
 from app.trip_understanding.pipeline import (
     ResilientStructuredInferenceProvider,
     TripUnderstandingPipeline,
+    normalized_destination_name,
     resolution_cities,
+    source_destination_cities,
 )
 from app.trip_understanding.repository import (
     InMemoryTripUnderstandingRepository,
@@ -643,6 +645,104 @@ def test_non_deep_chinese_destination_does_not_inherit_reference_city_lane() -> 
     source = "南京两日攻略。参考北京玩法，但 Day 1 去中山陵。"
 
     assert resolution_cities(source, "南京") == ("南京",)
+
+
+@pytest.mark.parametrize(
+    ("source", "model_destination"),
+    (
+        ("整理一家三口的北京三日行程。第1天去故宫博物院。", "北京"),
+        ("关于第一次来北京的三日攻略。第1天去故宫博物院。", "北京"),
+        ("关于周末安排的北京攻略。第1天去故宫博物院。", "北京"),
+        ("围绕北京故宫的三日攻略。第1天去故宫博物院。", "北京"),
+        ("广州北京路三日游。第1天去北京路步行街。", "广州"),
+    ),
+)
+def test_destination_recovery_never_promotes_people_modifiers_or_place_names(
+    source: str,
+    model_destination: str,
+) -> None:
+    assert source_destination_cities(source) == ()
+    assert normalized_destination_name(source, model_destination) == model_destination
+    assert resolution_cities(source, model_destination) == (model_destination,)
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    (
+        ("这是一份围绕北京的三天攻略。", ("北京",)),
+        ("南京两日游。", ("南京",)),
+        ("北京、广州两地游。", ("北京", "广州")),
+        ("嘉兴市三日游。", ("嘉兴",)),
+    ),
+)
+def test_destination_recovery_accepts_only_exact_city_framing(
+    source: str,
+    expected: tuple[str, ...],
+) -> None:
+    assert source_destination_cities(source) == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source", "expected_city", "place"),
+    (
+        ("整理一家三口的北京三日行程。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("这是一份关于第一次来北京的三日攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("关于周末安排的北京攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("围绕北京故宫的三日攻略。第1天去故宫博物院。", "北京", "故宫博物院"),
+        ("广州北京路三日游，第1天去北京路步行街。", "广州", "北京路步行街"),
+    ),
+)
+async def test_pipeline_keeps_correct_model_city_for_natural_text_boundaries(
+    source: str,
+    expected_city: str,
+    place: str,
+) -> None:
+    class CorrectDestinationProvider:
+        async def propose(self, source_text: str) -> InferenceProposal:
+            start = source_text.index(place)
+            return InferenceProposal(
+                source_hash=hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
+                destination_name=expected_city,
+                destination_basis="EXPLICIT",
+                mentions=[
+                    ProposedMention(
+                        mention_id="planned-place",
+                        raw_text=place,
+                        span_start=start,
+                        span_end=start + len(place),
+                        role="PLANNED",
+                        day_index=1,
+                        sequence_index=0,
+                        atomic_place_name=place,
+                        category_hint="景点",
+                    )
+                ],
+                binding={"provider": "correct-destination-test-double", "external_calls": 0},
+            )
+
+    class RecordingResolver:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def resolve(self, *, city: str, atomic_place_name: str, category_hint=None):
+            del category_hint
+            self.calls.append((city, atomic_place_name))
+            return None
+
+    resolver = RecordingResolver()
+    output = await TripUnderstandingPipeline(
+        CorrectDestinationProvider(),
+        resolver,
+    ).run(source)
+
+    assert output.proposal.destination_name == expected_city
+    assert resolver.calls == [(expected_city, place)]
+    assert next(
+        chip.value
+        for chip in output.public_result.assumptions
+        if chip.key == "destination"
+    ) == expected_city
 
 
 @pytest.mark.asyncio

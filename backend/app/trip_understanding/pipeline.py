@@ -62,17 +62,65 @@ FORBIDDEN_PLACE_MARKERS = (
     "分钟",
 )
 DEEP_CITIES = ("北京", "上海", "杭州")
-MULTI_DEEP_CITY_HEADER_RE = re.compile(
-    r"^\s*(?P<cities>(?:北京|上海|杭州)(?:\s*[、，,和与/]\s*(?:北京|上海|杭州))+?)"
+# This is deliberately a bounded lexical guard, not a complete statement of
+# product coverage.  Live inference can preserve any domestic destination;
+# source recovery only overrides it when the source contains an unambiguous,
+# exact city token.  That prevents phrases such as ``一家三口`` and place names
+# such as ``广州北京路`` from being promoted to a destination.
+DOMESTIC_CITY_NAMES = (
+    "北京",
+    "上海",
+    "杭州",
+    "成都",
+    "南京",
+    "广州",
+    "深圳",
+    "苏州",
+    "武汉",
+    "西安",
+    "重庆",
+    "青岛",
+    "厦门",
+    "长沙",
+    "天津",
+    "昆明",
+    "大理",
+    "三亚",
+    "哈尔滨",
+    "沈阳",
+    "郑州",
+    "济南",
+    "福州",
+    "合肥",
+    "南昌",
+    "南宁",
+    "贵阳",
+    "兰州",
+    "太原",
+    "石家庄",
+    "乌鲁木齐",
+    "拉萨",
+    "海口",
+    "银川",
+    "西宁",
+    "呼和浩特",
+    "长春",
+)
+_DOMESTIC_CITY_PATTERN = "(?:" + "|".join(
+    re.escape(city) for city in sorted(DOMESTIC_CITY_NAMES, key=len, reverse=True)
+) + ")"
+MULTI_CITY_HEADER_RE = re.compile(
+    rf"^\s*(?P<cities>{_DOMESTIC_CITY_PATTERN}(?:\s*[、，,和与/]\s*{_DOMESTIC_CITY_PATTERN})+?)"
     r"\s*(?:两地|三地|多地)?(?:游|行程|攻略|旅行)"
 )
 BASIC_CITY_HEADER_RE = re.compile(
-    r"^\s*(?P<city>[\u4e00-\u9fff]{2,6}?)[一二两三四五六七八九十0-9]+"
+    rf"^\s*(?P<city>(?:{_DOMESTIC_CITY_PATTERN})(?:市)?|[\u4e00-\u9fff]{{2,6}}市)"
+    r"\s*[一二两三四五六七八九十0-9]+"
     r"(?:日|天)(?:游|行程|攻略|旅行)"
 )
 DESTINATION_CONTEXT_RE = re.compile(
     r"(?:围绕|一段|整理|关于)\s*"
-    r"(?P<cities>[\u4e00-\u9fff]{2,6}(?:\s*[、，,和与/]\s*[\u4e00-\u9fff]{2,6}){0,2})"
+    r"(?P<cities>[\u4e00-\u9fff]{2,20}(?:\s*[、，,和与/]\s*[\u4e00-\u9fff]{2,20}){0,2})"
     r"\s*的"
 )
 CITY_SEPARATOR_RE = re.compile(r"\s*[、，,和与/]\s*")
@@ -97,9 +145,12 @@ def source_destination_cities(source_text: str) -> tuple[str, ...]:
     as ``围绕北京的`` or ``一段北京、上海的``.
     """
 
-    multi_city = MULTI_DEEP_CITY_HEADER_RE.search(source_text)
+    multi_city = MULTI_CITY_HEADER_RE.search(source_text)
     if multi_city:
-        return _ordered_deep_cities(multi_city.group("cities"))
+        return tuple(
+            city.strip().removesuffix("市")
+            for city in CITY_SEPARATOR_RE.split(multi_city.group("cities"))
+        )
     contextual = DESTINATION_CONTEXT_RE.search(source_text)
     if contextual:
         cities = tuple(
@@ -107,7 +158,7 @@ def source_destination_cities(source_text: str) -> tuple[str, ...]:
             for city in CITY_SEPARATOR_RE.split(contextual.group("cities"))
             if city.strip()
         )
-        if cities:
+        if cities and all(city in DOMESTIC_CITY_NAMES for city in cities):
             return cities
     basic_city = BASIC_CITY_HEADER_RE.search(source_text)
     if basic_city:

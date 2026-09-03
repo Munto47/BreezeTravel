@@ -29,6 +29,7 @@
       "docs/ARCHITECTURE.md",
       "backend/app/main.py",
       "backend/app/trip_understanding/models.py",
+      "backend/app/trip_understanding/full_text.py",
       "backend/app/trip_understanding/knowledge.py",
       "backend/app/trip_understanding/service.py",
       "backend/scripts/export_trip_check_openapi.py",

@@ -18,19 +18,12 @@ from app.trip_understanding.pipeline import (
     ResilientStructuredInferenceProvider,
     StructuredInferenceProvider,
     TripUnderstandingPipeline,
+    source_destination_cities,
 )
 
 
 _CONTROLLED_PLACE_PATH = Path(__file__).resolve().parents[1] / "data" / "amap_mock_places.json"
 _DEEP_CITIES = frozenset({"北京", "上海", "杭州"})
-_MULTI_DEEP_CITY_HEADER_RE = re.compile(
-    r"^\s*(?P<cities>(?:北京|上海|杭州)(?:\s*[、，,和与/]\s*(?:北京|上海|杭州))+?)"
-    r"\s*(?:两地|三地|多地)?(?:游|行程|攻略|旅行)"
-)
-_BASIC_CITY_HEADER_RE = re.compile(
-    r"^\s*(?P<city>[\u4e00-\u9fff]{2,6}?)[一二两三四五六七八九十0-9]+"
-    r"(?:日|天)(?:游|行程|攻略|旅行)"
-)
 _DAY_NUMBER = {
     "一": 1,
     "二": 2,
@@ -1088,18 +1081,9 @@ def _destination(
     candidates: list[_MentionCandidate],
     headings: list[tuple[int, int]],
 ) -> tuple[str, DestinationBasis]:
-    multi_city = _MULTI_DEEP_CITY_HEADER_RE.search(source_text)
-    if multi_city:
-        city_text = multi_city.group("cities")
-        cities = sorted(
-            (city for city in ("北京", "上海", "杭州") if city in city_text),
-            key=city_text.index,
-        )
-        if len(cities) >= 2:
-            return "、".join(cities), DestinationBasis.EXPLICIT
-    basic_city = _BASIC_CITY_HEADER_RE.search(source_text)
-    if basic_city:
-        return basic_city.group("city").removesuffix("市"), DestinationBasis.EXPLICIT
+    source_cities = source_destination_cities(source_text)
+    if source_cities:
+        return "、".join(source_cities), DestinationBasis.EXPLICIT
     candidate_spans = [(item.start, item.end) for item in candidates]
     explicit: list[str] = []
     for city in _DEEP_CITIES:
