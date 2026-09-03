@@ -223,6 +223,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-03 | `c6f3cf2`完整自动组件因两个candidate_cycle=6历史硬编码断言与一次知识建议微秒级性能比值抖动拒绝PASS；候选停止，真实Provider、panel和sealed均未启动 | rejected subject `c6f3cf22ef0c8868d9d6e0c78c99e5f01ed9d4d3`；tree `7619dec18e3c41796b41511d0165f93f5b53644c`；第八周期激活subject为本checkpoint | 自动组件`1847 passed, 41 skipped, 3 failed`；两项治理失败均为期望6而实际合法周期7；知识消融本轮P95回归23.6%后同代码独立复跑PASS，未修改阈值或实现；失败组件未生成PASS回执 | `AUTOMATED_TEST_FAIL / FAIL_CLOSED_HISTORY_PRESERVED / TRANSIENT_MICROBENCH_INVESTIGATED` | `Product progress=EVAL_METRIC / CANDIDATE_REPAIR` | `Governance ratio=失败checkpoint和两个历史周期断言；无产品、Gate、阈值、模型、Provider、数据、oracle或blind变化` | 把治理测试改为持续有效的后续候选约束，定向验证后冻结新候选并从空证据根重跑完整自动组件 | `c6f3cf2`不得晋级；知识性能若在新候选再次真实超阈值则进入产品性能调查；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 完成两项治理断言修复、core-mainline和定向回归，提交push并冻结第八候选 |
 
+| 2026-09-03 | G07工作包测试不再重复冻结历史周期号，并显式接受合法REPAIR_ACTIVE阶段；候选范围、后续周期、路径所有权和远端分支约束保持 | repair subject `21cf7a772e837f19c727a525ddbfe1e935437efa`；tree `23288a10e1e77b34375d8b49018dfb7f14ce3be0`；final evidence subject为本checkpoint | 工作包与知识消融定向`6 passed`，知识性能阈值未改且复跑通过；core-mainline PASS；diff check与GitHub远端commit/tree回读一致 | `LOCAL_AUTOMATED + GOVERNANCE_CONTRACT_PASS + REMOTE_READBACK` | `Product progress=EVAL_METRIC / CANDIDATE_HARDENING` | `Governance ratio=两个动态断言和冻结checkpoint；无产品、Gate、阈值、模型、Provider、数据、oracle或blind变化` | 冻结第八候选，从新的clean checkout与空Git外证据根重新执行正式自动组件；通过后继续全部真实环境与fresh panel | 前一失败自动组件只作诊断；知识性能若再次真实超阈值继续调查；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 提交、push、远端回读并建立exact clean checkout；blind仍不提前运行 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；

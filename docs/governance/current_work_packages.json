@@ -124,7 +124,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "把治理测试从历史候选周期6的精确数字改为持续有效的后续候选约束，同时保留工作类型、阶段、路径所有权、远端分支和blind边界校验。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "21cf7a772e837f19c727a525ddbfe1e935437efa",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
