@@ -69,7 +69,7 @@
       "frontend/e2e/g03-product-delivery.spec.js",
       "frontend/e2e/g03r-result-ui.spec.js"
     ],
-    "base_commit": "da8f0ba66fccf1259bbedcb64882e7df335a48ff",
+    "base_commit": "50bba80707597413fad1ce9c0b9ca955dab355a3",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -402,9 +402,10 @@
       "prompt_path": "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
       "prompt_sha256": "0423e94ad083f1d58b28cf84ba0b7b33aaff2fd629b7148abfeaf74a9799e28a",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
+      "registry_binding_commit": "50bba80707597413fad1ce9c0b9ca955dab355a3",
       "remote_branch": "origin/codex/g07-ui-convergence-r1-fix",
       "role": "CONTRIBUTOR",
-      "status": "WAITING_FOR_WRITER_SLOT",
+      "status": "IN_PROGRESS",
       "worktree_path": "C:/Users/18770/.codex/worktrees/30f3/BreezeTravel"
     }
   ],
@@ -413,5 +414,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_ONLY"
+  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
 }

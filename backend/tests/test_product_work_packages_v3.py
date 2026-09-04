@@ -159,7 +159,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     contributor = registry["packages"][1]
     ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "da8f0ba66fccf1259bbedcb64882e7df335a48ff"
+        "50bba80707597413fad1ce9c0b9ca955dab355a3"
     )
     assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
@@ -185,7 +185,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert ui_contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert ui_contributor["status"] == "IN_PROGRESS"
     assert ui_contributor["baseline_commit"] == contributor["merged_commit"]
     assert ui_contributor["branch"] == "codex/g07-ui-convergence-r1-fix"
     assert ui_contributor["remote_branch"] == (
@@ -204,14 +204,16 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert ui_contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / ui_contributor["prompt_path"]).read_bytes()
     ).hexdigest()
+    assert ui_contributor["registry_binding_commit"] == (
+        "50bba80707597413fad1ce9c0b9ca955dab355a3"
+    )
     assert not {
-        "registry_binding_commit",
         "branch_point_commit",
         "ready_commit",
         "remote_readback_commit",
         "merged_commit",
     } & ui_contributor.keys()
-    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
+    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
