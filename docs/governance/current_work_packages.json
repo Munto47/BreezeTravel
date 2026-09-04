@@ -131,8 +131,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "让miniapp audit:production使用package-lock-only读取冻结生产依赖图，避免完整开发安装树中的dev-only节点被omit=dev误判invalid；保持package-lock和全部依赖版本不变。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
-    "freeze_parent_commit": "33ecf58d3b94958639de437df51f2182e2350abb",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "845dc5a6173118f1d890194accc5a7937e660223",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
