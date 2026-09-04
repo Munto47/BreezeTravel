@@ -10,7 +10,7 @@ BreezeTravel 当前只建设「行程查」：用户粘贴攻略文字，系统�
 
 ## 当前状态
 
-当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01～G06已经归档；G07仍为`IN_PROGRESS`。文字语义与三视图前端已经进入同一主线，当前目标是完成本地自动化 R0 并交给项目所有者体验。R0 只表示本地可运行，不代表 R1/R2、正式 G07、真实 Provider、真人可用性或生产通过。H1、公网、生产、商业、发布、部署和`main`合并仍为`NOT_RUN`或未请求。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01～G06已经归档；G07仍为`IN_PROGRESS`。文字语义与三视图前端已经进入同一主线，本地 fixture 自动化 R0 已通过，当前等待项目所有者用三份真实文字攻略体验。R0 自动化只表示本地闭环可运行，不代表 R1/R2、正式 G07、真实 Provider、真人可用性或生产通过。H1、公网、生产、商业、发布、部署和`main`合并仍为`NOT_RUN`或未请求。
 
 `origin/develop`是正式集成基线；当前获批的候选修复分支、已合并资产和冻结分支以当前 Goal 与[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)为准。新开发不得从历史实验分支继续生长。
 

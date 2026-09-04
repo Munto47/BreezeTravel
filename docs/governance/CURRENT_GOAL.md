@@ -287,6 +287,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 文字与前端两项运行时现已串行合入同一主线；结果页三视图、响应式导航、卡间交通失效提示、权威地图动作、住宿与Top-3体验进入最终自动化R0复验 | UI merge `e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe`；ready `bc33925ba7a6bd1cd116619f39a2234aba109f1a`；stable patch-id均为`67c407ca3d287c7f797cc609155c991037e8c415` | cherry-pick无冲突且恰好10个登记路径；stable patch-id一致；合入前主线clean并与远端对齐；README同步收敛为文字入口和R0边界 | `TEXT_AND_UI_MERGE + PATCH_ID_READBACK + OWNER_R0_PREPARATION` | `Product progress=TEXT_AND_UI_RUNTIME_MERGED / R0_VERIFICATION_ACTIVE` | `Governance ratio=工作包转MERGED、handoff文案和最终复验范围；不改公共API、migration、正式Gate、blind或OCR冻结边界` | 从该合并主线运行40条文字兼容、相关后端与PostgreSQL、前端构建和fresh完整fixture浏览器；通过后启动本地fixture供所有者三份真实文字体验 | 当前行只证明补丁精确合入，不能复用贡献分支结果宣称最终R0；真实Provider、HUMAN_USABILITY、R1/R2和正式G07仍NOT_RUN | 校验并提交/push本MERGED控制checkpoint；在其exact tip完成一次fresh自动化R0并记录实际结果 |
 
+| 2026-09-04 | 合并主线已达到自动化R0并停止扩大验证：文字输入、逐日卡片、三视图、编辑后路线失效、手动地图更新、住宿、Top-3、登录与恢复在本地fixture闭环可运行；现交项目所有者真人体验 | automated R0 subject `ca286dd1cf82a205f5a0a917f1c123f31c6a573f`；UI merge `e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe`；remote exact readback一致 | 文字runner `40/40 safe、37/40 exact、0 hard safety`；相关后端`242 passed`，工作包`13 passed`，PostgreSQL主链`6 passed`；Ruff、scope、core-mainline、frontend production build PASS；fresh隔离数据库上的完整fixture浏览器`67/67 passed`、零失败/跳过/重试；验证进程、临时库与Redis DB14均已清理 | `AUTOMATED_R0_READY_FOR_OWNER + TEXT_COMPAT_R1 + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_R0` | `Product progress=AUTOMATED_R0_READY_FOR_OWNER / HUMAN_USABILITY_NOT_RUN` | `Governance ratio=只登记实际R0结果与owner handoff；不改产品代码、正式Gate、blind或OCR边界` | 创建并远端回读本R0 checkpoint；从最终tip启动持久本地fixture环境，打开浏览器后由所有者使用三份真实文字攻略完成第一轮体验 | fresh库首次直接跑增量migration暴露缺少基础init的环境顺序，按项目bootstrap路径后通过；快速连续Enter与地图状态枚举不变时保守锁定为P2；真实Qwen/高德、HUMAN_USABILITY、R1/R2和正式G07仍NOT_RUN | 保持产品字节冻结；等待所有者三份真实文字结果，只对实际阻碍使用或安全底线的P0/P1继续修复 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -295,9 +297,9 @@ Goal type: CANDIDATE_HARDENING
 ## Completion record
 
 - Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端集成e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe / origin/codex/g07-candidate-cycle-3`；
-- Verification / Evidence / Gate result / `structurally_valid`：`文字贡献提交兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；前端贡献提交build、最终定向9/9、结果页55/55与fresh完整fixture浏览器67/67通过，最终静态复审无P0/P1；两项补丁均已按相同stable patch-id进入主线，但最终主线R0仍需在当前exact tip重跑，R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / MERGED_CONTRIBUTOR_EVIDENCE_DIAGNOSTIC_UNTIL_FINAL_R0_RERUN / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；历史结果均不与本subject拼接；
+- Verification / Evidence / Gate result / `structurally_valid`：`主线文字兼容40/40安全、37/40精确、0安全失败；相关后端242项、工作包13项、PostgreSQL主链6项、Ruff、scope、core-mainline、前端production build及fresh完整fixture浏览器67/67均通过；自动化R0已达到，R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_R0_READY_FOR_OWNER + TEXT_COMPAT_R1 + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_R0 / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`文字主链、三视图、响应式导航和权威地图动作均已进入主线 / 完整主线fixture R0和所有者三份真实文字验收尚未完成；快速连续Enter与保守锁定作为P2登记，正式G07仍NOT_RUN / false`；
+- User-visible result / Remaining risks / Goal archived：`文字主链、三视图、响应式导航和权威地图动作均已进入主线，自动化R0可交付体验 / 所有者三份真实文字验收尚未完成；快速连续Enter与保守锁定作为P2登记，真实Provider、R1/R2与正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

@@ -159,7 +159,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     contributor = registry["packages"][1]
     ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe"
+        "ca286dd1cf82a205f5a0a917f1c123f31c6a573f"
     )
     assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
