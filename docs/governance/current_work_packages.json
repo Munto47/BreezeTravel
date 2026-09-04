@@ -134,8 +134,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "把frontend/e2e/g03r-result-ui.spec.js中新增且已执行通过的登录安全恢复场景计入G07浏览器覆盖常量，并增加精确覆盖回归；不改变产品运行时、测试场景、阈值或Gate。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
-    "freeze_parent_commit": "a86548dc42097998eccbd90525178dc34aee63e1",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "631f4622c314355edc9ad6525fdf36f9d7c237ce",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
