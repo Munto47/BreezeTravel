@@ -85,10 +85,10 @@ Goal type: CANDIDATE_HARDENING
 | Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
 | `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
-| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门至少28/40且40/40无危险输出；取消目标不得以任意名称子串误删；目标36/40；整体R0仍待UI与E2E | `IN_PROGRESS` |
+| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门40/40安全、37/40精确；取消目标独立复审通过；整体R0仍待UI与E2E | `READY_TO_MERGE` |
 | `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字包合并后的精确baseline | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `PENDING_REGISTRATION` |
 
-文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`均测得40/40安全、37/40精确，但先后被独立复审发现取消归属P1，均未登记为`READY_TO_MERGE`且未合并。第二个反例是仅计划“西湖”时，取消更长的“西湖风景名胜区”会因子串匹配误删“西湖”。两个旧远端分支原样保留为诊断资产；最后修复分支`codex/g07-text-convergence-r2-fix`已从远端回读的WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d`建立，当前只允许改为规范化后的精确目标名匹配。若本轮仍不能安全证明，关闭自动取消重分类并统一待确认，不再扩张语法。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已移除任意子串取消绑定，只在剥离受限选择器后做精确名称匹配；主线复测与独立复审均通过，现冻结为`READY_TO_MERGE`，等待唯一集成者串行合并。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -268,6 +268,8 @@ Goal type: CANDIDATE_HARDENING
 | 2026-09-04 | 第二个文字提交`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`虽通过汇总子门，仍因取消长地点名会误删已计划短地点名的独立P1而拒绝；提交未登记READY且未合并，远端原样保留，现进入第二轮也是最后一轮修复 | rejected commit `5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`；parent `d7bfda1b772632f53acf402e1f5f1f7bad607676`；old remote `origin/codex/g07-text-convergence-r1-fix`；replacement `codex/g07-text-convergence-r2-fix`；新的WAITING绑定为本checkpoint | 集成者runner `safe 40/40`、`exact 37/40`、危险输出0；相关回归`255 passed`；Ruff、package validator与core-mainline PASS；独立探针`杭州一日游。Day 1 去西湖；取消西湖风景名胜区。`稳定得到空卡，定位到`name in raw_name`子串绑定 | `AUTOMATED_TEST_R1_SUMMARY_REJECTED_BY_INDEPENDENT_P1 + REMOTE_HISTORY_PRESERVED + REPAIR_REVIEW_CYCLE_2` | `Product progress=NONE / BLOCKING_DEFECT_REBIND` | `Governance ratio=第二轮拒绝记录、精确名称反例与安全降级停止条件；不改产品合同、正式Gate、blind、公共API或OCR边界` | push/readback本WAITING绑定；从其建立最终修复分支，以`git cherry-pick --no-commit 5e81ad2...`复用旧改动，只移除任意子串绑定并补反例 | 本轮若仍有取消错删，关闭自动取消重分类、全部待确认；不得第三轮扩张；整体R0、浏览器、真实Provider和所有者体验仍NOT_RUN | 校验并提交本绑定，创建替代远端分支，再激活同一功能任务完成最后一轮修复复审 |
 
 | 2026-09-04 | 最终文字修复分支已从第二轮WAITING绑定精确建立并远端回读；唯一贡献writer重新激活，只允许将取消目标改为精确名称绑定并补单边名称包含反例 | binding `37eedc23e47dc796c909dde2fcdbabe96b9dcb1d`；branch/remote `codex/g07-text-convergence-r2-fix`；worktree `C:/Users/18770/.codex/worktrees/d597/BreezeTravel`；branch point为本checkpoint | WAITING分支tip与GitHub readback一致；prompt SHA-256 `089313b369aa389eb05e298d388cba40e3e4621c9690616a0a8f527dd658c4cd`；绑定前13项工作包回归、Ruff与core-mainline PASS | `WORK_PACKAGE_REBIND + REMOTE_READBACK + FINAL_REPAIR_WRITER_ACTIVATION` | `Product progress=NONE / BLOCKING_DEFECT_REPAIR_ACTIVE` | `Governance ratio=第二轮唯一writer激活和失败后关闭能力的停止条件；不改正式Gate、公共合同、blind或OCR边界` | 功能任务以`git cherry-pick --no-commit 5e81ad2...`复用旧改动，删除任意子串取消绑定并形成一个新提交；集成者复跑新增反例、全回归及独立复审 | 本轮仍失败时必须关闭自动取消、全部待确认；不得第三轮匹配扩张；整体R0、浏览器、真实Provider和所有者体验仍NOT_RUN | 提交、push并回读本激活checkpoint；将最终修复分支快进至本提交后发送正式修复指令 |
+
+| 2026-09-04 | 最终文字修复通过主线复测和独立攻击性复审，现冻结为READY：40/40安全、37/40精确，取消只按规范化精确名称及明确日期/到访选择器绑定；无法唯一定位时保留并待确认 | ready `7ade404ab3d6c47a03b7465bbbfec160af92725d`；parent/branch point `6f66067b6c4b33d5cffd5aef5587b3d6b416ec57`；binding `37eedc23e47dc796c909dde2fcdbabe96b9dcb1d`；remote readback与ready一致 | 集成者runner 40/40 safe、37/40 exact、0 hard safety；相关回归`257 passed`、Ruff、package validator、core-mainline PASS；独立复审67项新包+178项既有回归及跨日/重复/短长名/正反取消矩阵均PASS；8路径、单提交、clean | `AUTOMATED_TEST_TEXT_COMPAT_R1 + MULTI_AGENT_SIMULATED_REVIEW_ACCEPT + REMOTE_READBACK` | `Product progress=TEXT_RUNTIME + NON_BLIND_COMPATIBILITY_DATA` | `Governance ratio=READY冻结与集成范围开放；不改正式Gate、公共API、blind或OCR边界` | 唯一集成者按8个登记路径cherry-pick该提交，复核patch-id与主线回归；随后将文字包标记MERGED并登记UI包WAITING | UI、整体R0、真实Provider、浏览器和所有者体验仍NOT_RUN；37/40不是R2或G07通过 | 提交、push并回读READY控制checkpoint；串行合并ready提交，不允许贡献分支继续变化 |
 
 ## Auto-advance
 

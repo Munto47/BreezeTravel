@@ -140,7 +140,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert registry["active_slice"]["base_commit"] == (
         "37eedc23e47dc796c909dde2fcdbabe96b9dcb1d"
     )
-    assert contributor["status"] == "IN_PROGRESS"
+    assert contributor["status"] == "READY_TO_MERGE"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
     assert contributor["remote_branch"] == (
         "origin/codex/g07-text-convergence-r2-fix"
@@ -148,13 +148,20 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["registry_binding_commit"] == (
         "37eedc23e47dc796c909dde2fcdbabe96b9dcb1d"
     )
+    assert contributor["branch_point_commit"] == (
+        "6f66067b6c4b33d5cffd5aef5587b3d6b416ec57"
+    )
+    assert contributor["ready_commit"] == (
+        "7ade404ab3d6c47a03b7465bbbfec160af92725d"
+    )
+    assert contributor["remote_readback_commit"] == contributor["ready_commit"]
     assert contributor["prompt_sha256"] == (
         "089313b369aa389eb05e298d388cba40e3e4621c9690616a0a8f527dd658c4cd"
     )
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
+    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
@@ -201,6 +208,14 @@ def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref(
         "backend/scripts/validate_work_packages.py",
         "backend/tests/test_g07_candidate_gate.py",
         "backend/tests/test_product_work_packages_v3.py",
+        "backend/app/trip_understanding/full_text.py",
+        "backend/app/trip_understanding/pipeline.py",
+        "backend/app/trip_understanding/qwen_provider.py",
+        "backend/eval_data/g07_text_convergence_v1/compatibility_cases.schema.json",
+        "backend/eval_data/g07_text_convergence_v1/compatibility_cases.json",
+        "backend/evals/g07_text_convergence_v1/__init__.py",
+        "backend/evals/g07_text_convergence_v1/runner.py",
+        "backend/tests/test_g07_text_convergence.py",
     }
     assert "docs/governance/product_delivery_gates.json" not in allowed
     assert "docs/governance/current_goal_binding.json" not in allowed
@@ -208,10 +223,16 @@ def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref(
     assert "frontend/src" not in allowed
     assert not any("frozen_blind" in path for path in allowed)
 
-    integrator = registry["packages"][0]
-    owned = integrator["owned_paths"]
+    packages = registry["packages"]
     assert all(
-        any(path == root or path.startswith(f"{root}/") for root in owned)
+        sum(
+            any(
+                path == root or path.startswith(f"{root}/")
+                for root in package["owned_paths"]
+            )
+            for package in packages
+        )
+        == 1
         for path in allowed
     )
 

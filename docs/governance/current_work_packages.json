@@ -62,7 +62,15 @@
       "backend/evals/agent_gate_v1/candidate_gate.py",
       "backend/scripts/validate_work_packages.py",
       "backend/tests/test_g07_candidate_gate.py",
-      "backend/tests/test_product_work_packages_v3.py"
+      "backend/tests/test_product_work_packages_v3.py",
+      "backend/app/trip_understanding/full_text.py",
+      "backend/app/trip_understanding/pipeline.py",
+      "backend/app/trip_understanding/qwen_provider.py",
+      "backend/eval_data/g07_text_convergence_v1/compatibility_cases.schema.json",
+      "backend/eval_data/g07_text_convergence_v1/compatibility_cases.json",
+      "backend/evals/g07_text_convergence_v1/__init__.py",
+      "backend/evals/g07_text_convergence_v1/runner.py",
+      "backend/tests/test_g07_text_convergence.py"
     ],
     "base_commit": "37eedc23e47dc796c909dde2fcdbabe96b9dcb1d",
     "evidence_invalidated": [
@@ -94,7 +102,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "拒绝取消目标的任意子串绑定，在不改写旧远端历史的最后修复分支上改为规范化后的精确名称匹配；若仍不能安全证明则关闭自动取消并待确认。",
+    "minimum_change": "登记最终文字修复为READY并冻结远端tip；随后由唯一集成者按登记的8个精确路径串行合并。",
     "phase": "REPAIR_ACTIVE",
     "freeze_parent_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "preflight_entrypoints": [
@@ -337,9 +345,12 @@
       "prompt_sha256": "089313b369aa389eb05e298d388cba40e3e4621c9690616a0a8f527dd658c4cd",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
       "registry_binding_commit": "37eedc23e47dc796c909dde2fcdbabe96b9dcb1d",
+      "branch_point_commit": "6f66067b6c4b33d5cffd5aef5587b3d6b416ec57",
+      "ready_commit": "7ade404ab3d6c47a03b7465bbbfec160af92725d",
+      "remote_readback_commit": "7ade404ab3d6c47a03b7465bbbfec160af92725d",
       "remote_branch": "origin/codex/g07-text-convergence-r2-fix",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "status": "READY_TO_MERGE",
       "worktree_path": "C:/Users/18770/.codex/worktrees/d597/BreezeTravel"
     }
   ],
@@ -348,5 +359,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
+  "writer_activation": "INTEGRATOR_ONLY"
 }
