@@ -61,9 +61,10 @@ def _browser_report(*, skipped: int = 0) -> dict:
     }
 
 
-def test_browser_report_requires_all_42_exact_subject_tests() -> None:
+def test_browser_report_requires_all_43_exact_subject_tests() -> None:
     proof = validate_browser_report(_browser_report(), SUBJECT)
-    assert proof["test_count"] == 42
+    assert proof["test_count"] == 43
+    assert proof["file_counts"]["g03r-result-ui.spec.js"] == 31
     assert proof["file_counts"] == EXPECTED_BROWSER_FILE_COUNTS
 
 

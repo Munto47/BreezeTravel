@@ -40,7 +40,7 @@ from scripts.smoke_g01_live_persistence import (
 EXPECTED_BROWSER_FILE_COUNTS = {
     "g02-product-delivery.spec.js": 1,
     "g03-product-delivery.spec.js": 1,
-    "g03r-result-ui.spec.js": 30,
+    "g03r-result-ui.spec.js": 31,
     "g05-knowledge.spec.js": 3,
     "g06-memory-share.spec.js": 3,
     "trip-understanding-v3.spec.js": 4,
