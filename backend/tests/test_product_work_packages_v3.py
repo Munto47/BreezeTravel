@@ -138,21 +138,23 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     ]
     contributor = registry["packages"][1]
     assert registry["active_slice"]["base_commit"] == (
-        "19a9f5837b16ae4e271a5333cab388c4651277f7"
+        "6ed08f9d37230987b05d73a5d7c9ed7d8022df33"
     )
-    assert contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert contributor["status"] == "IN_PROGRESS"
     assert contributor["branch"] == "codex/g07-text-convergence-r1-fix"
     assert contributor["remote_branch"] == (
         "origin/codex/g07-text-convergence-r1-fix"
     )
-    assert "registry_binding_commit" not in contributor
+    assert contributor["registry_binding_commit"] == (
+        "6ed08f9d37230987b05d73a5d7c9ed7d8022df33"
+    )
     assert contributor["prompt_sha256"] == (
         "f6dd3ab124c91aef1c8ab842a57748299e68ad96f710289ca863110afb7137bf"
     )
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
+    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
