@@ -110,7 +110,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert binding["goal_sequence"] == registry["active_goal_sequence"] == 7
     assert binding["status"] == current_state["goal_status"] == "IN_PROGRESS"
     assert binding["canonical_candidate_ref"] == (
-        "refs/heads/codex/g07-candidate-cycle-2"
+        "refs/heads/codex/g07-candidate-cycle-3"
     )
     assert binding["program_state"] == registry["program_state"]
     assert binding["predecessor_goal_id"] == archived_state["goal_id"]

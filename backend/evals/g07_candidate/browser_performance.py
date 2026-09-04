@@ -151,7 +151,7 @@ def _execution_binding(
         state = {
             "subject_commit": subject_commit or "7" * 40,
             "candidate_tree": candidate_tree or "8" * 40,
-            "upstream_ref": "origin/codex/g07-candidate-cycle-2",
+            "upstream_ref": "origin/codex/g07-candidate-cycle-3",
             "upstream_commit": subject_commit or "7" * 40,
             "dirty_tree": False,
         }

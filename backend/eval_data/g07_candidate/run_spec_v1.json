@@ -3,9 +3,9 @@
   "goal_id": "TC-VNEXT-G07-CANDIDATE",
   "freeze_status": "FROZEN_INPUT_CONTRACT",
   "candidate_subject": {
-    "baseline_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
-    "branch": "codex/g07-candidate-cycle-2",
-    "remote_ref": "refs/heads/codex/g07-candidate-cycle-2",
+    "baseline_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
+    "branch": "codex/g07-candidate-cycle-3",
+    "remote_ref": "refs/heads/codex/g07-candidate-cycle-3",
     "execution_binding": "EXACT_CLEAN_COMMIT_AND_TREE_AT_EXECUTION",
     "cross_commit_evidence_reuse": false
   },

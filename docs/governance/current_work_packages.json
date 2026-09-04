@@ -43,7 +43,15 @@
       "第十二候选修复定向44项Provider/地图回归、25项核心回归、core-mainline及真实18次Provider诊断通过；三城12个路线选项事实合理且默认路线分别为北京步行、上海步行、杭州公交",
       "8927c66候选干净自动套件1852项通过、41项按合同跳过，但本轮路线修复6个文件未进入active slice/integrator精确路径登记，工作包校验以ACTIVE_SLICE_SCOPE_VIOLATION拒绝；其余正式层未启动",
       "第十三候选周期只补齐上述6个已有修复文件的精确路径所有权，不改变产品代码、Gate、阈值或验证内容",
-      "第十三候选的6个精确路径登记已通过5项工作包回归与core-mainline，未增加目录级范围"
+      "第十三候选的6个精确路径登记已通过5项工作包回归与core-mainline，未增加目录级范围",
+      "项目所有者于2026-09-04批准从0b2f098建立新的文字与前端合流周期；BreezeTravel仍是唯一产品主干，TripCheck仅提供非blind行为测试和界面参考",
+      "R0/R1是可运行与受控试用检查点，不构成G07通过；只有R2继续满足原HARDENED_CANDIDATE_GATE时才可声明候选通过",
+      "本周期公开入口继续只接受文字，不开发、不运行、不验收OCR、截图上传或图片理解",
+      "40条版本化兼容样例按10条结构角色日期、10条时间取消改期、8条地点城市类别、6条Revision地图Provider、6条隐私文案组成；不得由blind输入或真值派生",
+      "R0要求40/40无危险输出且至少28条自动符合预期；R1至少36条；R2为40/40精确通过并保持正式G07门槛",
+      "任何级别均不得降低错城错类别假地点、越权与泄漏、删除假成功、编辑后自动路线调用、UNKNOWN冒充成功、推测路线、红色误用或不可恢复空白页等安全底线",
+      "可降低项只限召回、边缘日期角色、非关键性能、视觉细节和非核心浏览器；先测量、最多两轮不同修复，随后诚实降级到R1或R0",
+      "贡献工作包严格串行：文字语义与兼容样例在前，结果页三视图与响应式体验在后；公共v3 API、OpenAPI、命令、ETag、migration和共享客户端类型保持不变"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -116,9 +124,15 @@
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
       "backend/eval_data/g07_candidate/run_spec_v1.json",
       "backend/eval_data/agent_gate_v1/protocol_contract.json",
+      "backend/eval_data/agent_gate_v1/current_goal_binding.schema.json",
+      "backend/evals/agent_gate_v1/contracts.py",
+      "backend/evals/g07_candidate/live_spec_builder.py",
+      "backend/scripts/build_release_manifest.py",
+      "backend/scripts/run_g07_sealed_candidate.py",
+      "backend/tests/test_g07_candidate_gate.py",
       "backend/tests/test_product_work_packages_v3.py"
     ],
-    "base_commit": "1034d9249d0b144e2895a989ae277e412bba1e50",
+    "base_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -137,7 +151,8 @@
       "G07_FINAL_33ECF58_AUTOMATED_SUPPLY_CHAIN_LOCK_CLASSIFICATION_CANDIDATE_REJECTED",
       "G07_FINAL_A86548D_BROWSER_COVERAGE_BINDING_CANDIDATE_REJECTED",
       "G07_FINAL_3C46172_LIVE_ROUTE_FACT_INTEGRITY_PANEL_P1_CANDIDATE_REJECTED",
-      "G07_FINAL_8927C66_AUTOMATED_ACTIVE_SLICE_SCOPE_BINDING_REJECTED"
+      "G07_FINAL_8927C66_AUTOMATED_ACTIVE_SLICE_SCOPE_BINDING_REJECTED",
+      "G07_FINAL_0B2F098_FORMAL_MATRIX_NOT_RUN_SUPERSEDED_BY_OWNER_TEXT_UI_CONVERGENCE"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -147,9 +162,9 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "仅将本轮已修改的路线采集、G4验证和对应测试6个精确文件补入active slice与integrator owned_paths；不增加目录级范围，不改变产品行为、Gate或阈值。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "16104bbbdc5823e8c41c4a49e7e40dfdc1b7c849",
+    "minimum_change": "只重绑定0b2f098之上的第三合流分支，登记R0/R1/R2与两项串行贡献包边界；本切片不改产品运行时、公共合同、Gate、blind或OCR冻结资产。",
+    "phase": "REPAIR_ACTIVE",
+    "freeze_parent_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -157,12 +172,26 @@
       "backend/tests/test_product_work_packages_v3.py"
     ],
     "preflight_required_tokens": {},
-    "product_progress": "RUNTIME",
-    "candidate_cycle": 13,
-    "repair_review_cycle": 1,
+    "product_progress": "NONE / GOAL_TRANSITION",
+    "candidate_cycle": 14,
+    "repair_review_cycle": 0,
+    "delivery_levels": {
+      "R0": "40/40无危险输出、至少28条自动符合预期、桌面和手机文字主链可操作；允许诚实遗漏与手工补充，不称G07通过",
+      "R1": "至少36条自动符合预期、真实Qwen与高德核心旅程在封闭环境可用、五个目标视口无阻断；不称G07通过",
+      "R2": "40/40精确通过并满足完整正式Provider、响应式、无障碍、浏览器矩阵和HARDENED_CANDIDATE_GATE"
+    },
+    "safety_floor": [
+      "错误城市、类别、描述句或URL被自动确认成地点为0",
+      "越权、原文、秘密或内部字段泄漏为0",
+      "删除未完成却显示成功为0",
+      "编辑后自动调用路线Provider为0",
+      "UNKNOWN或UNAVAILABLE展示成成功为0",
+      "路线缺失时绘制推测路线为0",
+      "普通失败误用红色或留下不可恢复空白页为0"
+    ],
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若真实路线仍可把缺失/零时长标为成功、G4仍默认driving或违反walking/transit十分钟规则、任一城市路线速度明显不合理，或既有文本主链、供应链、隐私和语义边界回归，则不得冻结候选；不重新建设或验证OCR。",
-    "user_outcome": "公开产品只接收攻略文字；真实地图验证必须给出可用且物理合理的步行/公交时长，并与产品默认选路规则一致，不能再把缺失字段伪装为1分钟或默认驾车；随后从零完成完整候选验证并交付owner真人体验。",
+    "stop_condition": "达到R0后立即停止扩大自动验收并交付项目所有者用三份真实文字攻略体验；若安全底线失败则关闭对应自动能力并回退待确认、LIMITED或UNAVAILABLE；R2正式证据仍未运行时不得宣称G07通过。",
+    "user_outcome": "用户只粘贴攻略文字即可进入清晰的逐日卡片，并在行程、地图与住宿、优先检查三个视图中完成编辑、看到路线需要更新、手动更新地图和理解Top-3；第一目标是诚实可运行的R0，不等待完整G07。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
@@ -189,15 +218,15 @@
   "packages": [
     {
       "acceptance": [
-        "第二候选周期授权、分支和fresh远端基线可回读",
-        "RunSpec、live/browser/sealed/manifest适配只接受codex/g07-candidate-cycle-2",
+        "第三合流周期授权、分支和0b2f098 fresh远端基线可回读",
+        "RunSpec、live/browser/sealed/manifest适配只接受codex/g07-candidate-cycle-3",
         "上一周期全部组件与stop checkpoint只作为失败历史，不可拼接为新周期PASS",
         "H1、公网、生产、商业、发布、部署、release和main保持未运行或未请求",
         "项目所有者已撤销OCR需求、处理和验证；历史截图/OCR资产冻结且不进入第三候选周期",
         "关闭公开旧页面与内部字段泄漏、修正Top-3配色、升级已有关键依赖并复验文本主链"
       ],
-      "baseline_commit": "76f92b1f9ad1592cee256417658c13c3a5c858e7",
-      "branch": "codex/g07-candidate-cycle-2",
+      "baseline_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
+      "branch": "codex/g07-candidate-cycle-3",
       "dependencies": [],
       "dialogue_ref": "codex-task:primary-integrator",
       "execution_mode": "PRIMARY_INTEGRATOR_DIALOGUE",
@@ -317,7 +346,7 @@
         "packages/trip-check-client/src/v3.ts"
       ],
       "package_id": "WP-G07-INTEGRATOR",
-      "remote_branch": "origin/codex/g07-candidate-cycle-2",
+      "remote_branch": "origin/codex/g07-candidate-cycle-3",
       "role": "INTEGRATOR",
       "status": "IN_PROGRESS",
       "worktree_path": "D:/CODEX/BreezeTravel"

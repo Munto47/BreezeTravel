@@ -39,8 +39,8 @@ Goal type: CANDIDATE_HARDENING
 - Activation：G06 Consent & Share Gate与`PRODUCT_DELIVERY_PASS`已通过并归档
 - Governance transition baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`
 - Activation branch / worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`
-- Canonical implementation branch / worktree：`codex/g07-candidate-cycle-2` / `D:/CODEX/BreezeTravel`；项目所有者于2026-09-02明确批准第二候选修复周期
-- Upstream / remote readback：交接基线`origin/codex/workspace-handoff-20260902@76f92b1f9ad1592cee256417658c13c3a5c858e7`，其父为原候选停止点`71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`，并保留`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`祖先；2026-09-02 fresh fetch与`ls-remote`一致
+- Canonical implementation branch / worktree：`codex/g07-candidate-cycle-3` / `D:/CODEX/BreezeTravel`；项目所有者于2026-09-04批准从`0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`开启文字主链与前端体验合流周期
+- Upstream / remote readback：`origin/codex/g07-candidate-cycle-3@0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`；原`origin/codex/g07-candidate-cycle-2`及其候选证据完整保留为历史诊断，不拼接到本周期
 - Predecessor：G06产品`e3de1b57b014439ec16eb0034e8b7e47867053d0`、交付回执`215770f2ad975ed89271047fa40780fdddbd02a0`、PR #20 integration `9994be151923b9c349fc1129605777032a0b8ebe`；develop exact-tip GitHub Actions `33402780730 PASS`
 - Required gate：`Candidate Evidence Gate G0～G7 + HARDENED_CANDIDATE_GATE_PASS`
 - Next Goal：`TC-H1-G01-HUMAN-USABILITY`（仅人工批准后）
@@ -54,7 +54,7 @@ Goal type: CANDIDATE_HARDENING
 
 ## User Outcome
 
-用户可在候选环境稳定完成登录/体验、文本输入、卡片编辑、地图查看与手动更新、住宿选择、Top-3核验、建议采纳、偏好和分享；每项能力有同一候选commit的可回读证据。项目所有者已撤销OCR要求，截图/OCR不再进入公开产品或候选验收。
+用户无需填写城市、日期、人数或房间，只粘贴攻略文字即可得到可编辑的逐日卡片；随后在“行程 / 地图与住宿 / 优先检查”三视图中理解路线、修正地点、看到地图需要更新、手动更新地图并处理Top-3。第一阶段先交付诚实可运行的R0；R0/R1不冒充正式候选通过，R2才执行原有完整G07门槛。截图/OCR不进入公开产品、实现或验收。
 
 ## Scope
 
@@ -68,11 +68,14 @@ Goal type: CANDIDATE_HARDENING
 - release manifest与最终disclosure。
 - 将历史截图/OCR入口从公开Web、小程序、公共后端路由和当前Gate中移除；既有实现与证据只读冻结，不删除历史数据或migration。
 - 将旧manifest生成器适配TC-VNEXT Goal/Gate、v3 OpenAPI、新数据集和同绑定receipts；旧360/三城测试只作历史兼容。
+- 在现有领域模型内合流文字语义：Day标签、箭头、全角标点、地点顺序、时间归属、取消/恢复/备选/改期和保守地点边界；不新增时长字段。
+- 建立40条版本化非blind兼容样例，按`10 + 10 + 8 + 6 + 6`覆盖结构角色日期、时间取消改期、地点城市类别、Revision地图Provider、隐私和普通用户文案。
+- 保留BreezeTravel品牌、首页、住宿、Top-3、分享、隐私删除、软假设和错误恢复；借鉴TripCheck的三视图、窄侧栏、手机底栏、横向日卡与地图浮动目录，但不复制整份组件或CSS。
 
 ## Pre-approved actions
 
-- 不预批准新产品功能、migration或Provider；
-- 允许在既有合同内修复候选阻断；
+- 预批准本轮文字语义与前端体验合流，但不预批准其外的新产品功能、migration或Provider；
+- 允许在既有公共合同内修复候选阻断，并在达到R0后先交付所有者体验；
 - 允许当前已有零增量费用Provider Gate；
 - 允许受控demo artifact、视频脚本和manifest；
 - 公网部署本身仍需人工批准。
@@ -81,10 +84,9 @@ Goal type: CANDIDATE_HARDENING
 
 | Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
-| `WP-G07-INTEGRATOR` | G07治理、候选评测/回执、既有CI及阻断修复；首切片仅限Trip NLU candidate manifest与方案A移除路径 | G06冻结候选 | fresh baseline可回读；两个历史失败恢复普通PASS；例外执行器不再生效 | `INTEGRATOR_ONLY / CANDIDATE_HARDENING` |
-| `WP-G07-PERFORMANCE` | 性能、资源预算和基准回执 | G01～G06冻结候选 | 主链P95与资源预算通过 | `NOT_STARTED` |
-| `WP-G07-RELIABILITY` | 并发、恢复、lease、幂等与故障矩阵 | 同commit候选 | 重复副作用0、恢复可回读 | `NOT_STARTED` |
-| `WP-G07-PRIVACY-DEMO` | 隐私/权限审查、manifest和演示材料 | 同commit公共投影 | 泄漏0、材料与边界一致 | `NOT_STARTED` |
+| `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
+| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | 激活与提示词绑定commit | R0至少28/40且40/40无危险输出；目标R1 36/40 | `PENDING_REGISTRATION` |
+| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字包合并后的精确baseline | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `PENDING_REGISTRATION` |
 
 当前registry只激活唯一集成者的小程序构建依赖可复现性修复切片。恢复/生命周期、语义修复、Windows字节稳定性与OPTIONAL兼容修复已分别在`3e1b0cd`、`02780a2`、`3db53a5`、`61bd343`远端回读；本切片只把Taro 4.2.1要求的webpack从浮动范围固定到精确兼容版本，不修改小程序源码、测试、功能或构建绕过策略。上一周期全部PASS组件与stop checkpoint只作失败历史，不能拼接；任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
@@ -94,7 +96,9 @@ Goal type: CANDIDATE_HARDENING
 - 历史证据不得拼接。
 - 自动/fixture/live/browser/public/human分层披露。
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不等于H1、生产或商业。
-- 新功能请求进入未来Program，不在收口Goal扩展。
+- 除本轮获批的文字与前端合流外，新功能请求进入未来Program。
+- R0与R1是有效的产品交付检查点但不是G07 PASS；R2才允许运行并声明正式候选门结果。
+- 召回、边缘日期角色、非关键性能、视觉细节和非核心浏览器允许在初测与最多两轮不同修复后降级；安全底线绝不降低。
 - 所有`NOT_RUN`明确列出。
 - 当前合同`structurally_valid=true`只表示结构一致；历史Intake/Candidate仍不得改写或替代当前Gate，也不得因此宣称 `V1_CANDIDATE_READY`。
 - G04方案A两个精确历史失败例外必须在G07 exact-binding验收前移除；移除证据与候选commit绑定，不得扩大或重命名例外。
@@ -124,6 +128,14 @@ Goal type: CANDIDATE_HARDENING
 - `HardeningDecision`与候选commit绑定；所选控制全部实际验证，未选控制明确为`NOT_REQUIRED_WITH_RATIONALE`而非伪装PASS。
 - OCR、截图上传、真实OCR样本、OCR性能和截图browser场景均不属于当前候选验收，不得以`NOT_RUN`阻断或以历史PASS充数。
 
+### 分级产品检查点
+
+- `R0 本地可运行`：40/40无危险输出、至少28条自动符合预期；桌面与手机的文字输入、卡片、编辑、地图需要更新、手动更新与Top-3主路径可操作；固定闭环可用，实时Provider失败可诚实显示受限。
+- `R1 安全受控试用`：至少36条自动符合预期；五个目标视口无阻断问题；真实Qwen/高德核心旅程在本机或封闭环境可用。
+- `R2 正式候选`：40/40精确通过，并满足现有正式统计、Provider、响应式、无障碍、浏览器矩阵和`HARDENED_CANDIDATE_GATE`。
+- 所有级别安全底线相同：错误城市/类别/描述句/URL自动确认成地点、越权或内部泄漏、删除假成功、编辑后自动路线调用、`UNKNOWN/UNAVAILABLE`冒充成功、推测路线、普通失败误用红色、不可恢复空白页均为0。
+- 可降低项必须先测量，最多两轮不同策略；仍不达标则诚实标记R1或R0并记录实际结果，不为单个边缘指标新建治理系统。
+
 ## Verification
 
 - full backend pytest/Ruff；
@@ -147,16 +159,18 @@ Goal type: CANDIDATE_HARDENING
 - 激活baseline：`origin/develop@9994be151923b9c349fc1129605777032a0b8ebe`；治理过渡branch/worktree：`codex/g06-g07-transition` / `D:/munto/code/claudeProject/agentTravel-g06-g07-transition`；
 - 第一候选周期baseline：`origin/develop@ff36a10ecae98088742e9722da3f4bf3676f6d04`；原分支`codex/g07-candidate`停止于`71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`，不得再写入；
 - 第二候选周期baseline：`origin/codex/workspace-handoff-20260902@76f92b1f9ad1592cee256417658c13c3a5c858e7`；branch/worktree：`codex/g07-candidate-cycle-2` / `D:/CODEX/BreezeTravel`；仍以`origin/develop@ff36a10`为集成祖先，不把交接提交或上一周期组件视为Gate PASS；
+- 第三合流周期baseline：`origin/codex/g07-candidate-cycle-3@0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`；branch/worktree：`codex/g07-candidate-cycle-3` / `D:/CODEX/BreezeTravel`；原分支不再写入，所有旧证据只作历史诊断；
 - dirty tree或不同binding结果不得拼接；H1/production/commercial：`NOT_RUN`。
 
 ## Invariants
 
-- 不新增产品功能、不降低Gate、不修改blind/oracle；
+- 只实现项目所有者批准的文字与前端合流，不改变公共v3 API、OpenAPI、命令、ETag、migration、共享客户端类型、blind或oracle；
 - G0～G7同一subject/config/dataset/model/rule/provider重新运行；
 - fixture/snapshot/live/browser/public/human/commercial分层；UNKNOWN/NOT_RUN不算PASS；
 - 当前公开输入只接受文本；历史截图/OCR资产生产默认关闭且不进入Gate。
 - Provider许可、隐私删除、内部字段和事实正确性均为阻断项；
 - `VNEXT_CANDIDATE_READY_AGENT_VERIFIED`不自动授权H1、公网、生产、release或`main`。
+- 地点不确定时宁可遗漏或标记“待确认”；编辑后不得自动调用路线Provider，旧地图与旧时长必须立即显示为需要更新而非当前事实。
 
 ## Budget
 
@@ -165,7 +179,7 @@ Goal type: CANDIDATE_HARDENING
 
 ## HITL
 
-新功能/schema/migration/依赖/Provider、费用、修改blind、公开demo部署、H1招募/consent、release/`main`需批准。
+本轮以外的新功能、schema/migration/依赖/Provider、费用、修改blind、公开demo部署、向其他真实用户开放R1、H1招募/consent、release/`main`需批准。
 
 ## Checkpoint ledger
 
@@ -245,6 +259,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 第十二轮路线修复的6个文件现逐一登记到active slice与integrator所有权，没有增加目录级通配范围 | repair subject `16104bbbdc5823e8c41c4a49e7e40dfdc1b7c849`；tree `56f64820d62125aede1877463e6e454cef083751`；final evidence subject为本checkpoint | 工作包精确回归`5 passed`；core-mainline PASS且`ACTIVE_SLICE_SCOPE_VIOLATION`消失；diff check通过；repair subject与GitHub远端回读一致 | `LOCAL_AUTOMATED + WORK_PACKAGE_SCOPE_PASS + CORE_MAINLINE_PASS + REMOTE_READBACK` | `Product progress=WORK_PACKAGE_BINDING / CANDIDATE_REPAIR_CLOSED` | `Governance ratio=6个精确路径登记与冻结checkpoint；无产品、Gate、阈值、模型、Provider、数据、oracle、blind或OCR变化` | 冻结第十三候选，从新的干净checkout与空Git外证据根重跑全部正式矩阵；panel通过后才运行sealed | 当前仅修复路径绑定；`8927c66`的1852项PASS不得拼接；Provider STARTED崩溃窗口继续后置；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 提交、push并远端回读冻结候选，建立exact clean checkout后从自动组件重新开始 |
 
+| 2026-09-04 | 项目所有者批准以BreezeTravel为唯一主干、TripCheck为测试与界面供体，从文字主链和三视图体验先交付R0；正式G07保持未通过直到R2 | baseline `0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`；branch `codex/g07-candidate-cycle-3`；本激活commit待提交 | baseline、旧分支保留与新远端分支已核对；TripCheck 6文件WIP已保存为`01bc0ad65cbb1dc4f8fb4db2cabb6ff9211e3681`并远端回读；产品代码、40条兼容包和新UI尚`NOT_RUN` | `OWNER_AUTHORIZATION + RECOVERABLE_REMOTE_BASELINE + GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=周期重绑定、R0/R1/R2与串行工作包边界；不改正式Gate、blind、公共合同或OCR冻结边界` | 提交并远端回读激活；登记并启动文字语义贡献包，验收合并后再启动前端贡献包；达到R0即交付所有者三份真实文字攻略体验 | `0b2f098`完整正式矩阵未重跑；TripCheck仍有23项回归；R0/R1/R2、真实Provider和所有者体验均未运行，不能声明G07通过 | 运行治理定向、core-mainline、diff复核，提交push后生成版本化文字工作包提示词并启动独立功能任务 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -252,16 +268,16 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 第二候选最终证据subject a56a1ce3ebc6d96f39e28753f5a6f1168eab7563已远端回读但被fresh panel与供应链/OCR状态拒绝；停止checkpoint bb5498646c357903d56b2f71c566bae38e55c8b0已远端回读 / origin/codex/g07-candidate-cycle-2`；
-- Verification / Evidence / Gate result / `structurally_valid`：`自动化、真实Qwen/高德、PostgreSQL、browser和50链performance PASS；真实OCR INVALID_OR_INCOMPLETE；supply chain FAIL；fresh panel裁决2个P1+2个当前范围P2且scenario union=false，MULTI_AGENT_PANEL fail-closed；sealed与最终HARDENED_CANDIDATE_GATE均NOT_RUN / AUTOMATED_TEST_PASS + LIVE_PROVIDER_EVIDENCE_PASS + CONTROLLED_POSTGRESQL_PASS + LOCAL_CONTROLLED_BROWSER_FIXTURE_PASS + PERFORMANCE_PASS + OCR_INCOMPLETE + SUPPLY_CHAIN_FAIL + MULTI_AGENT_SIMULATED_REVIEW_FAIL / HARDENED_CANDIDATE_GATE_NOT_RUN / 合同fail-closed`；历史结果均不与本subject拼接；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 第三合流周期激活subject待提交 / origin/codex/g07-candidate-cycle-3`；
+- Verification / Evidence / Gate result / `structurally_valid`：`新周期只完成远端baseline与合同重绑定，40条兼容包、产品实现、R0/R1/R2、真实Provider、浏览器、所有者体验及正式候选矩阵均NOT_RUN / OWNER_AUTHORIZATION + REMOTE_BASELINE / HARDENED_CANDIDATE_GATE_NOT_RUN / 待本激活切片验证`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`文本→逐日卡片→真实地点/地图→编辑→Top-3复检主链已有通过证据，跨城、引用/备选误落卡等语义问题已修复 / 普通用户仍可进入旧诊断/房间页面并看到内部信息；真实截图OCR未完成；Web/小程序生产依赖仍有critical；Top-3配色错误；Provider崩溃窗口缺STARTED持久回执 / false`；
+- User-visible result / Remaining risks / Goal archived：`现有文本主链仍可运行，但新合流体验尚未实现；下一结果必须保留Breeze品牌与能力并提供行程、地图与住宿、优先检查三视图 / 40条兼容样例、响应式三视图和所有者三份真实文字验收尚未完成；正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 
 ## Stop conditions
 
-- 需要新增产品功能才能通过；
+- 需要超出已批准文字与前端合流范围的新产品功能才能继续；
 - 需要降低任何Gate；
 - 需要拼接历史证据；
 - 需要新增Provider权限/费用，或隐私/事实矛盾只能通过改变Gate解决；
@@ -270,3 +286,5 @@ Goal type: CANDIDATE_HARDENING
 - 第一候选周期的停止条件已由`252f43d`触发，状态永久保留于`G07.final-panel-stop-checkpoint.json`；该历史状态不得被改写为PASS。
 - 第二候选周期同一finding最多执行两种可验证修复策略；仍失败时采用诚实保守降级或请求owner决定，不得降低Gate。
 - 第二候选周期final fresh panel若仍接受任何当前范围P0/P1，则候选继续FAIL并在sealed blind前停止。
+- 第三合流周期达到R0后停止扩大自动验收并交付项目所有者体验；只有真实体验暴露的P0/P1继续修复，轻微视觉与边缘召回进入后续列表。
+- 第三合流周期任何安全底线失败都不得降级门槛，只能关闭相应自动能力并回退为“待确认”、`LIMITED`或`UNAVAILABLE`。

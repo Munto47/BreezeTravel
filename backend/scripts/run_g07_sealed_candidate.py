@@ -66,7 +66,7 @@ REFERENCE_DRAFT_PROMPT = (
 REFERENCE_ADJUDICATION_PROMPT = (
     BACKEND_ROOT / "eval_data/trip_text_cards_agent_v2/prompts/adjudication.md"
 )
-CANONICAL_REF = "refs/heads/codex/g07-candidate-cycle-2"
+CANONICAL_REF = "refs/heads/codex/g07-candidate-cycle-3"
 CANONICAL_ORIGIN = "https://github.com/Munto47/BreezeTravel.git"
 FROZEN_INPUT_SHA256 = "a1d98c44ba5626513546c0c525e335623acbac1ef7f9e1d4431995131c602008"
 _ENV_KEYS = {"AMAP_API_KEY", "QWEN_API_KEY", "QWEN_API_URL"}

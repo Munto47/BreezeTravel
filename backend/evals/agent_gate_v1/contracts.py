@@ -1049,6 +1049,7 @@ class CurrentGoalBinding(StrictModel):
         "refs/heads/codex/trip-check-product-reset",
         "refs/heads/codex/g07-candidate",
         "refs/heads/codex/g07-candidate-cycle-2",
+        "refs/heads/codex/g07-candidate-cycle-3",
     ] = "refs/heads/codex/trip-check-product-reset"
     predecessor_goal_id: str
     predecessor_completion_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
@@ -1108,6 +1109,7 @@ class CurrentGoalBinding(StrictModel):
                 if self.canonical_candidate_ref not in {
                     "refs/heads/codex/g07-candidate",
                     "refs/heads/codex/g07-candidate-cycle-2",
+                    "refs/heads/codex/g07-candidate-cycle-3",
                 }:
                     raise ValueError("current Goal v3 must bind the G07 candidate ref")
                 required_v3 = (
