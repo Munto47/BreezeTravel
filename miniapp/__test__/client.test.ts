@@ -124,4 +124,14 @@ describe('shared TripCheckClient', () => {
     expect(source).toContain('重新准备建议')
     expect(source).toContain('timer.current = setTimeout(() => void load(), 1000)')
   })
+
+  test('production audit reads the frozen lock graph', () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(__dirname, '..', 'package.json'), 'utf8'),
+    ) as { scripts?: Record<string, string> }
+
+    const auditCommand = packageJson.scripts?.['audit:production'] || ''
+    expect(auditCommand).toContain('process.env.npm_execpath')
+    expect(auditCommand).toContain("'--package-lock-only','--omit=dev','--audit-level=high'")
+  })
 })

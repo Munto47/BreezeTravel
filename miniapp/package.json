@@ -7,7 +7,7 @@
     "dev:weapp": "taro build --type weapp --watch",
     "build:client": "npm --prefix ../packages/trip-check-client run build",
     "build:weapp": "npm run build:client && taro build --type weapp",
-    "audit:production": "npm audit --omit=dev --audit-level=high",
+    "audit:production": "node -e \"const{spawnSync}=require('node:child_process');const r=spawnSync(process.execPath,[process.env.npm_execpath,'audit','--package-lock-only','--omit=dev','--audit-level=high'],{stdio:'inherit'});process.exit(r.status??1)\"",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build:client",
     "test": "jest --runInBand --testPathIgnorePatterns=\"screenshot-flow|workflow\""

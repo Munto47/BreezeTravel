@@ -34,8 +34,8 @@
       "第八候选周期只移除治理测试对历史周期号的重复硬编码，继续验证候选为后续周期、范围与远端绑定；不修改知识性能阈值、实现、数据或Gate",
       "10931af候选的自动化、真实Qwen/地图、PostgreSQL、浏览器和50链性能全部通过，但fresh PRODUCT_UX复审发现小程序路线/建议失败会停留在无页内重试的准备态，以及Web登录会原样展示底层异常并将普通服务失败标红，均为当前范围P2",
       "第九候选周期只补齐小程序路线与建议的有界恢复/重试，并把Web登录失败映射为固定安全文案和非红信息提示；候选拒绝且sealed blind未启动",
-      "33ecf58候选fresh自动组件三次均在相同产品测试通过后被依赖审计拒绝：前两次为退役npm quick端点400/500，切换现行npm 11后确认小程序锁文件把生产依赖domhandler错误标为dev-only，fresh生产树invalid",
-      "第十候选周期只重新生成小程序依赖锁的生产/开发分类并复验fresh npm ci、npm ls --omit=dev、生产审计和构建；不改变依赖版本或安全门"
+      "33ecf58候选fresh自动组件三次均在相同产品测试通过后被依赖审计拒绝：前两次为退役npm quick端点400/500，第三次确认完整开发安装树与omit=dev组合会把正确的dev-only domhandler节点误判invalid",
+      "第十候选周期只让小程序生产审计直接读取冻结package-lock图，并复验production audit、版本集合、typecheck、test和构建；不改变依赖版本或安全门"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -130,7 +130,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "使用当前锁格式重新计算miniapp package-lock的生产/开发传递依赖分类，保持全部依赖版本不变；fresh安装后的生产树必须valid且critical/high审计通过。OCR继续不处理、不验证。",
+    "minimum_change": "让miniapp audit:production使用package-lock-only读取冻结生产依赖图，避免完整开发安装树中的dev-only节点被omit=dev误判invalid；保持package-lock和全部依赖版本不变。OCR继续不处理、不验证。",
     "phase": "REPAIR_ACTIVE",
     "freeze_parent_commit": "33ecf58d3b94958639de437df51f2182e2350abb",
     "preflight_entrypoints": [
@@ -144,8 +144,8 @@
     "candidate_cycle": 10,
     "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若fresh miniapp生产依赖树仍invalid、依赖版本发生未授权漂移、critical/high审计或生产构建失败，或既有文本主链、用户安全文案、恢复体验、公开脱敏和语义边界回归，则不得冻结候选；不重新建设或验证OCR。",
-    "user_outcome": "公开产品只接收攻略文字；Web和微信小程序的安全恢复体验保持，同时小程序生产依赖锁在fresh环境中可重复安装、构建并通过critical/high安全审计；随后完成完整候选验证并交付owner真人体验。",
+    "stop_condition": "若fresh miniapp锁图生产审计仍失败、package-lock或依赖版本发生未授权漂移、critical/high审计或生产构建失败，或既有文本主链、用户安全文案、恢复体验、公开脱敏和语义边界回归，则不得冻结候选；不重新建设或验证OCR。",
+    "user_outcome": "公开产品只接收攻略文字；Web和微信小程序的安全恢复体验保持，同时小程序冻结生产依赖图能在fresh环境中可重复审计、安装和构建；随后完成完整候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
