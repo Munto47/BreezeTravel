@@ -1,18 +1,18 @@
 # BreezeTravel「行程查」
 
-BreezeTravel 当前只建设「行程查」：用户粘贴攻略或上传截图，系统先生成高准确率逐日卡片并后台准备路线，再用最多三个用户友好的重点问题帮助用户把计划变得可执行。北京、上海、杭州提供深度核验；其他国内城市先提供基础整理并明确边界。
+BreezeTravel 当前只建设「行程查」：用户粘贴攻略文字，系统先生成高准确率逐日卡片并后台准备路线，再用最多三个用户友好的重点问题帮助用户把计划变得可执行。北京、上海、杭州提供深度核验；其他国内城市先提供基础整理并明确边界。当前公开入口只接受文字，不处理或验证截图、图片理解与 OCR。
 
 ```text
-文本/截图 → 语义行程与原子地点 → 用户卡片
+攻略文字 → 语义行程与原子地点 → 用户卡片
 → 后台步行/公交地图 → 住宿补全 → Top-3 核验
 → 最小修改 → 新版本 → 手动地图更新与完整复检
 ```
 
 ## 当前状态
 
-当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01～G06已经归档；G07候选收口仍标记为`IN_PROGRESS`，但2026-09-02第三轮final panel已触发停止条件，候选未通过，不得自行开启第四轮修复或sealed blind。远端停止点是`codex/g07-candidate@71b8513d4dcdc61e585e1bee6c02ce004a6ee0ac`；跨电脑续工说明见[工作区交接检查点](docs/governance/WORKSPACE_HANDOFF_2026-09-02.md)。H1、公网、生产、商业、发布、部署和`main`合并仍为`NOT_RUN`或未请求。
+当前执行切片只以 [`CURRENT_GOAL.md`](docs/governance/CURRENT_GOAL.md) 为准，完整阶段定义见 [`PROGRAM.md`](docs/governance/PROGRAM.md)。G01～G06已经归档；G07仍为`IN_PROGRESS`。文字语义与三视图前端已经进入同一主线，当前目标是完成本地自动化 R0 并交给项目所有者体验。R0 只表示本地可运行，不代表 R1/R2、正式 G07、真实 Provider、真人可用性或生产通过。H1、公网、生产、商业、发布、部署和`main`合并仍为`NOT_RUN`或未请求。
 
-`origin/develop`是唯一集成基线；当前分支收口、已合并资产和冻结分支见[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)。新开发不得从历史实验分支继续生长。
+`origin/develop`是正式集成基线；当前获批的候选修复分支、已合并资产和冻结分支以当前 Goal 与[分支整合记录](docs/governance/BRANCH_CONSOLIDATION.md)为准。新开发不得从历史实验分支继续生长。
 
 以下是冻结的历史技术资产，不再作为产品愿景或无条件完成声明：
 
@@ -66,7 +66,7 @@ npm run dev
 
 本地入口：前端 `http://localhost:3000`，后端 OpenAPI `http://localhost:8000/docs`。
 
-`DEMO_MODE=true` 和 `AMAP_MOCK=true` 只代表 fixture/演示路径，不证明真实 Provider、V1 Gate 或公开可用性。真实 API 调用必须在当前 Goal 明确授权后执行。
+`DEMO_MODE=true` 和 `AMAP_MOCK=true` 只代表 fixture/演示路径，不证明真实 Provider、G07 Gate、真人可用性或公开可用性。真实 API 调用必须在当前 Goal 明确授权后执行。
 
 ## 开发与验证
 

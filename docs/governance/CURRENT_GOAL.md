@@ -86,9 +86,9 @@ Goal type: CANDIDATE_HARDENING
 |---|---|---|---|---|
 | `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
 | `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门40/40安全、37/40精确；取消目标独立复审通过；整体R0仍待UI与E2E | `MERGED`：`95bcb76a9688a03a0527e02317918ecdbb48bfe2` |
-| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字集成基线`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；第二轮最终修复绑定`d5f977d2cc5e72d1ff0802d0c547de44838831f5` | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `READY_TO_MERGE` |
+| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字集成基线`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；第二轮最终修复绑定`d5f977d2cc5e72d1ff0802d0c547de44838831f5` | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `MERGED`：`e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe` |
 
-文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已由唯一集成者以相同stable patch-id串行合入`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；40/40安全、37/40精确、257项相关回归及6项PostgreSQL主链均通过。前端最终修复`bc33925ba7a6bd1cd116619f39a2234aba109f1a`已清除所有客户端pending/fallback地图写动作，只有权威地图GET能开放`RENDER_MAP`；构建、55项结果页、67项fresh完整fixture浏览器与最终独立复审通过，远端tip冻结为READY。TripCheck第二轮复审仍有边界失败，已按停止条件保留为WIP，只迁移已验证的非blind测试与界面模式，不迁移其后端实现。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已由唯一集成者以相同stable patch-id串行合入`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；40/40安全、37/40精确、257项相关回归及6项PostgreSQL主链均通过。前端最终修复`bc33925ba7a6bd1cd116619f39a2234aba109f1a`已清除所有客户端pending/fallback地图写动作，只有权威地图GET能开放`RENDER_MAP`；唯一集成者已按相同stable patch-id串行合入`e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe`。构建、55项结果页、67项fresh完整fixture浏览器与最终独立复审已在冻结贡献提交上通过；现从合并后的主线重新执行自动化R0，不拼接贡献分支结果。TripCheck第二轮复审仍有边界失败，已按停止条件保留为WIP，只迁移已验证的非blind测试与界面模式，不迁移其后端实现。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -285,6 +285,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 第二轮最终前端修复通过完整复验并冻结为READY：本地pending、结果摘要fallback和JSX fallback均不再授予地图写动作；卡片编辑仍立即清除旧分钟，只有成功权威地图GET返回`RENDER_MAP`后才展示更新按钮 | ready `bc33925ba7a6bd1cd116619f39a2234aba109f1a`；parent/branch point `a405eef923cf672c9f97f27c395b731287847bfd`；binding `d5f977d2cc5e72d1ff0802d0c547de44838831f5`；remote readback与ready一致 | 功能任务build PASS、最终定向9/9、结果页55/55、fresh完整fixture浏览器67/67且零失败/跳过/重试；集成者独立build、10路径、单提交、clean与远端SHA复验PASS；最终独立静态复审无P0/P1 | `AUTOMATED_BUILD + AUTOMATED_BROWSER_R0 + MULTI_AGENT_SIMULATED_REVIEW_ACCEPT + REMOTE_READBACK` | `Product progress=UI_RUNTIME + RESPONSIVE_RESULT_JOURNEY + AUTHORITATIVE_MAP_ACTIONS` | `Governance ratio=最终READY冻结与集成授权；不改公共API、后端、正式Gate、blind或OCR边界` | 唯一集成者按10个登记路径cherry-pick该提交，复核stable patch-id并从主线重跑文字、PostgreSQL和完整fixture R0 | 快速连续Enter与地图状态枚举不变时的保守锁定为P2；真实Provider、所有者体验及正式G07仍NOT_RUN | 提交、push并回读READY控制checkpoint；串行合并ready提交，不允许贡献分支继续变化 |
 
+| 2026-09-04 | 文字与前端两项运行时现已串行合入同一主线；结果页三视图、响应式导航、卡间交通失效提示、权威地图动作、住宿与Top-3体验进入最终自动化R0复验 | UI merge `e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe`；ready `bc33925ba7a6bd1cd116619f39a2234aba109f1a`；stable patch-id均为`67c407ca3d287c7f797cc609155c991037e8c415` | cherry-pick无冲突且恰好10个登记路径；stable patch-id一致；合入前主线clean并与远端对齐；README同步收敛为文字入口和R0边界 | `TEXT_AND_UI_MERGE + PATCH_ID_READBACK + OWNER_R0_PREPARATION` | `Product progress=TEXT_AND_UI_RUNTIME_MERGED / R0_VERIFICATION_ACTIVE` | `Governance ratio=工作包转MERGED、handoff文案和最终复验范围；不改公共API、migration、正式Gate、blind或OCR冻结边界` | 从该合并主线运行40条文字兼容、相关后端与PostgreSQL、前端构建和fresh完整fixture浏览器；通过后启动本地fixture供所有者三份真实文字体验 | 当前行只证明补丁精确合入，不能复用贡献分支结果宣称最终R0；真实Provider、HUMAN_USABILITY、R1/R2和正式G07仍NOT_RUN | 校验并提交/push本MERGED控制checkpoint；在其exact tip完成一次fresh自动化R0并记录实际结果 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -292,10 +294,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端bc33925ba7a6bd1cd116619f39a2234aba109f1a已冻结READY / origin/codex/g07-candidate-cycle-3`；
-- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；前端build、最终定向9/9、结果页55/55与fresh完整fixture浏览器67/67通过，最终静态复审无P0/P1；整体R0仍需主线合并后重跑，R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_R0 + MULTI_AGENT_SIMULATED_REVIEW_ACCEPT / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；历史结果均不与本subject拼接；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端集成e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe / origin/codex/g07-candidate-cycle-3`；
+- Verification / Evidence / Gate result / `structurally_valid`：`文字贡献提交兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；前端贡献提交build、最终定向9/9、结果页55/55与fresh完整fixture浏览器67/67通过，最终静态复审无P0/P1；两项补丁均已按相同stable patch-id进入主线，但最终主线R0仍需在当前exact tip重跑，R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / MERGED_CONTRIBUTOR_EVIDENCE_DIAGNOSTIC_UNTIL_FINAL_R0_RERUN / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`文字主链已合入；三视图、响应式导航和权威地图动作修复已冻结但尚未进入主线 / 完整主线fixture R0和所有者三份真实文字验收尚未完成；快速连续Enter与保守锁定作为P2登记，正式G07仍NOT_RUN / false`；
+- User-visible result / Remaining risks / Goal archived：`文字主链、三视图、响应式导航和权威地图动作均已进入主线 / 完整主线fixture R0和所有者三份真实文字验收尚未完成；快速连续Enter与保守锁定作为P2登记，正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

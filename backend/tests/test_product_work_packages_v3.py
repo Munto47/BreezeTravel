@@ -159,7 +159,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     contributor = registry["packages"][1]
     ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "d5f977d2cc5e72d1ff0802d0c547de44838831f5"
+        "e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe"
     )
     assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
@@ -185,7 +185,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert ui_contributor["status"] == "READY_TO_MERGE"
+    assert ui_contributor["status"] == "MERGED"
     assert ui_contributor["baseline_commit"] == contributor["merged_commit"]
     assert ui_contributor["branch"] == "codex/g07-ui-convergence-r2-fix"
     assert ui_contributor["remote_branch"] == (
@@ -214,7 +214,9 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         "bc33925ba7a6bd1cd116619f39a2234aba109f1a"
     )
     assert ui_contributor["remote_readback_commit"] == ui_contributor["ready_commit"]
-    assert "merged_commit" not in ui_contributor
+    assert ui_contributor["merged_commit"] == (
+        "e99352c9fe4a8f9c41bbf429f5fb8f88e49a2bfe"
+    )
     assert registry["writer_activation"] == "INTEGRATOR_ONLY"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
@@ -255,18 +257,8 @@ def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref(
     assert set(allowed) == {
         "docs/governance/CURRENT_GOAL.md",
         "docs/governance/current_work_packages.json",
-        "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
         "backend/tests/test_product_work_packages_v3.py",
-        "frontend/src/app/trip/result/page.tsx",
-        "frontend/src/app/trip/result/itinerary-workspace.tsx",
-        "frontend/src/app/trip/result/result-navigation.tsx",
-        "frontend/src/app/trip/result/result-presentation.ts",
-        "frontend/src/app/trip/result/accessible-dialog.tsx",
-        "frontend/src/app/login/page.tsx",
-        "frontend/e2e/trip-understanding-v3.spec.js",
-        "frontend/e2e/g02-product-delivery.spec.js",
-        "frontend/e2e/g03-product-delivery.spec.js",
-        "frontend/e2e/g03r-result-ui.spec.js",
+        "README.md",
     }
     assert "docs/governance/product_delivery_gates.json" not in allowed
     assert "docs/governance/current_goal_binding.json" not in allowed
