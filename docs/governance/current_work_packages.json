@@ -33,7 +33,9 @@
       "c6f3cf2候选完整自动组件原生拒绝PASS：两个治理测试仍把动态candidate_cycle硬编码为6；知识建议微秒级性能比值单轮23.6%后独立复跑通过，判定为计时抖动但失败证据保留且候选拒绝",
       "第八候选周期只移除治理测试对历史周期号的重复硬编码，继续验证候选为后续周期、范围与远端绑定；不修改知识性能阈值、实现、数据或Gate",
       "10931af候选的自动化、真实Qwen/地图、PostgreSQL、浏览器和50链性能全部通过，但fresh PRODUCT_UX复审发现小程序路线/建议失败会停留在无页内重试的准备态，以及Web登录会原样展示底层异常并将普通服务失败标红，均为当前范围P2",
-      "第九候选周期只补齐小程序路线与建议的有界恢复/重试，并把Web登录失败映射为固定安全文案和非红信息提示；候选拒绝且sealed blind未启动"
+      "第九候选周期只补齐小程序路线与建议的有界恢复/重试，并把Web登录失败映射为固定安全文案和非红信息提示；候选拒绝且sealed blind未启动",
+      "33ecf58候选fresh自动组件三次均在相同产品测试通过后被依赖审计拒绝：前两次为退役npm quick端点400/500，切换现行npm 11后确认小程序锁文件把生产依赖domhandler错误标为dev-only，fresh生产树invalid",
+      "第十候选周期只重新生成小程序依赖锁的生产/开发分类并复验fresh npm ci、npm ls --omit=dev、生产审计和构建；不改变依赖版本或安全门"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -117,7 +119,8 @@
       "G07_FINAL_F61661F_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_AND_SEMANTIC_PANEL_P1_CANDIDATE_REJECTED",
       "G07_FINAL_1D02A53_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED",
       "G07_FINAL_C6F3CF2_AUTOMATED_GOVERNANCE_HARDCODE_AND_KNOWLEDGE_MICROBENCH_CANDIDATE_REJECTED",
-      "G07_FINAL_10931AF_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED"
+      "G07_FINAL_10931AF_AUTOMATED_LIVE_POSTGRES_BROWSER_PERFORMANCE_PASS_BUT_PRODUCT_PANEL_IN_SCOPE_P2_CANDIDATE_REJECTED",
+      "G07_FINAL_33ECF58_AUTOMATED_SUPPLY_CHAIN_LOCK_CLASSIFICATION_CANDIDATE_REJECTED"
     ],
     "forbidden_mechanisms": [
       "把verification matrix中的PASS文本、历史checkpoint或自报字段直接铸成manifest PASS",
@@ -127,9 +130,9 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "为小程序路线刷新和建议准备增加有界轮询与明确的页内重试终态；Web登录所有网络、Provider和未知认证异常使用固定动作级文案及非红提示，不显示底层Error.message。OCR继续不处理、不验证。",
-    "phase": "EVIDENCE_FROZEN",
-    "freeze_parent_commit": "6a4c97e32009c072af556961ca36b80320c91494",
+    "minimum_change": "使用当前锁格式重新计算miniapp package-lock的生产/开发传递依赖分类，保持全部依赖版本不变；fresh安装后的生产树必须valid且critical/high审计通过。OCR继续不处理、不验证。",
+    "phase": "REPAIR_ACTIVE",
+    "freeze_parent_commit": "33ecf58d3b94958639de437df51f2182e2350abb",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
@@ -138,11 +141,11 @@
     ],
     "preflight_required_tokens": {},
     "product_progress": "RUNTIME",
-    "candidate_cycle": 9,
+    "candidate_cycle": 10,
     "repair_review_cycle": 1,
     "slice_id": "G07-CANDIDATE-CONTRACT",
-    "stop_condition": "若小程序路线或建议仍可无限停留在无页内恢复的准备态，Web登录仍显示底层异常或将普通失败标红，或既有文本主链、核心改卡、公开脱敏、语义边界与供应链安全回归，则不得冻结候选；不重新建设或验证OCR。",
-    "user_outcome": "公开产品只接收攻略文字；Web登录与微信小程序在网络或Provider失败时提供安全、非红、可重试的恢复体验，不泄漏底层异常或无限停留在准备中；随后完成完整新候选验证并交付owner真人体验。",
+    "stop_condition": "若fresh miniapp生产依赖树仍invalid、依赖版本发生未授权漂移、critical/high审计或生产构建失败，或既有文本主链、用户安全文案、恢复体验、公开脱敏和语义边界回归，则不得冻结候选；不重新建设或验证OCR。",
+    "user_outcome": "公开产品只接收攻略文字；Web和微信小程序的安全恢复体验保持，同时小程序生产依赖锁在fresh环境中可重复安装、构建并通过critical/high安全审计；随后完成完整候选验证并交付owner真人体验。",
     "work_kind": "CANDIDATE_HARDENING"
   },
   "e2e_after_all_merges": true,
