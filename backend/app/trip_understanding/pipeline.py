@@ -125,6 +125,29 @@ DESTINATION_CONTEXT_RE = re.compile(
 )
 CITY_SEPARATOR_RE = re.compile(r"\s*[、，,和与/]\s*")
 GENERIC_PLACE_NAMES = frozenset({"酒店", "宾馆", "民宿", "住处", "住宿"})
+BARE_FACILITY_NAMES = frozenset(
+    {"公厕", "卫生间", "洗手间", "停车场", "充电站", "服务台", "售票处"}
+)
+ACTION_SUFFIX_RE = re.compile(
+    r"(?:游览|参观|讲解|拍照|打卡)(?:\s*\d+(?:\.\d+)?\s*(?:小时|分钟))?$"
+)
+VISIT_PERIODS = ("清晨", "早上", "上午", "中午", "午后", "下午", "傍晚", "晚上", "夜间")
+_VISIT_PERIOD_PATTERN = "(?:" + "|".join(VISIT_PERIODS) + ")"
+_CLOCK_PATTERN = r"(?<![A-Za-z0-9])(?:[01]?\d|2[0-3])[:：][0-5]\d"
+_CHINESE_CLOCK_PATTERN = (
+    rf"(?P<period>{_VISIT_PERIOD_PATTERN})?\s*"
+    r"(?P<hour>[0-9]|1[0-9]|2[0-3])点(?:\s*(?P<minute>[0-5]?\d)分?)?"
+)
+_VISIT_TIME_TOKEN_RE = re.compile(
+    rf"(?P<chinese>{_CHINESE_CLOCK_PATTERN})|"
+    rf"(?P<clock>{_VISIT_PERIOD_PATTERN}?\s*{_CLOCK_PATTERN})|"
+    rf"(?P<period_only>{_VISIT_PERIOD_PATTERN})"
+)
+_NEGATED_CANCELLATION_RE = re.compile(
+    r"(?:并不|并未|没有|没|不会|不打算|不准备|不再|不得(?!不)|不能|无法|未|(?<!得)不)\s*"
+    r"(?:取消|撤掉|删除|放弃|排除)"
+    r"|(?:取消|撤掉|删除|放弃|排除)\s*不了"
+)
 
 
 def _ordered_deep_cities(value: str) -> tuple[str, ...]:
@@ -274,26 +297,164 @@ async def _close_async_resources(*resources: object) -> None:
         raise first_error
 
 
+def has_negated_cancellation(value: str) -> bool:
+    """Return whether a local clause explicitly says a cancellation is not happening."""
+
+    return _NEGATED_CANCELLATION_RE.search(value) is not None
+
+
+def has_affirmed_cancellation(value: str) -> bool:
+    """Treat ``不得不取消`` as affirmative while keeping ordinary negation safe."""
+
+    return "取消" in value and not has_negated_cancellation(value)
+
+
+def normalize_atomic_place_candidate(value: str) -> str | None:
+    """Narrow bounded visit decorations without inventing a different place.
+
+    This is intentionally lexical. It only removes a small set of adjacent
+    time/arrival/action decorations and otherwise fails closed.
+    """
+
+    candidate = value.strip()
+    candidate = re.sub(r"^[|｜]\s*", "", candidate)
+    candidate = re.sub(
+        rf"^(?:{_VISIT_PERIOD_PATTERN}\s*(?:"
+        rf"(?:[0-9]|1[0-9]|2[0-3])点(?:\s*[0-5]?\d分?)?|"
+        rf"{_CLOCK_PATTERN})|{_CLOCK_PATTERN}|{_VISIT_PERIOD_PATTERN})"
+        r"\s*(?:到达|抵达|前往|去|到)?\s*",
+        "",
+        candidate,
+    )
+    candidate = re.sub(r"^(?:到达|抵达)\s*", "", candidate)
+    candidate = re.sub(
+        rf"\s*(?:{_VISIT_PERIOD_PATTERN}\s*)?{_CLOCK_PATTERN}\s*(?:到达|抵达)?$",
+        "",
+        candidate,
+    )
+    candidate = ACTION_SUFFIX_RE.sub("", candidate).strip()
+    if not candidate or candidate in BARE_FACILITY_NAMES:
+        return None
+    if candidate.endswith(("入口", "出口")):
+        return None
+    return candidate
+
+
+def atomic_place_rejection_reason(value: str) -> str | None:
+    candidate = value.strip()
+    if not candidate:
+        return "EMPTY"
+    if len(candidate) < 2:
+        return "TOO_SHORT"
+    if len(candidate) > 40:
+        return "TOO_LONG"
+    if URL_RE.search(candidate):
+        return "URL"
+    if candidate in GENERIC_PLACE_NAMES or candidate in BARE_FACILITY_NAMES:
+        return "GENERIC_OR_FACILITY"
+    if candidate.endswith(("入口", "出口")):
+        return "ENTRANCE_OR_EXIT"
+    if ACTION_SUFFIX_RE.search(candidate):
+        return "ACTION_SUFFIX"
+    if re.search(r"(?:\d{1,2}[:：][0-5]\d|\d+(?:\.\d+)?(?:小时|分钟))$", candidate):
+        return "TIME_OR_DURATION"
+    if re.search(r"(?:院|园|馆|街|寺|巷|店|场|站|门)\d+$", candidate):
+        return "TRAILING_NUMBER"
+    if any(period in candidate for period in VISIT_PERIODS):
+        return "TIME_PERIOD"
+    if any(marker in candidate for marker in SENTENCE_MARKERS):
+        return "SENTENCE"
+    if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
+        return "FORBIDDEN_MARKER"
+    if GENERIC_ACTIVITY_RE.fullmatch(candidate):
+        return "GENERIC_ACTIVITY"
+    if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
+        return "NON_ATOMIC_CHARACTERS"
+    if re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is None:
+        return "NO_PLACE_CHARACTERS"
+    return None
+
+
+def _normalize_time_token(value: str) -> str | None:
+    match = _VISIT_TIME_TOKEN_RE.fullmatch(value.strip())
+    if match is None:
+        return None
+    if match.group("period_only") is not None:
+        return match.group("period_only")
+    if match.group("chinese") is not None:
+        period = match.group("period")
+        hour = int(match.group("hour"))
+        minute = int(match.group("minute") or 0)
+    else:
+        raw = match.group("clock") or ""
+        period = next((item for item in VISIT_PERIODS if raw.startswith(item)), None)
+        clock = raw[len(period) :].strip() if period else raw.strip()
+        hour_text, minute_text = re.split(r"[:：]", clock)
+        hour = int(hour_text)
+        minute = int(minute_text)
+    if period in {"中午", "午后", "下午", "傍晚", "晚上", "夜间"} and hour < 12:
+        hour += 12
+    if period in {"清晨", "早上", "上午"} and hour == 12:
+        hour = 0
+    return f"{hour:02d}:{minute:02d}"
+
+
+def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> str | None:
+    """Derive a visit-owned time immediately before or after one place span."""
+
+    if not 0 <= span_start < span_end <= len(source_text):
+        return None
+    left_boundary = max(
+        source_text.rfind(marker, 0, span_start)
+        for marker in "。！？；;\n，,、→⇒➜⇨＞➔➡⟶"
+    )
+    before = source_text[left_boundary + 1 : span_start]
+    if not any(
+        marker in before
+        for marker in (
+            "开放时间",
+            "营业时间",
+            "排队",
+            "步行",
+            "公交",
+            "地铁",
+            "交通",
+            "车程",
+            "耗时",
+            "路线",
+            "驾车",
+        )
+    ):
+        prefix = re.search(
+            rf"(?P<time>{_VISIT_TIME_TOKEN_RE.pattern})\s*"
+            r"(?:到达|抵达|前往|再次去|去|到|游览|参观|看|逛)?\s*$",
+            before,
+        )
+        if prefix is not None:
+            normalized = _normalize_time_token(prefix.group("time"))
+            if normalized is not None:
+                return normalized
+    after = source_text[span_end : min(len(source_text), span_end + 20)]
+    if re.search(r"(?:去|到|前往)\s*$", before):
+        postfix = re.match(
+            rf"\s*(?P<time>{_VISIT_TIME_TOKEN_RE.pattern})\s*(?:到达|抵达)",
+            after,
+        )
+        if postfix is not None:
+            return _normalize_time_token(postfix.group("time"))
+    return None
+
+
 def is_atomic_planned_place(mention) -> bool:
     if mention.role != ActivityRole.PLANNED or mention.day_index is None:
         return False
     candidate = (mention.atomic_place_name or "").strip()
-    if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
-        return False
-    if candidate in GENERIC_PLACE_NAMES:
+    if atomic_place_rejection_reason(candidate) is not None:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
     if candidate != raw_candidate:
         return False
-    if any(marker in candidate for marker in SENTENCE_MARKERS):
-        return False
-    if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
-        return False
-    if GENERIC_ACTIVITY_RE.fullmatch(candidate):
-        return False
-    if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
-        return False
-    return re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is not None
+    return True
 
 
 def _apply_contextual_category_hints(
@@ -312,7 +473,7 @@ def _apply_contextual_category_hints(
     changed = False
     for mention in proposal.mentions:
         category_hint = mention.category_hint
-        if category_hint is None and mention.role == ActivityRole.PLANNED:
+        if mention.role == ActivityRole.PLANNED:
             local_before = source_text[max(0, mention.span_start - 18) : mention.span_start]
             if DINING_CONTEXT_RE.search(local_before):
                 category_hint = "餐饮"
@@ -323,6 +484,60 @@ def _apply_contextual_category_hints(
     if not changed:
         return proposal
     return proposal.model_copy(update={"mentions": mentions})
+
+
+def _apply_terminal_cancellations(proposal: InferenceProposal) -> InferenceProposal:
+    """Make a later exclusion revoke earlier plans for the same atomic place.
+
+    Mentions stay in the internal evidence trail, but an obsolete plan must not
+    remain executable or reach the public card projection.  A later explicit
+    planned mention restores the place, while repeated visits with no exclusion
+    remain independent activities.
+    """
+
+    exclusions_by_name: dict[str, list[int]] = {}
+    planned_names: set[str] = set()
+    for mention in proposal.mentions:
+        name = (mention.atomic_place_name or "").strip().casefold()
+        if not name:
+            continue
+        if mention.role == ActivityRole.PLANNED:
+            planned_names.add(name)
+        elif mention.role == ActivityRole.EXCLUDED:
+            exclusions_by_name.setdefault(name, []).append(mention.span_start)
+
+    if not planned_names or not exclusions_by_name:
+        return proposal
+
+    changed = False
+    mentions = []
+    for mention in proposal.mentions:
+        name = (mention.atomic_place_name or "").strip().casefold()
+        later_exclusions = exclusions_by_name.get(name, [])
+        if mention.role == ActivityRole.PLANNED and any(
+            position > mention.span_start for position in later_exclusions
+        ):
+            changed = True
+            mention = mention.model_copy(
+                update={
+                    "role": ActivityRole.REFERENCE,
+                    "day_index": None,
+                    "time_hint": None,
+                }
+            )
+        mentions.append(mention)
+
+    if not changed:
+        return proposal
+    binding = dict(proposal.binding)
+    binding["terminal_cancellation_reclassification_count"] = int(
+        binding.get("terminal_cancellation_reclassification_count", 0)
+    ) + sum(
+        original.role == ActivityRole.PLANNED
+        and updated.role == ActivityRole.REFERENCE
+        for original, updated in zip(proposal.mentions, mentions, strict=True)
+    )
+    return proposal.model_copy(update={"mentions": mentions, "binding": binding})
 
 
 class EvidenceCompiler:
@@ -684,9 +899,11 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal = _apply_contextual_category_hints(
-            source_text,
-            await self.inference_provider.propose(source_text),
+        proposal = _apply_terminal_cancellations(
+            _apply_contextual_category_hints(
+                source_text,
+                await self.inference_provider.propose(source_text),
+            )
         )
         destination_name = normalized_destination_name(
             source_text,
