@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 
 from app.config import Settings
+from app.audit.evidence_service import EvidenceObservation
+from app.trip_check.provider_integrity import validate_product_route_observations
 from evals.g07_candidate.live_spec_builder import (
     read_actual_g07_repo_state,
     validate_g07_live_provider_spec,
@@ -32,6 +34,33 @@ def _load_object(path: Path, reason: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise P6ContractError(reason)
     return value
+
+
+def _validate_route_evidence(output: Path) -> dict[str, int]:
+    totals = {
+        "route_edge_count": 0,
+        "route_option_count": 0,
+        "sane_route_option_count": 0,
+    }
+    for city in ("北京", "上海", "杭州"):
+        path = output / "live" / city / "evidence_observations.json"
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                raise ValueError("route observations must be a list")
+            observations = [EvidenceObservation.model_validate(item) for item in raw]
+        except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+            raise P6ContractError("G07_G4_ROUTE_FACT_INTEGRITY_INVALID") from exc
+        failures, metrics = validate_product_route_observations(observations)
+        if failures or metrics != {
+            "route_edge_count": 1,
+            "route_option_count": 4,
+            "sane_route_option_count": 4,
+        }:
+            raise P6ContractError("G07_G4_ROUTE_FACT_INTEGRITY_INVALID")
+        for key, value in metrics.items():
+            totals[key] += value
+    return totals
 
 
 def _write_json_new(path: Path, value: Mapping[str, Any]) -> None:
@@ -133,6 +162,7 @@ async def run_g07_live_provider_gate(
         )
     ):
         raise P6ContractError("G07_G4_LIVE_MANIFEST_INVALID")
+    route_metrics = _validate_route_evidence(output)
     operations, receipt_count = _validate_provider_receipts(output)
     if dict(operations) != EXPECTED_OPERATION_COUNTS or receipt_count != 18:
         raise P6ContractError("G07_G4_OPERATION_SET_INVALID")
@@ -174,6 +204,7 @@ async def run_g07_live_provider_gate(
             "secret_leak_count": 0,
             "city_count": 3,
             "operation_count": 6,
+            **route_metrics,
         },
         "claim_boundary": "MAP_ROUTE_AND_WEATHER_ONLY_QWEN_IS_SEPARATE",
     }

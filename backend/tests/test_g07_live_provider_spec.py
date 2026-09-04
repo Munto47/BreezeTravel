@@ -140,3 +140,18 @@ def test_g07_g4_runner_rejects_fixture_fallback(tmp_path: Path) -> None:
                 live_runner=_fake_live_runner(fallback=True),
             )
         )
+
+
+def test_g07_g4_runner_rejects_physically_impossible_route_fact(tmp_path: Path) -> None:
+    _spec, spec_path = _built(tmp_path)
+    with pytest.raises(P6ContractError, match="G07_G4_ROUTE_FACT_INTEGRITY_INVALID"):
+        asyncio.run(
+            run_g07_live_provider_gate(
+                candidate_run_spec_path=spec_path,
+                output_root=tmp_path / "g4",
+                repo_root=REPOSITORY_ROOT,
+                formal=False,
+                settings=_settings(),
+                live_runner=_fake_live_runner(impossible_route=True),
+            )
+        )

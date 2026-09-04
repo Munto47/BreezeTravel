@@ -22,6 +22,8 @@ from app.trip_check.provider_integrity import (
     ProviderSnapshotMismatchError,
     TripCheckProviderIntegrityCollector,
     provider_snapshot_sha256,
+    select_product_route_mode,
+    validate_product_route_observations,
 )
 
 
@@ -131,11 +133,11 @@ class FakeProviderSession:
         self.requests.append((url, kwargs))
         if "/direction/transit/" in url:
             return FakeResponse(
-                {"status": "1", "route": {"transits": [{"duration": "900", "distance": "3100"}]}}
+                {"status": "1", "route": {"transits": [{"cost": {"duration": "900"}, "distance": "3100"}]}}
             )
         if "/direction/" in url:
             return FakeResponse(
-                {"status": "1", "route": {"paths": [{"duration": "600", "distance": "2200"}]}}
+                {"status": "1", "route": {"paths": [{"cost": {"duration": "600"}, "distance": "2200"}]}}
             )
         if "/v7/weather/7d" in url:
             return FakeResponse(
@@ -186,6 +188,23 @@ class FakeProviderSession:
                 ]
             }
         )
+
+
+def test_product_route_policy_prefers_walking_within_ten_minutes_otherwise_transit():
+    assert select_product_route_mode(
+        {
+            "walking": {"duration_minutes": 24},
+            "transit": {"duration_minutes": 14},
+        }
+    ) == "walking"
+    assert select_product_route_mode(
+        {
+            "walking": {"duration_minutes": 25},
+            "transit": {"duration_minutes": 14},
+        }
+    ) == "transit"
+
+
 @pytest.mark.asyncio
 async def test_snapshot_collects_four_route_modes_weather_risk_and_deterministic_receipts():
     collector = TripCheckProviderIntegrityCollector(settings=Settings(runtime_profile="test"))
@@ -299,6 +318,18 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
     assert result.partial_failures == []
     assert all(item.status == "SUCCEEDED" for item in result.provider_receipts)
     assert all(item.execution_mode == "live" for item in result.provider_receipts)
+    route_requests = [item for item in session.requests if "/direction/" in item[0]]
+    assert all(item[1]["params"]["show_fields"] == "cost" for item in route_requests)
+    route_edges = [item for item in result.observations if item.subject_type == "ROUTE_EDGE"]
+    assert len(route_edges) == 1
+    assert route_edges[0].value["mode"] == "walking"
+    route_failures, route_metrics = validate_product_route_observations(result.observations)
+    assert route_failures == []
+    assert route_metrics == {
+        "route_edge_count": 1,
+        "route_option_count": 4,
+        "sane_route_option_count": 4,
+    }
     assert len([item for item in result.observations if item.fact_type == "WEATHER"]) == 2
     risk = next(item for item in result.observations if item.fact_type == "RISK_SOURCE")
     assert risk.value["source_tier"] == "OPERATOR"
@@ -308,6 +339,42 @@ async def test_live_adapters_parse_success_without_persisting_credentials_or_raw
     assert "controlled-amap-secret" not in serialized
     assert "controlled-weather-secret" not in serialized
     assert "route\": {" not in serialized
+
+
+@pytest.mark.asyncio
+async def test_live_route_missing_duration_is_unavailable_not_one_minute():
+    class MissingDurationSession(FakeProviderSession):
+        def get(self, url, **kwargs):
+            if "/direction/" in url:
+                self.requests.append((url, kwargs))
+                key = "transits" if "/direction/transit/" in url else "paths"
+                return FakeResponse(
+                    {"status": "1", "route": {key: [{"cost": {}, "distance": "2200"}]}}
+                )
+            return super().get(url, **kwargs)
+
+    session = MissingDurationSession()
+    collector = TripCheckProviderIntegrityCollector(
+        settings=Settings(
+            runtime_profile="local_real",
+            amap_api_key="controlled-amap-secret",
+            qweather_auth_type="apikey",
+            qweather_api_key="controlled-weather-secret",
+        ),
+        session_factory=lambda: session,
+        max_live_calls=6,
+    )
+
+    result = await collector.collect(_run(mode="live"), _revision(), {})
+
+    route_receipts = [item for item in result.provider_receipts if item.operation.startswith("route.")]
+    assert all(item.status == "UNAVAILABLE" for item in route_receipts)
+    assert {item.failure_category for item in route_receipts} == {"AMAP_ROUTE_FACT_INVALID"}
+    assert not [item for item in result.observations if item.subject_type == "ROUTE_EDGE"]
+    assert not any(
+        item.subject_type == "ROUTE_OPTION" and item.value.get("duration_minutes") == 1
+        for item in result.observations
+    )
 
 
 @pytest.mark.asyncio
