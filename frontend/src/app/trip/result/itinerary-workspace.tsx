@@ -2,7 +2,6 @@
 
 import {
   type DragEvent,
-  type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
@@ -17,6 +16,7 @@ import {
   ArrowRight,
   ArrowUp,
   BedDouble,
+  BusFront,
   CalendarDays,
   Check,
   ChevronRight,
@@ -24,6 +24,7 @@ import {
   Clock3,
   Compass,
   ExternalLink,
+  Footprints,
   GripVertical,
   MapPin,
   MoveHorizontal,
@@ -38,9 +39,12 @@ import {
 
 import {
   type ActivityCardView,
+  type MapRenderView,
   type TripUnderstandingCommand,
   type UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
+import AccessibleDialog from './accessible-dialog'
+import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, type TransportConnector } from './result-presentation'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -70,7 +74,7 @@ type WorkspaceCommandResult =
 type ItineraryWorkspaceProps = {
   days: UserFacingTripResult['days']
   disabled: boolean
-  mapStatus: UserFacingTripResult['map']['status']
+  mapView: MapRenderView
   checkStatus: string
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
@@ -95,18 +99,10 @@ const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestio
   RESERVATION_ADVICE: '预约建议',
 }
 
-const DAY_ACCENTS = [
-  ['from-amber-50', 'to-emerald-50', 'text-emerald-800'],
-  ['from-sky-50', 'to-teal-50', 'text-teal-800'],
-  ['from-violet-50', 'to-amber-50', 'text-violet-800'],
-  ['from-rose-50', 'to-orange-50', 'text-orange-800'],
-]
-
-
 export default function ItineraryWorkspace({
   days,
   disabled,
-  mapStatus,
+  mapView,
   checkStatus,
   onCommand,
   onAdd,
@@ -351,6 +347,7 @@ export default function ItineraryWorkspace({
               <section
                 key={`${day.label}-${dayIndex}`}
                 data-testid={`day-lane-${dayIndex}`}
+                data-day-index={dayOffset}
                 className="overflow-hidden rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)]"
                 aria-labelledby={`day-heading-${dayIndex}`}
               >
@@ -358,7 +355,10 @@ export default function ItineraryWorkspace({
                   <div className={`bg-gradient-to-br ${accent[0]} ${accent[1]} px-5 py-5 md:min-h-[18rem] md:border-r md:border-emerald-950/10`}>
                     <div className="flex items-center justify-between md:block">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">行程日</p>
+                        <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                          <span data-testid="itinerary-day-color" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length] }} aria-hidden="true" />
+                          行程日
+                        </p>
                         <h2
                           id={`day-heading-${dayIndex}`}
                           data-day-heading={dayIndex}
@@ -507,6 +507,17 @@ export default function ItineraryWorkspace({
                                   </CardAction>
                                 </div>
                               </motion.article>
+                              {position < day.activities.length - 1 && (
+                                <TransportConnectorView
+                                  connector={transportConnectorFor(
+                                    day,
+                                    activity.name,
+                                    day.activities[position + 1].name,
+                                    mapView,
+                                    operationPending,
+                                  )}
+                                />
+                              )}
                             </div>
                           )
                         })}
@@ -558,7 +569,7 @@ export default function ItineraryWorkspace({
             <OverviewNumber value={pendingPlaces} label="待确认" />
           </dl>
           <div className="space-y-3 px-5 py-5 text-sm">
-            <OverviewStatus icon={<ArrowRight className="h-4 w-4" />} label="地图状态" value={operationPending ? '需要手动更新' : MAP_LABELS[mapStatus]} />
+            <OverviewStatus icon={<ArrowRight className="h-4 w-4" />} label="地图状态" value={operationPending ? '需要手动更新' : MAP_LABELS[mapView.status]} />
             <OverviewStatus icon={<Sparkles className="h-4 w-4" />} label="检查状态" value={checkStatus} />
             <OverviewStatus icon={<Check className="h-4 w-4" />} label="自动保存" value={locked ? '正在保存' : '已保存'} />
           </div>
@@ -566,6 +577,7 @@ export default function ItineraryWorkspace({
         <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50/65 p-4 text-xs leading-5 text-emerald-900">
           <p className="font-semibold">调整后会发生什么？</p>
           <p className="mt-1 text-emerald-950">卡片顺序会自动保存；现有路线不会自动重算，需在地图区域手动更新。</p>
+          <p className="mt-2 text-emerald-950" role="status">{mapView.message}</p>
         </div>
       </aside>
 
@@ -573,7 +585,7 @@ export default function ItineraryWorkspace({
 
       <AnimatePresence>
         {dialog?.kind === 'DETAIL' && (
-          <AccessibleDialog key="activity-detail" titleId="activity-detail-title" onClose={() => closeDialog()} reduceMotion={reduceMotion}>
+          <AccessibleDialog key="activity-detail" titleId="activity-detail-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold text-emerald-700">{dialog.item.card.category}</p>
@@ -592,24 +604,29 @@ export default function ItineraryWorkspace({
                   <h3 id="knowledge-suggestions-title" className="text-sm font-semibold text-slate-800">出行建议</h3>
                 </div>
                 <ul className="mt-3 space-y-3">
-                  {dialog.item.card.knowledge_suggestions?.map((suggestion) => (
+                  {dialog.item.card.knowledge_suggestions?.map((suggestion) => {
+                    const sourceUrl = safeExternalUrl(suggestion.source_url)
+                    return (
                     <li key={`${suggestion.type}-${suggestion.source_url}-${suggestion.text}`} className="rounded-2xl border border-sky-100 bg-sky-50/65 p-4">
                       <p className="text-xs font-semibold text-sky-800">{KNOWLEDGE_LABELS[suggestion.type]}</p>
                       <p className="mt-1 text-sm leading-6 text-slate-700">{suggestion.text}</p>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                        <a
-                          href={suggestion.source_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-h-10 items-center gap-1 rounded-lg px-1 font-medium text-sky-800 underline decoration-sky-300 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
-                        >
-                          {suggestion.source_name}
-                          <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                        </a>
+                        {sourceUrl ? (
+                          <a
+                            href={sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-10 items-center gap-1 rounded-lg px-1 font-medium text-sky-800 underline decoration-sky-300 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
+                          >
+                            {suggestion.source_name}
+                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                          </a>
+                        ) : <span>{suggestion.source_name}</span>}
                         <span>{suggestion.freshness}</span>
                       </div>
                     </li>
-                  ))}
+                    )
+                  })}
                 </ul>
               </section>
             )}
@@ -635,24 +652,13 @@ export default function ItineraryWorkspace({
                   移到后一天
                 </DialogAction>
               )}
-              <DialogAction onClick={() => openDelete(dialog.item)} icon={<Trash2 className="h-4 w-4" />}>删除地点</DialogAction>
-              <DialogAction
-                onClick={() => {
-                  if (window.confirm(`删除“${dialog.item.card.name}”这张卡片？`)) {
-                    void applyDelete(dialog.item)
-                  }
-                }}
-                icon={<Trash2 className="h-4 w-4" />}
-              >
-                删除这张卡片
-              </DialogAction>
             </div>
             <p className="mt-4 text-xs leading-5 text-slate-500">卡片调整会自动保存，路线需要时再手动更新。</p>
           </AccessibleDialog>
         )}
 
         {dialog?.kind === 'MOVE' && (
-          <AccessibleDialog key="move-activity" titleId="move-activity-title" onClose={() => closeDialog()} reduceMotion={reduceMotion}>
+          <AccessibleDialog key="move-activity" titleId="move-activity-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef} dismissDisabled={locked}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold text-emerald-700">移动地点</p>
@@ -700,7 +706,7 @@ export default function ItineraryWorkspace({
         )}
 
         {dialog?.kind === 'DELETE' && (
-          <AccessibleDialog key="delete-activity" titleId="delete-activity-title" onClose={() => closeDialog()} reduceMotion={reduceMotion}>
+          <AccessibleDialog key="delete-activity" titleId="delete-activity-title" descriptionId="delete-activity-description" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef} dismissDisabled={locked}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold text-amber-700">删除地点</p>
@@ -708,7 +714,7 @@ export default function ItineraryWorkspace({
               </div>
               <DialogCloseButton onClick={() => closeDialog()} label="关闭删除确认" />
             </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{localDays[dialog.item.dayIndex - 1]?.label || '当天'}也会保留。</p>
+            <p id="delete-activity-description" className="mt-4 text-sm leading-6 text-slate-600">只会删除这张地点卡片。即使它是当天最后一个地点，{localDays[dialog.item.dayIndex - 1]?.label || '当天'}也会保留。</p>
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button data-dialog-initial-focus type="button" onClick={() => closeDialog()} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">取消</button>
               <button data-testid="confirm-delete" type="button" disabled={locked} onClick={() => void applyDelete(dialog.item)} className="min-h-12 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50">{locked ? '正在删除…' : '确认删除'}</button>
@@ -772,6 +778,47 @@ function dayTheme(day: DayView): string {
   if (day.activities.length === 0) return '留白待安排'
   const categories = Array.from(new Set(day.activities.map((activity) => activity.category))).slice(0, 2)
   return `${categories.join('与')}之旅`
+}
+
+
+function safeExternalUrl(value: string): string | null {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null
+  } catch {
+    return null
+  }
+}
+
+
+function TransportConnectorView({ connector }: { connector: TransportConnector }) {
+  const available = connector.status === 'AVAILABLE'
+  const needsUpdate = connector.status === 'NEEDS_UPDATE'
+  const Icon = available ? (connector.mode === 'transit' ? BusFront : Footprints) : ArrowRight
+  const label = available
+    ? `${connector.mode === 'walking' ? '步行' : '公交'} · ${connector.durationMinutes} 分钟`
+    : needsUpdate
+      ? '路线需要更新'
+      : '路线待确认'
+  return (
+    <div
+      data-testid="transport-connector"
+      data-connector-status={connector.status}
+      className="mx-1 mt-[5.25rem] flex w-[7.25rem] shrink-0 flex-col items-center text-center"
+      aria-label={label}
+    >
+      <div className={`flex w-full items-center ${available ? 'text-emerald-700' : 'text-slate-400'}`} aria-hidden="true">
+        <span className="h-px flex-1 bg-current opacity-40" />
+        <span className="mx-1.5 flex h-8 w-8 items-center justify-center rounded-full border border-current bg-white">
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="h-px flex-1 bg-current opacity-40" />
+      </div>
+      <span className={`mt-1 rounded-full px-2 py-1 text-[10px] font-semibold ${available ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+        {label}
+      </span>
+    </div>
+  )
 }
 
 
@@ -880,79 +927,6 @@ function OverviewStatus({ icon, label, value }: { icon: ReactNode; label: string
         <span className="block truncate font-medium text-slate-700">{value}</span>
       </span>
     </div>
-  )
-}
-
-
-function AccessibleDialog({
-  titleId,
-  onClose,
-  reduceMotion,
-  children,
-}: {
-  titleId: string
-  onClose: () => void
-  reduceMotion: boolean | null
-  children: ReactNode
-}) {
-  const panelRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const panel = panelRef.current
-    if (!panel) return
-    const initial = panel.querySelector<HTMLElement>('[data-dialog-initial-focus]')
-      || panel.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled)')
-    initial?.focus()
-  }, [])
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      onClose()
-      return
-    }
-    if (event.key !== 'Tab') return
-    const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
-      'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
-    ) || []).filter((element) => element.offsetParent !== null)
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
-  }
-
-  return (
-    <motion.div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 p-4 backdrop-blur-sm sm:items-center"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: reduceMotion ? 0 : 0.16 }}
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose()
-      }}
-    >
-      <motion.div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onKeyDown={handleKeyDown}
-        initial={reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18, scale: 0.98 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.98 }}
-        transition={{ duration: reduceMotion ? 0 : 0.18 }}
-        className="w-full max-w-md rounded-[1.75rem] bg-white p-6 shadow-2xl outline-none"
-      >
-        {children}
-      </motion.div>
-    </motion.div>
   )
 }
 

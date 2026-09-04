@@ -60,6 +60,8 @@ test('map theater and one-stay journey remain manual, current and publicly redac
   const accepted = await created.json()
 
   await expect(page).toHaveURL(/\/trip\/result$/)
+  await expect(page.getByTestId('result-view-itinerary')).toBeVisible()
+  await page.getByTestId('desktop-nav-map_stay').click()
   await expect(page.getByTestId('map-theater')).toBeVisible()
   await expect(page.getByTestId('stay-panel')).toBeVisible()
   await expect(page.getByTestId('stay-candidate')).toHaveCount(3, { timeout: 30_000 })
@@ -93,7 +95,7 @@ test('map theater and one-stay journey remain manual, current and publicly redac
   await page.getByTestId('choose-stay').first().click()
   expect((await selectionPromise).status()).toBe(200)
   await expect(page.getByText(`整程住宿已选择：${selectedName}`)).toBeVisible()
-  await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
+  await expect(page.getByTestId('map-theater').getByText('行程有变化，地图需要手动更新。')).toBeVisible()
   expect(mapRenderPosts).toHaveLength(0)
 
   const renderPromise = page.waitForResponse((response) => (
@@ -103,7 +105,7 @@ test('map theater and one-stay journey remain manual, current and publicly redac
   await page.getByTestId('render-map').click()
   expect((await renderPromise).status()).toBe(202)
   expect(mapRenderPosts).toHaveLength(1)
-  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('map-theater').getByText('路线已准备，可以切换步行或公交查看。')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByText(new RegExp(`^${selectedName} →`)).first()).toBeVisible()
   await expect(page.getByText(new RegExp(`→ ${selectedName}$`)).first()).toBeVisible()
 
@@ -119,9 +121,11 @@ test('map theater and one-stay journey remain manual, current and publicly redac
     response.request().method() === 'POST'
     && /\/commands$/.test(new URL(response.url()).pathname)
   ))
+  await page.getByTestId('desktop-nav-itinerary').click()
   await page.getByRole('button', { name: '下移 故宫博物院' }).click()
   expect((await commandPromise).status()).toBe(200)
-  await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('行程已修改，路线尚未更新')).toBeVisible()
+  await page.getByTestId('desktop-nav-map_stay').click()
   await expect(page.getByText(`整程住宿已选择：${selectedName}`)).toBeVisible()
   expect(mapRenderPosts).toHaveLength(1)
 

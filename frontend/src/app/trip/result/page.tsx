@@ -1,7 +1,6 @@
 'use client'
 
 import {
-  type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
   useRef,
@@ -14,10 +13,12 @@ import {
   BusFront,
   CalendarDays,
   CheckCircle2,
+  ChevronLeft,
   Compass,
   Footprints,
   Map,
   MapPin,
+  List,
   Pencil,
   RefreshCw,
   ShieldCheck,
@@ -28,6 +29,14 @@ import {
 
 import ItineraryWorkspace from './itinerary-workspace'
 import MemorySharePanel from './memory-share-panel'
+import AccessibleDialog from './accessible-dialog'
+import ResultNavigation from './result-navigation'
+import {
+  DAY_COLORS,
+  routeGeometrySegments,
+  topPublicChecks,
+  type ResultViewId,
+} from './result-presentation'
 import {
   type ActivityCardView,
   type MapRenderView,
@@ -69,6 +78,8 @@ type EditorState = {
   card?: ActivityCardView
 }
 
+type AssumptionEditorState = UserFacingTripResult['assumptions'][number]
+
 type ActiveChecksRequest = {
   id: number
   resourceRef: string
@@ -102,12 +113,62 @@ type WorkspaceCommandResult =
   | { status: 'APPLIED' | 'SYNCED'; days: UserFacingTripResult['days'] }
   | { status: 'RECONCILING' }
 
+type RefreshedResult = {
+  body: UserFacingTripResult
+  etag: string | null
+}
+
 
 const CHECKS_REQUEST_TIMEOUT_MS = 10_000
+const RESULT_REQUEST_TIMEOUT_MS = 10_000
+const MUTATION_REQUEST_TIMEOUT_MS = 10_000
 const ENHANCEMENT_REQUEST_TIMEOUT_MS = 3_000
 const ENHANCEMENT_SESSION_BUDGET_MS = 10_000
 const ENHANCEMENT_MAX_ROUNDS = 8
 const ENHANCEMENT_POLL_INTERVAL_MS = 800
+
+
+function boundedRequest<T>(request: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs)
+    request.then(
+      (value) => {
+        window.clearTimeout(timeout)
+        resolve(value)
+      },
+      (reason) => {
+        window.clearTimeout(timeout)
+        reject(reason)
+      },
+    )
+  })
+}
+
+
+function requestTimedOut(reason: unknown): boolean {
+  return reason instanceof Error && reason.message === 'REQUEST_TIMEOUT'
+}
+
+
+function mutationRequest<T>(request: () => Promise<T>, deadlineAt: number): Promise<T> {
+  const remainingMs = deadlineAt - Date.now()
+  if (remainingMs <= 0) return Promise.reject(new Error('REQUEST_TIMEOUT'))
+  return boundedRequest(request(), remainingMs)
+}
+
+
+function revisionReadbackConfirmed(
+  refreshed: RefreshedResult,
+  baseEtag: string | null,
+  expectedEtag: string | null,
+): boolean {
+  if (!refreshed.etag) return false
+  if (expectedEtag) {
+    return (baseEtag === null || expectedEtag !== baseEtag) && refreshed.etag === expectedEtag
+  }
+  return Boolean(baseEtag && refreshed.etag !== baseEtag)
+}
+const RESULT_WAIT_BUDGET_MS = 60_000
 
 
 function stopEnhancementSession(session: ActiveEnhancementSession | null) {
@@ -174,27 +235,27 @@ function pendingRevisionStayView(): StaySuggestionView {
 }
 
 
-function scrollToResultSection(id: string) {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth' })
-}
-
-
 export default function TripResultPage() {
   const router = useRouter()
   const { user, isHydrated, hydrate } = useAuthStore()
   const [resourceRef, setResourceRef] = useState<string | null>(null)
   const [activeMode, setActiveMode] = useState<'DEMO' | 'FULL' | 'CLAIMED' | null>(null)
   const [result, setResult] = useState<UserFacingTripResult | null>(null)
+  const [activeView, setActiveView] = useState<ResultViewId>('ITINERARY')
   const [etag, setEtag] = useState<string | null>(null)
   const [message, setMessage] = useState('正在整理每天行程')
   const [error, setError] = useState('')
+  const [resultRecovery, setResultRecovery] = useState('')
+  const [resultRetryGeneration, setResultRetryGeneration] = useState(0)
   const [commandError, setCommandError] = useState('')
   const [editor, setEditor] = useState<EditorState | null>(null)
   const [editorName, setEditorName] = useState('')
   const [editorCategory, setEditorCategory] = useState('地点')
   const [editorAddress, setEditorAddress] = useState('地点待确认')
   const [editorTime, setEditorTime] = useState('')
+  const [assumptionEditor, setAssumptionEditor] = useState<AssumptionEditorState | null>(null)
+  const [assumptionValue, setAssumptionValue] = useState('')
+  const [privacyConfirmation, setPrivacyConfirmation] = useState<'SOURCE' | 'TRIP' | null>(null)
   const [privacyBusy, setPrivacyBusy] = useState<'CLAIM' | 'SOURCE' | 'TRIP' | null>(null)
   const [privacyMessage, setPrivacyMessage] = useState('')
   const [sourceDeleted, setSourceDeleted] = useState(false)
@@ -212,7 +273,7 @@ export default function TripResultPage() {
   const [mutationLocked, setMutationLocked] = useState(false)
   const [reconciliationRequired, setReconciliationRequired] = useState(false)
   const [reconciliationBusy, setReconciliationBusy] = useState(false)
-  const [reconciliationKind, setReconciliationKind] = useState<'RESULT' | 'TRIP_DELETE'>('RESULT')
+  const [reconciliationKind, setReconciliationKind] = useState<'RESULT' | 'MAP' | 'CLAIM' | 'SOURCE_DELETE' | 'TRIP_DELETE'>('RESULT')
   const activeResourceRef = useRef<string | null>(null)
   const mountedRef = useRef(false)
   const resultRef = useRef<UserFacingTripResult | null>(result)
@@ -230,8 +291,13 @@ export default function TripResultPage() {
   const activeEnhancementSession = useRef<ActiveEnhancementSession | null>(null)
   const activeEnhancementPromise = useRef<Promise<void> | null>(null)
   const settledEnhancementKey = useRef<string | null>(null)
-  const editorDialogRef = useRef<HTMLDivElement | null>(null)
   const editorTriggerRef = useRef<HTMLElement | null>(null)
+  const editorNameRef = useRef<HTMLInputElement | null>(null)
+  const reconciliationActionRef = useRef<HTMLButtonElement | null>(null)
+  const reconciliationResourceRef = useRef<string | null>(null)
+  const reconciliationBaseEtagRef = useRef<string | null>(null)
+  const reconciliationExpectedEtagRef = useRef<string | null>(null)
+  const reconciliationAcceptAnyResultRef = useRef(false)
   const resultAvailable = result !== null
   const currentChecksKey = resourceRef && etag ? `${resourceRef}:${etag}` : null
   const currentChecksKeyRef = useRef<string | null>(currentChecksKey)
@@ -241,6 +307,18 @@ export default function TripResultPage() {
   useEffect(() => {
     hydrate()
   }, [hydrate])
+
+  useEffect(() => {
+    if (!reconciliationRequired) return
+    let secondFrame = 0
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => reconciliationActionRef.current?.focus())
+    })
+    return () => {
+      window.cancelAnimationFrame(firstFrame)
+      if (secondFrame) window.cancelAnimationFrame(secondFrame)
+    }
+  }, [reconciliationRequired])
 
   useEffect(() => {
     mountedRef.current = true
@@ -350,13 +428,25 @@ export default function TripResultPage() {
     setMutationLocked(false)
     setReconciliationRequired(false)
     setReconciliationKind('RESULT')
+    reconciliationResourceRef.current = null
+    reconciliationBaseEtagRef.current = null
+    reconciliationExpectedEtagRef.current = null
+    reconciliationAcceptAnyResultRef.current = false
   }, [])
 
   const holdForReconciliation = useCallback((
     message: string,
-    kind: 'RESULT' | 'TRIP_DELETE' = 'RESULT',
+    kind: 'RESULT' | 'MAP' | 'CLAIM' | 'SOURCE_DELETE' | 'TRIP_DELETE' = 'RESULT',
+    reference: string | null = null,
+    baseEtag: string | null = null,
+    expectedEtag: string | null = null,
+    acceptAnyResult = false,
   ) => {
     cancelActiveEnhancement()
+    reconciliationResourceRef.current = reference
+    reconciliationBaseEtagRef.current = baseEtag
+    reconciliationExpectedEtagRef.current = expectedEtag
+    reconciliationAcceptAnyResultRef.current = acceptAnyResult
     setReconciliationKind(kind)
     setReconciliationRequired(true)
     setCommandError(message)
@@ -520,10 +610,22 @@ export default function TripResultPage() {
     return sessionPromise
   }, [])
 
-  const refresh = useCallback(async (reference: string, suppressOpenError = false) => {
+  const refresh = useCallback(async (
+    reference: string,
+    suppressOpenError = false,
+    isAttemptCurrent: () => boolean = () => true,
+    deadlineAt?: number,
+  ) => {
     try {
-      const response = await readTripUnderstandingResult(reference)
-      if (activeResourceRef.current !== reference) return null
+      const remainingMs = deadlineAt === undefined
+        ? RESULT_REQUEST_TIMEOUT_MS
+        : Math.min(RESULT_REQUEST_TIMEOUT_MS, deadlineAt - Date.now())
+      if (remainingMs <= 0) throw new Error('REQUEST_TIMEOUT')
+      const response = await boundedRequest(
+        readTripUnderstandingResult(reference),
+        remainingMs,
+      )
+      if (activeResourceRef.current !== reference || !isAttemptCurrent()) return null
       if (response.body.status !== 'PROCESSING') {
         let enhancementGeneration = enhancementGenerationRef.current
         const authoritativeKey = response.etag ? `${reference}:${response.etag}` : null
@@ -544,18 +646,20 @@ export default function TripResultPage() {
         authoritativeKeyRef.current = authoritativeKey
         resultRef.current = response.body
         setResult(response.body)
+        setResultRecovery('')
+        setError('')
         if (response.etag) {
           setEtag(response.etag)
           sessionStorage.setItem('bt_active_trip_etag', response.etag)
         }
         setMessage('卡片已可用')
         void refreshEnhancements(reference, enhancementGeneration, response.body)
-        return response.body
+        return { body: response.body, etag: response.etag }
       }
       setMessage(response.body.message)
       return null
     } catch {
-      if (!suppressOpenError && activeResourceRef.current === reference) {
+      if (!suppressOpenError && activeResourceRef.current === reference && isAttemptCurrent()) {
         setError('这份体验暂时无法打开，请返回首页重新开始。')
       }
       return null
@@ -689,10 +793,14 @@ export default function TripResultPage() {
 
   const retryResultReadback = useCallback(async () => {
     if (!resourceRef || !reconciliationRequired || reconciliationBusy) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     setReconciliationBusy(true)
     if (reconciliationKind === 'TRIP_DELETE') {
       try {
-        await deleteTripUnderstanding(resourceRef)
+        await mutationRequest(
+          () => deleteTripUnderstanding(resourceRef),
+          deadlineAt,
+        )
         clearTripUnderstandingSession()
         activeResourceRef.current = null
         setTripDeleted(true)
@@ -704,41 +812,163 @@ export default function TripResultPage() {
       }
       return
     }
-    const latest = await refresh(resourceRef, true)
-    if (latest) {
+    if (reconciliationKind === 'MAP') {
+      const mapReference = reconciliationResourceRef.current || resourceRef
+      const controller = new AbortController()
+      const remainingMs = Math.max(0, deadlineAt - Date.now())
+      const timeout = window.setTimeout(() => controller.abort(), remainingMs)
+      try {
+        const latestMap = await mutationRequest(
+          () => readTripUnderstandingMap(mapReference, controller.signal),
+          deadlineAt,
+        )
+        if (latestMap.status === 'NEEDS_UPDATE') {
+          setCommandError('路线任务仍未确认，请稍后再重新读取；不会重复提交路线请求。')
+        } else {
+          setMapView(latestMap)
+          setEnhancementRecoveryAvailable(latestMap.status === 'PREPARING')
+          setCommandError('已读取服务端当前路线状态，可以继续调整。')
+          finishMutation()
+        }
+      } catch {
+        setCommandError('仍在确认路线任务状态。请保持此页面打开，稍后再重新读取。')
+      } finally {
+        window.clearTimeout(timeout)
+        setReconciliationBusy(false)
+      }
+      return
+    }
+    if (reconciliationKind === 'CLAIM') {
+      const claimReference = reconciliationResourceRef.current || resourceRef
+      try {
+        const claimed = await mutationRequest(
+          () => claimTripUnderstanding(claimReference),
+          deadlineAt,
+        )
+        const nextReference = claimed.body.public_resource_id
+        clearTripUnderstandingSession()
+        sessionStorage.setItem('bt_active_trip_ref', nextReference)
+        sessionStorage.setItem('bt_active_trip_mode', 'CLAIMED')
+        sessionStorage.removeItem('bt_active_trip_event_cursor')
+        sessionStorage.setItem('bt_active_trip_etag', claimed.etag)
+        activeResourceRef.current = nextReference
+        setResourceRef(nextReference)
+        setActiveMode('CLAIMED')
+        stagePendingRevision(nextReference, claimed.etag)
+        const latest = await refresh(nextReference, true, () => true, deadlineAt)
+        if (latest && revisionReadbackConfirmed(latest, null, claimed.etag)) {
+          finishMutation()
+          setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
+          setCommandError('账号保存结果已经确认，可以继续调整。')
+        } else {
+          holdForReconciliation(
+            '账号保存已提交，仍在确认服务端最新行程；确认前其他写入已暂停。',
+            'RESULT',
+            nextReference,
+            null,
+            claimed.etag,
+          )
+        }
+      } catch {
+        setCommandError('仍在确认账号保存结果。请保持此页面打开，稍后再重新确认。')
+      } finally {
+        setReconciliationBusy(false)
+      }
+      return
+    }
+    if (reconciliationKind === 'SOURCE_DELETE') {
+      const sourceReference = reconciliationResourceRef.current || resourceRef
+      try {
+        await mutationRequest(
+          () => deleteTripUnderstandingSource(sourceReference),
+          deadlineAt,
+        )
+        const latest = await refresh(sourceReference, true, () => true, deadlineAt)
+        if (latest) {
+          sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
+          setSourceDeleted(true)
+          setPrivacyMessage('原文已永久删除，逐日卡片仍可继续查看和调整。')
+          setCommandError('原文删除结果已经确认，可以继续调整。')
+          finishMutation()
+        } else {
+          setCommandError('仍在确认原文删除结果。请保持此页面打开，稍后再重新确认。')
+        }
+      } catch {
+        setCommandError('仍在确认原文删除结果。请保持此页面打开，稍后再重新确认。')
+      } finally {
+        setReconciliationBusy(false)
+      }
+      return
+    }
+    const resultReference = reconciliationResourceRef.current || resourceRef
+    const latest = await refresh(resultReference, true, () => true, deadlineAt)
+    const baseEtag = reconciliationBaseEtagRef.current
+    const expectedEtag = reconciliationExpectedEtagRef.current
+    const resultConfirmed = latest && (
+      reconciliationAcceptAnyResultRef.current
+      || revisionReadbackConfirmed(latest, baseEtag, expectedEtag)
+    )
+    if (resultConfirmed) {
       finishMutation()
       closeEditor(true)
       setCommandError('已读取服务端最新行程，可以继续调整。')
     } else {
-      setCommandError('仍在确认服务端保存结果。请保持此页面打开，稍后再重新读取。')
+      setCommandError('服务端版本尚未确认这次操作；不会重复提交，请稍后再重新读取。')
     }
     setReconciliationBusy(false)
-  }, [closeEditor, finishMutation, reconciliationBusy, reconciliationKind, reconciliationRequired, refresh, resourceRef])
+  }, [closeEditor, finishMutation, holdForReconciliation, reconciliationBusy, reconciliationKind, reconciliationRequired, refresh, resourceRef, stagePendingRevision])
 
   const handleMapRender = useCallback(async () => {
     if (!resourceRef || !etag || enhancementBusy) return
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setEnhancementBusy('MAP')
     setCommandError('')
     try {
-      await requestTripUnderstandingMap(resourceRef, etag)
-      await refreshEnhancements(
-        resourceRef,
-        enhancementGenerationRef.current,
-        resultRef.current,
-        { force: true },
+      await mutationRequest(
+        () => requestTripUnderstandingMap(resourceRef, etag),
+        deadlineAt,
+      )
+      await mutationRequest(
+        () => refreshEnhancements(
+          resourceRef,
+          enhancementGenerationRef.current,
+          resultRef.current,
+          { force: true },
+        ),
+        deadlineAt,
       )
     } catch (mapFailure) {
-      const latest = await refresh(resourceRef, true)
-      if (!latest) {
+      if (requestTimedOut(mapFailure)) {
         reconciliationHeld = true
-        holdForReconciliation('路线更新结果暂时无法确认；确认前其他写入已暂停。')
-      }
-      if (mapFailure instanceof Error && mapFailure.message === 'REVISION_CONFLICT') {
-        if (latest) setCommandError('行程刚刚有更新，已为你读取最新版本。')
+        holdForReconciliation(
+          '路线更新等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'MAP',
+          resourceRef,
+        )
+      } else if (mapFailure instanceof Error && mapFailure.message === 'MAP_RENDER_FAILED') {
+        setCommandError('路线更新请求未被接受，你可以稍后再试。')
+      } else if (mapFailure instanceof Error && mapFailure.message === 'REVISION_CONFLICT') {
+        const latest = await refresh(resourceRef, true, () => true, deadlineAt)
+        if (latest && revisionReadbackConfirmed(latest, etag, null)) {
+          setCommandError('行程刚刚有更新，已为你读取最新版本。')
+        } else {
+          reconciliationHeld = true
+          holdForReconciliation(
+            '行程版本和路线状态暂时无法确认；确认前其他写入已暂停。',
+            'RESULT',
+            resourceRef,
+            etag,
+          )
+        }
       } else {
-        if (latest) setCommandError('路线更新请求未能确认，已按服务端最新行程恢复。')
+        reconciliationHeld = true
+        holdForReconciliation(
+          '路线更新结果暂时无法确认；确认前其他写入已暂停。',
+          'MAP',
+          resourceRef,
+        )
       }
     } finally {
       setEnhancementBusy(null)
@@ -749,27 +979,60 @@ export default function TripResultPage() {
   const handleStaySelection = useCallback(async (candidateToken: string) => {
     if (!resourceRef || !etag || enhancementBusy) return
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setEnhancementBusy('STAY')
     setCommandError('')
     try {
-      const selectedStay = await selectTripUnderstandingStay(resourceRef, candidateToken, etag)
+      const selectedStay = await mutationRequest(
+        () => selectTripUnderstandingStay(resourceRef, candidateToken, etag),
+        deadlineAt,
+      )
       stagePendingRevision(resourceRef, selectedStay.etag)
-      if (!(await refresh(resourceRef, true))) {
+      const refreshed = await refresh(resourceRef, true, () => true, deadlineAt)
+      if (!refreshed || !revisionReadbackConfirmed(refreshed, etag, selectedStay.etag)) {
         reconciliationHeld = true
-        holdForReconciliation('住宿选择已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '住宿选择已提交，正在确认服务端最新行程；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+          selectedStay.etag,
+        )
       }
     } catch (stayFailure) {
       invalidateDerivedViews()
-      const latest = await refresh(resourceRef, true)
-      if (!latest) {
+      if (requestTimedOut(stayFailure)) {
         reconciliationHeld = true
-        holdForReconciliation('住宿选择的结果暂时无法确认；确认前其他写入已暂停。')
-      }
-      if (stayFailure instanceof Error && stayFailure.message === 'REVISION_CONFLICT') {
-        if (latest) setCommandError('住宿候选已经变化，已为你读取最新版本。')
+        holdForReconciliation(
+          '住宿选择等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+        )
       } else {
-        if (latest) setCommandError('住宿选择请求未完成，已按服务端最新行程恢复。')
+        const latest = await refresh(resourceRef, true, () => true, deadlineAt)
+        const knownRejected = stayFailure instanceof Error
+          && stayFailure.message === 'STAY_SELECTION_FAILED'
+        const readbackConfirmed = Boolean(latest && (
+          knownRejected || revisionReadbackConfirmed(latest, etag, null)
+        ))
+        if (!latest || !readbackConfirmed) {
+          reconciliationHeld = true
+          holdForReconciliation(
+            '住宿选择的结果暂时无法确认；确认前其他写入已暂停。',
+            'RESULT',
+            resourceRef,
+            etag,
+            null,
+            knownRejected,
+          )
+        }
+        if (stayFailure instanceof Error && stayFailure.message === 'REVISION_CONFLICT') {
+          if (readbackConfirmed) setCommandError('住宿候选已经变化，已为你读取最新版本。')
+        } else if (readbackConfirmed) {
+          setCommandError('住宿选择请求未完成，已按服务端最新行程恢复。')
+        }
       }
     } finally {
       setEnhancementBusy(null)
@@ -786,6 +1049,7 @@ export default function TripResultPage() {
     const controller = new AbortController()
     previewRequestSequence.current = requestId
     activePreviewRequest.current = { id: requestId, key: previewKey, controller }
+    const timeout = window.setTimeout(() => controller.abort(), CHECKS_REQUEST_TIMEOUT_MS)
     setCheckBusy('PREVIEW')
     setCheckMessage('')
     try {
@@ -802,8 +1066,11 @@ export default function TripResultPage() {
       const activePreview = activePreviewRequest.current
       if (activePreview?.id !== requestId || activePreview.key !== previewKey) return
       setChangePreview(null)
-      setCheckMessage('这项建议已经变化，请刷新后再试。')
+      setCheckMessage(controller.signal.aborted
+        ? '建议预览等待时间较长，已安全停止；你可以重新预览。'
+        : '这项建议已经变化，请刷新后再试。')
     } finally {
+      window.clearTimeout(timeout)
       const activePreview = activePreviewRequest.current
       if (activePreview?.id === requestId && activePreview.key === previewKey) {
         activePreviewRequest.current = null
@@ -815,32 +1082,66 @@ export default function TripResultPage() {
   const handleChangeAdopt = useCallback(async () => {
     if (!resourceRef || !etag || !changePreview || checkBusy) return
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setCheckBusy('ADOPT')
     setCheckMessage('')
     try {
-      const adopted = await adoptTripUnderstandingChange(
-        resourceRef,
-        changePreview.change_token,
-        etag,
+      const adopted = await mutationRequest(
+        () => adoptTripUnderstandingChange(
+          resourceRef,
+          changePreview.change_token,
+          etag,
+        ),
+        deadlineAt,
       )
       stagePendingRevision(resourceRef, adopted.etag, adopted.body.checks)
-      setCheckMessage(adopted.body.message)
-      if (!(await refresh(resourceRef, true))) {
+      const refreshed = await refresh(resourceRef, true, () => true, deadlineAt)
+      if (!refreshed || !revisionReadbackConfirmed(refreshed, etag, adopted.etag)) {
         reconciliationHeld = true
-        holdForReconciliation('改动已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '改动已提交，正在确认服务端最新行程；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+          adopted.etag,
+        )
+      } else {
+        setCheckMessage(adopted.body.message)
       }
     } catch (adoptFailure) {
       invalidateDerivedViews()
-      const latest = await refresh(resourceRef, true)
-      if (!latest) {
+      if (requestTimedOut(adoptFailure)) {
         reconciliationHeld = true
-        holdForReconciliation('改动结果暂时无法确认；确认前其他写入已暂停。')
-      }
-      if (adoptFailure instanceof Error && adoptFailure.message === 'TRIP_UPDATED') {
-        if (latest) setCheckMessage('行程刚刚有更新，已读取最新内容，请重新预览。')
+        holdForReconciliation(
+          '改动保存等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+        )
       } else {
-        if (latest) setCheckMessage('改动请求未完成，已按服务端最新行程恢复。')
+        const latest = await refresh(resourceRef, true, () => true, deadlineAt)
+        const knownRejected = adoptFailure instanceof Error
+          && adoptFailure.message === 'CHANGE_ADOPT_FAILED'
+        const readbackConfirmed = Boolean(latest && (
+          knownRejected || revisionReadbackConfirmed(latest, etag, null)
+        ))
+        if (!latest || !readbackConfirmed) {
+          reconciliationHeld = true
+          holdForReconciliation(
+            '改动结果暂时无法确认；确认前其他写入已暂停。',
+            'RESULT',
+            resourceRef,
+            etag,
+            null,
+            knownRejected,
+          )
+        }
+        if (adoptFailure instanceof Error && adoptFailure.message === 'TRIP_UPDATED') {
+          if (readbackConfirmed) setCheckMessage('行程刚刚有更新，已读取最新内容，请重新预览。')
+        } else if (readbackConfirmed) {
+          setCheckMessage('改动请求未完成，已按服务端最新行程恢复。')
+        }
       }
     } finally {
       setCheckBusy(null)
@@ -853,25 +1154,57 @@ export default function TripResultPage() {
       return { status: 'SYNCED', days: result?.days || [] }
     }
     if (!(await beginMutation())) return { status: 'SYNCED', days: result?.days || [] }
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     commandInFlightRef.current = true
     setCommandError('')
     try {
-      const applied = await applyTripUnderstandingCommand(resourceRef, etag, command)
+      const applied = await mutationRequest(
+        () => applyTripUnderstandingCommand(resourceRef, etag, command),
+        deadlineAt,
+      )
       stagePendingRevision(resourceRef, applied.etag)
-      const refreshed = await refresh(resourceRef, true)
-      if (!refreshed) {
+      const refreshed = await refresh(resourceRef, true, () => true, deadlineAt)
+      if (!refreshed || !revisionReadbackConfirmed(refreshed, etag, applied.etag)) {
         reconciliationHeld = true
-        holdForReconciliation('调整已提交，但保存结果暂时无法确认；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '调整已提交，但保存结果暂时无法确认；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+          applied.etag,
+        )
         return { status: 'RECONCILING' }
       }
-      return { status: 'APPLIED', days: refreshed.days }
+      return { status: 'APPLIED', days: refreshed.body.days }
     } catch (commandFailure) {
       invalidateDerivedViews()
-      const refreshed = await refresh(resourceRef, true)
-      if (!refreshed) {
+      if (requestTimedOut(commandFailure)) {
         reconciliationHeld = true
-        holdForReconciliation('调整结果暂时无法确认；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '调整保存等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+        )
+        return { status: 'RECONCILING' }
+      }
+      const refreshed = await refresh(resourceRef, true, () => true, deadlineAt)
+      const knownRejected = commandFailure instanceof Error
+        && (commandFailure.message === 'COMMAND_FAILED' || commandFailure.message === 'IF_MATCH_REQUIRED')
+      const readbackConfirmed = Boolean(refreshed && (
+        knownRejected || revisionReadbackConfirmed(refreshed, etag, null)
+      ))
+      if (!refreshed || !readbackConfirmed) {
+        reconciliationHeld = true
+        holdForReconciliation(
+          '调整结果暂时无法确认；确认前其他写入已暂停。',
+          'RESULT',
+          resourceRef,
+          etag,
+          null,
+          knownRejected,
+        )
         return { status: 'RECONCILING' }
       }
       if (commandFailure instanceof Error && commandFailure.message === 'REVISION_CONFLICT') {
@@ -879,7 +1212,7 @@ export default function TripResultPage() {
       } else {
         setCommandError('调整请求未能确认，已按服务端最新行程恢复。')
       }
-      return { status: 'SYNCED', days: refreshed.days }
+      return { status: 'SYNCED', days: refreshed.body.days }
     } finally {
       commandInFlightRef.current = false
       if (!reconciliationHeld) finishMutation()
@@ -900,28 +1233,6 @@ export default function TripResultPage() {
     setEditorAddress(state.card?.area_or_address || '地点待确认')
     setEditorTime(state.card?.time_hint || '')
     setCommandError('')
-  }
-
-  const handleEditorKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      event.preventDefault()
-      closeEditor()
-      return
-    }
-    if (event.key !== 'Tab') return
-    const focusable = Array.from(editorDialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    ) || []).filter((element) => element.getClientRects().length > 0)
-    if (focusable.length === 0) return
-    const first = focusable[0]
-    const last = focusable[focusable.length - 1]
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault()
-      last.focus()
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault()
-      first.focus()
-    }
   }
 
   const submitEditor = async () => {
@@ -958,12 +1269,29 @@ export default function TripResultPage() {
         },
       })
     }
-    if (outcome?.status === 'APPLIED') {
+    if (outcome?.status === 'APPLIED' || outcome?.status === 'RECONCILING') {
       closeEditor(true)
     } else if (outcome) {
       window.requestAnimationFrame(() => {
-        editorDialogRef.current?.querySelector<HTMLElement>('[data-testid="card-editor-name"]')?.focus()
+        editorNameRef.current?.focus()
       })
+    }
+  }
+
+  const submitAssumption = async () => {
+    if (!assumptionEditor) return
+    const value = assumptionValue.trim()
+    if (!value || value === assumptionEditor.value) {
+      setAssumptionEditor(null)
+      return
+    }
+    const outcome = await runCommand({
+      command_type: 'ASSUMPTION_SET',
+      key: assumptionEditor.key,
+      value,
+    })
+    if (outcome.status === 'APPLIED' || outcome.status === 'RECONCILING') {
+      setAssumptionEditor(null)
     }
   }
 
@@ -975,11 +1303,15 @@ export default function TripResultPage() {
       return
     }
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setPrivacyBusy('CLAIM')
     setPrivacyMessage('')
     try {
-      const claimed = await claimTripUnderstanding(resourceRef)
+      const claimed = await mutationRequest(
+        () => claimTripUnderstanding(resourceRef),
+        deadlineAt,
+      )
       const nextReference = claimed.body.public_resource_id
       clearTripUnderstandingSession()
       sessionStorage.setItem('bt_active_trip_ref', nextReference)
@@ -990,20 +1322,42 @@ export default function TripResultPage() {
       setResourceRef(nextReference)
       setActiveMode('CLAIMED')
       stagePendingRevision(nextReference, claimed.etag)
-      if (await refresh(nextReference, true)) {
+      const refreshed = await refresh(nextReference, true, () => true, deadlineAt)
+      if (refreshed && revisionReadbackConfirmed(refreshed, null, claimed.etag)) {
         setPrivacyMessage('已保存到你的账号，匿名访问凭证已经失效。')
       } else {
         reconciliationHeld = true
-        holdForReconciliation('账号保存已提交，正在确认服务端最新行程；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '账号保存已提交，正在确认服务端最新行程；确认前其他写入已暂停。',
+          'RESULT',
+          nextReference,
+          null,
+          claimed.etag,
+        )
       }
-    } catch {
+    } catch (claimFailure) {
       invalidateDerivedViews()
-      const latest = await refresh(activeResourceRef.current || resourceRef, true)
-      if (latest) {
-        setPrivacyMessage('账号保存请求未完成，已按服务端当前行程恢复。')
+      if (requestTimedOut(claimFailure)) {
+        reconciliationHeld = true
+        holdForReconciliation(
+          '账号保存等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'CLAIM',
+          resourceRef,
+        )
+      } else if (claimFailure instanceof Error && [
+        'CLAIM_FAILED',
+        'LOGIN_REQUIRED',
+        'TRIP_ALREADY_GONE',
+      ].includes(claimFailure.message)) {
+        await refresh(resourceRef, true, () => true, deadlineAt)
+        setPrivacyMessage('账号保存请求未被接受，你可以稍后再试。')
       } else {
         reconciliationHeld = true
-        holdForReconciliation('账号保存结果暂时无法确认；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '账号保存结果暂时无法确认；确认前其他写入已暂停。',
+          'CLAIM',
+          resourceRef,
+        )
       }
     } finally {
       setPrivacyBusy(null)
@@ -1013,31 +1367,49 @@ export default function TripResultPage() {
 
   const handleDeleteSource = async () => {
     if (!resourceRef || privacyBusy || sourceDeleted || mutationLockRef.current) return
-    const confirmed = window.confirm(
-      '删除原文后，攻略文字将永久不可恢复；当前逐日卡片会保留。确定继续吗？',
-    )
-    if (!confirmed) return
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setPrivacyBusy('SOURCE')
     setPrivacyMessage('')
     try {
-      await deleteTripUnderstandingSource(resourceRef)
-      if (await refresh(resourceRef, true)) {
+      await mutationRequest(
+        () => deleteTripUnderstandingSource(resourceRef),
+        deadlineAt,
+      )
+      if (await refresh(resourceRef, true, () => true, deadlineAt)) {
         sessionStorage.setItem('bt_active_trip_source_deleted', 'true')
         setSourceDeleted(true)
         setPrivacyMessage('原文已永久删除，逐日卡片仍可继续查看和调整。')
       } else {
         reconciliationHeld = true
-        holdForReconciliation('原文删除已提交，正在确认服务端结果；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '原文删除已提交，正在确认服务端结果；确认前其他写入已暂停。',
+          'SOURCE_DELETE',
+          resourceRef,
+        )
       }
-    } catch {
-      const latest = await refresh(resourceRef, true)
-      if (latest) {
-        setPrivacyMessage('原文删除请求未完成，已读取服务端当前行程。')
+    } catch (sourceDeleteFailure) {
+      if (requestTimedOut(sourceDeleteFailure)) {
+        reconciliationHeld = true
+        holdForReconciliation(
+          '原文删除等待时间较长，结果暂时无法确认；确认前其他写入已暂停。',
+          'SOURCE_DELETE',
+          resourceRef,
+        )
+      } else if (sourceDeleteFailure instanceof Error && [
+        'SOURCE_DELETE_FAILED',
+        'LOGIN_REQUIRED',
+      ].includes(sourceDeleteFailure.message)) {
+        await refresh(resourceRef, true, () => true, deadlineAt)
+        setPrivacyMessage('原文删除请求未被接受，你可以稍后再试。')
       } else {
         reconciliationHeld = true
-        holdForReconciliation('原文删除结果暂时无法确认；确认前其他写入已暂停。')
+        holdForReconciliation(
+          '原文删除结果暂时无法确认；确认前其他写入已暂停。',
+          'SOURCE_DELETE',
+          resourceRef,
+        )
       }
     } finally {
       setPrivacyBusy(null)
@@ -1047,16 +1419,16 @@ export default function TripResultPage() {
 
   const handleDeleteTrip = async () => {
     if (!resourceRef || privacyBusy || mutationLockRef.current) return
-    const confirmed = window.confirm(
-      '删除整份行程会永久移除原文、卡片和相关结果，之后无法恢复。确定删除吗？',
-    )
-    if (!confirmed) return
     if (!(await beginMutation())) return
+    const deadlineAt = Date.now() + MUTATION_REQUEST_TIMEOUT_MS
     let reconciliationHeld = false
     setPrivacyBusy('TRIP')
     setPrivacyMessage('')
     try {
-      await deleteTripUnderstanding(resourceRef)
+      await mutationRequest(
+        () => deleteTripUnderstanding(resourceRef),
+        deadlineAt,
+      )
       clearTripUnderstandingSession()
       activeResourceRef.current = null
       setTripDeleted(true)
@@ -1091,52 +1463,78 @@ export default function TripResultPage() {
     if (!resourceRef) return
     activeResourceRef.current = resourceRef
     let disposed = false
+    let expired = false
+    let readInFlight = false
     let interval: ReturnType<typeof setInterval> | undefined
+    let deadline: ReturnType<typeof setTimeout> | undefined
     const eventController = new AbortController()
+    const isAttemptCurrent = () => !disposed && !expired
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval)
+        interval = undefined
+      }
+      if (deadline) {
+        clearTimeout(deadline)
+        deadline = undefined
+      }
+    }
+    const stopAttempt = () => {
+      eventController.abort()
+      stopPolling()
+    }
+    const poll = async (closeStreamOnReady = false) => {
+      if (!isAttemptCurrent() || readInFlight) return null
+      readInFlight = true
+      const ready = await refresh(resourceRef, true, isAttemptCurrent)
+      readInFlight = false
+      if (ready) {
+        stopPolling()
+        if (closeStreamOnReady) eventController.abort()
+      }
+      return ready
+    }
+
+    setResultRecovery('')
     void streamTripUnderstandingEvents(
       resourceRef,
       (event) => {
-        if (disposed) return
+        if (!isAttemptCurrent()) return
         setMessage(event.message)
         if (event.type === 'result_available') {
-          void refresh(resourceRef).then((ready) => {
-            if (ready) {
-              eventController.abort()
-              if (interval) {
-                clearInterval(interval)
-                interval = undefined
-              }
-            }
-          })
+          void poll(true)
         }
       },
       eventController.signal,
     ).catch((streamError: unknown) => {
-      if (!disposed && !(streamError instanceof DOMException && streamError.name === 'AbortError')) {
-        void refresh(resourceRef)
+      if (isAttemptCurrent() && !(streamError instanceof DOMException && streamError.name === 'AbortError')) {
+        void poll()
       }
     })
-    void refresh(resourceRef).then((ready) => {
-      if (ready && interval) {
-        clearInterval(interval)
-        interval = undefined
-      }
-    })
+    void poll()
     interval = setInterval(() => {
-      if (!disposed) {
-        void refresh(resourceRef).then((ready) => {
-          if (ready && interval) clearInterval(interval)
-        })
-      }
+      void poll()
     }, 1000)
+    deadline = setTimeout(() => {
+      if (!isAttemptCurrent() || resultRef.current) return
+      expired = true
+      stopAttempt()
+      setResultRecovery('整理时间比预期更长，本轮读取已安全停止。你可以重试，结果不会丢失。')
+    }, RESULT_WAIT_BUDGET_MS)
     return () => {
       disposed = true
-      eventController.abort()
-      if (interval) clearInterval(interval)
+      stopAttempt()
       cancelActiveEnhancement()
       cancelActivePreview()
     }
-  }, [cancelActiveEnhancement, cancelActivePreview, refresh, resourceRef])
+  }, [cancelActiveEnhancement, cancelActivePreview, refresh, resourceRef, resultRetryGeneration])
+
+  const retryInitialResult = useCallback(() => {
+    setError('')
+    setResultRecovery('')
+    setMessage('正在重新读取行程')
+    setResultRetryGeneration((generation) => generation + 1)
+  }, [])
 
   if (tripDeleted) {
     return (
@@ -1160,15 +1558,41 @@ export default function TripResultPage() {
           <Compass className="mx-auto h-10 w-10 text-slate-700" aria-hidden="true" />
           <h1 className="mt-4 text-xl font-semibold">暂时无法恢复</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">{error}</p>
-          <button type="button" onClick={() => router.push('/')} className="mt-6 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white">
-            返回首页
-          </button>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            {resourceRef && (
+              <button type="button" onClick={retryInitialResult} className="min-h-12 rounded-2xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                重试
+              </button>
+            )}
+            <button type="button" onClick={() => router.push('/')} className="min-h-12 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2">
+              返回首页
+            </button>
+          </div>
         </div>
       </main>
     )
   }
 
   if (!resourceRef || !result) {
+    if (resultRecovery) {
+      return (
+        <main className="flex min-h-screen items-center justify-center bg-[#f8f7f2] p-6">
+          <div data-testid="trip-progress-recovery" role="status" className="w-full max-w-md rounded-3xl border border-amber-200/70 bg-white p-8 text-center shadow-xl">
+            <Compass className="mx-auto h-10 w-10 text-emerald-700" aria-hidden="true" />
+            <h1 className="mt-4 text-xl font-semibold">行程仍在整理</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">{resultRecovery}</p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button data-testid="retry-initial-result" type="button" onClick={retryInitialResult} className="min-h-12 rounded-2xl bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2">
+                重试
+              </button>
+              <button type="button" onClick={() => router.push('/')} className="min-h-12 rounded-2xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700">
+                返回首页
+              </button>
+            </div>
+          </div>
+        </main>
+      )
+    }
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f8f7f2] p-6">
         <div data-testid="trip-progress" className="w-full max-w-md rounded-3xl border border-white bg-white/90 p-8 text-center shadow-xl">
@@ -1204,12 +1628,6 @@ export default function TripResultPage() {
             <span className="sr-only">，返回首页</span>
           </button>
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="结果页导航">
-            <button type="button" onClick={() => scrollToResultSection('itinerary-overview')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">行程总览</button>
-            <button type="button" onClick={() => scrollToResultSection('trip-map-stay')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">地图与住宿</button>
-            <button type="button" onClick={() => scrollToResultSection('trip-check-area')} className="min-h-12 rounded-xl px-4 text-sm font-medium text-slate-600 hover:bg-white hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">优先检查</button>
-          </nav>
-
           <button type="button" onClick={() => router.push('/')} className="inline-flex min-h-12 items-center gap-2 rounded-xl border border-emerald-950/10 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-700/30 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700" aria-label="返回首页">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">返回首页</span>
@@ -1217,8 +1635,10 @@ export default function TripResultPage() {
         </div>
       </header>
 
-      <main className="min-h-screen overflow-hidden bg-[#f8f7f2] text-slate-900">
-      <div className="relative mx-auto w-full max-w-[1540px] px-5 pb-14 sm:px-8 lg:px-12">
+      <ResultNavigation activeView={activeView} onChange={setActiveView} />
+
+      <main className="min-h-screen overflow-x-hidden bg-[#f8f7f2] pb-28 text-slate-900 lg:pb-0 lg:pl-[5.75rem]">
+      <div className="relative mx-auto w-full max-w-[1540px] px-5 pb-14 sm:px-8 lg:px-10">
         <div className="pointer-events-none absolute -right-32 top-44 h-80 w-80 rounded-full bg-emerald-100/35 blur-3xl" aria-hidden="true" />
         <div className="pointer-events-none absolute -left-40 top-[42rem] h-72 w-72 rounded-full bg-amber-100/45 blur-3xl" aria-hidden="true" />
 
@@ -1229,13 +1649,12 @@ export default function TripResultPage() {
               return (
                 <button
                   key={assumption.key}
+                  data-testid={`edit-assumption-${assumption.key}`}
                   type="button"
                   disabled={mutationLocked || !assumption.editable}
                   onClick={() => {
-                    const value = window.prompt(`修改${assumption.label}`, assumption.value)?.trim()
-                    if (value && value !== assumption.value) {
-                      void runCommand({ command_type: 'ASSUMPTION_SET', key: assumption.key, value })
-                    }
+                    setAssumptionEditor(assumption)
+                    setAssumptionValue(assumption.value)
                   }}
                   className="group flex min-h-12 items-center gap-3 px-4 text-left first:pl-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-wait disabled:opacity-60 sm:px-7"
                 >
@@ -1258,37 +1677,54 @@ export default function TripResultPage() {
           </div>
         </section>
 
-        <section id="itinerary-overview" className="relative scroll-mt-28 pt-8 sm:pt-10">
+        {commandError && (
+          <div
+            data-testid="result-operation-status"
+            role="status"
+            aria-live="polite"
+            className="relative mt-5 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <p>{commandError}</p>
+            {reconciliationRequired && (
+              <button
+                ref={reconciliationActionRef}
+                data-testid="retry-result-readback"
+                type="button"
+                disabled={reconciliationBusy}
+                onClick={() => void retryResultReadback()}
+                className="mt-3 min-h-12 rounded-xl border border-amber-700/30 bg-white px-4 font-semibold text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 disabled:opacity-60"
+              >
+                {reconciliationBusy ? '正在读取最新结果…' : '重新读取服务端结果'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="relative pt-8 sm:pt-10">
+          <section
+            id="itinerary-view"
+            data-testid="result-view-itinerary"
+            hidden={activeView !== 'ITINERARY'}
+            aria-labelledby="itinerary-view-title"
+          >
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/80 px-3 py-1.5 text-xs font-semibold text-emerald-800 shadow-sm">
               <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
               {result.status === 'READY' ? '每天的地点已经排好' : '先查看已整理的地点'}
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-900 sm:text-5xl">按天查看，照着走<span className="text-emerald-800">更轻松</span></h1>
+            <h1 id="itinerary-view-title" className="mt-4 text-3xl font-semibold tracking-[-0.035em] text-slate-900 sm:text-5xl">按天查看，照着走<span className="text-emerald-800">更轻松</span></h1>
             <p className="mt-3 text-sm leading-6 text-slate-600 sm:text-base">这是清晰的游览顺序，不伪装成实时路线。拖动卡片后会自动保存，需要时再手动更新地图。</p>
           </div>
-
-          {commandError && (
-            <div role="status" aria-live="polite" className="mt-5 rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p>{commandError}</p>
-              {reconciliationRequired && (
-                <button
-                  data-testid="retry-result-readback"
-                  type="button"
-                  disabled={reconciliationBusy}
-                  onClick={() => void retryResultReadback()}
-                  className="mt-3 min-h-12 rounded-xl border border-amber-700/30 bg-white px-4 font-semibold text-amber-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-800 disabled:opacity-60"
-                >
-                  {reconciliationBusy ? '正在读取最新结果…' : '重新读取服务端结果'}
-                </button>
-              )}
-            </div>
-          )}
 
           <ItineraryWorkspace
             days={result.days}
             disabled={mutationLocked}
-            mapStatus={mapView?.status || result.map.status}
+            mapView={mapView || {
+              status: result.map.status,
+              message: result.map.message,
+              days: [],
+              available_actions: result.map.available_actions,
+            }}
             checkStatus={checkBusy
               ? '正在准备'
               : checksView
@@ -1301,8 +1737,20 @@ export default function TripResultPage() {
             onEdit={(item) => openEditor({ ...item, mode: 'EDIT', card: item.card })}
             onReplace={(item) => openEditor({ ...item, mode: 'REPLACE', card: item.card })}
           />
+          </section>
 
-          <div id="trip-map-stay" className="mt-8 grid scroll-mt-28 gap-5 xl:grid-cols-[1.35fr_1fr]">
+          <section
+            id="map-stay-view"
+            data-testid="result-view-map-stay"
+            hidden={activeView !== 'MAP_STAY'}
+            aria-labelledby="map-stay-view-title"
+          >
+          <div className="mb-6 max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">地图与住宿</p>
+            <h1 id="map-stay-view-title" className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-slate-900 sm:text-4xl">看清路线，也住得更顺路</h1>
+            <p className="mt-2 text-sm leading-6 text-slate-600">地图只展示服务端已经准备好的步行或公交结果；没有路线线条时仍可查看地点与文字摘要。</p>
+          </div>
+          <div id="trip-map-stay" className="grid gap-5 xl:grid-cols-[1.35fr_1fr]">
             <MapTheater
               view={mapView || {
                 status: result.map.status,
@@ -1310,6 +1758,7 @@ export default function TripResultPage() {
                 days: [],
                 available_actions: result.map.available_actions,
               }}
+              itineraryDays={result.days}
               busy={enhancementBusy === 'MAP'}
               disabled={mutationLocked}
               onRender={() => void handleMapRender()}
@@ -1341,8 +1790,15 @@ export default function TripResultPage() {
               </button>
             </div>
           )}
+          </section>
 
-          <div id="trip-check-area" className="scroll-mt-28">
+          <section
+            id="checks-view"
+            data-testid="result-view-checks"
+            hidden={activeView !== 'CHECKS'}
+            aria-label="优先检查"
+          >
+          <div id="trip-check-area">
             <TripCheckPanel
               view={checksView}
               preview={changePreview}
@@ -1355,7 +1811,9 @@ export default function TripResultPage() {
               onRetry={retryChecks}
             />
           </div>
+          </section>
 
+          <div hidden={activeView !== 'ITINERARY'}>
           {user && activeMode !== 'DEMO' && resourceRef ? (
             <MemorySharePanel resourceRef={resourceRef} />
           ) : null}
@@ -1390,7 +1848,7 @@ export default function TripResultPage() {
                   data-testid="delete-trip-source"
                   type="button"
                   disabled={mutationLocked || privacyBusy !== null || sourceDeleted}
-                  onClick={() => void handleDeleteSource()}
+                  onClick={() => setPrivacyConfirmation('SOURCE')}
                   className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50"
                 >
                   {sourceDeleted ? '原文已删除' : privacyBusy === 'SOURCE' ? '正在删除原文…' : '删除原文，保留卡片'}
@@ -1400,19 +1858,24 @@ export default function TripResultPage() {
                 data-testid="delete-entire-trip"
                 type="button"
                 disabled={mutationLocked || privacyBusy !== null}
-                onClick={() => void handleDeleteTrip()}
+                onClick={() => setPrivacyConfirmation('TRIP')}
                 className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-600 hover:border-rose-300 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 disabled:opacity-50"
               >
                 {privacyBusy === 'TRIP' ? '正在删除行程…' : '永久删除整份行程'}
               </button>
             </div>
           </section>
-        </section>
+          </div>
+        </div>
       </div>
 
       {editor && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/25 p-4 backdrop-blur-sm sm:items-center" role="dialog" aria-modal="true" aria-labelledby="card-editor-title" onKeyDown={handleEditorKeyDown}>
-          <div ref={editorDialogRef} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+        <AccessibleDialog
+          titleId="card-editor-title"
+          onClose={() => closeEditor()}
+          returnFocusRef={editorTriggerRef}
+          dismissDisabled={mutationLocked}
+        >
             <div className="flex items-center justify-between gap-4">
               <h2 id="card-editor-title" className="text-xl font-semibold">
                 {editor.mode === 'INSERT' ? '新增地点' : editor.mode === 'REPLACE' ? '替换地点' : '编辑卡片文字'}
@@ -1425,8 +1888,9 @@ export default function TripResultPage() {
               <label className="block text-sm font-medium text-slate-700">
                 地点名称
                 <input
+                  ref={editorNameRef}
                   data-testid="card-editor-name"
-                  autoFocus
+                  data-dialog-initial-focus
                   value={editorName}
                   onChange={(event) => setEditorName(event.target.value)}
                   maxLength={40}
@@ -1461,16 +1925,94 @@ export default function TripResultPage() {
             >
               {mutationLocked ? '正在保存…' : '保存调整'}
             </button>
+        </AccessibleDialog>
+      )}
+
+      {assumptionEditor && (
+        <AccessibleDialog
+          titleId="assumption-editor-title"
+          descriptionId="assumption-editor-description"
+          onClose={() => setAssumptionEditor(null)}
+          dismissDisabled={mutationLocked}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold text-emerald-700">可编辑的行程假设</p>
+              <h2 id="assumption-editor-title" className="mt-1 text-xl font-semibold">修改{assumptionEditor.label}</h2>
+            </div>
+            <button type="button" onClick={() => setAssumptionEditor(null)} disabled={mutationLocked} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50" aria-label="关闭假设编辑">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
-        </div>
+          <p id="assumption-editor-description" className="mt-3 text-sm leading-6 text-slate-600">这是系统为缺失信息做的临时假设，你可以随时改成更合适的值。</p>
+          <label className="mt-5 block text-sm font-medium text-slate-700">
+            {assumptionEditor.label}
+            <input
+              data-testid="assumption-editor-input"
+              data-dialog-initial-focus
+              value={assumptionValue}
+              onChange={(event) => setAssumptionValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void submitAssumption()
+                }
+              }}
+              maxLength={80}
+              className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+            />
+          </label>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button type="button" disabled={mutationLocked} onClick={() => setAssumptionEditor(null)} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:opacity-50">取消</button>
+            <button data-testid="save-assumption" type="button" disabled={mutationLocked || !assumptionValue.trim()} onClick={() => void submitAssumption()} className="min-h-12 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:opacity-50">{mutationLocked ? '正在保存…' : '保存修改'}</button>
+          </div>
+        </AccessibleDialog>
+      )}
+
+      {privacyConfirmation && (
+        <AccessibleDialog
+          titleId="privacy-confirm-title"
+          descriptionId="privacy-confirm-description"
+          onClose={() => setPrivacyConfirmation(null)}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold text-amber-700">不可恢复的操作</p>
+              <h2 id="privacy-confirm-title" className="mt-1 text-xl font-semibold">
+                {privacyConfirmation === 'SOURCE' ? '删除攻略原文？' : '永久删除整份行程？'}
+              </h2>
+            </div>
+            <button type="button" onClick={() => setPrivacyConfirmation(null)} className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700" aria-label="关闭删除确认">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+          <p id="privacy-confirm-description" className="mt-4 text-sm leading-6 text-slate-600">
+            {privacyConfirmation === 'SOURCE'
+              ? '攻略文字将永久不可恢复；当前逐日卡片会保留。'
+              : '原文、卡片和相关结果都会永久移除，之后无法恢复。'}
+          </p>
+          <div className="mt-6 grid grid-cols-2 gap-3">
+            <button data-dialog-initial-focus type="button" onClick={() => setPrivacyConfirmation(null)} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">取消</button>
+            <button
+              data-testid={privacyConfirmation === 'SOURCE' ? 'confirm-delete-source' : 'confirm-delete-trip'}
+              type="button"
+              onClick={() => {
+                const kind = privacyConfirmation
+                setPrivacyConfirmation(null)
+                if (kind === 'SOURCE') void handleDeleteSource()
+                else void handleDeleteTrip()
+              }}
+              className="min-h-12 rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2"
+            >
+              确认删除
+            </button>
+          </div>
+        </AccessibleDialog>
       )}
     </main>
     </>
   )
 }
-
-
-const DAY_COLORS = ['#047857', '#2563eb', '#7c3aed', '#d97706', '#0f766e', '#be185d']
 
 
 function TripCheckPanel({
@@ -1494,6 +2036,7 @@ function TripCheckPanel({
   onClosePreview: () => void
   onRetry: () => void
 }) {
+  const visibleItems = topPublicChecks(view)
   const labelClass = {
     必须调整: 'bg-rose-50 text-rose-700',
     可以更好: 'bg-amber-50 text-amber-800',
@@ -1530,7 +2073,7 @@ function TripCheckPanel({
 
       {view && (
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          {view.items.map((item) => (
+          {visibleItems.map((item) => (
             <article key={item.check_token} data-testid="trip-check-item" className="rounded-2xl border border-slate-200 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${labelClass[item.label]}`}>
@@ -1555,7 +2098,7 @@ function TripCheckPanel({
               )}
             </article>
           ))}
-          {view.items.length === 0 && (
+          {visibleItems.length === 0 && (
             <div className="rounded-2xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-800 lg:col-span-3">
               当前没有需要优先处理的问题。
             </div>
@@ -1608,17 +2151,24 @@ function TripCheckPanel({
 
 function MapTheater({
   view,
+  itineraryDays,
   busy,
   disabled,
   onRender,
 }: {
   view: MapRenderView
+  itineraryDays: UserFacingTripResult['days']
   busy: boolean
   disabled: boolean
   onRender: () => void
 }) {
   const [mode, setMode] = useState<'walking' | 'transit'>('walking')
-  const allPoints = view.days.flatMap((day) => day.routes.flatMap((route) => route[mode].geometry))
+  const [directoryOpen, setDirectoryOpen] = useState(false)
+  useEffect(() => {
+    setDirectoryOpen(window.matchMedia('(min-width: 640px)').matches)
+  }, [])
+  const segments = routeGeometrySegments(view, mode)
+  const allPoints = segments.flatMap((segment) => segment.points)
   const longitudes = allPoints.map((point) => point.longitude)
   const latitudes = allPoints.map((point) => point.latitude)
   const minimumLongitude = Math.min(...longitudes)
@@ -1646,15 +2196,16 @@ function MapTheater({
           </span>
           <div>
             <h2 id="map-theater-title" className="font-semibold">路线地图</h2>
-            <p role="status" className="mt-1 text-xs leading-5 text-slate-500">{view.message}</p>
+            <p role="status" className="mt-1 text-xs leading-5 text-slate-500">{mapTheaterStatusMessage(view.status)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-xl bg-slate-100 p-1" aria-label="路线方式">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-xl bg-slate-100 p-1" role="group" aria-label="路线方式">
             <button
               data-testid="map-mode-walking"
               type="button"
               onClick={() => setMode('walking')}
+              aria-pressed={mode === 'walking'}
               className={`inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 ${mode === 'walking' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-600'}`}
             >
               <Footprints className="h-3.5 w-3.5" aria-hidden="true" />步行
@@ -1663,6 +2214,7 @@ function MapTheater({
               data-testid="map-mode-transit"
               type="button"
               onClick={() => setMode('transit')}
+              aria-pressed={mode === 'transit'}
               className={`inline-flex min-h-12 items-center gap-1.5 rounded-lg px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 ${mode === 'transit' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600'}`}
             >
               <BusFront className="h-3.5 w-3.5" aria-hidden="true" />公交
@@ -1683,23 +2235,65 @@ function MapTheater({
         </div>
       </div>
 
-      <div className="bg-[#f4f1e8] p-4">
-        {allPoints.length >= 2 ? (
-          <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full rounded-2xl bg-[#eef2e9]" role="img" aria-label={`${mode === 'walking' ? '步行' : '公交'}路线图`}>
+      <div className="relative min-h-[26rem] overflow-hidden bg-[#eef2e9]">
+        <div className="absolute inset-0 opacity-70" aria-hidden="true" style={{ backgroundImage: 'linear-gradient(#dbe3d5 1px, transparent 1px), linear-gradient(90deg, #dbe3d5 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+
+        <button
+          data-testid="map-directory-toggle"
+          type="button"
+          aria-expanded={directoryOpen}
+          aria-controls="map-place-directory"
+          onClick={() => setDirectoryOpen((open) => !open)}
+          className="absolute left-4 top-4 z-20 inline-flex min-h-12 items-center gap-2 rounded-xl border border-emerald-950/10 bg-white/95 px-3 text-xs font-semibold text-emerald-900 shadow-lg backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2"
+        >
+          {directoryOpen ? <ChevronLeft className="h-4 w-4" aria-hidden="true" /> : <List className="h-4 w-4" aria-hidden="true" />}
+          {directoryOpen ? '收起地点' : '查看地点'}
+        </button>
+
+        <aside
+          id="map-place-directory"
+          data-testid="map-place-directory"
+          hidden={!directoryOpen}
+          className="absolute bottom-4 left-4 top-[4.5rem] z-20 w-[calc(100%-5rem)] max-w-[17.375rem] overflow-y-auto rounded-2xl border border-emerald-950/10 bg-white/95 p-4 shadow-xl backdrop-blur"
+          aria-label="逐日地点目录"
+        >
+          <h3 className="text-sm font-semibold text-slate-800">逐日地点</h3>
+          <p className="mt-1 text-xs leading-5 text-slate-500">目录来自当前行程卡片，不代表地图已有坐标。</p>
+          <div className="mt-4 space-y-4">
+            {itineraryDays.map((day, dayIndex) => (
+              <div key={`${day.label}-${dayIndex}`} data-day-index={dayIndex}>
+                <p className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DAY_COLORS[dayIndex % DAY_COLORS.length] }} aria-hidden="true" />
+                  {day.label}
+                </p>
+                <ol className="mt-2 space-y-1.5">
+                  {day.activities.map((activity, activityIndex) => (
+                    <li key={activity.activity_token} className="flex items-start gap-2 text-xs leading-5 text-slate-600">
+                      <span className="mt-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-100 text-[9px] font-semibold text-slate-600">{activityIndex + 1}</span>
+                      <span>{activity.name}</span>
+                    </li>
+                  ))}
+                  {day.activities.length === 0 && <li className="text-xs text-slate-400">当天尚无地点</li>}
+                </ol>
+              </div>
+            ))}
+          </div>
+        </aside>
+
+        {segments.length > 0 ? (
+          <svg viewBox={`0 0 ${width} ${height}`} className="absolute inset-0 h-full w-full" role="img" aria-label={`${mode === 'walking' ? '步行' : '公交'}路线图`}>
             <defs>
               <pattern id="map-grid" width="32" height="32" patternUnits="userSpaceOnUse">
                 <path d="M 32 0 L 0 0 0 32" fill="none" stroke="#dbe3d5" strokeWidth="1" />
               </pattern>
             </defs>
-            <rect width="100%" height="100%" fill="url(#map-grid)" />
-            {view.days.map((day, dayIndex) => day.routes.map((route, routeIndex) => {
-              const points = route[mode].geometry
-              if (points.length < 2) return null
-              const color = DAY_COLORS[dayIndex % DAY_COLORS.length]
+            {segments.map((segment) => {
+              const color = DAY_COLORS[segment.dayIndex % DAY_COLORS.length]
               return (
-                <g key={`${day.label}-${routeIndex}`}>
+                <g key={`${segment.dayLabel}-${segment.routeIndex}`} data-day-index={segment.dayIndex}>
                   <polyline
-                    points={points.map((point) => svgPoint(point.longitude, point.latitude)).join(' ')}
+                    data-testid="map-route-line"
+                    points={segment.points.map((point) => svgPoint(point.longitude, point.latitude)).join(' ')}
                     fill="none"
                     stroke={color}
                     strokeWidth="6"
@@ -1707,17 +2301,19 @@ function MapTheater({
                     strokeLinejoin="round"
                     strokeDasharray={mode === 'walking' ? '3 10' : undefined}
                   />
-                  {points.filter((_point, index) => index === 0 || index === points.length - 1).map((point, pointIndex) => {
+                  {segment.points.filter((_point, index) => index === 0 || index === segment.points.length - 1).map((point, pointIndex) => {
                     const [x, y] = svgPoint(point.longitude, point.latitude).split(',')
-                    return <circle key={pointIndex} cx={x} cy={y} r="7" fill="white" stroke={color} strokeWidth="4" />
+                    return <circle data-testid="map-route-marker" key={pointIndex} cx={x} cy={y} r="7" fill="white" stroke={color} strokeWidth="4" />
                   })}
                 </g>
               )
-            }))}
+            })}
           </svg>
         ) : (
-          <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-8 text-center text-sm leading-6 text-slate-500">
+          <div className="relative z-10 flex min-h-[26rem] items-center justify-center px-8 text-center text-sm leading-6 text-slate-600">
+            <span className="max-w-xs rounded-2xl border border-slate-300/80 bg-white/85 px-5 py-4 shadow-sm">
             {view.status === 'PREPARING' ? '路线正在后台准备，卡片可以先查看和调整。' : '地图线条暂不可用，下面的路线摘要仍然有效。'}
+            </span>
           </div>
         )}
       </div>
@@ -1731,11 +2327,14 @@ function MapTheater({
             </div>
             <div className="space-y-2">
               {day.routes.map((route, routeIndex) => (
-                <div key={`${route.from_name}-${route.to_name}-${routeIndex}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-xs">
-                  <span className="min-w-0 truncate text-slate-600">{route.from_name} → {route.to_name}</span>
-                  <span className="shrink-0 font-medium text-slate-700">
-                    {route[mode].status === 'AVAILABLE' ? `${route[mode].duration_minutes} 分钟` : '暂不可用'}
-                  </span>
+                <div key={`${route.from_name}-${route.to_name}-${routeIndex}`} className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <span className="min-w-0 text-slate-600">{route.from_name} → {route.to_name}</span>
+                    <span className="shrink-0 font-medium text-slate-700">
+                      {mapRouteSummary(view, route, mode)}
+                    </span>
+                  </div>
+                  {route.message && <p className="mt-1 leading-5 text-slate-500">{route.message}</p>}
                 </div>
               ))}
             </div>
@@ -1744,6 +2343,33 @@ function MapTheater({
       </div>
     </section>
   )
+}
+
+
+function mapTheaterStatusMessage(status: MapRenderView['status']) {
+  if (status === 'PREPARING') return '路线正在后台准备，可以先查看行程卡片。'
+  if (status === 'AVAILABLE') return '路线已准备，可以切换步行或公交查看。'
+  if (status === 'NEEDS_UPDATE') return '行程有变化，地图需要手动更新。'
+  if (status === 'LIMITED') return '部分路线暂时无法显示，已保留可用结果。'
+  return '路线暂时无法显示，行程卡片不受影响。'
+}
+
+
+function mapRouteSummary(
+  view: MapRenderView,
+  route: MapRenderView['days'][number]['routes'][number],
+  mode: 'walking' | 'transit',
+) {
+  if (view.status === 'NEEDS_UPDATE') return '路线需要更新'
+  const duration = route[mode].duration_minutes
+  if (
+    (view.status === 'AVAILABLE' || view.status === 'LIMITED')
+    && route[mode].status === 'AVAILABLE'
+    && typeof duration === 'number'
+    && Number.isFinite(duration)
+    && duration > 0
+  ) return `${mode === 'walking' ? '步行' : '公交'} ${duration} 分钟`
+  return '路线待确认'
 }
 
 
@@ -1776,7 +2402,7 @@ function StayPanel({
         </div>
       )}
       <div className="mt-4 space-y-3">
-        {view.candidates.map((candidate, index) => (
+        {view.candidates.slice(0, 3).map((candidate, index) => (
           <article key={candidate.candidate_token} data-testid="stay-candidate" className="rounded-2xl border border-slate-200 p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -1790,6 +2416,7 @@ function StayPanel({
               <span className="rounded-xl bg-slate-50 px-2.5 py-2">最久约 {candidate.max_single_leg_minutes} 分钟</span>
               <span className="rounded-xl bg-slate-50 px-2.5 py-2">共 {candidate.transfer_count} 次换乘</span>
             </div>
+            <p className="mt-3 rounded-xl bg-blue-50/60 px-3 py-2 text-xs leading-5 text-blue-900">{candidate.commute_summary}</p>
             <p className="mt-3 text-xs leading-5 text-slate-500">{candidate.reason}</p>
             {!candidate.selected && candidate.available_actions.includes('CHOOSE_STAY') && (
               <button
