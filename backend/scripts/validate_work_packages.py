@@ -28,7 +28,17 @@ def main() -> int:
     parser.add_argument("--scope-check", action="store_true")
     parser.add_argument(
         "--phase",
-        choices=("IMPLEMENTING", "PREFLIGHT", "EVIDENCE_FROZEN", "GATE_RUNNING"),
+        choices=(
+            "IMPLEMENTING",
+            "REPAIR_ACTIVE",
+            "PREFLIGHT",
+            "DELIVERY_VERIFY",
+            "GOAL_TRANSITION",
+            "EVIDENCE_FROZEN",
+            "GATE_RUNNING",
+            "DELIVERY_PASS_RECORDED",
+            "TRANSITION_READY",
+        ),
     )
     parser.add_argument("--audit-worktree", type=Path)
     parser.add_argument("--evidence-receipt", action="append", type=Path, default=[])

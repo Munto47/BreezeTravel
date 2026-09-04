@@ -174,6 +174,9 @@ def _candidate_repository(
                 "program_id": "TC-VNEXT-2026",
                 "program_state": "G07_CANDIDATE_IN_PROGRESS",
                 "scope_guard_version": "core-mainline-v1",
+                "writer_activation": "INTEGRATOR_ONLY",
+                "max_prepared_next_goal_packages": 0,
+                "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
                 "scope_policy_sha256": hashlib.sha256(
                     (root / "docs/governance/product_delivery_gates.json").read_bytes()
                 ).hexdigest(),
@@ -181,6 +184,8 @@ def _candidate_repository(
                 "active_slice": {
                     "slice_id": "G07-CANDIDATE-CONTRACT",
                     "work_kind": "CANDIDATE_HARDENING",
+                    "phase": "EVIDENCE_FROZEN",
+                    "base_commit": baseline,
                     "allowed_paths": [
                         "backend/evals/agent_gate_v1/candidate_gate.py",
                         "backend/evals/agent_gate_v1/contracts.py",
@@ -196,6 +201,7 @@ def _candidate_repository(
                 {
                     "goal_id": "TC-VNEXT-G07-CANDIDATE",
                     "goal_status": "IN_PROGRESS",
+                    "next_goal_id": "TC-H1-G01-HUMAN-USABILITY",
                 }
             )
             + "\n-->\n",
@@ -490,6 +496,18 @@ def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
         "_read_remote_candidate",
         lambda *_args: ("refs/heads/codex/g07-candidate-cycle-3", commit, tree),
     )
+    real_validate_registry_v3 = candidate_gate.validate_registry_v3
+    require_all_merged_values: list[bool] = []
+
+    def validate_registry_with_observation(*args: object, **kwargs: object) -> object:
+        require_all_merged_values.append(bool(kwargs.get("require_all_merged")))
+        return real_validate_registry_v3(*args, **kwargs)
+
+    monkeypatch.setattr(
+        candidate_gate,
+        "validate_registry_v3",
+        validate_registry_with_observation,
+    )
 
     receipt = verify_g07_candidate_gate_pass(
         repository_root=root,
@@ -504,6 +522,7 @@ def test_g07_v3_binding_validates_current_governance_without_legacy_loader(
 
     assert receipt.remote_ref == "refs/heads/codex/g07-candidate-cycle-3"
     assert receipt.hardening_decision == "NOT_REQUIRED_WITH_RATIONALE"
+    assert require_all_merged_values == [True]
 
 
 def test_g07_required_validates_only_selected_controls(

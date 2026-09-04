@@ -85,10 +85,10 @@ Goal type: CANDIDATE_HARDENING
 | Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
 | `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
-| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | 激活与提示词绑定commit | R0至少28/40且40/40无危险输出；目标R1 36/40 | `PENDING_REGISTRATION` |
+| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | 激活与提示词绑定commit | 文字子门至少28/40且40/40无危险输出；目标36/40；整体R0仍待UI与E2E | `WAITING_FOR_WRITER_SLOT` |
 | `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字包合并后的精确baseline | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `PENDING_REGISTRATION` |
 
-当前registry只激活唯一集成者的小程序构建依赖可复现性修复切片。恢复/生命周期、语义修复、Windows字节稳定性与OPTIONAL兼容修复已分别在`3e1b0cd`、`02780a2`、`3db53a5`、`61bd343`远端回读；本切片只把Taro 4.2.1要求的webpack从浮动范围固定到精确兼容版本，不修改小程序源码、测试、功能或构建绕过策略。上一周期全部PASS组件与stop checkpoint只作失败历史，不能拼接；任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+当前registry已绑定唯一文字贡献任务、独立分支/worktree、精确owned paths与版本化提示词，但首个绑定checkpoint尚未提交，因此贡献者保持`WAITING_FOR_WRITER_SLOT`且只有集成者可写。绑定提交完成并远端回读后，主对话将把贡献分支推进到同一checkpoint，再以独立控制面提交切换为`IN_PROGRESS`。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。上一周期全部PASS组件与stop checkpoint只作失败历史，任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -259,7 +259,7 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 第十二轮路线修复的6个文件现逐一登记到active slice与integrator所有权，没有增加目录级通配范围 | repair subject `16104bbbdc5823e8c41c4a49e7e40dfdc1b7c849`；tree `56f64820d62125aede1877463e6e454cef083751`；final evidence subject为本checkpoint | 工作包精确回归`5 passed`；core-mainline PASS且`ACTIVE_SLICE_SCOPE_VIOLATION`消失；diff check通过；repair subject与GitHub远端回读一致 | `LOCAL_AUTOMATED + WORK_PACKAGE_SCOPE_PASS + CORE_MAINLINE_PASS + REMOTE_READBACK` | `Product progress=WORK_PACKAGE_BINDING / CANDIDATE_REPAIR_CLOSED` | `Governance ratio=6个精确路径登记与冻结checkpoint；无产品、Gate、阈值、模型、Provider、数据、oracle、blind或OCR变化` | 冻结第十三候选，从新的干净checkout与空Git外证据根重跑全部正式矩阵；panel通过后才运行sealed | 当前仅修复路径绑定；`8927c66`的1852项PASS不得拼接；Provider STARTED崩溃窗口继续后置；OCR不处理不验证；H1、公网、生产、商业、release、deploy与main仍NOT_RUN | 提交、push并远端回读冻结候选，建立exact clean checkout后从自动组件重新开始 |
 
-| 2026-09-04 | 项目所有者批准以BreezeTravel为唯一主干、TripCheck为测试与界面供体，从文字主链和三视图体验先交付R0；正式G07保持未通过直到R2 | baseline `0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`；branch `codex/g07-candidate-cycle-3`；本激活commit待提交 | baseline、旧分支保留与新远端分支已核对；TripCheck 6文件WIP已保存为`01bc0ad65cbb1dc4f8fb4db2cabb6ff9211e3681`并远端回读；产品代码、40条兼容包和新UI尚`NOT_RUN` | `OWNER_AUTHORIZATION + RECOVERABLE_REMOTE_BASELINE + GOAL_TRANSITION` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=周期重绑定、R0/R1/R2与串行工作包边界；不改正式Gate、blind、公共合同或OCR冻结边界` | 提交并远端回读激活；登记并启动文字语义贡献包，验收合并后再启动前端贡献包；达到R0即交付所有者三份真实文字攻略体验 | `0b2f098`完整正式矩阵未重跑；TripCheck仍有23项回归；R0/R1/R2、真实Provider和所有者体验均未运行，不能声明G07通过 | 运行治理定向、core-mainline、diff复核，提交push后生成版本化文字工作包提示词并启动独立功能任务 |
+| 2026-09-04 | 项目所有者批准以BreezeTravel为唯一主干、TripCheck为测试与界面供体，从文字主链和三视图体验先交付R0；文字语义工作包现已绑定真实任务、独立分支/worktree、40条公开兼容合同和精确路径，正式G07保持未通过直到R2 | baseline `0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671`；activation `97a09f41b7eacbb21210d62c148bb46e07385f2b`；task `01a06b47-9caf-7f83-a882-9dcff7bd51a9`；branch `codex/g07-text-convergence`；worktree `C:/Users/18770/.codex/worktrees/d597/BreezeTravel`；本WAITING binding为本checkpoint | baseline、旧分支保留与新远端分支已核对；TripCheck 6文件WIP已保存为`01bc0ad65cbb1dc4f8fb4db2cabb6ff9211e3681`并远端回读；版本化prompt/hash、单writer、路径不重叠、READY单commit证明、正式Gate强制全部MERGED和checkout绑定校验已加入；治理定向最终结果见本提交验证 | `OWNER_AUTHORIZATION + RECOVERABLE_REMOTE_BASELINE + GOAL_TRANSITION + WORK_PACKAGE_BINDING + GOVERNANCE_SCOPE_GUARD` | `Product progress=NONE / GOAL_TRANSITION` | `Governance ratio=周期重绑定、R0/R1/R2、文字包提示词与必要fail-closed校验；不改产品运行时、正式Gate、blind、公共合同或OCR冻结边界` | push并远端回读本WAITING绑定；将贡献分支推进到本提交；再用独立控制面commit切换IN_PROGRESS并发送完整提示词；文字合并后串行启动前端包 | 文字兼容子门、整体R0、真实Provider、浏览器和所有者体验仍NOT_RUN；TripCheck仍有23项基线回归待独立收口；意外重复任务已可恢复归档且不登记 | 完成最终定向验证、提交/push/readback；之后激活唯一文字writer |
 
 ## Auto-advance
 

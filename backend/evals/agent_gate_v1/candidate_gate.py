@@ -212,6 +212,7 @@ def verify_g07_candidate_gate_pass(
             root,
             check_scope=False,
             head_ref=expected_candidate_commit,
+            require_all_merged=True,
         )
         if registry_report["verdict"] != "PASS":
             joined = ",".join(registry_report["error_codes"])

@@ -517,9 +517,7 @@ def validate_core_mainline(
     )
     errors: list[str] = []
     if (
-        sequence == 4
-        and registry.get("active_goal_id") == G04_GOAL_ID
-        and registry.get("schema_version") == "work-package-registry-v3"
+        registry.get("schema_version") == "work-package-registry-v3"
         and registry.get("packages")
     ):
         from governance.work_packages_v3 import validate_registry_v3
