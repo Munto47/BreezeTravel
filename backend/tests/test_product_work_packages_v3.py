@@ -25,6 +25,25 @@ def _machine_state(document: str) -> dict[str, object]:
     return value
 
 
+def _reset_current_contributors_to_waiting(registry: dict[str, object]) -> None:
+    for package in registry["packages"]:
+        if (
+            package["role"] != "CONTRIBUTOR"
+            or package["goal_id"] != registry["active_goal_id"]
+        ):
+            continue
+        package["status"] = "WAITING_FOR_WRITER_SLOT"
+        for field in (
+            "registry_binding_commit",
+            "branch_point_commit",
+            "ready_commit",
+            "merged_commit",
+            "remote_readback_commit",
+        ):
+            package.pop(field, None)
+    registry["writer_activation"] = "INTEGRATOR_ONLY"
+
+
 def test_g04_to_g06_delivery_archives_remain_verifiable_after_transition() -> None:
     g04_result = validate_delivery_receipt(REPOSITORY_ROOT, 4)
     g04_archive = (
@@ -140,7 +159,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     contributor = registry["packages"][1]
     ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "95bcb76a9688a03a0527e02317918ecdbb48bfe2"
+        "194750f5a608f2b282a1e1ff83d8586bc5386af4"
     )
     assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
@@ -166,7 +185,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert ui_contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert ui_contributor["status"] == "IN_PROGRESS"
     assert ui_contributor["baseline_commit"] == contributor["merged_commit"]
     assert ui_contributor["branch"] == "codex/g07-ui-convergence"
     assert ui_contributor["remote_branch"] == "origin/codex/g07-ui-convergence"
@@ -183,14 +202,16 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert ui_contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / ui_contributor["prompt_path"]).read_bytes()
     ).hexdigest()
+    assert ui_contributor["registry_binding_commit"] == (
+        "194750f5a608f2b282a1e1ff83d8586bc5386af4"
+    )
     assert not {
-        "registry_binding_commit",
         "branch_point_commit",
         "ready_commit",
         "remote_readback_commit",
         "merged_commit",
     } & ui_contributor.keys()
-    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
+    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
@@ -342,16 +363,7 @@ def test_unmerged_contributor_blocks_final_evidence_but_not_repair_work(
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
-    contributor = registry["packages"][1]
-    contributor["status"] = "WAITING_FOR_WRITER_SLOT"
-    for field in (
-        "registry_binding_commit",
-        "branch_point_commit",
-        "ready_commit",
-        "merged_commit",
-    ):
-        contributor.pop(field, None)
-    registry["writer_activation"] = "INTEGRATOR_ONLY"
+    _reset_current_contributors_to_waiting(registry)
     registry_path = tmp_path / "docs/governance/current_work_packages.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
     monkeypatch.setattr(work_packages_v3, "_git", lambda *_args, **_kwargs: "")
@@ -388,16 +400,7 @@ def _copy_active_registry_contract(tmp_path: Path) -> tuple[dict[str, object], P
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
-    contributor = registry["packages"][1]
-    contributor["status"] = "WAITING_FOR_WRITER_SLOT"
-    for field in (
-        "registry_binding_commit",
-        "branch_point_commit",
-        "ready_commit",
-        "merged_commit",
-    ):
-        contributor.pop(field, None)
-    registry["writer_activation"] = "INTEGRATOR_ONLY"
+    _reset_current_contributors_to_waiting(registry)
     registry_path = tmp_path / "docs/governance/current_work_packages.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
     return registry, registry_path
