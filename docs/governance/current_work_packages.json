@@ -69,7 +69,7 @@
       "frontend/e2e/g03-product-delivery.spec.js",
       "frontend/e2e/g03r-result-ui.spec.js"
     ],
-    "base_commit": "2fe3f6aff34c3e267af0a271c8991c10e374d795",
+    "base_commit": "d5f977d2cc5e72d1ff0802d0c547de44838831f5",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -99,7 +99,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "拒绝客户端自行合成地图RENDER_MAP动作的前端提交；在不改写旧远端历史的最终修复分支上清空本地pending动作并补失败写入加地图读回停滞反例。",
+    "minimum_change": "激活第二轮也是最后一轮前端修复writer；只清空客户端pending地图动作并补失败写入加地图读回停滞反例，失败时默认关闭更新按钮。",
     "phase": "REPAIR_ACTIVE",
     "freeze_parent_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "preflight_entrypoints": [
@@ -402,9 +402,10 @@
       "prompt_path": "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
       "prompt_sha256": "8ff693152ea17c805c97b30646d3f0cb6c0c05760d4245bb7bd2d3e0cd69b23f",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
+      "registry_binding_commit": "d5f977d2cc5e72d1ff0802d0c547de44838831f5",
       "remote_branch": "origin/codex/g07-ui-convergence-r2-fix",
       "role": "CONTRIBUTOR",
-      "status": "WAITING_FOR_WRITER_SLOT",
+      "status": "IN_PROGRESS",
       "worktree_path": "C:/Users/18770/.codex/worktrees/30f3/BreezeTravel"
     }
   ],
@@ -413,5 +414,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_ONLY"
+  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
 }
