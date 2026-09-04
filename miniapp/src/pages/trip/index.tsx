@@ -19,6 +19,8 @@ import { commandRegistry } from '@/lib/commands'
 
 import './index.scss'
 
+const MAX_ENHANCEMENT_POLL_ATTEMPTS = 30
+
 function statusLabel(status: string): string {
   return {
     PREPARING: '准备中',
@@ -59,10 +61,13 @@ export default function TripPage() {
   const [expandedActivity, setExpandedActivity] = useState('')
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const [checksError, setChecksError] = useState('')
+  const [enhancementRetryAvailable, setEnhancementRetryAvailable] = useState(false)
   const active = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const etag = useRef('')
   const checksPrepared = useRef(false)
+  const enhancementPollAttempts = useRef(0)
 
   const clearTimer = () => {
     if (timer.current) clearTimeout(timer.current)
@@ -89,6 +94,7 @@ export default function TripPage() {
   const prepareChecks = async () => {
     if (checksPrepared.current || !etag.current) return
     checksPrepared.current = true
+    setChecksError('')
     try {
       const prepared = await tripCheckClient.materializeTripUnderstanding(
         publicResourceId,
@@ -98,9 +104,13 @@ export default function TripPage() {
       commandRegistry.complete(`materialize:${publicResourceId}`)
       etag.current = prepared.headers.etag || prepared.headers.ETag || etag.current
       const value = await tripCheckClient.getTripUnderstandingChecks(publicResourceId)
-      if (active.current) setChecks(value)
+      if (active.current) {
+        setChecks(value)
+        setChecksError('')
+      }
     } catch {
       checksPrepared.current = false
+      if (active.current) setChecksError('建议暂时没有准备好，可以在这里重试。')
     }
   }
 
@@ -113,6 +123,7 @@ export default function TripPage() {
     try {
       const response = await tripCheckClient.getTripUnderstandingResult(publicResourceId)
       if (!active.current) return
+      setError('')
       if (response.status === 202) {
         const value = response.data as TripUnderstandingProgressView
         setProgress(value.message)
@@ -127,9 +138,18 @@ export default function TripPage() {
       const mapStatus = enhancements.map?.status || loadedResult.map.status
       const stayStatus = enhancements.stay?.status || loadedResult.stay.status
       if (mapStatus === 'PREPARING' || stayStatus === 'PREPARING') {
-        timer.current = setTimeout(() => void load(), 1000)
+        enhancementPollAttempts.current += 1
+        if (enhancementPollAttempts.current < MAX_ENHANCEMENT_POLL_ATTEMPTS) {
+          timer.current = setTimeout(() => void load(), 1000)
+          return
+        }
+        setEnhancementRetryAvailable(true)
+        setError('路线或住宿仍在准备，可以稍后再次检查。')
+        await prepareChecks()
         return
       }
+      enhancementPollAttempts.current = 0
+      setEnhancementRetryAvailable(false)
       await prepareChecks()
     } catch {
       if (active.current) setError('暂时无法读取行程，请稍后重试。')
@@ -173,6 +193,7 @@ export default function TripPage() {
       etag.current = response.headers.etag || response.headers.ETag || etag.current
       checksPrepared.current = false
       setChecks(null)
+      setChecksError('')
       setChangePreview(null)
       setEditor(null)
       await load()
@@ -289,7 +310,9 @@ export default function TripPage() {
       )
       commandRegistry.complete(scope)
       setMap({ status: value.status, message: value.message, days: [], available_actions: [] })
-      timer.current = setTimeout(() => void loadEnhancements(), 1000)
+      enhancementPollAttempts.current = 0
+      setEnhancementRetryAvailable(false)
+      timer.current = setTimeout(() => void load(), 1000)
     } catch {
       setError('路线暂时无法更新，请稍后再试。')
     } finally {
@@ -313,6 +336,7 @@ export default function TripPage() {
       etag.current = response.headers.etag || response.headers.ETag || etag.current
       checksPrepared.current = false
       setChecks(null)
+      setChecksError('')
       setChangePreview(null)
       await loadEnhancements()
     } catch {
@@ -377,7 +401,19 @@ export default function TripPage() {
         <Text className='heading'>你的每日行程</Text>
         <Text className='subtle'>地点不确定时会明确标成“需要确认”，不会硬猜。</Text>
       </View>
-      {error ? <Text className='feedback'>{error}</Text> : null}
+      {error ? (
+        <View className='feedback-panel'>
+          <Text className='feedback'>{error}</Text>
+          {enhancementRetryAvailable ? (
+            <Button className='secondary compact' disabled={Boolean(busy)} onClick={() => {
+              enhancementPollAttempts.current = 0
+              setEnhancementRetryAvailable(false)
+              setError('')
+              void load()
+            }}>再次检查</Button>
+          ) : null}
+        </View>
+      ) : null}
 
       <View className='card section'>
         <Text className='section-title'>当前假设</Text>
@@ -507,7 +543,12 @@ export default function TripPage() {
 
       <View className='card section'>
         <Text className='section-title'>优先看看这三项</Text>
-        <Text className='copy'>{checks?.message || '正在准备少量、可直接采纳的建议。'}</Text>
+        <Text className='copy'>{checks?.message || checksError || '正在准备少量、可直接采纳的建议。'}</Text>
+        {checksError ? (
+          <Button className='secondary compact' disabled={Boolean(busy)} onClick={() => void prepareChecks()}>
+            重新准备建议
+          </Button>
+        ) : null}
         {checks?.items.map(item => (
           <View className='finding' key={item.check_token}>
             <View className='section-head'>

@@ -109,4 +109,19 @@ describe('shared TripCheckClient', () => {
       expect(stylesheet).not.toMatch(/\.feedback\s*\{[^}]*#b42318/)
     }
   })
+
+  test('trip enhancement failures have bounded polling and in-page retry actions', () => {
+    const source = readFileSync(
+      resolve(__dirname, '..', 'src/pages/trip/index.tsx'),
+      'utf8',
+    )
+
+    expect(source).toContain('MAX_ENHANCEMENT_POLL_ATTEMPTS')
+    expect(source).toContain('enhancementPollAttempts.current < MAX_ENHANCEMENT_POLL_ATTEMPTS')
+    expect(source).toContain('路线或住宿仍在准备，可以稍后再次检查。')
+    expect(source).toContain('再次检查')
+    expect(source).toContain('建议暂时没有准备好，可以在这里重试。')
+    expect(source).toContain('重新准备建议')
+    expect(source).toContain('timer.current = setTimeout(() => void load(), 1000)')
+  })
 })

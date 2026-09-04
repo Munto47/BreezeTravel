@@ -1873,3 +1873,19 @@ test('home is text-only and every legacy product entrance returns to it', async 
     await expect(page).toHaveURL(/\/$/)
   }
 })
+
+
+test('login network failures use safe non-red retry copy', async ({ page }) => {
+  await page.route('**/api/auth/email-login', route => route.abort('failed'))
+  await page.goto('/login')
+  await page.getByTestId('auth-email-tab').click()
+  await page.getByTestId('auth-email').fill('traveler@example.com')
+  await page.getByTestId('auth-password').fill('Example123')
+  await page.getByTestId('auth-email-submit').click()
+
+  const feedback = page.getByText('暂时无法登录，请检查信息后重试。', { exact: true }).first()
+  await expect(feedback).toBeVisible()
+  await expect(feedback).toHaveClass(/text-blue-700/)
+  await expect(feedback).not.toHaveClass(/text-red-/)
+  await expect(page.locator('body')).not.toContainText(/Failed to fetch|NetworkError|ERR_FAILED|Provider|revision|receipt/i)
+})

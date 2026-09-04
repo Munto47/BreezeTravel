@@ -43,4 +43,6 @@
 .half { flex: 1; min-width: 0; }
 .success { display: block; margin-top: 16rpx; color: #067647; font-size: 22rpx; }
 .feedback { display: block; margin-bottom: 24rpx; padding: 18rpx; border-radius: 14rpx; background: #eff8ff; color: #175cd3; font-size: 23rpx; }
+.feedback-panel { margin-bottom: 24rpx; }
+.feedback-panel .feedback { margin-bottom: 0; }
 .bottom-space { height: 48rpx; }

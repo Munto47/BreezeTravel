@@ -88,10 +88,10 @@ export default function LoginPage() {
         toast('验证码已发送', 'success')
       }
       setTimeout(() => codeRefs.current[0]?.focus(), 100)
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '发送失败，请重试'
+    } catch {
+      const msg = '暂时无法发送验证码，请稍后重试。'
       setError(msg)
-      toast(msg, 'error')
+      toast(msg, 'warning')
     } finally {
       setLoading(false)
     }
@@ -154,10 +154,10 @@ export default function LoginPage() {
         login(data.token, { userId: data.user_id, nickname: data.nickname })
         finishLoginNavigation()
       }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '验证失败'
+    } catch {
+      const msg = '暂时无法完成验证，请检查验证码后重试。'
       setError(msg)
-      toast(msg, 'error')
+      toast(msg, 'warning')
       setCode(['', '', '', '', '', ''])
       setTimeout(() => codeRefs.current[0]?.focus(), 50)
     } finally {
@@ -176,10 +176,10 @@ export default function LoginPage() {
       login(data.token, { userId: data.user_id, nickname: data.nickname })
       toast(`已用测试账号登录（${data.nickname}）`, 'success')
       finishLoginNavigation()
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : '测试账号登录失败'
+    } catch {
+      const msg = '测试账号暂时无法登录，请稍后重试。'
       setError(msg)
-      toast(msg, 'error')
+      toast(msg, 'warning')
     } finally {
       setLoading(false)
     }
@@ -216,9 +216,11 @@ export default function LoginPage() {
       login(data.token, { userId: data.user_id, nickname: data.nickname })
       toast(emailMode === 'register' ? `已注册，欢迎 ${data.nickname}` : `欢迎回来，${data.nickname}`, 'success')
       finishLoginNavigation()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '请求失败'
-      setError(msg); toast(msg, 'error')
+    } catch {
+      const msg = emailMode === 'register'
+        ? '暂时无法完成注册，请稍后重试。'
+        : '暂时无法登录，请检查信息后重试。'
+      setError(msg); toast(msg, 'warning')
     } finally {
       setLoading(false)
     }
@@ -360,7 +362,7 @@ export default function LoginPage() {
                         className="input-glass mb-3 w-full"
                       />
                     )}
-                    {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+                    {error && <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3">{error}</p>}
                     <button
                       data-testid="auth-email-submit"
                       onClick={handleEmailSubmit}
@@ -392,7 +394,7 @@ export default function LoginPage() {
                     autoFocus
                   />
                 </div>
-                {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+                {error && <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3">{error}</p>}
                 <button
                   onClick={handleSendCode}
                   disabled={loading}
@@ -462,7 +464,7 @@ export default function LoginPage() {
                   ))}
                 </div>
 
-                {error && <p className="text-xs text-red-500 mb-3 text-center">{error}</p>}
+                {error && <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3 text-center">{error}</p>}
 
                 {loading && (
                   <div className="flex justify-center mb-3">
