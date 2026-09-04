@@ -39,7 +39,8 @@
       "a86548d候选自动组件、PostgreSQL、真实地图/天气与Qwen 72/72均通过，G5浏览器43/43实际通过但后置验证器仍固定期望42而fail-closed拒绝；性能、panel和sealed未启动",
       "第十一候选周期只把已新增的Web登录安全恢复场景计入G07浏览器覆盖常量与回归；不改变场景、阈值、产品行为或Gate",
       "3c46172候选自动化、PostgreSQL、真实Provider、43条浏览器与50链性能均通过，但fresh语义复审发现G4用高德v5却未请求/读取cost.duration、把缺失时长钳为1分钟且默认ROUTE_EDGE为driving，形成不可能时长并误报PASS；候选拒绝且裁决/sealed未启动",
-      "第十二候选周期修复真实Provider校验通道：请求并严格解析正数路线时长/距离，只以walking/transit执行当前产品选路规则，并让G4拒绝不合理或不符合默认模式的路线事实"
+      "第十二候选周期修复真实Provider校验通道：请求并严格解析正数路线时长/距离，只以walking/transit执行当前产品选路规则，并让G4拒绝不合理或不符合默认模式的路线事实",
+      "第十二候选修复定向44项Provider/地图回归、25项核心回归、core-mainline及真实18次Provider诊断通过；三城12个路线选项事实合理且默认路线分别为北京步行、上海步行、杭州公交"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -137,8 +138,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "在真实高德v5路线采集中请求cost字段，严格拒绝缺失/非正时长或距离；G4的ROUTE_EDGE只可按当前产品walking/transit十分钟规则选择，并加入物理合理性与选路一致性回归。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
-    "freeze_parent_commit": "3c461721807da067dd5a93b689a963e8e0c71fb9",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "214630d87c13b61c9c2dc04e4cd2b9a305e4525a",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
