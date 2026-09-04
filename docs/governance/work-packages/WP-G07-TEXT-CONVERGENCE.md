@@ -16,8 +16,8 @@ registry_activation_commit: 97a09f41b7eacbb21210d62c148bb46e07385f2b
 ## Branch and isolated worktree
 
 ```yaml
-branch: codex/g07-text-convergence
-remote_branch: origin/codex/g07-text-convergence
+branch: codex/g07-text-convergence-r1-fix
+remote_branch: origin/codex/g07-text-convergence-r1-fix
 worktree_path: C:/Users/18770/.codex/worktrees/d597/BreezeTravel
 dialogue_ref: codex-task:01a06b47-9caf-7f83-a882-9dcff7bd51a9
 ```
@@ -94,7 +94,7 @@ dialogue_ref: codex-task:01a06b47-9caf-7f83-a882-9dcff7bd51a9
 17. `017`“故宫游览2小时”不得把“2小时”生成地点；本轮不得新增或伪造持久化时长字段。
 18. `018`开放时间、排队时长和两地交通耗时不得冒充到访时间或游览时长。
 19. `019`普通“后来改到/调整为”或多候选保持待确认；只有明确`最终/最后/到最后/末了`且唯一值才可自动采用。
-20. `020`“不得不取消”是真取消；“并不取消/没有取消/不打算撤掉”不是取消；明确最终恢复原方案时恢复，同日重复到访保持独立且不能互相误删。
+20. `020`“不得不取消”是真取消；“并不取消/没有取消/不打算撤掉”不是取消；明确最终恢复原方案时恢复，重复到访保持独立且不能互相误删。额外固化两条反例：`Day 1 去故宫；Day 2 不去故宫，改去景山`不得删掉 Day 1；同日上午、下午两次同名到访后取消其中一次，只能影响有明确时间或次序归属的那一次；无法安全绑定时宁可保留原计划并待确认，不得按地点名全局撤销。
 
 ### BT-COMPAT-021～028：城市、地点与类别安全
 
@@ -139,6 +139,7 @@ dialogue_ref: codex-task:01a06b47-9caf-7f83-a882-9dcff7bd51a9
 ## Implementation constraints
 
 - 先固化40条兼容包和可复现初测，再改运行时代码；不得先改期望追绿。
+- 旧提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`只作被集成者拒绝的诊断资产。可在新分支用`git cherry-pick --no-commit`带入其改动，但必须修复跨日/重复到访误撤销后形成一个新的唯一功能提交；不得修改、覆盖或强推旧远程分支。
 - 三层防线都要验证：deterministic fallback候选切分、Qwen输出后处理、`is_atomic_planned_place()`最终入口。
 - 时间解析只更新现有`time_hint`，支持上下午/晚上换算和前后置本地归属；不改变Qwen私有wire schema。
 - 不复制TripCheck的`parser.py`、`qwen.py`或大段正则；只迁移已验证行为和测试意图。
@@ -167,7 +168,7 @@ must_not_create_numbered_migration: true
 must_not_modify_shared_openapi_or_lockfiles: true
 ```
 
-只可commit/push`codex/g07-text-convergence`。`branch_point_commit`之后必须恰好形成一个最终功能commit，且该commit的直接父提交必须等于主对话发送的`branch_point_commit`；实现期间不要创建中间commit。不得合并、rebase、squash、amend已发送提交、force-push、改变Goal/registry/Gate或删除历史证据。完成时提供`git ls-remote --heads origin refs/heads/codex/g07-text-convergence`的远端精确readback。
+只可commit/push`codex/g07-text-convergence-r1-fix`。`branch_point_commit`之后必须恰好形成一个最终功能commit，且该commit的直接父提交必须等于主对话发送的`branch_point_commit`；实现期间不要创建中间commit。不得合并、rebase、squash、amend已发送提交、force-push、改变Goal/registry/Gate或删除历史证据。完成时提供`git ls-remote --heads origin refs/heads/codex/g07-text-convergence-r1-fix`的远端精确readback。
 
 ## Subagent boundary
 
@@ -183,8 +184,8 @@ subagent_read_only: true
 
 ```text
 package: WP-G07-TEXT-CONVERGENCE
-branch: codex/g07-text-convergence
-remote_branch: origin/codex/g07-text-convergence
+branch: codex/g07-text-convergence-r1-fix
+remote_branch: origin/codex/g07-text-convergence-r1-fix
 worktree: C:/Users/18770/.codex/worktrees/d597/BreezeTravel
 baseline: 0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671
 registry_activation_commit: 97a09f41b7eacbb21210d62c148bb46e07385f2b

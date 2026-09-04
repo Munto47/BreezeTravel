@@ -137,14 +137,22 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         "WP-G07-TEXT-CONVERGENCE",
     ]
     contributor = registry["packages"][1]
-    assert contributor["status"] == "IN_PROGRESS"
-    assert contributor["registry_binding_commit"] == (
-        "aee3a57556396deb8b5f020c1b15b0b6f916bcfe"
+    assert registry["active_slice"]["base_commit"] == (
+        "19a9f5837b16ae4e271a5333cab388c4651277f7"
+    )
+    assert contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert contributor["branch"] == "codex/g07-text-convergence-r1-fix"
+    assert contributor["remote_branch"] == (
+        "origin/codex/g07-text-convergence-r1-fix"
+    )
+    assert "registry_binding_commit" not in contributor
+    assert contributor["prompt_sha256"] == (
+        "f6dd3ab124c91aef1c8ab842a57748299e68ad96f710289ca863110afb7137bf"
     )
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
+    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
