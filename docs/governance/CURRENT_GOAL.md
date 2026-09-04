@@ -86,9 +86,9 @@ Goal type: CANDIDATE_HARDENING
 |---|---|---|---|---|
 | `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
 | `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门40/40安全、37/40精确；取消目标独立复审通过；整体R0仍待UI与E2E | `MERGED`：`95bcb76a9688a03a0527e02317918ecdbb48bfe2` |
-| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字集成基线`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；WAITING绑定`194750f5a608f2b282a1e1ff83d8586bc5386af4` | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `IN_PROGRESS` |
+| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字集成基线`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；第二轮最终修复从当前WAITING绑定建立 | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `WAITING_FOR_WRITER_SLOT` |
 
-文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已由唯一集成者以相同stable patch-id串行合入`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；40/40安全、37/40精确、257项相关回归及6项PostgreSQL主链均通过。前端包的WAITING快照已提交并远端回读，现激活唯一贡献writer；主任务在功能包冻结前只继续控制面验收。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已由唯一集成者以相同stable patch-id串行合入`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；40/40安全、37/40精确、257项相关回归及6项PostgreSQL主链均通过。前端替代提交`43cbae6626970e4538bf9545be7c88617bb14e31`虽通过构建、53项结果页及65项完整fixture浏览器回归并关闭上一轮两个P1，最终静态复审仍发现客户端pending view可自行合成`RENDER_MAP`动作，故未登记READY且不合并；现进入第二轮也是最后一轮最小修复。TripCheck第二轮复审仍有边界失败，已按停止条件保留为WIP，只迁移已验证的非blind测试与界面模式，不迁移其后端实现。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -279,6 +279,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 前端替代修复分支已从WAITING绑定精确建立并远端回读；当前重新激活同一个用户可见贡献任务，只允许复用原三视图补丁并关闭登录正文超时、地图动作授权和同状态确认两个P1 | binding `50bba80707597413fad1ce9c0b9ca955dab355a3`；branch/remote `codex/g07-ui-convergence-r1-fix`；worktree `C:/Users/18770/.codex/worktrees/30f3/BreezeTravel`；branch point为本checkpoint | WAITING分支tip与GitHub readback一致；修复提示词SHA-256 `0423e94ad083f1d58b28cf84ba0b7b33aaff2fd629b7148abfeaf74a9799e28a`；绑定前13项工作包回归、Ruff、scope与core-mainline PASS | `WORK_PACKAGE_REBIND + REMOTE_READBACK + SINGLE_WRITER_ACTIVATION` | `Product progress=NONE / BLOCKING_DEFECT_REPAIR_ACTIVE` | `Governance ratio=第一轮前端恢复writer激活；不改公共合同、正式Gate、blind、后端或OCR边界` | 功能任务以`git cherry-pick --no-commit 64c2775...`复用旧改动，补两个确定性反例并形成一个新提交；随后由集成者复跑构建、完整fixture浏览器和独立复审 | 原提交仍拒绝；新提交未产出前UI包不READY；整体R0、真实Provider和所有者体验仍NOT_RUN | 提交、push并回读本激活checkpoint；将替代分支快进至本提交后发送正式修复指令 |
 
+| 2026-09-04 | 前端替代提交`43cbae6626970e4538bf9545be7c88617bb14e31`关闭上一轮两个恢复P1并通过65项完整fixture浏览器回归，但最终独立静态复审发现客户端pending map view硬编码`RENDER_MAP`：明确失败的卡片写入加地图GET延迟时可能展示未获服务端授权的地图写按钮；该提交拒绝且旧远端原样保留 | rejected `43cbae6626970e4538bf9545be7c88617bb14e31`；parent `2fe3f6aff34c3e267af0a271c8991c10e374d795`；old remote `origin/codex/g07-ui-convergence-r1-fix`；replacement `codex/g07-ui-convergence-r2-fix`；新的WAITING绑定为本checkpoint | 功能任务build PASS、新增反例6/6、结果页53/53、fresh完整fixture浏览器65/65且零重试；集成者独立build、10路径、单提交、clean与远端SHA复验PASS；静态复审`0 P0 / 1 P1`并定位到本地pending动作与失败写入路径 | `AUTOMATED_BROWSER_PASS_REJECTED_BY_INDEPENDENT_MAP_AUTHORITY_P1 + REMOTE_HISTORY_PRESERVED + REPAIR_REVIEW_CYCLE_2` | `Product progress=NONE / BLOCKING_DEFECT_REBIND` | `Governance ratio=第二轮拒绝记录、权威动作边界反例与失败后关闭按钮的停止条件；不改公共API、后端、正式Gate、blind或OCR边界` | push/readback本WAITING绑定；从其建立最终修复分支，以`git cherry-pick --no-commit 43cbae6...`复用旧改动，只清空客户端pending动作并补失败写入加地图读回停滞反例 | 本轮若仍不能证明权威动作边界，默认关闭客户端地图更新按钮并停止扩修；真实Provider、所有者体验及正式G07仍NOT_RUN | 校验并提交本绑定，创建替代远端分支，再激活同一功能任务完成最后一轮修复复审 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -286,10 +288,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端替代恢复writer已激活 / origin/codex/g07-candidate-cycle-3`；
-- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；被拒前端构建及fixture浏览器59/59通过，但独立恢复复审FAIL；整体R0/R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_DIAGNOSTIC + MULTI_AGENT_SIMULATED_REVIEW_FAIL / HARDENED_CANDIDATE_GATE_NOT_RUN / 当前结构待WAITING提交复验`；历史结果均不与本subject拼接；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端43cbae6因地图动作权威P1拒绝并重绑WAITING / origin/codex/g07-candidate-cycle-3`；
+- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；被拒前端build、结果页53/53与fresh完整fixture浏览器65/65通过，但最终静态复审为0 P0/1 P1；整体R0/R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_DIAGNOSTIC + MULTI_AGENT_SIMULATED_REVIEW_FAIL / HARDENED_CANDIDATE_GATE_NOT_RUN / true`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`文字主链已合入；三视图替代修复已授权但尚未产出、未进入主线 / 登录正文无限等待、地图服务端动作授权与同状态误确认必须由替代分支关闭；完整主线fixture R0和所有者三份真实文字验收尚未完成，正式G07仍NOT_RUN / false`；
+- User-visible result / Remaining risks / Goal archived：`文字主链已合入；三视图实现已产出但地图写动作仍可能来自客户端pending状态，未进入主线 / 最终修复必须只在权威地图读回后开放按钮；完整主线fixture R0和所有者三份真实文字验收尚未完成，正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

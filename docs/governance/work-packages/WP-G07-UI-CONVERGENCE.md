@@ -1,4 +1,4 @@
-# WP-G07-UI-CONVERGENCE：三视图与响应式体验合流（第一轮恢复修复）
+# WP-G07-UI-CONVERGENCE：三视图与响应式体验合流（第二轮最终恢复修复）
 
 ## Identity and exact baseline
 
@@ -13,8 +13,8 @@
 
 ## Branch and isolated worktree
 
-- branch: codex/g07-ui-convergence-r1-fix
-- remote_branch: origin/codex/g07-ui-convergence-r1-fix
+- branch: codex/g07-ui-convergence-r2-fix
+- remote_branch: origin/codex/g07-ui-convergence-r2-fix
 - worktree_path: C:/Users/18770/.codex/worktrees/30f3/BreezeTravel
 - dialogue_ref: codex-task:01a06c20-ab96-73f1-a285-75186e0f3267
 
@@ -22,14 +22,15 @@
 
 ## Repair-cycle override
 
-原提交 `64c27754fda194e7f881466225382d23e0ea823f` 已由主任务保留在 `origin/codex/g07-ui-convergence`，但未登记 READY、未合并。独立反方复审发现两个直接破坏有界恢复合同的 P1，因此本轮只允许采用以下不同策略修复：
+提交 `43cbae6626970e4538bf9545be7c88617bb14e31` 已关闭上一轮登录正文无限等待和地图同状态误确认，但未登记 READY、未合并。集成者最终静态复审发现客户端 pending map view 仍可自行注入 `RENDER_MAP`：一次明确被服务端拒绝的卡片写入会先设置该本地视图，同 ETag 结果读回不会清除它；若权威地图 GET 仍在途或失败，页面便可能向用户展示并允许一个并非由服务端动作授权的地图 POST。本轮是第二轮、也是最后一轮恢复修复，只允许以下最小策略：
 
-1. 在新的 branch_point 上执行 `git cherry-pick --no-commit 64c27754fda194e7f881466225382d23e0ea823f` 复用原实现，不改写、amend 或 force-push 旧分支。
-2. 登录请求的 10 秒边界必须覆盖响应正文读取，而不是只覆盖响应头；当 `fetch()` 已返回 Response、但 JSON body 永久停滞时，登录、验证码和测试账号入口都必须结束 loading、显示安全中性错误并可重试。
-3. 地图“重新渲染”按钮只能由服务端 `available_actions` 中的 `RENDER_MAP` 开放，不能因为本地看到 LIMITED/UNAVAILABLE 就强制产生写请求。POST 结果不确定时，必须区分“POST 已明确被接受”和“只读 GET 仍返回请求前相同的 LIMITED/UNAVAILABLE”。后一种不能解除写锁、不能宣称本次已确认，也不能允许同页再次产生新的地图 POST；只允许继续只读确认。若 POST 已明确返回成功，后续同状态终态可以作为该次请求的权威结果。
-4. 在 `g03r-result-ui.spec.js` 增加两个确定性反例：响应头已到但 body 不结束的登录请求在 10 秒后恢复；起始为 LIMITED 或 UNAVAILABLE 的地图 POST 超时后，同状态 GET 不得解锁或产生第二次 POST。原 59 项适用浏览器旅程必须继续通过。
+1. 在新的 branch_point 上执行 `git cherry-pick --no-commit 43cbae6626970e4538bf9545be7c88617bb14e31` 复用已验证实现，不改写、amend 或 force-push旧分支。
+2. `pendingRevisionMapView()` 仍须立即投影 `NEEDS_UPDATE` 并清除旧路线分钟，但其 `available_actions` 必须为空；任何客户端 fallback、写入开始态、错误态或待确认态都不得合成 `RENDER_MAP`。
+3. “重新渲染地图”只能在当前权威地图 GET 明确返回 `available_actions` 包含 `RENDER_MAP` 后开放。成功卡片编辑可以先显示“路线需要更新”，再等待权威地图读回开放按钮；读回失败时保持诚实只读恢复，不得为方便而授予写权限。
+4. 在 `g03r-result-ui.spec.js` 增加确定性反例：卡片写入明确被拒绝，同时地图 GET 延迟或失败时，页面保持原行程、显示安全恢复文案，不出现 `render-map`，也不产生地图 POST。另保留成功编辑后立刻清除旧分钟，并在服务端随后返回 `NEEDS_UPDATE + RENDER_MAP` 时才出现按钮的正例。
+5. 上一轮新增的登录正文停滞、LIMITED/UNAVAILABLE同状态确认、无服务端动作不展示按钮等6项反例以及完整65项fixture矩阵必须继续通过。
 
-这两个 P1 关闭前不得申请 READY。红/玫瑰装饰色与重复启动验证码倒计时作为 P2 记录，本轮不要求扩大修改。
+这是本包最后一轮语法/授权修复。若冻结提交仍不能证明地图动作只来自权威读回，停止扩修并将客户端地图更新按钮默认关闭，等待页面刷新或成功权威GET；不得继续第三轮。快速连续Enter、玫瑰装饰色和枚举未变化时的保守锁定继续作为P2，不扩张本轮范围。
 
 ## Owned paths
 
@@ -142,7 +143,7 @@
 - must_not_modify_shared_openapi_or_lockfiles: true
 - subagent_read_only: true
 
-只可在 codex/g07-ui-convergence-r1-fix 上工作。branch_point_commit 之后只形成一个最终功能提交，且直接父提交必须等于 branch_point_commit；实现期间不要创建中间提交。不得自行合并、rebase、squash、amend 已发送提交、force-push、改 Goal/registry/Gate 或删除历史证据。完成时 push 自己的分支并提供远端精确 readback。
+只可在 codex/g07-ui-convergence-r2-fix 上工作。branch_point_commit 之后只形成一个最终功能提交，且直接父提交必须等于 branch_point_commit；实现期间不要创建中间提交。不得自行合并、rebase、squash、amend 已发送提交、force-push、改 Goal/registry/Gate 或删除历史证据。完成时 push 自己的分支并提供远端精确 readback。
 
 子 Agent 只可做短期标注、独立复核、反方审查或故障诊断，不得提交产品代码或改变工作包状态；发现的问题由本功能对话修复。
 
