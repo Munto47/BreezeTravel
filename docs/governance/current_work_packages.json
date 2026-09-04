@@ -42,7 +42,8 @@
       "第十二候选周期修复真实Provider校验通道：请求并严格解析正数路线时长/距离，只以walking/transit执行当前产品选路规则，并让G4拒绝不合理或不符合默认模式的路线事实",
       "第十二候选修复定向44项Provider/地图回归、25项核心回归、core-mainline及真实18次Provider诊断通过；三城12个路线选项事实合理且默认路线分别为北京步行、上海步行、杭州公交",
       "8927c66候选干净自动套件1852项通过、41项按合同跳过，但本轮路线修复6个文件未进入active slice/integrator精确路径登记，工作包校验以ACTIVE_SLICE_SCOPE_VIOLATION拒绝；其余正式层未启动",
-      "第十三候选周期只补齐上述6个已有修复文件的精确路径所有权，不改变产品代码、Gate、阈值或验证内容"
+      "第十三候选周期只补齐上述6个已有修复文件的精确路径所有权，不改变产品代码、Gate、阈值或验证内容",
+      "第十三候选的6个精确路径登记已通过5项工作包回归与core-mainline，未增加目录级范围"
     ],
     "allowed_paths": [
       "docs/governance",
@@ -147,8 +148,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "仅将本轮已修改的路线采集、G4验证和对应测试6个精确文件补入active slice与integrator owned_paths；不增加目录级范围，不改变产品行为、Gate或阈值。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
-    "freeze_parent_commit": "8927c6649b52ec42cf3e5b7cacc3e142562581f4",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "16104bbbdc5823e8c41c4a49e7e40dfdc1b7c849",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
