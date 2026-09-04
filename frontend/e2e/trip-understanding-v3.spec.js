@@ -83,7 +83,7 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
       await expect(page.getByRole('heading', { name, exact: true })).toBeVisible()
     }
   }
-  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
   const finalResultResponse = await page.request.get(new URL(accepted.result_url, page.url()).toString())
   expect(finalResultResponse.status()).toBe(200)
   const finalResult = await finalResultResponse.json()
@@ -144,13 +144,16 @@ test('anonymous Beijing demo uses the durable v3 create, events and result chain
   })
   expect(oldReadback.status()).toBe(410)
 
-  page.once('dialog', (dialog) => dialog.accept())
   const deleteResponsePromise = page.waitForResponse((response) => {
     const requestData = response.request()
     return requestData.method() === 'DELETE'
       && /\/api\/v3\/trip-understandings\/[^/]+$/.test(new URL(response.url()).pathname)
   })
   await page.getByTestId('delete-entire-trip').click()
+  const tripDeleteDialog = page.getByRole('dialog', { name: '永久删除整份行程？' })
+  await expect(tripDeleteDialog).toHaveAttribute('aria-modal', 'true')
+  await expect(tripDeleteDialog.getByRole('button', { name: '取消' })).toBeFocused()
+  await tripDeleteDialog.getByTestId('confirm-delete-trip').click()
   expect((await deleteResponsePromise).status()).toBe(204)
   await expect(page.getByTestId('trip-deleted')).toBeVisible()
   expect(await page.locator('body').innerText()).not.toContain(claimed.public_resource_id)
@@ -200,7 +203,7 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
 
   await expect(page).toHaveURL(/\/trip\/result$/)
   await expect(page.getByTestId('trip-days').locator('section')).toHaveCount(3)
-  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible()
   const visibleText = await page.locator('body').innerText()
   expect(visibleText).not.toContain(accepted.public_resource_id)
   expect(visibleText).not.toContain(sourceText)
@@ -257,11 +260,10 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
     '景山公园观景台',
   ])
 
-  await page.getByRole('heading', { name: '北海公园' }).click()
-  page.once('dialog', (dialog) => dialog.accept())
-  await applyVisibleCommand(() => page.getByRole('button', { name: '删除这张卡片' }).click())
+  await page.getByRole('button', { name: '删除 北海公园' }).click()
+  await applyVisibleCommand(() => page.getByTestId('confirm-delete').click())
   await expect(page.getByRole('heading', { name: '北海公园' })).toHaveCount(0)
-  await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('行程已修改，路线尚未更新')).toBeVisible()
 
   await page.reload()
   await expect(page.getByRole('heading', { name: '景山公园观景台' })).toBeVisible()
@@ -275,19 +277,21 @@ test('logged-in text creates user-owned cards through the durable FULL chain', a
   ])
   expect(await page.locator('body').innerText()).not.toContain(accepted.public_resource_id)
 
-  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByTestId('delete-trip-source').click()
+  const sourceDeleteDialog = page.getByRole('dialog', { name: '删除攻略原文？' })
+  await expect(sourceDeleteDialog.getByRole('button', { name: '取消' })).toBeFocused()
   const sourceDeletePromise = page.waitForResponse((response) => {
     const requestData = response.request()
     return requestData.method() === 'DELETE'
       && /\/api\/v3\/trip-understandings\/[^/]+\/source$/.test(new URL(response.url()).pathname)
   })
-  await page.getByTestId('delete-trip-source').click()
+  await sourceDeleteDialog.getByTestId('confirm-delete-source').click()
   expect((await sourceDeletePromise).status()).toBe(204)
   await expect(page.getByText('原文已永久删除，逐日卡片仍可继续查看和调整。')).toBeVisible()
   await expect(page.getByRole('heading', { name: '景山公园观景台' })).toBeVisible()
 
-  page.once('dialog', (dialog) => dialog.accept())
   await page.getByTestId('delete-entire-trip').click()
+  await page.getByTestId('confirm-delete-trip').click()
   await expect(page.getByTestId('trip-deleted')).toBeVisible()
 })
 
