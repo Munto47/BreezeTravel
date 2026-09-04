@@ -336,9 +336,10 @@
       "prompt_path": "docs/governance/work-packages/WP-G07-TEXT-CONVERGENCE.md",
       "prompt_sha256": "d785d7234de7e95c903a6271452d1ba8c62633914fd25756f427f00412b3cd12",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
+      "registry_binding_commit": "aee3a57556396deb8b5f020c1b15b0b6f916bcfe",
       "remote_branch": "origin/codex/g07-text-convergence",
       "role": "CONTRIBUTOR",
-      "status": "WAITING_FOR_WRITER_SLOT",
+      "status": "IN_PROGRESS",
       "worktree_path": "C:/Users/18770/.codex/worktrees/d597/BreezeTravel"
     }
   ],
@@ -347,5 +348,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_ONLY"
+  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
 }

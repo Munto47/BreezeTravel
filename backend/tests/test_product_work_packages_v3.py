@@ -137,11 +137,14 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
         "WP-G07-TEXT-CONVERGENCE",
     ]
     contributor = registry["packages"][1]
-    assert contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert contributor["status"] == "IN_PROGRESS"
+    assert contributor["registry_binding_commit"] == (
+        "aee3a57556396deb8b5f020c1b15b0b6f916bcfe"
+    )
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
+    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1
@@ -281,6 +284,16 @@ def test_unmerged_contributor_blocks_final_evidence_but_not_repair_work(
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
+    contributor = registry["packages"][1]
+    contributor["status"] = "WAITING_FOR_WRITER_SLOT"
+    for field in (
+        "registry_binding_commit",
+        "branch_point_commit",
+        "ready_commit",
+        "merged_commit",
+    ):
+        contributor.pop(field, None)
+    registry["writer_activation"] = "INTEGRATOR_ONLY"
     registry_path = tmp_path / "docs/governance/current_work_packages.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
     monkeypatch.setattr(work_packages_v3, "_git", lambda *_args, **_kwargs: "")
@@ -316,6 +329,16 @@ def _copy_active_registry_contract(tmp_path: Path) -> tuple[dict[str, object], P
             REPOSITORY_ROOT / "docs/governance/current_work_packages.json"
         ).read_text(encoding="utf-8")
     )
+    contributor = registry["packages"][1]
+    contributor["status"] = "WAITING_FOR_WRITER_SLOT"
+    for field in (
+        "registry_binding_commit",
+        "branch_point_commit",
+        "ready_commit",
+        "merged_commit",
+    ):
+        contributor.pop(field, None)
+    registry["writer_activation"] = "INTEGRATOR_ONLY"
     registry_path = tmp_path / "docs/governance/current_work_packages.json"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
     return registry, registry_path
