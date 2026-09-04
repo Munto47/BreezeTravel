@@ -128,8 +128,8 @@
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
     "minimum_change": "为小程序路线刷新和建议准备增加有界轮询与明确的页内重试终态；Web登录所有网络、Provider和未知认证异常使用固定动作级文案及非红提示，不显示底层Error.message。OCR继续不处理、不验证。",
-    "phase": "REPAIR_ACTIVE",
-    "freeze_parent_commit": "10931afbfa3b2377e0baa85bf3e1f2ac70082134",
+    "phase": "EVIDENCE_FROZEN",
+    "freeze_parent_commit": "6a4c97e32009c072af556961ca36b80320c91494",
     "preflight_entrypoints": [
       "docs/governance/current_work_packages.json",
       "backend/eval_data/trip_nlu_v2_remediation/candidate_manifest.json",
