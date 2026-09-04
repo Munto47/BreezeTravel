@@ -99,7 +99,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "激活第二轮也是最后一轮前端修复writer；只清空客户端pending地图动作并补失败写入加地图读回停滞反例，失败时默认关闭更新按钮。",
+    "minimum_change": "登记最终前端地图动作权威修复为READY并冻结远端tip；随后由唯一集成者按登记的10个精确路径串行合并。",
     "phase": "REPAIR_ACTIVE",
     "freeze_parent_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "preflight_entrypoints": [
@@ -403,9 +403,12 @@
       "prompt_sha256": "8ff693152ea17c805c97b30646d3f0cb6c0c05760d4245bb7bd2d3e0cd69b23f",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
       "registry_binding_commit": "d5f977d2cc5e72d1ff0802d0c547de44838831f5",
+      "branch_point_commit": "a405eef923cf672c9f97f27c395b731287847bfd",
+      "ready_commit": "bc33925ba7a6bd1cd116619f39a2234aba109f1a",
+      "remote_readback_commit": "bc33925ba7a6bd1cd116619f39a2234aba109f1a",
       "remote_branch": "origin/codex/g07-ui-convergence-r2-fix",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "status": "READY_TO_MERGE",
       "worktree_path": "C:/Users/18770/.codex/worktrees/30f3/BreezeTravel"
     }
   ],
@@ -414,5 +417,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
+  "writer_activation": "INTEGRATOR_ONLY"
 }
