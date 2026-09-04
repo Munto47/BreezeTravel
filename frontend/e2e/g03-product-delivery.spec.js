@@ -76,6 +76,7 @@ test('text to cards, map, stay, top-3, preview, adopt and full recheck is public
 
   await expect(page).toHaveURL(/\/trip\/result$/)
   await expect(page.getByTestId('trip-days')).toBeVisible({ timeout: 30_000 })
+  await page.getByTestId('desktop-nav-map_stay').click()
   await expect(page.getByTestId('map-theater').locator('svg[role="img"]')).toBeVisible({ timeout: 30_000 })
   await expect(page.getByTestId('stay-candidate')).toHaveCount(3, { timeout: 30_000 })
 
@@ -88,6 +89,7 @@ test('text to cards, map, stay, top-3, preview, adopt and full recheck is public
   expect((await selectResponse).status()).toBe(200)
   await expect(page.getByText(`整程住宿已选择：${selectedName}`)).toBeVisible()
 
+  await page.getByTestId('desktop-nav-checks').click()
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 30_000 })
   await expect(page.getByTestId('trip-check-item').first().getByText('可以更好')).toBeVisible()
   const checksResponse = await page.request.get(`${resourcePath}/checks`, {
@@ -103,14 +105,16 @@ test('text to cards, map, stay, top-3, preview, adopt and full recheck is public
     response.request().method() === 'POST'
     && new URL(response.url()).pathname.endsWith('/map-renders')
   ))
+  await page.getByTestId('desktop-nav-map_stay').click()
   await page.getByTestId('render-map').click()
   expect((await renderResponse).status()).toBe(202)
-  await expect(page.getByText('步行和公交路线已准备，出发前请再核对实时情况')).toBeVisible({ timeout: 30_000 })
+  await expect(page.getByTestId('map-theater').getByText('路线已准备，可以切换步行或公交查看。')).toBeVisible({ timeout: 30_000 })
 
   const previewResponse = page.waitForResponse((response) => (
     response.request().method() === 'POST'
     && new URL(response.url()).pathname.endsWith('/changes/preview')
   ))
+  await page.getByTestId('desktop-nav-checks').click()
   await page.getByTestId('preview-change').first().click()
   const previewHttp = await previewResponse
   expect(previewHttp.status()).toBe(200)
@@ -131,10 +135,11 @@ test('text to cards, map, stay, top-3, preview, adopt and full recheck is public
   expect(adopted.map_readiness).toBe('NEEDS_UPDATE')
   expect(collectKeys(adopted).filter((key) => FORBIDDEN_PUBLIC_KEYS.has(key))).toEqual([])
 
-  await expect(page.getByRole('heading', { name: '午餐时间' })).toBeVisible()
   await expect(page.getByText('改动已保存，完整复核后仍有内容需要确认')).toBeVisible()
-  await expect(page.getByText('行程已修改，路线尚未更新')).toBeVisible()
   await expect(page.getByTestId('change-preview')).toHaveCount(0)
+  await page.getByTestId('desktop-nav-itinerary').click()
+  await expect(page.getByRole('heading', { name: '午餐时间' })).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('行程已修改，路线尚未更新')).toBeVisible()
 
   const resultResponse = await page.request.get(`${resourcePath}/result`, {
     headers: { Authorization: `Bearer ${auth.token}` },
