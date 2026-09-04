@@ -85,10 +85,10 @@ Goal type: CANDIDATE_HARDENING
 | Package | Owned paths（首个候选preflight精确化） | Dependencies | Acceptance | Activation state |
 |---|---|---|---|---|
 | `WP-G07-INTEGRATOR` | G07治理、版本化提示词、贡献包登记、串行合并与分级验收 | `0b2f098` | 绑定、所有权、远端readback与集成顺序一致 | `IN_PROGRESS` |
-| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门40/40安全、37/40精确；取消目标独立复审通过；整体R0仍待UI与E2E | `READY_TO_MERGE` |
-| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字包合并后的精确baseline | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `PENDING_REGISTRATION` |
+| `WP-G07-TEXT-CONVERGENCE` | 40条非blind兼容样例及现有模型内的保守文字语义 | WAITING绑定`37eedc23e47dc796c909dde2fcdbabe96b9dcb1d` | 文字子门40/40安全、37/40精确；取消目标独立复审通过；整体R0仍待UI与E2E | `MERGED`：`95bcb76a9688a03a0527e02317918ecdbb48bfe2` |
+| `WP-G07-UI-CONVERGENCE` | 结果页三视图、响应式导航、交通连接、地图/住宿布局、登录和可访问对话框 | 文字集成基线`95bcb76a9688a03a0527e02317918ecdbb48bfe2` | 桌面与手机主路径可操作，旧时长不冒充当前结果，现有产品能力不回退 | `WAITING_FOR_WRITER_SLOT` |
 
-文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已移除任意子串取消绑定，只在剥离受限选择器后做精确名称匹配；主线复测与独立复审均通过，现冻结为`READY_TO_MERGE`，等待唯一集成者串行合并。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
+文字提交`51a49ca8d610bba73b6dd27fede9704c6f7b3525`与`5e81ad2e2cab5f6a2e17358b26e03bf0ae475880`因独立复审发现取消归属P1而拒绝，远端原样保留为诊断资产。最终修复`7ade404ab3d6c47a03b7465bbbfec160af92725d`已由唯一集成者以相同stable patch-id串行合入`95bcb76a9688a03a0527e02317918ecdbb48bfe2`；40/40安全、37/40精确、257项相关回归及6项PostgreSQL主链均通过。前端包已有完整版本化提示词、独立任务、分支和worktree，当前只等待下一控制面提交激活唯一贡献writer。TripCheck仅并行收口自身非blind回归，不向BreezeTravel复制仓库、解析器、数据库、锁文件或环境。任何未实际运行的层级保持`NOT_RUN/NOT_READY`。
 
 ## Decisions locked
 
@@ -271,6 +271,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 最终文字修复通过主线复测和独立攻击性复审，现冻结为READY：40/40安全、37/40精确，取消只按规范化精确名称及明确日期/到访选择器绑定；无法唯一定位时保留并待确认 | ready `7ade404ab3d6c47a03b7465bbbfec160af92725d`；parent/branch point `6f66067b6c4b33d5cffd5aef5587b3d6b416ec57`；binding `37eedc23e47dc796c909dde2fcdbabe96b9dcb1d`；remote readback与ready一致 | 集成者runner 40/40 safe、37/40 exact、0 hard safety；相关回归`257 passed`、Ruff、package validator、core-mainline PASS；独立复审67项新包+178项既有回归及跨日/重复/短长名/正反取消矩阵均PASS；8路径、单提交、clean | `AUTOMATED_TEST_TEXT_COMPAT_R1 + MULTI_AGENT_SIMULATED_REVIEW_ACCEPT + REMOTE_READBACK` | `Product progress=TEXT_RUNTIME + NON_BLIND_COMPATIBILITY_DATA` | `Governance ratio=READY冻结与集成范围开放；不改正式Gate、公共API、blind或OCR边界` | 唯一集成者按8个登记路径cherry-pick该提交，复核patch-id与主线回归；随后将文字包标记MERGED并登记UI包WAITING | UI、整体R0、真实Provider、浏览器和所有者体验仍NOT_RUN；37/40不是R2或G07通过 | 提交、push并回读READY控制checkpoint；串行合并ready提交，不允许贡献分支继续变化 |
 
+| 2026-09-04 | 文字兼容实现已按冻结补丁串行合入主线，前端三视图包已绑定真实用户任务、独立分支、worktree、10个精确路径和完整提示词并进入WAITING；当前仍只有集成者可写 | text merged `95bcb76a9688a03a0527e02317918ecdbb48bfe2`，stable patch-id与ready `7ade404ab3d6c47a03b7465bbbfec160af92725d`一致；UI task `01a06c20-ab96-73f1-a285-75186e0f3267`；branch/remote `codex/g07-ui-convergence`；worktree `C:/Users/18770/.codex/worktrees/30f3/BreezeTravel`；remote tip为文字集成基线 | runner 40/40 safe、37/40 exact、0 hard safety；相关回归`257 passed`、PostgreSQL主链`6 passed`、Ruff、core-mainline及patch-id校验PASS；UI提示词SHA-256 `7ce9d75e4158533d0d015f7c89cefb7de5440857e60a099f0a3c09d109f04903`；重复只读任务已归档且未登记 | `TEXT_MERGE + AUTOMATED_TEST + POSTGRES_INTEGRATION + UI_WORK_PACKAGE_WAITING + REMOTE_READBACK` | `Product progress=TEXT_RUNTIME_MERGED / UI_NOT_STARTED` | `Governance ratio=串行过渡、提示词与精确路径登记；不改公共API、migration、正式Gate、blind或OCR边界` | 提交、push并回读本WAITING控制checkpoint；下一控制提交只激活UI writer，再将UI分支快进至激活提交并发送完整提示词 | UI实现、浏览器R0、真实Provider与所有者体验仍NOT_RUN；TripCheck收口仍是非阻断旁路 | 校验WAITING registry、提示词hash、路径唯一性与core-mainline；提交并远端回读后进入UI激活 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -278,10 +280,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 第三合流周期激活subject待提交 / origin/codex/g07-candidate-cycle-3`；
-- Verification / Evidence / Gate result / `structurally_valid`：`新周期只完成远端baseline与合同重绑定，40条兼容包、产品实现、R0/R1/R2、真实Provider、浏览器、所有者体验及正式候选矩阵均NOT_RUN / OWNER_AUTHORIZATION + REMOTE_BASELINE / HARDENED_CANDIDATE_GATE_NOT_RUN / 待本激活切片验证`；历史结果均不与本subject拼接；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端包WAITING / origin/codex/g07-candidate-cycle-3`；
+- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；前端、整体R0/R1/R2、真实Provider、浏览器、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + MULTI_AGENT_SIMULATED_REVIEW / HARDENED_CANDIDATE_GATE_NOT_RUN / 当前结构待WAITING提交复验`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`现有文本主链仍可运行，但新合流体验尚未实现；下一结果必须保留Breeze品牌与能力并提供行程、地图与住宿、优先检查三视图 / 40条兼容样例、响应式三视图和所有者三份真实文字验收尚未完成；正式G07仍NOT_RUN / false`；
+- User-visible result / Remaining risks / Goal archived：`文字主链已更保守处理时间、取消、旧名、动作与设施，前端三视图尚未实现；下一结果必须保留Breeze品牌与能力并提供行程、地图与住宿、优先检查三视图 / 响应式三视图、完整fixture浏览器R0和所有者三份真实文字验收尚未完成；正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

@@ -135,12 +135,14 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert [package["package_id"] for package in registry["packages"]] == [
         "WP-G07-INTEGRATOR",
         "WP-G07-TEXT-CONVERGENCE",
+        "WP-G07-UI-CONVERGENCE",
     ]
     contributor = registry["packages"][1]
+    ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "37eedc23e47dc796c909dde2fcdbabe96b9dcb1d"
+        "95bcb76a9688a03a0527e02317918ecdbb48bfe2"
     )
-    assert contributor["status"] == "READY_TO_MERGE"
+    assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
     assert contributor["remote_branch"] == (
         "origin/codex/g07-text-convergence-r2-fix"
@@ -154,6 +156,9 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["ready_commit"] == (
         "7ade404ab3d6c47a03b7465bbbfec160af92725d"
     )
+    assert contributor["merged_commit"] == (
+        "95bcb76a9688a03a0527e02317918ecdbb48bfe2"
+    )
     assert contributor["remote_readback_commit"] == contributor["ready_commit"]
     assert contributor["prompt_sha256"] == (
         "089313b369aa389eb05e298d388cba40e3e4621c9690616a0a8f527dd658c4cd"
@@ -161,6 +166,30 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
+    assert ui_contributor["status"] == "WAITING_FOR_WRITER_SLOT"
+    assert ui_contributor["baseline_commit"] == contributor["merged_commit"]
+    assert ui_contributor["branch"] == "codex/g07-ui-convergence"
+    assert ui_contributor["remote_branch"] == "origin/codex/g07-ui-convergence"
+    assert ui_contributor["dialogue_ref"] == (
+        "codex-task:01a06c20-ab96-73f1-a285-75186e0f3267"
+    )
+    assert ui_contributor["worktree_path"] == (
+        "C:/Users/18770/.codex/worktrees/30f3/BreezeTravel"
+    )
+    assert ui_contributor["dependencies"] == ["WP-G07-TEXT-CONVERGENCE"]
+    assert ui_contributor["prompt_sha256"] == (
+        "7ce9d75e4158533d0d015f7c89cefb7de5440857e60a099f0a3c09d109f04903"
+    )
+    assert ui_contributor["prompt_sha256"] == hashlib.sha256(
+        (REPOSITORY_ROOT / ui_contributor["prompt_path"]).read_bytes()
+    ).hexdigest()
+    assert not {
+        "registry_binding_commit",
+        "branch_point_commit",
+        "ready_commit",
+        "remote_readback_commit",
+        "merged_commit",
+    } & ui_contributor.keys()
     assert registry["writer_activation"] == "INTEGRATOR_ONLY"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
@@ -201,21 +230,18 @@ def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref(
     assert set(allowed) == {
         "docs/governance/CURRENT_GOAL.md",
         "docs/governance/current_work_packages.json",
-        "docs/governance/work-packages/WP-G07-TEXT-CONVERGENCE.md",
-        "backend/governance/core_mainline.py",
-        "backend/governance/work_packages_v3.py",
-        "backend/evals/agent_gate_v1/candidate_gate.py",
-        "backend/scripts/validate_work_packages.py",
-        "backend/tests/test_g07_candidate_gate.py",
+        "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
         "backend/tests/test_product_work_packages_v3.py",
-        "backend/app/trip_understanding/full_text.py",
-        "backend/app/trip_understanding/pipeline.py",
-        "backend/app/trip_understanding/qwen_provider.py",
-        "backend/eval_data/g07_text_convergence_v1/compatibility_cases.schema.json",
-        "backend/eval_data/g07_text_convergence_v1/compatibility_cases.json",
-        "backend/evals/g07_text_convergence_v1/__init__.py",
-        "backend/evals/g07_text_convergence_v1/runner.py",
-        "backend/tests/test_g07_text_convergence.py",
+        "frontend/src/app/trip/result/page.tsx",
+        "frontend/src/app/trip/result/itinerary-workspace.tsx",
+        "frontend/src/app/trip/result/result-navigation.tsx",
+        "frontend/src/app/trip/result/result-presentation.ts",
+        "frontend/src/app/trip/result/accessible-dialog.tsx",
+        "frontend/src/app/login/page.tsx",
+        "frontend/e2e/trip-understanding-v3.spec.js",
+        "frontend/e2e/g02-product-delivery.spec.js",
+        "frontend/e2e/g03-product-delivery.spec.js",
+        "frontend/e2e/g03r-result-ui.spec.js",
     }
     assert "docs/governance/product_delivery_gates.json" not in allowed
     assert "docs/governance/current_goal_binding.json" not in allowed
@@ -239,7 +265,7 @@ def test_g07_later_cycle_active_slice_remains_narrow_and_bound_to_candidate_ref(
     result = validate_registry_v3(REPOSITORY_ROOT, check_scope=True)
     assert result["verdict"] == "PASS", result
     assert result["active_goal_id"] == "TC-VNEXT-G07-CANDIDATE"
-    assert result["package_count"] == 2
+    assert result["package_count"] == 3
     assert "docs/governance/current_work_packages.json" in result["changed_paths"]
     assert all(
         any(path == root or path.startswith(f"{root}/") for root in allowed)
@@ -303,6 +329,7 @@ def test_unmerged_contributor_blocks_final_evidence_but_not_repair_work(
         "docs/governance/current_goal_binding.json",
         "docs/governance/product_delivery_gates.json",
         "docs/governance/work-packages/WP-G07-TEXT-CONVERGENCE.md",
+        "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
     )
     for relative in copied_paths:
         source = REPOSITORY_ROOT / relative
@@ -349,6 +376,7 @@ def _copy_active_registry_contract(tmp_path: Path) -> tuple[dict[str, object], P
         "docs/governance/current_goal_binding.json",
         "docs/governance/product_delivery_gates.json",
         "docs/governance/work-packages/WP-G07-TEXT-CONVERGENCE.md",
+        "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
     )
     for relative in copied_paths:
         source = REPOSITORY_ROOT / relative
