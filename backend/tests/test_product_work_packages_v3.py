@@ -159,7 +159,7 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     contributor = registry["packages"][1]
     ui_contributor = registry["packages"][2]
     assert registry["active_slice"]["base_commit"] == (
-        "194750f5a608f2b282a1e1ff83d8586bc5386af4"
+        "da8f0ba66fccf1259bbedcb64882e7df335a48ff"
     )
     assert contributor["status"] == "MERGED"
     assert contributor["branch"] == "codex/g07-text-convergence-r2-fix"
@@ -185,10 +185,12 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     assert contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert ui_contributor["status"] == "IN_PROGRESS"
+    assert ui_contributor["status"] == "WAITING_FOR_WRITER_SLOT"
     assert ui_contributor["baseline_commit"] == contributor["merged_commit"]
-    assert ui_contributor["branch"] == "codex/g07-ui-convergence"
-    assert ui_contributor["remote_branch"] == "origin/codex/g07-ui-convergence"
+    assert ui_contributor["branch"] == "codex/g07-ui-convergence-r1-fix"
+    assert ui_contributor["remote_branch"] == (
+        "origin/codex/g07-ui-convergence-r1-fix"
+    )
     assert ui_contributor["dialogue_ref"] == (
         "codex-task:01a06c20-ab96-73f1-a285-75186e0f3267"
     )
@@ -197,21 +199,19 @@ def test_g06_archive_and_g07_active_binding_are_unambiguous() -> None:
     )
     assert ui_contributor["dependencies"] == ["WP-G07-TEXT-CONVERGENCE"]
     assert ui_contributor["prompt_sha256"] == (
-        "7ce9d75e4158533d0d015f7c89cefb7de5440857e60a099f0a3c09d109f04903"
+        "0423e94ad083f1d58b28cf84ba0b7b33aaff2fd629b7148abfeaf74a9799e28a"
     )
     assert ui_contributor["prompt_sha256"] == hashlib.sha256(
         (REPOSITORY_ROOT / ui_contributor["prompt_path"]).read_bytes()
     ).hexdigest()
-    assert ui_contributor["registry_binding_commit"] == (
-        "194750f5a608f2b282a1e1ff83d8586bc5386af4"
-    )
     assert not {
+        "registry_binding_commit",
         "branch_point_commit",
         "ready_commit",
         "remote_readback_commit",
         "merged_commit",
     } & ui_contributor.keys()
-    assert registry["writer_activation"] == "INTEGRATOR_AND_CONTRIBUTOR"
+    assert registry["writer_activation"] == "INTEGRATOR_ONLY"
 
     completion = archive.split("## Completion record", maxsplit=1)[1].split(
         "## Stop conditions", maxsplit=1

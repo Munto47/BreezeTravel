@@ -1,4 +1,4 @@
-# WP-G07-UI-CONVERGENCE：三视图与响应式体验合流
+# WP-G07-UI-CONVERGENCE：三视图与响应式体验合流（第一轮恢复修复）
 
 ## Identity and exact baseline
 
@@ -13,12 +13,23 @@
 
 ## Branch and isolated worktree
 
-- branch: codex/g07-ui-convergence
-- remote_branch: origin/codex/g07-ui-convergence
+- branch: codex/g07-ui-convergence-r1-fix
+- remote_branch: origin/codex/g07-ui-convergence-r1-fix
 - worktree_path: C:/Users/18770/.codex/worktrees/30f3/BreezeTravel
 - dialogue_ref: codex-task:01a06c20-ab96-73f1-a285-75186e0f3267
 
 开始写入前必须确认主对话发送的 registry_binding_commit 与 branch_point_commit 都是当前 HEAD 的祖先，且当前 HEAD 精确等于 branch_point_commit；分支、上游、worktree、提示词 SHA-256 与 registry 必须完全一致，工作树必须干净。随后在 backend 运行工作包校验。任一不一致时只读回报，不能自行改 registry、rebase 或更换工作树。
+
+## Repair-cycle override
+
+原提交 `64c27754fda194e7f881466225382d23e0ea823f` 已由主任务保留在 `origin/codex/g07-ui-convergence`，但未登记 READY、未合并。独立反方复审发现两个直接破坏有界恢复合同的 P1，因此本轮只允许采用以下不同策略修复：
+
+1. 在新的 branch_point 上执行 `git cherry-pick --no-commit 64c27754fda194e7f881466225382d23e0ea823f` 复用原实现，不改写、amend 或 force-push 旧分支。
+2. 登录请求的 10 秒边界必须覆盖响应正文读取，而不是只覆盖响应头；当 `fetch()` 已返回 Response、但 JSON body 永久停滞时，登录、验证码和测试账号入口都必须结束 loading、显示安全中性错误并可重试。
+3. 地图“重新渲染”按钮只能由服务端 `available_actions` 中的 `RENDER_MAP` 开放，不能因为本地看到 LIMITED/UNAVAILABLE 就强制产生写请求。POST 结果不确定时，必须区分“POST 已明确被接受”和“只读 GET 仍返回请求前相同的 LIMITED/UNAVAILABLE”。后一种不能解除写锁、不能宣称本次已确认，也不能允许同页再次产生新的地图 POST；只允许继续只读确认。若 POST 已明确返回成功，后续同状态终态可以作为该次请求的权威结果。
+4. 在 `g03r-result-ui.spec.js` 增加两个确定性反例：响应头已到但 body 不结束的登录请求在 10 秒后恢复；起始为 LIMITED 或 UNAVAILABLE 的地图 POST 超时后，同状态 GET 不得解锁或产生第二次 POST。原 59 项适用浏览器旅程必须继续通过。
+
+这两个 P1 关闭前不得申请 READY。红/玫瑰装饰色与重复启动验证码倒计时作为 P2 记录，本轮不要求扩大修改。
 
 ## Owned paths
 
@@ -131,7 +142,7 @@
 - must_not_modify_shared_openapi_or_lockfiles: true
 - subagent_read_only: true
 
-只可在 codex/g07-ui-convergence 上工作。branch_point_commit 之后只形成一个最终功能提交，且直接父提交必须等于 branch_point_commit；实现期间不要创建中间提交。不得自行合并、rebase、squash、amend 已发送提交、force-push、改 Goal/registry/Gate 或删除历史证据。完成时 push 自己的分支并提供远端精确 readback。
+只可在 codex/g07-ui-convergence-r1-fix 上工作。branch_point_commit 之后只形成一个最终功能提交，且直接父提交必须等于 branch_point_commit；实现期间不要创建中间提交。不得自行合并、rebase、squash、amend 已发送提交、force-push、改 Goal/registry/Gate 或删除历史证据。完成时 push 自己的分支并提供远端精确 readback。
 
 子 Agent 只可做短期标注、独立复核、反方审查或故障诊断，不得提交产品代码或改变工作包状态；发现的问题由本功能对话修复。
 

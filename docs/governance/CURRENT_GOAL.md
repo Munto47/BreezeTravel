@@ -275,6 +275,8 @@ Goal type: CANDIDATE_HARDENING
 
 | 2026-09-04 | 前端WAITING快照已在`194750f5a608f2b282a1e1ff83d8586bc5386af4`提交、推送并远端回读；当前控制面只激活一个前端贡献writer，不登记未知的自身branch point | binding `194750f5a608f2b282a1e1ff83d8586bc5386af4`；UI task/branch/worktree与上个checkpoint一致；branch point在本激活提交push后由主任务发送，不写入自身registry | WAITING后完整工作包回归`13 passed`、prompt hash、路径唯一性和core-mainline PASS；主分支与GitHub readback一致，UI远端仍精确停在文字集成基线 | `UI_SINGLE_WRITER_ACTIVATION + REGISTRY_BINDING + REMOTE_READBACK` | `Product progress=NONE / UI_IMPLEMENTATION_AUTHORIZED` | `Governance ratio=唯一writer激活；不改产品运行时、公共合同、正式Gate、blind或OCR边界` | 提交并push本激活checkpoint；将UI分支快进至该提交，运行package validator后向登记任务发送完整提示词、binding和branch point | UI、浏览器R0、真实Provider和所有者体验仍NOT_RUN；UI完成前不得启动第二贡献包 | 校验激活状态、提交并远端回读；推进UI分支并发送正式执行消息 |
 
+| 2026-09-04 | 前端提交`64c27754fda194e7f881466225382d23e0ea823f`虽完成三视图并通过59项fixture浏览器测试，独立反方复审仍发现登录响应正文可无限等待、地图超时后相同LIMITED/UNAVAILABLE会被误当作本次提交已确认的两个P1；该提交未登记READY且未合并，旧远端原样保留 | rejected commit `64c27754fda194e7f881466225382d23e0ea823f`；parent `da8f0ba66fccf1259bbedcb64882e7df335a48ff`；old remote `origin/codex/g07-ui-convergence`；replacement `codex/g07-ui-convergence-r1-fix`；新的WAITING绑定为本checkpoint | 原提交build PASS、适用fixture浏览器`59/59`、工作包与core-mainline PASS；远端精确回读且工作树干净；静态反例确认计时器在响应头后提前清除，以及未确认地图POST可被旧终态误解锁 | `AUTOMATED_BROWSER_PASS_REJECTED_BY_INDEPENDENT_RECOVERY_P1 + REMOTE_HISTORY_PRESERVED + REPAIR_REVIEW_CYCLE_1` | `Product progress=NONE / BLOCKING_DEFECT_REBIND` | `Governance ratio=拒绝记录、替代分支、两个恢复反例和更新提示词；不改公共合同、正式Gate、blind、后端或OCR冻结边界` | push/readback本WAITING绑定；从其建立替代分支，以`git cherry-pick --no-commit 64c2775...`复用旧改动，只修复两个P1并形成一个新提交 | 原提交不能合并；整体R0、真实Provider和所有者体验仍NOT_RUN；玫瑰装饰色、验证码重复计时与迟反馈作为P2不阻断本轮 | 校验并提交本绑定，创建替代远端分支，再激活同一功能任务完成第一轮恢复修复与复审 |
+
 ## Auto-advance
 
 - Candidate Gate与Agent Gate通过后只可归档G07并标记`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`；
@@ -282,10 +284,10 @@ Goal type: CANDIDATE_HARDENING
 
 ## Completion record
 
-- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端包IN_PROGRESS / origin/codex/g07-candidate-cycle-3`；
-- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；前端、整体R0/R1/R2、真实Provider、浏览器、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + MULTI_AGENT_SIMULATED_REVIEW / HARDENED_CANDIDATE_GATE_NOT_RUN / 当前结构待WAITING提交复验`；历史结果均不与本subject拼接；
+- Status / Subject commits / Remote branch：`IN_PROGRESS / 文字集成95bcb76a9688a03a0527e02317918ecdbb48bfe2，前端64c2775因两个恢复P1拒绝并重绑WAITING / origin/codex/g07-candidate-cycle-3`；
+- Verification / Evidence / Gate result / `structurally_valid`：`文字兼容40/40安全、37/40精确，257项相关回归与6项PostgreSQL主链通过；被拒前端构建及fixture浏览器59/59通过，但独立恢复复审FAIL；整体R0/R1/R2、真实Provider、所有者体验及正式候选矩阵仍NOT_RUN / AUTOMATED_TEST + POSTGRES_INTEGRATION + AUTOMATED_BROWSER_DIAGNOSTIC + MULTI_AGENT_SIMULATED_REVIEW_FAIL / HARDENED_CANDIDATE_GATE_NOT_RUN / 当前结构待WAITING提交复验`；历史结果均不与本subject拼接；
 - H1 / production / commercial：`NOT_RUN / NOT_RUN / NOT_RUN`；H1、公网、生产、商业：`NOT_RUN`，release、deploy和`main`未请求；
-- User-visible result / Remaining risks / Goal archived：`文字主链已更保守处理时间、取消、旧名、动作与设施，前端三视图尚未实现；下一结果必须保留Breeze品牌与能力并提供行程、地图与住宿、优先检查三视图 / 响应式三视图、完整fixture浏览器R0和所有者三份真实文字验收尚未完成；正式G07仍NOT_RUN / false`；
+- User-visible result / Remaining risks / Goal archived：`文字主链已合入；三视图实现已产出但尚未通过恢复边界复审、未进入主线 / 登录正文无限等待与地图同状态误确认必须由替代分支关闭；完整主线fixture R0和所有者三份真实文字验收尚未完成，正式G07仍NOT_RUN / false`；
 - Next Goal activated：固定`NO_PENDING_HUMAN_APPROVAL`；
 - Promotion decision：`NOT_REQUESTED`，除非用户另行批准H1。
 

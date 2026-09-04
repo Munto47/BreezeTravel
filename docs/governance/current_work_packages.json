@@ -69,7 +69,7 @@
       "frontend/e2e/g03-product-delivery.spec.js",
       "frontend/e2e/g03r-result-ui.spec.js"
     ],
-    "base_commit": "194750f5a608f2b282a1e1ff83d8586bc5386af4",
+    "base_commit": "da8f0ba66fccf1259bbedcb64882e7df335a48ff",
     "evidence_invalidated": [
       "G07_FINAL_252F43D_AUTOMATED_LIVE_BROWSER_PERFORMANCE_PASS_BUT_FINAL_PANEL_FAIL_CANDIDATE_REJECTED",
       "G07_G0_TO_G7_FIRST_REVIEW_SUBJECT_REQUIRES_FINAL_SUBJECT_RERUN",
@@ -99,7 +99,7 @@
       "把G0至G5 checkpoint或未运行的后续层拼接成最终候选PASS",
       "H1、公网、生产、商业、发布、部署、release或main合并"
     ],
-    "minimum_change": "基于已远端回读的WAITING快照激活唯一前端贡献writer；只实现登记的三视图、连接器、地图住宿布局、登录和可访问恢复。",
+    "minimum_change": "拒绝存在登录正文无限等待及地图同状态误确认的前端提交；在不改写旧远端历史的新分支上只关闭两个恢复P1并补确定性反例。",
     "phase": "REPAIR_ACTIVE",
     "freeze_parent_commit": "0b2f098d9209d2ccb31f3c4308ac3ab33ebc9671",
     "preflight_entrypoints": [
@@ -111,7 +111,7 @@
     "preflight_required_tokens": {},
     "product_progress": "NONE / GOAL_TRANSITION",
     "candidate_cycle": 14,
-    "repair_review_cycle": 0,
+    "repair_review_cycle": 1,
     "delivery_levels": {
       "R0": "40/40无危险输出、至少28条自动符合预期、桌面和手机文字主链可操作；允许诚实遗漏与手工补充，不称G07通过",
       "R1": "至少36条自动符合预期、真实Qwen与高德核心旅程在封闭环境可用、五个目标视口无阻断；不称G07通过",
@@ -356,7 +356,7 @@
         "五个目标视口无横向溢出或核心操作遮挡；构建和适用fixture浏览器测试通过且既有分享、删除、并发、住宿和Top-3无回退"
       ],
       "baseline_commit": "95bcb76a9688a03a0527e02317918ecdbb48bfe2",
-      "branch": "codex/g07-ui-convergence",
+      "branch": "codex/g07-ui-convergence-r1-fix",
       "dependencies": [
         "WP-G07-TEXT-CONVERGENCE"
       ],
@@ -400,12 +400,11 @@
       ],
       "package_id": "WP-G07-UI-CONVERGENCE",
       "prompt_path": "docs/governance/work-packages/WP-G07-UI-CONVERGENCE.md",
-      "prompt_sha256": "7ce9d75e4158533d0d015f7c89cefb7de5440857e60a099f0a3c09d109f04903",
+      "prompt_sha256": "0423e94ad083f1d58b28cf84ba0b7b33aaff2fd629b7148abfeaf74a9799e28a",
       "registry_activation_commit": "97a09f41b7eacbb21210d62c148bb46e07385f2b",
-      "registry_binding_commit": "194750f5a608f2b282a1e1ff83d8586bc5386af4",
-      "remote_branch": "origin/codex/g07-ui-convergence",
+      "remote_branch": "origin/codex/g07-ui-convergence-r1-fix",
       "role": "CONTRIBUTOR",
-      "status": "IN_PROGRESS",
+      "status": "WAITING_FOR_WRITER_SLOT",
       "worktree_path": "C:/Users/18770/.codex/worktrees/30f3/BreezeTravel"
     }
   ],
@@ -414,5 +413,5 @@
   "scope_guard_version": "core-mainline-v1",
   "scope_policy_sha256": "fa18cdcf93a23801ac9571aadc3797ca7ad46876af9bf4dee043e1e59577ca85",
   "schema_version": "work-package-registry-v3",
-  "writer_activation": "INTEGRATOR_AND_CONTRIBUTOR"
+  "writer_activation": "INTEGRATOR_ONLY"
 }
