@@ -125,6 +125,64 @@ DESTINATION_CONTEXT_RE = re.compile(
 )
 CITY_SEPARATOR_RE = re.compile(r"\s*[、，,和与/]\s*")
 GENERIC_PLACE_NAMES = frozenset({"酒店", "宾馆", "民宿", "住处", "住宿"})
+BARE_FACILITY_NAMES = frozenset(
+    {"公厕", "卫生间", "洗手间", "停车场", "充电站", "服务台", "售票处"}
+)
+ACTION_SUFFIX_RE = re.compile(
+    r"(?:游览|参观|讲解|拍照|打卡)(?:\s*\d+(?:\.\d+)?\s*(?:小时|分钟))?$"
+)
+VISIT_PERIODS = ("清晨", "早上", "上午", "中午", "午后", "下午", "傍晚", "晚上", "夜间")
+_VISIT_PERIOD_PATTERN = "(?:" + "|".join(VISIT_PERIODS) + ")"
+_CLOCK_PATTERN = r"(?<![A-Za-z0-9])(?:[01]?\d|2[0-3])[:：][0-5]\d"
+_CHINESE_CLOCK_PATTERN = (
+    rf"(?P<period>{_VISIT_PERIOD_PATTERN})?\s*"
+    r"(?P<hour>[0-9]|1[0-9]|2[0-3])点(?:\s*(?P<minute>[0-5]?\d)分?)?"
+)
+_VISIT_TIME_TOKEN_RE = re.compile(
+    rf"(?P<chinese>{_CHINESE_CLOCK_PATTERN})|"
+    rf"(?P<clock>{_VISIT_PERIOD_PATTERN}?\s*{_CLOCK_PATTERN})|"
+    rf"(?P<period_only>{_VISIT_PERIOD_PATTERN})"
+)
+_NEGATED_CANCELLATION_RE = re.compile(
+    r"(?:并不是要|不是要|不想|不希望|不需要|没必要|别再|"
+    r"并非|不是|并不|并未|没有|没|不会|不要|别|无需|不用|"
+    r"不打算|不准备|不再|不得(?!不)|不能|无法|未|(?<!得)不)\s*"
+    r"(?:取消|撤掉|删除|放弃|排除)"
+    r"|(?:取消|撤掉|删除|放弃|排除)\s*不了"
+)
+_CANCELLATION_DAY_NUMBER = {
+    "一": 1,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
+_CANCELLATION_DAY_HEADING_RE = re.compile(
+    r"(?:第\s*(?:(?P<zh>[一二三四五六七八九十])|(?P<arabic>1[0-4]|[1-9]))\s*天"
+    r"|(?:Day|D)\s*(?P<latin>1[0-4]|[1-9]))",
+    re.IGNORECASE,
+)
+_CANCELLATION_VERB_PATTERN = (
+    r"(?:取消|撤掉|删除|放弃|排除|跳过|不要去|不去|不安排)"
+)
+_CANCELLATION_ORDINAL_RE = re.compile(
+    r"(?:第\s*)?(?P<ordinal>[一二三四五六七八九十]|[1-9])\s*次"
+)
+_CANCELLATION_LAST_RE = re.compile(
+    r"(?:(?:最后|最末|末尾)\s*(?:一)?次|末次|上一次|上次)"
+)
+_CANCELLATION_UNCERTAIN_RE = re.compile(
+    r"(?:如果|若|万一|可能|也许|或许|考虑|打算|准备|建议|可以|"
+    r"看情况|视情况|暂定|待定|再决定|再说|"
+    r"(?:还没|尚未|未)决定是否|(?:还在|尚在)考虑)"
+)
+_CANCELLATION_PREVIOUS_DAY_RE = re.compile(r"(?:前一|上一)(?:天|日)|昨天|昨日")
+_CANCELLATION_RELATION_BOUNDARIES = "。！？；;\n，,"
 
 
 def _ordered_deep_cities(value: str) -> tuple[str, ...]:
@@ -274,26 +332,164 @@ async def _close_async_resources(*resources: object) -> None:
         raise first_error
 
 
+def has_negated_cancellation(value: str) -> bool:
+    """Return whether a local clause explicitly says a cancellation is not happening."""
+
+    return _NEGATED_CANCELLATION_RE.search(value) is not None
+
+
+def has_affirmed_cancellation(value: str) -> bool:
+    """Treat ``不得不取消`` as affirmative while keeping ordinary negation safe."""
+
+    return "取消" in value and not has_negated_cancellation(value)
+
+
+def normalize_atomic_place_candidate(value: str) -> str | None:
+    """Narrow bounded visit decorations without inventing a different place.
+
+    This is intentionally lexical. It only removes a small set of adjacent
+    time/arrival/action decorations and otherwise fails closed.
+    """
+
+    candidate = value.strip()
+    candidate = re.sub(r"^[|｜]\s*", "", candidate)
+    candidate = re.sub(
+        rf"^(?:{_VISIT_PERIOD_PATTERN}\s*(?:"
+        rf"(?:[0-9]|1[0-9]|2[0-3])点(?:\s*[0-5]?\d分?)?|"
+        rf"{_CLOCK_PATTERN})|{_CLOCK_PATTERN}|{_VISIT_PERIOD_PATTERN})"
+        r"\s*(?:到达|抵达|前往|去|到)?\s*",
+        "",
+        candidate,
+    )
+    candidate = re.sub(r"^(?:到达|抵达)\s*", "", candidate)
+    candidate = re.sub(
+        rf"\s*(?:{_VISIT_PERIOD_PATTERN}\s*)?{_CLOCK_PATTERN}\s*(?:到达|抵达)?$",
+        "",
+        candidate,
+    )
+    candidate = ACTION_SUFFIX_RE.sub("", candidate).strip()
+    if not candidate or candidate in BARE_FACILITY_NAMES:
+        return None
+    if candidate.endswith(("入口", "出口")):
+        return None
+    return candidate
+
+
+def atomic_place_rejection_reason(value: str) -> str | None:
+    candidate = value.strip()
+    if not candidate:
+        return "EMPTY"
+    if len(candidate) < 2:
+        return "TOO_SHORT"
+    if len(candidate) > 40:
+        return "TOO_LONG"
+    if URL_RE.search(candidate):
+        return "URL"
+    if candidate in GENERIC_PLACE_NAMES or candidate in BARE_FACILITY_NAMES:
+        return "GENERIC_OR_FACILITY"
+    if candidate.endswith(("入口", "出口")):
+        return "ENTRANCE_OR_EXIT"
+    if ACTION_SUFFIX_RE.search(candidate):
+        return "ACTION_SUFFIX"
+    if re.search(r"(?:\d{1,2}[:：][0-5]\d|\d+(?:\.\d+)?(?:小时|分钟))$", candidate):
+        return "TIME_OR_DURATION"
+    if re.search(r"(?:院|园|馆|街|寺|巷|店|场|站|门)\d+$", candidate):
+        return "TRAILING_NUMBER"
+    if any(period in candidate for period in VISIT_PERIODS):
+        return "TIME_PERIOD"
+    if any(marker in candidate for marker in SENTENCE_MARKERS):
+        return "SENTENCE"
+    if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
+        return "FORBIDDEN_MARKER"
+    if GENERIC_ACTIVITY_RE.fullmatch(candidate):
+        return "GENERIC_ACTIVITY"
+    if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
+        return "NON_ATOMIC_CHARACTERS"
+    if re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is None:
+        return "NO_PLACE_CHARACTERS"
+    return None
+
+
+def _normalize_time_token(value: str) -> str | None:
+    match = _VISIT_TIME_TOKEN_RE.fullmatch(value.strip())
+    if match is None:
+        return None
+    if match.group("period_only") is not None:
+        return match.group("period_only")
+    if match.group("chinese") is not None:
+        period = match.group("period")
+        hour = int(match.group("hour"))
+        minute = int(match.group("minute") or 0)
+    else:
+        raw = match.group("clock") or ""
+        period = next((item for item in VISIT_PERIODS if raw.startswith(item)), None)
+        clock = raw[len(period) :].strip() if period else raw.strip()
+        hour_text, minute_text = re.split(r"[:：]", clock)
+        hour = int(hour_text)
+        minute = int(minute_text)
+    if period in {"中午", "午后", "下午", "傍晚", "晚上", "夜间"} and hour < 12:
+        hour += 12
+    if period in {"清晨", "早上", "上午"} and hour == 12:
+        hour = 0
+    return f"{hour:02d}:{minute:02d}"
+
+
+def derive_visit_time_hint(source_text: str, span_start: int, span_end: int) -> str | None:
+    """Derive a visit-owned time immediately before or after one place span."""
+
+    if not 0 <= span_start < span_end <= len(source_text):
+        return None
+    left_boundary = max(
+        source_text.rfind(marker, 0, span_start)
+        for marker in "。！？；;\n，,、→⇒➜⇨＞➔➡⟶"
+    )
+    before = source_text[left_boundary + 1 : span_start]
+    if not any(
+        marker in before
+        for marker in (
+            "开放时间",
+            "营业时间",
+            "排队",
+            "步行",
+            "公交",
+            "地铁",
+            "交通",
+            "车程",
+            "耗时",
+            "路线",
+            "驾车",
+        )
+    ):
+        prefix = re.search(
+            rf"(?P<time>{_VISIT_TIME_TOKEN_RE.pattern})\s*"
+            r"(?:到达|抵达|前往|再次去|去|到|游览|参观|看|逛)?\s*$",
+            before,
+        )
+        if prefix is not None:
+            normalized = _normalize_time_token(prefix.group("time"))
+            if normalized is not None:
+                return normalized
+    after = source_text[span_end : min(len(source_text), span_end + 20)]
+    if re.search(r"(?:去|到|前往)\s*$", before):
+        postfix = re.match(
+            rf"\s*(?P<time>{_VISIT_TIME_TOKEN_RE.pattern})\s*(?:到达|抵达)",
+            after,
+        )
+        if postfix is not None:
+            return _normalize_time_token(postfix.group("time"))
+    return None
+
+
 def is_atomic_planned_place(mention) -> bool:
     if mention.role != ActivityRole.PLANNED or mention.day_index is None:
         return False
     candidate = (mention.atomic_place_name or "").strip()
-    if not candidate or len(candidate) > 40 or URL_RE.search(candidate):
-        return False
-    if candidate in GENERIC_PLACE_NAMES:
+    if atomic_place_rejection_reason(candidate) is not None:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
     if candidate != raw_candidate:
         return False
-    if any(marker in candidate for marker in SENTENCE_MARKERS):
-        return False
-    if any(word in candidate for word in FORBIDDEN_PLACE_MARKERS):
-        return False
-    if GENERIC_ACTIVITY_RE.fullmatch(candidate):
-        return False
-    if ATOMIC_PLACE_RE.fullmatch(candidate) is None:
-        return False
-    return re.search(r"[A-Za-z\u4e00-\u9fff]", candidate) is not None
+    return True
 
 
 def _apply_contextual_category_hints(
@@ -312,7 +508,7 @@ def _apply_contextual_category_hints(
     changed = False
     for mention in proposal.mentions:
         category_hint = mention.category_hint
-        if category_hint is None and mention.role == ActivityRole.PLANNED:
+        if mention.role == ActivityRole.PLANNED:
             local_before = source_text[max(0, mention.span_start - 18) : mention.span_start]
             if DINING_CONTEXT_RE.search(local_before):
                 category_hint = "餐饮"
@@ -323,6 +519,309 @@ def _apply_contextual_category_hints(
     if not changed:
         return proposal
     return proposal.model_copy(update={"mentions": mentions})
+
+
+def _cancellation_day_at(source_text: str, position: int) -> int | None:
+    heading = next(
+        iter(reversed(list(_CANCELLATION_DAY_HEADING_RE.finditer(source_text, 0, position)))),
+        None,
+    )
+    if heading is None:
+        return None
+    value = heading.group("arabic") or heading.group("latin")
+    if value is not None:
+        return int(value)
+    return _CANCELLATION_DAY_NUMBER[heading.group("zh")]
+
+
+def _cancellation_target_day(
+    source_text: str,
+    position: int,
+    selector_text: str,
+) -> tuple[int | None, bool]:
+    selector_headings = list(_CANCELLATION_DAY_HEADING_RE.finditer(selector_text))
+    if selector_headings:
+        heading = selector_headings[-1]
+        value = heading.group("arabic") or heading.group("latin")
+        if value is not None:
+            return int(value), False
+        return _CANCELLATION_DAY_NUMBER[heading.group("zh")], False
+
+    current_day = _cancellation_day_at(source_text, position)
+    if _CANCELLATION_PREVIOUS_DAY_RE.search(selector_text) is None:
+        return current_day, False
+    if current_day is None:
+        return None, True
+    target_day = current_day - 1
+    return (target_day, False) if 1 <= target_day <= 14 else (None, True)
+
+
+def _cancellation_relation_parts(
+    source_text: str,
+    span_start: int,
+    span_end: int,
+) -> tuple[str, str]:
+    left = max(
+        source_text.rfind(marker, 0, span_start)
+        for marker in _CANCELLATION_RELATION_BOUNDARIES
+    )
+    right_positions = [
+        position
+        for marker in _CANCELLATION_RELATION_BOUNDARIES
+        if (position := source_text.find(marker, span_end)) >= 0
+    ]
+    right = min(right_positions, default=len(source_text))
+    return source_text[left + 1 : span_start], source_text[span_end:right]
+
+
+def _cancellation_selector_text(
+    source_text: str,
+    span_start: int,
+    span_end: int,
+) -> tuple[str | None, bool]:
+    before, after = _cancellation_relation_parts(source_text, span_start, span_end)
+    local = f"{before}{source_text[span_start:span_end]}{after}"
+    if has_negated_cancellation(local) or re.search(
+        r"(?:可以|可|不妨)\s*(?:完全)?\s*(?:不去|不安排)",
+        local,
+    ):
+        return None, False
+    uncertain = _CANCELLATION_UNCERTAIN_RE.search(local) is not None
+
+    before_matches = list(re.finditer(_CANCELLATION_VERB_PATTERN, before))
+    if before_matches:
+        cue = before_matches[-1]
+        prefix = before[: cue.start()][-24:]
+        if not uncertain and not (
+            cue.group(0) == "取消" and re.search(r"不得不\s*$", prefix)
+        ) and re.search(r"[不没未无别非]", prefix):
+            return None, False
+        return before[cue.end() :], uncertain
+
+    after_match = re.match(
+        rf"\s*(?P<selector>.{{0,18}}?)\s*"
+        rf"(?P<verb>{_CANCELLATION_VERB_PATTERN})",
+        after,
+    )
+    if after_match is not None:
+        selector = f"{before[-18:]}{after_match.group('selector')}"
+        if not uncertain and not (
+            after_match.group("verb") == "取消"
+            and re.search(r"不得不\s*$", selector)
+        ) and re.search(r"[不没未无别非]", selector):
+            return None, False
+        return selector, uncertain
+    return None, False
+
+
+def _cancellation_target_time(selector_text: str) -> str | None:
+    matches = [
+        normalized
+        for match in _VISIT_TIME_TOKEN_RE.finditer(selector_text)
+        if (normalized := _normalize_time_token(match.group(0))) is not None
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _cancellation_target_ordinal(selector_text: str) -> int | str | None:
+    if _CANCELLATION_LAST_RE.search(selector_text):
+        return "LAST"
+    match = _CANCELLATION_ORDINAL_RE.search(selector_text)
+    if match is None:
+        return None
+    value = match.group("ordinal")
+    return int(value) if value.isascii() else _CANCELLATION_DAY_NUMBER[value]
+
+
+def _apply_terminal_cancellations(
+    source_text: str,
+    proposal: InferenceProposal,
+) -> tuple[InferenceProposal, frozenset[tuple[int, int]]]:
+    """Bind an affirmed cancellation to one earlier visit, or fail closed.
+
+    A cancellation never crosses a day boundary. Repeated same-day visits need
+    an explicit time or occurrence selector; otherwise all possible targets are
+    retained and surfaced as needing confirmation without a resolver call.
+    """
+
+    mentions = list(proposal.mentions)
+    original_mentions = tuple(proposal.mentions)
+    planned_names = {
+        (mention.atomic_place_name or "").strip().casefold()
+        for mention in original_mentions
+        if mention.role == ActivityRole.PLANNED and mention.atomic_place_name
+    }
+    pending_spans: set[tuple[int, int]] = set()
+    reclassified_count = 0
+
+    for exclusion_index in sorted(
+        (
+            index
+            for index, mention in enumerate(original_mentions)
+            if mention.role == ActivityRole.EXCLUDED
+        ),
+        key=lambda index: original_mentions[index].span_start,
+    ):
+        exclusion = original_mentions[exclusion_index]
+        selector_text, cancellation_is_uncertain = _cancellation_selector_text(
+            source_text,
+            exclusion.span_start,
+            exclusion.span_end,
+        )
+        if selector_text is None:
+            continue
+
+        raw_name = (exclusion.atomic_place_name or exclusion.raw_text).strip().casefold()
+        matching_names = {name for name in planned_names if name and name in raw_name}
+        if raw_name in planned_names:
+            matching_names = {raw_name}
+        elif matching_names:
+            longest_length = max(map(len, matching_names))
+            matching_names = {
+                name for name in matching_names if len(name) == longest_length
+            }
+        if not matching_names:
+            continue
+        selector_scope = (
+            selector_text
+            if raw_name in planned_names
+            else f"{selector_text}{exclusion.raw_text}"
+        )
+
+        possible_indices = [
+            index
+            for index, mention in enumerate(original_mentions)
+            if (
+                mention.role == ActivityRole.PLANNED
+                and mention.span_start < exclusion.span_start
+                and (mention.atomic_place_name or "").strip().casefold()
+                in matching_names
+            )
+        ]
+        current_indices = [
+            index
+            for index in possible_indices
+            if mentions[index].role == ActivityRole.PLANNED
+        ]
+        if not current_indices:
+            continue
+
+        target_day, unresolved_day_reference = _cancellation_target_day(
+            source_text,
+            exclusion.span_start,
+            selector_scope,
+        )
+        candidate_days = {
+            original_mentions[index].day_index
+            for index in current_indices
+            if original_mentions[index].day_index is not None
+        }
+        if (
+            target_day is None
+            and not unresolved_day_reference
+            and len(candidate_days) == 1
+        ):
+            target_day = next(iter(candidate_days))
+        if target_day is None:
+            pending_spans.update(
+                (original_mentions[index].span_start, original_mentions[index].span_end)
+                for index in current_indices
+            )
+            continue
+
+        current_indices = [
+            index
+            for index in current_indices
+            if original_mentions[index].day_index == target_day
+        ]
+        if not current_indices:
+            continue
+        current_indices.sort(key=lambda index: original_mentions[index].span_start)
+        if len(matching_names) != 1:
+            pending_spans.update(
+                (original_mentions[index].span_start, original_mentions[index].span_end)
+                for index in current_indices
+            )
+            continue
+        if cancellation_is_uncertain:
+            pending_spans.update(
+                (original_mentions[index].span_start, original_mentions[index].span_end)
+                for index in current_indices
+            )
+            continue
+
+        target_time = _cancellation_target_time(selector_scope)
+        target_ordinal = _cancellation_target_ordinal(selector_scope)
+        time_indices: list[int] | None = None
+        if target_time is not None:
+            time_indices = [
+                index
+                for index in current_indices
+                if original_mentions[index].time_hint == target_time
+            ]
+        ordinal_indices: list[int] | None = None
+        if target_ordinal is not None:
+            ordered_indices = sorted(
+                (
+                    index
+                    for index in possible_indices
+                    if original_mentions[index].day_index == target_day
+                ),
+                key=lambda index: original_mentions[index].span_start,
+            )
+            ordinal_index = (
+                len(ordered_indices) - 1
+                if target_ordinal == "LAST"
+                else target_ordinal - 1
+            )
+            ordinal_indices = (
+                [ordered_indices[ordinal_index]]
+                if 0 <= ordinal_index < len(ordered_indices)
+                and mentions[ordered_indices[ordinal_index]].role == ActivityRole.PLANNED
+                else []
+            )
+        if time_indices is not None and ordinal_indices is not None:
+            selected_indices = [
+                index for index in ordinal_indices if index in time_indices
+            ]
+        elif time_indices is not None:
+            selected_indices = time_indices
+        elif ordinal_indices is not None:
+            selected_indices = ordinal_indices
+        else:
+            selected_indices = current_indices
+
+        if len(selected_indices) != 1:
+            pending_indices = selected_indices or current_indices
+            pending_spans.update(
+                (original_mentions[index].span_start, original_mentions[index].span_end)
+                for index in pending_indices
+            )
+            continue
+
+        selected_index = selected_indices[0]
+        mentions[selected_index] = mentions[selected_index].model_copy(
+            update={
+                "role": ActivityRole.REFERENCE,
+                "day_index": None,
+                "time_hint": None,
+            }
+        )
+        reclassified_count += 1
+
+    if not reclassified_count and not pending_spans:
+        return proposal, frozenset()
+    binding = dict(proposal.binding)
+    if reclassified_count:
+        binding["terminal_cancellation_reclassification_count"] = int(
+            binding.get("terminal_cancellation_reclassification_count", 0)
+        ) + reclassified_count
+    if pending_spans:
+        binding["ambiguous_cancellation_target_count"] = len(pending_spans)
+    return (
+        proposal.model_copy(update={"mentions": mentions, "binding": binding}),
+        frozenset(pending_spans),
+    )
 
 
 class EvidenceCompiler:
@@ -684,9 +1183,12 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal = _apply_contextual_category_hints(
+        proposal, cancellation_pending_spans = _apply_terminal_cancellations(
             source_text,
-            await self.inference_provider.propose(source_text),
+            _apply_contextual_category_hints(
+                source_text,
+                await self.inference_provider.propose(source_text),
+            )
         )
         destination_name = normalized_destination_name(
             source_text,
@@ -703,6 +1205,7 @@ class TripUnderstandingPipeline:
         search_cities = resolution_cities(source_text, proposal.destination_name)
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
+        cancellation_pending_activity_ids: set[str] = set()
         guarded_compiled: list[CompiledActivity] = []
         for item in compiled:
             mention = item.mention
@@ -712,6 +1215,12 @@ class TripUnderstandingPipeline:
             )
             if item.eligible_for_place_search and intersects_confirmation:
                 confirmation_activity_ids.add(item.activity_id)
+                item = item.model_copy(update={"eligible_for_place_search": False})
+            elif (
+                item.eligible_for_place_search
+                and (mention.span_start, mention.span_end) in cancellation_pending_spans
+            ):
+                cancellation_pending_activity_ids.add(item.activity_id)
                 item = item.model_copy(update={"eligible_for_place_search": False})
             guarded_compiled.append(item)
         compiled = guarded_compiled
@@ -731,6 +1240,9 @@ class TripUnderstandingPipeline:
         for item in compiled:
             if item.activity_id in confirmation_activity_ids:
                 resolution_slots.append(("CONFIRMATION_REQUIRED", None, False, ""))
+                continue
+            if item.activity_id in cancellation_pending_activity_ids:
+                resolution_slots.append(("CANCELLATION_PENDING", None, False, ""))
                 continue
             if not item.eligible_for_place_search:
                 resolution_slots.append(("NOT_ELIGIBLE", None, False, ""))
@@ -782,6 +1294,18 @@ class TripUnderstandingPipeline:
                         resolution_status=ResolutionStatus.NEEDS_CONFIRMATION,
                         resolver_receipt={
                             "status": "SOURCE_CONFIRMATION_REQUIRED",
+                            "external_calls": 0,
+                        },
+                    )
+                )
+                continue
+            if slot_type == "CANCELLATION_PENDING":
+                resolved.append(
+                    ResolvedActivity(
+                        compiled=item,
+                        resolution_status=ResolutionStatus.NEEDS_CONFIRMATION,
+                        resolver_receipt={
+                            "status": "CANCELLATION_TARGET_AMBIGUOUS",
                             "external_calls": 0,
                         },
                     )
@@ -869,6 +1393,9 @@ class TripUnderstandingPipeline:
             "max_executable_activities": self.max_executable_activities,
             "inference_fallback_used": fallback_used,
             "source_confirmation_required_count": len(confirmation_activity_ids),
+            "cancellation_target_ambiguous_count": len(
+                cancellation_pending_activity_ids
+            ),
             "partial_source": partial_source,
             "provider_failures_exposed_publicly": 0,
         }

@@ -1,0 +1,407 @@
+{
+  "schema_version": "g07-text-convergence-dataset-v1",
+  "dataset_version": "g07-text-convergence-v1",
+  "public_non_blind": true,
+  "cases": [
+    {
+      "case_id": "BT-COMPAT-001",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京五日游。第1天 故宫博物院→景山公园\n第 2 天 天坛公园\n第三天 颐和园\nDay 4 南锣鼓巷\nD5 前门大街",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "日期标签与原顺序不制造地点", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "五种日期标签归日且保持日内顺序", "destination_name": "北京", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院"}, {"name": "景山公园"}]}, {"day_index": 2, "cards": [{"name": "天坛公园"}]}, {"day_index": 3, "cards": [{"name": "颐和园"}]}, {"day_index": 4, "cards": [{"name": "南锣鼓巷"}]}, {"day_index": 5, "cards": [{"name": "前门大街"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "DAY_LABELS"}
+    },
+    {
+      "case_id": "BT-COMPAT-002",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京两日游。Day 2 天坛公园→颐和园\nDay 1 故宫博物院→景山公园",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "倒序标签不串日", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "输出按日升序", "destination_name": "北京", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院"}, {"name": "景山公园"}]}, {"day_index": 2, "cards": [{"name": "天坛公园"}, {"name": "颐和园"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "OUT_OF_ORDER_DAYS"}
+    },
+    {
+      "case_id": "BT-COMPAT-003",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京一日游。Day 1｜甲景点→乙景点⇒丙景点->丁景点➜戊景点⇨己景点＞庚景点➔辛景点➡壬景点⟶癸景点",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "箭头只分隔原子地点", "forbidden_cards": ["Day 1｜甲景点"], "forbidden_eligible_mentions": ["Day 1｜甲景点"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "九种箭头得到十个有序地点", "ordered_cards": [{"day_index": 1, "cards": [{"name": "甲景点"}, {"name": "乙景点"}, {"name": "丙景点"}, {"name": "丁景点"}, {"name": "戊景点"}, {"name": "己景点"}, {"name": "庚景点"}, {"name": "辛景点"}, {"name": "壬景点"}, {"name": "癸景点"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "ARROW_SEPARATORS"}
+    },
+    {
+      "case_id": "BT-COMPAT-004",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京；D1｜甲景点→乙景点／丙景点；D2｜丁景点、戊景点",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "紧凑全角格式不制造复合地点", "forbidden_cards": ["D1｜甲景点", "乙景点／丙景点", "D2｜丁景点"], "forbidden_eligible_mentions": ["D1｜甲景点", "乙景点／丙景点", "D2｜丁景点"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "D1与D2节点完整归日", "ordered_cards": [{"day_index": 1, "cards": [{"name": "甲景点"}, {"name": "乙景点"}, {"name": "丙景点"}]}, {"day_index": 2, "cards": [{"name": "丁景点"}, {"name": "戊景点"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "COMPACT_FULLWIDTH"}
+    },
+    {
+      "case_id": "BT-COMPAT-005",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京两日游。Day 1 去故宫博物院。Day 2 如果还有时间去颐和园；网友提到天坛公园；取消南锣鼓巷；路过前门大街，但不在那里游览。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "只有原子PLANNED进入卡片", "forbidden_cards": ["颐和园", "天坛公园", "南锣鼓巷", "前门大街"], "forbidden_eligible_mentions": ["颐和园", "天坛公园", "南锣鼓巷", "前门大街"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "五类角色正确", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院"}]}, {"day_index": 2, "cards": []}], "mentions": [{"name": "故宫博物院", "role": "PLANNED", "eligible": true}, {"name": "颐和园", "role": "OPTIONAL", "eligible": false}, {"name": "天坛公园", "role": "REFERENCE", "eligible": false}, {"name": "南锣鼓巷", "role": "EXCLUDED", "eligible": false}, {"name": "前门大街", "role": "PASS_THROUGH", "eligible": false}], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "ACTIVITY_ROLES"}
+    },
+    {
+      "case_id": "BT-COMPAT-006",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京一日游。Day 1 如果还有时间去颐和园。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "条件地点不自动建卡", "forbidden_cards": ["颐和园"], "forbidden_eligible_mentions": ["颐和园"], "forbidden_auto_matches": ["颐和园"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "颐和园保留为OPTIONAL", "ordered_cards": [{"day_index": 1, "cards": []}], "mentions": [{"name": "颐和园", "role": "OPTIONAL", "eligible": false}], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "CONDITIONAL_OPTIONAL"}
+    },
+    {
+      "case_id": "BT-COMPAT-007",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京一日游。Day 1 去故宫博物院或者颐和园，二选一。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "二选一不生成确定卡", "forbidden_cards": ["故宫博物院", "颐和园"], "forbidden_eligible_mentions": ["故宫博物院", "颐和园"], "forbidden_auto_matches": ["故宫博物院", "颐和园"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "两个候选均为OPTIONAL", "ordered_cards": [{"day_index": 1, "cards": []}], "mentions": [{"name": "故宫博物院", "role": "OPTIONAL", "eligible": false}, {"name": "颐和园", "role": "OPTIONAL", "eligible": false}], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "NON_ATOMIC_CHOICE"}
+    },
+    {
+      "case_id": "BT-COMPAT-008",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京攻略说明：预约网址 https://example.invalid/place/故宫博物院，电话010-12345678；请不要把说明句生成地点卡。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "URL电话元指令不成地点", "forbidden_cards": ["故宫博物院", "预约网址", "说明句"], "forbidden_eligible_mentions": ["故宫博物院", "预约网址", "说明句"], "forbidden_auto_matches": ["故宫博物院"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "无公开卡片", "ordered_cards": [{"day_index": 1, "cards": []}], "mentions": [], "eligible_count": 0, "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "META_URL_PHONE"}
+    },
+    {
+      "case_id": "BT-COMPAT-009",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京一日游。Day 1 故宫博物院介绍：旧称紫禁城，曾称宫城；这只是历史说明。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "介绍与旧名不成卡", "forbidden_cards": ["故宫博物院", "故宫博物院介绍", "紫禁城", "宫城"], "forbidden_eligible_mentions": ["故宫博物院", "故宫博物院介绍", "紫禁城", "宫城"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["REFERENCE_MENTION_OMITTED"]},
+      "exact_expectation": {"summary": "故宫只可作为REFERENCE", "ordered_cards": [{"day_index": 1, "cards": []}], "mentions": [{"name": "故宫博物院", "role": "REFERENCE", "eligible": false}], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "OLD_NAME_DESCRIPTION"}
+    },
+    {
+      "case_id": "BT-COMPAT-010",
+      "group": "STRUCTURE_ROLE_DATE",
+      "input_text": "北京一日游。Day 1 故宫博物院讲解→景山公园拍照→公厕→停车场→充电站。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "动作后缀与裸设施不成地点", "forbidden_cards": ["故宫博物院讲解", "景山公园拍照", "公厕", "停车场", "充电站"], "forbidden_eligible_mentions": ["故宫博物院讲解", "景山公园拍照", "公厕", "停车场", "充电站"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "仅保留两处真实地点", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院"}, {"name": "景山公园"}]}], "mentions": [], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "ACTION_SUFFIX_AND_FACILITY"}
+    },
+    {
+      "case_id": "BT-COMPAT-011",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 上午去故宫博物院。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "时段不进入地点名", "forbidden_cards": ["上午去故宫博物院"], "forbidden_eligible_mentions": ["上午去故宫博物院"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "上午写入time_hint", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "上午"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "PERIOD_HINT"}
+    },
+    {
+      "case_id": "BT-COMPAT-012",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 14:00去故宫博物院。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "数字时刻不进入地点名", "forbidden_cards": ["14", "14:00去故宫博物院"], "forbidden_eligible_mentions": ["14", "14:00去故宫博物院"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "14:00写入time_hint", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "14:00"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "CLOCK_HINT"}
+    },
+    {
+      "case_id": "BT-COMPAT-013",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 下午2点去故宫博物院。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "中文下午时刻不污染地点", "forbidden_cards": ["下午2点", "下午2点去故宫博物院"], "forbidden_eligible_mentions": ["下午2点", "下午2点去故宫博物院"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "下午2点规范为14:00", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "14:00"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "CHINESE_AFTERNOON_CLOCK"}
+    },
+    {
+      "case_id": "BT-COMPAT-014",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 晚上7:30去故宫博物院。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "晚上时刻不按早晨解释", "forbidden_cards": ["晚上7:30", "晚上7:30去故宫博物院"], "forbidden_eligible_mentions": ["晚上7:30", "晚上7:30去故宫博物院"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "晚上7:30规范为19:30", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "19:30"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "EVENING_CLOCK"}
+    },
+    {
+      "case_id": "BT-COMPAT-015",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 去故宫博物院10:00到达。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "后置时刻不并入地点名", "forbidden_cards": ["故宫博物院10", "10", "10:00"], "forbidden_eligible_mentions": ["故宫博物院10", "10", "10:00"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "后置10:00归属故宫", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "10:00"}]}], "mentions": [], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "POSTFIX_ARRIVAL_CLOCK"}
+    },
+    {
+      "case_id": "BT-COMPAT-016",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 故宫博物院→下午2点到达景山公园。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "箭头后的时刻只归后一个地点", "forbidden_cards": ["下午2点到达景山公园"], "forbidden_eligible_mentions": ["下午2点到达景山公园"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["TIME_HINT_OMITTED"]},
+      "exact_expectation": {"summary": "14:00只属于景山", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": null}, {"name": "景山公园", "time_hint": "14:00"}]}], "mentions": [], "required_facts": []},
+      "severity": "P1",
+      "probe": {"kind": "PIPELINE", "variant": "LOCAL_TIME_OWNERSHIP"}
+    },
+    {
+      "case_id": "BT-COMPAT-017",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 去故宫博物院游览2小时，再去景山公园。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "游览时长不成地点或time_hint", "forbidden_cards": ["2小时", "故宫博物院游览2小时"], "forbidden_eligible_mentions": ["2小时", "故宫博物院游览2小时"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["DURATION_NOT_PERSISTED"]},
+      "exact_expectation": {"summary": "只保留两处地点且无伪时长", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": null}, {"name": "景山公园", "time_hint": null}]}], "mentions": [], "required_facts": ["NO_DURATION_FIELD"]},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "VISIT_DURATION"}
+    },
+    {
+      "case_id": "BT-COMPAT-018",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 去故宫博物院。开放时间08:30-17:00，排队约40分钟；故宫博物院到景山公园步行10分钟。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "营业排队交通时间不冒充到访", "forbidden_cards": ["08", "30-17", "40分钟", "10分钟"], "forbidden_eligible_mentions": ["08", "30-17", "40分钟", "10分钟", "景山公园"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["REFERENCE_MENTION_OMITTED"]},
+      "exact_expectation": {"summary": "仅首个明确到访且time_hint为空", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": null}]}], "mentions": [], "required_facts": ["NO_DURATION_FIELD"]},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "FACT_TIME_NON_VISIT"}
+    },
+    {
+      "case_id": "BT-COMPAT-019",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京一日游。Day 1 原计划去故宫博物院，后来改到颐和园，最后确定去天坛公园。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "普通改写不自动采用，唯一明确终态可采用", "forbidden_cards": ["故宫博物院", "颐和园"], "forbidden_eligible_mentions": ["故宫博物院", "颐和园"], "forbidden_auto_matches": ["故宫博物院", "颐和园"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["FINAL_TARGET_OMITTED"]},
+      "exact_expectation": {"summary": "仅天坛为最终PLANNED", "ordered_cards": [{"day_index": 1, "cards": [{"name": "天坛公园"}]}], "mentions": [{"name": "天坛公园", "role": "PLANNED", "eligible": true}], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "FINAL_RESCHEDULE"}
+    },
+    {
+      "case_id": "BT-COMPAT-020",
+      "group": "TIME_CANCEL_RESCHEDULE",
+      "input_text": "北京两日游。Day 1 上午去故宫博物院，下午再次去故宫博物院；取消下午的故宫博物院。Day 2 不去故宫博物院，改去景山公园。",
+      "lane": "TEXT_MULTI_GUARD",
+      "safe_expectation": {"summary": "取消只影响同日明确时段，跨日同名到访不互相误删", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT", "CANCELLATION_TARGET_BOUND"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "Day 1只保留上午故宫，Day 2只保留景山", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "time_hint": "上午"}]}, {"day_index": 2, "cards": [{"name": "景山公园"}]}], "mentions": [{"name": "故宫博物院", "role": "PLANNED", "day_index": 1, "time_hint": "上午", "eligible": true}, {"name": "故宫博物院", "role": "REFERENCE", "eligible": false}, {"name": "故宫博物院", "role": "EXCLUDED", "eligible": false, "count": 2}, {"name": "景山公园", "role": "PLANNED", "day_index": 2, "eligible": true}], "required_facts": ["CANCELLATION_TARGET_BOUND"]},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "CANCEL_RESTORE_REPEAT"}
+    },
+    {
+      "case_id": "BT-COMPAT-021",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京、上海、杭州三地游。Day 1 去故宫博物院。Day 2 去外滩。Day 3 去灵隐寺。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "深度城市只采纳同城唯一结果", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_PLACE_PENDING"]},
+      "exact_expectation": {"summary": "三处地点分别唯一自动匹配", "destination_name": "北京、上海、杭州", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "status": "READY"}]}, {"day_index": 2, "cards": [{"name": "外滩", "status": "READY"}]}, {"day_index": 3, "cards": [{"name": "灵隐寺", "status": "READY"}]}], "mentions": [], "auto_matched_count": 3, "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "DEEP_CITY_UNIQUE"}
+    },
+    {
+      "case_id": "BT-COMPAT-022",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "深圳一日游。Day 1 去深圳湾公园。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "非深度城市不冒充深度核验", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": ["深圳湾公园"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["BASIC_CITY_PENDING"]},
+      "exact_expectation": {"summary": "生成基础卡片但不自动匹配", "destination_name": "深圳", "public_status": "BASIC_ONLY", "ordered_cards": [{"day_index": 1, "cards": [{"name": "深圳湾公园", "status": "NEEDS_CONFIRMATION"}]}], "mentions": [], "auto_matched_count": 0, "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "BASIC_CITY"}
+    },
+    {
+      "case_id": "BT-COMPAT-023",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京一日游。Day 1 去故宫博物院；Provider只返回上海同名地点。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "错城结果必须待确认", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": ["故宫博物院"], "required_facts": ["WRONG_CITY_PENDING"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "错城Provider结果被拒绝", "ordered_cards": [], "mentions": [], "required_facts": ["WRONG_CITY_PENDING"]},
+      "severity": "P0",
+      "probe": {"kind": "PLACE_SAFETY", "variant": "WRONG_CITY"}
+    },
+    {
+      "case_id": "BT-COMPAT-024",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京一日游。Day 1 去故宫博物院；Provider行政字段缺失或互相矛盾。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "行政字段不完整或矛盾必须待确认", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": ["故宫博物院"], "required_facts": ["ADMIN_EVIDENCE_PENDING"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "行政证据fail closed", "ordered_cards": [], "mentions": [], "required_facts": ["ADMIN_EVIDENCE_PENDING"]},
+      "severity": "P0",
+      "probe": {"kind": "PLACE_SAFETY", "variant": "ADMIN_CONTRADICTION"}
+    },
+    {
+      "case_id": "BT-COMPAT-025",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京一日游。Day 1 去故宫博物院；Provider把它返回为酒店类别。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "类别冲突必须待确认", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": ["故宫博物院"], "required_facts": ["CATEGORY_CONFLICT_PENDING"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "类别冲突fail closed", "ordered_cards": [], "mentions": [], "required_facts": ["CATEGORY_CONFLICT_PENDING"]},
+      "severity": "P0",
+      "probe": {"kind": "PLACE_SAFETY", "variant": "CATEGORY_CONFLICT"}
+    },
+    {
+      "case_id": "BT-COMPAT-026",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京一日游。Day 1 公厕→停车场→充电站→故宫入口→故宫出口→故宫博物院。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "裸设施和入口出口不进resolver", "forbidden_cards": ["公厕", "停车场", "充电站", "故宫入口", "故宫出口"], "forbidden_eligible_mentions": ["公厕", "停车场", "充电站", "故宫入口", "故宫出口"], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_OMISSION"]},
+      "exact_expectation": {"summary": "只保留故宫博物院", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院"}]}], "mentions": [], "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "BARE_FACILITIES"}
+    },
+    {
+      "case_id": "BT-COMPAT-027",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京一日游。Day 1 午餐去北京饭店。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "餐饮语境不自动匹配同名酒店", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": ["北京饭店"], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_PLACE_PENDING"]},
+      "exact_expectation": {"summary": "北京饭店保持待确认且餐饮提示保留", "public_status": "BASIC_ONLY", "ordered_cards": [{"day_index": 1, "cards": [{"name": "北京饭店", "status": "NEEDS_CONFIRMATION", "category": "餐饮"}]}], "mentions": [{"name": "北京饭店", "role": "PLANNED", "eligible": true}], "auto_matched_count": 0, "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "DINING_HOTEL_CONFLICT"}
+    },
+    {
+      "case_id": "BT-COMPAT-028",
+      "group": "PLACE_CITY_CATEGORY",
+      "input_text": "北京、上海两地游。Day 1 去故宫博物院。Day 2 去外滩。",
+      "lane": "PLACE_SAFETY",
+      "safe_expectation": {"summary": "多城逐地点仅采纳唯一城市结果", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NO_DANGEROUS_OUTPUT"], "allowed_degradations": ["SAFE_PLACE_PENDING"]},
+      "exact_expectation": {"summary": "两地点各自在唯一城市匹配", "destination_name": "北京、上海", "ordered_cards": [{"day_index": 1, "cards": [{"name": "故宫博物院", "status": "READY"}]}, {"day_index": 2, "cards": [{"name": "外滩", "status": "READY"}]}], "mentions": [], "auto_matched_count": 2, "required_facts": []},
+      "severity": "P0",
+      "probe": {"kind": "PIPELINE", "variant": "MULTI_CITY_UNIQUE"}
+    },
+    {
+      "case_id": "BT-COMPAT-029",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "首次卡片完成后，后台为同一版本准备步行与公交路线。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "首次只创建一个地图任务且双模式真实执行", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["INITIAL_MAP_JOB_ONCE", "WALKING_AND_TRANSIT_EXECUTED"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "首次任务与双模式均满足", "ordered_cards": [], "mentions": [], "required_facts": ["INITIAL_MAP_JOB_ONCE", "WALKING_AND_TRANSIT_EXECUTED"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "INITIAL_BACKGROUND_MAP"}
+    },
+    {
+      "case_id": "BT-COMPAT-030",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "编辑一张卡片后，旧地图显示需要更新，但不自动调用路线Provider。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "编辑零路线副作用", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["EDIT_MARKS_NEEDS_UPDATE", "EDIT_ROUTE_CALL_DELTA_ZERO"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "新revision与旧地图状态一致", "ordered_cards": [], "mentions": [], "required_facts": ["EDIT_MARKS_NEEDS_UPDATE", "EDIT_ROUTE_CALL_DELTA_ZERO"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "EDIT_NO_AUTO_RENDER"}
+    },
+    {
+      "case_id": "BT-COMPAT-031",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "用户手动更新地图；相同请求键重放，相同逻辑版本不重复建任务。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "只有手动动作重算且双重幂等", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["MANUAL_RENDER_ONLY", "REQUEST_AND_LOGICAL_DEDUPE"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "手动更新与双重幂等均通过", "ordered_cards": [], "mentions": [], "required_facts": ["MANUAL_RENDER_ONLY", "REQUEST_AND_LOGICAL_DEDUPE"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "MANUAL_RENDER_IDEMPOTENCY"}
+    },
+    {
+      "case_id": "BT-COMPAT-032",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "旧lease与旧revision的迟到地图结果不能覆盖当前行程。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "迟到结果被fence", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["STALE_LEASE_FENCED", "OLD_REVISION_NOT_CURRENT"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "lease与revision两层隔离", "ordered_cards": [], "mentions": [], "required_facts": ["STALE_LEASE_FENCED", "OLD_REVISION_NOT_CURRENT"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "STALE_COMPLETION"}
+    },
+    {
+      "case_id": "BT-COMPAT-033",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "推理、地点或路线部分不可用时，不显示成功，并保留真正成功的部分。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "UNKNOWN与UNAVAILABLE不算成功", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["PARTIAL_SUCCESS_PRESERVED", "UNAVAILABLE_NOT_SUCCESS"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "部分结果状态与成功内容一致", "ordered_cards": [], "mentions": [], "required_facts": ["PARTIAL_SUCCESS_PRESERVED", "UNAVAILABLE_NOT_SUCCESS"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "PARTIAL_PROVIDER_FAILURE"}
+    },
+    {
+      "case_id": "BT-COMPAT-034",
+      "group": "REVISION_MAP_PROVIDER",
+      "input_text": "步行与公交差值不超过10分钟时优先步行；默认路线不使用驾车。",
+      "lane": "MAP_REVISION_PROVIDER",
+      "safe_expectation": {"summary": "只比较步行公交且十分钟规则稳定", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["TEN_MINUTE_WALKING_RULE", "NO_DEFAULT_DRIVING"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "选路规则精确通过", "ordered_cards": [], "mentions": [], "required_facts": ["TEN_MINUTE_WALKING_RULE", "NO_DEFAULT_DRIVING"]},
+      "severity": "P0",
+      "probe": {"kind": "MAP_REVISION_PROVIDER", "variant": "ROUTE_MODE_SELECTION"}
+    },
+    {
+      "case_id": "BT-COMPAT-035",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "普通用户结果只显示逐日卡片，不显示内部证据、哈希或Provider信息。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "公共投影无内部字段", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["PUBLIC_FIELDS_REDACTED"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "公共字段递归检查通过", "ordered_cards": [], "mentions": [], "required_facts": ["PUBLIC_FIELDS_REDACTED"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "PUBLIC_PROJECTION"}
+    },
+    {
+      "case_id": "BT-COMPAT-036",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "匿名访问使用HttpOnly cookie和不透明ETag，真实路径与能力不进入日志。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "匿名能力与日志边界安全", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["OPAQUE_ETAG", "HTTPONLY_COOKIE", "ACCESS_PATH_REDACTED"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "cookie、ETag、日志三项通过", "ordered_cards": [], "mentions": [], "required_facts": ["OPAQUE_ETAG", "HTTPONLY_COOKIE", "ACCESS_PATH_REDACTED"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "ANONYMOUS_BOUNDARY"}
+    },
+    {
+      "case_id": "BT-COMPAT-037",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "删除原文后，既有卡片仍可读，原文不可恢复。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "来源删除不破坏脱敏卡片", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["SOURCE_DELETED", "CARDS_SURVIVE_SOURCE_DELETE"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "删除前后公共结果一致且来源为空", "ordered_cards": [], "mentions": [], "required_facts": ["SOURCE_DELETED", "CARDS_SURVIVE_SOURCE_DELETE"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "SOURCE_DELETION"}
+    },
+    {
+      "case_id": "BT-COMPAT-038",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "删除行程或账户旅行数据后资源失效；未完成时不能显示成功。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "删除成功必须对应真实失效", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["TRIP_DELETE_REVOKES_RESOURCE", "ACCOUNT_DELETE_REVOKES_RESOURCES"], "allowed_degradations": []},
+      "exact_expectation": {"summary": "行程和账户删除均完成真实清理", "ordered_cards": [], "mentions": [], "required_facts": ["TRIP_DELETE_REVOKES_RESOURCE", "ACCOUNT_DELETE_REVOKES_RESOURCES"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "RESOURCE_DELETION"}
+    },
+    {
+      "case_id": "BT-COMPAT-039",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "地点待确认、未找到与Provider不可用使用中性提示，不显示底层错误。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "后端公开状态与文案中性脱敏", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["NEUTRAL_REDACTED_FAILURE_COPY"], "allowed_degradations": ["UI_COLOR_E2E_NOT_RUN"]},
+      "exact_expectation": {"summary": "还需后续UI验证颜色", "ordered_cards": [], "mentions": [], "required_facts": ["NEUTRAL_REDACTED_FAILURE_COPY", "UI_COLOR_E2E_VERIFIED"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "NEUTRAL_FAILURE"}
+    },
+    {
+      "case_id": "BT-COMPAT-040",
+      "group": "PRIVACY_PUBLIC_UX",
+      "input_text": "上海两日游。Day 1 去外滩。Day 2 去豫园。",
+      "lane": "PUBLIC_PRIVACY_UX",
+      "safe_expectation": {"summary": "文字直入主链、软假设可编辑、卡片先于地图", "forbidden_cards": [], "forbidden_eligible_mentions": [], "forbidden_auto_matches": [], "required_facts": ["TEXT_ONLY_ACCEPTED", "EDITABLE_SOFT_ASSUMPTIONS", "CARDS_BEFORE_MAP", "MANUAL_MAP_UPDATE_ONLY"], "allowed_degradations": ["HOME_AND_MOBILE_E2E_NOT_RUN"]},
+      "exact_expectation": {"summary": "还需后续首页与手机E2E", "ordered_cards": [], "mentions": [], "required_facts": ["TEXT_ONLY_ACCEPTED", "EDITABLE_SOFT_ASSUMPTIONS", "CARDS_BEFORE_MAP", "MANUAL_MAP_UPDATE_ONLY", "HOME_AND_MOBILE_E2E_VERIFIED"]},
+      "severity": "P0",
+      "probe": {"kind": "PUBLIC_PRIVACY_UX", "variant": "TEXT_FIRST_FLOW"}
+    }
+  ]
+}

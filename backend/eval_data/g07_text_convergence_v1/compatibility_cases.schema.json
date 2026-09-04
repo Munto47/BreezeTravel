@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://breezetravel.local/schemas/g07-text-convergence-v1.json",
+  "title": "BreezeTravel G07 public text compatibility cases",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "dataset_version",
+    "public_non_blind",
+    "cases"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "g07-text-convergence-dataset-v1"
+    },
+    "dataset_version": {
+      "const": "g07-text-convergence-v1"
+    },
+    "public_non_blind": {
+      "const": true
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 40,
+      "maxItems": 40,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
+  },
+  "$defs": {
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "time_hint": {"type": ["string", "null"]},
+        "status": {
+          "enum": ["READY", "NEEDS_CONFIRMATION"]
+        },
+        "category": {"type": "string", "minLength": 1}
+      }
+    },
+    "day_cards": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["day_index", "cards"],
+      "properties": {
+        "day_index": {"type": "integer", "minimum": 1, "maximum": 14},
+        "cards": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/card"}
+        }
+      }
+    },
+    "mention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "role": {
+          "enum": ["PLANNED", "OPTIONAL", "REFERENCE", "EXCLUDED", "PASS_THROUGH"]
+        },
+        "day_index": {"type": ["integer", "null"], "minimum": 1, "maximum": 14},
+        "time_hint": {"type": ["string", "null"]},
+        "eligible": {"type": "boolean"},
+        "count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "safe_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "forbidden_cards",
+        "forbidden_eligible_mentions",
+        "forbidden_auto_matches",
+        "required_facts",
+        "allowed_degradations"
+      ],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1},
+        "forbidden_cards": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "forbidden_eligible_mentions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "forbidden_auto_matches": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "required_facts": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "allowed_degradations": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "exact_expectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "ordered_cards", "mentions", "required_facts"],
+      "properties": {
+        "summary": {"type": "string", "minLength": 1},
+        "destination_name": {"type": "string", "minLength": 1},
+        "public_status": {
+          "enum": ["READY", "PARTIAL_RESULT", "BASIC_ONLY", "LIMITED"]
+        },
+        "eligible_count": {"type": "integer", "minimum": 0},
+        "auto_matched_count": {"type": "integer", "minimum": 0},
+        "ordered_cards": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/day_cards"}
+        },
+        "mentions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mention"}
+        },
+        "required_facts": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "variant"],
+      "properties": {
+        "kind": {
+          "enum": ["PIPELINE", "PLACE_SAFETY", "MAP_REVISION_PROVIDER", "PUBLIC_PRIVACY_UX"]
+        },
+        "variant": {"type": "string", "minLength": 1}
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "group",
+        "input_text",
+        "lane",
+        "safe_expectation",
+        "exact_expectation",
+        "severity",
+        "probe"
+      ],
+      "properties": {
+        "case_id": {"type": "string", "pattern": "^BT-COMPAT-(?:0[0-3][0-9]|040)$"},
+        "group": {
+          "enum": [
+            "STRUCTURE_ROLE_DATE",
+            "TIME_CANCEL_RESCHEDULE",
+            "PLACE_CITY_CATEGORY",
+            "REVISION_MAP_PROVIDER",
+            "PRIVACY_PUBLIC_UX"
+          ]
+        },
+        "input_text": {"type": "string", "minLength": 1},
+        "lane": {
+          "enum": [
+            "TEXT_MULTI_GUARD",
+            "PLACE_SAFETY",
+            "MAP_REVISION_PROVIDER",
+            "PUBLIC_PRIVACY_UX"
+          ]
+        },
+        "safe_expectation": {"$ref": "#/$defs/safe_expectation"},
+        "exact_expectation": {"$ref": "#/$defs/exact_expectation"},
+        "severity": {"enum": ["P0", "P1", "P2"]},
+        "probe": {"$ref": "#/$defs/probe"}
+      }
+    }
+  }
+}
