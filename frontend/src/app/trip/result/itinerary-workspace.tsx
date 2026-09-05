@@ -59,6 +59,13 @@ type DialogState =
   | { kind: 'DETAIL'; item: CardLocation }
   | { kind: 'MOVE'; item: CardLocation }
   | { kind: 'DELETE'; item: CardLocation }
+  | {
+      kind: 'DRAG_PREVIEW'
+      item: CardLocation
+      targetDayIndex: number
+      targetPosition: number
+      before: DayView[]
+    }
 
 type DraggedCard = CardLocation
 
@@ -67,13 +74,14 @@ type DropTarget = {
   position: number
 }
 
-type WorkspaceCommandResult =
-  | { status: 'APPLIED' | 'SYNCED'; days: DayView[] }
+export type WorkspaceCommandResult =
+  | { status: 'APPLIED' | 'SYNCED'; days?: DayView[] }
   | { status: 'RECONCILING' }
 
 type ItineraryWorkspaceProps = {
   days: UserFacingTripResult['days']
   disabled: boolean
+  routesPending: boolean
   mapView: MapRenderView
   checkStatus: string
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
@@ -102,6 +110,7 @@ const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestio
 export default function ItineraryWorkspace({
   days,
   disabled,
+  routesPending,
   mapView,
   checkStatus,
   onCommand,
@@ -117,11 +126,15 @@ export default function ItineraryWorkspace({
   const [moveDay, setMoveDay] = useState(1)
   const [movePosition, setMovePosition] = useState(0)
   const [operationPending, setOperationPending] = useState(false)
+  const [layoutMode, setLayoutMode] = useState<'CHAIN' | 'LIST'>('CHAIN')
   const [announcement, setAnnouncement] = useState('行程卡片已加载，可以拖拽或使用移动按钮调整。')
   const lastTriggerRef = useRef<HTMLElement | null>(null)
   const operationLockRef = useRef(false)
   const dragCompletedRef = useRef(false)
+  const laneScrollers = useRef(new Map<number, HTMLDivElement>())
+  const synchronizingScroll = useRef(false)
   const locked = disabled || operationPending
+  const previewingMove = dialog?.kind === 'DRAG_PREVIEW'
 
   useEffect(() => {
     setLocalDays(days)
@@ -143,7 +156,19 @@ export default function ItineraryWorkspace({
     lastTriggerRef.current = element
   }
 
+  const synchronizeLaneScroll = (sourceDay: number, scrollLeft: number) => {
+    if (synchronizingScroll.current) return
+    synchronizingScroll.current = true
+    laneScrollers.current.forEach((scroller, day) => {
+      if (day !== sourceDay) scroller.scrollLeft = scrollLeft
+    })
+    window.requestAnimationFrame(() => {
+      synchronizingScroll.current = false
+    })
+  }
+
   const closeDialog = (restoreFocus = true) => {
+    if (dialog?.kind === 'DRAG_PREVIEW') setLocalDays(dialog.before)
     setDialog(null)
     if (restoreFocus) {
       window.setTimeout(() => lastTriggerRef.current?.focus(), 0)
@@ -224,51 +249,65 @@ export default function ItineraryWorkspace({
     setOperationPending(true)
     setLocalDays(optimistic)
     setAnnouncement(`正在保存 ${item.card.name} 的新位置…`)
-    const outcome = await onCommand({
-      command_type: 'ACTIVITY_MOVE',
-      activity_token: item.card.activity_token,
-      target_day_index: targetDayIndex,
-      target_position: targetPosition,
-    })
-    if (outcome.status === 'APPLIED') {
-      setLocalDays(outcome.days)
-      finishOperation(successMessage, targetDayIndex)
-    } else if (outcome.status === 'SYNCED') {
-      setLocalDays(outcome.days)
-      finishOperation(`${item.card.name} 的调整未能确认，已读取服务端最新行程。`, targetDayIndex)
-    } else {
-      finishOperation(`${item.card.name} 的调整已提交，正在确认服务端保存结果。`, targetDayIndex)
+    try {
+      const outcome = await onCommand({
+        command_type: 'ACTIVITY_MOVE',
+        activity_token: item.card.activity_token,
+        target_day_index: targetDayIndex,
+        target_position: targetPosition,
+      })
+      if (outcome.status === 'APPLIED') {
+        if (outcome.days) setLocalDays(outcome.days)
+        finishOperation(successMessage, targetDayIndex)
+      } else if (outcome.status === 'SYNCED') {
+        setLocalDays(outcome.days || before)
+        finishOperation(`${item.card.name} 的调整未能确认，已读取服务端最新行程。`, targetDayIndex)
+      } else {
+        finishOperation(`${item.card.name} 的调整已提交，正在确认服务端保存结果。`, targetDayIndex)
+      }
+      return outcome.status
+    } catch {
+      setLocalDays(before)
+      finishOperation(`${item.card.name} 的调整尚未保存，已恢复原顺序。`, item.dayIndex)
+      return false
+    } finally {
+      operationLockRef.current = false
+      setOperationPending(false)
     }
-    operationLockRef.current = false
-    setOperationPending(false)
-    return outcome.status
   }
 
   const applyDelete = async (item: CardLocation) => {
     if (operationLockRef.current || disabled) return
     operationLockRef.current = true
     setOperationPending(true)
+    const before = localDays
     setLocalDays((current) => removeCard(current, item.card.activity_token))
     setAnnouncement(`正在删除 ${item.card.name}…`)
-    const outcome = await onCommand({
-      command_type: 'ACTIVITY_DELETE',
-      activity_token: item.card.activity_token,
-    })
-    if (outcome.status === 'APPLIED') {
-      setLocalDays(outcome.days)
-      finishOperation(`${item.card.name} 已删除，${localDays[item.dayIndex - 1]?.label || '当天'}仍然保留。`, item.dayIndex)
-    } else if (outcome.status === 'SYNCED') {
-      setLocalDays(outcome.days)
-      restoreOperationFocus(
-        `${item.card.name} 的删除未能确认，已读取服务端最新行程。`,
-        item.dayIndex,
-        `删除 ${item.card.name}`,
-      )
-    } else {
-      finishOperation(`${item.card.name} 的删除已提交，正在确认服务端保存结果。`, item.dayIndex)
+    try {
+      const outcome = await onCommand({
+        command_type: 'ACTIVITY_DELETE',
+        activity_token: item.card.activity_token,
+      })
+      if (outcome.status === 'APPLIED') {
+        if (outcome.days) setLocalDays(outcome.days)
+        finishOperation(`${item.card.name} 已删除，${localDays[item.dayIndex - 1]?.label || '当天'}仍然保留。`, item.dayIndex)
+      } else if (outcome.status === 'SYNCED') {
+        setLocalDays(outcome.days || before)
+        restoreOperationFocus(
+          `${item.card.name} 的删除未能确认，已读取服务端最新行程。`,
+          item.dayIndex,
+          `删除 ${item.card.name}`,
+        )
+      } else {
+        finishOperation(`${item.card.name} 的删除已提交，正在确认服务端保存结果。`, item.dayIndex)
+      }
+    } catch {
+      setLocalDays(before)
+      restoreOperationFocus(`${item.card.name} 尚未删除，已恢复原卡片。`, item.dayIndex)
+    } finally {
+      operationLockRef.current = false
+      setOperationPending(false)
     }
-    operationLockRef.current = false
-    setOperationPending(false)
   }
 
   const handleDrop = async (targetDayIndex: number, rawPosition: number) => {
@@ -281,12 +320,60 @@ export default function ItineraryWorkspace({
       setAnnouncement(`${dragged.card.name} 仍在原位，没有发送保存请求。`)
       return
     }
-    await applyMove(
-      dragged,
+    const preview = moveCard(localDays, dragged, targetDayIndex, targetPosition)
+    if (!preview) return
+    const before = localDays
+    setLocalDays(preview)
+    setDialog({
+      kind: 'DRAG_PREVIEW',
+      item: dragged,
       targetDayIndex,
       targetPosition,
-      `${dragged.card.name} 已移到 ${localDays[targetDayIndex - 1].label} 第 ${targetPosition + 1} 站。路线需要手动更新。`,
+      before,
+    })
+    setAnnouncement(
+      `${dragged.card.name} 的移动预览已显示；确认前不会保存。`,
     )
+  }
+
+  const confirmDragPreview = async () => {
+    if (dialog?.kind !== 'DRAG_PREVIEW' || operationLockRef.current) return
+    operationLockRef.current = true
+    setOperationPending(true)
+    const preview = dialog
+    setAnnouncement(`正在保存 ${preview.item.card.name} 的新位置…`)
+    try {
+      const outcome = await onCommand({
+        command_type: 'ACTIVITY_MOVE',
+        activity_token: preview.item.card.activity_token,
+        target_day_index: preview.targetDayIndex,
+        target_position: preview.targetPosition,
+      })
+      if ('days' in outcome && outcome.days) setLocalDays(outcome.days)
+      if (outcome.status === 'APPLIED') {
+        finishOperation(
+          `${preview.item.card.name} 已移动。路线需要手动更新。`,
+          preview.targetDayIndex,
+        )
+      } else if (outcome.status === 'SYNCED') {
+        setLocalDays(outcome.days || preview.before)
+        finishOperation(
+          `${preview.item.card.name} 的移动未能确认，已读取最新行程。`,
+          preview.targetDayIndex,
+        )
+      } else {
+        finishOperation(
+          `${preview.item.card.name} 的移动已提交，正在确认服务端保存结果。`,
+          preview.targetDayIndex,
+        )
+      }
+    } catch {
+      setLocalDays(preview.before)
+      finishOperation(`${preview.item.card.name} 尚未保存，已恢复原顺序。`, preview.item.dayIndex)
+    } finally {
+      operationLockRef.current = false
+      setOperationPending(false)
+    }
   }
 
   const confirmMove = async () => {
@@ -325,18 +412,24 @@ export default function ItineraryWorkspace({
               <p className="text-xs leading-5 text-slate-500">也可用卡片下方的移动按钮；保存后路线只会标记为需要更新。</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              const firstDay = localDays[0]
-              if (firstDay) onAdd(1, firstDay.activities.length)
-            }}
-            disabled={locked || localDays.length === 0}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-sm transition motion-reduce:transition-none hover:bg-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
-          >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            新增地点
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-xl border border-sky-900/10 bg-white p-1" aria-label="行程显示方式">
+              <button type="button" aria-pressed={layoutMode === 'CHAIN'} onClick={() => setLayoutMode('CHAIN')} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${layoutMode === 'CHAIN' ? 'bg-sky-100 text-[#0c789d]' : 'text-slate-600'}`}>横链</button>
+              <button type="button" aria-pressed={layoutMode === 'LIST'} onClick={() => setLayoutMode('LIST')} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${layoutMode === 'LIST' ? 'bg-sky-100 text-[#0c789d]' : 'text-slate-600'}`}>无障碍列表</button>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const firstDay = localDays[0]
+                if (firstDay) onAdd(1, firstDay.activities.length)
+              }}
+              disabled={locked || localDays.length === 0}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white shadow-sm transition motion-reduce:transition-none hover:bg-[#096582] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              新增地点
+            </button>
+          </div>
         </div>
 
         <div data-testid="trip-days" className="space-y-4" aria-label="按天排列的游览顺序">
@@ -383,9 +476,36 @@ export default function ItineraryWorkspace({
                       <span className="inline-flex items-center gap-1.5">终点<Circle className="h-3 w-3 fill-emerald-600 text-emerald-600" aria-hidden="true" /></span>
                     </div>
 
+                    {layoutMode === 'LIST' ? (
+                      <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
+                        {day.activities.map((activity, position) => {
+                          const item = { card: activity, dayIndex, position }
+                          return (
+                            <li key={activity.activity_token} className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0c789d] text-xs font-bold text-white">{position + 1}</span>
+                              <button type="button" onClick={(event) => openDetails(item, event.currentTarget)} className="min-h-11 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]">
+                                <strong className="block text-sm text-slate-900">{activity.name}</strong>
+                                <span className="text-xs text-slate-500">{activity.time_hint || '时间待定'} · {activity.status === 'READY' ? '已确认' : '待确认'}</span>
+                              </button>
+                              <button type="button" disabled={locked} onClick={(event) => openMove(item, event.currentTarget)} className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50">移动</button>
+                            </li>
+                          )
+                        })}
+                        <li>
+                          <button type="button" disabled={locked} onClick={() => onAdd(dayIndex, day.activities.length)} className="min-h-11 w-full rounded-xl border border-dashed border-[#0c789d]/30 bg-sky-50/50 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50">添加地点</button>
+                        </li>
+                      </ol>
+                    ) : (
                     <div className="relative mt-2">
                       <div className="pointer-events-none absolute left-3 right-3 top-3 h-px bg-gradient-to-r from-emerald-600/70 via-emerald-600/25 to-emerald-600/70" />
-                      <div className="relative flex min-h-[15.5rem] snap-x items-start overflow-x-auto pb-2 pt-5 [scrollbar-width:thin]">
+                      <div
+                        ref={(node) => {
+                          if (node) laneScrollers.current.set(dayIndex, node)
+                          else laneScrollers.current.delete(dayIndex)
+                        }}
+                        onScroll={(event) => synchronizeLaneScroll(dayIndex, event.currentTarget.scrollLeft)}
+                        className="relative flex min-h-[15.5rem] snap-x items-start overflow-x-auto pb-2 pt-5 [scrollbar-width:thin]"
+                      >
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
@@ -415,6 +535,7 @@ export default function ItineraryWorkspace({
                                     draggable={!locked}
                                     data-testid={`drag-handle-${dayIndex}-${position}`}
                                     onDragStart={(event) => {
+                                      rememberTrigger(event.currentTarget)
                                       event.dataTransfer.effectAllowed = 'move'
                                       event.dataTransfer.setData('text/plain', activity.name)
                                       dragCompletedRef.current = false
@@ -511,10 +632,12 @@ export default function ItineraryWorkspace({
                                 <TransportConnectorView
                                   connector={transportConnectorFor(
                                     day,
-                                    activity.name,
-                                    day.activities[position + 1].name,
+                                    activity,
+                                    day.activities[position + 1],
                                     mapView,
-                                    operationPending,
+                                    operationPending ||
+                                      dialog?.kind === 'DRAG_PREVIEW' ||
+                                      routesPending,
                                   )}
                                 />
                               )}
@@ -548,6 +671,7 @@ export default function ItineraryWorkspace({
                         </button>
                       </div>
                     </div>
+                    )}
                   </div>
                 </div>
               </section>
@@ -569,14 +693,14 @@ export default function ItineraryWorkspace({
             <OverviewNumber value={pendingPlaces} label="待确认" />
           </dl>
           <div className="space-y-3 px-5 py-5 text-sm">
-            <OverviewStatus icon={<ArrowRight className="h-4 w-4" />} label="地图状态" value={operationPending ? '需要手动更新' : MAP_LABELS[mapView.status]} />
+            <OverviewStatus icon={<ArrowRight className="h-4 w-4" />} label="地图状态" value={previewingMove ? '确认后需要更新' : operationPending ? '需要手动更新' : MAP_LABELS[mapView.status]} />
             <OverviewStatus icon={<Sparkles className="h-4 w-4" />} label="检查状态" value={checkStatus} />
-            <OverviewStatus icon={<Check className="h-4 w-4" />} label="自动保存" value={locked ? '正在保存' : '已保存'} />
+            <OverviewStatus icon={<Check className="h-4 w-4" />} label="保存状态" value={previewingMove ? '预览未保存' : locked ? '正在保存' : '已保存'} />
           </div>
         </div>
         <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50/65 p-4 text-xs leading-5 text-emerald-900">
           <p className="font-semibold">调整后会发生什么？</p>
-          <p className="mt-1 text-emerald-950">卡片顺序会自动保存；现有路线不会自动重算，需在地图区域手动更新。</p>
+          <p className="mt-1 text-emerald-950">{previewingMove ? '当前只是本地预览；确认后才保存一次，取消不会写入。' : '卡片顺序会自动保存；现有路线不会自动重算，需在地图区域手动更新。'}</p>
           <p className="mt-2 text-emerald-950" role="status">{mapView.message}</p>
         </div>
       </aside>
@@ -584,6 +708,61 @@ export default function ItineraryWorkspace({
       <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="itinerary-live-status">{announcement}</p>
 
       <AnimatePresence>
+        {dialog?.kind === 'DRAG_PREVIEW' && (
+          <AccessibleDialog
+            key="drag-preview"
+            titleId="drag-preview-title"
+            descriptionId="drag-preview-description"
+            onClose={() => closeDialog()}
+            returnFocusRef={lastTriggerRef}
+            dismissDisabled={operationPending}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-sky-700">移动影响预览</p>
+                <h2
+                  id="drag-preview-title"
+                  className="mt-1 text-xl font-semibold text-slate-900"
+                >
+                  把“{dialog.item.card.name}”移到{' '}
+                  {localDays[dialog.targetDayIndex - 1]?.label} 第{' '}
+                  {dialog.targetPosition + 1} 站？
+                </h2>
+              </div>
+              <DialogCloseButton
+                onClick={() => closeDialog()}
+                label="取消移动预览"
+              />
+            </div>
+            <p
+              id="drag-preview-description"
+              className="mt-4 rounded-2xl bg-sky-50 p-4 text-sm leading-6 text-slate-700"
+            >
+              画布已临时显示新顺序。确认后只发送一次移动请求，并把现有路线标记为需要更新；取消不会写入。
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                data-dialog-initial-focus
+                type="button"
+                disabled={operationPending}
+                onClick={() => closeDialog()}
+                className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 disabled:opacity-50"
+              >
+                取消，不保存
+              </button>
+              <button
+                data-testid="confirm-drag-move"
+                type="button"
+                disabled={operationPending}
+                onClick={() => void confirmDragPreview()}
+                className="min-h-12 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:opacity-50"
+              >
+                {operationPending ? '正在保存…' : '确认移动'}
+              </button>
+            </div>
+          </AccessibleDialog>
+        )}
+
         {dialog?.kind === 'DETAIL' && (
           <AccessibleDialog key="activity-detail" titleId="activity-detail-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef}>
             <div className="flex items-start justify-between gap-4">

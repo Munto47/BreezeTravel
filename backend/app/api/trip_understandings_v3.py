@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.config import get_settings
 from app.trip_understanding.anonymous import AnonymousDailyLimitError
@@ -46,6 +47,8 @@ from app.trip_understanding.models import (
     StaySelectionRequest,
     StaySuggestionView,
     TripUnderstandingAcceptedView,
+    TripUnderstandingCancelView,
+    TripUnderstandingProgressMetrics,
     TripUnderstandingCommand,
     TripUnderstandingProgressView,
     TravelDataDeletionStatusView,
@@ -56,6 +59,10 @@ from app.trip_understanding.repository import (
     TripUnderstandingRepository,
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
+from app.trip_understanding.collaboration_import import (
+    CollaborationRouteUnavailableError,
+    load_collaboration_import,
+)
 from app.trip_understanding.readback import (
     AccountTripListView, InvalidTripCursor, SourceReadView, SupplementaryView,
 )
@@ -65,6 +72,22 @@ from app.utils.auth import get_current_user, get_optional_user, get_recent_user
 router = APIRouter(prefix="/v3/trip-understandings")
 account_router = APIRouter(prefix="/v3/me")
 logger = logging.getLogger(__name__)
+
+
+class ServerSentEventResponse(StreamingResponse):
+    media_type = "text/event-stream"
+
+
+_REQUIRED_IDEMPOTENCY_HEADER = {
+    "parameters": [
+        {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": True,
+            "schema": {"type": "string", "minLength": 1, "maxLength": 200},
+        }
+    ]
+}
 
 
 def get_trip_understanding_repository() -> TripUnderstandingRepository:
@@ -271,6 +294,71 @@ async def create_trip_understanding(
     return outcome.accepted
 
 
+class FromCollaborationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_id: str = Field(min_length=1, max_length=128)
+
+
+@router.post(
+    "/from-collaboration",
+    response_model=TripUnderstandingAcceptedView,
+    status_code=status.HTTP_202_ACCEPTED,
+    openapi_extra=_REQUIRED_IDEMPOTENCY_HEADER,
+)
+async def create_trip_understanding_from_collaboration(
+    body: FromCollaborationRequest,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: CurrentUserDep,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", include_in_schema=False),
+    ] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    settings = get_settings()
+    try:
+        source = await load_collaboration_import(
+            user_id=current_user,
+            room_id=body.room_id,
+            idempotency_key=key,
+        )
+        outcome = await TripUnderstandingApplicationService(
+            repository,
+            ttl_hours=settings.trip_understanding_demo_ttl_hours,
+            full_retention_days=settings.trip_understanding_full_retention_days,
+        ).create_from_collaboration(source, owner_user_id=current_user)
+    except CollaborationRouteUnavailableError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "COLLABORATION_ROUTE_UNAVAILABLE",
+                "message": "请先在协同规划中保存一条可用路线",
+            },
+        ) from exc
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "IDEMPOTENCY_KEY_REUSED", "message": "路线已经变化，请重新转入"},
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "REQUEST_IN_PROGRESS", "message": "正在转入这条路线，请稍后查看"},
+        ) from exc
+    except ConcurrentJobLimitError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={"code": "TOO_MANY_ACTIVE_REQUESTS", "message": "已有行程正在整理，请稍后再试"},
+        ) from exc
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Location"] = outcome.accepted.result_url
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.accepted
+
+
 @router.post("/{public_resource_id}/place-candidates", response_model=CandidateSearchView)
 async def find_place_candidates(
     public_resource_id: str, body: CandidateSearchRequest, request: Request,
@@ -318,12 +406,45 @@ async def get_trip_understanding_result(
         repository=repository,
     )
     stored = await repository.get_result(resource)
+    if stored is None:
+        # Completion, cancellation and anonymous-to-account claiming may race
+        # the first authorization read. Refresh the aggregate before returning
+        # a transient 202 based on a stale current_result_id/state projection.
+        resource = await _authorize(
+            public_resource_id,
+            cookie_value=request.cookies.get(
+                get_settings().trip_understanding_cookie_name
+            ),
+            user_id=current_user,
+            repository=repository,
+        )
+        stored = await repository.get_result(resource)
     response.headers["Cache-Control"] = "no-store"
     if resource.state == "FAILED":
         raise HTTPException(status_code=409, detail={"code": "UNDERSTANDING_FAILED", "message": "这次没有整理完成，可以重新尝试"})
+    if resource.state == "CANCELLED":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "UNDERSTANDING_CANCELLED",
+                "message": "整理已停止，请返回首页重新开始",
+            },
+        )
     if stored is None:
+        events = await repository.list_events(resource, after_event_id=0)
+        latest = events[-1] if events else None
         response.status_code = status.HTTP_202_ACCEPTED
-        return TripUnderstandingProgressView(message="正在整理每天行程")
+        return TripUnderstandingProgressView(
+            message=(latest.payload.message if latest else "正在整理每天行程"),
+            phase=(latest.payload.phase or "RECEIVED") if latest else "RECEIVED",
+            event_cursor=latest.event_id if latest else 0,
+            progress=(
+                latest.payload.progress
+                if latest
+                else TripUnderstandingProgressMetrics()
+            ),
+            snapshot=(latest.payload.snapshot if latest else None),
+        )
     response.headers["ETag"] = f'"{stored.opaque_etag}"'
     try:
         return await repository.project_current_knowledge(
@@ -336,6 +457,64 @@ async def get_trip_understanding_result(
         # authoritative cards, places, map state or audit result.
         logger.exception("optional knowledge projection unavailable")
         return stored.result
+
+
+@router.post(
+    "/{public_resource_id}/cancel",
+    response_model=TripUnderstandingCancelView,
+    openapi_extra=_REQUIRED_IDEMPOTENCY_HEADER,
+)
+async def cancel_trip_understanding(
+    public_resource_id: str,
+    request: Request,
+    response: Response,
+    repository: RepositoryDep,
+    current_user: OptionalUserDep,
+    idempotency_key: Annotated[
+        str | None,
+        Header(alias="Idempotency-Key", include_in_schema=False),
+    ] = None,
+):
+    key = _require_idempotency_key(idempotency_key)
+    resource = await _authorize(
+        public_resource_id,
+        cookie_value=request.cookies.get(
+            get_settings().trip_understanding_cookie_name
+        ),
+        user_id=current_user,
+        repository=repository,
+    )
+    try:
+        outcome = await TripUnderstandingApplicationService(
+            repository
+        ).cancel_understanding(
+            resource,
+            idempotency_key=key,
+        )
+    except IdempotencyConflictError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "IDEMPOTENCY_KEY_REUSED",
+                "message": "请重新开始这次停止操作",
+            },
+        ) from exc
+    except IdempotencyInProgressError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "REQUEST_IN_PROGRESS",
+                "message": "正在停止整理，请稍后查看",
+            },
+        ) from exc
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        raise _resource_error(exc) from exc
+    response.headers["Cache-Control"] = "no-store"
+    if outcome.opaque_etag:
+        response.headers["ETag"] = f'"{outcome.opaque_etag}"'
+    if outcome.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return outcome.cancelled
 
 
 @router.get(
@@ -1020,7 +1199,7 @@ def _parse_last_event_id(raw: str | None) -> int:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_EVENT_CURSOR", "message": "事件游标无效"},
         ) from exc
-    if value < 0:
+    if value < 0 or value > 2**63 - 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": "INVALID_EVENT_CURSOR", "message": "事件游标无效"},
@@ -1028,7 +1207,10 @@ def _parse_last_event_id(raw: str | None) -> int:
     return value
 
 
-@router.get("/{public_resource_id}/events")
+@router.get(
+    "/{public_resource_id}/events",
+    response_class=ServerSentEventResponse,
+)
 async def stream_trip_understanding_events(
     public_resource_id: str,
     request: Request,
@@ -1036,9 +1218,12 @@ async def stream_trip_understanding_events(
     current_user: OptionalUserDep,
     last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None,
 ):
+    cookie_value = request.cookies.get(
+        get_settings().trip_understanding_cookie_name
+    )
     resource = await _authorize(
         public_resource_id,
-        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        cookie_value=cookie_value,
         user_id=current_user,
         repository=repository,
     )
@@ -1049,22 +1234,57 @@ async def stream_trip_understanding_events(
         nonlocal cursor
         deadline = asyncio.get_running_loop().time() + settings.trip_understanding_sse_max_seconds
         while asyncio.get_running_loop().time() < deadline:
-            events = await repository.list_events(resource, after_event_id=cursor)
+            try:
+                current_resource = await TripUnderstandingApplicationService(
+                    repository
+                ).authorize(
+                    public_resource_id,
+                    capability_hash=_capability_from_cookie(cookie_value),
+                    user_id=current_user,
+                )
+            except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError):
+                return
+            if current_resource.understanding_id != resource.understanding_id:
+                return
+            events = await repository.list_events(
+                current_resource, after_event_id=cursor
+            )
             if events:
                 for event in events:
+                    # A claim rotates the public resource id and revokes the
+                    # anonymous capability. Re-authorize immediately before
+                    # exposing each potentially card-bearing snapshot.
+                    try:
+                        latest_resource = await TripUnderstandingApplicationService(
+                            repository
+                        ).authorize(
+                            public_resource_id,
+                            capability_hash=_capability_from_cookie(cookie_value),
+                            user_id=current_user,
+                        )
+                    except (
+                        ResourceGoneError,
+                        ResourceNotFoundError,
+                        ResourceAccessDeniedError,
+                    ):
+                        return
+                    if latest_resource.understanding_id != resource.understanding_id:
+                        return
                     cursor = event.event_id
                     payload = json.dumps(event.payload.model_dump(mode="json"), ensure_ascii=False)
                     yield f"id: {event.event_id}\nevent: {event.event_type}\ndata: {payload}\n\n"
-                    if event.event_type == "result_available" or event.payload.status == "FAILED":
+                    if (
+                        event.event_type == "result_available"
+                        or event.payload.status in {"FAILED", "CANCELLED"}
+                    ):
                         return
             if await request.is_disconnected():
                 return
             await asyncio.sleep(settings.trip_understanding_sse_poll_seconds)
         yield ": keep-alive\n\n"
 
-    return StreamingResponse(
+    return ServerSentEventResponse(
         generate(),
-        media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-store",
             "X-Accel-Buffering": "no",

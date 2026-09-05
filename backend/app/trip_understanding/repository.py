@@ -66,6 +66,7 @@ from app.trip_understanding.models import (
     CreateOutcome,
     DeletionOutcome,
     PipelineOutput,
+    PipelineProgressUpdate,
     PublicEventPayload,
     PublicEventRecord,
     PublicResourceRecord,
@@ -79,6 +80,8 @@ from app.trip_understanding.models import (
     ConfirmationSourceSpan,
     StoredResult,
     TripUnderstandingAcceptedView,
+    TripUnderstandingCancelOutcome,
+    TripUnderstandingCancelView,
     TripUnderstandingJobRecord,
     TripUnderstandingCommand,
     TripUnderstandingSourcePayload,
@@ -126,6 +129,34 @@ def _account_subject_hash(user_id: str) -> str:
         f"trip-understanding-account:{user_id}".encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
+
+
+def _cancelled_snapshot_semantics(
+    snapshot: UserFacingTripResult,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Persist only the public snapshot's conservative, editable assumptions."""
+    destination_value = next(
+        (
+            item.value.removeprefix("暂按 ").strip()
+            for item in snapshot.assumptions
+            if item.key == "destination"
+        ),
+        "目的地待确认",
+    )
+    destination = {
+        "name": destination_value or "目的地待确认",
+        "status": "CANCELLED_DRAFT_SOFT",
+    }
+    assumptions = [
+        {
+            "key": item.key,
+            "value": item.value,
+            "source": "CANCELLED_DRAFT_SOFT",
+        }
+        for item in snapshot.assumptions
+        if item.key != "destination"
+    ]
+    return destination, assumptions
 
 
 async def _delete_understanding_business_rows(conn: Any, understanding_id: str) -> None:
@@ -189,6 +220,7 @@ async def _delete_understanding_business_rows(conn: Any, understanding_id: str) 
             f"understanding:{understanding_id}:g03-materialize",
             f"understanding:{understanding_id}:g03-preview",
             f"understanding:{understanding_id}:g03-adopt",
+            f"understanding:{understanding_id}:cancel",
         ],
     )
     await conn.execute(
@@ -211,6 +243,39 @@ def _accepted(public_resource_id: str) -> TripUnderstandingAcceptedView:
         public_resource_id=public_resource_id,
         result_url=f"{base}/result",
         events_url=f"{base}/events",
+    )
+
+
+def _editable_cancel_snapshot(snapshot: UserFacingTripResult) -> UserFacingTripResult:
+    """Promote a read-only progress snapshot into an honest editable draft."""
+
+    return snapshot.model_copy(
+        update={
+            "status": "PARTIAL_RESULT",
+            "available_actions": ["EDIT_ASSUMPTIONS", "EDIT_CARDS"],
+            "days": [
+                day.model_copy(
+                    update={
+                        "activities": [
+                            card.model_copy(
+                                update={
+                                    "status": "NEEDS_CONFIRMATION",
+                                    "area_or_address": "地点待确认",
+                                    "available_actions": [
+                                        "VIEW_DETAILS",
+                                        "REPLACE",
+                                        "DELETE",
+                                        "MOVE",
+                                    ],
+                                }
+                            )
+                            for card in day.activities
+                        ]
+                    }
+                )
+                for day in snapshot.days
+            ],
+        }
     )
 
 
@@ -420,6 +485,7 @@ class TripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         retention_days: int,
+        initial_inference_binding: dict[str, Any] | None = None,
     ) -> CreateOutcome: ...
 
     async def preflight_screenshot_batch(
@@ -581,6 +647,23 @@ class TripUnderstandingRepository(
         *,
         after_event_id: int,
     ) -> list[PublicEventRecord]: ...
+
+    async def record_progress(
+        self,
+        job: TripUnderstandingJobRecord,
+        update: PipelineProgressUpdate,
+        *,
+        now: datetime,
+    ) -> bool: ...
+
+    async def cancel_understanding(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TripUnderstandingCancelOutcome: ...
 
     async def claim_next(
         self,
@@ -845,6 +928,7 @@ class PostgresTripUnderstandingRepository(
             event_payload = PublicEventPayload(
                 status="PROCESSING",
                 message="正在整理每天行程",
+                phase="RECEIVED",
             ).model_dump(mode="json")
             await conn.execute(
                 """
@@ -883,6 +967,7 @@ class PostgresTripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         retention_days: int,
+        initial_inference_binding: dict[str, Any] | None = None,
     ) -> CreateOutcome:
         if len(idempotency_key) > 200:
             raise ValueError("idempotency key is too long")
@@ -964,7 +1049,7 @@ class PostgresTripUnderstandingRepository(
                 "destination": {"status": "PENDING"},
                 "assumptions": [],
                 "proposal": {},
-                "inference_binding": {"status": "NOT_RUN"},
+                "inference_binding": dict(initial_inference_binding or {"status": "NOT_RUN"}),
                 "compiler_receipt": {"status": "NOT_RUN"},
             }
             await conn.execute(
@@ -1033,15 +1118,18 @@ class PostgresTripUnderstandingRepository(
             event_payload = PublicEventPayload(
                 status="PROCESSING",
                 message="正在整理每天行程",
+                phase="RECEIVED",
             ).model_dump(mode="json")
             await conn.execute(
                 """
                 INSERT INTO trip_understanding_events (
-                    understanding_id, event_key, event_type, public_payload_json, created_at
-                ) VALUES ($1, 'created', 'progress', $2::jsonb, $3)
+                    understanding_id, event_key, event_type,
+                    public_payload_json, internal_binding_json, created_at
+                ) VALUES ($1, 'created', 'progress', $2::jsonb, $3::jsonb, $4)
                 """,
                 understanding_id,
                 json.dumps(event_payload, ensure_ascii=False),
+                json.dumps(initial_inference_binding or {}, ensure_ascii=False),
                 now,
             )
             accepted = _accepted(public_resource_id)
@@ -3046,6 +3134,10 @@ class PostgresTripUnderstandingRepository(
                     "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
                     f"trip-understanding-user:{user_id}",
                 )
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-resource:{resource.understanding_id}",
+            )
             claimed = await conn.fetchval(
                 """
                 INSERT INTO trip_understanding_idempotency_records (
@@ -3430,10 +3522,25 @@ class PostgresTripUnderstandingRepository(
             await conn.execute("DELETE FROM memory_audit_log WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_preferences WHERE user_id = $1", user_id)
             await conn.execute("DELETE FROM user_memory_settings WHERE user_id = $1", user_id)
+            owned_ids = await conn.fetch(
+                """
+                SELECT understanding_id
+                FROM trip_understandings
+                WHERE owner_user_id = $1
+                ORDER BY understanding_id
+                """,
+                user_id,
+            )
+            for owned in owned_ids:
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                    f"trip-understanding-resource:{owned['understanding_id']}",
+                )
             rows = await conn.fetch(
                 """
                 SELECT understanding_id, public_resource_id
                 FROM trip_understandings WHERE owner_user_id = $1
+                ORDER BY understanding_id
                 FOR UPDATE
                 """,
                 user_id,
@@ -3616,6 +3723,413 @@ class PostgresTripUnderstandingRepository(
             for row in rows
         ]
 
+    async def record_progress(
+        self,
+        job: TripUnderstandingJobRecord,
+        update: PipelineProgressUpdate,
+        *,
+        now: datetime,
+    ) -> bool:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-resource:{job.understanding_id}",
+            )
+            current_job = await conn.fetchrow(
+                "SELECT * FROM trip_understanding_jobs WHERE job_id = $1 FOR UPDATE",
+                job.job_id,
+            )
+            if (
+                current_job is None
+                or current_job["status"] != "RUNNING"
+                or current_job["lease_owner"] != job.lease_owner
+                or current_job["attempt"] != job.attempt
+                or current_job["lease_until"] <= now
+            ):
+                return False
+            aggregate = await conn.fetchrow(
+                """
+                SELECT state, current_revision, current_result_id
+                FROM trip_understandings
+                WHERE understanding_id = $1
+                FOR UPDATE
+                """,
+                job.understanding_id,
+            )
+            if (
+                aggregate is None
+                or aggregate["state"] != "PROCESSING"
+                or int(aggregate["current_revision"]) != job.revision
+                or aggregate["current_result_id"] is not None
+            ):
+                return False
+            payload = PublicEventPayload(
+                status="PROCESSING",
+                message=update.message,
+                phase=update.phase,
+                progress=update.progress,
+                snapshot=update.snapshot,
+            ).model_dump(mode="json")
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_events (
+                    understanding_id, event_key, event_type,
+                    public_payload_json, internal_binding_json, created_at
+                ) VALUES ($1, $2, 'progress', $3::jsonb, $4::jsonb, $5)
+                ON CONFLICT (understanding_id, event_key) DO NOTHING
+                """,
+                job.understanding_id,
+                (
+                    f"job:{job.job_id}:attempt:{job.attempt}:progress:"
+                    f"{update.phase}:{update.progress.places_checked}"
+                ),
+                json.dumps(payload, ensure_ascii=False),
+                json.dumps(update.internal_binding, ensure_ascii=False),
+                now,
+            )
+        return True
+
+    async def cancel_understanding(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TripUnderstandingCancelOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        scope = f"understanding:{resource.understanding_id}:cancel"
+        key_hash = _sha256_text(idempotency_key)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-resource:{resource.understanding_id}",
+            )
+            claimed = await conn.fetchval(
+                """
+                INSERT INTO trip_understanding_idempotency_records (
+                    scope, key_hash, request_hash, state, lease_until, created_at
+                ) VALUES ($1, $2, $3, 'IN_PROGRESS', $4, $5)
+                ON CONFLICT (scope, key_hash) DO NOTHING
+                RETURNING scope
+                """,
+                scope,
+                key_hash,
+                request_hash,
+                now + timedelta(seconds=30),
+                now,
+            )
+            if claimed is None:
+                existing = await conn.fetchrow(
+                    """
+                    SELECT request_hash, state, response_json, response_headers_json
+                    FROM trip_understanding_idempotency_records
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                )
+                if existing["request_hash"].strip() != request_hash:
+                    raise IdempotencyConflictError(
+                        "idempotency key was already used with a different request"
+                    )
+                if existing["state"] != "COMPLETED":
+                    raise IdempotencyInProgressError(
+                        "matching cancellation is still in progress"
+                    )
+                headers = _json_value(existing["response_headers_json"])
+                return TripUnderstandingCancelOutcome(
+                    cancelled=TripUnderstandingCancelView.model_validate(
+                        _json_value(existing["response_json"])
+                    ),
+                    opaque_etag=headers.get("etag"),
+                    replayed=True,
+                )
+
+            # Keep this lock order identical to complete_job: job, then aggregate.
+            current_job = await conn.fetchrow(
+                """
+                SELECT * FROM trip_understanding_jobs
+                WHERE understanding_id = $1 AND job_type = 'UNDERSTAND'
+                ORDER BY revision DESC, created_at DESC
+                LIMIT 1
+                FOR UPDATE
+                """,
+                resource.understanding_id,
+            )
+            aggregate = await conn.fetchrow(
+                "SELECT * FROM trip_understandings WHERE understanding_id = $1 FOR UPDATE",
+                resource.understanding_id,
+            )
+            if aggregate is None:
+                raise ResourceNotFoundError("trip resource does not exist")
+            if aggregate["public_resource_id"] != resource.public_resource_id:
+                raise ResourceAccessDeniedError("trip resource binding changed")
+            if aggregate["state"] == "DELETED":
+                raise ResourceGoneError("trip resource is no longer available")
+
+            if aggregate["state"] != "PROCESSING":
+                opaque_etag = None
+                if aggregate["current_result_id"] is not None:
+                    opaque_etag = await conn.fetchval(
+                        "SELECT opaque_etag FROM trip_understanding_results WHERE result_id = $1",
+                        aggregate["current_result_id"],
+                    )
+                view = TripUnderstandingCancelView(
+                    status="ALREADY_FINISHED",
+                    message=(
+                        "整理已经停止，当前卡片可以继续使用"
+                        if aggregate["state"] == "PARTIAL"
+                        else "行程整理已经结束，无需再次停止"
+                    ),
+                    has_editable_result=aggregate["current_result_id"] is not None,
+                )
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_idempotency_records
+                    SET state = 'COMPLETED', response_status = 200,
+                        response_headers_json = $3::jsonb,
+                        response_json = $4::jsonb, lease_until = NULL,
+                        completed_at = $5
+                    WHERE scope = $1 AND key_hash = $2
+                    """,
+                    scope,
+                    key_hash,
+                    json.dumps({"etag": opaque_etag} if opaque_etag else {}),
+                    json.dumps(view.model_dump(mode="json"), ensure_ascii=False),
+                    now,
+                )
+                return TripUnderstandingCancelOutcome(
+                    cancelled=view,
+                    opaque_etag=opaque_etag,
+                )
+
+            snapshot_row = await conn.fetchrow(
+                """
+                SELECT public_payload_json, internal_binding_json
+                FROM trip_understanding_events
+                WHERE understanding_id = $1
+                  AND jsonb_typeof(public_payload_json->'snapshot') = 'object'
+                ORDER BY event_id DESC
+                LIMIT 1
+                """,
+                resource.understanding_id,
+            )
+            snapshot = None
+            progress_binding: dict[str, Any] = {}
+            if snapshot_row is not None:
+                payload = _json_value(snapshot_row["public_payload_json"])
+                candidate = payload.get("snapshot")
+                if candidate is not None:
+                    snapshot = UserFacingTripResult.model_validate(candidate)
+                progress_binding = _json_value(snapshot_row["internal_binding_json"])
+            has_cards = bool(
+                snapshot
+                and any(day.activities for day in snapshot.days)
+            )
+
+            parent_revision = int(aggregate["current_revision"])
+            next_revision = parent_revision + 1
+            parent = await conn.fetchrow(
+                """
+                SELECT source_id, destination_json, assumptions_json
+                FROM trip_understanding_revisions
+                WHERE understanding_id = $1 AND revision = $2
+                """,
+                resource.understanding_id,
+                parent_revision,
+            )
+            if parent is None:
+                raise ResourceNotFoundError("trip revision does not exist")
+            revision_status = "PARTIAL" if has_cards else "CANCELLED"
+            snapshot_destination, snapshot_assumptions = (
+                _cancelled_snapshot_semantics(snapshot)
+                if snapshot is not None
+                else (
+                    _json_value(parent["destination_json"]),
+                    _json_value(parent["assumptions_json"]),
+                )
+            )
+            never_started = bool(
+                current_job is None
+                or (
+                    int(current_job["attempt"]) == 0
+                    and current_job["started_at"] is None
+                )
+            )
+            binding = {
+                **progress_binding,
+                "status": "STOPPED_WITH_DRAFT" if has_cards else "STOPPED_EMPTY",
+                **(
+                    {"external_calls": 0, "outcome": "NOT_STARTED"}
+                    if never_started
+                    else {"outcome": "UNKNOWN_AFTER_CANCEL"}
+                ),
+            }
+            revision_payload = {
+                "parent_revision": parent_revision,
+                "status": revision_status,
+                "binding": binding,
+                "snapshot": snapshot.model_dump(mode="json") if has_cards else None,
+            }
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_revisions (
+                    understanding_id, revision, parent_revision, source_id, status,
+                    content_hash, destination_json, assumptions_json, proposal_json,
+                    inference_binding_json, compiler_receipt_json, created_at
+                ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb,
+                    '{}'::jsonb, $9::jsonb, $10::jsonb, $11
+                )
+                """,
+                resource.understanding_id,
+                next_revision,
+                parent_revision,
+                parent["source_id"],
+                revision_status,
+                canonical_sha256(revision_payload),
+                json.dumps(snapshot_destination, ensure_ascii=False),
+                json.dumps(snapshot_assumptions, ensure_ascii=False),
+                json.dumps(binding, ensure_ascii=False),
+                json.dumps(binding, ensure_ascii=False),
+                now,
+            )
+
+            opaque_etag = None
+            result_id = None
+            if has_cards and snapshot is not None:
+                editable = _editable_cancel_snapshot(snapshot)
+                public_payload = editable.model_dump(mode="json")
+                result_id = str(uuid4())
+                opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
+                await conn.execute(
+                    """
+                    INSERT INTO trip_understanding_results (
+                        result_id, understanding_id, revision, public_json,
+                        public_sha256, opaque_etag, created_at
+                    ) VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+                    """,
+                    result_id,
+                    resource.understanding_id,
+                    next_revision,
+                    json.dumps(public_payload, ensure_ascii=False),
+                    canonical_sha256(public_payload),
+                    opaque_etag,
+                    now,
+                )
+                for day_index, day in enumerate(editable.days, 1):
+                    for sequence_index, card in enumerate(day.activities):
+                        await conn.execute(
+                            """
+                            INSERT INTO trip_understanding_activities (
+                                activity_id, understanding_id, revision,
+                                public_activity_token, day_index, sequence_index,
+                                role, mention_text, atomic_place_name, category_hint,
+                                time_hint, eligible_for_place_search,
+                                resolution_status, canonical_place_id,
+                                resolver_receipt_json, created_at
+                            ) VALUES (
+                                $1, $2, $3, $4, $5, $6, 'PLANNED', $7, $8, $9,
+                                $10, FALSE, 'NEEDS_CONFIRMATION', NULL, $11::jsonb, $12
+                            )
+                            """,
+                            str(uuid4()),
+                            resource.understanding_id,
+                            next_revision,
+                            card.activity_token,
+                            day_index,
+                            sequence_index,
+                            card.name,
+                            None if card.name == "地点待确认" else card.name,
+                            card.category,
+                            card.time_hint,
+                            json.dumps(
+                                {
+                                    "status": "UNKNOWN_AFTER_CANCEL",
+                                    "outcome": "UNKNOWN",
+                                },
+                                ensure_ascii=False,
+                            ),
+                            now,
+                        )
+
+            if current_job is not None and current_job["status"] in {"QUEUED", "RUNNING"}:
+                await conn.execute(
+                    """
+                    UPDATE trip_understanding_jobs
+                    SET status = 'CANCELLED', lease_owner = NULL, lease_until = NULL,
+                        last_error_category = 'USER_CANCELLED', finished_at = $2,
+                        updated_at = $2
+                    WHERE job_id = $1
+                    """,
+                    current_job["job_id"],
+                    now,
+                )
+            await conn.execute(
+                """
+                UPDATE trip_understandings
+                SET state = $2, current_revision = $3, result_revision = $4,
+                    current_result_id = $5, updated_at = $6
+                WHERE understanding_id = $1
+                """,
+                resource.understanding_id,
+                "PARTIAL" if has_cards else "CANCELLED",
+                next_revision,
+                next_revision if has_cards else None,
+                result_id,
+                now,
+            )
+            view = TripUnderstandingCancelView(
+                status="STOPPED_WITH_DRAFT" if has_cards else "STOPPED_EMPTY",
+                message=(
+                    "已停止整理，保留当前卡片"
+                    if has_cards
+                    else "已停止整理，没有可保留的卡片"
+                ),
+                has_editable_result=has_cards,
+            )
+            event_payload = PublicEventPayload(
+                status="PARTIAL" if has_cards else "CANCELLED",
+                message=view.message,
+            ).model_dump(mode="json")
+            await conn.execute(
+                """
+                INSERT INTO trip_understanding_events (
+                    understanding_id, event_key, event_type,
+                    public_payload_json, created_at
+                ) VALUES ($1, $2, $3, $4::jsonb, $5)
+                ON CONFLICT (understanding_id, event_key) DO NOTHING
+                """,
+                resource.understanding_id,
+                f"cancel:{key_hash}",
+                "result_available" if has_cards else "progress",
+                json.dumps(event_payload, ensure_ascii=False),
+                now,
+            )
+            await conn.execute(
+                """
+                UPDATE trip_understanding_idempotency_records
+                SET state = 'COMPLETED', response_status = 200,
+                    response_headers_json = $3::jsonb,
+                    response_json = $4::jsonb, lease_until = NULL,
+                    completed_at = $5
+                WHERE scope = $1 AND key_hash = $2
+                """,
+                scope,
+                key_hash,
+                json.dumps({"etag": opaque_etag} if opaque_etag else {}),
+                json.dumps(view.model_dump(mode="json"), ensure_ascii=False),
+                now,
+            )
+        return TripUnderstandingCancelOutcome(
+            cancelled=view,
+            opaque_etag=opaque_etag,
+        )
+
     async def claim_next(
         self,
         *,
@@ -3657,7 +4171,8 @@ class PostgresTripUnderstandingRepository(
                 return None
             payload = PublicEventPayload(
                 status="PROCESSING",
-                message="正在核对地点",
+                message="正在整理每天行程",
+                phase="RECEIVED",
             ).model_dump(mode="json")
             await conn.execute(
                 """
@@ -3694,7 +4209,8 @@ class PostgresTripUnderstandingRepository(
             row = await conn.fetchrow(
                 """
                 SELECT s.source_id, s.source_type, s.content_hash, s.encrypted_content,
-                       s.encryption_key_ref, s.retention_until, s.deleted_at
+                       s.encryption_key_ref, s.retention_until, s.deleted_at,
+                       r.inference_binding_json
                 FROM trip_understanding_jobs j
                 JOIN trip_understanding_revisions r
                   ON r.understanding_id = j.understanding_id AND r.revision = j.revision
@@ -3713,7 +4229,11 @@ class PostgresTripUnderstandingRepository(
         if row["source_type"] == "FIXED_DEMO":
             if content_hash != DEMO_SOURCE_SHA256:
                 raise ValueError("fixed demo source hash is invalid")
-            return TripUnderstandingSourcePayload(source_type="FIXED_DEMO", text=DEMO_SOURCE_TEXT)
+            return TripUnderstandingSourcePayload(
+                source_type="FIXED_DEMO",
+                text=DEMO_SOURCE_TEXT,
+                internal_binding=_json_value(row["inference_binding_json"]),
+            )
         if row["source_type"] not in {"TEXT", "SCREENSHOT_OCR"} or row["encrypted_content"] is None:
             raise SourceUnavailableError("recoverable source is unavailable")
         cipher = self._get_source_cipher()
@@ -3727,7 +4247,11 @@ class PostgresTripUnderstandingRepository(
         if row["source_type"] == "TEXT":
             if _sha256_text(text) != content_hash:
                 raise ValueError("decrypted source hash mismatch")
-            return TripUnderstandingSourcePayload(source_type="TEXT", text=text)
+            return TripUnderstandingSourcePayload(
+                source_type="TEXT",
+                text=text,
+                internal_binding=_json_value(row["inference_binding_json"]),
+            )
         document = ScreenshotSourceDocumentV1.model_validate_json(text)
         if _sha256_text(document.semantic_text) != content_hash:
             raise ValueError("decrypted screenshot semantic hash mismatch")
@@ -3743,6 +4267,7 @@ class PostgresTripUnderstandingRepository(
                 if line.requires_confirmation
             ),
             partial_source=document.partial,
+            internal_binding=_json_value(row["inference_binding_json"]),
         )
 
     async def renew_lease(
@@ -3796,6 +4321,10 @@ class PostgresTripUnderstandingRepository(
         )
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-resource:{job.understanding_id}",
+            )
             current_job = await conn.fetchrow(
                 "SELECT * FROM trip_understanding_jobs WHERE job_id = $1 FOR UPDATE",
                 job.job_id,
@@ -3829,6 +4358,14 @@ class PostgresTripUnderstandingRepository(
             )
             if aggregate["state"] == "DELETED":
                 raise ResourceGoneError("trip resource was deleted during processing")
+            if (
+                aggregate["state"] != "PROCESSING"
+                or int(aggregate["current_revision"]) != job.revision
+                or aggregate["current_result_id"] is not None
+            ):
+                raise JobLeaseLostError(
+                    "understanding changed before worker completion"
+                )
             source_row = await conn.fetchrow(
                 """
                 SELECT s.source_id, s.source_type, s.content_hash,
@@ -4034,7 +4571,7 @@ class PostgresTripUnderstandingRepository(
                 now=now,
             )
             event_payload = PublicEventPayload(
-                status="READY",
+                status=terminal_state,
                 message="卡片已可用",
             ).model_dump(mode="json")
             await conn.execute(
@@ -4062,6 +4599,10 @@ class PostgresTripUnderstandingRepository(
     ) -> None:
         pool = await self._get_pool()
         async with pool.acquire() as conn, conn.transaction():
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                f"trip-understanding-resource:{job.understanding_id}",
+            )
             row = await conn.fetchrow(
                 "SELECT status, lease_owner, attempt, max_attempts FROM trip_understanding_jobs WHERE job_id = $1 FOR UPDATE",
                 job.job_id,
@@ -4129,6 +4670,9 @@ class InMemoryTripUnderstandingRepository(
         self.idempotency: dict[tuple[str, str], tuple[str, TripUnderstandingAcceptedView]] = {}
         self.jobs: dict[str, dict[str, Any]] = {}
         self.events: dict[str, list[PublicEventRecord]] = {}
+        self.progress_event_keys: set[tuple[str, int, str, int]] = set()
+        self.progress_internal_bindings: dict[tuple[str, int], dict[str, Any]] = {}
+        self.cancellation_bindings: dict[str, dict[str, Any]] = {}
         self.results: dict[str, StoredResult] = {}
         self.result_owners: dict[str, str] = {}
         self.result_revisions: dict[str, int] = {}
@@ -4142,6 +4686,9 @@ class InMemoryTripUnderstandingRepository(
         ] = {}
         self.screenshot_cleanup_receipts: list[dict[str, Any]] = []
         self.command_idempotency: dict[tuple[str, str], tuple[str, CommandOutcome]] = {}
+        self.cancel_idempotency: dict[
+            tuple[str, str], tuple[str, TripUnderstandingCancelOutcome]
+        ] = {}
         self.claim_idempotency: dict[tuple[str, str, str], tuple[str, ClaimOutcome]] = {}
         self.privacy_idempotency: dict[tuple[str, str], str] = {}
         self.trip_deletion_idempotency: dict[
@@ -4240,7 +4787,11 @@ class InMemoryTripUnderstandingRepository(
             PublicEventRecord(
                 event_id=1,
                 event_type="progress",
-                payload=PublicEventPayload(status="PROCESSING", message="正在整理每天行程"),
+                payload=PublicEventPayload(
+                    status="PROCESSING",
+                    message="正在整理每天行程",
+                    phase="RECEIVED",
+                ),
             )
         ]
         return CreateOutcome(accepted=accepted)
@@ -4254,6 +4805,7 @@ class InMemoryTripUnderstandingRepository(
         request_hash: str,
         now: datetime,
         retention_days: int,
+        initial_inference_binding: dict[str, Any] | None = None,
     ) -> CreateOutcome:
         if not source_text.strip() or len(source_text) > 50_000:
             raise ValueError("text source is outside the supported size")
@@ -4305,15 +4857,23 @@ class InMemoryTripUnderstandingRepository(
         self.sources[job_id] = TripUnderstandingSourcePayload(
             source_type="TEXT",
             text=source_text,
+            internal_binding=dict(initial_inference_binding or {}),
         )
         self.source_expiries[job_id] = now + timedelta(days=retention_days)
         self.events[understanding_id] = [
             PublicEventRecord(
                 event_id=1,
                 event_type="progress",
-                payload=PublicEventPayload(status="PROCESSING", message="正在整理每天行程"),
+                payload=PublicEventPayload(
+                    status="PROCESSING",
+                    message="正在整理每天行程",
+                    phase="RECEIVED",
+                ),
             )
         ]
+        self.progress_internal_bindings[(understanding_id, 1)] = dict(
+            initial_inference_binding or {}
+        )
         return CreateOutcome(accepted=accepted)
 
     async def preflight_screenshot_batch(
@@ -5320,6 +5880,11 @@ class InMemoryTripUnderstandingRepository(
                 self.results.pop(result_id, None)
                 self.result_owners.pop(result_id, None)
                 self.result_revisions.pop(result_id, None)
+        understanding_job_ids = {
+            job_id
+            for job_id, job in self.jobs.items()
+            if job["understanding_id"] == resource.understanding_id
+        }
         for job_id, job in list(self.jobs.items()):
             if job["understanding_id"] == resource.understanding_id:
                 self.jobs.pop(job_id, None)
@@ -5345,6 +5910,19 @@ class InMemoryTripUnderstandingRepository(
         for privacy_key in list(self.privacy_idempotency):
             if privacy_key[0] == source_scope:
                 self.privacy_idempotency.pop(privacy_key, None)
+        cancel_scope = f"understanding:{resource.understanding_id}:cancel"
+        for cancel_key in list(self.cancel_idempotency):
+            if cancel_key[0] == cancel_scope:
+                self.cancel_idempotency.pop(cancel_key, None)
+        self.progress_event_keys = {
+            progress_key
+            for progress_key in self.progress_event_keys
+            if progress_key[0] not in understanding_job_ids
+        }
+        for progress_key in list(self.progress_internal_bindings):
+            if progress_key[0] == resource.understanding_id:
+                self.progress_internal_bindings.pop(progress_key, None)
+        self.cancellation_bindings.pop(resource.understanding_id, None)
         for claim_key, (_, outcome) in list(self.claim_idempotency.items()):
             if outcome.claimed.public_resource_id == public_id:
                 self.claim_idempotency.pop(claim_key, None)
@@ -5512,6 +6090,238 @@ class InMemoryTripUnderstandingRepository(
             if event.event_id > after_event_id
         ]
 
+    async def record_progress(
+        self,
+        job: TripUnderstandingJobRecord,
+        update: PipelineProgressUpdate,
+        *,
+        now: datetime,
+    ) -> bool:
+        item = self.jobs.get(job.job_id)
+        if (
+            item is None
+            or item["status"] != "RUNNING"
+            or item["lease_owner"] != job.lease_owner
+            or item["attempt"] != job.attempt
+            or item["lease_until"] is None
+            or item["lease_until"] <= now
+        ):
+            return False
+        public_id = self.resources_by_understanding.get(job.understanding_id)
+        aggregate = self.resources.get(public_id or "")
+        if (
+            aggregate is None
+            or aggregate["state"] != "PROCESSING"
+            or int(aggregate["current_revision"]) != job.revision
+            or aggregate["current_result_id"] is not None
+        ):
+            return False
+        event_list = self.events.setdefault(job.understanding_id, [])
+        key = (
+            job.job_id,
+            job.attempt,
+            update.phase,
+            update.progress.places_checked,
+        )
+        if key in self.progress_event_keys:
+            return True
+        self.progress_event_keys.add(key)
+        event_id = len(event_list) + 1
+        event_list.append(
+            PublicEventRecord(
+                event_id=event_id,
+                event_type="progress",
+                payload=PublicEventPayload(
+                    status="PROCESSING",
+                    message=update.message,
+                    phase=update.phase,
+                    progress=update.progress,
+                    snapshot=update.snapshot,
+                ),
+            )
+        )
+        self.progress_internal_bindings[(job.understanding_id, event_id)] = dict(
+            update.internal_binding
+        )
+        return True
+
+    async def cancel_understanding(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        idempotency_key: str,
+        request_hash: str,
+        now: datetime,
+    ) -> TripUnderstandingCancelOutcome:
+        if len(idempotency_key) > 200:
+            raise ValueError("idempotency key is too long")
+        public_id = self.resources_by_understanding.get(resource.understanding_id)
+        if public_id != resource.public_resource_id:
+            raise ResourceAccessDeniedError("trip resource binding changed")
+        aggregate = self.resources.get(public_id or "")
+        if aggregate is None:
+            raise ResourceNotFoundError("trip resource does not exist")
+        if aggregate["state"] == "DELETED":
+            raise ResourceGoneError("trip resource is no longer available")
+        scope = f"understanding:{resource.understanding_id}:cancel"
+        key = (scope, _sha256_text(idempotency_key))
+        existing = self.cancel_idempotency.get(key)
+        if existing is not None:
+            if existing[0] != request_hash:
+                raise IdempotencyConflictError(
+                    "idempotency key was already used with a different request"
+                )
+            return existing[1].model_copy(update={"replayed": True})
+
+        if aggregate["state"] != "PROCESSING":
+            stored = self.results.get(aggregate.get("current_result_id") or "")
+            view = TripUnderstandingCancelView(
+                status="ALREADY_FINISHED",
+                message=(
+                    "整理已经停止，当前卡片可以继续使用"
+                    if aggregate["state"] == "PARTIAL"
+                    else "行程整理已经结束，无需再次停止"
+                ),
+                has_editable_result=stored is not None,
+            )
+            outcome = TripUnderstandingCancelOutcome(
+                cancelled=view,
+                opaque_etag=stored.opaque_etag if stored else None,
+            )
+            self.cancel_idempotency[key] = (request_hash, outcome)
+            return outcome
+
+        snapshot_event = next(
+            (
+                event
+                for event in reversed(self.events.get(resource.understanding_id, []))
+                if event.payload.snapshot is not None
+            ),
+            None,
+        )
+        snapshot = snapshot_event.payload.snapshot if snapshot_event else None
+        progress_binding = (
+            self.progress_internal_bindings.get(
+                (resource.understanding_id, snapshot_event.event_id),
+                {},
+            )
+            if snapshot_event
+            else {}
+        )
+        has_cards = bool(snapshot and any(day.activities for day in snapshot.days))
+        parent_revision = int(aggregate["current_revision"])
+        next_revision = parent_revision + 1
+        opaque_etag = None
+        result_id = None
+        never_started = not any(
+            item["understanding_id"] == resource.understanding_id
+            and item["attempt"] > 0
+            for item in self.jobs.values()
+        )
+        cancellation_binding = {
+            **progress_binding,
+            "status": "STOPPED_WITH_DRAFT" if has_cards else "STOPPED_EMPTY",
+            **(
+                {"external_calls": 0, "outcome": "NOT_STARTED"}
+                if never_started
+                else {"outcome": "UNKNOWN_AFTER_CANCEL"}
+            ),
+        }
+        self.cancellation_bindings[resource.understanding_id] = cancellation_binding
+        if has_cards and snapshot is not None:
+            editable = _editable_cancel_snapshot(snapshot)
+            snapshot_destination, snapshot_assumptions = (
+                _cancelled_snapshot_semantics(editable)
+            )
+            result_id = str(uuid4())
+            opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
+            self.results[result_id] = StoredResult(
+                result=editable,
+                opaque_etag=opaque_etag,
+            )
+            self.result_owners[result_id] = resource.understanding_id
+            self.result_revisions[result_id] = next_revision
+            bindings: dict[str, dict[str, Any]] = {}
+            mentions: list[dict[str, Any]] = []
+            for day_index, day in enumerate(editable.days, 1):
+                for sequence_index, card in enumerate(day.activities):
+                    bindings[card.activity_token] = {
+                        "canonical_place_id": None,
+                        "resolution_status": "NEEDS_CONFIRMATION",
+                        "resolver_receipt": {
+                            "status": "UNKNOWN_AFTER_CANCEL",
+                            "outcome": "UNKNOWN",
+                        },
+                    }
+                    mentions.append(
+                        {
+                            "public_activity_token": card.activity_token,
+                            "mention_text": card.name,
+                            "atomic_place_name": (
+                                None if card.name == "地点待确认" else card.name
+                            ),
+                            "day_index": day_index,
+                            "sequence_index": sequence_index,
+                            "role": "PLANNED",
+                            "time_hint": card.time_hint,
+                            "canonical_place_id": None,
+                        }
+                    )
+            self.g03_pipeline_inputs[(resource.understanding_id, next_revision)] = {
+                "destination": snapshot_destination,
+                "assumptions": snapshot_assumptions,
+                "bindings": bindings,
+            }
+            self.source_readback_mentions[resource.understanding_id] = mentions
+
+        for item in self.jobs.values():
+            if (
+                item["understanding_id"] == resource.understanding_id
+                and item["status"] in {"QUEUED", "RUNNING"}
+            ):
+                item.update(
+                    {
+                        "status": "CANCELLED",
+                        "lease_owner": None,
+                        "lease_until": None,
+                        "last_error_category": "USER_CANCELLED",
+                    }
+                )
+        aggregate.update(
+            {
+                "state": "PARTIAL" if has_cards else "CANCELLED",
+                "current_revision": next_revision,
+                "current_result_id": result_id,
+                "updated_at": now,
+            }
+        )
+        view = TripUnderstandingCancelView(
+            status="STOPPED_WITH_DRAFT" if has_cards else "STOPPED_EMPTY",
+            message=(
+                "已停止整理，保留当前卡片"
+                if has_cards
+                else "已停止整理，没有可保留的卡片"
+            ),
+            has_editable_result=has_cards,
+        )
+        event_list = self.events.setdefault(resource.understanding_id, [])
+        event_list.append(
+            PublicEventRecord(
+                event_id=len(event_list) + 1,
+                event_type="result_available" if has_cards else "progress",
+                payload=PublicEventPayload(
+                    status="PARTIAL" if has_cards else "CANCELLED",
+                    message=view.message,
+                ),
+            )
+        )
+        outcome = TripUnderstandingCancelOutcome(
+            cancelled=view,
+            opaque_etag=opaque_etag,
+        )
+        self.cancel_idempotency[key] = (request_hash, outcome)
+        return outcome
+
     async def claim_next(
         self,
         *,
@@ -5544,12 +6354,20 @@ class InMemoryTripUnderstandingRepository(
             }
         )
         event_list = self.events[item["understanding_id"]]
-        if not any(event.payload.message == "正在核对地点" for event in event_list):
+        if not any(
+            event.payload.message == "正在整理每天行程"
+            and event.event_id > 1
+            for event in event_list
+        ):
             event_list.append(
                 PublicEventRecord(
                     event_id=len(event_list) + 1,
                     event_type="progress",
-                    payload=PublicEventPayload(status="PROCESSING", message="正在核对地点"),
+                    payload=PublicEventPayload(
+                        status="PROCESSING",
+                        message="正在整理每天行程",
+                        phase="RECEIVED",
+                    ),
                 )
             )
         return TripUnderstandingJobRecord.model_validate(
@@ -5625,6 +6443,14 @@ class InMemoryTripUnderstandingRepository(
             or item["lease_until"] <= now
         ):
             raise JobLeaseLostError("understanding job lease was lost before completion")
+        public_id = self.resources_by_understanding[job.understanding_id]
+        aggregate = self.resources[public_id]
+        if (
+            aggregate["state"] != "PROCESSING"
+            or int(aggregate["current_revision"]) != job.revision
+            or aggregate["current_result_id"] is not None
+        ):
+            raise JobLeaseLostError("understanding changed before worker completion")
         result_id = str(uuid4())
         self.results[result_id] = StoredResult(
             result=output.public_result,
@@ -5632,7 +6458,6 @@ class InMemoryTripUnderstandingRepository(
         )
         self.result_owners[result_id] = job.understanding_id
         self.result_revisions[result_id] = 2
-        public_id = self.resources_by_understanding[job.understanding_id]
         self.resources[public_id].update(
             {
                 "state": "READY" if output.public_result.status == "READY" else "PARTIAL",
@@ -5684,7 +6509,12 @@ class InMemoryTripUnderstandingRepository(
             PublicEventRecord(
                 event_id=len(event_list) + 1,
                 event_type="result_available",
-                payload=PublicEventPayload(status="READY", message="卡片已可用"),
+                payload=PublicEventPayload(
+                    status=(
+                        "READY" if output.public_result.status == "READY" else "PARTIAL"
+                    ),
+                    message="卡片已可用",
+                ),
             )
         )
         return False

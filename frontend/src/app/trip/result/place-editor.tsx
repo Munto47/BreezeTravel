@@ -7,37 +7,32 @@ import {
   type ActivityCardView,
   type PlaceCandidateView,
   type PlaceCandidatesView,
-  type TripSourceView,
   type TripUnderstandingCommand,
   type UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 
 export default function PlaceEditor({
+  editorMode,
   card,
   dayIndex,
   days,
   resource,
   busy,
   notice,
-  source,
-  sourceLoading,
-  onLoadSource,
   onCommand,
   onApplied,
   onDirtyChange,
   onPreviewCandidate,
   candidateMap,
 }: {
+  editorMode: 'ADD' | 'EDIT' | 'REPLACE'
   card: ActivityCardView | null
   dayIndex: number
   days: UserFacingTripResult['days']
   resource: string
   busy: boolean
   notice: string
-  source: TripSourceView | null
-  sourceLoading: boolean
   candidateMap?: ReactNode
-  onLoadSource: () => void
   onCommand: (command: TripUnderstandingCommand) => Promise<boolean>
   onApplied: () => void
   onDirtyChange: (dirty: boolean) => void
@@ -53,7 +48,7 @@ export default function PlaceEditor({
     days[dayIndex]?.activities.findIndex(
       (item) => item.activity_token === card?.activity_token,
     ) ?? 0
-  const [name, setName] = useState('')
+  const [name, setName] = useState(card?.name || '')
   const [start, setStart] = useState(initial.current.start)
   const [end, setEnd] = useState(initial.current.end)
   const [duration, setDuration] = useState(initial.current.duration)
@@ -76,9 +71,16 @@ export default function PlaceEditor({
     locked !== initial.current.locked
   const moveDirty =
     targetDay !== dayIndex || targetPosition !== originalPosition
-  const dirty = card
-    ? timeDirty || moveDirty || Boolean(candidate)
-    : Boolean(name.trim())
+  const nameDirty = Boolean(name.trim()) && name.trim() !== (card?.name || '')
+  const cardWasReplaced = editorMode !== 'ADD' && !card
+  const dirty =
+    cardWasReplaced
+      ? false
+      : editorMode === 'ADD'
+      ? Boolean(name.trim())
+      : editorMode === 'REPLACE'
+        ? nameDirty
+        : nameDirty || timeDirty || moveDirty || Boolean(candidate)
   useEffect(() => {
     onDirtyChange(dirty)
   }, [dirty, onDirtyChange])
@@ -145,7 +147,15 @@ export default function PlaceEditor({
     )
       onApplied()
   }
-  if (!card)
+  if (cardWasReplaced)
+    return (
+      <div className="e-editor">
+        <p className="e-notice-text" role="status">
+          这张卡片已经更新。请关闭编辑，再从最新行程重新打开。
+        </p>
+      </div>
+    )
+  if (editorMode === 'ADD' || !card)
     return (
       <form
         className="e-editor"
@@ -170,6 +180,8 @@ export default function PlaceEditor({
           地点名称
           <input
             aria-label="新增地点名称"
+            data-initial-focus="true"
+            data-testid="card-editor-name"
             value={name}
             onChange={(event) => setName(event.target.value)}
             required
@@ -186,6 +198,7 @@ export default function PlaceEditor({
         <div className="e-panel-actions">
           <button
             className="e-button e-button-primary"
+            data-testid="save-card-editor"
             disabled={busy || !name.trim()}
             type="submit"
           >
@@ -194,11 +207,74 @@ export default function PlaceEditor({
         </div>
       </form>
     )
-  const quote = source?.activities.find(
-    (item) => item.activity_token === card.activity_token,
-  )?.quote
+
+  const textEditor = (
+    <form
+      className="e-form-section"
+      onSubmit={(event) => {
+        event.preventDefault()
+        if (!nameDirty || busy) return
+        const command: TripUnderstandingCommand =
+          editorMode === 'REPLACE'
+            ? {
+                command_type: 'PLACE_REPLACE',
+                activity_token: card.activity_token,
+                replacement: {
+                  name: name.trim(),
+                  category: card.category || '地点',
+                  area_or_address: '地点待确认',
+                },
+              }
+            : {
+                command_type: 'ACTIVITY_TEXT_EDIT',
+                activity_token: card.activity_token,
+                name: name.trim(),
+              }
+        void onCommand(command).then((ok) => {
+          if (ok) onApplied()
+        })
+      }}
+    >
+      <p className="e-muted">
+        {editorMode === 'REPLACE'
+          ? '新地点会先标为待确认；核对成功前不会沿用旧地点的路线事实。'
+          : '只修改卡片文字；保存后现有路线会标记为需要更新。'}
+      </p>
+      <label className="e-field">
+        {editorMode === 'REPLACE' ? '新地点名称' : '卡片文字'}
+        <input
+          aria-label={editorMode === 'REPLACE' ? '替换地点名称' : '编辑卡片名称'}
+          data-initial-focus="true"
+          data-testid="card-editor-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          required
+          maxLength={40}
+          disabled={busy}
+        />
+      </label>
+      <div className="e-panel-actions">
+        <button
+          className="e-button e-button-primary"
+          data-testid="save-card-editor"
+          disabled={busy || !nameDirty}
+          type="submit"
+        >
+          {busy
+            ? '正在保存…'
+            : editorMode === 'REPLACE'
+              ? '确认替换'
+              : '保存文字'}
+        </button>
+      </div>
+    </form>
+  )
+
+  if (editorMode === 'REPLACE') return textEditor
+
   return (
     <div className="e-editor">
+      {textEditor}
       <p className="e-muted">
         {days[dayIndex]?.label} · 第 {originalPosition + 1} 站
       </p>
@@ -415,30 +491,6 @@ export default function PlaceEditor({
           </span>
         </div>
       </form>
-      <details
-        className="e-disclosure"
-        onToggle={(event) => {
-          if (event.currentTarget.open && !source) onLoadSource()
-        }}
-      >
-        <summary>查看原文中的地点名称</summary>
-        {sourceLoading ? (
-          <p role="status">正在读取…</p>
-        ) : quote ? (
-          <>
-            <p className="e-small e-muted">
-              来自导入文字；时间以当前安排为准。
-            </p>
-            <blockquote className="e-source-quote">{quote}</blockquote>
-          </>
-        ) : (
-          <p className="e-muted">
-            {source?.status === 'DELETED'
-              ? '导入文字已删除。'
-              : '没有可显示的原文片段。'}
-          </p>
-        )}
-      </details>
       {!!card.knowledge_suggestions?.length && (
         <details className="e-disclosure">
           <summary>有来源的出发前建议</summary>

@@ -9,18 +9,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // 珊瑚红主色系 —— Airbnb 风格暖色调
+        // Legacy `coral-*` class names are retained as a compatibility alias.
+        // Their rendered palette now follows the shared Trip Check cyan tokens.
         coral: {
-          50:  '#fff5f5',
-          100: '#ffe0e0',
-          200: '#ffbdbd',
-          300: '#ff9b9b',
-          400: '#ff7070',
-          500: '#FF5A5F',  // 主色
-          600: '#e04850',
-          700: '#c03540',
-          800: '#9c2a33',
-          900: '#7a2029',
+          50:  '#E8F7FB',
+          100: '#D6F0F7',
+          200: '#B3E1ED',
+          300: '#7FC9DC',
+          400: '#3FA8C2',
+          500: '#0C789D',
+          600: '#096582',
+          700: '#07516A',
+          800: '#063F52',
+          900: '#04303F',
         },
       },
       fontFamily: {

@@ -1464,6 +1464,291 @@ async def test_create_replay_conflict_cross_session_and_durable_result() -> None
 
 
 @pytest.mark.asyncio
+async def test_pipeline_progress_is_bounded_monotonic_and_safe() -> None:
+    updates = []
+
+    async def collect(update) -> None:
+        updates.append(update)
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=collect)
+
+    assert output.public_result.status == "READY"
+    assert updates[0].phase == "CARDS_AVAILABLE"
+    assert 1 <= len(updates) <= 4
+    checked = [item.progress.places_checked for item in updates]
+    assert checked == sorted(checked)
+    assert checked[-1] == updates[-1].progress.places_total
+    for update in updates:
+        public = update.snapshot.model_dump(mode="json")
+        assert update.snapshot.status == "PARTIAL_RESULT"
+        assert update.snapshot.available_actions == []
+        assert all(
+            card.status == "NEEDS_CONFIRMATION" and card.available_actions == []
+            for day in update.snapshot.days
+            for card in day.activities
+        )
+        assert FORBIDDEN_PUBLIC_KEYS.isdisjoint(_walk_keys(public))
+
+
+@pytest.mark.asyncio
+async def test_cancel_without_snapshot_is_terminal_and_rejects_late_worker() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="1" * 64,
+        idempotency_key="cancel-empty-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="1" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="cancel-empty-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    late_updates = []
+
+    async def collect_late_update(update) -> None:
+        late_updates.append(update)
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=collect_late_update)
+    assert late_updates
+
+    stopped = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-empty",
+        now=now + timedelta(seconds=1),
+    )
+    assert stopped.cancelled.status == "STOPPED_EMPTY"
+    assert stopped.cancelled.has_editable_result is False
+    assert stopped.opaque_etag is None
+
+    refreshed = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="1" * 64,
+        now=now + timedelta(seconds=1),
+    )
+    assert refreshed.state == "CANCELLED"
+    assert await repository.get_result(refreshed) is None
+    assert await repository.renew_lease(
+        job,
+        now=now + timedelta(seconds=2),
+        lease_seconds=30,
+    ) is False
+    events_after_cancel = list(repository.events[resource.understanding_id])
+    progress_keys_after_cancel = repository.progress_event_keys.copy()
+    progress_bindings_after_cancel = repository.progress_internal_bindings.copy()
+    assert await repository.record_progress(
+        job,
+        late_updates[-1],
+        now=now + timedelta(seconds=2),
+    ) is False
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_job(job, output, now=now + timedelta(seconds=2))
+    await repository.fail_job(
+        job,
+        category="LATE_WORKER",
+        now=now + timedelta(seconds=2),
+    )
+    assert repository.jobs[job.job_id]["status"] == "CANCELLED"
+    assert repository.events[resource.understanding_id] == events_after_cancel
+    assert repository.progress_event_keys == progress_keys_after_cancel
+    assert repository.progress_internal_bindings == progress_bindings_after_cancel
+    assert repository.side_effect_count == 0
+    assert repository.map_jobs == {}
+    assert repository.stay_jobs == {}
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_retry_was_queued_never_claims_provider_was_not_started() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="7" * 64,
+        idempotency_key="cancel-after-retry-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="7" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="retrying-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    await repository.fail_job(
+        job,
+        category="TRANSIENT_PROVIDER_FAILURE",
+        now=now + timedelta(milliseconds=500),
+        allow_retry=True,
+        provider_binding={
+            "inference": {"external_calls": 1, "outcome": "UNKNOWN"},
+        },
+    )
+    assert repository.jobs[job.job_id]["status"] == "QUEUED"
+    assert repository.jobs[job.job_id]["attempt"] == 1
+
+    await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-after-retry",
+        now=now + timedelta(seconds=1),
+    )
+    binding = repository.cancellation_bindings[resource.understanding_id]
+
+    assert binding["outcome"] == "UNKNOWN_AFTER_CANCEL"
+    assert binding.get("external_calls") != 0
+
+
+@pytest.mark.asyncio
+async def test_cancel_promotes_progress_snapshot_to_editable_partial() -> None:
+    repository = InMemoryTripUnderstandingRepository()
+    service = TripUnderstandingApplicationService(repository)
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    created = await service.create_demo(
+        capability_hash="2" * 64,
+        idempotency_key="cancel-draft-create",
+        now=now,
+    )
+    resource = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="2" * 64,
+        now=now,
+    )
+    job = await repository.claim_next(
+        worker_id="cancel-draft-worker",
+        now=now,
+        lease_seconds=30,
+    )
+    assert job is not None
+
+    async def persist(update) -> None:
+        accepted = await repository.record_progress(
+            job,
+            update,
+            now=now + timedelta(milliseconds=100),
+        )
+        assert accepted is True
+
+    output = await TripUnderstandingPipeline(
+        FixedBeijingDemoInferenceProvider(),
+        FixedBeijingPlaceResolver(),
+    ).run(DEMO_SOURCE_TEXT, progress_callback=persist)
+    stopped = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft",
+        now=now + timedelta(seconds=1),
+    )
+    assert stopped.cancelled.status == "STOPPED_WITH_DRAFT"
+    assert stopped.opaque_etag is not None
+    assert repository.map_jobs == {}
+    assert repository.stay_jobs == {}
+
+    replay = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft",
+        now=now + timedelta(seconds=2),
+    )
+    assert replay.replayed is True
+    assert replay.opaque_etag == stopped.opaque_etag
+    again = await service.cancel_understanding(
+        resource,
+        idempotency_key="cancel-draft-again",
+        now=now + timedelta(seconds=2),
+    )
+    assert again.cancelled.status == "ALREADY_FINISHED"
+
+    refreshed = await service.authorize(
+        created.accepted.public_resource_id,
+        capability_hash="2" * 64,
+        now=now + timedelta(seconds=2),
+    )
+    assert refreshed.state == "PARTIAL"
+    stored = await repository.get_result(refreshed)
+    assert stored is not None
+    assert stored.result.status == "PARTIAL_RESULT"
+    assert stored.result.available_actions == ["EDIT_ASSUMPTIONS", "EDIT_CARDS"]
+    assert all(
+        card.status == "NEEDS_CONFIRMATION"
+        and card.area_or_address == "地点待确认"
+        for day in stored.result.days
+        for card in day.activities
+    )
+    draft_input = repository.g03_pipeline_inputs[
+        (refreshed.understanding_id, 2)
+    ]
+    assert draft_input["destination"] == {
+        "name": "北京",
+        "status": "CANCELLED_DRAFT_SOFT",
+    }
+    assert {item["key"] for item in draft_input["assumptions"]} == {
+        "calendar",
+        "party_size",
+    }
+    assert all(
+        item["source"] == "CANCELLED_DRAFT_SOFT"
+        for item in draft_input["assumptions"]
+    )
+
+    first = stored.result.days[0].activities[0]
+    moved = await service.apply_command(
+        refreshed,
+        ActivityMoveCommand(
+            command_type="ACTIVITY_MOVE",
+            activity_token=first.activity_token,
+            target_day_index=3,
+            target_position=0,
+        ),
+        expected_etag=stored.opaque_etag,
+        idempotency_key="cancel-draft-move",
+        now=now + timedelta(seconds=3),
+    )
+    assert moved.applied.status == "APPLIED"
+    moved_input = repository.g03_pipeline_inputs[
+        (refreshed.understanding_id, 3)
+    ]
+    assert moved_input["destination"]["name"] == "北京"
+    materialized = await service.materialize_trip(
+        refreshed,
+        expected_etag=moved.opaque_etag,
+        idempotency_key="cancel-draft-materialize",
+        now=now + timedelta(seconds=3),
+    )
+    assert materialized.view.status == "READY"
+    with pytest.raises(JobLeaseLostError):
+        await repository.complete_job(job, output, now=now + timedelta(seconds=3))
+    assert repository.side_effect_count == 0
+
+    await service.delete_trip(
+        refreshed,
+        capability_hash="2" * 64,
+        user_id=None,
+        idempotency_key="cancel-draft-delete",
+        now=now + timedelta(seconds=4),
+    )
+    assert not repository.cancel_idempotency
+    assert not repository.progress_event_keys
+    assert not repository.progress_internal_bindings
+    assert refreshed.understanding_id not in repository.cancellation_bindings
+
+
+@pytest.mark.asyncio
 async def test_claim_rotation_invalidates_preauthorized_command_and_map_replays() -> None:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)

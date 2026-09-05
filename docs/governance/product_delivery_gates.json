@@ -1,6 +1,6 @@
 {
   "schema_version": "experience-delivery-v1",
-  "goal_id": "TC-LONG-GUIDE-RECOVERY",
+  "goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "deep_cities": [
     "北京",
     "上海",
@@ -75,6 +75,58 @@
     "frontend",
     "browser"
   ],
+  "delivery_levels": {
+    "R0": {
+      "purpose": "OWNER_LOCAL_EXPERIENCE",
+      "text_cases": {
+        "safe": 40,
+        "minimum_exact": 28
+      },
+      "required_outcomes": [
+        "THREE_OWNER_TEXT_GUIDES_RETURN_CARDS_OR_HONEST_PARTIAL_RESULTS",
+        "TWO_OF_THREE_USABLE_AFTER_SMALL_EDITS",
+        "ONE_COMPLETE_EDIT_MANUAL_ROUTE_TOP3_PNG_JOURNEY",
+        "FIXTURE_COLLABORATION_LOOP",
+        "PROGRESSIVE_STOP_RECONNECT_AND_PLAYBACK"
+      ]
+    },
+    "R1": {
+      "purpose": "CONTROLLED_USE",
+      "text_cases": {
+        "safe": 40,
+        "minimum_exact": 36
+      },
+      "required_outcomes": [
+        "LIVE_QWEN_AMAP_TRIP_CHECK_LOOP",
+        "LIVE_COLLABORATION_AI_DRIVING_LOOP",
+        "TWO_USER_SYNC_REOPEN_AND_IMPORT"
+      ]
+    },
+    "R2": {
+      "purpose": "HARDENED_CANDIDATE",
+      "text_cases": {
+        "safe": 40,
+        "minimum_exact": 40
+      },
+      "required_outcomes": [
+        "RESPONSIVE_ACCESSIBILITY_PROVIDER_AND_CANDIDATE_MATRIX"
+      ]
+    }
+  },
+  "dual_mode_scenarios": [
+    "PROGRESSIVE_SSE_RESUME",
+    "CANCEL_WITH_OR_WITHOUT_SNAPSHOT",
+    "HORIZONTAL_DRAG_PREVIEW_AND_MANUAL_ROUTE_REFRESH",
+    "MAP_PLAYBACK_WITHOUT_PROVIDER_CALL",
+    "FULL_CANVAS_PNG_EXPORT",
+    "COLLABORATION_AUTH_ROOM_YJS_AI_EXPLICIT_DRIVING",
+    "COLLABORATION_TO_TRIP_CHECK_ONE_WAY_IMPORT"
+  ],
+  "excluded_capabilities": [
+    "OCR",
+    "SCREENSHOT_UPLOAD",
+    "IMAGE_UNDERSTANDING"
+  ],
   "safety_invariants": [
     "PLACE_IDENTITY",
     "PRIVATE_DATA_PROTECTION",
@@ -87,8 +139,8 @@
   "deferred": [
     "natural_language_editing",
     "sourced_rag",
-    "same_day_route_optimization",
-    "statistical_evaluation",
+    "new_trip_check_automatic_same_day_route_optimization",
+    "candidate_scale_statistical_evaluation",
     "candidate_signing",
     "sealed_blind",
     "public_deployment",

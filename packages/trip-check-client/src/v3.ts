@@ -27,6 +27,23 @@ export interface TripUnderstandingProgressView {
   status: 'PROCESSING'
   message: string
   retry_after_ms: number
+  phase: 'RECEIVED' | 'CARDS_AVAILABLE' | 'CHECKING_PLACES'
+  event_cursor: number
+  progress: TripUnderstandingProgressMetrics
+  snapshot: UserFacingTripResult | null
+}
+
+export interface TripUnderstandingProgressMetrics {
+  day_count: number
+  card_count: number
+  places_checked: number
+  places_total: number
+}
+
+export interface TripUnderstandingCancelView {
+  status: 'STOPPED_WITH_DRAFT' | 'STOPPED_EMPTY' | 'ALREADY_FINISHED'
+  message: string
+  has_editable_result: boolean
 }
 
 export type TripUnderstandingCommand =

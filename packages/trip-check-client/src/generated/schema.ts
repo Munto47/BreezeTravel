@@ -257,6 +257,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/me/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List My Trips */
+        get: operations["list_my_trips_api_v3_me_trips_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/shares/{share_ref}": {
         parameters: {
             query?: never;
@@ -308,6 +325,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/from-collaboration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Trip Understanding From Collaboration */
+        post: operations["create_trip_understanding_from_collaboration_api_v3_trip_understandings_from_collaboration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}": {
         parameters: {
             query?: never;
@@ -320,6 +354,23 @@ export interface paths {
         post?: never;
         /** Delete Trip Understanding */
         delete: operations["delete_trip_understanding_api_v3_trip_understandings__public_resource_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v3/trip-understandings/{public_resource_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancel Trip Understanding */
+        post: operations["cancel_trip_understanding_api_v3_trip_understandings__public_resource_id__cancel_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -495,6 +546,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/place-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find Place Candidates */
+        post: operations["find_place_candidates_api_v3_trip_understandings__public_resource_id__place_candidates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/result": {
         parameters: {
             query?: never;
@@ -536,7 +604,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Read Trip Understanding Source */
+        get: operations["read_trip_understanding_source_api_v3_trip_understandings__public_resource_id__source_get"];
         put?: never;
         post?: never;
         /** Delete Trip Understanding Source */
@@ -580,6 +649,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/supplementary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Trip Understanding Supplementary */
+        get: operations["read_trip_understanding_supplementary_api_v3_trip_understandings__public_resource_id__supplementary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -614,6 +700,36 @@ export interface components {
              */
             confirmation: "DELETE_ALL_TRAVEL_DATA";
         };
+        /** AccountTripItem */
+        AccountTripItem: {
+            /** City */
+            city: string;
+            /** Day Count */
+            day_count: number;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /** Public Resource Id */
+            public_resource_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** AccountTripListView */
+        AccountTripListView: {
+            /** Items */
+            items: components["schemas"]["AccountTripItem"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+        };
         /** ActivityCardView */
         ActivityCardView: {
             /** Activity Token */
@@ -624,10 +740,24 @@ export interface components {
             available_actions: ("VIEW_DETAILS" | "REPLACE" | "DELETE" | "MOVE")[];
             /** Category */
             category: string;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Fixed Commitment
+             * @default false
+             */
+            fixed_commitment: boolean;
             /** Knowledge Suggestions */
             knowledge_suggestions?: components["schemas"]["KnowledgeSuggestionView"][];
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
             /** Name */
             name: string;
+            /** Start Time */
+            start_time?: string | null;
             /**
              * Status
              * @enum {string}
@@ -635,6 +765,14 @@ export interface components {
             status: "READY" | "NEEDS_CONFIRMATION";
             /** Time Hint */
             time_hint?: string | null;
+            /**
+             * Timing Source
+             * @default UNSPECIFIED
+             * @enum {string}
+             */
+            timing_source: "TEXT" | "USER" | "SUGGESTED" | "UNSPECIFIED";
+            /** Visit Duration Minutes */
+            visit_duration_minutes?: number | null;
         };
         /** ActivityDeleteCommand */
         ActivityDeleteCommand: {
@@ -665,12 +803,34 @@ export interface components {
             command_type: "ACTIVITY_INSERT";
             /** Day Index */
             day_index: number;
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Fixed Commitment
+             * @default false
+             */
+            fixed_commitment: boolean;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
             /** Name */
             name: string;
             /** Position */
             position: number;
+            /** Start Time */
+            start_time?: string | null;
             /** Time Hint */
             time_hint?: string | null;
+            /**
+             * Timing Source
+             * @default UNSPECIFIED
+             * @enum {string}
+             */
+            timing_source: "TEXT" | "USER" | "SUGGESTED" | "UNSPECIFIED";
+            /** Visit Duration Minutes */
+            visit_duration_minutes?: number | null;
         };
         /** ActivityMoveCommand */
         ActivityMoveCommand: {
@@ -686,6 +846,15 @@ export interface components {
             /** Target Position */
             target_position: number;
         };
+        /** ActivitySourceView */
+        ActivitySourceView: {
+            /** Activity Token */
+            activity_token: string;
+            /** Name */
+            name: string;
+            /** Quote */
+            quote: string;
+        };
         /** ActivityTextEditCommand */
         ActivityTextEditCommand: {
             /** Activity Token */
@@ -699,6 +868,94 @@ export interface components {
             name?: string | null;
             /** Time Hint */
             time_hint?: string | null;
+        };
+        /** ActivityTimeSetCommand */
+        ActivityTimeSetCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_TIME_SET";
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Fixed Commitment
+             * @default false
+             */
+            fixed_commitment: boolean;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /** Start Time */
+            start_time?: string | null;
+            /**
+             * Timing Source
+             * @default UNSPECIFIED
+             * @enum {string}
+             */
+            timing_source: "TEXT" | "USER" | "SUGGESTED" | "UNSPECIFIED";
+            /** Visit Duration Minutes */
+            visit_duration_minutes?: number | null;
+        };
+        /** ActivityTimesApplyCommand */
+        ActivityTimesApplyCommand: {
+            /** Changes */
+            changes: components["schemas"]["ActivityTimingUpdate"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_TIMES_APPLY";
+        };
+        /** ActivityTimesShiftCommand */
+        ActivityTimesShiftCommand: {
+            /** Activity Tokens */
+            activity_tokens: string[];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "ACTIVITY_TIMES_SHIFT";
+            /** Minutes */
+            minutes: number;
+        };
+        /** ActivityTiming */
+        ActivityTiming: {
+            /** End Time */
+            end_time?: string | null;
+            /**
+             * Fixed Commitment
+             * @default false
+             */
+            fixed_commitment: boolean;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
+            /** Start Time */
+            start_time?: string | null;
+            /**
+             * Timing Source
+             * @default UNSPECIFIED
+             * @enum {string}
+             */
+            timing_source: "TEXT" | "USER" | "SUGGESTED" | "UNSPECIFIED";
+            /** Visit Duration Minutes */
+            visit_duration_minutes?: number | null;
+        };
+        /** ActivityTimingUpdate */
+        ActivityTimingUpdate: {
+            /** Activity Token */
+            activity_token: string;
+            /** End Time */
+            end_time?: string | null;
+            /** Start Time */
+            start_time: string;
         };
         /** AssumptionChipView */
         AssumptionChipView: {
@@ -728,6 +985,23 @@ export interface components {
             key: "destination" | "calendar" | "party_size";
             /** Value */
             value: string;
+        };
+        /** CandidateSearchRequest */
+        CandidateSearchRequest: {
+            /** Activity Token */
+            activity_token: string;
+            /** Query */
+            query: string;
+        };
+        /** CandidateSearchView */
+        CandidateSearchView: {
+            /** Candidates */
+            candidates?: components["schemas"]["PublicPlaceCandidate"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "EMPTY" | "UNAVAILABLE";
         };
         /** ChangeAdoptRequest */
         ChangeAdoptRequest: {
@@ -847,6 +1121,24 @@ export interface components {
              */
             subject_type: "TRIP" | "ACTIVITY" | "KNOWLEDGE_SUGGESTION";
         };
+        /** FromCollaborationRequest */
+        FromCollaborationRequest: {
+            /** Room Id */
+            room_id: string;
+        };
+        /** GCJ02Position */
+        GCJ02Position: {
+            /**
+             * Coordinate System
+             * @default GCJ02
+             * @constant
+             */
+            coordinate_system: "GCJ02";
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -898,6 +1190,8 @@ export interface components {
             days?: components["schemas"]["PublicMapDayView"][];
             /** Message */
             message: string;
+            /** Points */
+            points?: components["schemas"]["PublicMapPoint"][];
             /**
              * Status
              * @enum {string}
@@ -923,6 +1217,18 @@ export interface components {
              * @constant
              */
             status: "READY";
+        };
+        /** PlaceConfirmCommand */
+        PlaceConfirmCommand: {
+            /** Activity Token */
+            activity_token: string;
+            /** Candidate Token */
+            candidate_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "PLACE_CONFIRM";
         };
         /** PlaceReplaceCommand */
         PlaceReplaceCommand: {
@@ -997,6 +1303,8 @@ export interface components {
             before?: string[];
             /** Change Token */
             change_token: string;
+            /** Changes */
+            changes?: components["schemas"]["PublicTimingChange"][];
             /** Summary */
             summary: string;
             /** Title */
@@ -1004,6 +1312,8 @@ export interface components {
         };
         /** PublicMapDayView */
         PublicMapDayView: {
+            /** Day Index */
+            day_index?: number | null;
             /** Label */
             label: string;
             /** Routes */
@@ -1011,16 +1321,57 @@ export interface components {
         };
         /** PublicMapEdgeView */
         PublicMapEdgeView: {
+            /** From Activity Token */
+            from_activity_token?: string | null;
             /** From Name */
             from_name: string;
             /** Message */
             message: string;
             /** Selected Mode */
             selected_mode?: ("walking" | "transit") | null;
+            /** To Activity Token */
+            to_activity_token?: string | null;
             /** To Name */
             to_name: string;
             transit: components["schemas"]["PublicRouteModeView"];
             walking: components["schemas"]["PublicRouteModeView"];
+        };
+        /** PublicMapPoint */
+        PublicMapPoint: {
+            /** Activity Token */
+            activity_token: string;
+            /** Day Label */
+            day_label: string;
+            /** Name */
+            name: string;
+            position?: components["schemas"]["PublicMapPosition"] | null;
+            /** Sequence Index */
+            sequence_index: number;
+        };
+        /** PublicMapPosition */
+        PublicMapPosition: {
+            /**
+             * Coordinate System
+             * @default GCJ02
+             * @constant
+             */
+            coordinate_system: "GCJ02";
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+        };
+        /** PublicPlaceCandidate */
+        PublicPlaceCandidate: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Candidate Token */
+            candidate_token: string;
+            /** Category */
+            category: string;
+            /** Name */
+            name: string;
+            position: components["schemas"]["GCJ02Position"];
         };
         /** PublicRouteModeView */
         PublicRouteModeView: {
@@ -1038,10 +1389,29 @@ export interface components {
             /** Transfer Count */
             transfer_count?: number | null;
         };
+        /** PublicTimingChange */
+        PublicTimingChange: {
+            /** Activity Token */
+            activity_token: string;
+            after: components["schemas"]["ActivityTiming"];
+            before: components["schemas"]["ActivityTiming"];
+            /** Day Label */
+            day_label: string;
+            /** Name */
+            name: string;
+        };
         /** PublicTripCheckItem */
         PublicTripCheckItem: {
+            /** Affected Activity Tokens */
+            affected_activity_tokens?: string[];
             /** Affected Days */
             affected_days?: string[];
+            /**
+             * Basis Status
+             * @default CURRENT
+             * @enum {string}
+             */
+            basis_status: "CURRENT" | "NEEDS_RECHECK";
             /**
              * Can Preview
              * @default false
@@ -1049,6 +1419,11 @@ export interface components {
             can_preview: boolean;
             /** Check Token */
             check_token: string;
+            /**
+             * Depends On Routes
+             * @default false
+             */
+            depends_on_routes: boolean;
             /**
              * Label
              * @enum {string}
@@ -1166,6 +1541,18 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** SourceReadView */
+        SourceReadView: {
+            /** Activities */
+            activities?: components["schemas"]["ActivitySourceView"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "DELETED" | "UNAVAILABLE";
+            /** Text */
+            text?: string | null;
+        };
         /** StayCandidateView */
         StayCandidateView: {
             /** Area Or Address */
@@ -1236,6 +1623,37 @@ export interface components {
              */
             status: "PREPARING" | "AVAILABLE" | "NEEDS_UPDATE" | "LIMITED" | "UNAVAILABLE";
         };
+        /** SupplementaryDay */
+        SupplementaryDay: {
+            /** Day Index */
+            day_index: number | null;
+            /** Day Label */
+            day_label: string;
+            /** Items */
+            items: components["schemas"]["SupplementaryItem"][];
+        };
+        /** SupplementaryItem */
+        SupplementaryItem: {
+            /** Name */
+            name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "OPTIONAL" | "EXCLUDED";
+            /** Time Hint */
+            time_hint?: string | null;
+        };
+        /** SupplementaryView */
+        SupplementaryView: {
+            /** Days */
+            days?: components["schemas"]["SupplementaryDay"][];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "DELETED" | "UNAVAILABLE";
+        };
         /** TextSourceRequest */
         TextSourceRequest: {
             /** Text */
@@ -1288,15 +1706,63 @@ export interface components {
              */
             status: "PROCESSING";
         };
-        /** TripUnderstandingProgressView */
-        TripUnderstandingProgressView: {
+        /** TripUnderstandingCancelView */
+        TripUnderstandingCancelView: {
+            /** Has Editable Result */
+            has_editable_result: boolean;
             /** Message */
             message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "STOPPED_WITH_DRAFT" | "STOPPED_EMPTY" | "ALREADY_FINISHED";
+        };
+        /** TripUnderstandingProgressMetrics */
+        TripUnderstandingProgressMetrics: {
+            /**
+             * Card Count
+             * @default 0
+             */
+            card_count: number;
+            /**
+             * Day Count
+             * @default 0
+             */
+            day_count: number;
+            /**
+             * Places Checked
+             * @default 0
+             */
+            places_checked: number;
+            /**
+             * Places Total
+             * @default 0
+             */
+            places_total: number;
+        };
+        /** TripUnderstandingProgressView */
+        TripUnderstandingProgressView: {
+            /**
+             * Event Cursor
+             * @default 0
+             */
+            event_cursor: number;
+            /** Message */
+            message: string;
+            /**
+             * Phase
+             * @default RECEIVED
+             * @enum {string}
+             */
+            phase: "RECEIVED" | "CARDS_AVAILABLE" | "CHECKING_PLACES";
+            progress?: components["schemas"]["TripUnderstandingProgressMetrics"];
             /**
              * Retry After Ms
              * @default 500
              */
             retry_after_ms: number;
+            snapshot?: components["schemas"]["UserFacingTripResult"] | null;
             /**
              * Status
              * @default PROCESSING
@@ -1304,21 +1770,49 @@ export interface components {
              */
             status: "PROCESSING";
         };
+        /** UndoCommand */
+        UndoCommand: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "UNDO";
+        };
         /** UserFacingTripResult */
         UserFacingTripResult: {
             /** Assumptions */
             assumptions: components["schemas"]["AssumptionChipView"][];
             /** Available Actions */
             available_actions: ("EDIT_ASSUMPTIONS" | "EDIT_CARDS")[];
+            /**
+             * Can Undo
+             * @default false
+             */
+            can_undo: boolean;
             /** Days */
             days: components["schemas"]["TripDayView"][];
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Is Demo
+             * @default false
+             */
+            is_demo: boolean;
             map: components["schemas"]["MapReadinessView"];
+            /**
+             * Ownership
+             * @default ANONYMOUS
+             * @enum {string}
+             */
+            ownership: "ANONYMOUS" | "ACCOUNT";
             /**
              * Status
              * @enum {string}
              */
             status: "READY" | "PARTIAL_RESULT" | "BASIC_ONLY" | "LIMITED";
             stay: components["schemas"]["StaySuggestionView"];
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -1888,6 +2382,40 @@ export interface operations {
             };
         };
     };
+    list_my_trips_api_v3_me_trips_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string | null;
+            };
+            header?: {
+                authorization?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountTripListView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_shared_trip_api_v3_shares__share_ref__get: {
         parameters: {
             query?: never;
@@ -1988,6 +2516,42 @@ export interface operations {
             };
         };
     };
+    create_trip_understanding_from_collaboration_api_v3_trip_understandings_from_collaboration_post: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization?: string;
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FromCollaborationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripUnderstandingAcceptedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_trip_understanding_api_v3_trip_understandings__public_resource_id__delete: {
         parameters: {
             query?: never;
@@ -2008,6 +2572,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_trip_understanding_api_v3_trip_understandings__public_resource_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header: {
+                authorization?: string;
+                "Idempotency-Key": string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TripUnderstandingCancelView"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -2179,7 +2777,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["AssumptionSetCommand"];
+                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["PlaceConfirmCommand"] | components["schemas"]["ActivityTimeSetCommand"] | components["schemas"]["ActivityTimesShiftCommand"] | components["schemas"]["ActivityTimesApplyCommand"] | components["schemas"]["UndoCommand"] | components["schemas"]["AssumptionSetCommand"];
             };
         };
         responses: {
@@ -2223,7 +2821,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "text/event-stream": string;
                 };
             };
             /** @description Validation Error */
@@ -2378,6 +2976,43 @@ export interface operations {
             };
         };
     };
+    find_place_candidates_api_v3_trip_understandings__public_resource_id__place_candidates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CandidateSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateSearchView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_trip_understanding_result_api_v3_trip_understandings__public_resource_id__result_get: {
         parameters: {
             query?: never;
@@ -2445,6 +3080,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShareCreatedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_trip_understanding_source_api_v3_trip_understandings__public_resource_id__source_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceReadView"];
                 };
             };
             /** @description Validation Error */
@@ -2549,6 +3217,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaySuggestionView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_trip_understanding_supplementary_api_v3_trip_understandings__public_resource_id__supplementary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupplementaryView"];
                 };
             };
             /** @description Validation Error */

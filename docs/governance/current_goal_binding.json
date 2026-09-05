@@ -1,8 +1,8 @@
 {
   "schema_version": "experience-goal-v1",
-  "goal_id": "TC-LONG-GUIDE-RECOVERY",
-  "status": "COMPLETED",
-  "stage": 2,
+  "goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
+  "status": "IN_PROGRESS",
+  "stage": 3,
   "product_contract_path": "docs/product/PROJECT_CHARTER.md",
   "implementation_plan_path": "docs/governance/IMPLEMENTATION_PLAN.md",
   "gate_profile": "EXPERIENCE_DELIVERY",

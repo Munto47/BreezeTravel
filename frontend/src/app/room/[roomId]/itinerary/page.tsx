@@ -6,10 +6,12 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Calendar, Route, Clock, Car, Star, AlertTriangle, Lightbulb } from 'lucide-react'
 
 import type { Itinerary, DayPlan, TimeSlot } from '@/types/itinerary'
-import type { VerificationReport } from '@/types/verification'
+import { parseSavedItinerary } from '@/types/itinerary'
 import ConstraintPanel from '@/components/itinerary/ConstraintPanel'
+import { useAuthStore } from '@/stores/authStore'
+import { api, ApiRequestError } from '@/lib/api'
 
-const CLUSTER_COLORS = ['#FF5A5F', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4']
+const CLUSTER_COLORS = ['#0C789D', '#5C7CFA', '#10B981', '#B7791F', '#8B5CF6', '#06B6D4']
 
 const CATEGORY_ICON: Record<string, string> = {
   attraction: '🏛️', food: '🍜', hotel: '🏨', transport: '🚉',
@@ -133,12 +135,10 @@ function SlotCard({ slot, isLast, dayColor }: { slot: TimeSlot; isLast: boolean;
           </div>
 
           {/* 交通段 */}
-          {!isLast && slot.transport && (
-            <div className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-gray-400">
+          {!isLast && (
+            <div data-testid="collaboration-route-unavailable" className="flex items-center gap-1.5 mt-2 ml-2 text-xs text-slate-500">
               <Car className="w-3.5 h-3.5" />
-              <span>驾车约 {slot.transport.durationMins} 分钟</span>
-              <span className="text-gray-200">·</span>
-              <span>{slot.transport.distanceKm} km</span>
+              <span>路线暂不可用</span>
             </div>
           )}
         </div>
@@ -202,62 +202,55 @@ function DaySection({ day, index }: { day: DayPlan; index: number }) {
   )
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
-
 export default function ItineraryPage() {
   const params = useParams()
   const router = useRouter()
   const roomId = params.roomId as string
+  const { user, token, isHydrated, hydrate } = useAuthStore()
   const [itinerary, setItinerary] = useState<Itinerary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [verification, setVerification] = useState<VerificationReport | null>(null)
-  const [verificationStale, setVerificationStale] = useState(false)
+  const [loadError, setLoadError] = useState('')
+
+  useEffect(() => hydrate(), [hydrate])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!isHydrated || user) return
+    sessionStorage.setItem('bt_login_return', `/room/${encodeURIComponent(roomId)}/itinerary`)
+    router.replace('/login')
+  }, [isHydrated, roomId, router, user])
 
-    const cachedItinerary = localStorage.getItem(`itinerary_cache_${roomId}`)
-    const cachedVerification = localStorage.getItem(`verification_cache_${roomId}`)
-    if (cachedVerification) {
-      try {
-        setVerification(JSON.parse(cachedVerification) as VerificationReport)
-        // A cached report is never authoritative; server audit readback will replace this in P2.
-        setVerificationStale(true)
-      } catch {}
-    }
+  useEffect(() => {
+    if (!isHydrated || !user || !token) return
+    let cancelled = false
+    setLoading(true)
+    setLoadError('')
 
-    const useCachedItinerary = () => {
-      if (!cachedItinerary) return
-      try { setItinerary(JSON.parse(cachedItinerary) as Itinerary) } catch (e) {
-        console.error('[ItineraryPage] itinerary cache parse failed', e)
-      }
-    }
-
-    // Always prefer the server record so another browser observes the same itinerary.
-    const token = localStorage.getItem('authToken')
-    if (!token) {
-      useCachedItinerary()
-      setLoading(false)
-      return
-    }
-
-    fetch(`${API_BASE}/api/room/${roomId}/itinerary`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    api.get<{ itinerary_data: unknown }>(
+      `/api/room/${encodeURIComponent(roomId)}/itinerary`,
+    )
       .then(data => {
-        const itin = data.itinerary_data as Itinerary
+        if (cancelled) return
+        const itin = parseSavedItinerary(data.itinerary_data)
+        if (!itin) throw new Error('INVALID_SAVED_ITINERARY')
         setItinerary(itin)
-        localStorage.setItem(`itinerary_cache_${roomId}`, JSON.stringify(itin))
       })
-      .catch(() => { useCachedItinerary() })
-      .finally(() => setLoading(false))
-  }, [roomId])
+      .catch((failure) => {
+        if (cancelled) return
+        setItinerary(null)
+        setLoadError(
+          failure instanceof ApiRequestError && failure.status === 404
+            ? '这个房间还没有已保存的路线。'
+            : '暂时无法读取已保存路线，请稍后重试。',
+        )
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [isHydrated, roomId, token, user])
 
   const totalPlaces = itinerary?.days.reduce((s, d) => s + d.slots.length, 0) ?? 0
   const totalDays = itinerary?.days.length ?? 0
 
-  if (loading) return (
+  if (!isHydrated || !user || loading) return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20 shadow-sm">
         <div className="w-20 h-4 bg-gray-200 rounded animate-pulse" />
@@ -320,8 +313,8 @@ export default function ItineraryPage() {
             <div className="w-20 h-20 rounded-3xl bg-gray-100 flex items-center justify-center text-4xl mx-auto mb-5">
               🗓️
             </div>
-            <p className="text-base font-semibold text-gray-600">行程尚未生成</p>
-            <p className="text-sm text-gray-400 mt-1.5">请返回工作台选择地点后点击「智能排线」</p>
+            <p className="text-base font-semibold text-gray-600">{loadError || '行程尚未生成'}</p>
+            <p className="text-sm text-gray-400 mt-1.5">返回工作台选择地点，点击「智能排线」并等待保存完成。</p>
             <button
               onClick={() => router.push(`/room/${roomId}`)}
               className="btn-coral mt-5 px-6 py-2.5 text-sm"
@@ -340,7 +333,7 @@ export default function ItineraryPage() {
             >
               <div className="px-6 py-5 text-white">
                 <p className="text-xs opacity-70 mb-1 flex items-center gap-1">
-                  <Route className="w-3 h-3" /> AI 智能排线结果
+                  <Route className="w-3 h-3" /> 已保存的协同行程
                 </p>
                 <h2 className="text-2xl font-bold mb-4">
                   {itinerary.city} {totalDays} 日游
@@ -349,7 +342,7 @@ export default function ItineraryPage() {
                   {[
                     { label: '景点数', value: `${totalPlaces} 个` },
                     { label: '行程天数', value: `${totalDays} 天` },
-                    { label: '排线算法', value: 'K-Means + TSP' },
+                    { label: '路线状态', value: '已保存' },
                   ].map((stat) => (
                     <div key={stat.label}>
                       <p className="text-xs opacity-60">{stat.label}</p>
@@ -367,7 +360,7 @@ export default function ItineraryPage() {
             </motion.div>
 
             {/* 每日行程 */}
-            <ConstraintPanel report={verification} stale={verificationStale} />
+            <ConstraintPanel report={null} stale={false} />
             {itinerary.days.map((day, i) => (
               <DaySection key={day.dayIndex} day={day} index={i} />
             ))}

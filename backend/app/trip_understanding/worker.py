@@ -140,26 +140,90 @@ class TripUnderstandingWorker:
         try:
             async def execute_pipeline():
                 source = await self.repository.load_source(job, now=observed_at)
+                source_binding = dict(source.internal_binding)
+                collaboration_guard_active = (
+                    source_binding.get("source_origin") == "COLLABORATION"
+                )
+                raw_guard_tokens = source_binding.get(
+                    "collaboration_place_guard_tokens"
+                )
+                collaboration_guard_tokens = (
+                    tuple(
+                        token
+                        for token in raw_guard_tokens
+                        if isinstance(token, str)
+                    )
+                    if collaboration_guard_active
+                    and isinstance(raw_guard_tokens, list)
+                    else (() if collaboration_guard_active else None)
+                )
+                raw_city_guard = source_binding.get(
+                    "collaboration_city_guard_token"
+                )
+                collaboration_city_guard = (
+                    raw_city_guard if isinstance(raw_city_guard, str) else None
+                )
                 if source.source_type == "FIXED_DEMO":
                     pipeline = self.demo_pipeline
                 elif job.attempt > 1:
                     pipeline = self.lease_takeover_pipeline
                 else:
                     pipeline = self.full_pipeline
-                return await pipeline.run(
-                    source.text,
-                    requires_confirmation_spans=tuple(
+
+                async def persist_progress(update):
+                    if source_binding:
+                        update = update.model_copy(
+                            update={
+                                "internal_binding": {
+                                    **source_binding,
+                                    **update.internal_binding,
+                                }
+                            }
+                        )
+                    accepted = await self.repository.record_progress(
+                        job,
+                        update,
+                        now=operation_now(),
+                    )
+                    if not accepted:
+                        raise JobLeaseLostError(
+                            "understanding progress write was rejected"
+                        )
+
+                pipeline_options = {
+                    "requires_confirmation_spans": tuple(
                         (span.start, span.end)
                         for span in source.requires_confirmation_spans
                     ),
-                    partial_source=source.partial_source,
+                    "partial_source": source.partial_source,
+                    "progress_callback": persist_progress,
+                }
+                if collaboration_guard_active:
+                    pipeline_options.update(
+                        {
+                            "collaboration_guard_tokens": collaboration_guard_tokens,
+                            "collaboration_city_guard_token": collaboration_city_guard,
+                        }
+                    )
+                return (
+                    await pipeline.run(source.text, **pipeline_options),
+                    source_binding,
                 )
 
-            output = await self._run_with_heartbeat(
+            output, source_binding = await self._run_with_heartbeat(
                 job,
                 execute_pipeline(),
                 operation_now,
             )
+            if source_binding:
+                output = output.model_copy(
+                    update={
+                        "inference_binding": {
+                            **source_binding,
+                            **output.inference_binding,
+                        }
+                    }
+                )
             await self.repository.complete_job(
                 job,
                 output,
@@ -167,6 +231,10 @@ class TripUnderstandingWorker:
             )
         except asyncio.CancelledError:
             raise
+        except JobLeaseLostError:
+            # Cancellation or lease takeover already owns the durable outcome.
+            # A late worker must not turn it into a failure or write more facts.
+            logger.info("trip understanding worker stopped after losing its lease")
         except InferenceProviderUnavailableError as exc:
             await self.repository.fail_job(
                 job,

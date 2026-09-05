@@ -12,6 +12,8 @@
 
 网页为 `http://127.0.0.1:3106`，API 健康检查为 `http://127.0.0.1:8006/health`。命令依次初始化独立数据库、应用现有迁移、启动缓存、API、后台整理与地图任务、隐私维护，完成前端生产构建后启动网页，并检查 API 和首页的 HTTP 响应。首次需要现有后端 Python 环境与已安装的前端 `node_modules`。
 
+同一台机器需要保留另一套 BreezeTravel 实例时，可在首次 `configure` 或 `start` 前设置 `EXPERIENCE_API_PORT`、`EXPERIENCE_WEB_PORT`、`EXPERIENCE_PG_PORT`、`EXPERIENCE_REDIS_PORT` 与 `EXPERIENCE_YJS_PORT`。所选端口会写入当前工作树私有且被 Git 忽略的配置，之后的 `status`、`restart` 与 `stop` 继续使用这组端口；Compose 的宿主机端口也支持同名变量。五个端口必须互不相同且不得复用已经监听的端口。每套本地运行时还会按网页端口使用独立匿名凭据 Cookie 名，避免同一主机上的两个实例互相覆盖。
+
 每次 `start` 或 `restart` 都先停止本工具管理的网页进程，用当前源码和当前浏览器配置运行 `next build`，成功后才运行 `next start`，不会悄悄沿用旧构建。构建失败时保留数据库和日志，不启动旧网页产物。已有数据库、缓存和 API 在重复 `start` 时继续运行；修改后端后使用 `restart`。
 
 本机自动发现相邻 `BreezeTravel/.venv`、`BreezeTravel-G07-Tools/postgres16-pgvector/bin` 和 `BreezeTravel-G07-Tools/memurai-4.1.2-portable/Memurai/memurai.exe`。其他位置可设置 `EXPERIENCE_PYTHON`、`EXPERIENCE_POSTGRES_BIN`、`EXPERIENCE_REDIS_BIN` 和 `EXPERIENCE_NODE`。窗口在后台隐藏运行。
@@ -40,7 +42,7 @@ PostgreSQL 使用 `127.0.0.1:55439`，Redis 兼容服务使用 `127.0.0.1:56389`
 
 ## 运行边界
 
-新入口是 `backend/app/experience_main.py`；旧 `main.py` 和历史代码保留。新入口只注册文本 v3、邮箱账户及资料接口，启动整理、地图/住宿和隐私维护。房间、Planner、短信模拟登录、OCR 路由与模型、签名 Broker 不进入启动流程；兼容数据模型仍由现有仓储使用。共享 API 内已保留的账户、保存、删除等能力继续工作。
+新入口是 `backend/app/experience_main.py`；旧 `main.py` 和历史代码保留。新入口注册文字 v3、邮箱账户与资料，以及协同规划核心闭环需要的房间、成员、WebSocket 凭据、地点、AI 问答、明确点击的排线、天气、已保存路线和单向转入接口；同时启动整理、地图／住宿、图检查点和隐私维护。短信模拟登录、OCR、冻结的旧 Planner 入口、签名 Broker 与其他历史接口不进入启动流程；兼容数据模型仍由现有仓储使用。
 
 匿名权限继续使用 HttpOnly Cookie；写请求保留来源检查和 Redis 限流；验证和未知错误不回显原文、数据库连接串或堆栈；API 访问日志关闭。所有健康和拒绝响应只返回脱敏状态。原始攻略不应放入共享日志、截图或提交。
 

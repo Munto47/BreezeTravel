@@ -87,6 +87,8 @@ export default function RouteMap({
   visible,
   focusSelected,
   previewCandidate = null,
+  simulationPosition = null,
+  dayColor = '#0c789d',
 }: {
   view: MapRenderView | null
   day: UserFacingTripResult['days'][number] | undefined
@@ -96,6 +98,8 @@ export default function RouteMap({
   visible: boolean
   focusSelected: boolean
   previewCandidate?: PlaceCandidateView | null
+  simulationPosition?: { longitude: number; latitude: number } | null
+  dayColor?: string
 }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapInstance | null>(null)
@@ -183,6 +187,7 @@ export default function RouteMap({
           (activity) => activity.activity_token === point.activity_token,
         ) ?? 0
       button.textContent = String(index + 1)
+      button.style.backgroundColor = dayColor
       button.setAttribute('aria-label', `查看${point.name}`)
       button.onclick = () => selectionCallback.current(point.activity_token)
       markers.current.set(point.activity_token, button)
@@ -219,7 +224,7 @@ export default function RouteMap({
               point.longitude,
               point.latitude,
             ]),
-            strokeColor: '#2f6558',
+            strokeColor: dayColor,
             strokeOpacity: 0.8,
             strokeWeight: 5,
             strokeStyle: routeMode === 'walking' ? 'dashed' : 'solid',
@@ -241,7 +246,7 @@ export default function RouteMap({
       currentOverlays.current = []
       markers.current.clear()
     }
-  }, [ready, points, day, view, mode])
+  }, [ready, points, day, view, mode, dayColor])
 
   useEffect(() => {
     markers.current.forEach((button, token) => {
@@ -283,6 +288,30 @@ export default function RouteMap({
   }, [previewCandidate, ready])
 
   useEffect(() => {
+    if (
+      !ready ||
+      !map.current ||
+      !sdk.current ||
+      !simulationPosition ||
+      !Number.isFinite(simulationPosition.longitude) ||
+      !Number.isFinite(simulationPosition.latitude)
+    )
+      return
+    const dot = document.createElement('span')
+    dot.className = 'e-map-simulation-marker'
+    dot.setAttribute('aria-label', '计划路线模拟位置')
+    const marker = new sdk.current.Marker({
+      position: [simulationPosition.longitude, simulationPosition.latitude],
+      content: dot,
+      anchor: 'center',
+      title: '计划路线模拟位置',
+    })
+    const instance = map.current
+    instance.add([marker])
+    return () => instance.remove([marker])
+  }, [ready, simulationPosition])
+
+  useEffect(() => {
     if (visible) {
       const timer = setTimeout(() => {
         map.current?.resize?.()
@@ -293,7 +322,7 @@ export default function RouteMap({
   }, [visible])
   return (
     <div className="e-map-surface" data-testid="route-map">
-      <div className="e-map-canvas" ref={container} aria-label="高德路线地图" />
+      <div className="e-map-canvas" ref={container} aria-label="路线地图" />
       {tilesReady && !error && (
         <div className="e-map-controls" aria-label="地图控制">
           <button

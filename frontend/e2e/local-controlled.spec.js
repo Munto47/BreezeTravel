@@ -43,9 +43,12 @@ test.beforeEach(async ({ page }) => {
   }, { room: roomId, itineraryValue: itinerary, reportValue: report });
 });
 
-test('treats cached verification as stale and never renders it as current evidence', async ({ page }) => {
+test('never renders a cached room itinerary before authenticated server readback', async ({ page }) => {
   await page.goto(`/room/${roomId}/itinerary`);
-  await expect(page.getByTestId('verification-stale')).toContainText('验证结果已过期');
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByText('杭州 1 日游')).toHaveCount(0);
+  await expect(page.getByText('西湖博物馆')).toHaveCount(0);
   await expect(page.getByTestId('constraint-panel')).toHaveCount(0);
-  await expect(page.getByText('杭州 1 日游')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('bt_login_return')))
+    .toBe(`/room/${roomId}/itinerary`);
 });

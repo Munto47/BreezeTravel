@@ -140,6 +140,9 @@ async def init_persistent_graph():
     """
     global _cm, _checkpointer, _persistent_graph
 
+    if _persistent_graph is not None:
+        return
+
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 
@@ -159,6 +162,13 @@ async def init_persistent_graph():
         _persistent_graph = build_graph(_checkpointer)
         print("[Graph] PostgreSQL Checkpointer 初始化成功，会话历史将持久化")
     except Exception as exc:
+        if _cm is not None:
+            try:
+                await _cm.__aexit__(None, None, None)
+            except Exception:
+                pass
+            _cm = None
+            _checkpointer = None
         if settings.runtime_profile not in {"demo", "test"} and not settings.demo_mode:
             raise RuntimeError("PostgreSQL Checkpointer 不可用，拒绝伪造持久化成功") from exc
         print(f"[Graph] 测试/演示模式 Checkpointer 不可用，显式使用无持久化图：{exc}")
@@ -167,7 +177,7 @@ async def init_persistent_graph():
 
 async def close_checkpointer():
     """在 FastAPI lifespan shutdown 中调用"""
-    global _cm, _checkpointer
+    global _cm, _checkpointer, _persistent_graph
     if _cm:
         try:
             await _cm.__aexit__(None, None, None)
@@ -175,8 +185,13 @@ async def close_checkpointer():
             pass
         _cm = None
         _checkpointer = None
+    _persistent_graph = None
 
 
 async def get_graph_with_persistence():
     """获取持久化图（startup 后可用）"""
-    return _persistent_graph if _persistent_graph is not None else simple_graph
+    if _persistent_graph is not None:
+        return _persistent_graph
+    if settings.runtime_profile in {"demo", "test"} or settings.demo_mode:
+        return simple_graph
+    raise RuntimeError("PostgreSQL Checkpointer 尚未初始化")

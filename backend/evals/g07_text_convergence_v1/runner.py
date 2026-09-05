@@ -107,32 +107,43 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     "assumptions",
     "available_actions",
     "brand",
+    "can_undo",
     "candidate_token",
     "candidates",
     "category",
     "commute_summary",
     "days",
+    "end_time",
     "editable",
+    "expires_at",
+    "fixed_commitment",
     "freshness",
+    "is_demo",
     "key",
     "knowledge_suggestions",
     "label",
+    "locked",
     "map",
     "max_single_leg_minutes",
     "message",
     "name",
+    "ownership",
     "reason",
     "searched_scopes",
     "selected",
     "source_name",
     "source_url",
+    "start_time",
     "status",
     "stay",
     "text",
     "time_hint",
+    "timing_source",
     "transfer_count",
     "type",
+    "updated_at",
     "value",
+    "visit_duration_minutes",
 }
 _FORBIDDEN_PUBLIC_TEXT_MARKERS = (
     "audit",
@@ -216,7 +227,22 @@ def _walk_keys(value: object) -> set[str]:
 
 
 def _has_duration_field(value: object) -> bool:
-    return any("duration" in key.casefold() for key in _walk_keys(value))
+    """Return whether a duration value was actually derived or persisted.
+
+    Activity timing is an existing public editing contract, so serialized cards
+    always contain a nullable ``visit_duration_minutes`` slot.  The compatibility
+    fact protects against turning source prose such as "游览 2 小时" into a
+    persisted duration; a null schema placeholder is not such a value.
+    """
+    if isinstance(value, dict):
+        return any(
+            ("duration" in key.casefold() and child is not None)
+            or _has_duration_field(child)
+            for key, child in value.items()
+        )
+    if isinstance(value, list):
+        return any(_has_duration_field(child) for child in value)
+    return False
 
 
 def _dangerous_name(name: str) -> bool:
@@ -1598,6 +1624,23 @@ def _anonymous_boundary_facts() -> set[str]:
     return facts
 
 
+async def _run_fixture_worker_once(
+    repository: InMemoryTripUnderstandingRepository,
+    worker_id: str,
+    *,
+    now: datetime,
+) -> bool:
+    """Run a public probe without consulting ambient provider configuration."""
+    pipeline = build_full_text_pipeline()
+    try:
+        return await TripUnderstandingWorker(
+            repository,
+            full_pipeline=pipeline,
+        ).run_once(worker_id, now=now)
+    finally:
+        await pipeline.aclose()
+
+
 async def _source_deletion_facts() -> set[str]:
     repository = InMemoryTripUnderstandingRepository()
     service = TripUnderstandingApplicationService(repository)
@@ -1618,7 +1661,7 @@ async def _source_deletion_facts() -> set[str]:
         idempotency_key="g07-source-create",
         now=now,
     )
-    await TripUnderstandingWorker(repository).run_once("g07-source-worker", now=now)
+    await _run_fixture_worker_once(repository, "g07-source-worker", now=now)
     resource = await service.authorize(
         created.accepted.public_resource_id,
         capability_hash=None,
@@ -1652,7 +1695,7 @@ async def _resource_deletion_facts() -> set[str]:
         idempotency_key="g07-trip-delete-create",
         now=now,
     )
-    await TripUnderstandingWorker(repository).run_once("g07-trip-delete-worker", now=now)
+    await _run_fixture_worker_once(repository, "g07-trip-delete-worker", now=now)
     resource = await service.authorize(
         created.accepted.public_resource_id,
         capability_hash="a" * 64,
@@ -1688,8 +1731,10 @@ async def _resource_deletion_facts() -> set[str]:
         idempotency_key="g07-account-create",
         now=now,
     )
-    await TripUnderstandingWorker(account_repository).run_once(
-        "g07-account-worker", now=now
+    await _run_fixture_worker_once(
+        account_repository,
+        "g07-account-worker",
+        now=now,
     )
     account_resource = await account_service.authorize(
         account_created.accepted.public_resource_id,
@@ -1799,7 +1844,7 @@ async def _text_first_flow_facts() -> tuple[set[str], list[str]]:
         idempotency_key="g07-text-create",
         now=now,
     )
-    await TripUnderstandingWorker(repository).run_once("g07-text-worker", now=now)
+    await _run_fixture_worker_once(repository, "g07-text-worker", now=now)
     resource = await service.authorize(
         created.accepted.public_resource_id,
         capability_hash=None,

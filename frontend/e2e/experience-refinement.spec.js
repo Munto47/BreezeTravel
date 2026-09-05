@@ -440,7 +440,7 @@ test('refinement: an unavailable map SDK leaves the itinerary editable [blocked 
   expect(writes.filter((action) => action === 'map-renders')).toHaveLength(0)
 })
 
-test('refinement: original text loads on demand and optional or cancelled places stay outside the route', async ({
+test('refinement: original text stays outside the result DOM and optional or cancelled places stay outside the route', async ({
   page,
 }) => {
   let sourceReads = 0
@@ -486,16 +486,11 @@ test('refinement: original text loads on demand and optional or cancelled places
     expect.arrayContaining(['北京环球影城']),
   )
   await page.getByLabel('更多行程操作').click()
-  await page.getByRole('button', { name: '查看导入文字', exact: true }).click()
-  const panel = page.getByRole('region', {
-    name: '导入的攻略文字',
-    exact: true,
-  })
-  await expect(panel.locator('pre')).toContainText('北京三日慢游', {
-    timeout: 10000,
-  })
-  expect(sourceReads).toBe(1)
-  await panel.getByRole('button', { name: '返回Day 3', exact: true }).click()
+  await expect(
+    page.getByRole('button', { name: '查看导入文字', exact: true }),
+  ).toHaveCount(0)
+  expect(sourceReads).toBe(0)
+  await expect(page.locator('body')).not.toContainText('北京三日慢游')
   await expect(page.locator('pre.e-original-text')).toHaveCount(0)
 })
 

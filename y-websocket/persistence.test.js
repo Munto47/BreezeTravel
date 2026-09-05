@@ -42,7 +42,7 @@ async function startServer(port, persistence) {
       YJS_E2E_CLEANUP_SECRET: cleanupSecret,
       YJS_RESTART_GATE_MODE: 'true',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   })
   const health = await waitForHealth(port)
   if (health.service !== 'breezetravel-yjs' || !health.boot_generation?.instance_id) {
@@ -53,13 +53,18 @@ async function startServer(port, persistence) {
 }
 
 async function stopServer(child) {
-  if (child.exitCode !== null) return
-  child.kill('SIGTERM')
-  await Promise.race([
-    new Promise(resolve => child.once('exit', resolve)),
-    new Promise(resolve => setTimeout(resolve, 1000)),
+  if (child.exitCode !== null || child.signalCode !== null) return true
+  if (child.connected) child.send('shutdown')
+  else child.kill('SIGTERM')
+  const graceful = await Promise.race([
+    new Promise(resolve => child.once('exit', () => resolve(true))),
+    new Promise(resolve => setTimeout(() => resolve(false), 6000)),
   ])
-  if (child.exitCode === null) child.kill('SIGKILL')
+  if (!graceful) {
+    child.kill('SIGKILL')
+    await new Promise(resolve => child.once('exit', resolve))
+  }
+  return graceful
 }
 
 async function waitForUnavailable(port) {
@@ -159,6 +164,63 @@ test('restores persisted Yjs room state after a real server restart', async () =
     thirdProvider.destroy()
     thirdDoc.destroy()
   } finally {
+    if (server?.child) await stopServer(server.child)
+    fs.rmSync(persistence, { recursive: true, force: true })
+  }
+})
+
+test('drains a confirmed update before graceful stop and immediate restart', async () => {
+  const persistence = fs.mkdtempSync(path.join(os.tmpdir(), 'breezetravel-yjs-drain-'))
+  const roomId = `e2e-dual-restart-room-${Date.now()}-abcdef34`
+  let server
+  let firstProvider
+  let secondProvider
+  let restoredProvider
+  try {
+    const firstPort = freePort()
+    server = await startServer(firstPort, persistence)
+    const firstDoc = new Y.Doc()
+    const secondDoc = new Y.Doc()
+    firstProvider = await syncedProvider(firstPort, roomId, firstDoc)
+    secondProvider = await syncedProvider(firstPort, roomId, secondDoc)
+    const received = new Promise(resolve => {
+      const places = secondDoc.getMap('places')
+      const observe = () => {
+        if (places.get('west-lake')?.note !== 'confirmed-on-peer') return
+        places.unobserve(observe)
+        resolve()
+      }
+      places.observe(observe)
+    })
+    firstDoc.getMap('places').set('west-lake', {
+      name: '西湖',
+      note: 'confirmed-on-peer',
+    })
+    await received
+
+    assert.equal(await stopServer(server.child), true)
+    await waitForUnavailable(firstPort)
+    firstProvider.destroy()
+    secondProvider.destroy()
+    firstDoc.destroy()
+    secondDoc.destroy()
+
+    const secondPort = freePort()
+    server = await startServer(secondPort, persistence)
+    const restoredDoc = new Y.Doc()
+    restoredProvider = await syncedProvider(secondPort, roomId, restoredDoc)
+    await new Promise(resolve => setTimeout(resolve, 150))
+    assert.deepEqual(restoredDoc.getMap('places').get('west-lake'), {
+      name: '西湖',
+      note: 'confirmed-on-peer',
+    })
+    restoredProvider.destroy()
+    restoredProvider = null
+    restoredDoc.destroy()
+  } finally {
+    firstProvider?.destroy()
+    secondProvider?.destroy()
+    restoredProvider?.destroy()
     if (server?.child) await stopServer(server.child)
     fs.rmSync(persistence, { recursive: true, force: true })
   }

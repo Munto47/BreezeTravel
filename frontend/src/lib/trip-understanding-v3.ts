@@ -10,6 +10,23 @@ export interface TripUnderstandingProgressView {
   status: 'PROCESSING'
   message: string
   retry_after_ms: number
+  phase: 'RECEIVED' | 'CARDS_AVAILABLE' | 'CHECKING_PLACES'
+  event_cursor: number
+  progress: TripUnderstandingProgressMetrics
+  snapshot: UserFacingTripResult | null
+}
+
+export interface TripUnderstandingProgressMetrics {
+  day_count: number
+  card_count: number
+  places_checked: number
+  places_total: number
+}
+
+export interface TripUnderstandingCancelView {
+  status: 'STOPPED_WITH_DRAFT' | 'STOPPED_EMPTY' | 'ALREADY_FINISHED'
+  message: string
+  has_editable_result: boolean
 }
 
 export interface AssumptionChipView {
@@ -428,7 +445,11 @@ export function clearTripUnderstandingSession(): void {
     sessionStorage.removeItem(key)
   for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = sessionStorage.key(index)
-    if (key?.startsWith('bt_v3_operation_')) sessionStorage.removeItem(key)
+    if (
+      key?.startsWith('bt_v3_operation_') ||
+      key?.startsWith('bt_trip_event_cursor:')
+    )
+      sessionStorage.removeItem(key)
   }
 }
 
@@ -504,16 +525,109 @@ export async function readTripUnderstandingResult(
       } | null
       if (failure?.detail?.code === 'UNDERSTANDING_FAILED')
         throw new Error('UNDERSTANDING_FAILED')
+      if (failure?.detail?.code === 'UNDERSTANDING_CANCELLED')
+        throw new Error('UNDERSTANDING_CANCELLED')
     }
     throw new Error('TRIP_RESULT_UNAVAILABLE')
   }
+  const payload = (await response.json()) as
+    | Partial<TripUnderstandingProgressView>
+    | UserFacingTripResult
+  if (response.status === 202) {
+    const pending = payload as Partial<TripUnderstandingProgressView>
+    const metric = pending.progress || ({} as TripUnderstandingProgressMetrics)
+    const numberOrZero = (value: unknown) =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0
+        ? value
+        : 0
+    const allowedPhases = new Set<TripUnderstandingProgressView['phase']>([
+      'RECEIVED',
+      'CARDS_AVAILABLE',
+      'CHECKING_PLACES',
+    ])
+    const body: TripUnderstandingProgressView = {
+      status: 'PROCESSING',
+      message:
+        typeof pending.message === 'string' && pending.message.trim()
+          ? pending.message
+          : '正在整理每天的安排…',
+      retry_after_ms:
+        typeof pending.retry_after_ms === 'number' &&
+        Number.isFinite(pending.retry_after_ms) &&
+        pending.retry_after_ms > 0
+          ? pending.retry_after_ms
+          : 500,
+      phase: allowedPhases.has(
+        pending.phase as TripUnderstandingProgressView['phase'],
+      )
+        ? (pending.phase as TripUnderstandingProgressView['phase'])
+        : 'RECEIVED',
+      event_cursor: Number.isSafeInteger(pending.event_cursor) &&
+        Number(pending.event_cursor) >= 0
+        ? Number(pending.event_cursor)
+        : 0,
+      progress: {
+        day_count: numberOrZero(metric.day_count),
+        card_count: numberOrZero(metric.card_count),
+        places_checked: numberOrZero(metric.places_checked),
+        places_total: numberOrZero(metric.places_total),
+      },
+      snapshot:
+        pending.snapshot &&
+        typeof pending.snapshot === 'object' &&
+        Array.isArray(pending.snapshot.days)
+          ? pending.snapshot
+          : null,
+    }
+    return {
+      status: response.status,
+      body,
+      etag: response.headers.get('etag'),
+    }
+  }
   return {
     status: response.status,
-    body: (await response.json()) as
-      | TripUnderstandingProgressView
-      | UserFacingTripResult,
+    body: payload as UserFacingTripResult,
     etag: response.headers.get('etag'),
   }
+}
+
+export async function cancelTripUnderstanding(
+  publicResourceId: string,
+  signal?: AbortSignal,
+  idempotencyKey = operationRequestKey(`cancel:${publicResourceId}`),
+): Promise<{
+  body: TripUnderstandingCancelView
+  etag: string | null
+  replayed: boolean
+}> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/cancel`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      cache: 'no-store',
+      signal,
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+        ...authorizationHeaders(),
+      },
+    },
+  )
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 404) throw new Error('TRIP_NOT_AVAILABLE')
+    if (response.status === 410) throw new Error('TRIP_GONE')
+    if (response.status === 409) throw new Error('CANCEL_CONFLICT')
+    throw new Error('CANCEL_UNAVAILABLE')
+  }
+  const result = {
+    body: (await response.json()) as TripUnderstandingCancelView,
+    etag: response.headers.get('etag'),
+    replayed: response.headers.get('Idempotency-Replayed') === 'true',
+  }
+  rotateOperationRequestKey(`cancel:${publicResourceId}`)
+  return result
 }
 
 export async function applyTripUnderstandingCommand(
@@ -521,12 +635,14 @@ export async function applyTripUnderstandingCommand(
   etag: string,
   command: TripUnderstandingCommand,
   idempotencyKey = requestKey(),
+  signal?: AbortSignal,
 ): Promise<{ body: CommandAppliedView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/commands`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Content-Type': 'application/json',
         'Idempotency-Key': idempotencyKey,
@@ -654,12 +770,14 @@ export async function requestTripUnderstandingMap(
   publicResourceId: string,
   etag: string,
   idempotencyKey = requestKey(),
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Idempotency-Key': idempotencyKey,
         'If-Match': etag,
@@ -668,7 +786,14 @@ export async function requestTripUnderstandingMap(
     },
   )
   if (!response.ok) {
-    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 409) {
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'REQUEST_IN_PROGRESS')
+        throw new Error('OPERATION_PENDING')
+      throw new Error('REVISION_CONFLICT')
+    }
     throw new Error('MAP_RENDER_FAILED')
   }
 }
@@ -694,15 +819,18 @@ export async function selectTripUnderstandingStay(
   publicResourceId: string,
   candidateToken: string,
   etag: string,
+  idempotencyKey = requestKey(),
+  signal?: AbortSignal,
 ): Promise<{ selected_stay: string; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/stay-selection`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': requestKey(),
+        'Idempotency-Key': idempotencyKey,
         'If-Match': etag,
         ...authorizationHeaders(),
       },
@@ -710,7 +838,14 @@ export async function selectTripUnderstandingStay(
     },
   )
   if (!response.ok) {
-    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 409) {
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'REQUEST_IN_PROGRESS')
+        throw new Error('OPERATION_PENDING')
+      throw new Error('REVISION_CONFLICT')
+    }
     throw new Error('STAY_SELECTION_FAILED')
   }
   const nextEtag = response.headers.get('etag')
@@ -799,15 +934,18 @@ export async function adoptTripUnderstandingChange(
   publicResourceId: string,
   changeToken: string,
   etag: string,
+  idempotencyKey = operationRequestKey(`change-adopt:${changeToken}`),
+  signal?: AbortSignal,
 ): Promise<{ body: PublicChangeAdopted; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/changes/adopt`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': operationRequestKey(`change-adopt:${changeToken}`),
+        'Idempotency-Key': idempotencyKey,
         'If-Match': etag,
         ...authorizationHeaders(),
       },
@@ -835,20 +973,31 @@ export async function adoptTripUnderstandingChange(
 
 export async function claimTripUnderstanding(
   publicResourceId: string,
+  idempotencyKey = operationRequestKey(`claim:${publicResourceId}`),
+  signal?: AbortSignal,
 ): Promise<{ body: ClaimedTripView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/claim`,
     {
       method: 'POST',
       credentials: 'include',
+      signal,
       headers: {
-        'Idempotency-Key': operationRequestKey(`claim:${publicResourceId}`),
+        'Idempotency-Key': idempotencyKey,
         ...authorizationHeaders(),
       },
     },
   )
   if (!response.ok) {
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 409) {
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'REQUEST_IN_PROGRESS')
+        throw new Error('OPERATION_PENDING')
+      throw new Error('CLAIM_FAILED')
+    }
     if (response.status === 410) {
       clearTripUnderstandingInputDraft(publicResourceId)
       throw new Error('TRIP_ALREADY_GONE')
@@ -862,12 +1011,14 @@ export async function claimTripUnderstanding(
 
 export async function deleteTripUnderstandingSource(
   publicResourceId: string,
+  signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/source`,
     {
       method: 'DELETE',
       credentials: 'include',
+      signal,
       headers: {
         'Idempotency-Key': operationRequestKey(
           `delete-source:${publicResourceId}`,
@@ -1082,23 +1233,24 @@ export interface TripUnderstandingPublicEvent {
   id: number
   type: 'progress' | 'result_available'
   message: string
+  status: 'PROCESSING' | 'READY' | 'PARTIAL' | 'CANCELLED' | 'FAILED'
+  phase: 'RECEIVED' | 'CARDS_AVAILABLE' | 'CHECKING_PLACES' | null
+  progress: TripUnderstandingProgressMetrics
+  snapshot: UserFacingTripResult | null
 }
 
 export async function streamTripUnderstandingEvents(
   publicResourceId: string,
   onEvent: (event: TripUnderstandingPublicEvent) => void,
   signal: AbortSignal,
+  lastEventId = 0,
 ): Promise<void> {
-  const cursor =
-    typeof window === 'undefined'
-      ? null
-      : sessionStorage.getItem('bt_active_trip_event_cursor')
   const response = await fetch(tripUnderstandingEventsUrl(publicResourceId), {
     credentials: 'include',
     cache: 'no-store',
     headers: {
       Accept: 'text/event-stream',
-      ...(cursor ? { 'Last-Event-ID': cursor } : {}),
+      ...(lastEventId > 0 ? { 'Last-Event-ID': String(lastEventId) } : {}),
       ...authorizationHeaders(),
     },
     signal,
@@ -1108,41 +1260,67 @@ export async function streamTripUnderstandingEvents(
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
-  while (!signal.aborted) {
-    const { done, value } = await reader.read()
-    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, '\n')
-    let boundary = buffer.indexOf('\n\n')
-    while (boundary >= 0) {
-      const block = buffer.slice(0, boundary)
-      buffer = buffer.slice(boundary + 2)
-      const fields = Object.fromEntries(
-        block
-          .split('\n')
-          .filter((line) => line.includes(':') && !line.startsWith(':'))
-          .map((line) => {
-            const separator = line.indexOf(':')
-            return [
-              line.slice(0, separator),
-              line.slice(separator + 1).trimStart(),
-            ]
-          }),
-      )
-      if (fields.id && fields.event && fields.data) {
-        const id = Number(fields.id)
-        const payload = JSON.parse(fields.data) as { message?: string }
-        if (
-          Number.isSafeInteger(id) &&
-          id > 0 &&
-          (fields.event === 'progress' ||
-            fields.event === 'result_available') &&
-          typeof payload.message === 'string'
-        ) {
-          sessionStorage.setItem('bt_active_trip_event_cursor', String(id))
-          onEvent({ id, type: fields.event, message: payload.message })
-        }
-      }
-      boundary = buffer.indexOf('\n\n')
+  const dispatch = (block: string) => {
+    let idValue = ''
+    let eventValue = ''
+    const data: string[] = []
+    for (const line of block.split('\n')) {
+      if (!line || line.startsWith(':')) continue
+      const separator = line.indexOf(':')
+      const field = separator < 0 ? line : line.slice(0, separator)
+      const value =
+        separator < 0 ? '' : line.slice(separator + 1).trimStart()
+      if (field === 'id') idValue = value
+      if (field === 'event') eventValue = value
+      if (field === 'data') data.push(value)
     }
-    if (done) return
+    if (!idValue || !eventValue || !data.length) return
+    const id = Number(idValue)
+    let payload: Partial<Omit<TripUnderstandingPublicEvent, 'id' | 'type'>>
+    try {
+      payload = JSON.parse(data.join('\n')) as typeof payload
+    } catch {
+      return
+    }
+    if (
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      (eventValue !== 'progress' && eventValue !== 'result_available') ||
+      typeof payload.message !== 'string' ||
+      !payload.status
+    )
+      return
+    onEvent({
+      id,
+      type: eventValue,
+      message: payload.message,
+      status: payload.status,
+      phase: payload.phase || null,
+      progress: payload.progress || {
+        day_count: 0,
+        card_count: 0,
+        places_checked: 0,
+        places_total: 0,
+      },
+      snapshot: payload.snapshot || null,
+    })
+  }
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      buffer += decoder
+        .decode(value, { stream: !done })
+        .replace(/\r\n/g, '\n')
+      if (done && buffer && !buffer.endsWith('\n\n')) buffer += '\n\n'
+      let boundary = buffer.indexOf('\n\n')
+      while (boundary >= 0) {
+        dispatch(buffer.slice(0, boundary))
+        buffer = buffer.slice(boundary + 2)
+        boundary = buffer.indexOf('\n\n')
+      }
+      if (done) return
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined)
   }
 }

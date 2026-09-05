@@ -149,7 +149,7 @@ class Settings(BaseSettings):
     auto_migrate: bool = False
     require_schema_check: bool = True
     checkpoint_bootstrap_on_start: bool = True
-    required_migration: str = "034_trip_understanding_screenshot_batches.sql"
+    required_migration: str = "035_trip_understanding_cancelled.sql"
 
     # Trip Understanding v3 anonymous-demo boundary.  The signing key falls
     # back to the existing JWT secret so local fixture stacks need no new

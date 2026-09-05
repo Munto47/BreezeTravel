@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { clearBrowserAuth } from '@/lib/request-safety'
 
 interface AuthUser {
   userId: string
@@ -27,12 +28,20 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     const raw = localStorage.getItem('authUser')
     if (token && raw) {
       try {
-        const user = JSON.parse(raw) as AuthUser
-        set({ user, token, isHydrated: true })
-        return
+        const user = JSON.parse(raw) as Partial<AuthUser>
+        if (
+          typeof user.userId === 'string' &&
+          user.userId.length > 0 &&
+          typeof user.nickname === 'string' &&
+          user.nickname.length > 0
+        ) {
+          set({ user: user as AuthUser, token, isHydrated: true })
+          return
+        }
       } catch {}
     }
-    set({ isHydrated: true })
+    clearBrowserAuth()
+    set({ user: null, token: null, isHydrated: true })
   },
 
   login: (token, user) => {
@@ -45,12 +54,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('authUser')
-    localStorage.removeItem('userId')
-    localStorage.removeItem('nickname')
+    clearBrowserAuth()
     set({ token: null, user: null })
-    window.location.href = '/login'
+    window.location.assign('/login')
   },
 
   updateUser: (partial) => {

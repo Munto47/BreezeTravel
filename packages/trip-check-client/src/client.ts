@@ -16,6 +16,7 @@ import type {
   StaySelectionAppliedView,
   StaySuggestionView,
   TripUnderstandingAcceptedView,
+  TripUnderstandingCancelView,
   TripUnderstandingProgressView,
   TripUnderstandingCommand,
   UserFacingTripResult,
@@ -101,6 +102,20 @@ export class TripCheckClient {
     ).data
   }
 
+  async createTripUnderstandingFromCollaboration(
+    roomId: string,
+    idempotencyKey: string,
+  ): Promise<TripUnderstandingAcceptedView> {
+    return (
+      await this.json<TripUnderstandingAcceptedView>(
+        'POST',
+        '/api/v3/trip-understandings/from-collaboration',
+        { room_id: roomId },
+        { idempotencyKey },
+      )
+    ).data
+  }
+
   async getTripUnderstandingResult(
     publicResourceId: string,
   ): Promise<
@@ -109,6 +124,18 @@ export class TripCheckClient {
     return this.json<TripUnderstandingProgressView | UserFacingTripResult>(
       'GET',
       `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
+    )
+  }
+
+  async cancelTripUnderstanding(
+    publicResourceId: string,
+    idempotencyKey: string,
+  ): Promise<TransportResponse<TripUnderstandingCancelView>> {
+    return this.json<TripUnderstandingCancelView>(
+      'POST',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/cancel`,
+      undefined,
+      { idempotencyKey },
     )
   }
 

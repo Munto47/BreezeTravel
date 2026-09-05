@@ -437,15 +437,49 @@ class ConfirmationSourceSpan(StrictModel):
         return self
 
 
+class TripUnderstandingProgressMetrics(StrictModel):
+    day_count: int = Field(default=0, ge=0, le=14)
+    card_count: int = Field(default=0, ge=0)
+    places_checked: int = Field(default=0, ge=0)
+    places_total: int = Field(default=0, ge=0)
+
+
 class TripUnderstandingProgressView(StrictModel):
     status: Literal["PROCESSING"] = "PROCESSING"
     message: str
     retry_after_ms: int = Field(default=500, ge=100, le=5000)
+    phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] = "RECEIVED"
+    event_cursor: int = Field(default=0, ge=0)
+    progress: TripUnderstandingProgressMetrics = Field(
+        default_factory=TripUnderstandingProgressMetrics
+    )
+    snapshot: UserFacingTripResult | None = None
+
+
+class PipelineProgressUpdate(StrictModel):
+    phase: Literal["CARDS_AVAILABLE", "CHECKING_PLACES"]
+    message: Literal["日期和卡片已整理", "正在核对地点"]
+    progress: TripUnderstandingProgressMetrics
+    snapshot: UserFacingTripResult
+    internal_binding: dict[str, object] = Field(default_factory=dict)
 
 
 class PublicEventPayload(StrictModel):
-    status: Literal["PROCESSING", "READY", "FAILED"]
-    message: Literal["正在整理每天行程", "正在核对地点", "卡片已可用", "这次没有整理完成，可以重新尝试"]
+    status: Literal["PROCESSING", "READY", "PARTIAL", "CANCELLED", "FAILED"]
+    message: Literal[
+        "正在整理每天行程",
+        "日期和卡片已整理",
+        "正在核对地点",
+        "卡片已可用",
+        "已停止整理，保留当前卡片",
+        "已停止整理，没有可保留的卡片",
+        "这次没有整理完成，可以重新尝试",
+    ]
+    phase: Literal["RECEIVED", "CARDS_AVAILABLE", "CHECKING_PLACES"] | None = None
+    progress: TripUnderstandingProgressMetrics = Field(
+        default_factory=TripUnderstandingProgressMetrics
+    )
+    snapshot: UserFacingTripResult | None = None
 
 
 class PublicEventRecord(StrictModel):
@@ -457,7 +491,7 @@ class PublicEventRecord(StrictModel):
 class PublicResourceRecord(StrictModel):
     understanding_id: str
     public_resource_id: str
-    state: Literal["PROCESSING", "READY", "PARTIAL", "FAILED", "DELETED"]
+    state: Literal["PROCESSING", "READY", "PARTIAL", "CANCELLED", "FAILED", "DELETED"]
     current_result_id: str | None = None
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
@@ -466,6 +500,18 @@ class PublicResourceRecord(StrictModel):
 class StoredResult(StrictModel):
     result: UserFacingTripResult
     opaque_etag: str
+
+
+class TripUnderstandingCancelView(StrictModel):
+    status: Literal["STOPPED_WITH_DRAFT", "STOPPED_EMPTY", "ALREADY_FINISHED"]
+    message: str
+    has_editable_result: bool
+
+
+class TripUnderstandingCancelOutcome(StrictModel):
+    cancelled: TripUnderstandingCancelView
+    opaque_etag: str | None = None
+    replayed: bool = False
 
 
 class CreateOutcome(StrictModel):
@@ -633,6 +679,7 @@ class TripUnderstandingSourcePayload(StrictModel):
     text: str
     requires_confirmation_spans: tuple[ConfirmationSourceSpan, ...] = ()
     partial_source: bool = False
+    internal_binding: dict[str, object] = Field(default_factory=dict)
 
 
 class PipelineOutput(StrictModel):

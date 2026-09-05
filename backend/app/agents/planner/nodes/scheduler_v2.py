@@ -22,7 +22,6 @@ from typing import Optional
 import aiohttp
 
 from app.agents.nodes.optimizer import (
-    _estimate_driving,
     _fetch_weather,
     _haversine_km,
     _time_str_to_mins,
@@ -769,9 +768,11 @@ def _attach_hotel(slots: list[Slot], hotel: Optional[Place], day_index: int) -> 
     if last_place is None or hotel is None:
         return slots
 
-    dur_mins, dist_km = _estimate_driving(last_place, hotel)
     last_end = _time_str_to_mins(slots[-1]["end_time"]) if slots else 21 * 60
-    hotel_start = max(last_end + dur_mins, 21 * 60)
+    # The current collaboration planner has no authoritative hotel leg here.
+    # Keep the selected stay in the plan without turning straight-line
+    # heuristics into a displayed driving duration or precise arrival claim.
+    hotel_start = max(last_end, 21 * 60)
 
     slots.append({
         "slot_index": len(slots),

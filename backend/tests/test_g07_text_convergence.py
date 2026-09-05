@@ -23,6 +23,7 @@ from evals.g07_text_convergence_v1.runner import (
     FROZEN_SCHEMA_SHA256,
     SCHEMA_PATH,
     _empty_observation,
+    _has_duration_field,
     _run_pipeline_case,
     _score_case,
     load_cases,
@@ -68,6 +69,12 @@ def test_public_dataset_is_frozen_strict_and_non_blind() -> None:
     assert "agent_gate_v1" not in serialized_cases
     assert hashlib.sha256(CASES_PATH.read_bytes()).hexdigest() == FROZEN_DATASET_SHA256
     assert hashlib.sha256(SCHEMA_PATH.read_bytes()).hexdigest() == FROZEN_SCHEMA_SHA256
+
+
+def test_duration_guard_ignores_only_null_schema_slots() -> None:
+    assert _has_duration_field({"visit_duration_minutes": None}) is False
+    assert _has_duration_field({"visit_duration_minutes": 120}) is True
+    assert _has_duration_field({"nested": [{"suggested_duration": "2 小时"}]}) is True
 
 
 def test_runner_reaches_text_r1_without_claiming_overall_delivery() -> None:

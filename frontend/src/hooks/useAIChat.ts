@@ -3,11 +3,67 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 
-import type { ChatMessage, ThinkingStep, Citation } from '@/types/chat'
+import type { ChatMessage, CollaborationProgressPhase } from '@/types/chat'
 import type { Place } from '@/types/place'
-import { parsePlaceFromAPI } from '@/types/place'
+import { fetchWithDeadline, recoverExpiredLogin } from '@/lib/request-safety'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+const PUBLIC_PHASES = new Set<CollaborationProgressPhase>([
+  'UNDERSTANDING',
+  'FINDING_PLACES',
+  'ORGANIZING',
+])
+const PUBLIC_CATEGORIES = new Set<Place['category']>([
+  'attraction',
+  'food',
+  'hotel',
+  'transport',
+])
+
+function parsePublicPlace(raw: unknown): Place | null {
+  if (!raw || typeof raw !== 'object') return null
+  const value = raw as Record<string, unknown>
+  const coords = value.coords as Record<string, unknown> | undefined
+  const placeId = typeof value.place_id === 'string' ? value.place_id : ''
+  const name = typeof value.name === 'string' ? value.name.trim() : ''
+  const category = value.category as Place['category']
+  const lng = Number(coords?.lng)
+  const lat = Number(coords?.lat)
+  if (
+    !placeId.startsWith('place_')
+    || !name
+    || !PUBLIC_CATEGORIES.has(category)
+    || !Number.isFinite(lng)
+    || !Number.isFinite(lat)
+    || Math.abs(lng) > 180
+    || Math.abs(lat) > 90
+  ) return null
+  return {
+    placeId,
+    name,
+    category,
+    address: typeof value.address === 'string' ? value.address : '',
+    coords: { lng, lat },
+    city: typeof value.city === 'string' ? value.city : '',
+    district: typeof value.district === 'string' ? value.district : undefined,
+    source: 'synthesized',
+    amapRating: typeof value.rating === 'number' ? value.rating : undefined,
+    amapPrice: typeof value.average_price === 'number' ? value.average_price : undefined,
+    openingHours: typeof value.opening_hours === 'string' ? value.opening_hours : undefined,
+    phone: typeof value.phone === 'string' ? value.phone : undefined,
+    amapPhotos: [],
+    description: typeof value.description === 'string' ? value.description : undefined,
+    tags: Array.isArray(value.tags) ? value.tags.filter((item): item is string => typeof item === 'string').slice(0, 8) : [],
+    constraintEvidence: [],
+    geoEvidence: [],
+    confirmationActions: Array.isArray(value.confirmation_actions)
+      ? value.confirmation_actions.filter((item): item is string => typeof item === 'string').slice(0, 5)
+      : [],
+    estimatedDuration: typeof value.suggested_visit_minutes === 'number'
+      ? value.suggested_visit_minutes
+      : undefined,
+  }
+}
 
 interface UseAIChatReturn {
   messages: ChatMessage[]
@@ -26,6 +82,8 @@ export function useAIChat(
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => abortRef.current?.abort(), [])
 
   useEffect(() => {
     if (!persistedMessages.length) return
@@ -67,17 +125,22 @@ export function useAIChat(
       content: '',
       createdAt: new Date().toISOString(),
       status: 'streaming',
-      thinkingSteps: [],
+      progressPhase: 'UNDERSTANDING',
       placesGenerated: [],
     }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setIsStreaming(true)
 
-    abortRef.current = new AbortController()
+    const requestController = new AbortController()
+    abortRef.current = requestController
+    const overallTimer = window.setTimeout(
+      () => requestController.abort(new Error('REQUEST_TIMEOUT')),
+      45000,
+    )
 
     try {
-      const response = await fetch(`${API_BASE}/api/chat`, {
+      const response = await fetchWithDeadline(`${API_BASE}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -92,14 +155,18 @@ export function useAIChat(
           message: text,
           selected_place_ids: selectedPlaceIds,
           trip_city: tripCity || null,
+          use_long_term_memory: false,
         }),
-        signal: abortRef.current.signal,
+        signal: requestController.signal,
       })
 
       // 非 2xx 响应处理
+      if (response.status === 401) {
+        recoverExpiredLogin()
+        throw new Error('AUTH_REQUIRED')
+      }
       if (!response.ok) {
-        const errText = await response.text().catch(() => '未知错误')
-        throw new Error(`服务器错误 ${response.status}: ${errText.slice(0, 200)}`)
+        throw new Error(response.status === 403 ? 'ACCESS_DENIED' : 'SERVICE_UNAVAILABLE')
       }
 
       if (!response.body) throw new Error('无响应体')
@@ -107,6 +174,7 @@ export function useAIChat(
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let terminalReceived = false
 
       while (true) {
         const { done, value } = await reader.read()
@@ -121,25 +189,24 @@ export function useAIChat(
           try {
             const payload = JSON.parse(frame.slice(6))
             const { event, data } = payload
+            if (event === 'error' || (event === 'done' && (data?.status === 'READY' || data?.status === 'LIMITED'))) {
+              terminalReceived = true
+            }
 
             setMessages((prev) => {
               const last = prev[prev.length - 1]
               if (!last || last.role !== 'assistant') return prev
 
-              if (event === 'thinking') {
-                const step: ThinkingStep = {
-                  node: data.node,
-                  summary: data.summary,
-                  durationMs: data.ms || 0,
-                }
+              if (event === 'progress' && PUBLIC_PHASES.has(data.phase)) {
                 return [
                   ...prev.slice(0, -1),
-                  { ...last, thinkingSteps: [...(last.thinkingSteps || []), step] },
+                  { ...last, progressPhase: data.phase as CollaborationProgressPhase },
                 ]
               }
 
               if (event === 'place') {
-                const place = parsePlaceFromAPI(data.place)
+                const place = parsePublicPlace(data.place)
+                if (!place) return prev
                 const existing = last.placesGenerated || []
                 // 已有同 id 卡片则跳过追加（P1-12 真流式：预览 + synthesizer 二段去重）
                 if (existing.some((p) => p.placeId === place.placeId)) return prev
@@ -150,53 +217,17 @@ export function useAIChat(
               }
 
               if (event === 'place_update') {
-                // Synthesizer 增强字段增量合并：描述、标签、证据、时长
                 const pid: string = data.place_id
                 const fields = (data.fields || {}) as Record<string, unknown>
                 const merged = (last.placesGenerated || []).map((p) => {
                   if (p.placeId !== pid) return p
                   const patched: Partial<Place> = {}
                   if (typeof fields.description === 'string') patched.description = fields.description
-                  if (Array.isArray(fields.tags)) patched.tags = fields.tags as string[]
-                  if (Array.isArray(fields.constraint_evidence)) {
-                    patched.constraintEvidence = parsePlaceFromAPI({
-                      place_id: p.placeId,
-                      name: p.name,
-                      category: p.category,
-                      address: p.address,
-                      coords: p.coords,
-                      city: p.city,
-                      source: p.source,
-                      constraint_evidence: fields.constraint_evidence,
-                    }).constraintEvidence
-                  }
-                  if (typeof fields.selection_evidence_status === 'string') {
-                    patched.selectionEvidenceStatus = fields.selection_evidence_status as Place['selectionEvidenceStatus']
-                  }
-                  if (Array.isArray(fields.geo_evidence)) {
-                    patched.geoEvidence = parsePlaceFromAPI({
-                      place_id: p.placeId,
-                      name: p.name,
-                      category: p.category,
-                      address: p.address,
-                      coords: p.coords,
-                      city: p.city,
-                      source: p.source,
-                      geo_evidence: fields.geo_evidence,
-                    }).geoEvidence
-                  }
                   if (Array.isArray(fields.confirmation_actions)) {
-                    patched.confirmationActions = fields.confirmation_actions as string[]
+                    patched.confirmationActions = fields.confirmation_actions.filter((item): item is string => typeof item === 'string').slice(0, 5)
                   }
-                  if (fields.rag_meta && typeof fields.rag_meta === 'object') {
-                    const rm = fields.rag_meta as Record<string, unknown>
-                    patched.ragMeta = {
-                      tipSnippets: (rm.tip_snippets as string[]) || [],
-                      sentimentScore: (rm.sentiment_score as number) || 0,
-                      sourceNoteIds: (rm.source_note_ids as string[]) || [],
-                    }
-                  }
-                  if (typeof fields.estimated_duration === 'number') patched.estimatedDuration = fields.estimated_duration
+                  if (Array.isArray(fields.tags)) patched.tags = fields.tags.filter((item): item is string => typeof item === 'string').slice(0, 8)
+                  if (typeof fields.suggested_visit_minutes === 'number') patched.estimatedDuration = fields.suggested_visit_minutes
                   return { ...p, ...patched }
                 })
                 return [
@@ -221,25 +252,6 @@ export function useAIChat(
                 ]
               }
 
-              if (event === 'citations') {
-                const citations: Citation[] = (data.citations || []).map((item: Record<string, unknown>) => ({
-                  sourceId: String(item.source_id),
-                  title: String(item.title),
-                  url: typeof item.url === 'string' ? item.url : undefined,
-                  excerpt: String(item.excerpt || ''),
-                  score: Number(item.score || 0),
-                  retrievalSources: Array.isArray(item.retrieval_sources) ? item.retrieval_sources as string[] : [],
-                  publishedAt: typeof item.published_at === 'string' ? item.published_at : undefined,
-                  retrievedAt: typeof item.retrieved_at === 'string' ? item.retrieved_at : undefined,
-                  license: typeof item.license === 'string' ? item.license : undefined,
-                  revision: typeof item.revision === 'string' ? item.revision : undefined,
-                  attribution: typeof item.attribution === 'string' ? item.attribution : undefined,
-                  corpusKind: String(item.corpus_kind || 'synthetic'),
-                }))
-                const known = new Set((last.citations || []).map((citation) => citation.sourceId))
-                return [...prev.slice(0, -1), { ...last, citations: [...(last.citations || []), ...citations.filter((citation) => !known.has(citation.sourceId))] }]
-              }
-
               if (event === 'text_reset') {
                 // Critic 触发重检索时 synthesizer 会再跑一次，清空前一轮文本避免段落重复
                 return [
@@ -248,17 +260,17 @@ export function useAIChat(
                 ]
               }
 
-              if (event === 'done') {
+              if (event === 'done' && (data.status === 'READY' || data.status === 'LIMITED')) {
                 return [
                   ...prev.slice(0, -1),
-                  { ...last, status: 'done', traceId: data.trace_id },
+                  { ...last, status: 'done', resultStatus: data.status },
                 ]
               }
 
               if (event === 'error') {
                 return [
                   ...prev.slice(0, -1),
-                  { ...last, status: 'error', content: `错误：${data.message}` },
+                  { ...last, status: 'error', content: '暂时无法完成，请稍后重试。' },
                 ]
               }
 
@@ -270,22 +282,31 @@ export function useAIChat(
         }
       }
 
-      // 流结束后确保状态为 done
-      setMessages((prev) => {
-        const last = prev[prev.length - 1]
-        if (!last || last.role !== 'assistant' || last.status === 'done' || last.status === 'error') return prev
-        return [...prev.slice(0, -1), { ...last, status: 'done' as const }]
-      })
+      if (!terminalReceived) {
+        setMessages((prev) => {
+          const last = prev[prev.length - 1]
+          if (!last || last.role !== 'assistant' || last.status !== 'streaming') return prev
+          return [...prev.slice(0, -1), { ...last, status: 'error' as const, content: '连接中断，请重试。' }]
+        })
+      }
 
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return
-      const errMsg = (err as Error).message || '请求失败，请重试'
+      const aborted = requestController.signal.aborted
+      const code = aborted ? 'REQUEST_TIMEOUT' : (err as Error).message
+      const errMsg = code === 'AUTH_REQUIRED'
+        ? '登录状态已失效，请重新登录。'
+        : code === 'ACCESS_DENIED'
+          ? '你无权访问这个协同房间。'
+          : code === 'REQUEST_TIMEOUT'
+            ? '这次整理等待时间较长，已安全停止；可以稍后重试。'
+            : '服务暂时不可用，请稍后重试。'
       setMessages((prev) => {
         const last = prev[prev.length - 1]
         if (!last || last.role !== 'assistant') return prev
         return [...prev.slice(0, -1), { ...last, status: 'error', content: errMsg }]
       })
     } finally {
+      window.clearTimeout(overallTimer)
       setIsStreaming(false)
       abortRef.current = null
     }

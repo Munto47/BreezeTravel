@@ -74,7 +74,7 @@ export default function ChangePreviewPanel({
     },
   ] as const
   return (
-    <div className="e-change-preview">
+    <div className="e-change-preview" data-testid="change-preview">
       <p className="e-preview-state" role="status">
         {stale
           ? '预览已失效 · 行程或路线依据已有变化'
@@ -172,6 +172,7 @@ export default function ChangePreviewPanel({
           <button
             type="button"
             className="e-button e-button-primary"
+            data-testid="adopt-change"
             disabled={busy || loading}
             onClick={onAdopt}
           >

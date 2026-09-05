@@ -14,7 +14,6 @@ export const config = {
     '/history/:path*',
     '/import/:path*',
     '/intake/:path*',
-    '/room/:path*',
     '/templates/:path*',
     '/workspace/:path*',
   ],

@@ -1,16 +1,19 @@
 .experience {
-  --paper: #f7f8f5;
+  --paper: #fafcfd;
   --surface: #fff;
-  --ink: #202a27;
-  --muted: #5f6b66;
-  --line: #dce3de;
-  --accent: #2f6558;
-  --tint: #eaf1ec;
+  --ink: #16313d;
+  --muted: #5d7480;
+  --line: #d6e7ed;
+  --accent: #0c789d;
+  --tint: #e8f7fb;
   --danger: #a63632;
   --amber: #846023;
   min-height: 100dvh;
   color: var(--ink);
-  background: var(--paper);
+  background:
+    radial-gradient(circle at 12% 2%, rgb(255 255 255 / 88%), transparent 28rem),
+    linear-gradient(145deg, #def5ff 0%, #e8f0ff 36%, #fafcfd 74%);
+  background-attachment: fixed;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Microsoft YaHei', sans-serif;
@@ -72,7 +75,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  background: var(--surface);
+  background: rgb(255 255 255 / 86%);
+  backdrop-filter: blur(18px);
 }
 .experience .e-brand {
   display: flex;
@@ -100,7 +104,7 @@
   min-height: 44px;
   padding: 9px 15px;
   border: 1px solid var(--line);
-  border-radius: 5px;
+  border-radius: 12px;
   background: var(--surface);
   display: inline-flex;
   align-items: center;
@@ -120,8 +124,8 @@
   color: #fff;
 }
 .experience .e-button-primary:hover:not(:disabled) {
-  background: #265347;
-  border-color: #265347;
+  background: #096582;
+  border-color: #096582;
 }
 .experience .e-button-quiet {
   background: transparent;
@@ -155,6 +159,127 @@
   max-width: 1120px;
   margin: auto;
   padding: 48px 24px;
+}
+.experience .e-collaborate-shell {
+  width: min(100%, 1080px);
+  margin: auto;
+  padding: 56px 24px 96px;
+}
+.experience .e-collaborate-intro {
+  max-width: 720px;
+  margin-bottom: 28px;
+}
+.experience .e-collaborate-intro h1 {
+  margin: 5px 0 10px;
+  font-size: clamp(30px, 5vw, 48px);
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+}
+.experience .e-collaborate-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 22px;
+}
+.experience .e-collaborate-card,
+.experience .e-recent-rooms {
+  border: 1px solid rgb(12 120 157 / 14%);
+  border-radius: 24px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow: 0 18px 48px rgb(49 96 114 / 10%);
+  backdrop-filter: blur(16px);
+}
+.experience .e-collaborate-card {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  padding: 24px;
+}
+.experience .e-collaborate-card > .e-button {
+  width: 100%;
+}
+.experience .e-collaborate-card-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.experience .e-collaborate-card-title > svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--tint);
+  color: var(--accent);
+}
+.experience .e-collaborate-card-title h2,
+.experience .e-recent-rooms h2 {
+  font-size: 20px;
+}
+.experience .e-collaborate-card-title p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.experience .e-recent-rooms {
+  margin-top: 20px;
+  padding: 24px;
+}
+.experience .e-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.experience .e-room-card {
+  min-height: 92px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  text-decoration: none;
+}
+.experience .e-room-card:hover {
+  border-color: rgb(12 120 157 / 45%);
+  box-shadow: 0 10px 24px rgb(49 96 114 / 9%);
+}
+.experience .e-room-card div,
+.experience .e-room-card small {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.experience .e-room-card span,
+.experience .e-room-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.experience .e-room-card small {
+  align-items: flex-end;
+  flex-direction: row;
+  white-space: nowrap;
+}
+.experience .e-room-card small svg {
+  width: 14px;
+  height: 14px;
+}
+.experience .e-collaborate-empty,
+.experience .e-collaborate-loading {
+  color: var(--muted);
+}
+.experience .e-collaborate-empty {
+  margin-top: 18px;
+  padding: 24px;
+  border-radius: 16px;
+  background: rgb(232 247 251 / 70%);
+  text-align: center;
+}
+.experience .e-collaborate-loading {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
 }
 .experience .e-toolbar {
   display: flex;
@@ -425,7 +550,7 @@
 }
 .experience .e-workspace {
   max-width: 1600px;
-  padding: 0 32px;
+  padding: 0 32px 0 104px;
   margin: auto;
   display: grid;
   grid-template-columns: minmax(0, 44fr) minmax(0, 56fr);
@@ -711,7 +836,7 @@
   height: clamp(300px, calc(100dvh - 315px), 670px);
   position: relative;
   width: 100%;
-  background: #eef1ec;
+  background: #edf7fa;
   overflow: hidden;
 }
 .experience .e-map-canvas {
@@ -727,7 +852,7 @@
   justify-content: center;
   align-items: center;
   gap: 14px;
-  background: #eef1ec;
+  background: #edf7fa;
   color: var(--muted);
   text-align: center;
   font-size: 14px;
@@ -775,6 +900,15 @@
   outline: 2px solid white;
   outline-offset: 2px;
 }
+.experience .e-map-simulation-marker {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border: 4px solid white;
+  border-radius: 999px;
+  background: #0c789d;
+  box-shadow: 0 0 0 5px rgb(12 120 157 / 22%), 0 4px 14px rgb(12 120 157 / 35%);
+}
 .experience .e-map-candidate-marker {
   display: inline-flex;
   align-items: center;
@@ -816,6 +950,26 @@
 .experience .e-context-panel {
   min-width: 0;
 }
+@media (min-width: 1024px) {
+  .experience .e-context-panel[aria-modal='true'] {
+    position: fixed;
+    z-index: 100;
+    top: 50%;
+    left: 50%;
+    width: min(32rem, calc(100vw - 3rem));
+    max-height: min(42rem, calc(100dvh - 3rem));
+    overflow-y: auto;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: var(--paper);
+    padding: 24px;
+    box-shadow:
+      0 0 0 100vmax rgb(15 23 42 / 28%),
+      0 30px 80px -30px rgb(15 23 42 / 55%);
+    overscroll-behavior: contain;
+  }
+}
 .experience .e-context-head {
   padding: 0 0 18px;
   border-bottom: 1px solid var(--line);
@@ -823,6 +977,9 @@
 .experience .e-context-head .e-button {
   padding-left: 0;
   margin-bottom: 12px;
+}
+.experience .e-context-panel .e-button {
+  min-height: 48px;
 }
 .experience .e-context-head h2 {
   font-size: 22px;
@@ -956,20 +1113,6 @@
 }
 .experience .e-inline-confirm .e-actions {
   margin-top: 12px;
-}
-.experience .e-source-quote {
-  border-left: 2px solid var(--line);
-  padding-left: 16px;
-  margin: 14px 0;
-  font-size: 14px;
-  white-space: pre-wrap;
-}
-.experience .e-original-text {
-  margin: 22px 0;
-  font: inherit;
-  font-size: 15px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 .experience .e-reference {
   padding: 12px 0;
@@ -1202,7 +1345,7 @@
 }
 @media (min-width: 1024px) and (max-width: 1199px) {
   .experience .e-workspace {
-    padding: 0 24px;
+    padding: 0 24px 0 104px;
     grid-template-columns: minmax(420px, 44fr) minmax(0, 56fr);
     gap: 24px;
   }
@@ -1490,5 +1633,226 @@
 @media (prefers-reduced-motion: reduce) {
   .experience .e-progress:after {
     animation: none;
+  }
+}
+/* Progressive, read-only horizontal itinerary preview. */
+.e-progress-workspace {
+  min-height: calc(100vh - 72px);
+  padding: clamp(24px, 4vw, 56px);
+  color: #16313d;
+  background:
+    radial-gradient(circle at 14% 6%, rgb(255 255 255 / 86%), transparent 26rem),
+    linear-gradient(145deg, #def5ff 0%, #e8f0ff 42%, #fafcfd 82%);
+}
+
+.e-progress-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.e-progress-heading h1 {
+  margin: 4px 0 8px;
+  font-size: clamp(30px, 4vw, 52px);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+}
+
+.e-progress-heading p,
+.e-progress-note {
+  margin: 0;
+  color: #55707d;
+}
+
+.e-progress-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: none;
+}
+
+.e-progress-actions > span {
+  min-width: 56px;
+  color: #0c789d;
+  font: 700 18px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.e-progress-track {
+  overflow: hidden;
+  height: 6px;
+  max-width: 1440px;
+  margin: 24px auto 14px;
+  border-radius: 99px;
+  background: rgb(12 120 157 / 14%);
+}
+
+.e-progress-track > span {
+  display: block;
+  height: 100%;
+  min-width: 12px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #0c789d, #54b9c8);
+  transition: width 300ms ease;
+}
+
+.e-progress-note {
+  max-width: 1440px;
+  margin-inline: auto;
+  font-size: 14px;
+}
+
+.e-progress-days {
+  display: grid;
+  gap: 18px;
+  max-width: 1440px;
+  margin: 28px auto 0;
+}
+
+.e-progress-day {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid rgb(12 120 157 / 13%);
+  border-radius: 24px;
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 18px 50px rgb(61 102 120 / 10%);
+  backdrop-filter: blur(16px);
+}
+
+.e-progress-day > header {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px;
+}
+
+.e-progress-day > header strong {
+  color: #0c789d;
+  font-size: 18px;
+}
+
+.e-progress-day > header span {
+  color: #78909a;
+  font-size: 12px;
+}
+
+.e-progress-chain {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  gap: 0;
+  padding: 2px 8px 10px;
+  scroll-snap-type: x proximity;
+  scrollbar-color: rgb(12 120 157 / 32%) transparent;
+}
+
+.e-progress-card-wrap {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.e-progress-connector {
+  position: relative;
+  width: 68px;
+  color: #6a8791;
+  font-size: 11px;
+  text-align: center;
+}
+
+.e-progress-connector::before {
+  position: absolute;
+  top: -10px;
+  left: 5px;
+  width: 58px;
+  height: 20px;
+  border-top: 2px solid rgb(12 120 157 / 32%);
+  border-radius: 50%;
+  content: '';
+}
+
+.e-progress-card {
+  display: grid;
+  align-content: space-between;
+  width: 204px;
+  min-height: 126px;
+  padding: 16px;
+  border: 1px solid rgb(12 120 157 / 14%);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgb(57 98 114 / 11%);
+  scroll-snap-align: start;
+}
+
+.e-progress-card span,
+.e-progress-card small {
+  color: #6f8791;
+  font-size: 12px;
+}
+
+.e-progress-card strong {
+  margin-block: 10px;
+  font-size: 17px;
+}
+
+.e-progress-card small {
+  width: max-content;
+  padding: 4px 8px;
+  border-radius: 99px;
+  background: #edf6f8;
+  color: #0c789d;
+}
+
+@media (max-width: 720px) {
+  .experience .e-collaborate-shell {
+    padding: 32px 16px 80px;
+  }
+  .experience .e-collaborate-actions,
+  .experience .e-room-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .experience .e-collaborate-card,
+  .experience .e-recent-rooms {
+    padding: 18px;
+    border-radius: 20px;
+  }
+  .e-progress-workspace {
+    padding: 24px 16px 96px;
+  }
+
+  .e-progress-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .e-progress-actions {
+    justify-content: space-between;
+  }
+
+  .e-progress-day {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .e-progress-day > header {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+
+  .e-progress-card {
+    width: min(72vw, 210px);
+  }
+
+  .e-progress-connector {
+    width: 46px;
+  }
+
+  .e-progress-connector::before {
+    width: 38px;
   }
 }

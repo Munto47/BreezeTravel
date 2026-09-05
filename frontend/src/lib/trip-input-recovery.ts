@@ -9,6 +9,39 @@ export type TripInputDraft = {
   expires: number
   resource?: string
   failedResource?: string
+  cancelledResource?: string
+}
+
+// Call only after the server explicitly returns STOPPED_EMPTY. A network
+// timeout must keep both the original create key and resource binding.
+export function releaseCancelledTripInput(
+  reference: string,
+): TripInputDraft | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const draft = JSON.parse(
+      sessionStorage.getItem(TRIP_INPUT_DRAFT_KEY) || 'null',
+    ) as TripInputDraft | null
+    if (
+      !draft ||
+      typeof draft.text !== 'string' ||
+      typeof draft.key !== 'string' ||
+      !Number.isFinite(draft.expires) ||
+      draft.expires <= Date.now() ||
+      draft.resource !== reference
+    )
+      return null
+    const recovered: TripInputDraft = {
+      ...draft,
+      key: createTripRequestKey(),
+      resource: undefined,
+      cancelledResource: reference,
+    }
+    sessionStorage.setItem(TRIP_INPUT_DRAFT_KEY, JSON.stringify(recovered))
+    return recovered
+  } catch {
+    return null
+  }
 }
 
 // Call only after the server explicitly reports UNDERSTANDING_FAILED. An

@@ -235,12 +235,18 @@ export default function HomePage() {
           行程查<span>TRIPCHECK</span>
         </Link>
         <nav className="e-actions" aria-label="全局导航">
+          <Link href="/collaborate" className="e-button e-button-primary">
+            协同规划
+          </Link>
           <Link href="/my-trips" className="e-button e-button-quiet">
             我的行程
           </Link>
           <Link
             href={user ? '/profile' : '/login'}
             className="e-button e-button-quiet"
+            onClick={() => {
+              if (!user) sessionStorage.removeItem('bt_login_return')
+            }}
           >
             {user ? '账号' : '登录'}
           </Link>

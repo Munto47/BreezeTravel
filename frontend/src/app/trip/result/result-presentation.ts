@@ -1,4 +1,5 @@
 import {
+  type ActivityCardView,
   type MapRenderView,
   type PublicTripChecksView,
   type UserFacingTripResult,
@@ -32,24 +33,35 @@ function isPositiveDuration(value: number | null): value is number {
 
 export function transportConnectorFor(
   day: DayView,
-  fromName: string,
-  toName: string,
+  from: ActivityCardView,
+  to: ActivityCardView,
   mapView: MapRenderView,
   locallyPending = false,
 ): TransportConnector {
   if (locallyPending || mapView.status === 'NEEDS_UPDATE') return { status: 'NEEDS_UPDATE' }
-  if (mapView.status !== 'AVAILABLE') return { status: 'PENDING' }
+  if (!['AVAILABLE', 'LIMITED'].includes(mapView.status)) return { status: 'PENDING' }
 
   const matchingDays = mapView.days.filter((candidate) => candidate.label === day.label)
   if (matchingDays.length !== 1) return { status: 'PENDING' }
-  if (day.activities.filter((activity) => activity.name === fromName).length !== 1) return { status: 'PENDING' }
-  if (day.activities.filter((activity) => activity.name === toName).length !== 1) return { status: 'PENDING' }
-
   const routes = matchingDays[0].routes.filter(
-    (route) => route.from_name === fromName && route.to_name === toName,
+    (route) =>
+      route.from_activity_token === from.activity_token &&
+      route.to_activity_token === to.activity_token,
   )
-  if (routes.length !== 1) return { status: 'PENDING' }
-  const route = routes[0]
+  const namesAreUnique = day.activities.filter((card) => card.name === from.name).length === 1
+    && day.activities.filter((card) => card.name === to.name).length === 1
+  const fallbackRoutes = namesAreUnique
+    ? matchingDays[0].routes.filter(
+        (route) =>
+          !route.from_activity_token &&
+          !route.to_activity_token &&
+          route.from_name === from.name &&
+          route.to_name === to.name,
+      )
+    : []
+  const candidates = routes.length ? routes : fallbackRoutes
+  if (candidates.length !== 1) return { status: 'PENDING' }
+  const route = candidates[0]
   const mode = route.selected_mode
   if (mode !== 'walking' && mode !== 'transit') return { status: 'PENDING' }
   const selected = route[mode]

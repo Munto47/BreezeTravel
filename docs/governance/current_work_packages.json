@@ -1,12 +1,12 @@
 {
   "schema_version": "experience-work-packages-v1",
-  "active_goal_id": "TC-LONG-GUIDE-RECOVERY",
+  "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "long-guide-recovery",
+    "id": "r0-integration-acceptance",
     "work_kind": "PRODUCT",
-    "outcome": "真实长攻略保留逐日地点，安全确认身份，失败后可继续整理",
-    "status": "MERGED"
+    "outcome": "双模式文字主链完成固定数据集成验证并交付所有者三份真实文字攻略体验，只返修阻碍使用的 P0/P1",
+    "status": "IN_PROGRESS"
   },
   "packages": [],
-  "next_planned_slice": "激活双模式与横链画布：渐进生成、协同规划及单向转换"
+  "next_planned_slice": "所有者三份文字攻略体验；根据结果只修复 P0/P1，达到后再进入 R1 真实 Provider 验证"
 }

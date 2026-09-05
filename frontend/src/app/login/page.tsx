@@ -17,17 +17,17 @@ function returnPath(consume = true) {
     requested.startsWith('//') ||
     /[\\\u0000-\u001f]/.test(requested)
   )
-    return '/my-trips'
+    return '/'
   try {
     const target = new URL(requested, window.location.origin)
     if (
       target.origin !== window.location.origin ||
       target.pathname === '/login'
     )
-      return '/my-trips'
+      return '/'
     return `${target.pathname}${target.search}${target.hash}`
   } catch {
-    return '/my-trips'
+    return '/'
   }
 }
 
@@ -52,7 +52,13 @@ export default function LoginPage() {
   useEffect(() => {
     hydrate()
     const target = returnPath(false)
-    setBackPath(target === '/my-trips' || target === '/profile' ? '/' : target)
+    setBackPath(
+      target === '/profile' ||
+        target.startsWith('/collaborate') ||
+        target.startsWith('/room/')
+        ? '/'
+        : target,
+    )
   }, [hydrate])
   useEffect(() => {
     if (isHydrated && user) finish()
@@ -126,9 +132,16 @@ export default function LoginPage() {
         <Link
           href={backPath}
           className="e-button e-button-quiet"
-          onClick={() => sessionStorage.removeItem('bt_claim_after_login')}
+          onClick={() => {
+            sessionStorage.removeItem('bt_claim_after_login')
+            sessionStorage.removeItem('bt_login_return')
+          }}
         >
-          {backPath.startsWith('/trip/result') ? '返回行程' : '返回首页'}
+          {backPath.startsWith('/trip/result')
+            ? '返回行程'
+            : backPath.startsWith('/collaborate') || backPath.startsWith('/room/')
+              ? '返回协同规划'
+              : '返回首页'}
         </Link>
       </header>
       <section className="e-auth">

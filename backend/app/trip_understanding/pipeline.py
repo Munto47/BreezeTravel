@@ -5,7 +5,8 @@ import hashlib
 import json
 import re
 import secrets
-from collections.abc import Sequence
+from collections import Counter
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Protocol
 from uuid import uuid4
 from app.trip_understanding.timing import timing_values
@@ -23,12 +24,14 @@ from app.trip_understanding.models import (
     InferenceProposal,
     MapReadinessView,
     PipelineOutput,
+    PipelineProgressUpdate,
     PlaceResolutionOutcome,
     ResolutionStatus,
     ResolvedActivity,
     ResolvedPlace,
     SourceClaimRecord,
     StaySuggestionView,
+    TripUnderstandingProgressMetrics,
     TripDayView,
     UserFacingTripResult,
 )
@@ -921,10 +924,10 @@ class PublicResultProjector:
             ):
                 mention = item.compiled.mention
                 place = item.place
-                source_confirmation_required = (
-                    item.resolver_receipt.get("status")
-                    == "SOURCE_CONFIRMATION_REQUIRED"
-                )
+                source_confirmation_required = item.resolver_receipt.get("status") in {
+                    "SOURCE_CONFIRMATION_REQUIRED",
+                    "COLLABORATION_SOURCE_GUARD",
+                }
                 cards.append(
                     ActivityCardView(
                         activity_token=item.compiled.public_activity_token,
@@ -1196,6 +1199,9 @@ class TripUnderstandingPipeline:
         *,
         requires_confirmation_spans: Sequence[tuple[int, int]] = (),
         partial_source: bool = False,
+        progress_callback: Callable[[PipelineProgressUpdate], Awaitable[None]] | None = None,
+        collaboration_guard_tokens: Sequence[str] | None = None,
+        collaboration_city_guard_token: str | None = None,
     ) -> PipelineOutput:
         confirmation_spans = tuple(requires_confirmation_spans)
         if any(
@@ -1231,6 +1237,19 @@ class TripUnderstandingPipeline:
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()
+        collaboration_guard_activity_ids: set[str] = set()
+        collaboration_guard_active = collaboration_guard_tokens is not None
+        guard_token_counts = Counter(collaboration_guard_tokens or ())
+        collaboration_city_matches = False
+        if collaboration_guard_active and collaboration_city_guard_token:
+            from app.trip_understanding.collaboration_import import (
+                collaboration_city_guard_token as city_guard_token,
+            )
+
+            collaboration_city_matches = (
+                city_guard_token(proposal.destination_name)
+                == collaboration_city_guard_token
+            )
         guarded_compiled: list[CompiledActivity] = []
         for item in compiled:
             mention = item.mention
@@ -1247,8 +1266,117 @@ class TripUnderstandingPipeline:
             ):
                 cancellation_pending_activity_ids.add(item.activity_id)
                 item = item.model_copy(update={"eligible_for_place_search": False})
+            elif item.eligible_for_place_search and collaboration_guard_active:
+                from app.trip_understanding.collaboration_import import (
+                    collaboration_place_guard_token,
+                )
+
+                mention_token = collaboration_place_guard_token(
+                    day_index=mention.day_index or 1,
+                    sequence_index=mention.sequence_index,
+                    name=mention.atomic_place_name or "",
+                    category=mention.category_hint or "",
+                )
+                if (
+                    not collaboration_city_matches
+                    or guard_token_counts[mention_token] <= 0
+                ):
+                    collaboration_guard_activity_ids.add(item.activity_id)
+                    item = item.model_copy(update={"eligible_for_place_search": False})
+                else:
+                    guard_token_counts[mention_token] -= 1
             guarded_compiled.append(item)
         compiled = guarded_compiled
+        if collaboration_guard_active:
+            compiler_receipt = {
+                **compiler_receipt,
+                "collaboration_source_guard": "HMAC_V1",
+                "collaboration_city_matched": collaboration_city_matches,
+                "collaboration_guarded_activity_count": len(
+                    collaboration_guard_activity_ids
+                ),
+                "collaboration_unconsumed_slot_count": sum(
+                    guard_token_counts.values()
+                ),
+            }
+        eligible_place_count = sum(item.eligible_for_place_search for item in compiled)
+        draft_activities = [
+            ResolvedActivity(
+                compiled=item,
+                resolution_status=(
+                    ResolutionStatus.NEEDS_CONFIRMATION
+                    if item.activity_id in collaboration_guard_activity_ids
+                    else (
+                        ResolutionStatus.UNRESOLVED
+                        if item.eligible_for_place_search
+                        else ResolutionStatus.NOT_ELIGIBLE
+                    )
+                ),
+                resolver_receipt={
+                    "status": (
+                        "COLLABORATION_SOURCE_GUARD"
+                        if item.activity_id in collaboration_guard_activity_ids
+                        else (
+                            "PENDING"
+                            if item.eligible_for_place_search
+                            else "NOT_ELIGIBLE"
+                        )
+                    ),
+                    "external_calls": 0,
+                },
+            )
+            for item in compiled
+        ]
+        draft_snapshot = self.projector.project(
+            proposal.destination_name,
+            proposal.destination_basis,
+            draft_activities,
+        )
+        if proposal.day_labels:
+            draft_days = [
+                day.model_copy(update={"label": proposal.day_labels.get(index, day.label)})
+                for index, day in enumerate(draft_snapshot.days, 1)
+            ]
+            draft_snapshot = draft_snapshot.model_copy(update={"days": draft_days})
+        draft_snapshot = draft_snapshot.model_copy(
+            update={
+                "status": "PARTIAL_RESULT",
+                "available_actions": [],
+                "days": [
+                    day.model_copy(
+                        update={
+                            "activities": [
+                                card.model_copy(update={"available_actions": []})
+                                for card in day.activities
+                            ]
+                        }
+                    )
+                    for day in draft_snapshot.days
+                ],
+            }
+        )
+        progress_metrics = TripUnderstandingProgressMetrics(
+            day_count=len(draft_snapshot.days),
+            card_count=sum(len(day.activities) for day in draft_snapshot.days),
+            places_checked=0,
+            places_total=min(eligible_place_count, self.max_executable_activities),
+        )
+        if progress_callback is not None:
+            await progress_callback(
+                PipelineProgressUpdate(
+                    phase="CARDS_AVAILABLE",
+                    message="日期和卡片已整理",
+                    progress=progress_metrics,
+                    snapshot=draft_snapshot,
+                    internal_binding={
+                        "inference": dict(proposal.binding),
+                        "place_resolution": {
+                            "status": "NOT_STARTED",
+                            "external_calls": 0,
+                        },
+                    },
+                )
+            )
         resolved: list[ResolvedActivity] = []
         attempted_count = 0
         unavailable_count = 0
@@ -1263,6 +1391,9 @@ class TripUnderstandingPipeline:
             tuple[str, asyncio.Task[tuple[PlaceResolutionOutcome, bool]] | None, bool, str]
         ] = []
         for item in compiled:
+            if item.activity_id in collaboration_guard_activity_ids:
+                resolution_slots.append(("COLLABORATION_GUARD", None, False, ""))
+                continue
             if item.activity_id in confirmation_activity_ids:
                 resolution_slots.append(("CONFIRMATION_REQUIRED", None, False, ""))
                 continue
@@ -1305,13 +1436,82 @@ class TripUnderstandingPipeline:
             )
 
         if tasks_by_key:
-            await asyncio.gather(*tasks_by_key.values())
+            milestones = {
+                max(1, (attempted_count + 2) // 3),
+                max(1, (2 * attempted_count + 2) // 3),
+                attempted_count,
+            }
+            emitted_milestones: set[int] = set()
+            try:
+                for completed in asyncio.as_completed(tuple(tasks_by_key.values())):
+                    await completed
+                    checked = sum(
+                        1
+                        for slot_type, task, _is_owner, _key in resolution_slots
+                        if slot_type == "RESOLVE" and task is not None and task.done()
+                    )
+                    reached = {value for value in milestones if value <= checked}
+                    if progress_callback is not None and reached - emitted_milestones:
+                        emitted_milestones.update(reached)
+                        completed_receipts = []
+                        for task in tasks_by_key.values():
+                            if (
+                                not task.done()
+                                or task.cancelled()
+                                or task.exception() is not None
+                            ):
+                                continue
+                            outcome, provider_unavailable = task.result()
+                            completed_receipts.append(
+                                {
+                                    "receipt": dict(outcome.receipt),
+                                    "provider_unavailable": provider_unavailable,
+                                }
+                            )
+                        await progress_callback(
+                            PipelineProgressUpdate(
+                                phase="CHECKING_PLACES",
+                                message="正在核对地点",
+                                progress=progress_metrics.model_copy(
+                                    update={"places_checked": min(checked, attempted_count)}
+                                ),
+                                snapshot=draft_snapshot,
+                                internal_binding={
+                                    "inference": dict(proposal.binding),
+                                    "place_resolution": {
+                                        "status": "IN_PROGRESS",
+                                        "completed_unique_queries": len(
+                                            completed_receipts
+                                        ),
+                                        "receipts": completed_receipts,
+                                    },
+                                },
+                            )
+                        )
+            except BaseException:
+                for task in tasks_by_key.values():
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*tasks_by_key.values(), return_exceptions=True)
+                raise
 
         for item, (slot_type, task, is_owner, resolution_key_sha256) in zip(
             compiled,
             resolution_slots,
             strict=True,
         ):
+            if slot_type == "COLLABORATION_GUARD":
+                resolved.append(
+                    ResolvedActivity(
+                        compiled=item,
+                        resolution_status=ResolutionStatus.NEEDS_CONFIRMATION,
+                        resolver_receipt={
+                            "status": "COLLABORATION_SOURCE_GUARD",
+                            "external_calls": 0,
+                        },
+                    )
+                )
+                continue
             if slot_type == "CONFIRMATION_REQUIRED":
                 resolved.append(
                     ResolvedActivity(

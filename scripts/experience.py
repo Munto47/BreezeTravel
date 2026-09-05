@@ -4,11 +4,13 @@ from __future__ import annotations
 import argparse
 import asyncio
 import ctypes
+from ctypes import wintypes
 import json
 import os
 from pathlib import Path
 import secrets
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -20,7 +22,6 @@ LOCAL = ROOT / ".local-artifacts" / "experience"
 STATE = LOCAL / "state.json"
 ENV_FILE = LOCAL / "experience.env"
 TOOLS = ROOT.parent / "BreezeTravel-G07-Tools"
-API_PORT, WEB_PORT, PG_PORT, REDIS_PORT = 8006, 3106, 55439, 56389
 HIDDEN = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
 
@@ -29,12 +30,61 @@ def read_env(path: Path) -> dict[str, str]:
     return {key: value for key, value in dotenv_values(path).items() if value is not None} if path.exists() else {}
 
 
+def resolve_port(name: str, default: int) -> int:
+    """Resolve a private runtime port from the process or persisted local config."""
+    configured = os.environ.get(name)
+    if configured is None and ENV_FILE.exists():
+        configured = read_env(ENV_FILE).get(name)
+    try:
+        port = int(configured) if configured is not None else default
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer between 1 and 65535") from exc
+    if not 1 <= port <= 65535:
+        raise RuntimeError(f"{name} must be an integer between 1 and 65535")
+    return port
+
+
+API_PORT = resolve_port("EXPERIENCE_API_PORT", 8006)
+WEB_PORT = resolve_port("EXPERIENCE_WEB_PORT", 3106)
+PG_PORT = resolve_port("EXPERIENCE_PG_PORT", 55439)
+REDIS_PORT = resolve_port("EXPERIENCE_REDIS_PORT", 56389)
+YJS_PORT = resolve_port("EXPERIENCE_YJS_PORT", 1234)
+RUNTIME_PORTS = {
+    "EXPERIENCE_API_PORT": API_PORT,
+    "EXPERIENCE_WEB_PORT": WEB_PORT,
+    "EXPERIENCE_PG_PORT": PG_PORT,
+    "EXPERIENCE_REDIS_PORT": REDIS_PORT,
+    "EXPERIENCE_YJS_PORT": YJS_PORT,
+}
+
+
+def validate_runtime_ports() -> None:
+    if len(set(RUNTIME_PORTS.values())) != len(RUNTIME_PORTS):
+        raise RuntimeError("Experience runtime ports must be distinct")
+
+
+validate_runtime_ports()
+
+
 def configure() -> dict[str, str]:
     LOCAL.mkdir(parents=True, exist_ok=True)
+    validate_runtime_binding(load_state())
     if ENV_FILE.exists():
         values = read_env(ENV_FILE)
+        changed = False
         if not values.get("TRIP_UNDERSTANDING_QWEN_MODEL"):
             values["TRIP_UNDERSTANDING_QWEN_MODEL"] = selected_model()
+            changed = True
+        if not values.get("TRIP_UNDERSTANDING_COOKIE_NAME"):
+            values["TRIP_UNDERSTANDING_COOKIE_NAME"] = (
+                f"bt_demo_capability_{WEB_PORT}"
+            )
+            changed = True
+        for name, port in RUNTIME_PORTS.items():
+            if values.get(name) != str(port):
+                values[name] = str(port)
+                changed = True
+        if changed:
             write_env(values)
         return values
     discovered: dict[str, str] = {}
@@ -51,9 +101,11 @@ def configure() -> dict[str, str]:
         "JWT_SECRET_KEY": secrets.token_urlsafe(36),
         "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY": secrets.token_urlsafe(36),
         "TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY": secrets.token_urlsafe(36),
+        "TRIP_UNDERSTANDING_COOKIE_NAME": f"bt_demo_capability_{WEB_PORT}",
         "EXPERIENCE_PG_PASSWORD": secrets.token_urlsafe(24),
         "EXPERIENCE_REDIS_PASSWORD": secrets.token_urlsafe(24),
         "EXPERIENCE_DATABASE": "breezetravel_experience",
+        **{name: str(port) for name, port in RUNTIME_PORTS.items()},
     }
     aliases = {
         "QWEN_API_KEY": ("QWEN_API_KEY", "DASHSCOPE_API_KEY"),
@@ -97,20 +149,56 @@ def environment(values: dict[str, str]) -> dict[str, str]:
         "REDIS_URL": f"redis://:{values['EXPERIENCE_REDIS_PASSWORD']}@127.0.0.1:{REDIS_PORT}/0",
         "PGPASSWORD": values["EXPERIENCE_PG_PASSWORD"],
         "BACKEND_INTERNAL_URL": f"http://127.0.0.1:{API_PORT}",
-        "NEXT_PUBLIC_API_URL": "", "PYTHONUNBUFFERED": "1", "PYTHONUTF8": "1",
+        "NEXT_PUBLIC_API_URL": "", "NEXT_PUBLIC_Y_WEBSOCKET_URL": f"ws://127.0.0.1:{YJS_PORT}",
+        "HOST": "127.0.0.1", "PORT": str(YJS_PORT),
+        "YPERSISTENCE": str(LOCAL / "yjs"),
+        "PYTHONUNBUFFERED": "1", "PYTHONUTF8": "1",
         "LANGCHAIN_TRACING_V2": "false", "LANGSMITH_TRACING": "false",
     })
     env.pop("LANGCHAIN_API_KEY", None)
     return env
 
 
-def binaries() -> tuple[Path, Path, str]:
+def binaries() -> tuple[Path, Path, str, str]:
     pg = Path(os.environ.get("EXPERIENCE_POSTGRES_BIN", TOOLS / "postgres16-pgvector" / "bin"))
     cache = Path(os.environ.get("EXPERIENCE_REDIS_BIN", TOOLS / "memurai-4.1.2-portable" / "Memurai" / "memurai.exe"))
     node = os.environ.get("EXPERIENCE_NODE") or shutil.which("node")
-    if not (pg / "pg_ctl.exe").exists() or not cache.exists() or not node:
-        raise RuntimeError("Set EXPERIENCE_POSTGRES_BIN, EXPERIENCE_REDIS_BIN and EXPERIENCE_NODE, or use compose.experience.yml.")
-    return pg, cache, node
+    npm = os.environ.get("EXPERIENCE_NPM") or shutil.which("npm.cmd") or shutil.which("npm")
+    if not (pg / "pg_ctl.exe").exists() or not cache.exists() or not node or not npm:
+        raise RuntimeError("Set EXPERIENCE_POSTGRES_BIN, EXPERIENCE_REDIS_BIN, EXPERIENCE_NODE and EXPERIENCE_NPM, or use compose.experience.yml.")
+    return pg, cache, resolve_node_executable(node), npm
+
+
+def resolve_node_executable(node: str) -> str:
+    """Resolve shims such as Volta to the long-lived Node executable.
+
+    Windows launchers can exit after spawning ``cmd.exe`` and the actual Node
+    process. Recording the launcher PID would make ownership and restart
+    handling unreliable, so local services are started with ``process.execPath``.
+    """
+    try:
+        result = subprocess.run(
+            [node, "-p", "process.execPath"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=HIDDEN,
+            env=install_environment(os.environ.copy()),
+        )
+        resolved = Path(result.stdout.strip()).resolve()
+    except (OSError, subprocess.SubprocessError) as exc:
+        if os.name == "nt":
+            raise RuntimeError(
+                "Unable to resolve the real Node executable; no local service was started"
+            ) from exc
+        return node
+    if result.returncode == 0 and resolved.is_file():
+        return str(resolved)
+    if os.name == "nt":
+        raise RuntimeError(
+            "Unable to resolve the real Node executable; no local service was started"
+        )
+    return node
 
 
 def load_state() -> dict:
@@ -126,39 +214,106 @@ def process_stamp(pid: int) -> int | None:
     if os.name != "nt":
         path = Path(f"/proc/{pid}/stat")
         return int(path.read_text().split()[21]) if path.exists() else None
+    class FileTime(ctypes.Structure):
+        _fields_ = [
+            ("low", wintypes.DWORD),
+            ("high", wintypes.DWORD),
+        ]
+
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel.OpenProcess.restype = ctypes.c_void_p
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel.GetExitCodeProcess.restype = wintypes.BOOL
+    kernel.GetProcessTimes.argtypes = [
+        wintypes.HANDLE,
+        ctypes.POINTER(FileTime),
+        ctypes.POINTER(FileTime),
+        ctypes.POINTER(FileTime),
+        ctypes.POINTER(FileTime),
+    ]
+    kernel.GetProcessTimes.restype = wintypes.BOOL
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
     handle = kernel.OpenProcess(0x1000, False, pid)
     if not handle:
         return None
-    times = [ctypes.c_ulonglong() for _ in range(4)]
+    exit_code = wintypes.DWORD()
+    times = [FileTime() for _ in range(4)]
     try:
-        ok = kernel.GetProcessTimes(ctypes.c_void_p(handle), *(ctypes.byref(t) for t in times))
-        return times[0].value if ok else None
+        if not kernel.GetExitCodeProcess(handle, ctypes.byref(exit_code)):
+            return None
+        if exit_code.value != 259:  # STILL_ACTIVE
+            return None
+        ok = kernel.GetProcessTimes(handle, *(ctypes.byref(item) for item in times))
+        if not ok:
+            return None
+        return (times[0].high << 32) | times[0].low
     finally:
-        kernel.CloseHandle(ctypes.c_void_p(handle))
+        kernel.CloseHandle(handle)
 
 
 def running(record: dict | None) -> bool:
     return bool(record and process_stamp(record["pid"]) == record["stamp"] and record["stamp"] is not None)
 
 
-def launch(name: str, args: list[str], cwd: Path, env: dict, state: dict) -> None:
+def launch(
+    name: str,
+    args: list[str],
+    cwd: Path,
+    env: dict,
+    state: dict,
+    *,
+    new_process_group: bool = False,
+) -> None:
     if running(state["processes"].get(name)):
         return
     with (LOCAL / f"{name}.log").open("ab") as log:
-        process = subprocess.Popen(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log, creationflags=HIDDEN)
-    state["processes"][name] = {"pid": process.pid, "stamp": process_stamp(process.pid)}
+        creationflags = HIDDEN
+        if os.name == "nt" and new_process_group:
+            creationflags |= subprocess.CREATE_NEW_PROCESS_GROUP
+        process = subprocess.Popen(args, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=log, creationflags=creationflags)
+    state["processes"][name] = {
+        "pid": process.pid,
+        "stamp": process_stamp(process.pid),
+        "process_group": new_process_group,
+    }
     save_state(state)
 
 
 def web_environment(env: dict[str, str]) -> dict[str, str]:
-    allowed = {"path", "systemroot", "windir", "comspec", "pathext", "appdata", "localappdata", "userprofile", "home", "temp", "tmp", "programfiles", "programfiles(x86)", "volta_home", "http_proxy", "https_proxy", "no_proxy", "backend_internal_url", "next_public_api_url", "next_public_amap_key", "next_public_amap_security_code"}
+    allowed = {"path", "systemroot", "windir", "comspec", "pathext", "appdata", "localappdata", "userprofile", "home", "temp", "tmp", "programfiles", "programfiles(x86)", "volta_home", "http_proxy", "https_proxy", "no_proxy", "backend_internal_url", "next_public_api_url", "next_public_y_websocket_url", "next_public_amap_key", "next_public_amap_security_code"}
     return {
         **{key: value for key, value in env.items() if key.lower() in allowed},
         "NEXT_TELEMETRY_DISABLED": "1",
         "EXPERIENCE_WEB_RUNTIME": "1",
     }
+
+
+def install_environment(env: dict[str, str]) -> dict[str, str]:
+    """Keep provider and persistence secrets out of package-manager children."""
+    allowed = {
+        "path", "systemroot", "windir", "comspec", "pathext", "appdata",
+        "localappdata", "userprofile", "home", "temp", "tmp", "programfiles",
+        "programfiles(x86)", "volta_home", "http_proxy", "https_proxy",
+        "all_proxy", "no_proxy", "node_extra_ca_certs", "npm_config_registry",
+        "npm_config_cache",
+    }
+    return {key: value for key, value in env.items() if key.lower() in allowed}
+
+
+def yjs_environment(env: dict[str, str]) -> dict[str, str]:
+    """Yjs only needs its room-token secret and service-specific settings."""
+    allowed = {
+        "path", "systemroot", "windir", "comspec", "pathext", "appdata",
+        "localappdata", "userprofile", "home", "temp", "tmp", "programfiles",
+        "programfiles(x86)", "volta_home", "http_proxy", "https_proxy",
+        "all_proxy", "no_proxy", "node_extra_ca_certs", "node_env",
+        "host", "port", "ypersistence", "jwt_secret_key",
+        "yjs_max_payload_bytes", "yjs_max_connections_per_ip",
+        "yjs_restart_gate_mode", "yjs_e2e_cleanup_secret",
+    }
+    return {key: value for key, value in env.items() if key.lower() in allowed}
 
 
 def command(args: list[str], env: dict, *, cwd: Path = ROOT) -> None:
@@ -174,6 +329,73 @@ def port_ready(port: int) -> bool:
     with socket.socket() as sock:
         sock.settimeout(0.3)
         return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
+def postgres_paths(state: dict) -> tuple[Path, Path] | None:
+    raw_data = state.get("postgres_data")
+    raw_bin = state.get("postgres_bin")
+    if not raw_data or not raw_bin:
+        return None
+    data = Path(raw_data).resolve()
+    if data != (LOCAL / "postgres").resolve():
+        raise RuntimeError("Refusing to inspect a database outside this runtime")
+    return data, Path(raw_bin).resolve() / "pg_ctl.exe"
+
+
+def postgres_running(state: dict) -> bool:
+    paths = postgres_paths(state)
+    if paths is None:
+        return False
+    data, pg_ctl = paths
+    result = subprocess.run(
+        [str(pg_ctl), "-D", str(data), "status"],
+        capture_output=True,
+        creationflags=HIDDEN,
+    )
+    return result.returncode == 0
+
+
+def owned_runtime_is_active(state: dict) -> bool:
+    return postgres_running(state) or any(
+        running(state.get("processes", {}).get(name))
+        for name in ("redis", "yjs", "api", "web")
+    )
+
+
+def validate_runtime_binding(state: dict) -> None:
+    if not owned_runtime_is_active(state):
+        return
+    recorded = state.get("ports")
+    if not isinstance(recorded, dict):
+        raise RuntimeError(
+            "Active local services have no recorded port binding; stop them before restarting"
+        )
+    expected = {name: port for name, port in RUNTIME_PORTS.items()}
+    if recorded != expected:
+        raise RuntimeError(
+            "Active local services use a different port set; existing services left untouched"
+        )
+
+
+def preflight_runtime_ports(state: dict, *, no_web: bool) -> None:
+    owners = {
+        PG_PORT: postgres_running(state),
+        REDIS_PORT: running(state.get("processes", {}).get("redis")),
+        YJS_PORT: running(state.get("processes", {}).get("yjs")),
+        API_PORT: running(state.get("processes", {}).get("api")),
+        WEB_PORT: running(state.get("processes", {}).get("web")),
+    }
+    ignored = {WEB_PORT} if no_web else set()
+    occupied = sorted(
+        port
+        for port, owned in owners.items()
+        if port not in ignored and port_ready(port) and not owned
+    )
+    if occupied:
+        joined = ", ".join(str(port) for port in occupied)
+        raise RuntimeError(
+            f"Private runtime ports are already occupied ({joined}); existing services left untouched"
+        )
 
 
 def wait_ready(port: int, *, http_path: str | None = None, seconds: int = 45) -> None:
@@ -195,10 +417,45 @@ def wait_ready(port: int, *, http_path: str | None = None, seconds: int = 45) ->
 def stop_process(name: str, state: dict) -> None:
     record = state["processes"].get(name)
     if running(record):
-        if os.name == "nt":
-            subprocess.run(["taskkill", "/PID", str(record["pid"]), "/T", "/F"], capture_output=True, creationflags=HIDDEN)
-        else:
-            os.kill(record["pid"], 15)
+        if name == "yjs" and (os.name != "nt" or record.get("process_group")):
+            try:
+                os.kill(
+                    record["pid"],
+                    signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGTERM,
+                )
+            except (OSError, SystemError):
+                pass
+            deadline = time.monotonic() + 6
+            while running(record) and time.monotonic() < deadline:
+                time.sleep(0.1)
+        if running(record):
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(record["pid"]), "/T", "/F"],
+                    capture_output=True,
+                    creationflags=HIDDEN,
+                )
+            else:
+                os.kill(record["pid"], signal.SIGTERM)
+        deadline = time.monotonic() + 2
+        while running(record) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        if running(record) and os.name != "nt":
+            os.kill(record["pid"], signal.SIGKILL)
+            deadline = time.monotonic() + 2
+            while running(record) and time.monotonic() < deadline:
+                time.sleep(0.1)
+        if running(record):
+            raise RuntimeError(f"Local {name} service did not stop; process record retained.")
+    if name == "yjs":
+        deadline = time.monotonic() + 2
+        while port_ready(YJS_PORT) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        if port_ready(YJS_PORT):
+            raise RuntimeError(
+                "Yjs process stopped but its port is still occupied; "
+                "process record retained because ownership is uncertain."
+            )
     state["processes"].pop(name, None)
     save_state(state)
 
@@ -253,13 +510,17 @@ async def ensure_database(values: dict[str, str]) -> None:
 
 
 def start(*, no_web: bool = False, dev: bool = False) -> None:
+    state = load_state()
+    validate_runtime_binding(state)
+    preflight_runtime_ports(state, no_web=no_web)
     values = configure()
     missing = [name for name in ("QWEN_API_KEY", "AMAP_API_KEY", "TRIP_UNDERSTANDING_QWEN_MODEL") if not values.get(name)]
     if missing:
         raise RuntimeError("Existing provider configuration is missing: " + ", ".join(missing))
     env = environment(values)
-    pg, cache, node = binaries()
-    state = load_state()
+    pg, cache, node, npm = binaries()
+    state["ports"] = {name: port for name, port in RUNTIME_PORTS.items()}
+    save_state(state)
     data = LOCAL / "postgres"
     if not (data / "PG_VERSION").exists():
         if data.exists() and any(data.iterdir()):
@@ -288,32 +549,64 @@ def start(*, no_web: bool = False, dev: bool = False) -> None:
         config.write_text(f'bind 127.0.0.1\nport {REDIS_PORT}\nprotected-mode yes\nrequirepass {values["EXPERIENCE_REDIS_PASSWORD"]}\ndir "{redis_data.as_posix()}"\nsave ""\nappendonly no\n', encoding="utf-8")
         launch("redis", [str(cache), str(config)], LOCAL, env, state)
     wait_ready(REDIS_PORT)
+    yjs = ROOT / "y-websocket"
+    if not (yjs / "node_modules" / "y-websocket").exists():
+        command(
+            [npm, "ci", "--omit=dev", "--no-audit", "--no-fund"],
+            install_environment(env),
+            cwd=yjs,
+        )
+    if not running(state["processes"].get("yjs")):
+        if port_ready(YJS_PORT):
+            raise RuntimeError("Yjs port is occupied; existing service left untouched")
+        (LOCAL / "yjs").mkdir(parents=True, exist_ok=True)
+        launch(
+            "yjs",
+            [node, "server.js"],
+            yjs,
+            yjs_environment(env),
+            state,
+            new_process_group=True,
+        )
+    wait_ready(YJS_PORT, http_path="/health")
     if not running(state["processes"].get("api")) and port_ready(API_PORT):
         raise RuntimeError("API port is occupied; existing service left untouched")
-    launch("api", [sys.executable, "-m", "uvicorn", "app.experience_main:app", "--host", "127.0.0.1", "--port", str(API_PORT), "--no-access-log"], ROOT / "backend", env, state)
+    launch(
+        "api",
+        [sys.executable, str(ROOT / "scripts" / "experience_api.py")],
+        ROOT / "backend",
+        env,
+        state,
+    )
     wait_ready(API_PORT, http_path="/health")
     if not no_web:
         start_web(node, env, state, dev=dev)
-    print(f"API ready: http://127.0.0.1:{API_PORT}; Web: {'not started' if no_web else f'http://127.0.0.1:{WEB_PORT}'}")
+    print(f"API ready: http://127.0.0.1:{API_PORT}; collaboration: ws://127.0.0.1:{YJS_PORT}; Web: {'not started' if no_web else f'http://127.0.0.1:{WEB_PORT}'}")
 
 
 def stop(*, applications_only: bool = False) -> None:
     state = load_state()
-    names = ["web", "api"] if applications_only else ["web", "api", "redis"]
+    names = ["web", "api", "yjs"] if applications_only else ["web", "api", "yjs", "redis"]
     for name in names:
         stop_process(name, state)
-    if not applications_only and state.get("postgres_data"):
-        data = Path(state["postgres_data"]).resolve()
-        if data != (LOCAL / "postgres").resolve():
-            raise RuntimeError("Refusing to stop a database outside this runtime")
-        subprocess.run([str(Path(state["postgres_bin"]) / "pg_ctl.exe"), "-D", str(data), "-m", "fast", "-w", "stop"], capture_output=True, creationflags=HIDDEN)
+    if not applications_only and postgres_running(state):
+        data, pg_ctl = postgres_paths(state)  # type: ignore[misc]
+        result = subprocess.run(
+            [str(pg_ctl), "-D", str(data), "-m", "fast", "-w", "stop"],
+            capture_output=True,
+            creationflags=HIDDEN,
+        )
+        if result.returncode or postgres_running(state):
+            raise RuntimeError(
+                "Private PostgreSQL did not stop; its ownership record was retained."
+            )
     save_state(state)
     print("Local services stopped; database and secrets retained.")
 
 
 def backup() -> None:
     values = configure()
-    pg, _, _ = binaries()
+    pg, _, _, _ = binaries()
     target = LOCAL / f"backup-{time.strftime('%Y%m%d-%H%M%S')}.dump"
     command([str(pg / "pg_dump.exe"), "-h", "127.0.0.1", "-p", str(PG_PORT), "-U", "experience", "-d", values["EXPERIENCE_DATABASE"], "-Fc", "-f", str(target)], environment(values))
     print(f"Private backup saved: {target}")
@@ -325,7 +618,7 @@ def restore(path: Path, *, no_web: bool = False, dev: bool = False) -> None:
         raise RuntimeError("Choose an existing private .dump backup")
     values = configure()
     restored = {**values, "EXPERIENCE_DATABASE": f"breeze_restore_{time.strftime('%Y%m%d_%H%M%S')}_{secrets.token_hex(3)}"}
-    pg, _, _ = binaries()
+    pg, _, _, _ = binaries()
     stop(applications_only=True)
     try:
         asyncio.run(ensure_database(restored))
@@ -366,7 +659,7 @@ def main() -> None:
         asyncio.run(migrate(configure()))
     else:
         state = load_state()
-        print(json.dumps({"api": running(state["processes"].get("api")), "web": running(state["processes"].get("web")), "web_mode": state.get("web_mode", "unknown"), "postgres": port_ready(PG_PORT), "redis": running(state["processes"].get("redis"))}))
+        print(json.dumps({"api": running(state["processes"].get("api")), "web": running(state["processes"].get("web")), "web_mode": state.get("web_mode", "unknown"), "yjs": running(state["processes"].get("yjs")), "postgres": postgres_running(state), "redis": running(state["processes"].get("redis"))}))
 
 
 if __name__ == "__main__":

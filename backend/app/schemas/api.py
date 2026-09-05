@@ -1,8 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel, Field
 
-from app.schemas.place import Place
-from app.schemas.itinerary import Itinerary
+from app.schemas.place import Coordinates, Place, PlaceCategory
+from app.schemas.itinerary import Itinerary, TransportLeg, WeatherInfo
 from app.schemas.task_spec import TripTaskSpec
 from app.schemas.verification import VerificationReport
 
@@ -16,14 +16,14 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=1200)
     selected_place_ids: list[str] = []
     trip_city: Optional[str] = None   # 房间目的地城市，用于 AmapSearch 精确检索
-    use_long_term_memory: bool = True  # 评测/无痕请求可关闭偏好读写，鉴权身份不变
+    use_long_term_memory: bool = False  # 协同模式默认无痕；只有未来显式授权后才可开启
 
 
 # SSE 事件类型（以 text/event-stream 格式推送）
-# data: {"event":"thinking","data":{"node":"router","summary":"...","ms":120}}
+# data: {"event":"progress","data":{"phase":"UNDERSTANDING"}}
 # data: {"event":"place","data":{"place":{...}}}
 # data: {"event":"text","data":{"delta":"..."}}
-# data: {"event":"done","data":{"total_places":5,"total_ms":1840}}
+# data: {"event":"done","data":{"status":"READY","total_places":5}}
 
 
 # ===== POST /api/optimize =====
@@ -31,8 +31,8 @@ class ChatRequest(BaseModel):
 class OptimizeRequest(BaseModel):
     thread_id: str
     room_id: Optional[str] = None
-    places: list[Place]
-    trip_days: int
+    places: list[Place] = Field(..., max_length=30)
+    trip_days: int = Field(..., ge=1, le=31)
     start_date: Optional[str] = None    # ISO 8601
     working_context: Optional[dict] = None  # 会话偏好，用于 TipsGenerator 个性化提示
     user_prefs: Optional[dict] = None   # GroupPreferences（含 must_have/no_go/style）
@@ -61,6 +61,57 @@ class OptimizeResponse(BaseModel):
     tips_status: Optional[str] = None
     tips_basis_revision: Optional[int] = None
     tips_basis_report_id: Optional[str] = None
+
+
+class ExperiencePlaceView(BaseModel):
+    """User-facing collaboration place without provider or evidence receipts."""
+
+    place_id: str
+    name: str
+    category: PlaceCategory
+    address: str
+    coords: Coordinates
+    city: str
+    district: Optional[str] = None
+    amap_rating: Optional[float] = None
+    amap_price: Optional[float] = None
+    opening_hours: Optional[str] = None
+    phone: Optional[str] = None
+    amap_photos: list[str] = Field(default_factory=list)
+    description: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    estimated_duration: Optional[int] = None
+    tips: list[str] = Field(default_factory=list)
+
+
+class ExperienceTimeSlotView(BaseModel):
+    place_id: str
+    place: ExperiencePlaceView
+    start_time: str
+    end_time: str
+    transport: Optional[TransportLeg] = None
+    tips: list[str] = Field(default_factory=list)
+
+
+class ExperienceDayPlanView(BaseModel):
+    day_index: int
+    date: Optional[str] = None
+    cluster_id: int
+    slots: list[ExperienceTimeSlotView]
+    weather_summary: Optional[WeatherInfo] = None
+
+
+class ExperienceItineraryView(BaseModel):
+    city: str
+    days: list[ExperienceDayPlanView]
+    generated_at: str
+
+
+class ExperienceOptimizeResponse(BaseModel):
+    """Narrow response used by the ordinary collaboration experience."""
+
+    itinerary: ExperienceItineraryView
+    backup_pool: list[ExperiencePlaceView] = Field(default_factory=list)
 
 
 # ===== GET /api/room/{room_id}/state =====

@@ -16,6 +16,80 @@
         "title": "AccountTravelDataDeleteRequest",
         "type": "object"
       },
+      "AccountTripItem": {
+        "additionalProperties": false,
+        "properties": {
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "day_count": {
+            "title": "Day Count",
+            "type": "integer"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "is_demo": {
+            "title": "Is Demo",
+            "type": "boolean"
+          },
+          "public_resource_id": {
+            "title": "Public Resource Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "public_resource_id",
+          "title",
+          "city",
+          "day_count",
+          "updated_at",
+          "expires_at",
+          "is_demo"
+        ],
+        "title": "AccountTripItem",
+        "type": "object"
+      },
+      "AccountTripListView": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AccountTripItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "AccountTripListView",
+        "type": "object"
+      },
       "ActivityCardView": {
         "additionalProperties": false,
         "properties": {
@@ -46,6 +120,23 @@
             "title": "Category",
             "type": "string"
           },
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "fixed_commitment": {
+            "default": false,
+            "title": "Fixed Commitment",
+            "type": "boolean"
+          },
           "knowledge_suggestions": {
             "items": {
               "$ref": "#/components/schemas/KnowledgeSuggestionView"
@@ -54,9 +145,26 @@
             "title": "Knowledge Suggestions",
             "type": "array"
           },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
           },
           "status": {
             "enum": [
@@ -76,6 +184,30 @@
               }
             ],
             "title": "Time Hint"
+          },
+          "timing_source": {
+            "default": "UNSPECIFIED",
+            "enum": [
+              "TEXT",
+              "USER",
+              "SUGGESTED",
+              "UNSPECIFIED"
+            ],
+            "title": "Timing Source",
+            "type": "string"
+          },
+          "visit_duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Duration Minutes"
           }
         },
         "required": [
@@ -139,6 +271,28 @@
             "title": "Day Index",
             "type": "integer"
           },
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "fixed_commitment": {
+            "default": false,
+            "title": "Fixed Commitment",
+            "type": "boolean"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
           "name": {
             "maxLength": 40,
             "minLength": 1,
@@ -151,6 +305,18 @@
             "title": "Position",
             "type": "integer"
           },
+          "start_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
           "time_hint": {
             "anyOf": [
               {
@@ -162,6 +328,30 @@
               }
             ],
             "title": "Time Hint"
+          },
+          "timing_source": {
+            "default": "UNSPECIFIED",
+            "enum": [
+              "TEXT",
+              "USER",
+              "SUGGESTED",
+              "UNSPECIFIED"
+            ],
+            "title": "Timing Source",
+            "type": "string"
+          },
+          "visit_duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Duration Minutes"
           }
         },
         "required": [
@@ -209,6 +399,30 @@
         "title": "ActivityMoveCommand",
         "type": "object"
       },
+      "ActivitySourceView": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_token",
+          "name",
+          "quote"
+        ],
+        "title": "ActivitySourceView",
+        "type": "object"
+      },
       "ActivityTextEditCommand": {
         "additionalProperties": false,
         "properties": {
@@ -254,6 +468,242 @@
           "activity_token"
         ],
         "title": "ActivityTextEditCommand",
+        "type": "object"
+      },
+      "ActivityTimeSetCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "command_type": {
+            "const": "ACTIVITY_TIME_SET",
+            "title": "Command Type",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "fixed_commitment": {
+            "default": false,
+            "title": "Fixed Commitment",
+            "type": "boolean"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "timing_source": {
+            "default": "UNSPECIFIED",
+            "enum": [
+              "TEXT",
+              "USER",
+              "SUGGESTED",
+              "UNSPECIFIED"
+            ],
+            "title": "Timing Source",
+            "type": "string"
+          },
+          "visit_duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Duration Minutes"
+          }
+        },
+        "required": [
+          "command_type",
+          "activity_token"
+        ],
+        "title": "ActivityTimeSetCommand",
+        "type": "object"
+      },
+      "ActivityTimesApplyCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityTimingUpdate"
+            },
+            "maxItems": 80,
+            "minItems": 1,
+            "title": "Changes",
+            "type": "array"
+          },
+          "command_type": {
+            "const": "ACTIVITY_TIMES_APPLY",
+            "title": "Command Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_type",
+          "changes"
+        ],
+        "title": "ActivityTimesApplyCommand",
+        "type": "object"
+      },
+      "ActivityTimesShiftCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_tokens": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 80,
+            "minItems": 1,
+            "title": "Activity Tokens",
+            "type": "array"
+          },
+          "command_type": {
+            "const": "ACTIVITY_TIMES_SHIFT",
+            "title": "Command Type",
+            "type": "string"
+          },
+          "minutes": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1440.0,
+            "title": "Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "command_type",
+          "activity_tokens",
+          "minutes"
+        ],
+        "title": "ActivityTimesShiftCommand",
+        "type": "object"
+      },
+      "ActivityTiming": {
+        "additionalProperties": false,
+        "properties": {
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "fixed_commitment": {
+            "default": false,
+            "title": "Fixed Commitment",
+            "type": "boolean"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "start_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Time"
+          },
+          "timing_source": {
+            "default": "UNSPECIFIED",
+            "enum": [
+              "TEXT",
+              "USER",
+              "SUGGESTED",
+              "UNSPECIFIED"
+            ],
+            "title": "Timing Source",
+            "type": "string"
+          },
+          "visit_duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 1440.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visit Duration Minutes"
+          }
+        },
+        "title": "ActivityTiming",
+        "type": "object"
+      },
+      "ActivityTimingUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "end_time": {
+            "anyOf": [
+              {
+                "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Time"
+          },
+          "start_time": {
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+            "title": "Start Time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_token",
+          "start_time"
+        ],
+        "title": "ActivityTimingUpdate",
         "type": "object"
       },
       "AssumptionChipView": {
@@ -320,6 +770,55 @@
           "value"
         ],
         "title": "AssumptionSetCommand",
+        "type": "object"
+      },
+      "CandidateSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_token",
+          "query"
+        ],
+        "title": "CandidateSearchRequest",
+        "type": "object"
+      },
+      "CandidateSearchView": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/PublicPlaceCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "EMPTY",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CandidateSearchView",
         "type": "object"
       },
       "ChangeAdoptRequest": {
@@ -576,6 +1075,51 @@
         "title": "FeedbackRequest",
         "type": "object"
       },
+      "FromCollaborationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "room_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Room Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "room_id"
+        ],
+        "title": "FromCollaborationRequest",
+        "type": "object"
+      },
+      "GCJ02Position": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_system": {
+            "const": "GCJ02",
+            "default": "GCJ02",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "latitude": {
+            "maximum": 54.0,
+            "minimum": 18.0,
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "maximum": 136.0,
+            "minimum": 73.0,
+            "title": "Longitude",
+            "type": "number"
+          }
+        },
+        "required": [
+          "longitude",
+          "latitude"
+        ],
+        "title": "GCJ02Position",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -725,6 +1269,13 @@
             "title": "Message",
             "type": "string"
           },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PublicMapPoint"
+            },
+            "title": "Points",
+            "type": "array"
+          },
           "status": {
             "enum": [
               "PREPARING",
@@ -779,6 +1330,35 @@
           "party_size"
         ],
         "title": "MaterializedTripView",
+        "type": "object"
+      },
+      "PlaceConfirmCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "candidate_token": {
+            "maxLength": 6000,
+            "minLength": 40,
+            "title": "Candidate Token",
+            "type": "string"
+          },
+          "command_type": {
+            "const": "PLACE_CONFIRM",
+            "title": "Command Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_type",
+          "activity_token",
+          "candidate_token"
+        ],
+        "title": "PlaceConfirmCommand",
         "type": "object"
       },
       "PlaceReplaceCommand": {
@@ -1018,6 +1598,13 @@
             "title": "Change Token",
             "type": "string"
           },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PublicTimingChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
           "summary": {
             "title": "Summary",
             "type": "string"
@@ -1038,6 +1625,17 @@
       "PublicMapDayView": {
         "additionalProperties": false,
         "properties": {
+          "day_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Index"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -1060,6 +1658,17 @@
       "PublicMapEdgeView": {
         "additionalProperties": false,
         "properties": {
+          "from_activity_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Activity Token"
+          },
           "from_name": {
             "title": "From Name",
             "type": "string"
@@ -1083,6 +1692,17 @@
             ],
             "title": "Selected Mode"
           },
+          "to_activity_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Activity Token"
+          },
           "to_name": {
             "title": "To Name",
             "type": "string"
@@ -1102,6 +1722,103 @@
           "transit"
         ],
         "title": "PublicMapEdgeView",
+        "type": "object"
+      },
+      "PublicMapPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "day_label": {
+            "title": "Day Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicMapPosition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sequence_index": {
+            "title": "Sequence Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "activity_token",
+          "day_label",
+          "sequence_index",
+          "name"
+        ],
+        "title": "PublicMapPoint",
+        "type": "object"
+      },
+      "PublicMapPosition": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_system": {
+            "const": "GCJ02",
+            "default": "GCJ02",
+            "title": "Coordinate System",
+            "type": "string"
+          },
+          "latitude": {
+            "title": "Latitude",
+            "type": "number"
+          },
+          "longitude": {
+            "title": "Longitude",
+            "type": "number"
+          }
+        },
+        "required": [
+          "longitude",
+          "latitude"
+        ],
+        "title": "PublicMapPosition",
+        "type": "object"
+      },
+      "PublicPlaceCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "area_or_address": {
+            "title": "Area Or Address",
+            "type": "string"
+          },
+          "candidate_token": {
+            "title": "Candidate Token",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "$ref": "#/components/schemas/GCJ02Position"
+          }
+        },
+        "required": [
+          "candidate_token",
+          "name",
+          "category",
+          "area_or_address",
+          "position"
+        ],
+        "title": "PublicPlaceCandidate",
         "type": "object"
       },
       "PublicRouteModeView": {
@@ -1162,15 +1879,63 @@
         "title": "PublicRouteModeView",
         "type": "object"
       },
+      "PublicTimingChange": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "title": "Activity Token",
+            "type": "string"
+          },
+          "after": {
+            "$ref": "#/components/schemas/ActivityTiming"
+          },
+          "before": {
+            "$ref": "#/components/schemas/ActivityTiming"
+          },
+          "day_label": {
+            "title": "Day Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_token",
+          "day_label",
+          "name",
+          "before",
+          "after"
+        ],
+        "title": "PublicTimingChange",
+        "type": "object"
+      },
       "PublicTripCheckItem": {
         "additionalProperties": false,
         "properties": {
+          "affected_activity_tokens": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Affected Activity Tokens",
+            "type": "array"
+          },
           "affected_days": {
             "items": {
               "type": "string"
             },
             "title": "Affected Days",
             "type": "array"
+          },
+          "basis_status": {
+            "default": "CURRENT",
+            "enum": [
+              "CURRENT",
+              "NEEDS_RECHECK"
+            ],
+            "title": "Basis Status",
+            "type": "string"
           },
           "can_preview": {
             "default": false,
@@ -1182,6 +1947,11 @@
             "minLength": 20,
             "title": "Check Token",
             "type": "string"
+          },
+          "depends_on_routes": {
+            "default": false,
+            "title": "Depends On Routes",
+            "type": "boolean"
           },
           "label": {
             "enum": [
@@ -1487,6 +2257,43 @@
         "title": "SharedDayView",
         "type": "object"
       },
+      "SourceReadView": {
+        "additionalProperties": false,
+        "properties": {
+          "activities": {
+            "items": {
+              "$ref": "#/components/schemas/ActivitySourceView"
+            },
+            "title": "Activities",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "DELETED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SourceReadView",
+        "type": "object"
+      },
       "StayCandidateView": {
         "additionalProperties": false,
         "properties": {
@@ -1668,6 +2475,100 @@
         "title": "StaySuggestionView",
         "type": "object"
       },
+      "SupplementaryDay": {
+        "additionalProperties": false,
+        "properties": {
+          "day_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Index"
+          },
+          "day_label": {
+            "title": "Day Label",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementaryItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "day_index",
+          "day_label",
+          "items"
+        ],
+        "title": "SupplementaryDay",
+        "type": "object"
+      },
+      "SupplementaryItem": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "OPTIONAL",
+              "EXCLUDED"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "time_hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Hint"
+          }
+        },
+        "required": [
+          "name",
+          "role"
+        ],
+        "title": "SupplementaryItem",
+        "type": "object"
+      },
+      "SupplementaryView": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "items": {
+              "$ref": "#/components/schemas/SupplementaryDay"
+            },
+            "title": "Days",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "DELETED",
+              "UNAVAILABLE"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "SupplementaryView",
+        "type": "object"
+      },
       "TextSourceRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1780,12 +2681,92 @@
         "title": "TripUnderstandingAcceptedView",
         "type": "object"
       },
-      "TripUnderstandingProgressView": {
+      "TripUnderstandingCancelView": {
         "additionalProperties": false,
         "properties": {
+          "has_editable_result": {
+            "title": "Has Editable Result",
+            "type": "boolean"
+          },
           "message": {
             "title": "Message",
             "type": "string"
+          },
+          "status": {
+            "enum": [
+              "STOPPED_WITH_DRAFT",
+              "STOPPED_EMPTY",
+              "ALREADY_FINISHED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "has_editable_result"
+        ],
+        "title": "TripUnderstandingCancelView",
+        "type": "object"
+      },
+      "TripUnderstandingProgressMetrics": {
+        "additionalProperties": false,
+        "properties": {
+          "card_count": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Card Count",
+            "type": "integer"
+          },
+          "day_count": {
+            "default": 0,
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Day Count",
+            "type": "integer"
+          },
+          "places_checked": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Places Checked",
+            "type": "integer"
+          },
+          "places_total": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Places Total",
+            "type": "integer"
+          }
+        },
+        "title": "TripUnderstandingProgressMetrics",
+        "type": "object"
+      },
+      "TripUnderstandingProgressView": {
+        "additionalProperties": false,
+        "properties": {
+          "event_cursor": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Event Cursor",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "phase": {
+            "default": "RECEIVED",
+            "enum": [
+              "RECEIVED",
+              "CARDS_AVAILABLE",
+              "CHECKING_PLACES"
+            ],
+            "title": "Phase",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/TripUnderstandingProgressMetrics"
           },
           "retry_after_ms": {
             "default": 500,
@@ -1793,6 +2774,16 @@
             "minimum": 100.0,
             "title": "Retry After Ms",
             "type": "integer"
+          },
+          "snapshot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserFacingTripResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "status": {
             "const": "PROCESSING",
@@ -1805,6 +2796,21 @@
           "message"
         ],
         "title": "TripUnderstandingProgressView",
+        "type": "object"
+      },
+      "UndoCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "command_type": {
+            "const": "UNDO",
+            "title": "Command Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_type"
+        ],
+        "title": "UndoCommand",
         "type": "object"
       },
       "UserFacingTripResult": {
@@ -1828,6 +2834,11 @@
             "title": "Available Actions",
             "type": "array"
           },
+          "can_undo": {
+            "default": false,
+            "title": "Can Undo",
+            "type": "boolean"
+          },
           "days": {
             "items": {
               "$ref": "#/components/schemas/TripDayView"
@@ -1835,8 +2846,34 @@
             "title": "Days",
             "type": "array"
           },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "is_demo": {
+            "default": false,
+            "title": "Is Demo",
+            "type": "boolean"
+          },
           "map": {
             "$ref": "#/components/schemas/MapReadinessView"
+          },
+          "ownership": {
+            "default": "ANONYMOUS",
+            "enum": [
+              "ANONYMOUS",
+              "ACCOUNT"
+            ],
+            "title": "Ownership",
+            "type": "string"
           },
           "status": {
             "enum": [
@@ -1850,6 +2887,18 @@
           },
           "stay": {
             "$ref": "#/components/schemas/StaySuggestionView"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "required": [
@@ -2729,6 +3778,79 @@
         ]
       }
     },
+    "/api/v3/me/trips": {
+      "get": {
+        "operationId": "list_my_trips_api_v3_me_trips_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4096,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountTripListView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List My Trips",
+        "tags": [
+          "trip-understandings-v3-account"
+        ]
+      }
+    },
     "/api/v3/shares/{share_ref}": {
       "get": {
         "operationId": "read_shared_trip_api_v3_shares__share_ref__get",
@@ -2900,6 +4022,69 @@
         ]
       }
     },
+    "/api/v3/trip-understandings/from-collaboration": {
+      "post": {
+        "operationId": "create_trip_understanding_from_collaboration_api_v3_trip_understandings_from_collaboration_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FromCollaborationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripUnderstandingAcceptedView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Trip Understanding From Collaboration",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
     "/api/v3/trip-understandings/{public_resource_id}": {
       "delete": {
         "operationId": "delete_trip_understanding_api_v3_trip_understandings__public_resource_id__delete",
@@ -2956,6 +4141,68 @@
           }
         },
         "summary": "Delete Trip Understanding",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/cancel": {
+      "post": {
+        "operationId": "cancel_trip_understanding_api_v3_trip_understandings__public_resource_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TripUnderstandingCancelView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Trip Understanding",
         "tags": [
           "trip-understandings-v3"
         ]
@@ -3319,8 +4566,13 @@
                     "ACTIVITY_INSERT": "#/components/schemas/ActivityInsertCommand",
                     "ACTIVITY_MOVE": "#/components/schemas/ActivityMoveCommand",
                     "ACTIVITY_TEXT_EDIT": "#/components/schemas/ActivityTextEditCommand",
+                    "ACTIVITY_TIMES_APPLY": "#/components/schemas/ActivityTimesApplyCommand",
+                    "ACTIVITY_TIMES_SHIFT": "#/components/schemas/ActivityTimesShiftCommand",
+                    "ACTIVITY_TIME_SET": "#/components/schemas/ActivityTimeSetCommand",
                     "ASSUMPTION_SET": "#/components/schemas/AssumptionSetCommand",
-                    "PLACE_REPLACE": "#/components/schemas/PlaceReplaceCommand"
+                    "PLACE_CONFIRM": "#/components/schemas/PlaceConfirmCommand",
+                    "PLACE_REPLACE": "#/components/schemas/PlaceReplaceCommand",
+                    "UNDO": "#/components/schemas/UndoCommand"
                   },
                   "propertyName": "command_type"
                 },
@@ -3339,6 +4591,21 @@
                   },
                   {
                     "$ref": "#/components/schemas/PlaceReplaceCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PlaceConfirmCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ActivityTimeSetCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ActivityTimesShiftCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ActivityTimesApplyCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UndoCommand"
                   },
                   {
                     "$ref": "#/components/schemas/AssumptionSetCommand"
@@ -3421,8 +4688,10 @@
         "responses": {
           "200": {
             "content": {
-              "application/json": {
-                "schema": {}
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Successful Response"
@@ -3742,6 +5011,68 @@
         ]
       }
     },
+    "/api/v3/trip-understandings/{public_resource_id}/place-candidates": {
+      "post": {
+        "operationId": "find_place_candidates_api_v3_trip_understandings__public_resource_id__place_candidates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CandidateSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CandidateSearchView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Find Place Candidates",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
     "/api/v3/trip-understandings/{public_resource_id}/result": {
       "get": {
         "operationId": "get_trip_understanding_result_api_v3_trip_understandings__public_resource_id__result_get",
@@ -3941,6 +5272,56 @@
         "tags": [
           "trip-understandings-v3"
         ]
+      },
+      "get": {
+        "operationId": "read_trip_understanding_source_api_v3_trip_understandings__public_resource_id__source_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceReadView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Trip Understanding Source",
+        "tags": [
+          "trip-understandings-v3"
+        ]
       }
     },
     "/api/v3/trip-understandings/{public_resource_id}/stay-selection": {
@@ -4084,6 +5465,58 @@
           }
         },
         "summary": "Get Stay Suggestions",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/supplementary": {
+      "get": {
+        "operationId": "read_trip_understanding_supplementary_api_v3_trip_understandings__public_resource_id__supplementary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupplementaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Trip Understanding Supplementary",
         "tags": [
           "trip-understandings-v3"
         ]

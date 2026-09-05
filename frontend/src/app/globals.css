@@ -3,15 +3,14 @@
 @tailwind utilities;
 
 /* ============================================
-   Design System: "Project Vibe"
-   珊瑚红 + 玻璃拟物态 + 全屏地图底层
+   Design System: sky + cyan + warm white
    ============================================ */
 
 @layer base {
   :root {
-    --color-coral: 255 90 95;
-    --color-coral-light: 255 224 224;
-    --color-coral-dark: 192 53 64;
+    --color-coral: 12 120 157;
+    --color-coral-light: 232 247 251;
+    --color-coral-dark: 9 101 130;
 
     --glass-bg: rgba(255, 255, 255, 0.82);
     --glass-bg-solid: rgba(255, 255, 255, 0.95);
@@ -57,12 +56,12 @@
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
   }
 
-  /* 珊瑚红按钮 */
+  /* Backward-compatible class name, now backed by the shared cyan token. */
   .btn-coral {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background-color: #FF5A5F;
+    background-color: #0C789D;
     color: #ffffff;
     font-weight: 500;
     border-radius: 8px;
@@ -70,9 +69,22 @@
     cursor: pointer;
   }
   .btn-coral:hover {
-    background-color: #e04850;
-    box-shadow: 0 4px 12px rgba(255, 90, 95, 0.35);
+    background-color: #096582;
+    box-shadow: 0 4px 12px rgba(12, 120, 157, 0.28);
   }
+
+  .btn-primary-sky {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #0C789D;
+    color: #ffffff;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .btn-primary-sky:hover { background: #096582; }
+  .btn-primary-sky:disabled { opacity: 0.45; cursor: not-allowed; }
   .btn-coral:active { transform: scale(0.98); }
   .btn-coral:disabled {
     opacity: 0.4;
@@ -129,8 +141,8 @@
   }
   .input-glass::placeholder { color: #9CA3AF; }
   .input-glass:focus {
-    border-color: #FF5A5F;
-    box-shadow: 0 0 0 3px rgba(255, 90, 95, 0.12);
+    border-color: #0C789D;
+    box-shadow: 0 0 0 3px rgba(12, 120, 157, 0.12);
   }
 }
 

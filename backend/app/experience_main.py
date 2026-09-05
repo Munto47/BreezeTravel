@@ -11,16 +11,29 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 
-from app.api import auth, memory_share_v3, trip_understandings_v3, user_profile
+from app.agents import graph as agent_graph
+from app.api import (
+    auth,
+    chat,
+    memory_share_v3,
+    optimize,
+    places_persist,
+    room,
+    tasks,
+    trip_understandings_v3,
+    user_profile,
+    weather,
+)
 from app.api.rate_limit import _redis_allowed
 from app.config import get_settings
 from app.db import connection
+from app.schemas.api import ExperienceOptimizeResponse, OptimizeRequest
 from app.trip_understanding.access_log import install_trip_understanding_access_log_filter
 from app.trip_understanding.map_worker import (
     MapRenderWorker,
@@ -29,6 +42,7 @@ from app.trip_understanding.map_worker import (
 )
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.worker import TripUnderstandingWorker, build_configured_full_pipeline
+from app.utils.auth import get_optional_user
 
 logger = logging.getLogger(__name__)
 install_trip_understanding_access_log_filter()
@@ -42,9 +56,13 @@ def _message(code: int, message: str, *, headers: dict | None = None) -> JSONRes
     return JSONResponse(status_code=code, content={"detail": {"message": message}}, headers={**PRIVATE_HEADERS, **(headers or {})})
 
 
-def _subset(router: APIRouter, paths: set[str]) -> APIRouter:
+def _subset(router: APIRouter, allowed: set[tuple[str, str]]) -> APIRouter:
     selected = APIRouter()
-    selected.routes.extend(route for route in router.routes if getattr(route, "path", None) in paths)
+    for route in router.routes:
+        path = getattr(route, "path", None)
+        methods = getattr(route, "methods", set()) or set()
+        if path and methods and all((method, path) in allowed for method in methods):
+            selected.routes.append(route)
     return selected
 
 
@@ -88,6 +106,7 @@ async def lifespan(app: FastAPI):
     cache = Redis.from_url(cfg.redis_url, socket_connect_timeout=2, socket_timeout=2)
     tasks: list[asyncio.Task] = []
     pipeline = None
+    graph_initialized = False
     stop = asyncio.Event()
     app.state.ready = False
     app.state.cache = cache
@@ -97,6 +116,8 @@ async def lifespan(app: FastAPI):
         if cfg.require_schema_check:
             await connection.check_schema_version()
         await cache.ping()
+        await agent_graph.init_persistent_graph()
+        graph_initialized = True
         if cfg.experience_workers_enabled:
             repository = PostgresTripUnderstandingRepository()
             pipeline = build_configured_full_pipeline(cfg)
@@ -126,6 +147,8 @@ async def lifespan(app: FastAPI):
         await asyncio.gather(*tasks, return_exceptions=True)
         if pipeline is not None:
             await pipeline.aclose()
+        if graph_initialized:
+            await agent_graph.close_checkpointer()
         await cache.aclose()
         await connection.close_pool()
 
@@ -144,13 +167,66 @@ def create_app() -> FastAPI:
     application.include_router(trip_understandings_v3.router, prefix="/api")
     application.include_router(trip_understandings_v3.account_router, prefix="/api")
     application.include_router(_subset(memory_share_v3.router, {
-        "/v3/me/data-consents", "/v3/me/data-consents/{purpose}",
-        "/v3/me/travel-preferences",
+        ("GET", "/v3/me/data-consents"),
+        ("PUT", "/v3/me/data-consents/{purpose}"),
+        ("GET", "/v3/me/travel-preferences"),
+        ("PUT", "/v3/me/travel-preferences"),
+        ("DELETE", "/v3/me/travel-preferences"),
     }), prefix="/api")
     application.include_router(_subset(auth.router, {
-        "/auth/email-register", "/auth/email-login",
+        ("POST", "/auth/email-register"),
+        ("POST", "/auth/email-login"),
     }), prefix="/api")
-    application.include_router(_subset(user_profile.router, {"/user/me", "/user/profile"}), prefix="/api")
+    application.include_router(_subset(user_profile.router, {
+        ("GET", "/user/me"),
+        ("PUT", "/user/profile"),
+        ("GET", "/user/rooms"),
+    }), prefix="/api")
+    application.include_router(_subset(room.router, {
+        ("POST", "/room"),
+        ("POST", "/room/{room_id}/join"),
+        ("GET", "/room/{room_id}/state"),
+        ("GET", "/room/{room_id}/members"),
+        ("POST", "/room/{room_id}/ws-token"),
+    }), prefix="/api")
+    application.include_router(_subset(chat.router, {( "POST", "/chat")}), prefix="/api")
+    @application.post("/api/optimize", response_model=ExperienceOptimizeResponse)
+    async def optimize_for_experience(
+        request: OptimizeRequest,
+        current_user: str | None = Depends(get_optional_user),
+    ) -> ExperienceOptimizeResponse:
+        try:
+            result = await optimize.optimize(request, current_user)
+        except HTTPException as exc:
+            public_messages = {
+                400: "请先选择要排线的地点",
+                401: "请先登录",
+                403: "你无法使用这个协同房间",
+                409: "还需要补充或确认关键信息",
+                422: "当前地点暂时无法排成可用路线，请调整后重试",
+            }
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={
+                    "message": public_messages.get(
+                        exc.status_code,
+                        "路线暂不可用，请稍后重试",
+                    )
+                },
+            ) from None
+        return ExperienceOptimizeResponse(
+            itinerary=result.itinerary,
+            backup_pool=result.backup_pool,
+        )
+
+    application.include_router(_subset(tasks.router, {( "POST", "/room/{room_id}/task/parse")}), prefix="/api")
+    application.include_router(_subset(weather.router, {( "GET", "/weather")}), prefix="/api")
+    application.include_router(_subset(places_persist.router, {
+        ("GET", "/room/{room_id}/places"),
+        ("POST", "/room/{room_id}/places/sync"),
+        ("GET", "/room/{room_id}/itinerary"),
+        ("POST", "/room/{room_id}/itinerary"),
+    }), prefix="/api")
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, _exc: RequestValidationError):

@@ -5,10 +5,14 @@ import { ArrowLeft } from 'lucide-react'
 
 export type ContextMode =
   | { kind: 'timeline' }
-  | { kind: 'place'; activityToken: string | null; dayIndex: number }
+  | {
+      kind: 'place'
+      activityToken: string | null
+      dayIndex: number
+      editorMode: 'ADD' | 'EDIT' | 'REPLACE'
+    }
   | { kind: 'preview' }
   | { kind: 'issues'; allDays: boolean }
-  | { kind: 'source' }
   | { kind: 'assumption'; key: 'destination' | 'calendar' | 'party_size' }
   | { kind: 'privacy'; target: 'SOURCE' | 'TRIP' }
   | { kind: 'share' }
@@ -17,12 +21,16 @@ export default function ContextPanel({
   title,
   dayLabel,
   busy,
+  modal = false,
+  closeLabel,
   onClose,
   children,
 }: {
   title: string
   dayLabel: string
   busy?: boolean
+  modal?: boolean
+  closeLabel?: string
   onClose: () => void
   children: ReactNode
 }) {
@@ -35,32 +43,33 @@ export default function ContextPanel({
     const update = () => setFullScreen(query.matches)
     update()
     query.addEventListener('change', update)
-    panel.current
-      ?.querySelector<HTMLButtonElement>('button')
-      ?.focus({ preventScroll: true })
+    const initialFocus =
+      panel.current?.querySelector<HTMLElement>('[data-initial-focus="true"]') ||
+      panel.current?.querySelector<HTMLButtonElement>('button')
+    initialFocus?.focus({ preventScroll: true })
     return () => query.removeEventListener('change', update)
   }, [])
   useEffect(() => {
-    if (!fullScreen) return
+    if (!fullScreen && !modal) return
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       document.body.style.overflow = previous
     }
-  }, [fullScreen])
+  }, [fullScreen, modal])
   return (
     <section
       ref={panel}
       className="e-context-panel"
-      role={fullScreen ? 'dialog' : 'region'}
-      aria-modal={fullScreen || undefined}
+      role={fullScreen || modal ? 'dialog' : 'region'}
+      aria-modal={fullScreen || modal || undefined}
       aria-labelledby="trip-context-title"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && !busy) {
           event.preventDefault()
           close.current()
         }
-        if (event.key !== 'Tab' || !fullScreen) return
+        if (event.key !== 'Tab' || (!fullScreen && !modal)) return
         const elements = Array.from(
           panel.current?.querySelectorAll<HTMLElement>(
             'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],summary',
@@ -85,7 +94,7 @@ export default function ContextPanel({
           onClick={onClose}
         >
           <ArrowLeft aria-hidden="true" />
-          返回{dayLabel}
+          {closeLabel || `返回${dayLabel}`}
         </button>
         <h2 id="trip-context-title">{title}</h2>
       </header>

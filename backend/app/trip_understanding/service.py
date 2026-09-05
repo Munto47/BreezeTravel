@@ -19,12 +19,14 @@ from app.trip_understanding.models import (
     ScreenshotBatchPersistenceInput,
     ScreenshotCleanupPersistenceInput,
     StaySelectionOutcome,
+    TripUnderstandingCancelOutcome,
     TripUnderstandingCommand,
     TravelDataDeletionOutcome,
     TravelDataDeletionStatusView,
 )
 from app.trip_understanding.map_render import MapRenderRequestOutcome
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.collaboration_import import CollaborationImportSource
 from app.trip_understanding.repository import TripUnderstandingRepository
 
 
@@ -86,6 +88,23 @@ class TripUnderstandingApplicationService:
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),
             retention_days=self.full_retention_days,
+        )
+
+    async def create_from_collaboration(
+        self,
+        source: CollaborationImportSource,
+        *,
+        owner_user_id: str,
+        now: datetime | None = None,
+    ) -> CreateOutcome:
+        return await self.repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=source.source_text,
+            idempotency_key=source.internal_idempotency_key,
+            request_hash=source.request_hash,
+            now=now or datetime.now(timezone.utc),
+            retention_days=self.full_retention_days,
+            initial_inference_binding=source.internal_binding,
         )
 
     async def store_screenshot_batch(
@@ -192,6 +211,26 @@ class TripUnderstandingApplicationService:
             resource,
             command,
             expected_etag=expected_etag,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            now=now or datetime.now(timezone.utc),
+        )
+
+    async def cancel_understanding(
+        self,
+        resource: PublicResourceRecord,
+        *,
+        idempotency_key: str,
+        now: datetime | None = None,
+    ) -> TripUnderstandingCancelOutcome:
+        request_hash = canonical_sha256(
+            {
+                "action": "CANCEL_UNDERSTANDING",
+                "understanding_id": resource.understanding_id,
+            }
+        )
+        return await self.repository.cancel_understanding(
+            resource,
             idempotency_key=idempotency_key,
             request_hash=request_hash,
             now=now or datetime.now(timezone.utc),

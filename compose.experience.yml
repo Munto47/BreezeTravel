@@ -1,4 +1,3 @@
-name: breezetravel-experience
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -6,7 +5,7 @@ services:
       POSTGRES_USER: experience
       POSTGRES_PASSWORD: ${EXPERIENCE_PG_PASSWORD:?Set the private env file}
       POSTGRES_DB: ${EXPERIENCE_DATABASE:-breezetravel_experience}
-    ports: ["127.0.0.1:55439:5432"]
+    ports: ["127.0.0.1:${EXPERIENCE_PG_PORT:-55439}:5432"]
     volumes: ["experience_postgres:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U experience -d $$POSTGRES_DB"]
@@ -18,7 +17,7 @@ services:
     environment:
       REDIS_PASSWORD: ${EXPERIENCE_REDIS_PASSWORD:?Set the private env file}
     command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --save '' --appendonly no"]
-    ports: ["127.0.0.1:56389:6379"]
+    ports: ["127.0.0.1:${EXPERIENCE_REDIS_PORT:-56389}:6379"]
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
       interval: 3s
@@ -38,12 +37,28 @@ services:
       EXPERIENCE_WORKERS_ENABLED: "true"
       LANGCHAIN_TRACING_V2: "false"
       LANGSMITH_TRACING: "false"
-    ports: ["127.0.0.1:8006:8006"]
+    ports: ["127.0.0.1:${EXPERIENCE_API_PORT:-8006}:8006"]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8006/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  yjs:
+    build:
+      context: ./y-websocket
+      dockerfile: Dockerfile
+    environment:
+      HOST: 0.0.0.0
+      PORT: "1234"
+      YPERSISTENCE: /data/yjs
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set the private env file}
+    ports: ["127.0.0.1:${EXPERIENCE_YJS_PORT:-1234}:1234"]
+    volumes: ["experience_yjs:/data/yjs"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:1234/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -55,11 +70,14 @@ services:
     environment:
       BACKEND_INTERNAL_URL: http://api:8006
       NEXT_PUBLIC_API_URL: ""
+      NEXT_PUBLIC_Y_WEBSOCKET_URL: ws://127.0.0.1:${EXPERIENCE_YJS_PORT:-1234}
       NEXT_PUBLIC_AMAP_KEY: ${NEXT_PUBLIC_AMAP_KEY:-}
       NEXT_PUBLIC_AMAP_SECURITY_CODE: ${NEXT_PUBLIC_AMAP_SECURITY_CODE:-}
       NEXT_TELEMETRY_DISABLED: "1"
-    ports: ["127.0.0.1:3106:3106"]
+    ports: ["127.0.0.1:${EXPERIENCE_WEB_PORT:-3106}:3106"]
     depends_on:
       api: {condition: service_healthy}
+      yjs: {condition: service_healthy}
 volumes:
   experience_postgres:
+  experience_yjs:

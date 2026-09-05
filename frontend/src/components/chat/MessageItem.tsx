@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { MapPin, Star, AlertCircle, BookOpen, ExternalLink } from 'lucide-react'
+import { MapPin, Star, AlertCircle } from 'lucide-react'
 import type { ChatMessage } from '@/types/chat'
 
 interface MessageItemProps {
@@ -100,7 +100,6 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
                         {place.constraintEvidence.slice(0, 3).map((item) => (
                           <span
                             key={item.constraint}
-                            title={item.detail}
                             className={`text-[10px] leading-none px-1.5 py-1 rounded-md border ${
                               item.status === 'VERIFIED'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
@@ -141,35 +140,10 @@ export default function MessageItem({ message, onClickPlace }: MessageItemProps)
         </div>
       )}
 
-      {message.citations && message.citations.length > 0 && (
-        <details className="max-w-[95%] rounded-xl border border-sky-100 bg-sky-50/50 px-3 py-2 text-xs text-slate-600">
-          <summary className="flex cursor-pointer items-center gap-1.5 font-medium text-sky-800">
-            <BookOpen className="h-3.5 w-3.5" />
-            回答依据 · {message.citations.length} 条检索来源
-          </summary>
-          <div className="mt-2 space-y-2">
-            {message.citations.map((citation) => (
-              <div key={citation.sourceId} className="rounded-lg bg-white/80 p-2">
-                <div className="flex items-center gap-1">
-                  {citation.url ? (
-                    <a href={citation.url} target="_blank" rel="noreferrer" className="truncate font-medium text-sky-700 hover:underline">
-                      {citation.title}
-                    </a>
-                  ) : <span className="truncate font-medium">{citation.title}</span>}
-                  {citation.url && <ExternalLink className="h-3 w-3 flex-none text-sky-600" />}
-                  <span className="ml-auto flex-none text-[10px] text-slate-400">{citation.corpusKind === 'public' ? '公开资料' : '演示语料'}</span>
-                </div>
-                <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">{citation.excerpt}</p>
-                {(citation.license || citation.revision) && (
-                  <p className="mt-1 text-[10px] text-slate-400">
-                    {citation.license || '许可未标注'}{citation.revision ? ` · revision ${citation.revision}` : ''}
-                  </p>
-                )}
-                {citation.attribution && <p className="mt-0.5 text-[10px] text-slate-400">署名：{citation.attribution}</p>}
-              </div>
-            ))}
-          </div>
-        </details>
+      {message.resultStatus === 'LIMITED' && message.status === 'done' && (
+        <p className="max-w-[95%] rounded-xl bg-sky-50 px-3 py-2 text-xs text-slate-600">
+          已返回目前可确认的部分建议；暂不可用的内容没有被补写成成功结果。
+        </p>
       )}
 
       {/* 错误状态 */}

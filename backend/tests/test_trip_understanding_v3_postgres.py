@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from datetime import datetime, timedelta, timezone
@@ -24,7 +25,10 @@ from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.models import ActivityMoveCommand
 from app.trip_understanding.repository import PostgresTripUnderstandingRepository
 from app.trip_understanding.route_geometry import InMemoryRouteGeometryCache
-from app.trip_understanding.service import DEMO_CREATE_REQUEST_HASH
+from app.trip_understanding.service import (
+    DEMO_CREATE_REQUEST_HASH,
+    TripUnderstandingApplicationService,
+)
 from app.trip_understanding.source_crypto import SourceCipher
 
 
@@ -662,6 +666,109 @@ Day 3：颐和园、圆明园。
                 """,
                 [created.accepted.public_resource_id, claimed_id],
             ) == 0
+
+        # Cancellation and completion use the same advisory/row-lock order.  Exercise
+        # both deterministic race outcomes against PostgreSQL: the first committer
+        # wins, and a late worker can never resurrect a cancelled aggregate.
+        cancellation_service = TripUnderstandingApplicationService(repository)
+        cancel_source_text = "Day 1 去故宫博物院。"
+        cancel_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=cancel_source_text,
+            idempotency_key="postgres-cancel-wins-create",
+            request_hash=canonical_sha256(
+                {"mode": "FULL", "source": {"type": "TEXT", "text": cancel_source_text}}
+            ),
+            now=now,
+            retention_days=30,
+        )
+        cancel_job = await repository.claim_next(
+            worker_id="postgres-cancel-wins-worker",
+            now=now,
+            lease_seconds=30,
+        )
+        assert cancel_job is not None
+        cancel_output = await build_full_text_pipeline().run(
+            (await repository.load_source(cancel_job, now=now)).text
+        )
+        cancel_resource = await repository.authorize(
+            cancel_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+
+        async def late_cancelled_completion():
+            await asyncio.sleep(0.02)
+            return await repository.complete_job(
+                cancel_job,
+                cancel_output,
+                now=now + timedelta(seconds=1),
+            )
+
+        cancelled, late_completion = await asyncio.gather(
+            cancellation_service.cancel_understanding(
+                cancel_resource,
+                idempotency_key="postgres-cancel-wins",
+                now=now,
+            ),
+            late_cancelled_completion(),
+            return_exceptions=True,
+        )
+        assert cancelled.cancelled.status == "STOPPED_EMPTY"
+        assert isinstance(late_completion, JobLeaseLostError)
+        async with pool.acquire() as conn:
+            assert await conn.fetchval(
+                "SELECT state FROM trip_understandings WHERE understanding_id = $1",
+                cancel_resource.understanding_id,
+            ) == "CANCELLED"
+            assert await conn.fetchval(
+                "SELECT status FROM trip_understanding_jobs WHERE job_id = $1",
+                cancel_job.job_id,
+            ) == "CANCELLED"
+
+        finish_source_text = "Day 1 去天坛公园。"
+        finish_created = await repository.create_full(
+            owner_user_id=owner_user_id,
+            source_text=finish_source_text,
+            idempotency_key="postgres-completion-wins-create",
+            request_hash=canonical_sha256(
+                {"mode": "FULL", "source": {"type": "TEXT", "text": finish_source_text}}
+            ),
+            now=now,
+            retention_days=30,
+        )
+        finish_job = await repository.claim_next(
+            worker_id="postgres-completion-wins-worker",
+            now=now,
+            lease_seconds=30,
+        )
+        assert finish_job is not None
+        finish_output = await build_full_text_pipeline().run(
+            (await repository.load_source(finish_job, now=now)).text
+        )
+        finish_resource = await repository.authorize(
+            finish_created.accepted.public_resource_id,
+            capability_hash=None,
+            user_id=owner_user_id,
+            now=now,
+        )
+
+        async def late_cancel_after_completion():
+            await asyncio.sleep(0.02)
+            return await cancellation_service.cancel_understanding(
+                finish_resource,
+                idempotency_key="postgres-completion-wins",
+                now=now + timedelta(seconds=1),
+            )
+
+        completed, cancel_after_completion = await asyncio.gather(
+            repository.complete_job(finish_job, finish_output, now=now),
+            late_cancel_after_completion(),
+        )
+        assert completed is False
+        assert cancel_after_completion.cancelled.status == "ALREADY_FINISHED"
+        assert cancel_after_completion.cancelled.has_editable_result is True
 
         extra_full_text = "Day 1 去颐和园。"
         extra_created = await repository.create_full(
