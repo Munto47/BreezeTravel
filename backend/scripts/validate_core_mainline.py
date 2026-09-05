@@ -18,6 +18,11 @@ from governance.core_mainline import (  # noqa: E402
     validate_core_mainline,
     validate_delivery_receipt,
 )
+from governance.experience_delivery import (  # noqa: E402
+    ExperienceContractError,
+    uses_experience_delivery,
+    validate_experience_delivery,
+)
 
 
 def _default_base() -> str:
@@ -36,6 +41,15 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
+        if uses_experience_delivery(REPOSITORY_ROOT):
+            payload = validate_experience_delivery(REPOSITORY_ROOT)
+            if args.require_delivery_pass or args.print_product_fingerprint:
+                payload["verdict"] = "FAIL"
+                payload["errors"].append(
+                    "Experience contract checks do not certify product delivery or legacy fingerprints"
+                )
+            print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
+            return 0 if payload["verdict"] == "PASS" else 1
         if args.print_product_fingerprint:
             print(product_fingerprint(REPOSITORY_ROOT))
             return 0
@@ -52,7 +66,7 @@ def main() -> int:
             )
         print(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if report.verdict == "PASS" else 1
-    except CoreMainlineError as exc:
+    except (CoreMainlineError, ExperienceContractError) as exc:
         print(json.dumps({"verdict": "FAIL", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 1
 

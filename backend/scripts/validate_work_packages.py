@@ -16,6 +16,11 @@ from evals.agent_gate_v1.work_packages import (  # noqa: E402
 )
 from evals.agent_gate_v1.scope_guard import validate_mainline_scope  # noqa: E402
 from governance.work_packages_v3 import validate_registry_v3  # noqa: E402
+from governance.experience_delivery import (  # noqa: E402
+    ExperienceContractError,
+    uses_experience_delivery,
+    validate_experience_delivery,
+)
 
 
 REPOSITORY_ROOT = BACKEND_ROOT.parent
@@ -51,6 +56,19 @@ def main() -> int:
         value for value in (args.phase, args.audit_worktree, args.evidence_receipt, args.output)
     ):
         parser.error("scope options require --scope-check")
+    target_root = (args.audit_worktree or REPOSITORY_ROOT).resolve()
+    try:
+        is_experience = uses_experience_delivery(target_root)
+    except ExperienceContractError as exc:
+        print(json.dumps({"verdict": "FAIL", "errors": [str(exc)]}, ensure_ascii=False))
+        return 2
+    if is_experience:
+        result = validate_experience_delivery(target_root)
+        if any((args.package_id, args.ready_package_id, args.phase, args.evidence_receipt, args.output)):
+            result["verdict"] = "FAIL"
+            result["errors"].append("Legacy package promotion and receipt options do not apply to the experience contract")
+        print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+        return 0 if result["verdict"] == "PASS" else 2
     registry_raw = json.loads(
         (REPOSITORY_ROOT / "docs/governance/current_work_packages.json").read_text(
             encoding="utf-8"

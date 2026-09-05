@@ -1,0 +1,183 @@
+# BreezeTravel「行程查」长期 Roadmap
+
+> 状态：`ACCEPTED`
+>
+> Program：`TC-VNEXT-2026`
+>
+> 版本：`Blueprint 1.3 / Unified Mainline and Parallel Delivery`
+>
+> 日期：2026-08-27
+
+## 1. 依赖图
+
+```text
+G00 Blueprint
+  ↓
+CORE_MVP
+G01 可信文本卡片 + 初次后台地图准备
+  ↓
+G02 地图剧场 + 手动更新 + 整程住宿
+  ↓
+G03 Top-3 行程核验 + 最小修改
+  ↓
+PRODUCT_ENHANCEMENT
+G04 截图与文本结果一致
+  ↓
+G05 三城有来源知识层
+  ↓
+G06 显式记忆与分享
+  ↓
+CANDIDATE_HARDENING
+G07 候选版收口
+  ↓ 人工批准
+H1 真人可用性
+  ↓ 人工批准
+V1.1 商业探索
+```
+
+路线不按日历时间自动推进，只按用户结果和阶段门推进。G01～G06使用`PRODUCT_DELIVERY_GATE`，G07使用`HARDENED_CANDIDATE_GATE`。G03完成后固定进入`CORE_MVP_OWNER_REVIEW_PENDING`并等待项目所有者体验验收，不自动进入G04。Agent证据不等于真人证据；G07最高状态固定为`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
+
+每个Goal通过v2 `current_work_packages.json`拆分为主对话唯一集成者和独立功能对话工作包。长期功能一律使用独立branch/worktree和版本化prompt；子Agent只读复核/诊断。集成者始终占一个writer名额，最多两个功能对话同时写，第三个已生成提示词的当前包为`WAITING_FOR_WRITER_SLOT`。仅可为下一Goal提前准备最多两个`PREPARED_NOT_INTEGRATED`包；功能包验收冻结后按领域→后端/API→UI→E2E串行合并。完整机器规则见Program 3.3。
+
+## 2. Blueprint 1.0 — G00
+
+用户结果：项目拥有一套不会互相冲突、可以直接指挥长期开发的产品、架构、API、版本、风险和证据合同。
+
+交付：
+
+- AGENTS、Charter、Spec、API、Architecture一致；
+- 新 Program、Roadmap、Release Gates；
+- 关键 ADR；
+- G01～G07预定义 Goal；
+- 风险登记和 Provider准入表；
+- 旧资产 `KEEP / ADAPT / FREEZE / REMOVE_FROM_ENTRY`；
+- 当前 Goal checkpoint、归档和切换机制。
+
+边界：只改文档；产品代码、migration、依赖和Provider调用为0。
+
+## 3. V0.1 可信卡片 — G01
+
+用户结果：登录用户只需粘贴自己的长文本即可得到高准确率、可编辑的逐日卡片；未登录用户可以完整编辑固定北京示例，登录后再创建和保存自己的行程。
+
+切片：
+
+1. 内部语义 revision与确定性证据编译；
+2. Qwen model panel与失败降级；
+3. 原子地点搜索、过滤和校准；
+4. 严格用户投影 API；
+5. 手机验证码优先、匿名体验和新首页；
+6. 每日卡片查看、替换、删除、插入、排序；
+7. 可恢复理解job、匿名资源授权、source TTL/删除；
+8. 卡片READY后自动创建并实际计算首次walking/transit地图任务，含逻辑去重与迟到保护。
+
+完成后不宣称地图UI、住宿、完整Audit或截图已完成。
+
+## 4. V0.2 地图与住宿 — G02
+
+用户结果：卡片生成后地图通常已在后台准备；用户打开地图查看真实步行/公交路线，修改后按需手动更新；没有酒店时获得适合整个行程的三家连锁酒店候选。
+
+切片：
+
+1. 复用G01已验证的revision绑定后台地图快照；
+2. 地图剧场、同日同色和连接线walking/transit切换；
+3. edit→`NEEDS_UPDATE`、零自动Provider调用、手动rerender；
+5. 住宿锚点、几何中位区域和2/4/8 km扩展；
+6. HotelBrandRegistry、路线矩阵和Top-3候选；
+7. 选择同店、创建新revision、地图stale。
+
+不提供价格、房态、星级或服务质量承诺。
+
+## 5. V0.3 核心行程查 — G03
+
+用户结果：系统只展示最值得处理的三个真实性或可行性问题，并允许最小修改。
+
+切片：
+
+1. 地点、路线、营业、预约和日容量事实；
+2. 酒店往返和午/晚餐空档；
+3. `PlanRevisionRef` materialization lineage与`DAY_INDEX_ONLY`兼容桥接；
+4. 无日期时禁用具体天气硬结论；
+5. severity、evidence、actionability和全程影响排序；
+6. 用户友好Top-3、未解决HARD队列与逐项补位；
+7. Repair preview、采纳、新revision和完整postcheck；
+8. 修改后地图需要更新，不自动重算。
+
+## 6. V0.4 截图一致性 — G04
+
+用户结果：最多6张截图得到与文本输入同等级的卡片和核验结果。
+
+切片：
+
+1. multipart截图批次、不透明owner-bound引用、输入校验、顺序和临时资产；
+2. PaddleOCR baseline；
+3. Qwen-VL离线消融；
+4. OCR box到同一语义编译器；
+5. 原图所有终态清理，OCR文本/bbox映射继承SourceDocument TTL和主动删除；
+6. 文本/截图 parity浏览器验证。
+
+Qwen-VL只有在关键字段、阅读顺序、卡片结果、bbox和性能均满足门禁时才晋级。
+
+## 7. V0.5 三城知识层 — G05
+
+用户结果：获得有来源、会过期的典型时长、适合时段、夜景、季节和预约建议。
+
+切片：
+
+1. 数据来源与许可准入；
+2. `KnowledgeClaim` schema和时效；
+3. 官方/政府/运营方采集；
+4. 授权创作者或用户内容；
+5. 建议检索与来源展示；
+6. 知识层有/无消融；
+7. 事实与建议隔离。
+
+不抓取小红书，不用RAG决定地点、路线或硬冲突。
+
+## 8. V0.6 个性化与分享 — G06
+
+用户结果：用户可选择记住步行、出发、餐饮、酒店和强度偏好，并生成朋友可读的分享行程。
+
+切片：
+
+1. consent、查看、更改、删除；
+2. 结构化偏好；
+3. 纠正、采纳/拒绝和主动反馈；
+4. 可撤销分享token和用户投影；
+5. 隐私、越权、删除和恢复；
+6. 不恢复房间号为入口。
+
+训练/评测使用需要与产品记忆分开的同意。
+
+## 9. V0.9 候选版 — G07
+
+用户结果：同一候选commit在离线、PostgreSQL、snapshot、真实Provider、浏览器、性能、隐私和可访问性上有可回读证据。
+
+只做收口：
+
+- 不新增产品功能；
+- 修复所有阻断 regression；
+- 运行G0～G6；
+- 生成受控演示、架构/恢复时序、模型消融和manifest；
+- 明确所有 `NOT_RUN`。
+- 先形成`HardeningDecision`：没有明确威胁收益时记录`NOT_REQUIRED_WITH_RATIONALE`；只有`REQUIRED`时启用被点名的authority/OCI控制，不默认恢复整套旧加固链。
+
+完成不等于H1、生产或商业验证。
+
+90条完整统计与最小分母、50次真实性能链、三个隔离审查角色、ultra裁决、sealed agent blind、exact commit证据绑定、完整可靠性与供应链加固都在G07收口。完成状态只能是`VNEXT_CANDIDATE_READY_AGENT_VERIFIED`。
+
+## 10. V1.0 与 V1.1
+
+H1需用户单独批准招募、consent和真实行程。目标是证明用户能独立输入、理解、编辑、更新地图并采纳建议。
+
+为避免等到G07才发现体验方向错误，G01/G02/G03之后分别预定义可选 `FUX-01/02/03` 形成性学习：卡片是否比原攻略更易用、手动更新/酒店理由是否可理解、Top-3是否能促成行动。每次均需人工批准，不自动招募、不阻断工程顺序，也不得冒充H1。
+
+H1通过后才可建立商业Program。该Program至少分两个客群并预注册证据：
+
+- 行程组织者：免费整理卡片，付费时刻是查看/采纳深度核验或临行复检；用真实支付、退款、复检复购证明，不用按钮点击替代；
+- 内容创作者：付费时刻是发布带可核验状态、可维护更新的分享行程；用分享后产生的有效行程查、留存和实际付款证明，不用曝光量替代。
+
+一次性价格测试需预注册价格梯度、免费边界、样本、退款和停止阈值；重大误导、退款集中或用户不理解价值即停止。不预设订阅，不以测试、模型分数或口头意愿冒充付费证据。
+
+## 11. 非关键路径实验
+
+`EXP-AUTH-ONE-TAP` 只能在G01后独立激活，且需要运营商/阿里云账号、审核、费用和隐私批准。失败不得阻塞短信验证码主链。

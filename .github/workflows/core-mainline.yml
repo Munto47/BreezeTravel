@@ -1,4 +1,4 @@
-name: Product mainline
+name: Product checks
 
 on:
   pull_request:
@@ -6,18 +6,86 @@ on:
   push:
     branches: [develop]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
+env:
+  RUNTIME_PROFILE: test
+  TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
+  AMAP_MOCK: "true"
+  DEMO_MODE: "true"
+  REQUIRE_SCHEMA_CHECK: "false"
+  FT_ROUTER_ENABLED: "false"
+  DEEPSEEK_API_KEY: ""
+  OPENAI_API_KEY: ""
+  QWEN_API_KEY: ""
+  AMAP_API_KEY: ""
+  LANGCHAIN_TRACING_V2: "false"
+  LANGSMITH_TRACING: "false"
+
 jobs:
-  core-mainline-preflight:
-    name: core-mainline-preflight
+  contract:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    outputs:
-      sequence: ${{ steps.goal.outputs.sequence }}
-      work_kind: ${{ steps.goal.outputs.work_kind }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check current product direction
+        working-directory: backend
+        run: python -m scripts.validate_core_mainline
+      - name: Repository diff hygiene
+        run: git diff --check
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Check changed validation entrypoints
+        working-directory: backend
+        run: >-
+          python -m ruff check
+          governance/experience_delivery.py
+          scripts/validate_core_mainline.py
+          scripts/validate_work_packages.py
+          tests/test_experience_delivery_contract.py
+      - name: Verify API, places, privacy, edits and map behavior
+        working-directory: backend
+        run: >-
+          python -m pytest -q
+          tests/test_experience_delivery_contract.py
+          tests/test_trip_understanding_v3.py
+          tests/test_trip_understanding_v3_api.py
+          tests/test_trip_understanding_natural_routes.py
+          tests/test_amap_trip_understanding.py
+          tests/test_amap_route_trip_understanding.py
+          tests/test_g03r_place_resolution.py
+          tests/test_g02_map_stay.py
+          tests/test_g03_top3_audit.py
+          tests/test_g06_memory_share_targeted.py
+          --junitxml=product-backend.xml
+      - name: Preserve backend results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-backend-results
+          path: backend/product-backend.xml
+          if-no-files-found: ignore
+
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         image: pgvector/pgvector:0.8.1-pg16
@@ -40,990 +108,77 @@ jobs:
           --health-timeout 3s
           --health-retries 10
     env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/travel_agent
       TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
       REDIS_URL: redis://127.0.0.1:6379
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      SCREENSHOT_OCR_MODE: fixture
-      AMAP_MOCK: "true"
-      DEV_LOGIN_BYPASS: "true"
-      JWT_SECRET_KEY: core-mainline-local-only-secret-2026
-      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
-      DEEPSEEK_API_KEY: ""
-      OPENAI_API_KEY: ""
-      QWEN_API_KEY: ""
-      AMAP_API_KEY: ""
-      LANGCHAIN_TRACING_V2: "false"
-      LANGSMITH_TRACING: "false"
       RUN_SERVICE_INTEGRATION: "1"
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install targeted delivery dependencies
-        run: |
-          python -m pip install -r backend/requirements-dev.txt
-          npm ci --prefix frontend
-          cd frontend
-          npx playwright install --with-deps chromium
-
-      - name: Read active Goal
-        id: goal
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        shell: bash
-        run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          import os
-          import subprocess
-          from pathlib import Path
-
-          registry = json.loads(Path("docs/governance/current_work_packages.json").read_text(encoding="utf-8"))
-          sequence = registry["active_goal_sequence"]
-          work_kind = registry["active_slice"]["work_kind"]
-          base_ref = os.environ.get("BASE_SHA") or "origin/develop"
-          result = subprocess.run(
-              ["git", "show", f"{base_ref}:docs/governance/current_goal_binding.json"],
-              check=False,
-              capture_output=True,
-              text=True,
-              encoding="utf-8",
-          )
-          if result.returncode == 0:
-              base_sequence = json.loads(result.stdout)["goal_sequence"]
-              if sequence == base_sequence + 1:
-                  work_kind = "GOAL_TRANSITION"
-          print(f"sequence={sequence}")
-          print(f"work_kind={work_kind}")
-          PY
-
-      - name: Enforce product-mainline scope
-        working-directory: backend
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        shell: bash
-        run: |
-          base_ref="${BASE_SHA:-origin/develop}"
-          head_ref="${HEAD_SHA:-HEAD}"
-          python -m scripts.validate_core_mainline --base-ref "$base_ref" --head-ref "$head_ref"
-
-      - name: Check delivery governance code
-        working-directory: backend
-        run: >-
-          python -m ruff check
-          governance
-          scripts/run_g04_paddle_gate.py
-          scripts/run_g05_knowledge_gate.py
-          scripts/validate_work_packages.py
-          scripts/validate_core_mainline.py
-          tests/test_product_delivery_governance.py
-          tests/test_g04_governance_delivery.py
-          tests/test_g05_governance_delivery.py
-          tests/test_product_work_packages_v3.py
-          tests/test_g01_delivery_samples.py
-
-      - name: Verify delivery contracts
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_product_delivery_governance.py
-          tests/test_governance_agent_gate_transition.py
-          tests/test_product_work_packages_v3.py
-
-      - name: Verify G01 fixed samples and v3 journey
-        if: steps.goal.outputs.sequence == '1' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_g01_delivery_samples.py
-          tests/test_trip_understanding_v3.py
-          tests/test_trip_understanding_v3_api.py
-          tests/test_amap_trip_understanding.py
-          tests/test_amap_route_trip_understanding.py
-
-      - name: Verify G02 product package
-        if: steps.goal.outputs.sequence == '2' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: backend
-        shell: bash
-        run: python -m pytest -q tests/test_g02_*.py --ignore-glob='tests/test_g02_*_postgres.py'
-
-      - name: Verify G03 product package
-        if: steps.goal.outputs.sequence == '3' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: backend
-        shell: bash
-        run: python -m pytest -q tests/test_g03_*.py --ignore-glob='tests/test_g03_*_postgres.py'
-
-      - name: Create browser database and migrate
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4' && steps.goal.outputs.sequence != '5' && steps.goal.outputs.sequence != '6'
-        working-directory: backend
-        shell: bash
-        run: |
-          python - <<'PY'
-          import asyncio
-          import asyncpg
-          from pathlib import Path
-          async def main():
-              connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
-              try:
-                  exists = await connection.fetchval("SELECT 1 FROM pg_database WHERE datname='travel_agent'")
-                  if not exists:
-                      await connection.execute("CREATE DATABASE travel_agent")
-              finally:
-                  await connection.close()
-              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
-              try:
-                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
-              finally:
-                  await bootstrap.close()
-          asyncio.run(main())
-          PY
-          python -m scripts.migrate
-
-      - name: Verify G01 PostgreSQL chain
-        if: steps.goal.outputs.sequence == '1' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Verify durable state, concurrency, map edits and deletion
         working-directory: backend
         run: >-
           python -m pytest -q
           tests/test_trip_understanding_v3_postgres.py
           tests/test_g01_map_positive_postgres.py
-
-      - name: Verify G02 PostgreSQL chain
-        if: steps.goal.outputs.sequence == '2' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: backend
-        shell: bash
-        run: python -m pytest -q tests/test_g02_*_postgres.py
-
-      - name: Verify G03 PostgreSQL chain
-        if: steps.goal.outputs.sequence == '3' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: backend
-        shell: bash
-        run: python -m pytest -q tests/test_g03_*_postgres.py
-
-      - name: Build frontend
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4' && steps.goal.outputs.sequence != '5' && steps.goal.outputs.sequence != '6'
-        working-directory: frontend
-        run: npm run build
-
-      - name: Start v3 backend and workers
-        if: steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4' && steps.goal.outputs.sequence != '5' && steps.goal.outputs.sequence != '6'
-        working-directory: backend
-        shell: bash
-        run: |
-          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8999 > /tmp/core-mainline-backend.log 2>&1 &
-          nohup python -m app.trip_understanding.worker > /tmp/core-mainline-understanding-worker.log 2>&1 &
-          nohup python -m app.trip_understanding.map_worker > /tmp/core-mainline-map-worker.log 2>&1 &
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:8999/health > /dev/null; then exit 0; fi
-            sleep 1
-          done
-          cat /tmp/core-mainline-backend.log
-          exit 1
-
-      - name: Verify G01 browser journey
-        if: steps.goal.outputs.sequence == '1' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: frontend
-        run: npx playwright test e2e/trip-understanding-v3.spec.js -c playwright.product-delivery.config.js
-
-      - name: Verify G02 browser journey
-        if: steps.goal.outputs.sequence == '2' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: frontend
-        run: npx playwright test e2e/g02-product-delivery.spec.js -c playwright.product-delivery.config.js
-
-      - name: Verify G03 browser journey
-        if: steps.goal.outputs.sequence == '3' && steps.goal.outputs.work_kind != 'GOAL_TRANSITION'
-        working-directory: frontend
-        run: npx playwright test e2e/g03-product-delivery.spec.js -c playwright.product-delivery.config.js
-
-      - name: Confirm current delivery result
-        if: steps.goal.outputs.work_kind == 'GOAL_TRANSITION'
-        working-directory: backend
-        run: python -m scripts.validate_core_mainline --base-ref HEAD^ --require-delivery-pass
-
-      - name: Show service logs on failure
-        if: failure() && steps.goal.outputs.work_kind != 'GOAL_TRANSITION' && steps.goal.outputs.sequence != '4' && steps.goal.outputs.sequence != '5' && steps.goal.outputs.sequence != '6'
-        shell: bash
-        run: |
-          for log in /tmp/core-mainline-*.log; do
-            if test -f "$log"; then echo "=== $log ==="; tail -n 200 "$log"; fi
-          done
-
-      - name: Repository diff hygiene
-        run: git diff --check
-
-  g04_screenshot_targeted:
-    name: g04_screenshot_targeted
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      SCREENSHOT_OCR_MODE: fixture
-      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Assert fixture evidence boundary
-        shell: bash
-        run: |
-          test "$SCREENSHOT_OCR_MODE" = fixture
-          test "$G04_EVIDENCE_LEVEL" = AUTOMATED_FIXTURE_CI
-      - name: Verify screenshot fixture contract and compatibility
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_g04_formal_gate.py
-          tests/test_g04_governance_delivery.py
-          tests/test_g04_screenshot_batches_unit.py
-          tests/test_g04_screenshot_ocr_unit.py
-          tests/test_g04_screenshot_api.py
-          tests/test_g04_screenshot_cleanup_lifecycle.py
-          tests/test_g04_screenshot_pipeline.py
-          tests/test_g04_private_data_maintenance.py
-          tests/test_g04_public_privacy_boundaries.py
-          tests/test_g04_schema_compatibility.py
-          tests/test_trip_understanding_v3.py
-          tests/test_trip_understanding_v3_api.py
-          tests/test_screenshot_imports.py
-          tests/test_screenshot_upload_batches.py
-
-  g04_postgresql:
-    name: g04_postgresql
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.1-pg16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7.4.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/travel_agent
-      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
-      REDIS_URL: redis://127.0.0.1:6379
-      TEST_REDIS_URL: redis://127.0.0.1:6379/15
-      RUNTIME_PROFILE: local_fixture
-      SCREENSHOT_OCR_MODE: fixture
-      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
-      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
-      RUN_SERVICE_INTEGRATION: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Create PostgreSQL database and migrate
-        working-directory: backend
-        shell: bash
-        run: |
-          python - <<'PY'
-          import asyncio
-          import asyncpg
-          from pathlib import Path
-          async def main():
-              connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
-              try:
-                  exists = await connection.fetchval("SELECT 1 FROM pg_database WHERE datname='travel_agent'")
-                  if not exists:
-                      await connection.execute("CREATE DATABASE travel_agent")
-              finally:
-                  await connection.close()
-              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
-              try:
-                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
-              finally:
-                  await bootstrap.close()
-          asyncio.run(main())
-          PY
-          python -m scripts.migrate
-      - name: Verify G04 PostgreSQL lifecycle
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_g04_screenshot_postgres.py
-          tests/test_trip_understanding_v3_postgres.py
-          tests/test_screenshot_postgres_integration.py
-      - name: Prepare POSIX backend regression compatibility
-        working-directory: backend
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y fonts-noto-cjk
-          sudo install -m 0755 scripts/ci_posix_cmd_junction_shim.py /usr/local/bin/cmd
-          python -m pip install pydantic==2.10.4
-      - name: Verify backend service and non-P5 regression
-        working-directory: backend
-        env:
-          P3_OCR_FONT_PATH: /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
-        run: python -m scripts.run_g04_non_p5_regression
-
-  g04_historical_backend:
-    name: g04_historical_backend
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: windows-2022
-    timeout-minutes: 45
-    env:
-      P3_OCR_FONT_PATH: 'C:\Windows\Fonts\msyh.ttc'
-      P5_OCR_FONT_PATH: 'C:\Windows\Fonts\msyh.ttc'
-      PYTHONUTF8: "1"
-      PYTHONIOENCODING: utf-8
-      OMP_NUM_THREADS: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13.9"
-          cache: pip
-          cache-dependency-path: backend/requirements-historical-p5-ci.txt
-      - name: Install frozen historical P5 CI profile
-        run: python -m pip install -r backend/requirements-historical-p5-ci.txt
-      - name: Provision exact historical text layout ABI
-        shell: pwsh
-        run: |
-          $condaRoot = $env:CONDA
-          if ([string]::IsNullOrWhiteSpace($condaRoot)) {
-            $condaRoot = 'C:\Miniconda'
-          }
-          $condaExe = Join-Path $condaRoot 'Scripts\conda.exe'
-          if (-not (Test-Path -LiteralPath $condaExe -PathType Leaf)) {
-            throw "GitHub Windows Miniconda is unavailable: $condaExe"
-          }
-          $nativePrefix = Join-Path $env:RUNNER_TEMP 'g04-p5-native'
-          & $condaExe create --prefix $nativePrefix --yes --override-channels --channel defaults 'fribidi=1.0.10=h62dcd97_0'
-          if ($LASTEXITCODE -ne 0) {
-            throw "failed to provision frozen FriBidi runtime: exit $LASTEXITCODE"
-          }
-          $nativeBin = Join-Path $nativePrefix 'Library\bin'
-          $fribidiPath = Join-Path $nativeBin 'fribidi-0.dll'
-          $expectedFribidiHash = '463c7479d434a8681a9dbde16d0675e28d09d38fa43e3e18d826e345584ba18d'
-          if (-not (Test-Path -LiteralPath $fribidiPath -PathType Leaf)) {
-            throw "frozen FriBidi runtime is unavailable: $fribidiPath"
-          }
-          $actualFribidiHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $fribidiPath).Hash.ToLowerInvariant()
-          if ($actualFribidiHash -ne $expectedFribidiHash) {
-            throw "frozen FriBidi hash mismatch: expected $expectedFribidiHash, got $actualFribidiHash"
-          }
-          Add-Content -LiteralPath $env:GITHUB_PATH -Value $nativeBin -Encoding utf8
-      - name: Verify exact historical font and P5 regression
-        working-directory: backend
-        shell: pwsh
-        run: |
-          $expectedFontHash = 'd79c55e68b1131eea0cc1c47be4f572d964f28c682e143db2ad09c1e4cb07a3f'
-          if (-not (Test-Path -LiteralPath $env:P5_OCR_FONT_PATH -PathType Leaf)) {
-            throw "frozen P5 font is unavailable: $env:P5_OCR_FONT_PATH"
-          }
-          $actualFontHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $env:P5_OCR_FONT_PATH).Hash.ToLowerInvariant()
-          if ($actualFontHash -ne $expectedFontHash) {
-            throw "frozen P5 font hash mismatch: expected $expectedFontHash, got $actualFontHash"
-          }
-          @'
-          import json
-          import platform
-          import sys
-          from pathlib import Path
-
-          import PIL
-          from PIL import ImageFont, features
-
-          from evals.trip_check_v1.p5.evidence_materialization_v3 import _render_contract_v3
-
-          rows = Path("evals/trip_check_v1/p5/materializations_nonblind_v3.jsonl")
-          case = next(
-              json.loads(line)
-              for line in rows.read_text(encoding="utf-8").splitlines()
-              if json.loads(line).get("case_id") == "p5.dev.bj.002"
-          )
-          product_input = case["source_payload"]["product_input"]
-          actual = _render_contract_v3(
-              product_input["source_text"],
-              json.dumps(product_input["render_spec"], ensure_ascii=False, sort_keys=True),
-          )
-          expected = (
-              case["render_receipt"]["image_sha256"],
-              case["render_receipt"]["byte_size"],
-          )
-          diagnostic = {
-              "python": sys.version,
-              "platform": platform.platform(),
-              "pillow": PIL.__version__,
-              "freetype": features.version("freetype2"),
-              "raqm": features.version_feature("raqm"),
-              "fribidi": features.version_feature("fribidi"),
-              "harfbuzz": features.version_feature("harfbuzz"),
-              "layout_engine": int(
-                  ImageFont.truetype(str(Path("C:/Windows/Fonts/msyh.ttc")), 34).layout_engine
-              ),
-              "expected": expected,
-              "actual": actual[:2],
-          }
-          print("P5_RENDERER_ABI " + json.dumps(diagnostic, ensure_ascii=False, sort_keys=True))
-          expected_abi = {
-              "pillow": "12.2.0",
-              "freetype": "2.14.3",
-              "raqm": "0.10.3",
-              "fribidi": "1.0.10",
-              "harfbuzz": "13.2.1",
-              "layout_engine": 1,
-          }
-          if actual[:2] != expected or any(
-              diagnostic[key] != value for key, value in expected_abi.items()
-          ):
-              raise SystemExit("frozen P5 renderer ABI mismatch")
-          '@ | python -
-          if ($LASTEXITCODE -ne 0) {
-            throw "frozen P5 renderer ABI preflight failed: exit $LASTEXITCODE"
-          }
-          $testFiles = @(
-            Get-ChildItem -LiteralPath tests -Filter 'test_trip_check_p5*.py' |
-              Sort-Object -Property Name |
-              ForEach-Object { $_.FullName }
-          )
-          if ($testFiles.Count -eq 0) {
-            throw 'historical P5 regression partition is empty'
-          }
-          python -m pytest -q @testFiles
-
-  g05_knowledge_targeted:
-    name: g05_knowledge_targeted
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '5' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      AMAP_MOCK: "true"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Verify G05 source, projection, API and governance contracts
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_g05_source_admission.py
-          tests/test_g05_knowledge_admin.py
-          tests/test_g05_knowledge_targeted.py
-          tests/test_g05_knowledge_api.py
-          tests/test_g05_knowledge_ablation.py
-          tests/test_g05_governance_delivery.py
-          tests/test_trip_understanding_v3.py
-          tests/test_trip_understanding_v3_api.py
-      - name: Run frozen G05 knowledge admission and ablation gate
-        working-directory: backend
-        run: python -m scripts.run_g05_knowledge_gate
-      - name: Check G05 implementation style
-        working-directory: backend
-        run: >-
-          python -m ruff check
-          app/api/trip_understandings_v3.py
-          app/trip_understanding/knowledge.py
-          app/trip_understanding/knowledge_admin.py
-          app/trip_understanding/knowledge_repository.py
-          app/trip_understanding/models.py
-          app/trip_understanding/repository.py
-          evals/g05_knowledge
-          scripts/manage_g05_knowledge.py
-          scripts/run_g05_knowledge_gate.py
-          tests/test_g05_knowledge_ablation.py
-          tests/test_g05_knowledge_admin.py
-          tests/test_g05_knowledge_api.py
-          tests/test_g05_knowledge_postgres.py
-          tests/test_g05_knowledge_targeted.py
-          tests/test_g05_governance_delivery.py
-          tests/test_g05_source_admission.py
-
-  g05_postgresql:
-    name: g05_postgresql
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '5' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        # The existing repository bootstrap already contains historical vector
-        # columns. G05 itself adds no vector extension, index or dependency.
-        image: pgvector/pgvector:0.8.1-pg16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
-      RUN_SERVICE_INTEGRATION: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Verify 032 fresh, after-034 and runtime lifecycle
-        working-directory: backend
-        run: python -m pytest -q tests/test_g05_knowledge_postgres.py
-
-  g05_browser_e2e:
-    name: g05_browser_e2e
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '5' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      AMAP_MOCK: "true"
-      NEXT_PUBLIC_SHOW_TEST_LOGIN: "true"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install browser test dependencies
-        run: |
-          npm ci --prefix frontend
-          cd frontend
-          npx playwright install --with-deps chromium
-      - name: Verify three-city knowledge journey and neutral fallbacks
-        working-directory: frontend
-        run: npm run test:e2e:knowledge
-
-  g06_memory_share_targeted:
-    name: g06_memory_share_targeted
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '6' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      AMAP_MOCK: "true"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Verify consent, structured memory, feedback, sharing and deletion
-        working-directory: backend
-        run: >-
-          python -m pytest -q
-          tests/test_g06_memory_share_targeted.py
-          tests/test_g06_governance_delivery.py
-          tests/test_trip_understanding_v3_api.py
-          tests/test_g04_public_privacy_boundaries.py
-          tests/test_g04_private_data_maintenance.py
-      - name: Check G06 implementation style
-        working-directory: backend
-        run: >-
-          python -m ruff check
-          app/api/memory_share_v3.py
-          app/trip_understanding/memory_share.py
-          app/trip_understanding/repository.py
-          tests/test_g06_memory_share_targeted.py
+          tests/test_g02_map_stay_postgres.py
+          tests/test_g03_top3_audit_postgres.py
           tests/test_g06_memory_share_postgres.py
-          tests/test_g06_governance_delivery.py
-
-  g06_postgresql:
-    name: g06_postgresql
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '6' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.1-pg16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
-      RUN_SERVICE_INTEGRATION: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - name: Install backend test dependencies
-        run: python -m pip install -r backend/requirements-dev.txt
-      - name: Verify 033 fresh, after-034 and runtime privacy lifecycle
+          --junitxml=product-postgres.xml
+      - name: Confirm database checks actually ran
         working-directory: backend
-        run: python -m pytest -q tests/test_g06_memory_share_postgres.py
-
-  g06_browser_e2e:
-    name: g06_browser_e2e
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '6' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install browser test dependencies
-        run: |
-          npm ci --prefix frontend
-          cd frontend
-          npx playwright install --with-deps chromium
-      - name: Verify memory controls, fragment exchange, minimal share and revoke
-        working-directory: frontend
-        run: npx playwright test e2e/g06-memory-share.spec.js -c playwright.product-delivery.config.js
-
-  frontend_build:
-    name: frontend_build
-    needs: core-mainline-preflight
-    if: ${{ (needs.core-mainline-preflight.outputs.sequence == '4' || needs.core-mainline-preflight.outputs.sequence == '5' || needs.core-mainline-preflight.outputs.sequence == '6') && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: |
-            frontend/package-lock.json
-            packages/trip-check-client/package-lock.json
-      - name: Install build dependencies
-        run: |
-          python -m pip install -r backend/requirements-dev.txt
-          npm ci --prefix frontend
-          npm ci --prefix packages/trip-check-client
-      - name: Verify OpenAPI and shared client
-        shell: bash
-        run: |
-          python -m backend.scripts.export_trip_check_openapi --check
-          npm run generate --prefix packages/trip-check-client
-          git diff --exit-code -- packages/trip-check-client/openapi.current.json packages/trip-check-client/src/generated/schema.ts
-          npm run typecheck --prefix packages/trip-check-client
-          npm run build --prefix packages/trip-check-client
-      - name: Build frontend production bundle
-        working-directory: frontend
-        run: npm run build
-
-  g04_browser_e2e:
-    name: g04_browser_e2e
-    needs: core-mainline-preflight
-    if: ${{ needs.core-mainline-preflight.outputs.sequence == '4' && needs.core-mainline-preflight.outputs.work_kind != 'GOAL_TRANSITION' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.1-pg16
-        env:
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7.4.2-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/travel_agent
-      TEST_DATABASE_ADMIN_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
-      REDIS_URL: redis://127.0.0.1:6379
-      RUNTIME_PROFILE: local_fixture
-      TRIP_UNDERSTANDING_PROVIDER_MODE: fixture
-      SCREENSHOT_OCR_MODE: fixture
-      G04_EVIDENCE_LEVEL: AUTOMATED_FIXTURE_CI
-      AMAP_MOCK: "true"
-      DEV_LOGIN_BYPASS: "true"
-      JWT_SECRET_KEY: core-mainline-local-only-secret-2026
-      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: core-mainline-source-key-2026
-      RUN_SERVICE_INTEGRATION: "1"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install browser test dependencies
-        run: |
-          python -m pip install -r backend/requirements-dev.txt
-          npm ci --prefix frontend
-          cd frontend
-          npx playwright install --with-deps chromium
-      - name: Create browser database and migrate
-        working-directory: backend
-        shell: bash
         run: |
           python - <<'PY'
-          import asyncio
-          import asyncpg
-          from pathlib import Path
-          async def main():
-              connection = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/postgres")
-              try:
-                  exists = await connection.fetchval("SELECT 1 FROM pg_database WHERE datname='travel_agent'")
-                  if not exists:
-                      await connection.execute("CREATE DATABASE travel_agent")
-              finally:
-                  await connection.close()
-              bootstrap = await asyncpg.connect("postgresql://postgres:postgres@127.0.0.1:5432/travel_agent")
-              try:
-                  await bootstrap.execute(Path("app/db/init.sql").read_text(encoding="utf-8"))
-              finally:
-                  await bootstrap.close()
-          asyncio.run(main())
+          from xml.etree import ElementTree
+          root = ElementTree.parse("product-postgres.xml").getroot()
+          cases = root.findall(".//testcase")
+          if not cases or any(case.find("skipped") is not None for case in cases):
+              raise SystemExit("PostgreSQL checks must execute without skips")
           PY
-          python -m scripts.migrate
-      - name: Start fixture services
-        working-directory: backend
-        shell: bash
-        run: |
-          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8999 > /tmp/g04-backend.log 2>&1 &
-          nohup python -m app.trip_understanding.worker > /tmp/g04-understanding-worker.log 2>&1 &
-          nohup python -m app.trip_understanding.map_worker > /tmp/g04-map-worker.log 2>&1 &
-          for attempt in $(seq 1 60); do
-            if curl --fail --silent http://127.0.0.1:8999/health > /dev/null; then exit 0; fi
-            sleep 1
-          done
-          cat /tmp/g04-backend.log
-          exit 1
-      - name: Verify screenshot browser journey with fixture OCR
+      - name: Preserve PostgreSQL results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-postgres-results
+          path: backend/product-postgres.xml
+          if-no-files-found: ignore
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
         working-directory: frontend
-        run: npm run test:e2e:screenshot
-      - name: Show G04 service logs on failure
-        if: failure()
-        shell: bash
-        run: |
-          for log in /tmp/g04-*.log; do
-            if test -f "$log"; then echo "=== $log ==="; tail -n 200 "$log"; fi
-          done
+      - run: npm run build
+        working-directory: frontend
 
   core-mainline:
     name: core-mainline
-    if: ${{ always() }}
-    needs:
-      - core-mainline-preflight
-      - g04_screenshot_targeted
-      - g04_postgresql
-      - g04_historical_backend
-      - g04_browser_e2e
-      - g05_knowledge_targeted
-      - g05_postgresql
-      - g05_browser_e2e
-      - g06_memory_share_targeted
-      - g06_postgresql
-      - g06_browser_e2e
-      - frontend_build
+    needs: [contract, backend, postgres, frontend]
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    env:
-      PREFLIGHT_RESULT: ${{ needs.core-mainline-preflight.result }}
-      GOAL_SEQUENCE: ${{ needs.core-mainline-preflight.outputs.sequence }}
-      WORK_KIND: ${{ needs.core-mainline-preflight.outputs.work_kind }}
-      G04_SCREENSHOT_TARGETED_RESULT: ${{ needs.g04_screenshot_targeted.result }}
-      G04_POSTGRESQL_RESULT: ${{ needs.g04_postgresql.result }}
-      G04_HISTORICAL_BACKEND_RESULT: ${{ needs.g04_historical_backend.result }}
-      G04_BROWSER_E2E_RESULT: ${{ needs.g04_browser_e2e.result }}
-      G05_KNOWLEDGE_TARGETED_RESULT: ${{ needs.g05_knowledge_targeted.result }}
-      G05_POSTGRESQL_RESULT: ${{ needs.g05_postgresql.result }}
-      G05_BROWSER_E2E_RESULT: ${{ needs.g05_browser_e2e.result }}
-      G06_MEMORY_SHARE_TARGETED_RESULT: ${{ needs.g06_memory_share_targeted.result }}
-      G06_POSTGRESQL_RESULT: ${{ needs.g06_postgresql.result }}
-      G06_BROWSER_E2E_RESULT: ${{ needs.g06_browser_e2e.result }}
-      FRONTEND_BUILD_RESULT: ${{ needs.frontend_build.result }}
     steps:
-      - name: Enforce required product-mainline results
-        shell: bash
+      - name: Require all current code checks
+        env:
+          CONTRACT_RESULT: ${{ needs.contract.result }}
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          POSTGRES_RESULT: ${{ needs.postgres.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
         run: |
-          if [ "$PREFLIGHT_RESULT" != "success" ]; then
-            echo "core-mainline preflight did not succeed: $PREFLIGHT_RESULT"
-            exit 1
-          fi
-
-          if [ "$GOAL_SEQUENCE" = "4" ] && [ "$WORK_KIND" != "GOAL_TRANSITION" ]; then
-            expected_g04_result="success"
-          else
-            expected_g04_result="skipped"
-          fi
-
-          for result_name in \
-            G04_SCREENSHOT_TARGETED_RESULT \
-            G04_POSTGRESQL_RESULT \
-            G04_HISTORICAL_BACKEND_RESULT \
-            G04_BROWSER_E2E_RESULT
-          do
-            actual_result="${!result_name}"
-            if [ "$actual_result" != "$expected_g04_result" ]; then
-              echo "$result_name must be $expected_g04_result, got $actual_result"
-              exit 1
-            fi
-          done
-
-          if [ "$GOAL_SEQUENCE" = "5" ] && [ "$WORK_KIND" != "GOAL_TRANSITION" ]; then
-            expected_g05_result="success"
-          else
-            expected_g05_result="skipped"
-          fi
-
-          for result_name in \
-            G05_KNOWLEDGE_TARGETED_RESULT \
-            G05_POSTGRESQL_RESULT \
-            G05_BROWSER_E2E_RESULT
-          do
-            actual_result="${!result_name}"
-            if [ "$actual_result" != "$expected_g05_result" ]; then
-              echo "$result_name must be $expected_g05_result, got $actual_result"
-              exit 1
-            fi
-          done
-
-          if [ "$GOAL_SEQUENCE" = "6" ] && [ "$WORK_KIND" != "GOAL_TRANSITION" ]; then
-            expected_g06_result="success"
-          else
-            expected_g06_result="skipped"
-          fi
-
-          for result_name in \
-            G06_MEMORY_SHARE_TARGETED_RESULT \
-            G06_POSTGRESQL_RESULT \
-            G06_BROWSER_E2E_RESULT
-          do
-            actual_result="${!result_name}"
-            if [ "$actual_result" != "$expected_g06_result" ]; then
-              echo "$result_name must be $expected_g06_result, got $actual_result"
-              exit 1
-            fi
-          done
-
-          if { [ "$GOAL_SEQUENCE" = "4" ] || [ "$GOAL_SEQUENCE" = "5" ] || [ "$GOAL_SEQUENCE" = "6" ]; } && [ "$WORK_KIND" != "GOAL_TRANSITION" ]; then
-            expected_frontend_result="success"
-          else
-            expected_frontend_result="skipped"
-          fi
-          if [ "$FRONTEND_BUILD_RESULT" != "$expected_frontend_result" ]; then
-            echo "FRONTEND_BUILD_RESULT must be $expected_frontend_result, got $FRONTEND_BUILD_RESULT"
-            exit 1
-          fi
+          test "$CONTRACT_RESULT" = success
+          test "$BACKEND_RESULT" = success
+          test "$POSTGRES_RESULT" = success
+          test "$FRONTEND_RESULT" = success
+          echo "Contract, backend, PostgreSQL and frontend build passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "The 12-scenario browser suite, live providers and user experience are NOT_RUN in this stage-0 workflow." >> "$GITHUB_STEP_SUMMARY"
