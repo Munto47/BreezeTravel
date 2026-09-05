@@ -72,6 +72,8 @@ jobs:
           tests/test_experience_twelve_tasks.py
           tests/test_experience_timing_candidates.py
           tests/test_amap_trip_understanding.py
+          tests/test_place_identity_safety.py
+          tests/test_experience_source_anchors.py
           tests/test_amap_route_trip_understanding.py
           tests/test_g03r_place_resolution.py
           tests/test_g02_map_stay.py

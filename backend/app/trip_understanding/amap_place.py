@@ -19,6 +19,8 @@ from app.trip_understanding._three_city_place_lexicon import (
     get_three_city_place_lexicon,
     normalize_city_name,
     normalize_place_name,
+    venue_kind,
+    venue_suffix_conflicts,
     venue_suffix_equivalent,
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
@@ -38,6 +40,9 @@ _PROVIDER_MATCH_TIERS = (
     "CANONICAL_EXACT",
     "SAFE_ALIAS_EXACT",
     "VENUE_SUFFIX_EQUIVALENT",
+)
+_STRICT_PROVIDER_TYPE_VENUE_KINDS = frozenset(
+    {"博物馆", "美术馆", "纪念馆", "科技馆", "图书馆", "展览馆", "艺术馆"}
 )
 _CITY_ADMIN_RULES = {
     "北京": {"province": "北京", "adcode_prefix": "11", "municipality": True},
@@ -296,6 +301,8 @@ def _name_match_tier(
     primary = raw.get("name")
     if not isinstance(primary, str) or not primary.strip():
         return None
+    if venue_suffix_conflicts(canonical_name, _PROVIDER_STATUS_SUFFIX_RE.sub("", primary).strip()):
+        return None
     canonical_values = _comparison_values(canonical_name, city=city, provider_name=False)
     safe_alias_values = {
         value
@@ -492,6 +499,39 @@ def _evaluate_candidates(
             continue
         admin_match_ids.add(provider_id)
 
+        # AMap's broad attraction category cannot distinguish a museum from a
+        # library (or a stadium from a gymnasium). Cross-check every explicit
+        # venue kind carried by the provider name, aliases and type labels
+        # before accepting an otherwise exact lexical match.
+        expected_venue_kind = venue_kind(atomic) or venue_kind(canonical_name)
+        provider_name_parts = [
+            part.strip()
+            for value in [*_string_values(item.get("name")), *_provider_aliases(item)]
+            for part in re.split(r"[|;/；]", value)
+            if part.strip()
+        ]
+        provider_type_parts = [
+            part.strip()
+            for value in _string_values(item.get("type"))
+            for part in re.split(r"[|;/；]", value)
+            if part.strip()
+        ]
+        name_identity_conflict = expected_venue_kind is not None and any(
+            (candidate_kind := venue_kind(value)) is not None and candidate_kind != expected_venue_kind
+            for value in provider_name_parts
+        )
+        strict_type_identity_conflict = (
+            expected_venue_kind in _STRICT_PROVIDER_TYPE_VENUE_KINDS
+            and any(
+                (candidate_kind := venue_kind(value)) in _STRICT_PROVIDER_TYPE_VENUE_KINDS
+                and candidate_kind != expected_venue_kind
+                for value in provider_type_parts
+            )
+        )
+        if name_identity_conflict or strict_type_identity_conflict:
+            category_conflict_ids.add(provider_id)
+            continue
+
         typecode_raw = item.get("typecode")
         type_label_raw = item.get("type")
         typecode = typecode_raw.strip() if isinstance(typecode_raw, str) else ""
@@ -562,7 +602,7 @@ def _evaluate_candidates(
         "primary_exact_candidate_count": len(by_tier["CANONICAL_EXACT"]),
         "provider_type_conflict_candidate_count": len(category_conflict_ids),
         "provider_type_incomplete_candidate_count": len(category_incomplete_ids),
-        "name_match_policy": "HIGHEST_TIER_UNIQUE_POI_ID_V4",
+        "name_match_policy": "HIGHEST_TIER_UNIQUE_POI_ID_V5_VENUE_IDENTITY",
         "selection_tier": selection_tier,
     }
     return _CandidateDecision(selected=selected, metrics=metrics)

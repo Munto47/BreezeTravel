@@ -431,7 +431,9 @@ export default function TripResultPage() {
               ? '正在整理每天的安排'
               : trip.unavailable === 'GONE'
                 ? '这份行程已无法打开'
-                : '行程暂时还没打开'}
+                : trip.unavailable === 'FAILED'
+                  ? '这次没有整理完成'
+                  : '行程暂时还没打开'}
           </h1>
           <p role="status">{trip.message}</p>
           {trip.loading ? (
@@ -467,8 +469,15 @@ export default function TripResultPage() {
                   切换账号后重试
                 </button>
               )}
-              <Link className="e-button" href="/">
-                重新整理
+              <Link
+                className={
+                  trip.unavailable === 'FAILED'
+                    ? 'e-button e-button-primary'
+                    : 'e-button'
+                }
+                href="/"
+              >
+                {trip.unavailable === 'FAILED' ? '返回首页重试' : '重新整理'}
               </Link>
             </div>
           )}

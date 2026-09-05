@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '@/lib/trip-understanding-v3'
+import { releaseFailedTripInput } from '@/lib/trip-input-recovery'
 
 type PendingOperation = {
   resource: string
@@ -374,6 +375,10 @@ export function useTripExperience() {
         if (!stopped) {
           setLoading(false)
           const code = error instanceof Error ? error.message : ''
+          const recoveredInput =
+            code === 'UNDERSTANDING_FAILED'
+              ? releaseFailedTripInput(reference!)
+              : null
           const gone = code === 'TRIP_GONE'
           if (gone) {
             try {
@@ -412,7 +417,9 @@ export function useTripExperience() {
                 : code === 'LOGIN_REQUIRED'
                   ? '请登录保存这份行程的账号后继续。'
                   : code === 'UNDERSTANDING_FAILED'
-                    ? '这次没有整理完成，可以回到首页调整文字后重试。'
+                    ? recoveredInput
+                      ? '这次没有整理完成，原文已保留。回到首页即可重试，也可以先修改文字。'
+                      : '这次没有整理完成。可以回到首页重新整理。'
                     : '连接暂时中断，可以重新读取这份行程。',
           )
         }

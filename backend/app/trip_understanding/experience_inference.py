@@ -30,7 +30,10 @@ SEMANTIC_POLICY = "MODEL_MEANING_SOURCE_VALIDATED_V1"
 
 
 class SemanticActivity(ActivityTiming):
-    source_quote: str = Field(min_length=1, max_length=1000)
+    source_quote: str = Field(
+        min_length=1, max_length=1000,
+        description="能定位这一项的最短原文片段；有地点时优先只引用地点名，不复制整段说明。",
+    )
     occurrence: int = Field(default=1, ge=1, le=160)
     place_name: str | None = Field(default=None, max_length=40)
     role: ActivityRole
@@ -42,36 +45,192 @@ class SemanticActivity(ActivityTiming):
 class SemanticDraft(StrictModel):
     destination: str = Field(min_length=1, max_length=40)
     day_labels: list[str | None] = Field(default_factory=list, max_length=14)
-    activities: list[SemanticActivity] = Field(max_length=160)
+    activities: list[SemanticActivity] = Field(
+        max_length=160,
+        description="按执行顺序逐地点列出；同句并列的多个独立地点分别成项，二选一的两个地点都保留为OPTIONAL。",
+    )
     unprocessed_quotes: list[str] = Field(default_factory=list, max_length=80)
 
 
-def _source_occurrence(source: str, quote: str, occurrence: int) -> int:
-    """Locate an exact model-selected source quote without guessing its meaning."""
-    start = -1
-    for _ in range(occurrence):
-        start = source.find(quote, start + 1)
-        if start < 0:
+class SourceAnchorValidationError(ValueError):
+    """Only field locations and categories; source text never enters failure logs."""
+
+    def __init__(self, issues: list[dict[str, object]]) -> None:
+        self.issues = issues
+        self.category = str(issues[0]["category"])
+        super().__init__(self.category)
+
+
+def _markdown_visible(source: str) -> tuple[str, list[int]]:
+    """Remove paired inline decoration with a reversible character index.
+
+    No word, punctuation, whitespace, link destination or Unicode character is
+    corrected. A match can differ only by balanced Markdown delimiters. Place
+    names must still occur literally inside the resulting original source span.
+    """
+    hidden: set[int] = set()
+    # Strong/emphasis and inline code are presentation, not itinerary meaning.
+    # Longest delimiters first handles ***text*** without consuming nested runs.
+    for delimiter in ("***", "___", "**", "__", "`", "*", "_"):
+        escaped = re.escape(delimiter)
+        boundary = r"\\\w" if delimiter[0] == "_" else "\\" + re.escape(delimiter[0])
+        pattern = re.compile(
+            rf"(?<![{boundary}])(?P<open>{escaped})(?!{re.escape(delimiter[0])})(?=\S)"
+            rf"(?P<body>[^\r\n]+?)(?<=\S)(?<!\\)(?P<close>{escaped})(?!{re.escape(delimiter[0])})"
+        )
+        for match in pattern.finditer(source):
+            opened = range(*match.span("open"))
+            closed = range(*match.span("close"))
+            if any(index in hidden for index in (*opened, *closed)):
+                continue
+            hidden.update(opened)
+            hidden.update(closed)
+    indices = [index for index in range(len(source)) if index not in hidden]
+    return "".join(source[index] for index in indices), indices
+
+
+class SourceAnchorIndex:
+    def __init__(self, source: str) -> None:
+        self.source = source
+        self.visible, self.indices = _markdown_visible(source)
+
+    def locate(self, quote: str, occurrence: int = 1) -> tuple[int, int]:
+        visible_quote, _indices = _markdown_visible(quote)
+        if not visible_quote:
             raise ValueError("SOURCE_QUOTE_NOT_FOUND")
-    return start
+        start = -1
+        for _ in range(occurrence):
+            start = self.visible.find(visible_quote, start + 1)
+            if start < 0:
+                raise ValueError("SOURCE_QUOTE_NOT_FOUND")
+        return self.indices[start], self.indices[start + len(visible_quote) - 1] + 1
+
+
+def _source_occurrence(source: str, quote: str, occurrence: int) -> int:
+    return SourceAnchorIndex(source).locate(quote, occurrence)[0]
+
+
+def _validation_issues(exc: ValueError) -> list[dict[str, object]]:
+    if isinstance(exc, SourceAnchorValidationError):
+        return exc.issues[:20]
+    if isinstance(exc, ValidationError):
+        known_fields = set(SemanticDraft.model_fields) | set(SemanticActivity.model_fields)
+        issues = []
+        for error in exc.errors(include_input=False, include_context=False, include_url=False)[:20]:
+            field = ""
+            for segment in error["loc"]:
+                if isinstance(segment, int):
+                    field += f"[{segment}]"
+                else:
+                    name = segment if segment in known_fields else "unknown_field"
+                    field += ("." if field else "") + name
+            issues.append({"field": field or "document", "category": str(error["type"])})
+        return issues
+    return [{"field": "document", "category": "OUTPUT_TRUNCATED"}]
+
+
+def _explicit_markdown_place_groups(source: str) -> tuple[tuple[str, ...], ...]:
+    """Find short, explicitly grouped Markdown labels without parsing prose."""
+
+    groups: list[tuple[str, ...]] = []
+    for match in re.finditer(r"(?:\*\*|__)(?P<body>[^\r\n]{3,80}?)(?:\*\*|__)", source):
+        body = match.group("body").strip()
+        lead_in = source[max(0, match.start() - 32):match.start()]
+        if re.search(r"(?:不想|可以|可选|备选|推荐|例如|比如|隔壁)[^。！？；\n]{0,24}$", lead_in):
+            continue
+        if not re.search(r"\+|、|，|,|/|／", body) or re.search(r"[（）()：:；;。！？]", body):
+            continue
+        parts = tuple(part.strip() for part in re.split(r"\s*(?:\+|、|，|,|/|／)\s*", body))
+        if 2 <= len(parts) <= 8 and all(
+            part and len(part) <= 40 and atomic_place_rejection_reason(part) is None
+            for part in parts
+        ):
+            groups.append(parts)
+    return tuple(groups)
 
 
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
+    anchors = SourceAnchorIndex(source)
+    issues: list[dict[str, object]] = []
+    located: list[tuple[int, int]] = []
+    proposed_atomic = {
+        item.place_name.strip()
+        for item in draft.activities
+        if item.place_name and item.place_name.strip()
+        and not re.search(r"\+|、|，|,|/|／", item.place_name)
+    }
+    for group_index, group in enumerate(_explicit_markdown_place_groups(source)):
+        if not set(group).issubset(proposed_atomic):
+            issues.append({
+                "field": f"activities.parallel_group[{group_index}]",
+                "category": "MISSING_EXPLICIT_PARALLEL_PLACE",
+            })
+    for index, quote in enumerate(draft.unprocessed_quotes):
+        try:
+            anchors.locate(quote)
+        except ValueError:
+            issues.append({"field": f"unprocessed_quotes[{index}]", "category": "SOURCE_QUOTE_NOT_FOUND"})
+    for index, item in enumerate(draft.activities):
+        try:
+            start, end = anchors.locate(item.source_quote, item.occurrence)
+            located.append((start, end))
+        except ValueError:
+            issues.append({"field": f"activities[{index}].source_quote", "category": "SOURCE_QUOTE_NOT_FOUND"})
+            located.append((0, 0))
+        else:
+            place = item.place_name.strip() if item.place_name else None
+            if place and place not in source[start:end]:
+                issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_NOT_IN_SOURCE_QUOTE"})
+            # A planned sightseeing/location item containing an explicit list
+            # must be returned one atomic place per activity. Rejecting the
+            # bundled draft asks the model's bounded repair pass to preserve
+            # every source-grounded place; the adapter still never guesses or
+            # manufactures a POI from prose.
+            visible_quote, _ = _markdown_visible(item.source_quote)
+            atomic_siblings = {
+                (sibling.place_name or "").strip()
+                for sibling in draft.activities
+                if sibling.source_quote == item.source_quote
+                and sibling.occurrence == item.occurrence
+                and sibling.day_index == item.day_index
+                and sibling.role == item.role
+                and (sibling.place_name or "").strip()
+                and not re.search(r"\+|、|，|,|/|／", sibling.place_name or "")
+            }
+            if (
+                item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
+                and item.category in {"景点", "地点", "交通节点", "住宿"}
+                and re.search(r"\S\s*(?:\+|、|，|,|/|／)\s*\S", visible_quote)
+                and (not place or re.search(r"\+|、|，|,|/|／", place))
+                and len(atomic_siblings) < 2
+            ):
+                issues.append({
+                    "field": f"activities[{index}].place_name",
+                    "category": "NON_ATOMIC_PLACE_LIST",
+                })
+        has_timing = any(getattr(item, key) is not None for key in (
+            "start_time", "end_time", "visit_duration_minutes",
+        ))
+        if has_timing or item.locked or item.fixed_commitment:
+            try:
+                if not item.time_evidence:
+                    raise ValueError
+                anchors.locate(item.time_evidence)
+            except ValueError:
+                issues.append({"field": f"activities[{index}].time_evidence", "category": (
+                    "TIME_EVIDENCE_NOT_IN_SOURCE" if has_timing else "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"
+                )})
+    if issues:
+        raise SourceAnchorValidationError(issues)
     mentions: list[ProposedMention] = []
     seen: set[tuple[int, int, ActivityRole, int | None]] = set()
     sequences: dict[int, int] = {}
     unprocessed = len(draft.unprocessed_quotes)
-    for quote in draft.unprocessed_quotes:
-        _source_occurrence(source, quote, 1)
-    for item in draft.activities:
-        quote_start = _source_occurrence(source, item.source_quote, item.occurrence)
+    for item, (start, end) in zip(draft.activities, located, strict=True):
         place = item.place_name.strip() if item.place_name else None
-        start, end = quote_start, quote_start + len(item.source_quote)
         if place is not None:
-            relative = item.source_quote.find(place)
-            if relative < 0:
-                raise ValueError("PLACE_NOT_IN_SOURCE_QUOTE")
-            start = quote_start + relative
+            relative = source[start:end].index(place)
+            start += relative
             end = start + len(place)
             if atomic_place_rejection_reason(place) is not None:
                 # Keep the intended arrangement pending without presenting a
@@ -91,14 +250,9 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             "start_time", "end_time", "visit_duration_minutes",
         ))
         if has_timing:
-            if not item.time_evidence or item.time_evidence not in source:
-                raise ValueError("TIME_EVIDENCE_NOT_IN_SOURCE")
             timing["timing_source"] = "TEXT"
         else:
             timing["timing_source"] = "UNSPECIFIED"
-        if timing.get("locked") or timing.get("fixed_commitment"):
-            if not item.time_evidence or item.time_evidence not in source:
-                raise ValueError("COMMITMENT_EVIDENCE_NOT_IN_SOURCE")
         group = day or 0
         sequence = sequences.get(group, 0)
         sequences[group] = sequence + 1
@@ -199,18 +353,34 @@ class ExperienceQwenProvider:
                     except (ValueError, ValidationError) as exc:
                         failure = "INVALID_STRUCTURED_OUTPUT" if isinstance(exc, ValidationError) else str(exc)
                         call["outcome"] = failure
+                        call["validation_errors"] = _validation_issues(exc)
                         if attempt == 0:
                             messages.extend([
                                 {"role": "assistant", "content": content},
-                                {"role": "user", "content": "重新检查 JSON 结构、原文逐字引用、日期和时间。错误类别：" + failure + "。只返回修正后的完整 JSON；不要补造原文信息。"},
+                                {"role": "user", "content": (
+                                    "只修复以下字段，保留其他已正确整理的活动、顺序和角色，不要为绕过错误删除活动。"
+                                    "source_quote 优先缩短为原文中该地点的逐字名称；occurrence 按去掉 Markdown 装饰后的可见片段计数。"
+                                    "place_name 仍必须逐字出现在对应原文范围内，不得改写、补全或模糊猜测。"
+                                    "NON_ATOMIC_PLACE_LIST 表示把多个地点压成了一项：请按原文顺序拆成多个活动，"
+                                    "每项 source_quote 和 place_name 都使用该地点的逐字名称；二选一分别标 OPTIONAL。"
+                                    "MISSING_EXPLICIT_PARALLEL_PLACE 表示 Markdown 强调的并列地点仍有遗漏；"
+                                    "重新逐项核对所有加粗并列组，每个地点必须各有一项，不能只留第一项。"
+                                    "时间没有原文依据就清除时间字段并把真实原文片段放入 unprocessed_quotes。"
+                                    "字段错误（从0开始）：" + json.dumps(call["validation_errors"], ensure_ascii=False)
+                                    + "。只返回修正后的完整 JSON，不要补造原文信息。"
+                                )},
                             ])
                         continue
                     call["outcome"] = "SUCCESS"
                     break
         except TimeoutError:
             failure = "DEADLINE_EXCEEDED"
+            if calls:
+                calls[-1]["outcome"] = failure
         except APIError:
             failure = "PROVIDER_UNAVAILABLE"
+            if calls:
+                calls[-1]["outcome"] = failure
         known_usage = all(isinstance(c.get("input_tokens"), int) and isinstance(c.get("output_tokens"), int) for c in calls)
         input_tokens = sum(int(c["input_tokens"]) for c in calls) if known_usage else None
         output_tokens = sum(int(c["output_tokens"]) for c in calls) if known_usage else None

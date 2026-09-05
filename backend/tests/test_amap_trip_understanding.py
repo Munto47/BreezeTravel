@@ -341,12 +341,12 @@ async def test_amap_provider_name_variants_remain_unique_city_category_matches(
     assert outcome.place is not None
     assert outcome.receipt["provider_alias_candidate_count"] == alias_count
     assert outcome.receipt["category_compatible_candidate_count"] == 1
-    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_POI_ID_V4"
+    assert outcome.receipt["name_match_policy"] == "HIGHEST_TIER_UNIQUE_POI_ID_V5_VENUE_IDENTITY"
     assert len(observed) == 1
 
 
 @pytest.mark.asyncio
-async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() -> None:
+async def test_amap_safe_alias_excludes_a_different_venue_candidate() -> None:
     observed: list[httpx.Request] = []
     payload = {
         "status": "1",
@@ -371,7 +371,9 @@ async def test_amap_unique_safe_alias_wins_over_suffix_equivalent_candidate() ->
 
     assert outcome.place is not None
     assert outcome.place.canonical_place_id == "B0PALACE"
-    assert outcome.receipt["category_compatible_candidate_count"] == 2
+    # The lexicon expands the attraction to a scenic-area identity; its museum
+    # is a distinct venue, even when both share the broad attraction category.
+    assert outcome.receipt["category_compatible_candidate_count"] == 1
     assert outcome.receipt["primary_exact_candidate_count"] == 0
     assert outcome.receipt["selection_tier"] == "SAFE_ALIAS_EXACT"
     assert outcome.receipt["category_basis"] == "ATOMIC_NAME_LEXICAL"

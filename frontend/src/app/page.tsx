@@ -13,16 +13,13 @@ import {
   readTripUnderstandingResult,
 } from '@/lib/trip-understanding-v3'
 import { useAuthStore } from '@/stores/authStore'
+import {
+  releaseFailedTripInput,
+  TRIP_INPUT_DRAFT_KEY as INPUT_KEY,
+  type TripInputDraft as InputDraft,
+} from '@/lib/trip-input-recovery'
 import './experience.css'
 
-const INPUT_KEY = 'bt_input_draft'
-type InputDraft = {
-  text: string
-  demo: boolean
-  key: string
-  expires: number
-  resource?: string
-}
 type Resume = { reference: string; title: string; updated?: string | null }
 
 export default function HomePage() {
@@ -56,6 +53,10 @@ export default function HomePage() {
         attempt.current = draft
         setSource(draft.text)
         setDemo(draft.demo && draft.text === BEIJING_DEMO_TEXT)
+        if (draft.failedResource && !draft.resource)
+          setError(
+            '上次没有整理完成，原文已保留，可以直接重试，也可以先修改文字。',
+          )
       } else sessionStorage.removeItem(INPUT_KEY)
     } catch {
       sessionStorage.removeItem(INPUT_KEY)
@@ -83,16 +84,15 @@ export default function HomePage() {
         if (controller.signal.aborted) return
         if (
           failure instanceof Error &&
-          failure.message === 'UNDERSTANDING_FAILED' &&
-          attempt.current?.resource === reference
+          failure.message === 'UNDERSTANDING_FAILED'
         ) {
-          attempt.current = {
-            ...attempt.current,
-            key: createTripRequestKey(),
-            resource: undefined,
+          const recovered = releaseFailedTripInput(reference)
+          if (recovered) {
+            attempt.current = recovered
+            setError(
+              '上次没有整理完成，原文已保留，可以直接重试，也可以先修改文字。',
+            )
           }
-          sessionStorage.setItem(INPUT_KEY, JSON.stringify(attempt.current))
-          setError('上次没有完整整理成功，文字已保留。调整后可以重新整理。')
         }
         if (failure instanceof Error && failure.message === 'TRIP_GONE') {
           if (attempt.current?.resource === reference) {
@@ -181,17 +181,27 @@ export default function HomePage() {
           expires: Date.now() + 24 * 60 * 60 * 1000,
         }
       }
-      sessionStorage.setItem(INPUT_KEY, JSON.stringify(attempt.current))
+      attempt.current.failedResource = undefined
+      const submittedAttempt = attempt.current
+      sessionStorage.setItem(INPUT_KEY, JSON.stringify(submittedAttempt))
       const accepted = fixed
         ? await createDemoTripUnderstanding(
             controller.signal,
-            attempt.current.key,
+            submittedAttempt.key,
           )
         : await createFullTripUnderstanding(
             source.trim(),
-            attempt.current.key,
+            submittedAttempt.key,
             controller.signal,
           )
+      if (attempt.current.key !== submittedAttempt.key) {
+        // A concurrent result read acknowledged that this old attempt failed.
+        // Do not bind its late acceptance to the fresh retry key.
+        submitted.current = false
+        setBusy(false)
+        setError('上次没有整理完成，原文已保留，可以直接重试。')
+        return
+      }
       clearTripUnderstandingSession()
       sessionStorage.removeItem('bt_pending_operation')
       attempt.current.resource = accepted.public_resource_id

@@ -564,14 +564,19 @@ test('refinement: account-library failure remains retryable without a false empt
   ).toBeVisible()
 })
 
-test('refinement: an accepted but failed understanding preserves the input and starts a new attempt [mocked 202 and failure]', async ({
+test('refinement: acknowledged failure retries retained input before the home result read finishes [mocked API]', async ({
   page,
 }) => {
   const reference = 'failed-trip-ui-boundary-000001'
-  expect(reference).toMatch(/^[A-Za-z0-9_-]{20,80}$/)
   const base = `/api/v3/trip-understandings/${reference}`
   const text = '北京第一天去故宫和景山，这份文字在整理失败后仍需要保留。'
   const submissions = []
+  let holdResult = false
+  let heldReads = 0
+  let releaseResult
+  const resultGate = new Promise((resolve) => {
+    releaseResult = resolve
+  })
   await page.route('**/api/v3/trip-understandings', async (route) => {
     submissions.push({
       body: route.request().postDataJSON(),
@@ -593,54 +598,151 @@ test('refinement: an accepted but failed understanding preserves the input and s
       ),
     })
   })
-  await page.route(`**${base}/**`, async (route) => {
+  await page.route(`**${base}/result`, async (route) => {
+    if (holdResult) {
+      heldReads++
+      await resultGate
+    }
     await route.fulfill({
       status: 409,
       contentType: 'application/json',
-      body: JSON.stringify({
-        detail: {
-          code: 'UNDERSTANDING_FAILED',
-          message: '这次没有整理完成，可以重新尝试',
-        },
-      }),
+      body: JSON.stringify({ detail: { code: 'UNDERSTANDING_FAILED' } }),
     })
   })
-  await page.goto('/')
-  const input = page.getByTestId('trip-source-text')
-  await expect(input).toBeEnabled()
-  await input.fill(text)
-  await page.getByTestId('create-full-trip').click()
-  await expect(page).toHaveURL(new RegExp(`/trip/result#trip=${reference}$`))
-  await expect(
-    page.getByText('这次没有整理完成，可以回到首页调整文字后重试。', {
-      exact: true,
-    }),
-  ).toBeVisible()
-  expect(
-    await page.evaluate(
-      () => JSON.parse(sessionStorage.getItem('bt_input_draft')).text,
-    ),
-  ).toBe(text)
-  await page.getByRole('link', { name: '重新整理', exact: true }).click()
-  await expect(input).toHaveValue(text)
-  // The acknowledged failed job is terminal; this is a new attempt, unlike a lost response retry.
-  await expect(page.locator('main').getByRole('alert')).toContainText(
-    '上次没有完整整理成功',
-  )
-  await page.getByTestId('create-full-trip').click()
-  await expect(page.locator('main').getByRole('alert')).toContainText(
-    '文字仍在这里',
-  )
-  expect(submissions).toHaveLength(2)
-  expect(submissions[0].body).toEqual({
-    mode: 'FULL',
-    source: { type: 'TEXT', text },
-  })
-  expect(submissions[1].body).toEqual(submissions[0].body)
-  expect(submissions[1].key).toBeTruthy()
-  expect(submissions[1].key).not.toBe(submissions[0].key)
-  await expect(input).toHaveValue(text)
+  try {
+    await page.goto('/')
+    const input = page.getByTestId('trip-source-text')
+    await expect(input).toBeEnabled()
+    await input.fill(text)
+    await page.getByTestId('create-full-trip').click()
+    await expect(page).toHaveURL(new RegExp(`/trip/result#trip=${reference}$`))
+    await expect(
+      page.getByText(
+        '这次没有整理完成，原文已保留。回到首页即可重试，也可以先修改文字。',
+        { exact: true },
+      ),
+    ).toBeVisible()
+    const retry = await page.evaluate(() =>
+      JSON.parse(sessionStorage.getItem('bt_input_draft')),
+    )
+    expect(retry.text).toBe(text)
+    expect(retry.resource).toBeUndefined()
+    expect(retry.key).not.toBe(submissions[0].key)
+    holdResult = true
+    await page.getByRole('link', { name: '返回首页重试', exact: true }).click()
+    await expect(input).toHaveValue(text)
+    await expect.poll(() => heldReads).toBeGreaterThan(0)
+    await expect(page.locator('main').getByRole('alert')).toContainText(
+      '原文已保留，可以直接重试',
+    )
+    await page.getByTestId('create-full-trip').click()
+    await expect(page.locator('main').getByRole('alert')).toContainText(
+      '文字仍在这里',
+    )
+    expect(submissions).toHaveLength(2)
+    expect(submissions[0].body).toEqual({
+      mode: 'FULL',
+      source: { type: 'TEXT', text },
+    })
+    expect(submissions[1].body).toEqual(submissions[0].body)
+    expect(submissions[1].key).toBe(retry.key)
+    expect(submissions[1].key).not.toBe(submissions[0].key)
+    await expect(input).toHaveValue(text)
+    // The next submission is unknown, so even a late FAILED read for the old
+    // resource must not rotate or detach the new in-flight retry.
+    releaseResult()
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => JSON.parse(sessionStorage.getItem('bt_input_draft')).key,
+        ),
+      )
+      .toBe(retry.key)
+    await page.getByTestId('create-full-trip').click()
+    await expect.poll(() => submissions.length).toBe(3)
+    expect(submissions[2].key).toBe(retry.key)
+  } finally {
+    releaseResult()
+  }
 })
+
+for (const outcome of ['PROCESSING', 'NETWORK_INTERRUPTED']) {
+  test(`refinement: ${outcome} keeps its accepted request identity when returning home [mocked API]`, async ({
+    page,
+  }) => {
+    const reference = 'unfinished-trip-ui-boundary-00001'
+    const text =
+      '杭州两天，第一天去西湖。尚未确认失败时不能创建重复的整理任务。'
+    const key = 'unfinished-input-recovery-key'
+    await page.addInitScript(
+      ({ reference, text, key }) => {
+        sessionStorage.setItem('bt_active_trip_ref', reference)
+        sessionStorage.setItem(
+          'bt_input_draft',
+          JSON.stringify({
+            text,
+            key,
+            demo: false,
+            expires: Date.now() + 60000,
+            resource: reference,
+          }),
+        )
+      },
+      { reference, text, key },
+    )
+    let resultReads = 0
+    await page.route(
+      `**/api/v3/trip-understandings/${reference}/result`,
+      async (route) => {
+        resultReads++
+        if (outcome === 'NETWORK_INTERRUPTED') await route.abort('failed')
+        else
+          await route.fulfill({
+            status: 202,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              status: 'PROCESSING',
+              message: '正在整理行程',
+              retry_after_ms: 1500,
+            }),
+          })
+      },
+    )
+    const keys = []
+    await page.route('**/api/v3/trip-understandings', async (route) => {
+      keys.push(route.request().headers()['idempotency-key'])
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: '{}',
+      })
+    })
+    await page.goto(`/trip/result#trip=${reference}`)
+    await expect.poll(() => resultReads).toBeGreaterThan(0)
+    if (outcome === 'NETWORK_INTERRUPTED')
+      await expect(
+        page.getByText('连接暂时中断，可以重新读取这份行程。', { exact: true }),
+      ).toBeVisible()
+    await page.getByRole('link', { name: '首页', exact: true }).click()
+    await expect(page.getByTestId('trip-source-text')).toHaveValue(text)
+    await expect(page.getByTestId('create-full-trip')).toBeEnabled()
+    expect(
+      await page.evaluate(
+        () => JSON.parse(sessionStorage.getItem('bt_input_draft')).key,
+      ),
+    ).toBe(key)
+    await page.getByTestId('create-full-trip').click()
+    await expect(page.locator('main').getByRole('alert')).toContainText(
+      '重试会确认同一次请求',
+    )
+    expect(keys).toEqual([key])
+    expect(
+      await page.evaluate(
+        () => JSON.parse(sessionStorage.getItem('bt_input_draft')).resource,
+      ),
+    ).toBe(reference)
+  })
+}
 
 test('refinement: an expired result clears its pending operation and allows a new home submission [mocked 410]', async ({
   page,
