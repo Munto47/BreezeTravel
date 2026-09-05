@@ -8,6 +8,7 @@ import type {
   PublicChangeAdopted,
   PublicChangePreview,
   PublicTripChecksView,
+  PlaceCandidatesView,
   StaySelectionAppliedView,
   StaySuggestionView,
   TripUnderstandingAcceptedView,
@@ -86,6 +87,13 @@ export class TripCheckClient {
         `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders/latest`,
       )
     ).data
+  }
+
+  async queryTripPlaceCandidates(publicResourceId: string, activityToken: string, query: string): Promise<PlaceCandidatesView> {
+    return (await this.json<PlaceCandidatesView>(
+      'POST', `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
+      { activity_token: activityToken, query },
+    )).data
   }
 
   async requestTripUnderstandingMap(

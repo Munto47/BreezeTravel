@@ -10,6 +10,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
+from app.trip_understanding.anonymous import AnonymousDailyLimitError
+from app.trip_understanding.candidates import CandidateSearchRequest, CandidateSearchView, issue_candidate, search_candidates
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -35,7 +37,6 @@ from app.trip_understanding.models import (
     ChangePreviewRequest,
     ClaimedTripView,
     CommandAppliedView,
-    CreateFullRequest,
     CreateTripUnderstandingRequest,
     MaterializedTripView,
     PublicChangeAdopted,
@@ -71,6 +72,10 @@ RepositoryDep = Annotated[
     TripUnderstandingRepository,
     Depends(get_trip_understanding_repository),
 ]
+
+
+def get_place_candidate_search():
+    return search_candidates
 OptionalUserDep = Annotated[str | None, Depends(get_optional_user)]
 CurrentUserDep = Annotated[str, Depends(get_current_user)]
 RecentUserDep = Annotated[str, Depends(get_recent_user)]
@@ -196,29 +201,25 @@ async def create_trip_understanding(
         full_retention_days=settings.trip_understanding_full_retention_days,
     )
     try:
-        if body.mode == "FULL":
-            if current_user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail={"code": "LOGIN_REQUIRED", "message": "登录后可以整理自己的行程"},
-                )
-            assert isinstance(body, CreateFullRequest)
-            outcome = await service.create_full(
-                body,
-                owner_user_id=current_user,
-                idempotency_key=key,
-            )
-            cookie_value = None
+        cookie_value = None
+        if body.mode == "FULL" and current_user is not None:
+            outcome = await service.create_full(body, owner_user_id=current_user, idempotency_key=key)
         else:
             cookie_value = request.cookies.get(settings.trip_understanding_cookie_name)
             digest = _capability_from_cookie(cookie_value)
             if digest is None:
                 cookie_value, digest = mint_capability(_settings_signing_key())
+            async def create_anonymous():
+                if body.mode == "FULL":
+                    return await service.create_full(body, owner_user_id=None, capability_hash=digest, idempotency_key=key)
+                return await service.create_demo(capability_hash=digest, idempotency_key=key)
             try:
-                outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
+                outcome = await create_anonymous()
             except CapabilityExpiredError:
                 cookie_value, digest = mint_capability(_settings_signing_key())
-                outcome = await service.create_demo(capability_hash=digest, idempotency_key=key)
+                outcome = await create_anonymous()
+    except AnonymousDailyLimitError as exc:
+        raise HTTPException(status_code=429, detail={"code": "ANONYMOUS_DAILY_LIMIT", "message": "今天已整理三份行程，登录后可以继续"}) from exc
     except IdempotencyConflictError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -232,7 +233,7 @@ async def create_trip_understanding(
     except ConcurrentJobLimitError as exc:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"code": "TOO_MANY_ACTIVE_REQUESTS", "message": "已有两份行程正在整理，请稍后再试"},
+            detail={"code": "TOO_MANY_ACTIVE_REQUESTS", "message": "已有行程正在整理，请稍后再试"},
         ) from exc
     except ScreenshotBatchNotFoundError as exc:
         raise HTTPException(
@@ -267,6 +268,32 @@ async def create_trip_understanding(
     return outcome.accepted
 
 
+@router.post("/{public_resource_id}/place-candidates", response_model=CandidateSearchView)
+async def find_place_candidates(
+    public_resource_id: str, body: CandidateSearchRequest, request: Request,
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
+    search=Depends(get_place_candidate_search),
+):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    stored = await repository.get_result(resource)
+    if stored is None:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"})
+    card = next((card for day in stored.result.days for card in day.activities if card.activity_token == body.activity_token), None)
+    if card is None:
+        raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
+    city = next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
+    places = await search(city=city, query=body.query, category_hint=card.category)
+    response.headers["Cache-Control"] = "no-store"
+    if places is None:
+        return CandidateSearchView(status="UNAVAILABLE")
+    now = datetime.now(timezone.utc)
+    candidates = [issue_candidate(place, public_resource_id=public_resource_id,
+        activity_token=body.activity_token, expected_etag=stored.opaque_etag, now=now) for place in places]
+    return CandidateSearchView(status="AVAILABLE" if candidates else "EMPTY", candidates=candidates)
+
+
 @router.get(
     "/{public_resource_id}/result",
     responses={
@@ -289,6 +316,8 @@ async def get_trip_understanding_result(
     )
     stored = await repository.get_result(resource)
     response.headers["Cache-Control"] = "no-store"
+    if resource.state == "FAILED":
+        raise HTTPException(status_code=409, detail={"code": "UNDERSTANDING_FAILED", "message": "这次没有整理完成，可以重新尝试"})
     if stored is None:
         response.status_code = status.HTTP_202_ACCEPTED
         return TripUnderstandingProgressView(message="正在整理每天行程")
@@ -467,7 +496,7 @@ async def materialize_trip_understanding(
     request: Request,
     response: Response,
     repository: RepositoryDep,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
@@ -523,7 +552,7 @@ async def get_trip_understanding_checks(
     request: Request,
     response: Response,
     repository: RepositoryDep,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
 ):
     resource = await _authorize(
         public_resource_id,
@@ -554,7 +583,7 @@ async def preview_trip_understanding_change(
     request: Request,
     response: Response,
     repository: RepositoryDep,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     key = _require_idempotency_key(idempotency_key)
@@ -603,7 +632,7 @@ async def adopt_trip_understanding_change(
     request: Request,
     response: Response,
     repository: RepositoryDep,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     if_match: Annotated[str | None, Header(alias="If-Match")] = None,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
@@ -768,7 +797,6 @@ async def claim_trip_understanding(
     response.headers["Cache-Control"] = "no-store"
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"
-    _clear_capability_cookie(response)
     return outcome.claimed
 
 
@@ -778,7 +806,7 @@ async def delete_trip_understanding_source(
     request: Request,
     response: Response,
     repository: RepositoryDep,
-    current_user: CurrentUserDep,
+    current_user: OptionalUserDep,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ):
     key = _require_idempotency_key(idempotency_key)
@@ -982,7 +1010,7 @@ async def stream_trip_understanding_events(
                     cursor = event.event_id
                     payload = json.dumps(event.payload.model_dump(mode="json"), ensure_ascii=False)
                     yield f"id: {event.event_id}\nevent: {event.event_type}\ndata: {payload}\n\n"
-                    if event.event_type == "result_available":
+                    if event.event_type == "result_available" or event.payload.status == "FAILED":
                         return
             if await request.is_disconnected():
                 return

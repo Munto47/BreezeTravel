@@ -19,6 +19,7 @@ from app.audit.models import (
 )
 from app.audit.repositories import PostgresAuditRepository
 from app.itineraries.models import ItineraryRevision, RevisionSource
+from app.itineraries.repositories import _revision_from_row
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.errors import (
     IdempotencyConflictError,
@@ -62,6 +63,22 @@ def _json(value: Any) -> Any:
 
 def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def _route_stop_pairs(plan, itinerary: ItineraryRevision) -> dict:
+    """Bind route occurrences through their plan positions and activity identities."""
+    by_stop = {stop.stop_id: stop for day in itinerary.days for stop in day.stops}
+    by_day: dict[int, list] = {}
+    for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
+        by_day.setdefault(stop.day_index, []).append(stop)
+    pairs = {}
+    for day_index, stops in by_day.items():
+        for sequence_index, (origin, destination) in enumerate(zip(stops, stops[1:])):
+            left = by_stop.get(_stable_stop_id(origin.activity_token)) if origin.activity_token else None
+            right = by_stop.get(_stable_stop_id(destination.activity_token)) if destination.activity_token else None
+            if left is not None and right is not None:
+                pairs[(day_index, sequence_index)] = (left, right)
+    return pairs
 
 
 def _materialized_view(profile: CalendarProfile) -> MaterializedTripView:
@@ -464,9 +481,9 @@ class PostgresG03RepositoryMixin:
                 )
             )
 
-        grouped_edges: dict[tuple[int, str, str], dict[str, Any]] = {}
+        grouped_edges: dict[tuple[int, int], dict[str, Any]] = {}
         for row in edge_rows:
-            key = (row["day_index"], row["origin_name"], row["destination_name"])
+            key = (row["day_index"], row["sequence_index"])
             edge = grouped_edges.setdefault(
                 key,
                 {"selected_mode": row["selected_mode"], "modes": {}},
@@ -480,69 +497,65 @@ class PostgresG03RepositoryMixin:
                     "response_hash": row["response_hash"].strip(),
                     "observed_at": row["observed_at"],
                 }
-        for day in itinerary.days:
-            non_meal = [stop for stop in day.stops if stop.category != "meal_break"]
-            for left, right in zip(non_meal, non_meal[1:]):
-                edge = grouped_edges.get(
-                    (day.day_index + 1, left.raw_name or "", right.raw_name or "")
-                )
-                if edge is None:
-                    continue
-                modes = edge["modes"]
-                selected = modes.get(edge["selected_mode"])
-                response_hashes = sorted(
-                    item["response_hash"] for item in modes.values()
-                )
-                facts.append(
-                    EvidenceFact(
-                        fact_id=str(uuid4()),
-                        snapshot_id=snapshot_id,
-                        subject_type="ROUTE_EDGE",
-                        subject_id=f"{left.stop_id}->{right.stop_id}",
-                        fact_type="ROUTE_MODE_SET",
-                        value={
-                            "walking": modes.get("walking", {}).get(
-                                "status", "UNAVAILABLE"
-                            ),
-                            "transit": modes.get("transit", {}).get(
-                                "status", "UNAVAILABLE"
-                            ),
-                            "selected_mode": edge["selected_mode"],
-                            "selected_duration_minutes": (
-                                selected.get("duration_minutes") if selected else None
-                            ),
-                        },
-                        provider="route",
-                        observed_at=max(
-                            (
-                                item["observed_at"]
-                                for item in modes.values()
-                                if item.get("observed_at")
-                            ),
-                            default=now,
+        route_pairs = _route_stop_pairs(await self._read_map_plan(conn, understanding_id, understanding_revision), itinerary)
+        for key, (left, right) in route_pairs.items():
+            edge = grouped_edges.get(key)
+            if edge is None:
+                continue
+            modes = edge["modes"]
+            selected = modes.get(edge["selected_mode"])
+            response_hashes = sorted(
+                item["response_hash"] for item in modes.values()
+            )
+            facts.append(
+                EvidenceFact(
+                    fact_id=str(uuid4()),
+                    snapshot_id=snapshot_id,
+                    subject_type="ROUTE_EDGE",
+                    subject_id=f"{left.stop_id}->{right.stop_id}",
+                    fact_type="ROUTE_MODE_SET",
+                    value={
+                        "walking": modes.get("walking", {}).get(
+                            "status", "UNAVAILABLE"
                         ),
-                        response_hash=canonical_sha256(response_hashes),
-                        confidence=1.0 if selected else 0.0,
-                        freshness_status=(
-                            EvidenceFreshness.FRESH
-                            if selected
-                            else EvidenceFreshness.UNAVAILABLE
+                        "transit": modes.get("transit", {}).get(
+                            "status", "UNAVAILABLE"
                         ),
-                    )
-                )
-                receipt_values.extend(
-                    {
-                        **item,
-                        "mode": mode,
-                        "observed_at": (
-                            item["observed_at"].isoformat()
+                        "selected_mode": edge["selected_mode"],
+                        "selected_duration_minutes": (
+                            selected.get("duration_minutes") if selected else None
+                        ),
+                    },
+                    provider="route",
+                    observed_at=max(
+                        (
+                            item["observed_at"]
+                            for item in modes.values()
                             if item.get("observed_at")
-                            else None
                         ),
-                    }
-                    for mode, item in sorted(modes.items())
+                        default=now,
+                    ),
+                    response_hash=canonical_sha256(response_hashes),
+                    confidence=1.0 if selected else 0.0,
+                    freshness_status=(
+                        EvidenceFreshness.FRESH
+                        if selected
+                        else EvidenceFreshness.UNAVAILABLE
+                    ),
                 )
-
+            )
+            receipt_values.extend(
+                {
+                    **item,
+                    "mode": mode,
+                    "observed_at": (
+                        item["observed_at"].isoformat()
+                        if item.get("observed_at")
+                        else None
+                    ),
+                }
+                for mode, item in sorted(modes.items())
+            )
         stay = await conn.fetchrow(
             """
             SELECT c.max_single_leg_minutes, c.transfer_count,
@@ -701,12 +714,11 @@ class PostgresG03RepositoryMixin:
     ) -> PublicTripChecksView:
         pointer = await conn.fetchrow(
             """
-            SELECT mt.current_understanding_revision, l.audit_report_id,
-                   l.evidence_snapshot_id
+            SELECT mt.current_understanding_revision, tw.current_report_id AS audit_report_id,
+                   ar.evidence_snapshot_id
             FROM trip_materialized_trips mt
-            JOIN trip_materialization_lineage l
-              ON l.understanding_id = mt.understanding_id
-             AND l.understanding_revision = mt.current_understanding_revision
+            JOIN trip_workspaces tw ON tw.workspace_id = mt.workspace_id
+            JOIN audit_reports ar ON ar.report_id = tw.current_report_id
             WHERE mt.understanding_id = $1
             """,
             understanding_id,
@@ -736,9 +748,12 @@ class PostgresG03RepositoryMixin:
             """,
             report.report_id,
         )
+        public_json = await conn.fetchval("SELECT public_json FROM trip_understanding_results WHERE understanding_id=$1 AND revision=$2", understanding_id, pointer["current_understanding_revision"])
+        result = UserFacingTripResult.model_validate(_json(public_json)) if public_json else None
         return public_checks(
             report,
             snapshot,
+            result=result,
             check_tokens={
                 row["finding_id"]: row["check_token"] for row in token_rows
             },
@@ -808,6 +823,17 @@ class PostgresG03RepositoryMixin:
                     party_size=int(pointer["party_size"]),
                     party_size_source=pointer["party_size_source"],
                 )
+                row = await conn.fetchrow("SELECT * FROM itinerary_revisions WHERE workspace_id=$1 AND revision=$2",
+                    pointer["workspace_id"], pointer["current_itinerary_revision"])
+                itinerary = _revision_from_row(row)
+                previous_snapshot_id = await conn.fetchval("SELECT evidence_snapshot_id FROM audit_reports WHERE report_id=$1", pointer["current_report_id"])
+                await self._audit_and_persist(conn, understanding_id=resource.understanding_id,
+                    understanding_revision=understanding_revision, room_id=pointer["room_id"],
+                    itinerary=itinerary, profile=profile, result=result, bindings=bindings,
+                    previous_report_id=pointer["current_report_id"], previous_snapshot_id=previous_snapshot_id,
+                    basis={"current_itinerary_revision": itinerary.revision, "current_task_spec_revision": 1,
+                        "current_member_constraint_revision": None, "current_report_id": pointer["current_report_id"]}, now=now)
+                await conn.execute("UPDATE trip_change_previews SET status='STALE' WHERE understanding_id=$1 AND status='PROPOSED'", resource.understanding_id)
                 view = _materialized_view(profile)
                 await self._complete_g03_idempotency(
                     conn,
@@ -851,13 +877,9 @@ class PostgresG03RepositoryMixin:
                 previous_report_id = pointer["current_report_id"]
                 previous_snapshot_id = await conn.fetchval(
                     """
-                    SELECT evidence_snapshot_id
-                    FROM trip_materialization_lineage
-                    WHERE understanding_id = $1
-                      AND understanding_revision = $2
+                    SELECT evidence_snapshot_id FROM audit_reports WHERE report_id=$1
                     """,
-                    resource.understanding_id,
-                    pointer["current_understanding_revision"],
+                    pointer["current_report_id"],
                 )
 
             itinerary, profile = build_itinerary_revision(
@@ -1091,11 +1113,9 @@ class PostgresG03RepositoryMixin:
             pointer = await conn.fetchrow(
                 """
                 SELECT mt.current_understanding_revision,
-                       mt.current_itinerary_revision, l.audit_report_id
+                       mt.current_itinerary_revision, tw.current_report_id AS audit_report_id
                 FROM trip_materialized_trips mt
-                JOIN trip_materialization_lineage l
-                  ON l.understanding_id = mt.understanding_id
-                 AND l.understanding_revision = mt.current_understanding_revision
+                JOIN trip_workspaces tw ON tw.workspace_id = mt.workspace_id
                 WHERE mt.understanding_id = $1
                 """,
                 resource.understanding_id,
@@ -1130,8 +1150,9 @@ class PostgresG03RepositoryMixin:
             if finding is None or not finding.repairable:
                 raise ResourceNotReadyError("this check needs a manual decision")
             change_token = secrets.token_urlsafe(24)
-            command = command_for_finding(finding)
-            preview = preview_for_finding(finding, change_token=change_token)
+            result = UserFacingTripResult.model_validate(_json(current["public_json"]))
+            command = command_for_finding(finding, result)
+            preview = preview_for_finding(finding, change_token=change_token, result=result)
             await conn.execute(
                 """
                 INSERT INTO trip_change_previews (
@@ -1410,12 +1431,14 @@ class PostgresG03RepositoryMixin:
             if (
                 preview is None
                 or preview["status"] != "PROPOSED"
+            or preview["created_at"] + timedelta(minutes=15) <= now
                 or preview["base_understanding_revision"]
                 != current["current_revision"]
                 or preview["base_understanding_revision"]
                 != preview["current_understanding_revision"]
                 or preview["base_itinerary_revision"]
                 != preview["current_itinerary_revision"]
+                or preview["source_report_id"] != preview["current_report_id"]
             ):
                 raise ResourceNotReadyError("this change preview is no longer current")
             command = _COMMAND_ADAPTER.validate_python(_json(preview["command_json"]))
@@ -1459,12 +1482,9 @@ class PostgresG03RepositoryMixin:
             )
             previous_snapshot_id = await conn.fetchval(
                 """
-                SELECT evidence_snapshot_id
-                FROM trip_materialization_lineage
-                WHERE understanding_id = $1 AND understanding_revision = $2
+                SELECT evidence_snapshot_id FROM audit_reports WHERE report_id=$1
                 """,
-                resource.understanding_id,
-                preview["current_understanding_revision"],
+                preview["current_report_id"],
             )
             basis = {
                 "current_itinerary_revision": itinerary.revision,
@@ -1797,18 +1817,12 @@ class InMemoryG03RepositoryMixin:
                 )
             )
         else:
+            route_pairs = _route_stop_pairs(self._memory_plan(understanding_id, understanding_revision), itinerary)
             for edge in output.edges:
-                if edge.day_index < 1 or edge.day_index > len(itinerary.days):
+                pair = route_pairs.get((edge.day_index, edge.sequence_index))
+                if pair is None:
                     continue
-                stops = [
-                    stop
-                    for stop in itinerary.days[edge.day_index - 1].stops
-                    if stop.category != "meal_break"
-                ]
-                if edge.sequence_index >= len(stops) - 1:
-                    continue
-                left = stops[edge.sequence_index]
-                right = stops[edge.sequence_index + 1]
+                left, right = pair
                 selected = (
                     edge.walking if edge.selected_mode == "walking" else edge.transit
                 )
@@ -1896,6 +1910,7 @@ class InMemoryG03RepositoryMixin:
         opaque_etag: str,
         now: datetime,
         source_type: RevisionSource,
+        reuse_itinerary: bool = False,
     ) -> dict[str, Any]:
         understanding_revision = int(aggregate["current_revision"])
         previous = self.g03_materialized.get(resource.understanding_id)
@@ -1925,6 +1940,8 @@ class InMemoryG03RepositoryMixin:
             source_type=source_type,
             created_at=now,
         )
+        if reuse_itinerary and previous:
+            itinerary, profile = previous["itinerary"], previous["profile"]
         snapshot = self._memory_g03_evidence(
             understanding_id=resource.understanding_id,
             understanding_revision=understanding_revision,
@@ -1968,6 +1985,7 @@ class InMemoryG03RepositoryMixin:
             state["report"],
             state["snapshot"],
             check_tokens=state["tokens"],
+            result=state["result"],
         )
 
     async def materialize_trip(
@@ -1993,17 +2011,19 @@ class InMemoryG03RepositoryMixin:
                 "materialization precondition does not match current result"
             )
         state = self.g03_materialized.get(resource.understanding_id)
-        if state is None or state["understanding_revision"] != int(
-            aggregate["current_revision"]
-        ):
-            state = self._build_memory_g03_state(
-                resource=resource,
-                aggregate=aggregate,
-                result=stored.result,
-                opaque_etag=stored.opaque_etag,
-                now=now,
-                source_type=RevisionSource.IMPORT,
-            )
+        same_itinerary = state is not None and state["understanding_revision"] == int(aggregate["current_revision"])
+        state = self._build_memory_g03_state(
+            resource=resource,
+            aggregate=aggregate,
+            result=stored.result,
+            opaque_etag=stored.opaque_etag,
+            now=now,
+            source_type=RevisionSource.IMPORT,
+            reuse_itinerary=same_itinerary,
+        )
+        for preview in self.g03_previews.values():
+            if preview["understanding_id"] == resource.understanding_id and preview["status"] == "PROPOSED":
+                preview["status"] = "STALE"
         outcome = MaterializationOutcome(
             view=_materialized_view(state["profile"]),
             opaque_etag=stored.opaque_etag,
@@ -2070,12 +2090,13 @@ class InMemoryG03RepositoryMixin:
         if finding is None or not finding.repairable:
             raise ResourceNotReadyError("this check needs a manual decision")
         change_token = secrets.token_urlsafe(24)
-        command = command_for_finding(finding)
-        preview = preview_for_finding(finding, change_token=change_token)
+        command = command_for_finding(finding, state["result"])
+        preview = preview_for_finding(finding, change_token=change_token, result=state["result"])
         self.g03_previews[change_token] = {
             "understanding_id": resource.understanding_id,
             "base_understanding_revision": state["understanding_revision"],
             "base_itinerary_revision": state["itinerary"].revision,
+            "source_report_id": state["report"].report_id,
             "command": command,
             "status": "PROPOSED",
             "created_at": now,
@@ -2117,8 +2138,10 @@ class InMemoryG03RepositoryMixin:
             or state is None
             or preview["understanding_id"] != resource.understanding_id
             or preview["status"] != "PROPOSED"
+                or preview["created_at"] + timedelta(minutes=15) <= now
             or preview["base_understanding_revision"] != int(aggregate["current_revision"])
             or preview["base_itinerary_revision"] != state["itinerary"].revision
+            or preview["source_report_id"] != state["report"].report_id
         ):
             raise ResourceNotReadyError("this change preview is no longer current")
         command_outcome = await self.apply_command(

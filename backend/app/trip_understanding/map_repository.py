@@ -31,6 +31,8 @@ from app.trip_understanding.map_render import (
     PlanRevisionRef,
     PublicMapDayView,
     PublicMapEdgeView,
+    PublicMapPoint,
+    PublicMapPosition,
     PublicRouteModeView,
     RouteGeometryPoint,
 )
@@ -115,6 +117,7 @@ def _plan_for_result(
                 resolution_status = "NEEDS_CONFIRMATION"
             stops.append(
                 MapStop(
+                    activity_token=card.activity_token,
                     day_index=day_index,
                     day_label=day.label,
                     sequence_index=sequence_index,
@@ -152,6 +155,28 @@ def _plan_for_result(
         route_config_hash=ROUTE_CONFIG_SHA256,
         stops=stops,
     )
+
+
+def map_view_with_points(view: MapRenderView, plan: MapRenderPlan) -> MapRenderView:
+    view = view.model_copy(deep=True)
+    view.points = [PublicMapPoint(activity_token=stop.activity_token, day_label=stop.day_label,
+        sequence_index=stop.sequence_index, name=stop.name,
+        position=PublicMapPosition(longitude=stop.longitude, latitude=stop.latitude)
+        if stop.resolution_status == "AUTO_MATCHED" and stop.longitude is not None and stop.latitude is not None else None)
+        for stop in plan.stops if stop.activity_token]
+    labels = {stop.day_index: stop.day_label for stop in plan.stops}
+    for day in view.days:
+        if day.day_index in labels:
+            day.label = labels[day.day_index]
+    # Old geometry remains visible, but cannot claim to connect current edited cards.
+    if view.status != "NEEDS_UPDATE":
+        for day in view.days:
+            stops = sorted((stop for stop in plan.stops if stop.day_label == day.label), key=lambda stop: stop.sequence_index)
+            for index, edge in enumerate(day.routes):
+                if index + 1 < len(stops) and edge.from_name == stops[index].name and edge.to_name == stops[index + 1].name:
+                    edge.from_activity_token = stops[index].activity_token
+                    edge.to_activity_token = stops[index + 1].activity_token
+    return view
 
 
 def plan_with_stay_anchor(
@@ -550,7 +575,7 @@ class PostgresMapRenderRepositoryMixin:
                 )
             )
         days = [
-            PublicMapDayView(label=f"Day {day_index}", routes=by_day[day_index])
+            PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
         if snapshot["status"] == "READY" and not geometry_limited:
@@ -659,12 +684,17 @@ class PostgresMapRenderRepositoryMixin:
                 raise ResourceNotFoundError("trip resource does not exist")
             if aggregate["state"] == "DELETED":
                 raise ResourceGoneError("trip resource is no longer available")
-            return await self._project_map_view(
+            view = await self._project_map_view(
                 conn,
                 resource.understanding_id,
                 int(aggregate["current_revision"]),
                 now=now or datetime.now(timezone.utc),
             )
+            try:
+                plan = await self._read_map_plan(conn, resource.understanding_id, int(aggregate["current_revision"]))
+            except ResourceNotReadyError:
+                return view
+            return map_view_with_points(view, plan)
 
     async def request_map_render(
         self,
@@ -1140,9 +1170,13 @@ class InMemoryMapRenderRepositoryMixin:
             None,
         )
         bindings: dict[str, tuple[str | None, str, dict[str, Any]]] = {}
+        saved = getattr(self, "g03_pipeline_inputs", {}).get((understanding_id, revision), {}).get("bindings", {})
         for day in stored.result.days:
             for card in day.activities:
-                if card.status == "READY":
+                record = saved.get(card.activity_token)
+                if record and (record.get("resolver_receipt", {}).get("coordinates") or str(record.get("canonical_place_id", "")).startswith("amap:")):
+                    bindings[card.activity_token] = (record.get("canonical_place_id"), record.get("resolution_status", "NEEDS_CONFIRMATION"), record.get("resolver_receipt") or {})
+                elif card.status == "READY":
                     coordinates = _controlled_coordinates(card.name, destination)
                     bindings[card.activity_token] = (
                         f"fixture:{card.name}",
@@ -1245,7 +1279,7 @@ class InMemoryMapRenderRepositoryMixin:
                 )
             )
         days = [
-            PublicMapDayView(label=f"Day {day_index}", routes=by_day[day_index])
+            PublicMapDayView(day_index=day_index, label=f"Day {day_index}", routes=by_day[day_index])
             for day_index in sorted(by_day)
         ]
         if output.status == "READY":
@@ -1329,11 +1363,16 @@ class InMemoryMapRenderRepositoryMixin:
         if public_id is None:
             raise ResourceNotFoundError("trip resource does not exist")
         aggregate = self.resources[public_id]
-        return self._memory_map_view(
+        view = self._memory_map_view(
             resource.understanding_id,
             int(aggregate["current_revision"]),
             now=now or datetime.now(timezone.utc),
         )
+        try:
+            plan = self._memory_plan(resource.understanding_id, int(aggregate["current_revision"]))
+        except ResourceNotReadyError:
+            return view
+        return map_view_with_points(view, plan)
 
     async def request_map_render(
         self,

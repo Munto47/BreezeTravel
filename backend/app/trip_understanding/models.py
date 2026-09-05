@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from app.trip_understanding.timing import ActivityTiming
+
 
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -32,7 +34,7 @@ class ResolutionStatus(str, Enum):
     NEEDS_CONFIRMATION = "NEEDS_CONFIRMATION"
 
 
-class ProposedMention(StrictModel):
+class ProposedMention(ActivityTiming):
     mention_id: str
     raw_text: str = Field(min_length=1)
     span_start: int = Field(ge=0)
@@ -58,6 +60,8 @@ class InferenceProposal(StrictModel):
     destination_basis: DestinationBasis = DestinationBasis.EXPLICIT
     mentions: list[ProposedMention]
     binding: dict[str, object]
+    day_labels: dict[int, str] = Field(default_factory=dict)
+    unprocessed_count: int = Field(default=0, ge=0)
 
 
 class CompiledActivity(StrictModel):
@@ -146,7 +150,7 @@ class KnowledgeSuggestionView(StrictModel):
         return value
 
 
-class ActivityCardView(StrictModel):
+class ActivityCardView(ActivityTiming):
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
     category: str
@@ -218,6 +222,9 @@ class UserFacingTripResult(StrictModel):
     map: MapReadinessView
     stay: StaySuggestionView
     available_actions: list[Literal["EDIT_ASSUMPTIONS", "EDIT_CARDS"]]
+    can_undo: bool = False
+    ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
+    expires_at: datetime | None = None
 
 
 class MaterializedTripView(StrictModel):
@@ -234,6 +241,7 @@ class PublicTripCheckItem(StrictModel):
     title: str
     message: str
     affected_days: list[str] = Field(default_factory=list)
+    affected_activity_tokens: list[str] = Field(default_factory=list)
     can_preview: bool = False
 
 
@@ -249,6 +257,14 @@ class ChangePreviewRequest(StrictModel):
     check_token: str = Field(min_length=20, max_length=100)
 
 
+class PublicTimingChange(StrictModel):
+    activity_token: str
+    day_label: str
+    name: str
+    before: ActivityTiming
+    after: ActivityTiming
+
+
 class PublicChangePreview(StrictModel):
     change_token: str = Field(min_length=20, max_length=100)
     title: str
@@ -256,6 +272,7 @@ class PublicChangePreview(StrictModel):
     affected_days: list[str] = Field(default_factory=list)
     before: list[str] = Field(default_factory=list)
     after: list[str] = Field(default_factory=list)
+    changes: list[PublicTimingChange] = Field(default_factory=list)
     available_actions: list[Literal["ADOPT_CHANGE"]] = Field(
         default_factory=lambda: ["ADOPT_CHANGE"]
     )
@@ -423,8 +440,8 @@ class TripUnderstandingProgressView(StrictModel):
 
 
 class PublicEventPayload(StrictModel):
-    status: Literal["PROCESSING", "READY"]
-    message: Literal["正在整理每天行程", "正在核对地点", "卡片已可用"]
+    status: Literal["PROCESSING", "READY", "FAILED"]
+    message: Literal["正在整理每天行程", "正在核对地点", "卡片已可用", "这次没有整理完成，可以重新尝试"]
 
 
 class PublicEventRecord(StrictModel):
@@ -438,6 +455,8 @@ class PublicResourceRecord(StrictModel):
     public_resource_id: str
     state: Literal["PROCESSING", "READY", "PARTIAL", "FAILED", "DELETED"]
     current_result_id: str | None = None
+    ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
+    expires_at: datetime | None = None
 
 
 class StoredResult(StrictModel):
@@ -450,7 +469,7 @@ class CreateOutcome(StrictModel):
     replayed: bool = False
 
 
-class ActivityInsertCommand(StrictModel):
+class ActivityInsertCommand(ActivityTiming):
     command_type: Literal["ACTIVITY_INSERT"]
     day_index: int = Field(ge=1, le=14)
     position: int = Field(ge=0, le=80)
@@ -503,12 +522,37 @@ class AssumptionSetCommand(StrictModel):
     value: str = Field(min_length=1, max_length=100)
 
 
+class ActivityTimeSetCommand(ActivityTiming):
+    command_type: Literal["ACTIVITY_TIME_SET"]
+    activity_token: str = Field(min_length=20, max_length=80)
+
+
+class ActivityTimesShiftCommand(StrictModel):
+    command_type: Literal["ACTIVITY_TIMES_SHIFT"]
+    activity_tokens: list[str] = Field(min_length=1, max_length=80)
+    minutes: int = Field(gt=0, le=1440)
+
+
+class PlaceConfirmCommand(StrictModel):
+    command_type: Literal["PLACE_CONFIRM"]
+    activity_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+
+
+class UndoCommand(StrictModel):
+    command_type: Literal["UNDO"]
+
+
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
     | ActivityDeleteCommand
     | ActivityMoveCommand
     | ActivityTextEditCommand
     | PlaceReplaceCommand
+    | PlaceConfirmCommand
+    | ActivityTimeSetCommand
+    | ActivityTimesShiftCommand
+    | UndoCommand
     | AssumptionSetCommand,
     Field(discriminator="command_type"),
 ]

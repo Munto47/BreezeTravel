@@ -62,11 +62,23 @@ class TripUnderstandingApplicationService:
         self,
         body: CreateFullRequest,
         *,
-        owner_user_id: str,
+        owner_user_id: str | None,
         idempotency_key: str,
         now: datetime | None = None,
+        capability_hash: str | None = None,
     ) -> CreateOutcome:
         request_hash = canonical_sha256(body.model_dump(mode="json"))
+        if owner_user_id is None:
+            if capability_hash is None:
+                raise ValueError("anonymous capability is required")
+            return await self.repository.create_demo(
+                capability_hash=capability_hash,
+                source_text=body.source.text,
+                idempotency_key=idempotency_key,
+                request_hash=request_hash,
+                now=now or datetime.now(timezone.utc),
+                ttl_hours=24,
+            )
         return await self.repository.create_full(
             owner_user_id=owner_user_id,
             source_text=body.source.text,
@@ -324,7 +336,7 @@ class TripUnderstandingApplicationService:
         self,
         resource: PublicResourceRecord,
         *,
-        user_id: str,
+        user_id: str | None,
         idempotency_key: str,
         now: datetime | None = None,
     ) -> DeletionOutcome:

@@ -67,7 +67,10 @@ jobs:
           tests/test_experience_delivery_contract.py
           tests/test_trip_understanding_v3.py
           tests/test_trip_understanding_v3_api.py
-          tests/test_trip_understanding_natural_routes.py
+          tests/test_experience_inference.py
+          tests/test_experience_runtime.py
+          tests/test_experience_twelve_tasks.py
+          tests/test_experience_timing_candidates.py
           tests/test_amap_trip_understanding.py
           tests/test_amap_route_trip_understanding.py
           tests/test_g03r_place_resolution.py
@@ -129,6 +132,10 @@ jobs:
           tests/test_g02_map_stay_postgres.py
           tests/test_g03_top3_audit_postgres.py
           tests/test_g06_memory_share_postgres.py
+          tests/test_experience_v3_journey.py
+          tests/test_experience_source_deletion.py
+          tests/test_experience_source_api.py
+          tests/test_experience_retention.py
           --junitxml=product-postgres.xml
       - name: Confirm database checks actually ran
         working-directory: backend
@@ -162,10 +169,95 @@ jobs:
         working-directory: frontend
       - run: npm run build
         working-directory: frontend
+      - name: Check shared v3 client types
+        working-directory: frontend
+        run: npx tsc --noEmit -p ../packages/trip-check-client/tsconfig.json
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.1-pg16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7.4.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/postgres
+      REDIS_URL: redis://127.0.0.1:6379/0
+      JWT_SECRET_KEY: isolated-ci-browser-only-key
+      TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY: isolated-ci-cookie-only-key
+      TRIP_UNDERSTANDING_SOURCE_ENCRYPTION_KEY: isolated-ci-source-only-key
+      EXPERIENCE_WORKERS_ENABLED: "true"
+      EXPERIENCE_WEB_RUNTIME: "1"
+      BACKEND_INTERNAL_URL: http://127.0.0.1:8006
+      E2E_BASE_URL: http://127.0.0.1:3106
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: python -m pip install -r backend/requirements-dev.txt
+      - name: Initialize isolated database
+        working-directory: backend
+        run: python -m scripts.init_experience_database
+      - name: Start text API and necessary workers
+        working-directory: backend
+        run: python -m uvicorn app.experience_main:app --host 127.0.0.1 --port 8006 --no-access-log > /tmp/experience-api.log 2>&1 &
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend
+      - name: Start built frontend
+        working-directory: frontend
+        run: npm run start -- --hostname 127.0.0.1 --port 3106 > /tmp/experience-web.log 2>&1 &
+      - name: Wait for application readiness
+        run: |
+          python - <<'PY'
+          import time
+          from urllib.request import urlopen
+          for url in ('http://127.0.0.1:8006/health', 'http://127.0.0.1:3106'):
+              for attempt in range(60):
+                  try:
+                      with urlopen(url, timeout=2) as response:
+                          if response.status == 200:
+                              break
+                  except OSError:
+                      pass
+                  time.sleep(1)
+              else:
+                  raise SystemExit('Application did not become ready')
+          PY
+      - name: Verify local browser journeys without external credentials
+        working-directory: frontend
+        run: npx playwright test -c playwright.experience.config.js --grep-invert @live
+      - name: Preserve browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-browser-results
+          path: frontend/test-results
+          if-no-files-found: ignore
 
   core-mainline:
     name: core-mainline
-    needs: [contract, backend, postgres, frontend]
+    needs: [contract, backend, postgres, frontend, browser]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -175,10 +267,12 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend.result }}
           POSTGRES_RESULT: ${{ needs.postgres.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
         run: |
           test "$CONTRACT_RESULT" = success
           test "$BACKEND_RESULT" = success
           test "$POSTGRES_RESULT" = success
           test "$FRONTEND_RESULT" = success
-          echo "Contract, backend, PostgreSQL and frontend build passed." >> "$GITHUB_STEP_SUMMARY"
-          echo "The 12-scenario browser suite, live providers and user experience are NOT_RUN in this stage-0 workflow." >> "$GITHUB_STEP_SUMMARY"
+          test "$BROWSER_RESULT" = success
+          echo "Contract, backend, PostgreSQL, frontend build and local browser journeys passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "External live model/AMap checks and human usability are reported separately, not inferred from CI." >> "$GITHUB_STEP_SUMMARY"

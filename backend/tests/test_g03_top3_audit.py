@@ -219,14 +219,14 @@ def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
         assert asyncio.run(map_worker.run_once("g03-map")) is True
         provider_effects_before = repository.map_provider_effect_count
 
-        login_required = client.post(
+        anonymous_materialized = client.post(
             f"/api/v3/trip-understandings/{resource_id}/materialize",
             headers={
                 "Idempotency-Key": "g03-materialize-without-login",
                 "If-Match": initial_etag,
             },
         )
-        assert login_required.status_code == 401
+        assert anonymous_materialized.status_code == 200
         app.dependency_overrides[get_current_user] = lambda: "g03-owner"
 
         materialized = client.post(
@@ -262,7 +262,10 @@ def test_g03_public_materialize_top3_preview_adopt_and_full_postcheck() -> None:
             },
         )
         assert second_key.status_code == 200
-        assert len(repository.g03_history[repository.resources[resource_id]["understanding_id"]]) == 1
+        history = repository.g03_history[repository.resources[resource_id]["understanding_id"]]
+        assert len(history) == 3  # New operation keys explicitly refresh evidence.
+        assert len({item["itinerary"].content_hash for item in history}) == 1
+        assert len({item["report"].report_id for item in history}) == 3
 
         checks = client.get(
             f"/api/v3/trip-understandings/{resource_id}/checks"

@@ -30,12 +30,16 @@ from app.itineraries.models import (
 from app.schemas.task_spec import DateRange, Travelers, TripTaskSpec
 from app.trip_understanding.models import (
     ActivityInsertCommand,
+    ActivityTimesShiftCommand,
+    PublicTimingChange,
     PublicChangePreview,
     PublicTripCheckItem,
     PublicTripChecksView,
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.schedule_checks import ScheduleFeasibilityRule
+from app.trip_understanding.timing import ActivityTiming, shift_clock, timing_values
 
 
 G03_EVIDENCE_POLICY_VERSION = "g03-evidence-v1"
@@ -120,7 +124,7 @@ def _finding_id(context: AuditRuleContext, rule_id: str, suffix: str) -> str:
         "finding",
         (
             f"{context.revision.workspace_id}:{context.revision.itinerary_id}:"
-            f"{context.revision.revision}:{rule_id}:{suffix}"
+            f"{context.revision.revision}:{context.evidence_snapshot.snapshot_id}:{rule_id}:{suffix}"
         ),
     )
 
@@ -174,7 +178,10 @@ def build_itinerary_revision(
             canonical_place_id = binding.get("canonical_place_id")
             raw_status = str(binding.get("resolution_status", "UNRESOLVED"))
             resolved = raw_status == "AUTO_MATCHED" or card.category == "用餐安排"
-            start_time, end_time = _time_window(card.time_hint)
+            start_time, end_time = card.start_time, card.end_time
+            if start_time is None and card.timing_source != "SUGGESTED":
+                exact = re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", card.time_hint or "")
+                start_time = exact.group() if exact else None
             stops.append(
                 ItineraryStop(
                     stop_id=_stable_internal_id("stop", card.activity_token),
@@ -187,6 +194,9 @@ def build_itinerary_revision(
                     order_index=order_index,
                     start_time=start_time,
                     end_time=end_time,
+                    visit_duration_minutes=card.visit_duration_minutes,
+                    locked=card.locked,
+                    fixed_commitment=card.fixed_commitment,
                     raw_name=card.name,
                     source_raw_stop_id=None,
                     resolution_status=(
@@ -212,6 +222,7 @@ def build_itinerary_revision(
         change_summary={
             "kind": "G03_MATERIALIZATION" if revision == 1 else "G03_USER_CHANGE",
             "route_provider_calls": 0,
+            "timing_sources": {_stable_internal_id("stop", card.activity_token): card.timing_source for day in result.days for card in day.activities},
         },
         created_by=G03_SYSTEM_USER_ID,
         created_at=created_at or datetime.now(timezone.utc),
@@ -350,6 +361,7 @@ class RouteAvailabilityRule:
                 value = dict(fact.value or {}) if fact else {}
                 both_unavailable = (
                     not fact
+                    or fact.freshness_status != EvidenceFreshness.FRESH
                     or (
                         value.get("walking") != "AVAILABLE"
                         and value.get("transit") != "AVAILABLE"
@@ -376,7 +388,7 @@ class RouteAvailabilityRule:
                     )
                     continue
                 duration = value.get("selected_duration_minutes")
-                if isinstance(duration, int) and duration > 90:
+                if isinstance(duration, int) and duration >= 90:
                     findings.append(
                         AuditFinding(
                             finding_id=_finding_id(
@@ -385,7 +397,7 @@ class RouteAvailabilityRule:
                             rule_id=self.rule_id,
                             rule_version=self.rule_version,
                             status=AuditStatus.VIOLATED,
-                            severity=AuditSeverity.HIGH,
+                            severity=AuditSeverity.MEDIUM,
                             reason_code="ROUTE_TOO_LONG",
                             message=f"{left.raw_name}到{right.raw_name}的单程时间过长",
                             affected_days=[day.day_index],
@@ -548,6 +560,7 @@ def run_g03_audit(
             PlaceReadinessRule(),
             MealBreakRule(),
             RouteAvailabilityRule(),
+            ScheduleFeasibilityRule(),
             CalendarEvidenceRule(),
             StayCommuteRule(),
             ProviderFailureRule(),
@@ -586,6 +599,10 @@ _FRESHNESS_ORDER = {
 def _friendly(finding: AuditFinding) -> tuple[str, str]:
     day = finding.affected_days[0] + 1 if finding.affected_days else None
     mapping = {
+        "SCHEDULE_CONFLICT": ("这段时间来不及", finding.message),
+        "SCHEDULE_ROUTE_UNKNOWN": ("确认两站之间的时间", "路线时间尚不完整，暂时不能判断下一站是否来得及。"),
+        "SCHEDULE_TIMES_MISSING": ("补充活动时间", "有些活动还没有开始时间或停留时长，暂时不能判断当天是否来得及。"),
+        "SCHEDULE_TIMES_INCONSISTENT": ("确认活动时长", "开始、结束时间与停留时长不一致，请调整后重新检查。"),
         "PLACE_CONFIRMATION_REQUIRED": (
             "确认地点",
             f"Day {day} 有地点还需要你确认后才能可靠核对。",
@@ -637,6 +654,7 @@ def public_checks(
     snapshot: EvidenceSnapshot,
     *,
     check_tokens: dict[str, str],
+    result: UserFacingTripResult | None = None,
 ) -> PublicTripChecksView:
     freshness = {fact.fact_id: fact.freshness_status for fact in snapshot.facts}
 
@@ -681,8 +699,9 @@ def public_checks(
                 title=title,
                 message=message,
                 affected_days=[
-                    f"Day {day_index + 1}" for day_index in sorted(set(finding.affected_days))
+                    result.days[day_index].label if result and day_index < len(result.days) else f"Day {day_index + 1}" for day_index in sorted(set(finding.affected_days))
                 ],
+                affected_activity_tokens=[card.activity_token for day in (result.days if result else []) for card in day.activities if _stable_internal_id("stop", card.activity_token) in finding.affected_stop_ids],
                 can_preview=finding.repairable,
             )
         )
@@ -709,7 +728,12 @@ def public_checks(
     )
 
 
-def command_for_finding(finding: AuditFinding) -> ActivityInsertCommand:
+def command_for_finding(finding: AuditFinding, result: UserFacingTripResult | None = None):
+    if finding.reason_code == "SCHEDULE_CONFLICT" and finding.repairable and result:
+        stop_ids = set(finding.input_values["shift_stop_ids"])
+        return ActivityTimesShiftCommand(command_type="ACTIVITY_TIMES_SHIFT",
+            activity_tokens=[card.activity_token for day in result.days for card in day.activities if _stable_internal_id("stop", card.activity_token) in stop_ids],
+            minutes=finding.input_values["shift_minutes"])
     if finding.reason_code != "MEAL_BREAK_MISSING" or not finding.affected_days:
         raise ValueError("this check does not have a safe automatic preview")
     day_index = finding.affected_days[0] + 1
@@ -721,6 +745,9 @@ def command_for_finding(finding: AuditFinding) -> ActivityInsertCommand:
         category="用餐安排",
         area_or_address="当天活动附近再选择",
         time_hint="12:30",
+        start_time="12:30",
+        visit_duration_minutes=45,
+        timing_source="SUGGESTED",
     )
 
 
@@ -728,8 +755,24 @@ def preview_for_finding(
     finding: AuditFinding,
     *,
     change_token: str,
+    result: UserFacingTripResult | None = None,
 ) -> PublicChangePreview:
-    command = command_for_finding(finding)
+    command = command_for_finding(finding, result)
+    if isinstance(command, ActivityTimesShiftCommand):
+        changes = []
+        for day in result.days:
+            for card in day.activities:
+                if card.activity_token in command.activity_tokens:
+                    before = ActivityTiming(**timing_values(card))
+                    after = before.model_copy(update={"start_time": shift_clock(card.start_time, command.minutes),
+                        "end_time": shift_clock(card.end_time, command.minutes), "timing_source": "USER"})
+                    changes.append(PublicTimingChange(activity_token=card.activity_token,
+                        day_label=day.label, name=card.name, before=before, after=after))
+        return PublicChangePreview(change_token=change_token, title="把后续活动顺延",
+            summary=f"后续 {len(changes)} 处活动顺延 {command.minutes} 分钟。",
+            affected_days=list(dict.fromkeys(change.day_label for change in changes)), changes=changes,
+            before=[f"{item.name} {item.before.start_time}" for item in changes],
+            after=[f"{item.name} {item.after.start_time}" for item in changes])
     label = f"Day {command.day_index}"
     return PublicChangePreview(
         change_token=change_token,

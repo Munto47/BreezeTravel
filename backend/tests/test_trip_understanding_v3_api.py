@@ -256,7 +256,7 @@ def test_public_full_contract_accepts_text_only() -> None:
         assert internal_name not in public_contract
 
 
-def test_full_api_requires_login_and_uses_user_owned_persistent_chain() -> None:
+def test_full_api_accepts_anonymous_text_and_supports_account_owned_chain() -> None:
     client, repository, app = _client()
     text = """北京三日行程
 Day 1：故宫博物院、景山公园。
@@ -271,8 +271,10 @@ Day 3：颐和园、圆明园。
         headers={"Idempotency-Key": "full-anonymous"},
         json=request_body,
     )
-    assert anonymous.status_code == 401
-    assert anonymous.json()["detail"]["code"] == "LOGIN_REQUIRED"
+    assert anonymous.status_code == 202
+    assert "HttpOnly" in anonymous.headers["set-cookie"]
+    asyncio.run(TripUnderstandingWorker(repository).run_once("anonymous-full-worker"))
+    assert client.get(anonymous.json()["result_url"]).json()["ownership"] == "ANONYMOUS"
 
     app.dependency_overrides[get_optional_user] = lambda: "user-a"
     created = client.post(
@@ -343,7 +345,7 @@ async def test_full_service_replay_conflict_and_two_active_job_limit() -> None:
         )
 
 
-def test_demo_claim_rotates_id_revokes_cookie_and_replays_without_cookie() -> None:
+def test_demo_claim_rotates_id_keeps_session_cookie_and_replays_without_cookie() -> None:
     client, repository, app = _client()
     created = client.post(
         "/api/v3/trip-understandings",
@@ -367,10 +369,11 @@ def test_demo_claim_rotates_id_revokes_cookie_and_replays_without_cookie() -> No
     assert new_id != old_id
     assert claimed.headers["location"].endswith(f"/{new_id}/result")
     assert claimed.headers["etag"] == old_result.headers["etag"]
-    assert "Max-Age=0" in claimed.headers["set-cookie"]
+    assert "set-cookie" not in claimed.headers  # Other anonymous drafts retain access.
     assert client.get(f"/api/v3/trip-understandings/{old_id}/result").status_code == 410
     assert client.get(f"/api/v3/trip-understandings/{new_id}/result").status_code == 200
 
+    client.cookies.clear()
     replay = client.post(
         f"/api/v3/trip-understandings/{old_id}/claim",
         headers={"Idempotency-Key": "claim-demo"},
@@ -422,6 +425,7 @@ def test_source_delete_keeps_cards_and_is_owner_only() -> None:
     assert replay.headers["Idempotency-Replayed"] == "true"
 
     app.dependency_overrides[get_current_user] = lambda: "user-b"
+    app.dependency_overrides[get_optional_user] = lambda: "user-b"
     assert client.delete(
         f"/api/v3/trip-understandings/{resource_id}/source",
         headers={"Idempotency-Key": "source-delete-other"},

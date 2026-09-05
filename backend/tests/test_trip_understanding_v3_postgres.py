@@ -580,9 +580,17 @@ Day 3：颐和园、圆明园。
                 """
                 SELECT COUNT(*) FROM trip_understanding_activities
                 WHERE understanding_id = $1
+                  AND (position($2 in mention_text) > 0 OR role <> 'PLANNED')
                 """,
                 full_resource.understanding_id,
+                private_planned_text,
             ) == 0
+            # Deleting source text must preserve sanitized POI bindings needed
+            # by the retained itinerary, its map and undo history.
+            assert await conn.fetchval(
+                "SELECT COUNT(*) FROM trip_understanding_activities WHERE understanding_id = $1",
+                full_resource.understanding_id,
+            ) > 0
             assert await conn.fetchval(
                 """
                 SELECT COUNT(*) FROM trip_understanding_deletion_jobs

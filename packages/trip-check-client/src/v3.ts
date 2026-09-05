@@ -1,5 +1,10 @@
 export type DemoCreateRequest = { mode: 'DEMO' }
 
+export interface PlaceCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'
+  candidates: Array<{ candidate_token: string; name: string; category: string; area_or_address: string; position: { longitude: number; latitude: number; coordinate_system: 'GCJ02' } }>
+}
+
 export interface TripUnderstandingAcceptedView {
   public_resource_id: string
   status: 'PROCESSING'
@@ -15,6 +20,9 @@ export interface TripUnderstandingProgressView {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'UNDO' }
+  | { command_type: 'PLACE_CONFIRM'; activity_token: string; candidate_token: string }
+  | { command_type: 'ACTIVITY_TIME_SET'; activity_token: string; start_time?: string | null; end_time?: string | null; visit_duration_minutes?: number | null; locked?: boolean }
   | {
       command_type: 'ACTIVITY_INSERT'
       day_index: number
@@ -70,6 +78,11 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  start_time?: string | null
+  end_time?: string | null
+  visit_duration_minutes?: number | null
+  timing_source?: 'TEXT' | 'USER' | 'SUGGESTED' | 'UNSPECIFIED'
+  locked?: boolean
   activity_token: string
   name: string
   category: string
@@ -86,6 +99,9 @@ export interface TripDayView {
 }
 
 export interface UserFacingTripResult {
+  can_undo?: boolean
+  ownership?: 'ANONYMOUS' | 'ACCOUNT'
+  expires_at?: string | null
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: TripDayView[]
@@ -126,11 +142,15 @@ export interface PublicRouteModeView {
 }
 
 export interface MapRenderView {
+  points?: Array<{ activity_token: string; day_label: string; sequence_index: number; name: string; position: { longitude: number; latitude: number; coordinate_system: 'GCJ02' } | null }>
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
   days: Array<{
+    day_index?: number
     label: string
     routes: Array<{
+      from_activity_token?: string
+      to_activity_token?: string
       from_name: string
       to_name: string
       selected_mode: 'walking' | 'transit' | null
@@ -165,6 +185,7 @@ export interface MaterializedTripView {
 }
 
 export interface PublicTripCheckItem {
+  affected_activity_tokens?: string[]
   check_token: string
   label: '必须调整' | '可以更好' | '需要确认'
   title: string
@@ -182,6 +203,11 @@ export interface PublicTripChecksView {
 }
 
 export interface PublicChangePreview {
+  changes?: Array<{
+    activity_token: string; day_label: string; name: string
+    before: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
+    after: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
+  }>
   change_token: string
   title: string
   summary: string

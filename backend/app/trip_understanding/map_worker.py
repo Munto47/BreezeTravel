@@ -69,10 +69,16 @@ class MapRenderWorker:
         *,
         renderer: MapRenderer | None = None,
         stay_engine: StayRecommendationEngine | None = None,
+        demo_source_routing: bool = False,
         lease_seconds: int = 30,
     ) -> None:
         self.repository = repository
+        self.demo_source_routing = demo_source_routing
         self.renderer = renderer or MapRenderer()
+        self.demo_renderer = MapRenderer()
+        self.demo_stay_engine = StayRecommendationEngine(
+            ControlledStayCandidateProvider(), ControlledStayRouteProvider(),
+        )
         self.lease_takeover_renderer = MapRenderer(_LeaseTakeoverRouteProvider())
         self.stay_engine = stay_engine or StayRecommendationEngine()
         self.lease_takeover_stay_engine = StayRecommendationEngine(
@@ -161,8 +167,11 @@ class MapRenderWorker:
             try:
                 async def execute_render():
                     plan = await self.repository.load_map_plan(job)
+                    source_reader = getattr(self.repository, "get_map_source_type", None)
+                    is_demo = self.demo_source_routing and source_reader is not None and await source_reader(job.understanding_id) == "FIXED_DEMO"
                     renderer = (
-                        self.lease_takeover_renderer if job.attempt > 1 else self.renderer
+                        self.lease_takeover_renderer if job.attempt > 1
+                        else self.demo_renderer if is_demo else self.renderer
                     )
                     return await renderer.render(
                         plan,
@@ -187,7 +196,7 @@ class MapRenderWorker:
                     category="MAP_RENDER_ERROR",
                     now=operation_now(),
                 )
-                logger.exception("map render job failed")
+                logger.warning("map render job failed safely")
             return True
 
         stay_job = await self.repository.claim_next_stay(
@@ -200,10 +209,12 @@ class MapRenderWorker:
         try:
             async def execute_stay():
                 plan = await self.repository.load_stay_plan(stay_job)
+                source_reader = getattr(self.repository, "get_map_source_type", None)
+                is_demo = self.demo_source_routing and source_reader is not None and await source_reader(stay_job.understanding_id) == "FIXED_DEMO"
                 engine = (
                     self.lease_takeover_stay_engine
                     if stay_job.attempt > 1
-                    else self.stay_engine
+                    else self.demo_stay_engine if is_demo else self.stay_engine
                 )
                 return await engine.recommend(
                     plan,
@@ -228,7 +239,7 @@ class MapRenderWorker:
                 category="STAY_RECOMMENDATION_ERROR",
                 now=operation_now(),
             )
-            logger.exception("stay recommendation job failed")
+            logger.warning("stay recommendation job failed safely")
         return True
 
 
@@ -239,6 +250,7 @@ async def run_forever() -> None:
         PostgresTripUnderstandingRepository(),
         renderer=build_configured_renderer(settings),
         stay_engine=build_configured_stay_engine(settings),
+        demo_source_routing=True,
         lease_seconds=settings.map_render_job_lease_seconds,
     )
     try:

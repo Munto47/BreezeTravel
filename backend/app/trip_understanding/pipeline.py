@@ -8,6 +8,7 @@ import secrets
 from collections.abc import Sequence
 from typing import Protocol
 from uuid import uuid4
+from app.trip_understanding.timing import timing_values
 
 from app.trip_understanding.errors import (
     InferenceProviderUnavailableError,
@@ -900,7 +901,7 @@ class PublicResultProjector:
         planned = [
             activity
             for activity in activities
-            if is_atomic_planned_place(activity.compiled.mention)
+            if activity.compiled.mention.role == ActivityRole.PLANNED
         ]
         day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
@@ -913,7 +914,7 @@ class PublicResultProjector:
                 (
                     activity
                     for activity in activities
-                    if is_atomic_planned_place(activity.compiled.mention)
+                    if activity.compiled.mention.role == ActivityRole.PLANNED
                     and activity.compiled.mention.day_index == day_index
                 ),
                 key=lambda activity: activity.compiled.mention.sequence_index,
@@ -933,7 +934,7 @@ class PublicResultProjector:
                             else (
                                 "地点待确认"
                                 if source_confirmation_required
-                                else (mention.atomic_place_name or "地点待确认")
+                                else (mention.atomic_place_name if is_atomic_planned_place(mention) else "地点待确认")
                             )
                         ),
                         category=(
@@ -947,6 +948,7 @@ class PublicResultProjector:
                         ),
                         area_or_address=place.area_or_address if place else "地点待确认",
                         time_hint=mention.time_hint,
+                        **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
                     )
@@ -1201,16 +1203,20 @@ class TripUnderstandingPipeline:
             for start, end in confirmation_spans
         ):
             raise ValueError("confirmation spans must be valid source code-point ranges")
-        proposal, cancellation_pending_spans = _apply_terminal_cancellations(
-            source_text,
-            _apply_contextual_category_hints(
-                source_text,
-                await self.inference_provider.propose(source_text),
+        proposal = await self.inference_provider.propose(source_text)
+        model_meaning = proposal.binding.get("semantic_policy") == "MODEL_MEANING_SOURCE_VALIDATED_V1"
+        cancellation_pending_spans: set[tuple[int, int]] = set()
+        if not model_meaning:
+            # Historical rule-based experiments keep their original behavior.
+            # The live experience adapter supplies day/order/roles directly;
+            # lexical recovery must not rewrite those meanings a second time.
+            proposal, cancellation_pending_spans = _apply_terminal_cancellations(
+                source_text, _apply_contextual_category_hints(source_text, proposal),
             )
-        )
-        destination_name = normalized_destination_name(
-            source_text,
-            proposal.destination_name,
+        destination_name = (
+            proposal.destination_name if model_meaning else normalized_destination_name(
+                source_text, proposal.destination_name,
+            )
         )
         if destination_name != proposal.destination_name:
             binding = dict(proposal.binding)
@@ -1220,7 +1226,8 @@ class TripUnderstandingPipeline:
             proposal = proposal.model_copy(
                 update={"destination_name": destination_name, "binding": binding}
             )
-        search_cities = resolution_cities(source_text, proposal.destination_name)
+        search_cities = ((proposal.destination_name.removesuffix("市"),) if model_meaning
+                         else resolution_cities(source_text, proposal.destination_name))
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()
@@ -1383,8 +1390,17 @@ class TripUnderstandingPipeline:
             proposal.destination_basis,
             resolved,
         )
+        if proposal.day_labels:
+            days = [day.model_copy(update={"label": proposal.day_labels.get(index, day.label)})
+                    for index, day in enumerate(public_result.days, 1)]
+            calendar = "、".join(day.label for day in days)
+            public_result = public_result.model_copy(update={
+                "days": days,
+                "assumptions": [chip.model_copy(update={"value": calendar}) if chip.key == "calendar" else chip
+                                for chip in public_result.assumptions],
+            })
         fallback_used = proposal.binding.get("fallback_used") is True
-        if partial_source:
+        if partial_source or proposal.unprocessed_count:
             public_result = public_result.model_copy(update={"status": "PARTIAL_RESULT"})
         elif budget_limited_count:
             public_result = public_result.model_copy(update={"status": "LIMITED"})
@@ -1415,6 +1431,7 @@ class TripUnderstandingPipeline:
                 cancellation_pending_activity_ids
             ),
             "partial_source": partial_source,
+            "unprocessed_count": proposal.unprocessed_count,
             "provider_failures_exposed_publicly": 0,
         }
         internal_content = {

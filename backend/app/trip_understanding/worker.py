@@ -21,7 +21,8 @@ from app.trip_understanding.repository import (
     PostgresTripUnderstandingRepository,
     TripUnderstandingRepository,
 )
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.experience_inference import ExperienceQwenProvider
+from app.trip_understanding.pipeline import TripUnderstandingPipeline
 
 
 logger = logging.getLogger(__name__)
@@ -43,8 +44,10 @@ class _LeaseTakeoverInferenceProvider:
 
 def build_configured_full_pipeline(settings: Settings):
     if settings.trip_understanding_provider_mode != "live":
+        if settings.runtime_profile not in {"test", "local_fixture"}:
+            raise ValueError("custom text requires live providers")
         return build_full_text_pipeline()
-    qwen = QwenStructuredInferenceProvider(
+    qwen = ExperienceQwenProvider(
         api_key=settings.qwen_api_key,
         base_url=settings.qwen_api_url,
         model=settings.trip_understanding_qwen_model,
@@ -61,7 +64,7 @@ def build_configured_full_pipeline(settings: Settings):
         api_key=settings.amap_api_key,
         deadline_seconds=settings.trip_understanding_amap_place_deadline_seconds,
     )
-    return build_full_text_pipeline(
+    return TripUnderstandingPipeline(
         qwen,
         amap,
         max_place_concurrency=(
@@ -81,9 +84,9 @@ class TripUnderstandingWorker:
         self.repository = repository
         self.lease_seconds = lease_seconds
         self.demo_pipeline = build_demo_pipeline()
-        self.full_pipeline = full_pipeline or build_full_text_pipeline()
-        self.lease_takeover_pipeline = build_full_text_pipeline(
-            _LeaseTakeoverInferenceProvider()
+        self.full_pipeline = full_pipeline if full_pipeline is not None else build_configured_full_pipeline(get_settings())
+        self.lease_takeover_pipeline = TripUnderstandingPipeline(
+            _LeaseTakeoverInferenceProvider(), getattr(self.full_pipeline, "place_resolver", None),
         )
 
     async def _heartbeat(self, job, now_provider) -> None:
@@ -164,13 +167,22 @@ class TripUnderstandingWorker:
             )
         except asyncio.CancelledError:
             raise
+        except InferenceProviderUnavailableError as exc:
+            await self.repository.fail_job(
+                job,
+                category=exc.category,
+                now=operation_now(),
+                allow_retry=False,
+                provider_binding=exc.provider_binding,
+            )
+            logger.warning("trip inference unavailable; a new user request can retry")
         except Exception:
             await self.repository.fail_job(
                 job,
                 category="PIPELINE_ERROR",
                 now=operation_now(),
             )
-            logger.exception("trip understanding job failed")
+            logger.warning("trip understanding job failed safely")
         return True
 
 
@@ -194,7 +206,7 @@ async def run_forever() -> None:
                         limit=settings.screenshot_maintenance_batch_size,
                     )
                 except Exception:
-                    logger.exception("private source maintenance failed")
+                    logger.warning("private source maintenance failed safely")
                 next_maintenance = (
                     time.monotonic()
                     + settings.screenshot_maintenance_interval_seconds

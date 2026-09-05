@@ -310,7 +310,7 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.OPTIONAL) == 1
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.EXCLUDED) == 1
     result = output.public_result.model_dump(mode="json")
-    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions"}
+    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at"}
     assert [[card["name"] for card in day["activities"]] for day in result["days"]] == [
         ["故宫博物院", "景山公园"],
         ["天坛公园", "前门大街"],
@@ -485,7 +485,8 @@ async def test_only_atomic_planned_mentions_reach_place_provider_or_public_cards
 
     assert resolver.calls == ["故宫博物院"]
     cards = [card for day in output.public_result.days for card in day.activities]
-    assert [card.name for card in cards] == ["故宫博物院"]
+    assert [card.name for card in cards] == ["故宫博物院", "地点待确认", "地点待确认"]
+    assert all(card.status == "NEEDS_CONFIRMATION" for card in cards)
     public = json.dumps(output.public_result.model_dump(mode="json"), ensure_ascii=False)
     assert "预约说明" not in public
     assert "https://" not in public
@@ -1668,8 +1669,29 @@ async def test_understanding_lease_takeover_never_repeats_external_inference() -
         now=now + timedelta(seconds=1),
     )
     stored = await repository.get_result(resource)
-    assert stored is not None
-    assert stored.result.status == "PARTIAL_RESULT"
+    assert stored is None
+    assert repository.jobs[abandoned.job_id]["status"] == "FAILED"
+    assert repository.jobs[abandoned.job_id]["last_error_category"] == "LEASE_TAKEOVER_UNKNOWN_OUTCOME"
+    assert repository.resources[created.accepted.public_resource_id]["state"] == "FAILED"
+    assert not await worker.run_once("later-worker", now=now + timedelta(minutes=1))
+    assert provider.calls == 0
+
+    # A new explicit user request may run inference; the old uncertain call is not replayed.
+    retried = await service.create_full(
+        CreateFullRequest.model_validate(
+            {"mode": "FULL", "source": {"type": "TEXT", "text": NORMAL_LONG_TEXT}}
+        ),
+        owner_user_id="takeover-owner",
+        idempotency_key="takeover-user-retry",
+        now=now + timedelta(minutes=2),
+    )
+    assert await worker.run_once("new-request-worker", now=now + timedelta(minutes=2))
+    assert provider.calls == 1
+    retry_resource = await service.authorize(
+        retried.accepted.public_resource_id, capability_hash=None,
+        user_id="takeover-owner", now=now + timedelta(minutes=3),
+    )
+    assert await repository.get_result(retry_resource) is not None
 
 
 @pytest.mark.asyncio

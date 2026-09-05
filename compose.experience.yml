@@ -1,0 +1,65 @@
+name: breezetravel-experience
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: experience
+      POSTGRES_PASSWORD: ${EXPERIENCE_PG_PASSWORD:?Set the private env file}
+      POSTGRES_DB: ${EXPERIENCE_DATABASE:-breezetravel_experience}
+    ports: ["127.0.0.1:55439:5432"]
+    volumes: ["experience_postgres:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U experience -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${EXPERIENCE_REDIS_PASSWORD:?Set the private env file}
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --save '' --appendonly no"]
+    ports: ["127.0.0.1:56389:6379"]
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  api:
+    build:
+      context: .
+      dockerfile: scripts/experience.Dockerfile
+      target: api
+    env_file: ["${EXPERIENCE_ENV_FILE:-.local-artifacts/experience/experience.env}"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://experience:${EXPERIENCE_PG_PASSWORD}@postgres:5432/${EXPERIENCE_DATABASE:-breezetravel_experience}
+      REDIS_URL: redis://:${EXPERIENCE_REDIS_PASSWORD}@redis:6379/0
+      RUNTIME_PROFILE: local_real
+      TRIP_UNDERSTANDING_PROVIDER_MODE: live
+      EXPERIENCE_WORKERS_ENABLED: "true"
+      LANGCHAIN_TRACING_V2: "false"
+      LANGSMITH_TRACING: "false"
+    ports: ["127.0.0.1:8006:8006"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8006/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  web:
+    build:
+      context: .
+      dockerfile: scripts/experience.Dockerfile
+      target: web
+    environment:
+      BACKEND_INTERNAL_URL: http://api:8006
+      NEXT_PUBLIC_API_URL: ""
+      NEXT_PUBLIC_AMAP_KEY: ${NEXT_PUBLIC_AMAP_KEY:-}
+      NEXT_PUBLIC_AMAP_SECURITY_CODE: ${NEXT_PUBLIC_AMAP_SECURITY_CODE:-}
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports: ["127.0.0.1:3106:3106"]
+    depends_on:
+      api: {condition: service_healthy}
+volumes:
+  experience_postgres:

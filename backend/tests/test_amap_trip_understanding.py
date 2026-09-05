@@ -12,8 +12,7 @@ from app.trip_understanding.amap_place import (
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.full_text import ControlledSnapshotPlaceResolver
-from app.trip_understanding.pipeline import ResilientStructuredInferenceProvider
-from app.trip_understanding.qwen_provider import QwenStructuredInferenceProvider
+from app.trip_understanding.experience_inference import ExperienceQwenProvider
 from app.trip_understanding.worker import build_configured_full_pipeline
 
 
@@ -479,9 +478,10 @@ async def test_amap_timeout_preserves_redacted_city_and_atomic_query_binding() -
     assert "test-only" not in str(binding)
 
 
-def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> None:
+@pytest.mark.asyncio
+async def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> None:
     fixture = build_configured_full_pipeline(
-        Settings(_env_file=None, trip_understanding_provider_mode="fixture")
+        Settings(_env_file=None, runtime_profile="test", trip_understanding_provider_mode="fixture")
     )
     assert isinstance(fixture.place_resolver, ControlledSnapshotPlaceResolver)
 
@@ -494,6 +494,12 @@ def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled() -> N
             amap_api_key="test-amap-key",
         )
     )
-    assert isinstance(live.inference_provider, ResilientStructuredInferenceProvider)
-    assert isinstance(live.inference_provider.primary, QwenStructuredInferenceProvider)
-    assert isinstance(live.place_resolver, AmapPlaceResolver)
+    try:
+        # The approved experience contract forbids replacing a real user's
+        # failed inference with the historical deterministic fallback.
+        assert isinstance(live.inference_provider, ExperienceQwenProvider)
+        assert not hasattr(live.inference_provider, "fallback")
+        assert isinstance(live.place_resolver, AmapPlaceResolver)
+    finally:
+        await live.aclose()
+        await fixture.aclose()

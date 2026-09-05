@@ -36,6 +36,19 @@ export interface ActivityCardView {
   status: 'READY' | 'NEEDS_CONFIRMATION'
   available_actions: Array<'VIEW_DETAILS' | 'REPLACE' | 'DELETE' | 'MOVE'>
   knowledge_suggestions?: KnowledgeSuggestionView[]
+  start_time?: string | null
+  end_time?: string | null
+  visit_duration_minutes?: number | null
+  timing_source?: 'TEXT' | 'USER' | 'SUGGESTED' | 'UNSPECIFIED'
+  locked?: boolean
+}
+
+export interface PlacePosition { longitude: number; latitude: number; coordinate_system: 'GCJ02' }
+export interface PlaceCandidateView {
+  candidate_token: string; name: string; category: string; area_or_address: string; position: PlacePosition
+}
+export interface PlaceCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'; candidates: PlaceCandidateView[]
 }
 
 export interface PublicRouteModeView {
@@ -49,9 +62,13 @@ export interface PublicRouteModeView {
 export interface MapRenderView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
+  points?: Array<{ activity_token: string; day_label: string; sequence_index: number; name: string; position: PlacePosition | null }>
   days: Array<{
+    day_index?: number
     label: string
     routes: Array<{
+      from_activity_token?: string
+      to_activity_token?: string
       from_name: string
       to_name: string
       selected_mode: 'walking' | 'transit' | null
@@ -87,6 +104,9 @@ export interface StaySuggestionView {
 }
 
 export interface UserFacingTripResult {
+  can_undo?: boolean
+  ownership?: 'ANONYMOUS' | 'ACCOUNT'
+  expires_at?: string | null
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: Array<{ label: string; activities: ActivityCardView[] }>
@@ -107,6 +127,9 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'UNDO' }
+  | { command_type: 'PLACE_CONFIRM'; activity_token: string; candidate_token: string }
+  | { command_type: 'ACTIVITY_TIME_SET'; activity_token: string; start_time?: string | null; end_time?: string | null; visit_duration_minutes?: number | null; locked?: boolean }
   | {
       command_type: 'ACTIVITY_INSERT'
       day_index: number
@@ -215,6 +238,7 @@ export interface PublicTripCheckItem {
   message: string
   affected_days: string[]
   can_preview: boolean
+  affected_activity_tokens?: string[]
 }
 
 export interface PublicTripChecksView {
@@ -233,6 +257,11 @@ export interface PublicChangePreview {
   before: string[]
   after: string[]
   available_actions: Array<'ADOPT_CHANGE'>
+  changes?: Array<{
+    activity_token: string; day_label: string; name: string
+    before: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
+    after: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
+  }>
 }
 
 export interface PublicChangeAdopted {
@@ -279,6 +308,7 @@ export function clearTripUnderstandingSession(): void {
   for (const key of [
     'bt_active_trip_ref',
     'bt_active_trip_mode',
+    'bt_active_trip_is_demo',
     'bt_active_trip_event_cursor',
     'bt_active_trip_etag',
     'bt_active_trip_source_deleted',
@@ -289,10 +319,11 @@ export function clearTripUnderstandingSession(): void {
   }
 }
 
-export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAcceptedView> {
+export async function createDemoTripUnderstanding(signal?: AbortSignal): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
     credentials: 'include',
+    signal,
     headers: {
       'Content-Type': 'application/json',
       'Idempotency-Key': requestKey(),
@@ -303,13 +334,14 @@ export async function createDemoTripUnderstanding(): Promise<TripUnderstandingAc
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
-export async function createFullTripUnderstanding(text: string): Promise<TripUnderstandingAcceptedView> {
+export async function createFullTripUnderstanding(text: string, idempotencyKey = requestKey(), signal?: AbortSignal): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
     credentials: 'include',
+    signal,
     headers: {
       'Content-Type': 'application/json',
-      'Idempotency-Key': requestKey(),
+      'Idempotency-Key': idempotencyKey,
       ...authorizationHeaders(),
     },
     body: JSON.stringify({ mode: 'FULL', source: { type: 'TEXT', text } }),
@@ -322,7 +354,7 @@ export async function createFullTripUnderstanding(text: string): Promise<TripUnd
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
-export async function readTripUnderstandingResult(publicResourceId: string): Promise<{
+export async function readTripUnderstandingResult(publicResourceId: string, signal?: AbortSignal): Promise<{
   status: number
   body: TripUnderstandingProgressView | UserFacingTripResult
   etag: string | null
@@ -332,10 +364,17 @@ export async function readTripUnderstandingResult(publicResourceId: string): Pro
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
-  if (!response.ok) throw new Error('TRIP_RESULT_UNAVAILABLE')
+  if (!response.ok) {
+    if (response.status === 409) {
+      const failure = await response.json().catch(() => null) as { detail?: { code?: string } } | null
+      if (failure?.detail?.code === 'UNDERSTANDING_FAILED') throw new Error('UNDERSTANDING_FAILED')
+    }
+    throw new Error('TRIP_RESULT_UNAVAILABLE')
+  }
   return {
     status: response.status,
     body: (await response.json()) as TripUnderstandingProgressView | UserFacingTripResult,
@@ -347,6 +386,7 @@ export async function applyTripUnderstandingCommand(
   publicResourceId: string,
   etag: string,
   command: TripUnderstandingCommand,
+  idempotencyKey = requestKey(),
 ): Promise<{ body: CommandAppliedView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/commands`,
@@ -355,7 +395,7 @@ export async function applyTripUnderstandingCommand(
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        'Idempotency-Key': requestKey(),
+        'Idempotency-Key': idempotencyKey,
         'If-Match': etag,
         ...authorizationHeaders(),
       },
@@ -365,6 +405,7 @@ export async function applyTripUnderstandingCommand(
   if (!response.ok) {
     if (response.status === 409) throw new Error('REVISION_CONFLICT')
     if (response.status === 428) throw new Error('IF_MATCH_REQUIRED')
+    if (response.status === 422 || response.status === 400) throw new Error('COMMAND_REJECTED')
     throw new Error('COMMAND_FAILED')
   }
   const nextEtag = response.headers.get('etag')
@@ -392,9 +433,20 @@ export async function readTripUnderstandingMap(
   return response.json() as Promise<MapRenderView>
 }
 
+export async function queryTripPlaceCandidates(publicResourceId: string, activityToken: string, query: string, signal?: AbortSignal): Promise<PlaceCandidatesView> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`, {
+    method: 'POST', credentials: 'include', signal,
+    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
+    body: JSON.stringify({ activity_token: activityToken, query }),
+  })
+  if (!response.ok) throw new Error('PLACE_SEARCH_UNAVAILABLE')
+  return response.json() as Promise<PlaceCandidatesView>
+}
+
 export async function requestTripUnderstandingMap(
   publicResourceId: string,
   etag: string,
+  idempotencyKey = requestKey(),
 ): Promise<void> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/map-renders`,
@@ -402,7 +454,7 @@ export async function requestTripUnderstandingMap(
       method: 'POST',
       credentials: 'include',
       headers: {
-        'Idempotency-Key': requestKey(),
+        'Idempotency-Key': idempotencyKey,
         'If-Match': etag,
         ...authorizationHeaders(),
       },
@@ -464,6 +516,7 @@ export async function materializeTripUnderstanding(
   publicResourceId: string,
   etag: string,
   signal?: AbortSignal,
+  idempotencyKey?: string,
 ): Promise<{ body: MaterializedTripView; etag: string }> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/materialize`,
@@ -472,7 +525,7 @@ export async function materializeTripUnderstanding(
       credentials: 'include',
       signal,
       headers: {
-        'Idempotency-Key': operationRequestKey(`materialize:${publicResourceId}:${etag}`),
+        'Idempotency-Key': idempotencyKey || operationRequestKey(`materialize:${publicResourceId}:${etag}`),
         'If-Match': etag,
         ...authorizationHeaders(),
       },

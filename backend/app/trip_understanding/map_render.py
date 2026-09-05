@@ -44,6 +44,7 @@ class PlanRevisionRef(StrictModel):
 
 
 class MapStop(StrictModel):
+    activity_token: str | None = None
     day_index: int = Field(ge=1, le=14)
     day_label: str
     sequence_index: int = Field(ge=0)
@@ -144,6 +145,8 @@ class PublicRouteModeView(StrictModel):
 
 
 class PublicMapEdgeView(StrictModel):
+    from_activity_token: str | None = None
+    to_activity_token: str | None = None
     from_name: str
     to_name: str
     selected_mode: Literal["walking", "transit"] | None = None
@@ -153,14 +156,30 @@ class PublicMapEdgeView(StrictModel):
 
 
 class PublicMapDayView(StrictModel):
+    day_index: int | None = None
     label: str
     routes: list[PublicMapEdgeView]
+
+
+class PublicMapPosition(StrictModel):
+    longitude: float
+    latitude: float
+    coordinate_system: Literal["GCJ02"] = "GCJ02"
+
+
+class PublicMapPoint(StrictModel):
+    activity_token: str
+    day_label: str
+    sequence_index: int
+    name: str
+    position: PublicMapPosition | None = None
 
 
 class MapRenderView(StrictModel):
     status: Literal["PREPARING", "AVAILABLE", "NEEDS_UPDATE", "LIMITED", "UNAVAILABLE"]
     message: str
     days: list[PublicMapDayView] = Field(default_factory=list)
+    points: list[PublicMapPoint] = Field(default_factory=list)
     available_actions: list[Literal["VIEW_MAP", "RENDER_MAP"]] = Field(default_factory=list)
 
     def readiness(self) -> MapReadinessView:

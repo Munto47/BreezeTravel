@@ -10,8 +10,10 @@ class Settings(BaseSettings):
     model_config = ConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
+        env_ignore_empty=True,
         extra="ignore",
         protected_namespaces=("settings_",),
+        hide_input_in_errors=True,
     )
 
     runtime_profile: Literal["demo", "test", "local_fixture", "local_real", "public"] = "local_real"
@@ -161,7 +163,10 @@ class Settings(BaseSettings):
     trip_understanding_worker_poll_seconds: float = 0.5
     trip_understanding_sse_poll_seconds: float = 0.25
     trip_understanding_sse_max_seconds: float = 15.0
-    trip_understanding_provider_mode: Literal["fixture", "live"] = "fixture"
+    trip_understanding_provider_mode: Literal["fixture", "live"] = "live"
+    experience_workers_enabled: bool = True
+    experience_maintenance_seconds: float = 60.0
+    experience_write_requests_per_minute: int = 60
     screenshot_batch_temp_root: str = ""
     screenshot_batch_ttl_minutes: int = 15
     screenshot_staging_deadline_seconds: float = 60.0
@@ -182,8 +187,8 @@ class Settings(BaseSettings):
     qwen_api_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_model_catalog_url: str = "https://dashscope.aliyuncs.com/api/v1/models"
     trip_understanding_qwen_model: str = ""
-    trip_understanding_qwen_deadline_seconds: float = 7.0
-    trip_understanding_qwen_max_output_tokens: int = 768
+    trip_understanding_qwen_deadline_seconds: float = 30.0
+    trip_understanding_qwen_max_output_tokens: int = 4096
     trip_understanding_qwen_input_cny_per_million: float | None = None
     trip_understanding_qwen_output_cny_per_million: float | None = None
     trip_understanding_amap_place_deadline_seconds: float = 3.0
