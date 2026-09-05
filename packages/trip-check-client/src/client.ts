@@ -1,5 +1,9 @@
 import type { components } from './generated/schema'
-import { ensureSuccess, type JsonTransport, type TransportResponse } from './transport'
+import {
+  ensureSuccess,
+  type JsonTransport,
+  type TransportResponse,
+} from './transport'
 import type {
   CommandAppliedView,
   MapRenderAcceptedView,
@@ -15,6 +19,9 @@ import type {
   TripUnderstandingProgressView,
   TripUnderstandingCommand,
   UserFacingTripResult,
+  MyTripListView,
+  TripSourceView,
+  TripSupplementaryView,
 } from './v3'
 
 type Schemas = components['schemas']
@@ -27,7 +34,8 @@ export interface CommandOptions {
 
 function commandHeaders(options: CommandOptions = {}): Record<string, string> {
   const headers: Record<string, string> = {}
-  if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey
+  if (options.idempotencyKey)
+    headers['Idempotency-Key'] = options.idempotencyKey
   if (options.ifMatch !== undefined) {
     const value = String(options.ifMatch)
     headers['If-Match'] = value.startsWith('"') ? value : `"${value}"`
@@ -38,15 +46,37 @@ function commandHeaders(options: CommandOptions = {}): Record<string, string> {
 export class TripCheckClient {
   constructor(private readonly transport: JsonTransport) {}
 
-  private async json<T>(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', path: string, body?: unknown, options?: CommandOptions): Promise<TransportResponse<T>> {
-    return ensureSuccess(await this.transport.request<T>({ method, path, body, headers: commandHeaders(options) }))
+  private async json<T>(
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    path: string,
+    body?: unknown,
+    options?: CommandOptions,
+  ): Promise<TransportResponse<T>> {
+    return ensureSuccess(
+      await this.transport.request<T>({
+        method,
+        path,
+        body,
+        headers: commandHeaders(options),
+      }),
+    )
   }
 
-  async loginWithWechat(code: string, nickname?: string): Promise<WechatLoginResponse> {
-    return (await this.json<WechatLoginResponse>('POST', '/api/auth/wechat/login', { code, nickname })).data
+  async loginWithWechat(
+    code: string,
+    nickname?: string,
+  ): Promise<WechatLoginResponse> {
+    return (
+      await this.json<WechatLoginResponse>('POST', '/api/auth/wechat/login', {
+        code,
+        nickname,
+      })
+    ).data
   }
 
-  async createDemoTripUnderstanding(idempotencyKey: string): Promise<TripUnderstandingAcceptedView> {
+  async createDemoTripUnderstanding(
+    idempotencyKey: string,
+  ): Promise<TripUnderstandingAcceptedView> {
     return (
       await this.json<TripUnderstandingAcceptedView>(
         'POST',
@@ -73,14 +103,18 @@ export class TripCheckClient {
 
   async getTripUnderstandingResult(
     publicResourceId: string,
-  ): Promise<TransportResponse<TripUnderstandingProgressView | UserFacingTripResult>> {
+  ): Promise<
+    TransportResponse<TripUnderstandingProgressView | UserFacingTripResult>
+  > {
     return this.json<TripUnderstandingProgressView | UserFacingTripResult>(
       'GET',
       `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/result`,
     )
   }
 
-  async getTripUnderstandingMap(publicResourceId: string): Promise<MapRenderView> {
+  async getTripUnderstandingMap(
+    publicResourceId: string,
+  ): Promise<MapRenderView> {
     return (
       await this.json<MapRenderView>(
         'GET',
@@ -89,11 +123,45 @@ export class TripCheckClient {
     ).data
   }
 
-  async queryTripPlaceCandidates(publicResourceId: string, activityToken: string, query: string): Promise<PlaceCandidatesView> {
-    return (await this.json<PlaceCandidatesView>(
-      'POST', `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
-      { activity_token: activityToken, query },
-    )).data
+  async listMyTrips(cursor?: string, limit = 20): Promise<MyTripListView> {
+    const query = new URLSearchParams({ limit: String(limit) })
+    if (cursor) query.set('cursor', cursor)
+    return (await this.json<MyTripListView>('GET', `/api/v3/me/trips?${query}`))
+      .data
+  }
+
+  async getTripSource(publicResourceId: string): Promise<TripSourceView> {
+    return (
+      await this.json<TripSourceView>(
+        'GET',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/source`,
+      )
+    ).data
+  }
+
+  async getTripSupplementary(
+    publicResourceId: string,
+  ): Promise<TripSupplementaryView> {
+    return (
+      await this.json<TripSupplementaryView>(
+        'GET',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary`,
+      )
+    ).data
+  }
+
+  async queryTripPlaceCandidates(
+    publicResourceId: string,
+    activityToken: string,
+    query: string,
+  ): Promise<PlaceCandidatesView> {
+    return (
+      await this.json<PlaceCandidatesView>(
+        'POST',
+        `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
+        { activity_token: activityToken, query },
+      )
+    ).data
   }
 
   async requestTripUnderstandingMap(

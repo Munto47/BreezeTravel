@@ -13,6 +13,7 @@ from app.trip_understanding.models import (
     ActivityTextEditCommand,
     ActivityTimeSetCommand,
     ActivityTimesShiftCommand,
+    ActivityTimesApplyCommand,
     AssumptionSetCommand,
     MapReadinessView,
     PlaceReplaceCommand,
@@ -22,7 +23,7 @@ from app.trip_understanding.models import (
     TripUnderstandingCommand,
     UserFacingTripResult,
 )
-from app.trip_understanding.timing import ActivityTiming, TIMING_FIELDS, shift_clock, timing_values
+from app.trip_understanding.timing import ActivityTiming, TIMING_FIELDS, clock_minutes, shift_clock, timing_values
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,31 @@ def apply_public_command(
             except ValueError as exc:
                 raise CommandTargetChangedError("shift crosses a day boundary") from exc
             card.timing_source = "USER"
+            card.time_hint = card.start_time
+            changed.add(result.days[day_index].label)
+    elif isinstance(command, ActivityTimesApplyCommand):
+        if len({item.activity_token for item in command.changes}) != len(command.changes):
+            raise CommandTargetChangedError("an activity cannot appear twice in one timing change")
+        updates = []
+        for item in command.changes:
+            day_index, _, card = _find_card(result.days, item.activity_token)
+            if card.locked or card.fixed_commitment or not card.start_time:
+                raise CommandTargetChangedError("a fixed activity cannot be shifted")
+            shift = clock_minutes(item.start_time) - clock_minutes(card.start_time)
+            try:
+                if shift <= 0 or item.end_time != shift_clock(card.end_time, shift):
+                    raise ValueError("a schedule shift must preserve the visit window")
+                if card.visit_duration_minutes is not None and clock_minutes(item.start_time) + card.visit_duration_minutes >= 1440:
+                    raise ValueError("the proposed shift crosses a day boundary")
+                timing = ActivityTiming.model_validate({**timing_values(card),
+                    "start_time": item.start_time, "end_time": item.end_time, "timing_source": "USER"})
+            except ValueError as exc:
+                raise CommandTargetChangedError("the proposed schedule is not a same-day shift") from exc
+            updates.append((day_index, card, timing))
+        # Validate every member before applying the transaction's visible changes.
+        for day_index, card, timing in updates:
+            for name, value in timing_values(timing).items():
+                setattr(card, name, value)
             card.time_hint = card.start_time
             changed.add(result.days[day_index].label)
     elif isinstance(command, PlaceConfirmCommand):

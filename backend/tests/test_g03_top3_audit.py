@@ -11,6 +11,8 @@ from app.audit.models import (
     AuditReport,
     AuditSeverity,
     AuditStatus,
+    EvidenceFact,
+    EvidenceFreshness,
     EvidenceSnapshot,
 )
 from app.api.trip_understandings_v3 import get_trip_understanding_repository
@@ -72,6 +74,12 @@ def _audit_report(findings: list[AuditFinding]) -> tuple[AuditReport, EvidenceSn
         itinerary_revision=1,
         policy_version="g03-evidence-v1",
         created_at=observed_at,
+        facts=[EvidenceFact(fact_id=fact_id, snapshot_id="snapshot-g03-ordering",
+            subject_type="ROUTE_EDGE", subject_id=finding.finding_id, fact_type="ROUTE_MODE_SET",
+            value={"selected_duration_minutes": 120}, provider="CONTROLLED_SORTING_FIXTURE",
+            observed_at=observed_at, response_hash="b"*64, confidence=1,
+            freshness_status=EvidenceFreshness.FRESH)
+            for finding in findings for fact_id in finding.evidence_fact_ids],
     )
     return (
         AuditReport(
@@ -112,6 +120,7 @@ def _finding(
         affected_days=[day],
         affected_stop_ids=[f"stop-{finding_id}"],
         repairable=repairable,
+        evidence_fact_ids=[f"route-{finding_id}"] if reason_code in {"ROUTE_TOO_LONG", "STAY_COMMUTE_LONG"} else [],
     )
 
 

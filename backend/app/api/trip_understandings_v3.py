@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
@@ -56,6 +56,9 @@ from app.trip_understanding.repository import (
     TripUnderstandingRepository,
 )
 from app.trip_understanding.service import TripUnderstandingApplicationService
+from app.trip_understanding.readback import (
+    AccountTripListView, InvalidTripCursor, SourceReadView, SupplementaryView,
+)
 from app.utils.auth import get_current_user, get_optional_user, get_recent_user
 
 
@@ -800,6 +803,36 @@ async def claim_trip_understanding(
     return outcome.claimed
 
 
+async def _private_import_view(public_resource_id, request, repository, current_user, *, supplementary=False):
+    try:
+        resource = await _authorize(public_resource_id,
+            cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+            user_id=current_user, repository=repository)
+        reader = repository.get_supplementary_view if supplementary else repository.get_source_view
+        return await reader(resource, now=datetime.now(timezone.utc))
+    except HTTPException as exc:
+        exc.headers = {**(exc.headers or {}), "Cache-Control": "no-store"}
+        raise
+    except (ResourceGoneError, ResourceNotFoundError, ResourceAccessDeniedError) as exc:
+        error = _resource_error(exc)
+        error.headers = {**(error.headers or {}), "Cache-Control": "no-store"}
+        raise error from exc
+
+
+@router.get("/{public_resource_id}/source", response_model=SourceReadView)
+async def read_trip_understanding_source(public_resource_id: str, request: Request,
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep):
+    response.headers["Cache-Control"] = "no-store"
+    return await _private_import_view(public_resource_id, request, repository, current_user)
+
+
+@router.get("/{public_resource_id}/supplementary", response_model=SupplementaryView)
+async def read_trip_understanding_supplementary(public_resource_id: str, request: Request,
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep):
+    response.headers["Cache-Control"] = "no-store"
+    return await _private_import_view(public_resource_id, request, repository, current_user, supplementary=True)
+
+
 @router.delete("/{public_resource_id}/source", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trip_understanding_source(
     public_resource_id: str,
@@ -948,6 +981,18 @@ async def delete_account_travel_data(
     if outcome.replayed:
         response.headers["Idempotency-Replayed"] = "true"
     return outcome.view
+
+
+@account_router.get("/trips", response_model=AccountTripListView)
+async def list_my_trips(response: Response, repository: RepositoryDep, current_user: CurrentUserDep,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    cursor: Annotated[str | None, Query(min_length=1, max_length=4096)] = None):
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        return await repository.list_account_trips(user_id=current_user, limit=limit, cursor=cursor, now=datetime.now(timezone.utc))
+    except InvalidTripCursor as exc:
+        raise HTTPException(status_code=400, detail={"code": "INVALID_TRIP_CURSOR", "message": "列表已更新，请从头重新加载"},
+            headers={"Cache-Control": "no-store"}) from exc
 
 
 @account_router.get(

@@ -31,6 +31,7 @@ from app.schemas.task_spec import DateRange, Travelers, TripTaskSpec
 from app.trip_understanding.models import (
     ActivityInsertCommand,
     ActivityTimesShiftCommand,
+    ActivityTimesApplyCommand,
     PublicTimingChange,
     PublicChangePreview,
     PublicTripCheckItem,
@@ -649,14 +650,37 @@ def _label(finding: AuditFinding) -> str:
     return "可以更好"
 
 
+def check_route_basis(finding: AuditFinding, snapshot: EvidenceSnapshot, *, routes_current: bool = True,
+                      now: datetime | None = None) -> tuple[bool, bool]:
+    facts = [fact for fact in snapshot.facts if fact.fact_id in finding.evidence_fact_ids
+             and fact.fact_type in {"ROUTE_MODE_SET", "STAY_COMMUTE"}]
+    depends = bool(facts) or finding.reason_code in {
+        "SCHEDULE_CONFLICT", "SCHEDULE_ROUTE_UNKNOWN", "ROUTE_CONFIRMATION_REQUIRED",
+        "ROUTE_TOO_LONG", "STAY_COMMUTE_LONG",
+    } or "ROUTE" in str(finding.input_values.get("category", ""))
+    observed_at = now or datetime.now(timezone.utc)
+    current = not depends or (routes_current and bool(facts) and all(
+        fact.freshness_status == EvidenceFreshness.FRESH
+        and (fact.valid_until is None or fact.valid_until > observed_at) for fact in facts))
+    if finding.reason_code == "SCHEDULE_CONFLICT" and "shift_changes" not in finding.input_values:
+        # Historical uniform-shift reports remain readable, but need a new check
+        # before they can propose or adopt a plan under the current semantics.
+        current = False
+    return depends, current
+
+
 def public_checks(
     report: AuditReport,
     snapshot: EvidenceSnapshot,
     *,
     check_tokens: dict[str, str],
     result: UserFacingTripResult | None = None,
+    routes_current: bool = True,
+    now: datetime | None = None,
 ) -> PublicTripChecksView:
     freshness = {fact.fact_id: fact.freshness_status for fact in snapshot.facts}
+    bases = {finding.finding_id: check_route_basis(finding, snapshot, routes_current=routes_current, now=now)
+             for finding in report.findings}
 
     def sort_key(finding: AuditFinding) -> tuple[Any, ...]:
         certainty = 0 if finding.status == AuditStatus.VIOLATED else 1
@@ -692,23 +716,29 @@ def public_checks(
         if token is None:
             continue
         title, message = _friendly(finding)
+        depends, basis_current = bases[finding.finding_id]
+        if not basis_current:
+            title, message = "这段交通需要重新核对", "交通依据需要更新；更新路线后重新检查，暂时不能据此判断是否来得及。"
         items.append(
             PublicTripCheckItem(
                 check_token=token,
-                label=_label(finding),
+                label=_label(finding) if basis_current else "需要确认",
                 title=title,
                 message=message,
                 affected_days=[
                     result.days[day_index].label if result and day_index < len(result.days) else f"Day {day_index + 1}" for day_index in sorted(set(finding.affected_days))
                 ],
                 affected_activity_tokens=[card.activity_token for day in (result.days if result else []) for card in day.activities if _stable_internal_id("stop", card.activity_token) in finding.affected_stop_ids],
-                can_preview=finding.repairable,
+                can_preview=finding.repairable and basis_current,
+                depends_on_routes=depends,
+                basis_status="CURRENT" if basis_current else "NEEDS_RECHECK",
             )
         )
-    total_must = sum(_label(item) == "必须调整" for item in unresolved)
+    total_must = sum(_label(item) == "必须调整" and bases[item.finding_id][1] for item in unresolved)
     visible_must = sum(item.label == "必须调整" for item in items)
     needs_confirmation = any(
         finding.status == AuditStatus.UNKNOWN
+        or not bases[finding.finding_id][1]
         or (
             finding.status == AuditStatus.VIOLATED
             and finding.severity in {AuditSeverity.BLOCKER, AuditSeverity.HIGH}
@@ -730,6 +760,12 @@ def public_checks(
 
 def command_for_finding(finding: AuditFinding, result: UserFacingTripResult | None = None):
     if finding.reason_code == "SCHEDULE_CONFLICT" and finding.repairable and result:
+        if "shift_changes" in finding.input_values:
+            by_id = {_stable_internal_id("stop", card.activity_token): card.activity_token
+                for day in result.days for card in day.activities}
+            return ActivityTimesApplyCommand(command_type="ACTIVITY_TIMES_APPLY", changes=[
+                {"activity_token": by_id[change["stop_id"]], "start_time": change["start_time"], "end_time": change["end_time"]}
+                for change in finding.input_values["shift_changes"]])
         stop_ids = set(finding.input_values["shift_stop_ids"])
         return ActivityTimesShiftCommand(command_type="ACTIVITY_TIMES_SHIFT",
             activity_tokens=[card.activity_token for day in result.days for card in day.activities if _stable_internal_id("stop", card.activity_token) in stop_ids],
@@ -758,18 +794,20 @@ def preview_for_finding(
     result: UserFacingTripResult | None = None,
 ) -> PublicChangePreview:
     command = command_for_finding(finding, result)
-    if isinstance(command, ActivityTimesShiftCommand):
+    if isinstance(command, (ActivityTimesShiftCommand, ActivityTimesApplyCommand)):
         changes = []
+        updates = {item.activity_token: item for item in command.changes} if isinstance(command, ActivityTimesApplyCommand) else {}
         for day in result.days:
             for card in day.activities:
-                if card.activity_token in command.activity_tokens:
+                if card.activity_token in (updates if updates else command.activity_tokens):
                     before = ActivityTiming(**timing_values(card))
-                    after = before.model_copy(update={"start_time": shift_clock(card.start_time, command.minutes),
-                        "end_time": shift_clock(card.end_time, command.minutes), "timing_source": "USER"})
+                    update = updates.get(card.activity_token)
+                    after = before.model_copy(update={"start_time": update.start_time if update else shift_clock(card.start_time, command.minutes),
+                        "end_time": update.end_time if update else shift_clock(card.end_time, command.minutes), "timing_source": "USER"})
                     changes.append(PublicTimingChange(activity_token=card.activity_token,
                         day_label=day.label, name=card.name, before=before, after=after))
         return PublicChangePreview(change_token=change_token, title="把后续活动顺延",
-            summary=f"后续 {len(changes)} 处活动顺延 {command.minutes} 分钟。",
+            summary=f"逐站调整 {len(changes)} 处活动，保留停留时长；已有空档会吸收延迟，未受影响的活动保持不变。",
             affected_days=list(dict.fromkeys(change.day_label for change in changes)), changes=changes,
             before=[f"{item.name} {item.before.start_time}" for item in changes],
             after=[f"{item.name} {item.after.start_time}" for item in changes])

@@ -15,6 +15,7 @@ from app.trip_understanding.errors import InferenceProviderUnavailableError
 from app.trip_understanding.models import CreateFullRequest
 from app.trip_understanding.repository import InMemoryTripUnderstandingRepository
 from app.trip_understanding.service import TripUnderstandingApplicationService
+from app.utils.auth import get_current_user
 
 
 @pytest.fixture
@@ -45,7 +46,68 @@ def test_minimal_runtime_exposes_only_text_account_and_health_routes():
     assert "/api/v3/trip-understandings" in routes
     assert "/api/auth/email-login" in routes
     assert "/health" in routes
+    assert {
+        "/api/v3/me/data-consents", "/api/v3/me/data-consents/{purpose}",
+        "/api/v3/me/travel-preferences",
+    } <= routes
+    assert not any("/shares" in path or "/feedback" in path for path in routes)
     assert not any(any(word in path for word in ("room", "planner", "screenshot", "ocr", "test-login", "send-code", "wechat", "docs", "openapi")) for path in routes)
+
+
+def test_account_preferences_are_available_private_and_default_off(client):
+    http, _cache = client
+    consent_url = "/api/v3/me/data-consents"
+    preferences_url = "/api/v3/me/travel-preferences"
+    repository = InMemoryTripUnderstandingRepository()
+    http.app.dependency_overrides[
+        runtime.trip_understandings_v3.get_trip_understanding_repository
+    ] = lambda: repository
+    assert http.get(consent_url).status_code == 401
+    assert http.get(preferences_url).status_code == 401
+    http.app.dependency_overrides[get_current_user] = lambda: "profile-owner"
+    default = http.get(consent_url)
+    assert default.status_code == 200
+    assert default.json() == {
+        "memory_enabled": False, "feedback_enabled": False,
+        "training_eval_enabled": False,
+    }
+    assert default.headers["Cache-Control"] == "no-store"
+    empty = http.get(preferences_url)
+    assert empty.status_code == 200 and empty.json() is None
+    preference = {
+        "walking_tolerance_minutes": 25, "preferred_start_time": "09:00",
+        "dining_preferences": ["LOCAL"], "hotel_preferences": ["QUIET"],
+        "intensity": "RELAXED",
+    }
+    assert http.put(preferences_url, json=preference).status_code == 409
+    enabled = http.put(f"{consent_url}/memory", json={"enabled": True})
+    assert enabled.status_code == 200 and enabled.json()["memory_enabled"] is True
+    assert http.put(preferences_url, json=preference).json() == preference
+    assert http.get(preferences_url).json() == preference
+    http.app.dependency_overrides[get_current_user] = lambda: "other-owner"
+    assert http.get(consent_url).json()["memory_enabled"] is False
+    assert http.get(preferences_url).json() is None
+    http.app.dependency_overrides[get_current_user] = lambda: "profile-owner"
+    assert http.delete(preferences_url).status_code == 204
+    assert http.get(preferences_url).json() is None
+    assert http.put(preferences_url, json=preference).status_code == 200
+    disabled = http.put(f"{consent_url}/memory", json={"enabled": False})
+    assert disabled.status_code == 200 and disabled.json()["memory_enabled"] is False
+    assert http.get(preferences_url).json() is None
+
+
+def test_account_preferences_read_failure_is_not_reported_as_default_off(client):
+    http, _cache = client
+    repository = InMemoryTripUnderstandingRepository()
+    repository.get_data_consents = AsyncMock(side_effect=RuntimeError("private-database-detail"))
+    http.app.dependency_overrides[
+        runtime.trip_understandings_v3.get_trip_understanding_repository
+    ] = lambda: repository
+    http.app.dependency_overrides[get_current_user] = lambda: "profile-owner"
+    failed = http.get("/api/v3/me/data-consents")
+    assert failed.status_code == 503
+    assert "memory_enabled" not in failed.text and "private-database-detail" not in failed.text
+    assert failed.headers["Cache-Control"] == "no-store"
 
 
 def test_health_and_invalid_input_hide_details(client):

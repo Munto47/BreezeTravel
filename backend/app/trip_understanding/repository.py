@@ -97,6 +97,7 @@ from app.trip_understanding.route_geometry import (
     RedisRouteGeometryCache,
 )
 from app.trip_understanding.source_crypto import SourceCipher
+from app.trip_understanding.readback import PostgresReadbackMixin, InMemoryReadbackMixin
 from app.trip_understanding.stay_repository import (
     InMemoryStayRecommendationRepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
@@ -496,6 +497,12 @@ class TripUnderstandingRepository(
 
     async def get_result(self, resource: PublicResourceRecord) -> StoredResult | None: ...
 
+    async def list_account_trips(self, *, user_id: str, limit: int, cursor: str | None, now: datetime): ...
+
+    async def get_source_view(self, resource: PublicResourceRecord, *, now: datetime): ...
+
+    async def get_supplementary_view(self, resource: PublicResourceRecord, *, now: datetime): ...
+
     async def apply_command(
         self,
         resource: PublicResourceRecord,
@@ -618,6 +625,7 @@ class TripUnderstandingRepository(
 
 
 class PostgresTripUnderstandingRepository(
+    PostgresReadbackMixin,
     PostgresG03RepositoryMixin,
     PostgresStayRecommendationRepositoryMixin,
     PostgresMapRenderRepositoryMixin,
@@ -2397,7 +2405,11 @@ class PostgresTripUnderstandingRepository(
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT revision, public_json, opaque_etag FROM trip_understanding_results WHERE result_id = $1",
+                """SELECT r.revision,r.public_json,r.opaque_etag,u.updated_at,
+                    EXISTS(SELECT 1 FROM trip_understanding_sources s WHERE s.understanding_id=u.understanding_id
+                        AND s.source_type='FIXED_DEMO') AS is_demo
+                    FROM trip_understanding_results r JOIN trip_understandings u ON u.understanding_id=r.understanding_id
+                    WHERE r.result_id=$1""",
                 resource.current_result_id,
             )
             if row is None:
@@ -2409,7 +2421,7 @@ class PostgresTripUnderstandingRepository(
                 int(row["revision"]),
             )
         return StoredResult(
-            result=result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at}),
+            result=result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": row["updated_at"], "is_demo": row["is_demo"]}),
             opaque_etag=row["opaque_etag"],
         )
 
@@ -2863,10 +2875,11 @@ class PostgresTripUnderstandingRepository(
                 """
                 UPDATE trip_understanding_sources
                 SET retention_until = GREATEST(retention_until, $2)
-                WHERE understanding_id = $1 AND deleted_at IS NULL
+                WHERE understanding_id = $1 AND deleted_at IS NULL AND retention_until > $3
                 """,
                 row["understanding_id"],
                 expires_at,
+                now,
             )
             await conn.execute(
                 """
@@ -4102,6 +4115,7 @@ class PostgresTripUnderstandingRepository(
 
 
 class InMemoryTripUnderstandingRepository(
+    InMemoryReadbackMixin,
     InMemoryG03RepositoryMixin,
     InMemoryStayRecommendationRepositoryMixin,
     InMemoryMapRenderRepositoryMixin,
@@ -4121,6 +4135,7 @@ class InMemoryTripUnderstandingRepository(
         self.side_effects: dict[str, tuple[str, str]] = {}
         self.sources: dict[str, TripUnderstandingSourcePayload] = {}
         self.source_expiries: dict[str, datetime] = {}
+        self.source_readback_mentions: dict[str, list[dict]] = {}
         self.screenshot_batches: dict[tuple[str, str], dict[str, Any]] = {}
         self.screenshot_upload_idempotency: dict[
             tuple[str, str], tuple[str, str]
@@ -4199,6 +4214,8 @@ class InMemoryTripUnderstandingRepository(
             "owner_user_id": None,
             "expires_at": expires_at,
             "current_revision": 1,
+            "updated_at": now,
+            "is_demo": source_text is None,
         }
         self.resources_by_understanding[understanding_id] = public_resource_id
         job_id = str(uuid4())
@@ -4268,6 +4285,8 @@ class InMemoryTripUnderstandingRepository(
             "owner_user_id": owner_user_id,
             "expires_at": now + timedelta(days=retention_days),
             "current_revision": 1,
+            "updated_at": now,
+            "is_demo": False,
         }
         self.resources_by_understanding[understanding_id] = public_resource_id
         job_id = str(uuid4())
@@ -4831,6 +4850,8 @@ class InMemoryTripUnderstandingRepository(
             "owner_user_id": owner_user_id,
             "expires_at": now + timedelta(days=retention_days),
             "current_revision": 1,
+            "updated_at": now,
+            "is_demo": False,
         }
         self.resources_by_understanding[understanding_id] = public_resource_id
         job_id = str(uuid4())
@@ -5039,7 +5060,7 @@ class InMemoryTripUnderstandingRepository(
             int(aggregate["current_revision"]),
         )
         return stored.model_copy(
-            update={"result": stored.result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at})}
+            update={"result": stored.result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": aggregate["updated_at"], "is_demo": aggregate.get("is_demo", False)})}
         )
 
     async def apply_command(
@@ -5092,6 +5113,7 @@ class InMemoryTripUnderstandingRepository(
                 "state": "READY" if mutation.result.status == "READY" else "PARTIAL",
                 "current_result_id": result_id,
                 "current_revision": aggregate["current_revision"] + 1,
+                "updated_at": now,
             }
         )
         previous_input = self.g03_pipeline_inputs.get(
@@ -5186,10 +5208,11 @@ class InMemoryTripUnderstandingRepository(
                 "owner_user_id": user_id,
                 "capability_hash": None,
                 "expires_at": now + timedelta(days=retention_days),
+                "updated_at": now,
             }
         )
         for job_id, job in self.jobs.items():
-            if job["understanding_id"] == row["understanding_id"]:
+            if job["understanding_id"] == row["understanding_id"] and self.source_expiries.get(job_id, now) > now:
                 self.source_expiries[job_id] = row["expires_at"]
         self.resources[new_public_id] = row
         self.resources_by_understanding[row["understanding_id"]] = new_public_id
@@ -5205,6 +5228,7 @@ class InMemoryTripUnderstandingRepository(
         return outcome
 
     def _erase_memory_source(self, understanding_id: str) -> None:
+        self.source_readback_mentions.pop(understanding_id, None)
         for job_id, job in self.jobs.items():
             if job["understanding_id"] == understanding_id:
                 self.sources.pop(job_id, None)
@@ -5329,6 +5353,7 @@ class InMemoryTripUnderstandingRepository(
                 tombstone.update(
                     {"reason": "EXPIRED" if retention_expiry else "DELETED", "replacement_public_resource_id": None}
                 )
+        self.source_readback_mentions.pop(resource.understanding_id, None)
         self.resources.pop(public_id, None)
         self.resources_by_understanding.pop(resource.understanding_id, None)
         self.tombstones[public_id] = {
@@ -5613,8 +5638,20 @@ class InMemoryTripUnderstandingRepository(
                 "state": "READY" if output.public_result.status == "READY" else "PARTIAL",
                 "current_result_id": result_id,
                 "current_revision": 2,
+                "updated_at": now,
             }
         )
+        self.source_readback_mentions[job.understanding_id] = [
+            {"public_activity_token": item.compiled.public_activity_token,
+             "mention_text": item.compiled.mention.raw_text,
+             "atomic_place_name": item.compiled.mention.atomic_place_name,
+             "day_index": item.compiled.mention.day_index,
+             "sequence_index": item.compiled.mention.sequence_index,
+             "role": item.compiled.mention.role.value,
+             "time_hint": item.compiled.mention.time_hint,
+             "canonical_place_id": item.place.canonical_place_id if item.place else None}
+            for item in output.activities
+        ]
         self.g03_pipeline_inputs[(job.understanding_id, 2)] = {
             "destination": dict(output.destination),
             "assumptions": [dict(item) for item in output.assumptions],

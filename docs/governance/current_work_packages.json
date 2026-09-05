@@ -1,12 +1,12 @@
 {
   "schema_version": "experience-work-packages-v1",
-  "active_goal_id": "TC-EXPERIENCE-V1",
+  "active_goal_id": "TC-FRONTEND-V2",
   "active_slice": {
-    "id": "experience-v1-integration",
+    "id": "frontend-refinement-v2",
     "work_kind": "PRODUCT",
-    "outcome": "完成匿名真实输入到地图、修改、保存与恢复的可运行闭环",
+    "outcome": "当天工作区、统一修改与账号重新打开的完整前端体验",
     "status": "COMPLETED"
   },
   "packages": [],
-  "next_planned_slice": "阶段 3：代表性样本与质量、延迟、费用基线"
+  "next_planned_slice": "阶段 3：建立代表性任务的质量、延迟与费用基线，保持完整产品流程可运行"
 }

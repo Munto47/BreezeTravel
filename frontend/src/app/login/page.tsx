@@ -9,25 +9,25 @@ import '../experience.css'
 
 type AuthResponse = { token?: string; user_id?: string; nickname?: string }
 
-function returnPath() {
+function returnPath(consume = true) {
   const requested = sessionStorage.getItem('bt_login_return')
-  sessionStorage.removeItem('bt_login_return')
+  if (consume) sessionStorage.removeItem('bt_login_return')
   if (
     !requested?.startsWith('/') ||
     requested.startsWith('//') ||
     /[\\\u0000-\u001f]/.test(requested)
   )
-    return '/'
+    return '/my-trips'
   try {
     const target = new URL(requested, window.location.origin)
     if (
       target.origin !== window.location.origin ||
       target.pathname === '/login'
     )
-      return '/'
+      return '/my-trips'
     return `${target.pathname}${target.search}${target.hash}`
   } catch {
-    return '/'
+    return '/my-trips'
   }
 }
 
@@ -40,6 +40,7 @@ export default function LoginPage() {
   const [nickname, setNickname] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [backPath, setBackPath] = useState('/')
   const submitted = useRef(false)
   const navigated = useRef(false)
   const finish = useCallback(() => {
@@ -50,6 +51,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     hydrate()
+    const target = returnPath(false)
+    setBackPath(target === '/my-trips' || target === '/profile' ? '/' : target)
   }, [hydrate])
   useEffect(() => {
     if (isHydrated && user) finish()
@@ -120,8 +123,12 @@ export default function LoginPage() {
         <Link href="/" className="e-brand">
           行程查<span>TRIPCHECK</span>
         </Link>
-        <Link href="/" className="e-button e-button-quiet">
-          返回首页
+        <Link
+          href={backPath}
+          className="e-button e-button-quiet"
+          onClick={() => sessionStorage.removeItem('bt_claim_after_login')}
+        >
+          {backPath.startsWith('/trip/result') ? '返回行程' : '返回首页'}
         </Link>
       </header>
       <section className="e-auth">

@@ -2,7 +2,7 @@ const { defineConfig } = require('@playwright/test')
 
 module.exports = defineConfig({
   testDir: './e2e',
-  testMatch: 'experience.spec.js',
+  testMatch: ['experience.spec.js', 'experience-refinement.spec.js'],
   timeout: 90000,
   fullyParallel: false,
   workers: 1,

@@ -225,6 +225,8 @@ class UserFacingTripResult(StrictModel):
     can_undo: bool = False
     ownership: Literal["ANONYMOUS", "ACCOUNT"] = "ANONYMOUS"
     expires_at: datetime | None = None
+    is_demo: bool = False
+    updated_at: datetime | None = None
 
 
 class MaterializedTripView(StrictModel):
@@ -243,6 +245,8 @@ class PublicTripCheckItem(StrictModel):
     affected_days: list[str] = Field(default_factory=list)
     affected_activity_tokens: list[str] = Field(default_factory=list)
     can_preview: bool = False
+    depends_on_routes: bool = False
+    basis_status: Literal["CURRENT", "NEEDS_RECHECK"] = "CURRENT"
 
 
 class PublicTripChecksView(StrictModel):
@@ -533,6 +537,17 @@ class ActivityTimesShiftCommand(StrictModel):
     minutes: int = Field(gt=0, le=1440)
 
 
+class ActivityTimingUpdate(StrictModel):
+    activity_token: str = Field(min_length=20, max_length=80)
+    start_time: str = Field(pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+    end_time: str | None = Field(default=None, pattern=r"^(?:[01]\d|2[0-3]):[0-5]\d$")
+
+
+class ActivityTimesApplyCommand(StrictModel):
+    command_type: Literal["ACTIVITY_TIMES_APPLY"]
+    changes: list[ActivityTimingUpdate] = Field(min_length=1, max_length=80)
+
+
 class PlaceConfirmCommand(StrictModel):
     command_type: Literal["PLACE_CONFIRM"]
     activity_token: str = Field(min_length=20, max_length=80)
@@ -552,6 +567,7 @@ TripUnderstandingCommand = Annotated[
     | PlaceConfirmCommand
     | ActivityTimeSetCommand
     | ActivityTimesShiftCommand
+    | ActivityTimesApplyCommand
     | UndoCommand
     | AssumptionSetCommand,
     Field(discriminator="command_type"),

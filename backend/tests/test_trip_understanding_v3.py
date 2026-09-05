@@ -310,7 +310,9 @@ async def test_fixed_demo_runs_the_real_compiler_resolver_projector_chain() -> N
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.OPTIONAL) == 1
     assert [item.compiled.mention.role for item in output.activities].count(ActivityRole.EXCLUDED) == 1
     result = output.public_result.model_dump(mode="json")
-    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at"}
+    # The frontend now reads persisted demo identity and last-edit time; source text
+    # and internal evidence still remain outside the ordinary result projection.
+    assert set(result) == {"status", "assumptions", "days", "map", "stay", "available_actions", "can_undo", "ownership", "expires_at", "is_demo", "updated_at"}
     assert [[card["name"] for card in day["activities"]] for day in result["days"]] == [
         ["故宫博物院", "景山公园"],
         ["天坛公园", "前门大街"],

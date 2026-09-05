@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { ArrowLeft, Camera, User, Calendar, Phone, Save, Check, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowLeft, Camera, Save, Check } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/stores/toastStore'
 import { api } from '@/lib/api'
 import MemorySettingsPanel from '@/components/profile/MemorySettingsPanel'
+import '../experience.css'
+import './profile.css'
 import {
   clearTripUnderstandingSession,
   deleteAllTravelData,
@@ -28,6 +30,7 @@ export default function ProfilePage() {
   const router = useRouter()
   const { user, updateUser, isHydrated, hydrate, logout } = useAuthStore()
   const toast = useToastStore(s => s.toast)
+  const profileUserId = user?.userId
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileLoadFailed, setProfileLoadFailed] = useState(false)
@@ -41,6 +44,7 @@ export default function ProfilePage() {
   const [travelDeleteConfirmation, setTravelDeleteConfirmation] = useState('')
   const [travelDeleteBusy, setTravelDeleteBusy] = useState(false)
   const [travelDeleteStatus, setTravelDeleteStatus] = useState<TravelDataDeletionStatusView | null>(null)
+  const [memoryVersion, setMemoryVersion] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -48,25 +52,33 @@ export default function ProfilePage() {
   }, [hydrate])
 
   useEffect(() => {
-    if (isHydrated && !user) router.replace('/login')
+    if (isHydrated && !user) {
+      sessionStorage.setItem('bt_login_return', '/profile')
+      router.replace('/login')
+    }
   }, [isHydrated, user, router])
 
   useEffect(() => {
-    if (!user) return
+    if (!profileUserId) return
+    sessionStorage.setItem('bt_login_return', '/profile')
+    let current = true
     setProfileLoading(true)
     setProfileLoadFailed(false)
     api.get<UserProfile>('/api/user/me').then(p => {
+      if (!current) return
       setProfile(p)
       setNickname(p.nickname || '')
       setBirthday(p.birthday || '')
       setAvatarUrl(p.avatar_url || '')
     }).catch(() => {
+      if (!current) return
       setProfile(null)
       setProfileLoadFailed(true)
     }).finally(() => {
-      setProfileLoading(false)
+      if (current) setProfileLoading(false)
     })
-  }, [user, profileLoadAttempt])
+    return () => { current = false }
+  }, [profileUserId, profileLoadAttempt])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -75,11 +87,13 @@ export default function ProfilePage() {
     reader.onload = ev => {
       const dataUrl = ev.target?.result as string
       setAvatarUrl(dataUrl)
+      setSaved(false)
     }
     reader.readAsDataURL(file)
   }
 
   const handleSave = async () => {
+    if (saving || !user) return
     setSaving(true)
     try {
       await api.put('/api/user/profile', {
@@ -107,6 +121,8 @@ export default function ProfilePage() {
       setTravelDeleteStatus(freshStatus)
       if (freshStatus.status === 'COMPLETED') {
         clearTripUnderstandingSession()
+        for (const key of ['bt_input_draft', 'bt_pending_operation', 'bt_claim_after_login']) sessionStorage.removeItem(key)
+        setMemoryVersion(version => version + 1)
         setTravelDeleteConfirmation('')
       }
     } catch (deleteError) {
@@ -126,246 +142,67 @@ export default function ProfilePage() {
     }
   }
 
-  if (!isHydrated) return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex flex-col">
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gray-100 animate-pulse" />
-        <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
-      </div>
-      <div className="max-w-md mx-auto w-full p-4 space-y-4 mt-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse" />
-          <div className="h-4 w-28 bg-gray-200 rounded animate-pulse" />
-        </div>
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-12 rounded-xl bg-gray-100 animate-pulse" />
-        ))}
-      </div>
-    </div>
-  )
-  if (!user) return null
-  if (profileLoading || (!profile && !profileLoadFailed)) return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center px-4">
-      <p role="status" className="rounded-2xl bg-white px-5 py-4 text-sm text-gray-500 shadow-glass">
-        正在读取个人资料…
-      </p>
-    </div>
-  )
-  if (profileLoadFailed) return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30 flex items-center justify-center px-4">
-      <div data-testid="profile-load-error" role="alert" className="w-full max-w-sm rounded-2xl bg-white p-5 text-center shadow-glass">
-        <p className="text-sm font-medium text-gray-800">个人资料暂时无法读取</p>
-        <p className="mt-2 text-xs leading-5 text-gray-500">你的资料没有被清空，请稍后重试。</p>
-        <button
-          data-testid="retry-profile-load"
-          type="button"
-          onClick={() => setProfileLoadAttempt(attempt => attempt + 1)}
-          className="btn-coral mt-4 px-5 py-2.5 text-sm"
-        >
-          重新读取
-        </button>
-      </div>
-    </div>
-  )
+  const loading = !isHydrated || profileLoading || (Boolean(user) && !profile && !profileLoadFailed)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-coral-50/40 via-white to-blue-50/30">
-      {/* 顶栏 */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
-        <button onClick={() => router.back()} className="p-2 rounded-xl hover:bg-gray-100 transition-colors">
-          <ArrowLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        <h1 className="font-semibold text-gray-800">个人信息</h1>
-      </div>
+    <main className="experience profile-page">
+      <header className="e-header">
+        <Link href="/" className="e-brand">行程查<span>TRIPCHECK</span></Link>
+        <nav className="e-actions" aria-label="全局导航">
+          <Link href="/" className="e-button e-button-quiet">整理新行程</Link>
+          <Link href="/my-trips" className="e-button e-button-quiet">我的行程</Link>
+        </nav>
+      </header>
+      <div className="profile-content">
+        <Link href="/my-trips" className="profile-back"><ArrowLeft aria-hidden="true" />返回我的行程</Link>
+        <div className="profile-heading">
+          <h1>账号设置</h1>
+          <p>管理个人资料、旅行偏好与数据。</p>
+        </div>
 
-      <div className="max-w-md mx-auto p-4 pt-6">
-        {/* 头像 */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center mb-8"
-        >
-          <div className="relative">
-            <div
-              className="w-24 h-24 rounded-full bg-coral-100 flex items-center justify-center overflow-hidden cursor-pointer ring-4 ring-white shadow-lg"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-3xl font-bold text-coral-400">
-                  {(nickname || user.nickname || '?')[0].toUpperCase()}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 w-8 h-8 bg-coral-500 rounded-full flex items-center justify-center shadow-md text-white hover:bg-coral-600 transition-colors"
-            >
-              <Camera className="w-4 h-4" />
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleAvatarChange}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-2">点击更换头像</p>
-        </motion.div>
-
-        {/* 表单 */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="glass-panel-solid rounded-2xl overflow-hidden shadow-glass divide-y divide-gray-100"
-        >
-          {/* 昵称 */}
-          <div className="flex items-center gap-3 px-4 py-4">
-            <div className="w-8 h-8 rounded-lg bg-coral-50 flex items-center justify-center flex-shrink-0">
-              <User className="w-4 h-4 text-coral-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-gray-400 mb-1">昵称</p>
-              <input
-                type="text"
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                placeholder="你的旅行代号"
-                maxLength={20}
-                className="w-full text-sm text-gray-800 bg-transparent outline-none placeholder:text-gray-300"
-              />
-            </div>
-          </div>
-
-          {/* 生日 */}
-          <div className="flex items-center gap-3 px-4 py-4">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-              <Calendar className="w-4 h-4 text-blue-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-gray-400 mb-1">生日（选填）</p>
-              <input
-                type="date"
-                value={birthday}
-                onChange={e => setBirthday(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full text-sm text-gray-800 bg-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          {/* 手机号（只读） */}
-          <div className="flex items-center gap-3 px-4 py-4">
-            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-              <Phone className="w-4 h-4 text-gray-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] text-gray-400 mb-1">手机号</p>
-              <p className="text-sm text-gray-500">{profile?.phone || '未绑定'}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <MemorySettingsPanel />
-
-        <motion.section
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.16 }}
-          className="mt-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-glass"
-          aria-labelledby="travel-data-privacy-title"
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <div>
-              <h2 id="travel-data-privacy-title" className="text-sm font-semibold text-gray-800">账号旅行数据</h2>
-              <p className="mt-1 text-xs leading-5 text-gray-500">清空所有新版行程原文、卡片、结构化偏好和反馈，并撤销全部分享；不会删除登录账号或个人资料。此操作不可恢复。</p>
-            </div>
-          </div>
-
-          {!showTravelDelete ? (
-            <button
-              data-testid="open-account-travel-delete"
-              type="button"
-              onClick={() => setShowTravelDelete(true)}
-              className="mt-4 w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-600 hover:border-amber-300 hover:text-amber-800"
-            >
-              清空全部旅行数据
-            </button>
-          ) : (
-            <div className="mt-4 rounded-xl bg-amber-50 p-3">
-              <label className="block text-xs font-medium leading-5 text-amber-900">
-                再次确认：输入“清空全部旅行数据”
-                <input
-                  data-testid="account-travel-delete-confirmation"
-                  value={travelDeleteConfirmation}
-                  onChange={(event) => setTravelDeleteConfirmation(event.target.value)}
-                  className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-amber-500"
-                  autoComplete="off"
-                />
-              </label>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowTravelDelete(false)
-                    setTravelDeleteConfirmation('')
-                  }}
-                  disabled={travelDeleteBusy}
-                  className="flex-1 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-gray-600"
-                >
-                  取消
+        {loading ? <p className="profile-state" role="status">正在读取个人资料…</p>
+          : !user ? <div className="profile-state" role="status"><p>登录后继续查看账号设置。</p><Link href="/login" className="e-button e-button-primary" onClick={() => sessionStorage.setItem('bt_login_return', '/profile')}>前往登录</Link></div>
+          : profileLoadFailed ? <section data-testid="profile-load-error" className="profile-state" role="alert">
+            <h2>个人资料暂时无法读取</h2>
+            <p>已保存的资料仍会保留，可以稍后重试。</p>
+            <button data-testid="retry-profile-load" type="button" className="e-button" onClick={() => setProfileLoadAttempt(attempt => attempt + 1)}>重新读取</button>
+          </section>
+          : <>
+            <form className="profile-section" aria-labelledby="profile-details-title" onSubmit={event => { event.preventDefault(); void handleSave() }}>
+              <h2 id="profile-details-title">个人资料</h2>
+              <div className="profile-avatar-row">
+                <button type="button" className="profile-avatar" aria-label="更换头像" onClick={() => fileInputRef.current?.click()}>
+                  {avatarUrl ? <img src={avatarUrl} alt="当前头像" /> : <span aria-hidden="true">{(nickname || user.nickname || '?')[0].toUpperCase()}</span>}
                 </button>
-                <button
-                  data-testid="confirm-account-travel-delete"
-                  type="button"
-                  onClick={() => void handleDeleteAllTravelData()}
-                  disabled={travelDeleteBusy || travelDeleteConfirmation !== '清空全部旅行数据'}
-                  className="flex-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white disabled:opacity-40"
-                >
-                  {travelDeleteBusy ? '正在清理…' : '确认永久清空'}
-                </button>
+                <div><button type="button" className="e-button" onClick={() => fileInputRef.current?.click()}><Camera aria-hidden="true" />选择头像</button><p className="profile-help">选择后，点击“保存资料”生效。</p></div>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleAvatarChange} aria-label="头像文件" hidden />
               </div>
-            </div>
-          )}
+              <div className="profile-fields">
+                <label htmlFor="profile-nickname">称呼<input id="profile-nickname" name="nickname" autoComplete="nickname" value={nickname} onChange={event => { setNickname(event.target.value); setSaved(false) }} maxLength={20} placeholder="你希望我们怎样称呼你" /></label>
+                <label htmlFor="profile-birthday">生日（选填）<input id="profile-birthday" name="birthday" type="date" autoComplete="bday" value={birthday} onChange={event => { setBirthday(event.target.value); setSaved(false) }} max={new Date().toISOString().split('T')[0]} /></label>
+              </div>
+              {profile?.phone && <div className="profile-readonly"><span>手机号</span><span>{profile.phone}</span></div>}
+              <div className="profile-save-row"><button type="submit" className="e-button e-button-primary" disabled={saving}>{saved ? <Check aria-hidden="true" /> : <Save aria-hidden="true" />}{saving ? '正在保存…' : saved ? '已保存' : '保存资料'}</button><span role="status" className="profile-help">{saved ? '资料已更新。' : ''}</span></div>
+            </form>
 
-          {travelDeleteStatus && (
-            <p data-testid="account-travel-delete-status" role="status" className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-600">
-              {travelDeleteStatus.message}
-              {travelDeleteStatus.status === 'IN_PROGRESS' ? '，可以稍后回到这里查看。' : ''}
-            </p>
-          )}
-        </motion.section>
+            <MemorySettingsPanel key={memoryVersion} />
 
-        {/* 保存按钮 */}
-        <motion.button
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          onClick={handleSave}
-          disabled={saving}
-          className="btn-coral w-full py-3 mt-6 text-sm flex items-center justify-center gap-2"
-        >
-          {saved ? (
-            <><Check className="w-4 h-4" /> 已保存</>
-          ) : saving ? (
-            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          ) : (
-            <><Save className="w-4 h-4" /> 保存修改</>
-          )}
-        </motion.button>
-
-        {profile && (
-          <p className="text-center text-xs text-gray-300 mt-4">
-            注册于 {new Date(profile.created_at).toLocaleDateString('zh-CN')}
-          </p>
-        )}
+            <section className="profile-section" aria-labelledby="travel-data-privacy-title">
+              <h2 id="travel-data-privacy-title">账号旅行数据</h2>
+              <p className="profile-help">清空已保存的行程原文、卡片、旅行偏好和反馈，并撤销全部分享。登录账号和个人资料保留。清空后无法恢复。</p>
+              {!showTravelDelete ? <button data-testid="open-account-travel-delete" type="button" className="e-button profile-delete-entry" onClick={() => setShowTravelDelete(true)}>清空全部旅行数据</button>
+                : <div className="profile-delete-confirmation">
+                  <label htmlFor="travel-delete-confirmation">输入“清空全部旅行数据”以确认<input id="travel-delete-confirmation" data-testid="account-travel-delete-confirmation" value={travelDeleteConfirmation} onChange={event => setTravelDeleteConfirmation(event.target.value)} autoComplete="off" disabled={travelDeleteBusy} /></label>
+                  <div className="profile-button-row">
+                    <button type="button" className="e-button" disabled={travelDeleteBusy} onClick={() => { setShowTravelDelete(false); setTravelDeleteConfirmation('') }}>取消</button>
+                    <button data-testid="confirm-account-travel-delete" type="button" className="e-button profile-delete-button" disabled={travelDeleteBusy || travelDeleteConfirmation !== '清空全部旅行数据'} onClick={() => void handleDeleteAllTravelData()}>{travelDeleteBusy ? '正在清理…' : '确认永久清空'}</button>
+                  </div>
+                </div>}
+              {travelDeleteStatus && <p data-testid="account-travel-delete-status" role="status" className="profile-notice">{travelDeleteStatus.message}{travelDeleteStatus.status === 'IN_PROGRESS' ? '，可以稍后回到这里查看。' : ''}</p>}
+            </section>
+            {profile && <p className="profile-help profile-joined">注册于 {new Date(profile.created_at).toLocaleDateString('zh-CN')}</p>}
+          </>}
       </div>
-    </div>
+    </main>
   )
 }

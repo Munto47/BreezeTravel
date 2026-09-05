@@ -136,6 +136,8 @@ jobs:
           tests/test_experience_source_deletion.py
           tests/test_experience_source_api.py
           tests/test_experience_retention.py
+          tests/test_experience_readback.py
+          tests/test_schedule_propagation.py
           --junitxml=product-postgres.xml
       - name: Confirm database checks actually ran
         working-directory: backend
@@ -246,13 +248,30 @@ jobs:
           PY
       - name: Verify local browser journeys without external credentials
         working-directory: frontend
-        run: npx playwright test -c playwright.experience.config.js --grep-invert @live
+        run: npx playwright test e2e/experience.spec.js -c playwright.experience.config.js --grep-invert @live
+      - name: Preserve core browser result before the next suite
+        if: always()
+        run: cp frontend/test-results/experience-report.json frontend/experience-core-report.json
+      - name: Preserve core browser traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: experience-core-browser-results
+          path: frontend/test-results
+          if-no-files-found: ignore
+      - name: Respect the shared per-minute write limit between browser suites
+        run: sleep 60
+      - name: Verify progressive disclosure, recovery and narrow layouts
+        working-directory: frontend
+        run: npx playwright test e2e/experience-refinement.spec.js -c playwright.experience.config.js
       - name: Preserve browser results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: experience-browser-results
-          path: frontend/test-results
+          path: |
+            frontend/test-results
+            frontend/experience-core-report.json
           if-no-files-found: ignore
 
   core-mainline:

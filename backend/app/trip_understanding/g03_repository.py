@@ -36,6 +36,7 @@ from app.trip_understanding.g03 import (
     CalendarProfile,
     build_itinerary_revision,
     command_for_finding,
+    check_route_basis,
     preview_for_finding,
     public_checks,
     run_g03_audit,
@@ -444,7 +445,7 @@ class PostgresG03RepositoryMixin:
 
         snapshot_row = await conn.fetchrow(
             """
-            SELECT s.snapshot_id
+            SELECT s.snapshot_id, s.expires_at
             FROM trip_plan_revision_refs p
             JOIN trip_map_render_jobs j ON j.plan_ref_id = p.plan_ref_id
             JOIN trip_map_render_snapshots s ON s.map_job_id = j.map_job_id
@@ -463,7 +464,7 @@ class PostgresG03RepositoryMixin:
                     SELECT e.day_index, e.sequence_index, e.origin_name,
                            e.destination_name, e.selected_mode, f.mode,
                            f.status, f.duration_minutes, f.distance_meters,
-                           f.transfer_count, f.response_hash, f.observed_at
+                           f.transfer_count, f.response_hash, f.observed_at, f.expires_at
                     FROM trip_map_route_edges e
                     LEFT JOIN trip_map_route_mode_facts f ON f.edge_id = e.edge_id
                     WHERE e.snapshot_id = $1
@@ -496,6 +497,7 @@ class PostgresG03RepositoryMixin:
                     "transfer_count": row["transfer_count"],
                     "response_hash": row["response_hash"].strip(),
                     "observed_at": row["observed_at"],
+                    "expires_at": row["expires_at"],
                 }
         route_pairs = _route_stop_pairs(await self._read_map_plan(conn, understanding_id, understanding_revision), itinerary)
         for key, (left, right) in route_pairs.items():
@@ -537,9 +539,10 @@ class PostgresG03RepositoryMixin:
                     ),
                     response_hash=canonical_sha256(response_hashes),
                     confidence=1.0 if selected else 0.0,
+                    valid_until=min(snapshot_row["expires_at"], selected["expires_at"]) if selected else None,
                     freshness_status=(
-                        EvidenceFreshness.FRESH
-                        if selected
+                        (EvidenceFreshness.FRESH if min(snapshot_row["expires_at"], selected["expires_at"]) > now else EvidenceFreshness.STALE)
+                        if selected and selected["status"] == "AVAILABLE"
                         else EvidenceFreshness.UNAVAILABLE
                     ),
                 )
@@ -553,6 +556,7 @@ class PostgresG03RepositoryMixin:
                         if item.get("observed_at")
                         else None
                     ),
+                    "expires_at": item["expires_at"].isoformat() if item.get("expires_at") else None,
                 }
                 for mode, item in sorted(modes.items())
             )
@@ -705,8 +709,8 @@ class PostgresG03RepositoryMixin:
         tokens = await self._persist_check_tokens(conn, stored)
         return snapshot, stored, tokens
 
-    @staticmethod
     async def _read_checks_with_conn(
+        self,
         conn: Any,
         *,
         understanding_id: str,
@@ -750,10 +754,12 @@ class PostgresG03RepositoryMixin:
         )
         public_json = await conn.fetchval("SELECT public_json FROM trip_understanding_results WHERE understanding_id=$1 AND revision=$2", understanding_id, pointer["current_understanding_revision"])
         result = UserFacingTripResult.model_validate(_json(public_json)) if public_json else None
+        readiness = await self._project_map_readiness(conn, understanding_id, int(pointer["current_understanding_revision"]))
         return public_checks(
             report,
             snapshot,
             result=result,
+            routes_current=readiness.status in {"AVAILABLE", "LIMITED"},
             check_tokens={
                 row["finding_id"]: row["check_token"] for row in token_rows
             },
@@ -1085,6 +1091,18 @@ class PostgresG03RepositoryMixin:
                 expected_understanding_revision=int(aggregate["current_revision"]),
             )
 
+    async def _require_current_change_basis(self, conn, *, understanding_id, revision, report_id, finding_id, now):
+        audit_repository = PostgresAuditRepository(self._pool)
+        report = await audit_repository.get_report_with_connection(conn, report_id)
+        finding = next((item for item in report.findings if item.finding_id == finding_id), None) if report else None
+        if finding is None:
+            raise ResourceNotReadyError("this check is no longer current")
+        snapshot = await audit_repository.get_snapshot_with_conn(conn, report.evidence_snapshot_id)
+        readiness = await self._project_map_readiness(conn, understanding_id, revision, now=now)
+        if snapshot is None or not check_route_basis(finding, snapshot,
+                routes_current=readiness.status in {"AVAILABLE", "LIMITED"}, now=now)[1]:
+            raise ResourceNotReadyError("route evidence needs to be updated before this change")
+
     async def preview_trip_change(
         self,
         resource: PublicResourceRecord,
@@ -1149,6 +1167,8 @@ class PostgresG03RepositoryMixin:
             )
             if finding is None or not finding.repairable:
                 raise ResourceNotReadyError("this check needs a manual decision")
+            await self._require_current_change_basis(conn, understanding_id=resource.understanding_id,
+                revision=int(current["current_revision"]), report_id=report.report_id, finding_id=finding.finding_id, now=now)
             change_token = secrets.token_urlsafe(24)
             result = UserFacingTripResult.model_validate(_json(current["public_json"]))
             command = command_for_finding(finding, result)
@@ -1441,6 +1461,9 @@ class PostgresG03RepositoryMixin:
                 or preview["source_report_id"] != preview["current_report_id"]
             ):
                 raise ResourceNotReadyError("this change preview is no longer current")
+            await self._require_current_change_basis(conn, understanding_id=resource.understanding_id,
+                revision=int(current["current_revision"]), report_id=preview["source_report_id"],
+                finding_id=preview["targeted_finding_id"], now=now)
             command = _COMMAND_ADAPTER.validate_python(_json(preview["command_json"]))
             (
                 next_result,
@@ -1847,9 +1870,10 @@ class InMemoryG03RepositoryMixin:
                             [edge.walking.response_hash, edge.transit.response_hash]
                         ),
                         confidence=1.0 if edge.selected_mode else 0.0,
+                        valid_until=min(output.expires_at, selected.expires_at),
                         freshness_status=(
-                            EvidenceFreshness.FRESH
-                            if edge.selected_mode
+                            (EvidenceFreshness.FRESH if min(output.expires_at, selected.expires_at) > now else EvidenceFreshness.STALE)
+                            if edge.selected_mode and selected.status == "AVAILABLE"
                             else EvidenceFreshness.UNAVAILABLE
                         ),
                     )
@@ -1979,14 +2003,22 @@ class InMemoryG03RepositoryMixin:
         self.g03_history.setdefault(resource.understanding_id, []).append(state)
         return state
 
-    @staticmethod
-    def _memory_checks(state: dict[str, Any]) -> PublicTripChecksView:
+    def _memory_checks(self, state: dict[str, Any], *, understanding_id: str) -> PublicTripChecksView:
+        readiness = self._project_map_readiness_memory(understanding_id, state["understanding_revision"])
         return public_checks(
             state["report"],
             state["snapshot"],
             check_tokens=state["tokens"],
             result=state["result"],
+            routes_current=readiness.status in {"AVAILABLE", "LIMITED"},
         )
+
+    def _require_current_memory_change_basis(self, state, *, understanding_id, finding_id, now):
+        finding = next((item for item in state["report"].findings if item.finding_id == finding_id), None)
+        readiness = self._project_map_readiness_memory(understanding_id, state["understanding_revision"], now=now)
+        if finding is None or not check_route_basis(finding, state["snapshot"],
+                routes_current=readiness.status in {"AVAILABLE", "LIMITED"}, now=now)[1]:
+            raise ResourceNotReadyError("route evidence needs to be updated before this change")
 
     async def materialize_trip(
         self,
@@ -2046,7 +2078,7 @@ class InMemoryG03RepositoryMixin:
             aggregate["current_revision"]
         ):
             raise ResourceNotReadyError("trip checks need to be refreshed")
-        return self._memory_checks(state)
+        return self._memory_checks(state, understanding_id=resource.understanding_id)
 
     async def preview_trip_change(
         self,
@@ -2089,6 +2121,8 @@ class InMemoryG03RepositoryMixin:
         )
         if finding is None or not finding.repairable:
             raise ResourceNotReadyError("this check needs a manual decision")
+        self._require_current_memory_change_basis(state, understanding_id=resource.understanding_id,
+            finding_id=finding.finding_id, now=now)
         change_token = secrets.token_urlsafe(24)
         command = command_for_finding(finding, state["result"])
         preview = preview_for_finding(finding, change_token=change_token, result=state["result"])
@@ -2097,6 +2131,7 @@ class InMemoryG03RepositoryMixin:
             "base_understanding_revision": state["understanding_revision"],
             "base_itinerary_revision": state["itinerary"].revision,
             "source_report_id": state["report"].report_id,
+            "targeted_finding_id": finding.finding_id,
             "command": command,
             "status": "PROPOSED",
             "created_at": now,
@@ -2144,6 +2179,8 @@ class InMemoryG03RepositoryMixin:
             or preview["source_report_id"] != state["report"].report_id
         ):
             raise ResourceNotReadyError("this change preview is no longer current")
+        self._require_current_memory_change_basis(state, understanding_id=resource.understanding_id,
+            finding_id=preview["targeted_finding_id"], now=now)
         command_outcome = await self.apply_command(
             resource,
             preview["command"],
@@ -2174,7 +2211,7 @@ class InMemoryG03RepositoryMixin:
                 and item["status"] == "PROPOSED"
             ):
                 item["status"] = "APPLIED" if item is preview else "STALE"
-        checks = self._memory_checks(next_state)
+        checks = self._memory_checks(next_state, understanding_id=resource.understanding_id)
         adopted = PublicChangeAdopted(
             status=(
                 "STILL_NEEDS_CONFIRMATION"

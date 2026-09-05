@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from redis.asyncio import Redis
 
-from app.api import auth, trip_understandings_v3, user_profile
+from app.api import auth, memory_share_v3, trip_understandings_v3, user_profile
 from app.api.rate_limit import _redis_allowed
 from app.config import get_settings
 from app.db import connection
@@ -143,6 +143,10 @@ def create_app() -> FastAPI:
     )
     application.include_router(trip_understandings_v3.router, prefix="/api")
     application.include_router(trip_understandings_v3.account_router, prefix="/api")
+    application.include_router(_subset(memory_share_v3.router, {
+        "/v3/me/data-consents", "/v3/me/data-consents/{purpose}",
+        "/v3/me/travel-preferences",
+    }), prefix="/api")
     application.include_router(_subset(auth.router, {
         "/auth/email-register", "/auth/email-login",
     }), prefix="/api")

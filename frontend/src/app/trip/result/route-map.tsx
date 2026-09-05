@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MapPin, RefreshCw } from 'lucide-react'
+import { LocateFixed, MapPin, Minus, Plus, RefreshCw } from 'lucide-react'
 import type {
   MapRenderView,
   PlacePosition,
+  PlaceCandidateView,
   UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 
@@ -21,6 +22,8 @@ type MapInstance = {
   ): void
   setCenter(center: [number, number]): void
   resize?(): void
+  zoomIn?(): void
+  zoomOut?(): void
 }
 type MapSDK = {
   Map: new (container: HTMLElement, options: object) => MapInstance
@@ -83,6 +86,7 @@ export default function RouteMap({
   mode,
   visible,
   focusSelected,
+  previewCandidate = null,
 }: {
   view: MapRenderView | null
   day: UserFacingTripResult['days'][number] | undefined
@@ -91,12 +95,15 @@ export default function RouteMap({
   mode: 'recommended' | 'walking' | 'transit'
   visible: boolean
   focusSelected: boolean
+  previewCandidate?: PlaceCandidateView | null
 }) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapInstance | null>(null)
   const sdk = useRef<MapSDK | null>(null)
   const markers = useRef(new Map<string, HTMLElement>())
   const selectionCallback = useRef(onSelect)
+  const currentOverlays = useRef<unknown[]>([])
+  const fittedDay = useRef<string | null>(null)
   const [ready, setReady] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
   const [error, setError] = useState('')
@@ -212,7 +219,7 @@ export default function RouteMap({
               point.longitude,
               point.latitude,
             ]),
-            strokeColor: '#5e704b',
+            strokeColor: '#2f6558',
             strokeOpacity: 0.8,
             strokeWeight: 5,
             strokeStyle: routeMode === 'walking' ? 'dashed' : 'solid',
@@ -224,10 +231,14 @@ export default function RouteMap({
       })
     }
     instance.add(overlays)
-    if (overlays.length)
+    currentOverlays.current = overlays
+    if (overlays.length && fittedDay.current !== day?.label) {
       instance.setFitView(overlays, false, [70, 70, 70, 70], 15)
+      fittedDay.current = day?.label || null
+    }
     return () => {
       instance.remove(overlays)
+      currentOverlays.current = []
       markers.current.clear()
     }
   }, [ready, points, day, view, mode])
@@ -246,6 +257,32 @@ export default function RouteMap({
   }, [selected, points, ready, mode, focusSelected])
 
   useEffect(() => {
+    if (
+      !ready ||
+      !map.current ||
+      !sdk.current ||
+      !validPosition(previewCandidate?.position)
+    )
+      return
+    const position = previewCandidate.position
+    const label = document.createElement('span')
+    label.className = 'e-map-candidate-marker'
+    label.textContent = '候选'
+    const marker = new sdk.current.Marker({
+      position: [position.longitude, position.latitude],
+      content: label,
+      anchor: 'center',
+      title: previewCandidate.name,
+    })
+    const instance = map.current
+    instance.add([marker])
+    instance.setCenter([position.longitude, position.latitude])
+    return () => {
+      instance.remove([marker])
+    }
+  }, [previewCandidate, ready])
+
+  useEffect(() => {
     if (visible) {
       const timer = setTimeout(() => {
         map.current?.resize?.()
@@ -257,7 +294,45 @@ export default function RouteMap({
   return (
     <div className="e-map-surface" data-testid="route-map">
       <div className="e-map-canvas" ref={container} aria-label="高德路线地图" />
-      {(!tilesReady || error || !points.length) && (
+      {tilesReady && !error && (
+        <div className="e-map-controls" aria-label="地图控制">
+          <button
+            type="button"
+            aria-label="放大地图"
+            onClick={() => map.current?.zoomIn?.()}
+          >
+            <Plus aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="缩小地图"
+            onClick={() => map.current?.zoomOut?.()}
+          >
+            <Minus aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="查看当天所有地点"
+            onClick={() => {
+              if (currentOverlays.current.length)
+                map.current?.setFitView(
+                  currentOverlays.current,
+                  false,
+                  [60, 60, 60, 60],
+                  15,
+                )
+            }}
+          >
+            <LocateFixed aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {previewCandidate && (
+        <p className="e-map-preview-label">
+          候选位置：{previewCandidate.name} · 尚未使用
+        </p>
+      )}
+      {(!tilesReady || error || (!points.length && !previewCandidate)) && (
         <div className="e-map-empty" role="status">
           <MapPin aria-hidden="true" />
           <p>

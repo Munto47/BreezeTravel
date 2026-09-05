@@ -1,7 +1,7 @@
 """Schedule checks consume recorded times and fresh route evidence only."""
 from app.audit.models import AuditDependency, AuditFinding, AuditSeverity, AuditStatus, EvidenceFreshness
 from app.trip_understanding.pipeline import canonical_sha256
-from app.trip_understanding.timing import clock_minutes
+from app.trip_understanding.timing import clock_minutes, shift_clock
 
 
 def stop_end(stop):
@@ -12,9 +12,50 @@ def stop_end(stop):
     return None
 
 
+def route_minutes(fact):
+    duration = (fact.value or {}).get("selected_duration_minutes") if fact else None
+    if fact is None or fact.freshness_status != EvidenceFreshness.FRESH or type(duration) is not int or duration <= 0:
+        return None
+    return duration
+
+
+def propagate_delay(stops, start_index, routes, sources, inconsistent):
+    """Preserve visits; consume each real gap before delaying the following stop."""
+    changes, evidence = [], []
+    previous_end = stop_end(stops[start_index])
+    for index in range(start_index + 1, len(stops)):
+        left, current = stops[index - 1], stops[index]
+        fact = routes.get(f"{left.stop_id}->{current.stop_id}")
+        duration = route_minutes(fact)
+        if previous_end is None or duration is None:
+            return [], evidence, "ROUTE_OR_DURATION_UNKNOWN"
+        evidence.append(fact.fact_id)
+        original_start = clock_minutes(current.start_time)
+        if original_start is None or sources.get(current.stop_id) == "SUGGESTED" or current.stop_id in inconsistent:
+            return [], evidence, "TIME_NEEDS_CONFIRMATION"
+        earliest = previous_end + duration
+        if earliest <= original_start:
+            # This existing gap absorbs the delay. Later appointments and unknown
+            # routes are unaffected and must not make this safe prefix move fail.
+            return changes, evidence, None
+        if current.locked or current.fixed_commitment:
+            return [], evidence, "LOCKED_ACTIVITY"
+        shift = earliest - original_start
+        current_end = stop_end(current)
+        if earliest >= 1440 or (current_end is not None and current_end + shift >= 1440):
+            return [], evidence, "DAY_BOUNDARY"
+        if current_end is None and index < len(stops) - 1:
+            return [], evidence, "DURATION_UNKNOWN"
+        changes.append({"stop_id": current.stop_id, "minutes": shift,
+            "start_time": shift_clock(current.start_time, shift),
+            "end_time": shift_clock(current.end_time, shift)})
+        previous_end = current_end + shift if current_end is not None else None
+    return changes, evidence, None
+
+
 class ScheduleFeasibilityRule:
     rule_id = "experience.schedule_feasibility"
-    rule_version = "1.0.0"
+    rule_version = "1.1.0"
     dependencies = (AuditDependency.TIME_WINDOW, AuditDependency.ROUTE_EDGE, AuditDependency.EVIDENCE_FRESHNESS)
 
     def evaluate(self, context):
@@ -37,34 +78,35 @@ class ScheduleFeasibilityRule:
                     continue
                 subject = f"{left.stop_id}->{right.stop_id}"
                 fact = routes.get(subject)
-                value = dict(fact.value or {}) if fact else {}
-                duration = value.get("selected_duration_minutes")
-                reliable = fact is not None and fact.freshness_status == EvidenceFreshness.FRESH and isinstance(duration, int) and duration > 0
+                duration = route_minutes(fact)
+                reliable = duration is not None
                 if reliable and end + duration <= start:
                     continue
                 shift = max(0, end + duration - start) if reliable else 0
-                shifted = []
-                repairable = reliable
-                for stop in day.stops[index + 1:]:
-                    if stop.locked or stop.fixed_commitment:
-                        # Do not move an appointment or offer a partial shift whose boundary is uncertain.
-                        repairable = False
-                        break
-                    if not stop.start_time or clock_minutes(stop.start_time) + shift >= 1440 or (stop_end(stop) is not None and stop_end(stop) + shift >= 1440):
-                        repairable = False
-                        break
-                    shifted.append(stop.stop_id)
+                changes, evidence, blocked = propagate_delay(day.stops, index, routes, sources, inconsistent) if reliable else ([], [], "ROUTE_UNKNOWN")
+                message = "行程时间需要补充路线后确认。"
+                if reliable:
+                    earliest = end + duration
+                    arrival = f"{earliest // 60:02d}:{earliest % 60:02d}" if earliest < 1440 else "次日"
+                    message = f"{left.raw_name}结束后交通约{duration}分钟，最早约{arrival}到达{right.raw_name}；比计划{right.start_time}晚{shift}分钟。"
+                    if blocked == "LOCKED_ACTIVITY":
+                        message += "涉及已锁定或预约的活动，请手动调整前一站或预约时间。"
+                    elif blocked == "DAY_BOUNDARY":
+                        message += "顺延会跨过当天，请手动调整。"
+                    elif blocked:
+                        message += "后续时间或路线信息不完整，暂不能自动顺延。"
                 findings.append(AuditFinding(
                     finding_id="finding_" + canonical_sha256(f"{context.revision.workspace_id}:{context.revision.revision}:{context.evidence_snapshot.snapshot_id}:{subject}:time")[:24],
                     rule_id=self.rule_id, rule_version=self.rule_version,
                     status=AuditStatus.VIOLATED if reliable else AuditStatus.UNKNOWN,
                     severity=AuditSeverity.HIGH if reliable else AuditSeverity.MEDIUM,
                     reason_code="SCHEDULE_CONFLICT" if reliable else "SCHEDULE_ROUTE_UNKNOWN",
-                    message=(f"{left.raw_name}结束并到达{right.raw_name}，预计比安排晚{shift}分钟。" if reliable else "行程时间需要补充路线后确认。"),
+                    message=message,
                     affected_days=[day.day_index], affected_stop_ids=[left.stop_id, right.stop_id],
-                    evidence_fact_ids=[fact.fact_id] if fact else [],
-                    input_values={"shift_minutes": shift, "shift_stop_ids": shifted},
-                    repairable=bool(repairable and shifted),
+                    evidence_fact_ids=list(dict.fromkeys(([fact.fact_id] if fact else []) + evidence)),
+                    input_values={"shift_minutes": shift, "shift_stop_ids": [change["stop_id"] for change in changes],
+                        "shift_changes": changes, "propagation_blocked": blocked},
+                    repairable=bool(changes and blocked is None),
                 ))
             for reason, stop_ids in [("SCHEDULE_TIMES_MISSING", incomplete), ("SCHEDULE_TIMES_INCONSISTENT", inconsistent)]:
                 if stop_ids:

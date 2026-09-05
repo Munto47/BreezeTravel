@@ -20,7 +20,12 @@ export interface AssumptionChipView {
 }
 
 export interface KnowledgeSuggestionView {
-  type: 'TYPICAL_DURATION' | 'SUITABLE_TIME' | 'NIGHT_VIEW' | 'SEASON' | 'RESERVATION_ADVICE'
+  type:
+    | 'TYPICAL_DURATION'
+    | 'SUITABLE_TIME'
+    | 'NIGHT_VIEW'
+    | 'SEASON'
+    | 'RESERVATION_ADVICE'
   text: string
   source_name: string
   source_url: string
@@ -41,14 +46,24 @@ export interface ActivityCardView {
   visit_duration_minutes?: number | null
   timing_source?: 'TEXT' | 'USER' | 'SUGGESTED' | 'UNSPECIFIED'
   locked?: boolean
+  fixed_commitment?: boolean
 }
 
-export interface PlacePosition { longitude: number; latitude: number; coordinate_system: 'GCJ02' }
+export interface PlacePosition {
+  longitude: number
+  latitude: number
+  coordinate_system: 'GCJ02'
+}
 export interface PlaceCandidateView {
-  candidate_token: string; name: string; category: string; area_or_address: string; position: PlacePosition
+  candidate_token: string
+  name: string
+  category: string
+  area_or_address: string
+  position: PlacePosition
 }
 export interface PlaceCandidatesView {
-  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'; candidates: PlaceCandidateView[]
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'
+  candidates: PlaceCandidateView[]
 }
 
 export interface PublicRouteModeView {
@@ -62,7 +77,13 @@ export interface PublicRouteModeView {
 export interface MapRenderView {
   status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
   message: string
-  points?: Array<{ activity_token: string; day_label: string; sequence_index: number; name: string; position: PlacePosition | null }>
+  points?: Array<{
+    activity_token: string
+    day_label: string
+    sequence_index: number
+    name: string
+    position: PlacePosition | null
+  }>
   days: Array<{
     day_index?: number
     label: string
@@ -107,11 +128,18 @@ export interface UserFacingTripResult {
   can_undo?: boolean
   ownership?: 'ANONYMOUS' | 'ACCOUNT'
   expires_at?: string | null
+  updated_at?: string | null
+  is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
   days: Array<{ label: string; activities: ActivityCardView[] }>
   map: {
-    status: 'PREPARING' | 'AVAILABLE' | 'NEEDS_UPDATE' | 'LIMITED' | 'UNAVAILABLE'
+    status:
+      | 'PREPARING'
+      | 'AVAILABLE'
+      | 'NEEDS_UPDATE'
+      | 'LIMITED'
+      | 'UNAVAILABLE'
     message: string
     available_actions: Array<'VIEW_MAP' | 'RENDER_MAP'>
   }
@@ -127,9 +155,28 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | {
+      command_type: 'ACTIVITY_TIMES_APPLY'
+      changes: Array<{
+        activity_token: string
+        start_time: string
+        end_time: string | null
+      }>
+    }
   | { command_type: 'UNDO' }
-  | { command_type: 'PLACE_CONFIRM'; activity_token: string; candidate_token: string }
-  | { command_type: 'ACTIVITY_TIME_SET'; activity_token: string; start_time?: string | null; end_time?: string | null; visit_duration_minutes?: number | null; locked?: boolean }
+  | {
+      command_type: 'PLACE_CONFIRM'
+      activity_token: string
+      candidate_token: string
+    }
+  | {
+      command_type: 'ACTIVITY_TIME_SET'
+      activity_token: string
+      start_time?: string | null
+      end_time?: string | null
+      visit_duration_minutes?: number | null
+      locked?: boolean
+    }
   | {
       command_type: 'ACTIVITY_INSERT'
       day_index: number
@@ -189,7 +236,9 @@ export interface DataConsentView {
 export interface PreferenceMemoryView {
   walking_tolerance_minutes: number | null
   preferred_start_time: string | null
-  dining_preferences: Array<'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'>
+  dining_preferences: Array<
+    'LOCAL' | 'VEGETARIAN' | 'HALAL' | 'NO_SPICY' | 'QUICK'
+  >
   hotel_preferences: Array<'CHAIN' | 'NEAR_TRANSIT' | 'QUIET' | 'CENTRAL'>
   intensity: 'RELAXED' | 'BALANCED' | 'FULL' | null
 }
@@ -239,6 +288,42 @@ export interface PublicTripCheckItem {
   affected_days: string[]
   can_preview: boolean
   affected_activity_tokens?: string[]
+  depends_on_routes?: boolean
+  basis_status?: 'CURRENT' | 'NEEDS_RECHECK'
+}
+
+export interface MyTripListItem {
+  public_resource_id: string
+  title: string
+  city: string
+  day_count: number
+  updated_at: string
+  expires_at: string
+  is_demo: boolean
+}
+
+export interface MyTripListView {
+  items: MyTripListItem[]
+  next_cursor: string | null
+}
+
+export interface TripSourceView {
+  status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
+  text: string | null
+  activities: Array<{ activity_token: string; name: string; quote: string }>
+}
+
+export interface TripSupplementaryView {
+  status: 'AVAILABLE' | 'DELETED' | 'UNAVAILABLE'
+  days: Array<{
+    day_index: number | null
+    day_label: string
+    items: Array<{
+      name: string
+      time_hint: string | null
+      role: 'OPTIONAL' | 'EXCLUDED'
+    }>
+  }>
 }
 
 export interface PublicTripChecksView {
@@ -258,9 +343,21 @@ export interface PublicChangePreview {
   after: string[]
   available_actions: Array<'ADOPT_CHANGE'>
   changes?: Array<{
-    activity_token: string; day_label: string; name: string
-    before: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
-    after: { start_time: string | null; end_time: string | null; visit_duration_minutes: number | null; locked: boolean }
+    activity_token: string
+    day_label: string
+    name: string
+    before: {
+      start_time: string | null
+      end_time: string | null
+      visit_duration_minutes: number | null
+      locked: boolean
+    }
+    after: {
+      start_time: string | null
+      end_time: string | null
+      visit_duration_minutes: number | null
+      locked: boolean
+    }
   }>
 }
 
@@ -275,7 +372,9 @@ export interface PublicChangeAdopted {
 function requestKey(): string {
   const values = new Uint32Array(4)
   crypto.getRandomValues(values)
-  return Array.from(values, (value) => value.toString(16).padStart(8, '0')).join('')
+  return Array.from(values, (value) =>
+    value.toString(16).padStart(8, '0'),
+  ).join('')
 }
 
 export function createTripRequestKey(): string {
@@ -303,6 +402,19 @@ function rotateOperationRequestKey(scope: string): void {
   sessionStorage.removeItem(`bt_v3_operation_${scope}`)
 }
 
+export function clearTripUnderstandingInputDraft(
+  publicResourceId: string,
+): void {
+  if (typeof window === 'undefined') return
+  try {
+    const draft = JSON.parse(sessionStorage.getItem('bt_input_draft') || 'null')
+    if (draft?.resource === publicResourceId)
+      sessionStorage.removeItem('bt_input_draft')
+  } catch {
+    // A response for one trip must not erase unrelated or unsubmitted input.
+  }
+}
+
 export function clearTripUnderstandingSession(): void {
   if (typeof window === 'undefined') return
   for (const key of [
@@ -312,21 +424,25 @@ export function clearTripUnderstandingSession(): void {
     'bt_active_trip_event_cursor',
     'bt_active_trip_etag',
     'bt_active_trip_source_deleted',
-  ]) sessionStorage.removeItem(key)
+  ])
+    sessionStorage.removeItem(key)
   for (let index = sessionStorage.length - 1; index >= 0; index -= 1) {
     const key = sessionStorage.key(index)
     if (key?.startsWith('bt_v3_operation_')) sessionStorage.removeItem(key)
   }
 }
 
-export async function createDemoTripUnderstanding(signal?: AbortSignal): Promise<TripUnderstandingAcceptedView> {
+export async function createDemoTripUnderstanding(
+  signal?: AbortSignal,
+  idempotencyKey = requestKey(),
+): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
     credentials: 'include',
     signal,
     headers: {
       'Content-Type': 'application/json',
-      'Idempotency-Key': requestKey(),
+      'Idempotency-Key': idempotencyKey,
     },
     body: JSON.stringify({ mode: 'DEMO' }),
   })
@@ -334,7 +450,11 @@ export async function createDemoTripUnderstanding(signal?: AbortSignal): Promise
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
-export async function createFullTripUnderstanding(text: string, idempotencyKey = requestKey(), signal?: AbortSignal): Promise<TripUnderstandingAcceptedView> {
+export async function createFullTripUnderstanding(
+  text: string,
+  idempotencyKey = requestKey(),
+  signal?: AbortSignal,
+): Promise<TripUnderstandingAcceptedView> {
   const response = await fetch('/api/v3/trip-understandings', {
     method: 'POST',
     credentials: 'include',
@@ -354,7 +474,10 @@ export async function createFullTripUnderstanding(text: string, idempotencyKey =
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
-export async function readTripUnderstandingResult(publicResourceId: string, signal?: AbortSignal): Promise<{
+export async function readTripUnderstandingResult(
+  publicResourceId: string,
+  signal?: AbortSignal,
+): Promise<{
   status: number
   body: TripUnderstandingProgressView | UserFacingTripResult
   etag: string | null
@@ -369,15 +492,26 @@ export async function readTripUnderstandingResult(publicResourceId: string, sign
     },
   )
   if (!response.ok) {
+    if (response.status === 410) {
+      clearTripUnderstandingInputDraft(publicResourceId)
+      throw new Error('TRIP_GONE')
+    }
+    if (response.status === 404) throw new Error('TRIP_NOT_AVAILABLE')
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
     if (response.status === 409) {
-      const failure = await response.json().catch(() => null) as { detail?: { code?: string } } | null
-      if (failure?.detail?.code === 'UNDERSTANDING_FAILED') throw new Error('UNDERSTANDING_FAILED')
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'UNDERSTANDING_FAILED')
+        throw new Error('UNDERSTANDING_FAILED')
     }
     throw new Error('TRIP_RESULT_UNAVAILABLE')
   }
   return {
     status: response.status,
-    body: (await response.json()) as TripUnderstandingProgressView | UserFacingTripResult,
+    body: (await response.json()) as
+      | TripUnderstandingProgressView
+      | UserFacingTripResult,
     etag: response.headers.get('etag'),
   }
 }
@@ -403,9 +537,17 @@ export async function applyTripUnderstandingCommand(
     },
   )
   if (!response.ok) {
-    if (response.status === 409) throw new Error('REVISION_CONFLICT')
+    if (response.status === 409) {
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'REQUEST_IN_PROGRESS')
+        throw new Error('OPERATION_PENDING')
+      throw new Error('REVISION_CONFLICT')
+    }
     if (response.status === 428) throw new Error('IF_MATCH_REQUIRED')
-    if (response.status === 422 || response.status === 400) throw new Error('COMMAND_REJECTED')
+    if (response.status === 422 || response.status === 400)
+      throw new Error('COMMAND_REJECTED')
     throw new Error('COMMAND_FAILED')
   }
   const nextEtag = response.headers.get('etag')
@@ -433,12 +575,77 @@ export async function readTripUnderstandingMap(
   return response.json() as Promise<MapRenderView>
 }
 
-export async function queryTripPlaceCandidates(publicResourceId: string, activityToken: string, query: string, signal?: AbortSignal): Promise<PlaceCandidatesView> {
-  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`, {
-    method: 'POST', credentials: 'include', signal,
-    headers: { 'Content-Type': 'application/json', ...authorizationHeaders() },
-    body: JSON.stringify({ activity_token: activityToken, query }),
+async function readPrivateTripJson<T>(
+  path: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(path, {
+    credentials: 'include',
+    cache: 'no-store',
+    signal,
+    headers: authorizationHeaders(),
   })
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('LOGIN_REQUIRED')
+    if (response.status === 410) throw new Error('TRIP_GONE')
+    if (response.status === 404) throw new Error('TRIP_NOT_AVAILABLE')
+    if (response.status === 400) throw new Error('LIST_CURSOR_CHANGED')
+    throw new Error('READ_UNAVAILABLE')
+  }
+  return response.json() as Promise<T>
+}
+
+export function listMyTrips(
+  cursor?: string | null,
+  signal?: AbortSignal,
+): Promise<MyTripListView> {
+  const query = new URLSearchParams({ limit: '20' })
+  if (cursor) query.set('cursor', cursor)
+  return readPrivateTripJson<MyTripListView>(
+    `/api/v3/me/trips?${query}`,
+    signal,
+  )
+}
+
+export function readTripSource(
+  publicResourceId: string,
+  signal?: AbortSignal,
+): Promise<TripSourceView> {
+  return readPrivateTripJson<TripSourceView>(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/source`,
+    signal,
+  )
+}
+
+export function readTripSupplementary(
+  publicResourceId: string,
+  signal?: AbortSignal,
+): Promise<TripSupplementaryView> {
+  return readPrivateTripJson<TripSupplementaryView>(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/supplementary`,
+    signal,
+  )
+}
+
+export async function queryTripPlaceCandidates(
+  publicResourceId: string,
+  activityToken: string,
+  query: string,
+  signal?: AbortSignal,
+): Promise<PlaceCandidatesView> {
+  const response = await fetch(
+    `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authorizationHeaders(),
+      },
+      body: JSON.stringify({ activity_token: activityToken, query }),
+    },
+  )
   if (!response.ok) throw new Error('PLACE_SEARCH_UNAVAILABLE')
   return response.json() as Promise<PlaceCandidatesView>
 }
@@ -508,7 +715,7 @@ export async function selectTripUnderstandingStay(
   }
   const nextEtag = response.headers.get('etag')
   if (!nextEtag) throw new Error('STAY_SELECTION_ETAG_MISSING')
-  const body = await response.json() as { selected_stay: string }
+  const body = (await response.json()) as { selected_stay: string }
   return { selected_stay: body.selected_stay, etag: nextEtag }
 }
 
@@ -525,7 +732,9 @@ export async function materializeTripUnderstanding(
       credentials: 'include',
       signal,
       headers: {
-        'Idempotency-Key': idempotencyKey || operationRequestKey(`materialize:${publicResourceId}:${etag}`),
+        'Idempotency-Key':
+          idempotencyKey ||
+          operationRequestKey(`materialize:${publicResourceId}:${etag}`),
         'If-Match': etag,
         ...authorizationHeaders(),
       },
@@ -606,7 +815,14 @@ export async function adoptTripUnderstandingChange(
     },
   )
   if (!response.ok) {
-    if (response.status === 409) throw new Error('TRIP_UPDATED')
+    if (response.status === 409) {
+      const failure = (await response.json().catch(() => null)) as {
+        detail?: { code?: string }
+      } | null
+      if (failure?.detail?.code === 'REQUEST_IN_PROGRESS')
+        throw new Error('OPERATION_PENDING')
+      throw new Error('PREVIEW_STALE')
+    }
     throw new Error('CHANGE_ADOPT_FAILED')
   }
   const nextEtag = response.headers.get('etag')
@@ -633,7 +849,10 @@ export async function claimTripUnderstanding(
   )
   if (!response.ok) {
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')
-    if (response.status === 410) throw new Error('TRIP_ALREADY_GONE')
+    if (response.status === 410) {
+      clearTripUnderstandingInputDraft(publicResourceId)
+      throw new Error('TRIP_ALREADY_GONE')
+    }
     throw new Error('CLAIM_FAILED')
   }
   const etag = response.headers.get('etag')
@@ -641,14 +860,18 @@ export async function claimTripUnderstanding(
   return { body: (await response.json()) as ClaimedTripView, etag }
 }
 
-export async function deleteTripUnderstandingSource(publicResourceId: string): Promise<void> {
+export async function deleteTripUnderstandingSource(
+  publicResourceId: string,
+): Promise<void> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/source`,
     {
       method: 'DELETE',
       credentials: 'include',
       headers: {
-        'Idempotency-Key': operationRequestKey(`delete-source:${publicResourceId}`),
+        'Idempotency-Key': operationRequestKey(
+          `delete-source:${publicResourceId}`,
+        ),
         ...authorizationHeaders(),
       },
     },
@@ -657,16 +880,23 @@ export async function deleteTripUnderstandingSource(publicResourceId: string): P
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')
     throw new Error('SOURCE_DELETE_FAILED')
   }
+  clearTripUnderstandingInputDraft(publicResourceId)
 }
 
-export async function deleteTripUnderstanding(publicResourceId: string): Promise<void> {
+export async function deleteTripUnderstanding(
+  publicResourceId: string,
+  signal?: AbortSignal,
+): Promise<void> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}`,
     {
       method: 'DELETE',
       credentials: 'include',
+      signal,
       headers: {
-        'Idempotency-Key': operationRequestKey(`delete-trip:${publicResourceId}`),
+        'Idempotency-Key': operationRequestKey(
+          `delete-trip:${publicResourceId}`,
+        ),
         ...authorizationHeaders(),
       },
     },
@@ -677,10 +907,12 @@ export async function deleteTripUnderstanding(publicResourceId: string): Promise
     {
       credentials: 'include',
       cache: 'no-store',
+      signal,
       headers: authorizationHeaders(),
     },
   )
   if (readback.status !== 410) throw new Error('TRIP_DELETE_READBACK_FAILED')
+  clearTripUnderstandingInputDraft(publicResourceId)
 }
 
 export async function deleteAllTravelData(): Promise<TravelDataDeletionStatusView> {
@@ -699,8 +931,9 @@ export async function deleteAllTravelData(): Promise<TravelDataDeletionStatusVie
     if (response.status === 401) throw new Error('RECENT_LOGIN_REQUIRED')
     throw new Error('ACCOUNT_TRAVEL_DELETE_FAILED')
   }
-  const outcome = await response.json() as TravelDataDeletionStatusView
-  if (outcome.status === 'RETRY_REQUIRED') rotateOperationRequestKey(operationScope)
+  const outcome = (await response.json()) as TravelDataDeletionStatusView
+  if (outcome.status === 'RETRY_REQUIRED')
+    rotateOperationRequestKey(operationScope)
   return outcome
 }
 
@@ -716,7 +949,9 @@ export async function readTravelDataDeletionStatus(): Promise<TravelDataDeletion
 
 export async function readDataConsents(): Promise<DataConsentView> {
   const response = await fetch('/api/v3/me/data-consents', {
-    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+    headers: authorizationHeaders(),
   })
   if (!response.ok) throw new Error('CONSENT_READ_FAILED')
   return response.json() as Promise<DataConsentView>
@@ -738,7 +973,9 @@ export async function setDataConsent(
 
 export async function readPreferenceMemory(): Promise<PreferenceMemoryView | null> {
   const response = await fetch('/api/v3/me/travel-preferences', {
-    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+    headers: authorizationHeaders(),
   })
   if (!response.ok) throw new Error('PREFERENCE_READ_FAILED')
   return response.json() as Promise<PreferenceMemoryView | null>
@@ -759,7 +996,9 @@ export async function savePreferenceMemory(
 
 export async function clearPreferenceMemory(): Promise<void> {
   const response = await fetch('/api/v3/me/travel-preferences', {
-    method: 'DELETE', credentials: 'include', headers: authorizationHeaders(),
+    method: 'DELETE',
+    credentials: 'include',
+    headers: authorizationHeaders(),
   })
   if (!response.ok) throw new Error('PREFERENCE_CLEAR_FAILED')
 }
@@ -782,7 +1021,10 @@ export async function submitTripFeedback(
       body: JSON.stringify({ event_type: eventType, subject_type: 'TRIP' }),
     },
   )
-  if (!response.ok) throw new Error(response.status === 409 ? 'FEEDBACK_NOT_ENABLED' : 'FEEDBACK_FAILED')
+  if (!response.ok)
+    throw new Error(
+      response.status === 409 ? 'FEEDBACK_NOT_ENABLED' : 'FEEDBACK_FAILED',
+    )
   rotateOperationRequestKey(scope)
 }
 
@@ -805,23 +1047,30 @@ export async function createTripShare(
     },
   )
   if (!response.ok) throw new Error('SHARE_CREATE_FAILED')
-  const view = await response.json() as ShareCreatedView
+  const view = (await response.json()) as ShareCreatedView
   rotateOperationRequestKey(scope)
   return view
 }
 
 export async function readMyShares(): Promise<ShareListItemView[]> {
   const response = await fetch('/api/v3/me/shares', {
-    credentials: 'include', cache: 'no-store', headers: authorizationHeaders(),
+    credentials: 'include',
+    cache: 'no-store',
+    headers: authorizationHeaders(),
   })
   if (!response.ok) throw new Error('SHARE_LIST_FAILED')
   return response.json() as Promise<ShareListItemView[]>
 }
 
 export async function revokeShare(shareRef: string): Promise<void> {
-  const response = await fetch(`/api/v3/me/shares/${encodeURIComponent(shareRef)}`, {
-    method: 'DELETE', credentials: 'include', headers: authorizationHeaders(),
-  })
+  const response = await fetch(
+    `/api/v3/me/shares/${encodeURIComponent(shareRef)}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: authorizationHeaders(),
+    },
+  )
   if (!response.ok) throw new Error('SHARE_REVOKE_FAILED')
 }
 
@@ -840,7 +1089,10 @@ export async function streamTripUnderstandingEvents(
   onEvent: (event: TripUnderstandingPublicEvent) => void,
   signal: AbortSignal,
 ): Promise<void> {
-  const cursor = typeof window === 'undefined' ? null : sessionStorage.getItem('bt_active_trip_event_cursor')
+  const cursor =
+    typeof window === 'undefined'
+      ? null
+      : sessionStorage.getItem('bt_active_trip_event_cursor')
   const response = await fetch(tripUnderstandingEventsUrl(publicResourceId), {
     credentials: 'include',
     cache: 'no-store',
@@ -869,17 +1121,21 @@ export async function streamTripUnderstandingEvents(
           .filter((line) => line.includes(':') && !line.startsWith(':'))
           .map((line) => {
             const separator = line.indexOf(':')
-            return [line.slice(0, separator), line.slice(separator + 1).trimStart()]
+            return [
+              line.slice(0, separator),
+              line.slice(separator + 1).trimStart(),
+            ]
           }),
       )
       if (fields.id && fields.event && fields.data) {
         const id = Number(fields.id)
         const payload = JSON.parse(fields.data) as { message?: string }
         if (
-          Number.isSafeInteger(id)
-          && id > 0
-          && (fields.event === 'progress' || fields.event === 'result_available')
-          && typeof payload.message === 'string'
+          Number.isSafeInteger(id) &&
+          id > 0 &&
+          (fields.event === 'progress' ||
+            fields.event === 'result_available') &&
+          typeof payload.message === 'string'
         ) {
           sessionStorage.setItem('bt_active_trip_event_cursor', String(id))
           onEvent({ id, type: fields.event, message: payload.message })
