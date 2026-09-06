@@ -16,19 +16,22 @@ from pathlib import Path
 from typing import Any, Literal
 
 from openai import APIError, AsyncOpenAI
-from pydantic import Field, ValidationError
+from pydantic import Field, ValidationError, field_validator
 
 from app.trip_understanding.errors import InferenceProviderUnavailableError
+from app.trip_understanding.guide_choices import choice_scopes, explicit_binary_choice_clauses, explicit_optional_labels, explicit_visit_labels
 from app.trip_understanding.models import (
     ActivityRole, ActivityTiming, DestinationBasis, InferenceProposal,
     ProposedMention, StrictModel,
 )
-from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES, atomic_place_rejection_reason
+from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES, GENERIC_PLACE_NAMES, atomic_place_rejection_reason, source_destination_cities
+from app.trip_understanding.place_labels import normalized_place_label
 from app.trip_understanding.timing_evidence import validated_timing
 
 
 PROMPT_PATH = Path(__file__).with_name("experience_inference_prompt.md")
 SEMANTIC_POLICY = "MODEL_MEANING_SOURCE_VALIDATED_V1"
+SEMANTIC_TEMPERATURE = 0
 
 
 class SemanticActivity(ActivityTiming):
@@ -47,7 +50,7 @@ class SemanticActivity(ActivityTiming):
 
 
 class SemanticDraft(StrictModel):
-    destination: str = Field(min_length=1, max_length=40)
+    destination: str = Field(default="目的地待确认", min_length=1, max_length=40)
     day_labels: list[str | None] = Field(default_factory=list, max_length=14)
     activities: list[SemanticActivity] = Field(
         max_length=160,
@@ -55,12 +58,20 @@ class SemanticDraft(StrictModel):
     )
     unprocessed_quotes: list[str] = Field(default_factory=list, max_length=80)
 
+    @field_validator("destination", mode="before")
+    @classmethod
+    def retain_unknown_destination(cls, value: object) -> object:
+        return "目的地待确认" if value is None or (isinstance(value, str) and not value.strip()) else value
+
 
 class SourceAnchorValidationError(ValueError):
     """Only field locations and categories; source text never enters failure logs."""
 
-    def __init__(self, issues: list[dict[str, object]]) -> None:
+    def __init__(self, issues: list[dict[str, object]], repair_hints: list[str] | None = None) -> None:
         self.issues = issues
+        # Sent only in this request's repair prompt, never in diagnostic logs
+        # or provider bindings. The original input is already authorized.
+        self.repair_hints = repair_hints or []
         self.category = str(issues[0]["category"])
         super().__init__(self.category)
 
@@ -106,12 +117,516 @@ class SourceAnchorIndex:
         for _ in range(occurrence):
             start = self.visible.find(visible_quote, start + 1)
             if start < 0:
+                # A model can omit a known admission/view note while retaining
+                # the literal campus or floor. Accept only one unambiguous
+                # label with exactly the same closed normalization, retaining
+                # its entire original span. This is not fuzzy source matching.
+                bracket = re.fullmatch(r"([^()（）\n]+)[（(][^()（）\n]+[）)]", visible_quote)
+                if bracket and occurrence == 1:
+                    matches = [match for match in re.finditer(
+                        re.escape(bracket[1]) + r"[（(][^()（）\n]{1,80}[）)]", self.visible,
+                    ) if normalized_place_label(match[0]) == normalized_place_label(visible_quote)]
+                    if len(matches) == 1:
+                        match = matches[0]
+                        return self.indices[match.start()], self.indices[match.end() - 1] + 1
+                canonical = normalized_place_label(visible_quote)
+                if occurrence == 1 and atomic_place_rejection_reason(canonical) is None:
+                    pattern = re.escape(canonical[0])
+                    for previous, char in zip(canonical, canonical[1:]):
+                        if (re.fullmatch(r"[A-Za-z0-9]", previous) and re.fullmatch(r"[\u4e00-\u9fff]", char)) or (
+                            re.fullmatch(r"[\u4e00-\u9fff]", previous) and char.isascii() and char.isdigit()
+                        ):
+                            pattern += r"[ \t]*"
+                        pattern += re.escape(char)
+                    matches = [match for match in re.finditer(r"(?<![A-Za-z0-9])" + pattern + r"(?![A-Za-z0-9])", self.visible)
+                               if normalized_place_label(match[0]) == canonical]
+                    if len(matches) == 1:
+                        match = matches[0]
+                        return self.indices[match.start()], self.indices[match.end() - 1] + 1
                 raise ValueError("SOURCE_QUOTE_NOT_FOUND")
         return self.indices[start], self.indices[start + len(visible_quote) - 1] + 1
 
 
 def _source_occurrence(source: str, quote: str, occurrence: int) -> int:
     return SourceAnchorIndex(source).locate(quote, occurrence)[0]
+
+
+def _literal_place_span(quote: str, place: str | None) -> tuple[int, int] | None:
+    if not place:
+        return None
+    if place in quote:
+        start = quote.index(place)
+        return start, start + len(place)
+    # Only this closed annotation transform can differ from source spelling.
+    # Keep the complete original quote as evidence, including removed notes.
+    if normalized_place_label(quote) == normalized_place_label(place):
+        return 0, len(quote)
+    return None
+
+
+def _top_level_place_parts(value: str) -> list[str]:
+    # Commas in a museum's campus/admission annotation do not separate POIs.
+    depth = 0
+    parts, start = [], 0
+    for index, char in enumerate(value):
+        if char in "（(":
+            depth += 1
+        elif char in "）)":
+            depth -= 1
+        elif depth == 0 and char in "+、，,/／→":
+            parts.append(value[start:index].strip())
+            start = index + 1
+    parts.append(value[start:].strip())
+    return parts if depth == 0 else [value]
+
+
+def _is_unnamed_check_in(quote: str) -> bool:
+    visible, _ = _markdown_visible(quote)
+    return re.fullmatch(
+        r"\s*(?:\d{1,2}[:：]\d{2}\s*)?(?:办理入住|入住|放行李|存放行李|寄存行李)"
+        r"(?:[\s，,、]*(?:并|后)?(?:放行李|存放行李|寄存行李|休整|休息))?[。；;]?\s*",
+        visible,
+    ) is not None
+
+
+def _source_has_only_unnamed_check_in(source: str, anchors: SourceAnchorIndex, item: SemanticActivity) -> bool:
+    if not _is_unnamed_check_in(item.source_quote):
+        return False
+    try:
+        start, end = anchors.locate(item.source_quote, item.occurrence)
+    except ValueError:
+        return False
+    clocks = list(re.finditer(r"(?<![A-Za-z\d])\d{1,2}[:：]\d{2}(?!\d)", source))
+    boundaries = [match.end() for match in re.finditer(r"[\n，,。；;！？：:]", source[:start])
+                  if not any(clock.start() <= match.start() < clock.end() for clock in clocks)]
+    left = max(boundaries, default=0)
+    # Clock labels also separate the compact, single-line guide format.
+    for clock in clocks:
+        if clock.end() <= start:
+            left = max(left, clock.start())
+    following = re.search(r"[\n，,。；;！？]|(?<![A-Za-z\d])\d{1,2}[:：]\d{2}(?!\d)", source[end:])
+    right = end + following.start() if following else len(source)
+    context, _ = _markdown_visible(source[left:right])
+    context = re.sub(r"^\s*(?:先|随后|然后|最后)\s*", "", context)
+    return _is_unnamed_check_in(context)
+
+
+def _retain_literal_subvenue_labels(source: str, draft: SemanticDraft) -> SemanticDraft:
+    """Preserve an immediately attached subvenue, without resolving identity."""
+    anchors = SourceAnchorIndex(source)
+    activities = []
+    for item in draft.activities:
+        if item.place_name in GENERIC_PLACE_NAMES and _source_has_only_unnamed_check_in(source, anchors, item):
+            # An unnamed check-in cannot manufacture a hotel label. Keep
+            # the source-bound activity so accommodation remains pending.
+            item = item.model_copy(update={"place_name": None, "category": "住宿"})
+        if not item.place_name or item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+            activities.append(item)
+            continue
+        try:
+            left, right = anchors.locate(item.source_quote, item.occurrence)
+        except ValueError:
+            activities.append(item)
+            continue
+        if item.role == ActivityRole.OPTIONAL and item.source_quote == source[left:right] and (
+            atomic_place_rejection_reason(item.source_quote) is None
+            and re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·]{2,16}", item.source_quote)
+            and not re.search(r"先去|再去|去看|前往|返回|随后|然后|顺路|参观|游览|打卡|可以|不要|取消", item.source_quote)
+            and item.place_name.startswith(item.source_quote)
+            and item.place_name[len(item.source_quote):] in {"长城", "公园", "博物馆", "博物院", "景区"}
+            and not source[right:].startswith(item.place_name[len(item.source_quote):])
+        ):
+            # Keep a literal unselected noun instead of a model-added suffix.
+            # This cannot search a POI; planned names still need source proof.
+            item = item.model_copy(update={"place_name": item.source_quote})
+        relative = _literal_place_span(source[left:right], item.place_name)
+        if relative is not None:
+            start, end = left + relative[0], left + relative[1]
+            floor_note = re.match(r"[（(][^（）()\n]{1,80}[）)]", source[end:])
+            if floor_note:
+                literal = source[start:end + floor_note.end()]
+                qualified = normalized_place_label(literal)
+                if re.fullmatch(
+                    re.escape(item.place_name) + r"[（(][A-Za-z\u4e00-\u9fff·]{2,16}\d{1,3}(?:楼|层)[）)]",
+                    qualified,
+                ) and atomic_place_rejection_reason(qualified) is None:
+                    occurrence = 1 + sum(1 for match in re.finditer(re.escape(literal), anchors.visible)
+                                         if anchors.indices[match.start()] < start)
+                    item = item.model_copy(update={"source_quote": literal, "place_name": qualified, "occurrence": occurrence})
+            suffix = re.match(r"(?:摩天轮|露台|周边)", source[end:])
+            if suffix:
+                literal = source[start:end + suffix.end()]
+                if atomic_place_rejection_reason(normalized_place_label(literal)) is None:
+                    occurrence = 1 + sum(1 for match in re.finditer(re.escape(literal), anchors.visible)
+                                         if anchors.indices[match.start()] < start)
+                    item = item.model_copy(update={"source_quote": literal, "place_name": literal, "occurrence": occurrence})
+        activities.append(item)
+    return draft.model_copy(update={"activities": activities})
+
+
+def _align_named_day_occurrences(source: str, draft: SemanticDraft) -> SemanticDraft:
+    """Disambiguate a repeated quote using an already supplied explicit day.
+
+    This changes an occurrence only, never the proposed day or order. It is
+    limited to unique, ordered Day headings and one matching quote in that day;
+    changed schedules and ambiguous repeat visits stay with semantic repair.
+    """
+    if re.search(r"更正|改到|改为|改成|对调|交换|顺延|取消|原计划|最初计划|推迟|移至|移到|挪|调整|延后|延至|后移|前移|调至|换到|变更|重新排|改期", source):
+        return draft
+    visible, _ = _markdown_visible(source)
+    for advance in re.finditer("提前", visible):
+        # Advance booking instructions do not move a visit to another day.
+        if not re.match(
+            r"提前\s*(?:(?:\d+|[一二三四五六七八九十]+)\s*天\s*(?:\d+\s*点\s*)?)?(?:抢票|预约|订票|查|排队|买好|买票|备好)",
+            visible[advance.start():],
+        ):
+            return draft
+    headings = list(re.finditer(
+        r"^[ \t#\"“”'‘’]*(?:Day|D)\s*(?P<day>\d{1,2})(?![\dA-Za-z]|\s*[-–—~～至到]\s*\d)[^\r\n]*",
+        source, re.M | re.I,
+    ))
+    days = [int(match["day"]) for match in headings]
+    if len(days) < 2 or days != list(range(1, len(days) + 1)):
+        return draft
+    anchors = SourceAnchorIndex(source)
+    activities = []
+    for item in draft.activities:
+        day = item.day_index
+        if not item.place_name or day not in days:
+            activities.append(item)
+            continue
+        try:
+            start, _ = anchors.locate(item.source_quote, item.occurrence)
+        except ValueError:
+            activities.append(item)
+            continue
+        left = headings[day - 1].start()
+        right = headings[day].start() if day < len(days) else len(source)
+        if not left <= start < right:
+            candidates = []
+            for occurrence in range(1, 161):
+                try:
+                    begin, end = anchors.locate(item.source_quote, occurrence)
+                except ValueError:
+                    break
+                if headings[day - 1].end() <= begin and end <= right:
+                    line_start = source.rfind("\n", left, begin) + 1
+                    prefix = source[max(left, line_start):begin]
+                    if re.match(r"\s*(?:[-*>]\s*)?(?:参考|介绍|说明|例如|比如|资料)\s*[:：]", prefix):
+                        continue
+                    claimed_elsewhere = False
+                    for other in draft.activities:
+                        if other is item or other.day_index != day or other.role not in {
+                            ActivityRole.REFERENCE, ActivityRole.OPTIONAL, ActivityRole.EXCLUDED,
+                        }:
+                            continue
+                        try:
+                            other_span = anchors.locate(other.source_quote, other.occurrence)
+                        except ValueError:
+                            continue
+                        if other_span == (begin, end) and item.role == ActivityRole.PLANNED:
+                            claimed_elsewhere = True
+                            break
+                    if claimed_elsewhere:
+                        continue
+                    candidates.append(occurrence)
+            if len(candidates) == 1:
+                item = item.model_copy(update={"occurrence": candidates[0]})
+            else:
+                raise SourceAnchorValidationError(
+                    [{"field": "activities.occurrence", "category": "SOURCE_DAY_QUOTE_MISMATCH"}],
+                    [item.place_name],
+                )
+        activities.append(item)
+    return draft.model_copy(update={"activities": activities})
+
+
+def _expand_source_bound_lists(source: str, draft: SemanticDraft) -> SemanticDraft:
+    """Expand only literal atomic lists already identified by the model."""
+    activities = []
+    unprocessed = list(draft.unprocessed_quotes)
+    anchors = SourceAnchorIndex(source)
+    for item in draft.activities:
+        parts = _top_level_place_parts(item.place_name or "")
+        # If the model kept only the first member of one explicit bold list,
+        # recover its literal siblings before validation. A plain narrative,
+        # slash choice, amended plan, or separately classified sibling cannot
+        # lend a role this way. The list's first source anchor is mandatory.
+        if len(parts) == 1 and item.place_name and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} and not re.search(
+            r"取消|更正|改到|改为|改成", source,
+        ):
+            supported = set(_explicit_markdown_place_groups(source))
+            try:
+                item_left, _ = anchors.locate(item.source_quote, item.occurrence)
+            except ValueError:
+                item_left = -1
+            for group in re.finditer(r"\*\*(?P<body>[^*\r\n]{3,80})\*\*", source):
+                candidate = _top_level_place_parts(group["body"])
+                if tuple(candidate) not in supported or re.search(r"[/／]", group["body"]) or candidate[0] != item.place_name:
+                    continue
+                line_start = source.rfind("\n", 0, group.start()) + 1
+                line_end = source.find("\n", group.end())
+                if re.search(
+                    r"不去|不想|不要|不选|二选一|备选|可选|只(?:选|去|到|参观|游览)|仅(?:选|去)|"
+                    r"参考|说明|介绍|举例|路过|途经|经过|放弃|排除|替换",
+                    source[line_start:line_end if line_end >= 0 else len(source)],
+                ):
+                    continue
+                if group.start("body") != item_left or any(
+                    other is not item and other.place_name in candidate[1:] and other.day_index == item.day_index
+                    for other in draft.activities
+                ):
+                    continue
+                occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(group["body"]) + r")", anchors.visible)
+                                     if anchors.indices[match.start()] < item_left)
+                item = item.model_copy(update={"place_name": group["body"], "source_quote": group["body"], "occurrence": occurrence})
+                parts = candidate
+                break
+        if item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL} or not 2 <= len(parts) <= 8 or any(
+            atomic_place_rejection_reason(normalized_place_label(part)) is not None for part in parts
+        ):
+            activities.append(item)
+            continue
+        try:
+            left, right = anchors.locate(item.source_quote, item.occurrence)
+        except ValueError:
+            activities.append(item)
+            continue
+        if item.place_name not in source[left:right]:
+            activities.append(item)
+            continue
+        cursor = left + source[left:right].index(item.place_name)
+        line_start = source.rfind("\n", 0, left) + 1
+        line_end = source.find("\n", right)
+        line = source[line_start:line_end if line_end != -1 else len(source)]
+        explicit_all = bool(re.search(r"先后|依次|按顺序|分别|都去|都逛|都要去|全部|两(?:条|处|个)都", line))
+        meal_alternative = bool(re.search(
+            r"(?:中午|午餐|晚餐|午饭|晚饭)\s*[:：]\s*(?:\*\*)?" + re.escape(item.place_name), line,
+        ))
+        for part_index, part in enumerate(parts):
+            start = source.index(part, cursor, right)
+            # Count exactly as SourceAnchorIndex does, including repeated
+            # places earlier in the document. Day and role remain source-bound.
+            occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(part) + r")", anchors.visible)
+                                 if anchors.indices[match.start()] < start)
+            street_meal = item.category == "餐饮" and bool(re.search(r"[路街巷]$", part))
+            update = {"place_name": part, "source_quote": part, "occurrence": occurrence,
+                "start_time": None, "end_time": None, "visit_duration_minutes": None,
+                "timing_source": "UNSPECIFIED", "locked": False, "fixed_commitment": False, "time_evidence": None}
+            if part_index == 0:
+                # Only the first item can inherit a proposed prefix time.
+                # The normal source/timing validator below still decides if
+                # those fields belong to this individual stop.
+                update.update(item.model_dump(include=set(ActivityTiming.model_fields) | {"time_evidence"}))
+            if street_meal:
+                update["category"] = "地点"
+                if re.search(r"[/／]", item.place_name) and meal_alternative and not explicit_all:
+                    update["role"] = ActivityRole.OPTIONAL
+            activities.append(item.model_copy(update=update))
+            cursor = start + len(part)
+        if item.time_evidence and item.source_quote not in unprocessed:
+            unprocessed.append(item.source_quote)
+    if len(activities) > 160:
+        raise SourceAnchorValidationError([{"field": "activities", "category": "TOO_MANY_ACTIVITIES"}])
+    return draft.model_copy(update={"activities": activities, "unprocessed_quotes": unprocessed})
+
+
+def _align_choice_label_occurrences(source: str, draft: SemanticDraft) -> SemanticDraft:
+    """Repair a duplicated prefix anchor inside an unselected day choice.
+
+    Both names must already exist in the draft. The only alternate occurrence
+    must be an explicit visit clause. No identity, activity, day or role is
+    invented; ambiguous repeats and edited/reversed plans stay with inference.
+    """
+    if re.search(r"更正|改期|改到|改为|改成|调整|推迟|取消|倒着|反着|逆序|对调|交换|先后顺序", source):
+        return draft
+    for advance in re.finditer("提前", source):
+        if not re.match(
+            r"提前\s*(?:(?:\d+|[一二三四五六七八九十]+)\s*天\s*(?:\d+\s*点\s*)?)?(?:抢票|预约|订票|查|排队|买好|买票|备好)",
+            source[advance.start():],
+        ):
+            return draft
+    anchors = SourceAnchorIndex(source)
+    visits = set(explicit_visit_labels(source))
+    optional_visits = set(explicit_optional_labels(source))
+    activities = list(draft.activities)
+    spans = []
+    for item in activities:
+        try:
+            spans.append(anchors.locate(item.source_quote, item.occurrence))
+        except ValueError:
+            return draft
+    for left, right, day in choice_scopes(source):
+        if day is None or len(re.findall(r"^\s*#{0,6}\s*(?:方案|版本)\s*[ABabＡＢ一二12]", source[left:right], re.M)) < 2:
+            continue
+        indices = [i for i, (start, end) in enumerate(spans) if left <= start < end <= right]
+        if not indices or indices != list(range(indices[0], indices[-1] + 1)) or any(
+            not activities[i].place_name or activities[i].role != ActivityRole.OPTIONAL or activities[i].day_index != day
+            for i in indices
+        ):
+            continue
+        changed = False
+        for i in indices:
+            item = activities[i]
+            start, end = spans[i]
+            line_start = source.rfind("\n", left, start) + 1
+            heading_reference = re.match(r"\s*#{1,6}\s+", source[max(left, line_start):start]) is not None
+            nested_prefix = any(
+                j != i and spans[j][0] <= start < end <= spans[j][1] and spans[j] != spans[i]
+                and activities[j].place_name and len(activities[j].place_name) > len(item.place_name)
+                for j in indices
+            )
+            if item.source_quote != item.place_name or not (nested_prefix or heading_reference):
+                continue
+            occurrences = []
+            for occurrence in range(1, 161):
+                try:
+                    candidate = anchors.locate(item.source_quote, occurrence)
+                except ValueError:
+                    break
+                if left <= candidate[0] < candidate[1] <= right:
+                    occurrences.append((occurrence, candidate))
+            if len(occurrences) != 2:
+                continue
+            targets = [(occurrence, span) for occurrence, span in occurrences
+                       if span != (start, end) and span in (optional_visits if heading_reference else visits)
+                       and not any(j != i and other[0] <= span[0] < span[1] <= other[1] for j, other in enumerate(spans))]
+            if len(targets) != 1:
+                continue
+            occurrence, span = targets[0]
+            activities[i] = item.model_copy(update={"occurrence": occurrence})
+            spans[i] = span
+            changed = True
+        if changed and len({spans[i] for i in indices}) == len(indices):
+            ordered = sorted(indices, key=lambda i: spans[i][0])
+            ordered_items = [activities[i] for i in ordered]
+            ordered_spans = [spans[i] for i in ordered]
+            for i, item, span in zip(indices, ordered_items, ordered_spans, strict=True):
+                activities[i], spans[i] = item, span
+    return draft.model_copy(update={"activities": activities})
+
+
+def _retain_choice_area_context(source: str, draft: SemanticDraft) -> SemanticDraft:
+    """Keep a branch's area caption and unnamed meal without extra POIs."""
+    anchors = SourceAnchorIndex(source)
+    located = []
+    for item in draft.activities:
+        try:
+            located.append(anchors.locate(item.source_quote, item.occurrence))
+        except ValueError:
+            return draft
+    activities = list(draft.activities)
+    for i, item in enumerate(activities):
+        if not item.place_name or item.source_quote != item.place_name or item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+            continue
+        start, end = located[i]
+        scope = next(((left, right, day) for left, right, day in choice_scopes(source)
+                      if item.day_index is not None and day in {None, item.day_index} and left <= start < end <= right), None)
+        if scope is None:
+            continue
+        left, right, _ = scope
+        if re.search(r"更正|改期|改到|改为|改成|调整|取消|倒着|逆序", source[left:right]):
+            continue
+        branches = list(re.finditer(r"^\s*#{0,6}\s*(?:方案|版本)\s*[ABabＡＢ一二12](?=[\s:：|｜（(]|$)", source[left:right], re.M))
+        if len(branches) < 2:
+            continue
+        branch_left = [left + branch.start() for branch in branches if left + branch.start() <= start]
+        if not branch_left:
+            continue
+        # A meal in B cannot borrow the road visit that exists only in A.
+        left = branch_left[-1]
+        following = source[end:right]
+        caption = re.match(r"[，,]\s*逛(?P<places>[A-Za-z0-9\u4e00-\u9fff·]+(?:、[A-Za-z0-9\u4e00-\u9fff·]+){1,5})(?=[。；;！\n]|$)", following)
+        clause_start = max(source.rfind(mark, left, start) for mark in "\n。；;，,：:") + 1
+        bare_caption = re.fullmatch(r"[\s\d①②③④⑤⑥⑦⑧⑨⑩.、()（）\-•]*", source[max(left, clause_start):start]) is not None
+        venue_label = re.search(r"(?:公园|馆|院|寺|宫|塔|店|湖|桥)$", item.place_name) is not None
+        if caption and bare_caption and not venue_label:
+            names = caption["places"].split("、")
+            candidates = [other.place_name for j, other in enumerate(activities)
+                          if j != i and other.day_index == item.day_index
+                          and other.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
+                          and end + caption.start("places") <= located[j][0] < located[j][1] <= end + caption.end("places")]
+            if set(names).issubset(candidates) and any(name.startswith(item.place_name) and name != item.place_name for name in names):
+                activities[i] = item.model_copy(update={"role": ActivityRole.REFERENCE})
+                continue
+        meal_area = re.fullmatch(r"(.+(?:路|街))周边", item.place_name)
+        if meal_area and re.match(r"(?:吃饭|吃午饭|吃晚饭|用餐)", following):
+            line_start = source.rfind("\n", left, start) + 1
+            if re.search(r"再去|再到|返回|重访|回到", source[max(left, line_start):start]):
+                continue
+            if any(normalized_place_label(other.place_name or "") == meal_area[1] and other.day_index == item.day_index
+                   and other.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
+                   and left <= located[j][0] < located[j][1] <= start for j, other in enumerate(activities)):
+                activities[i] = item.model_copy(update={"place_name": None, "category": "餐饮"})
+    return draft.model_copy(update={"activities": activities})
+
+
+def _anchor_binary_choice_mentions(source: str, draft: SemanticDraft) -> tuple[SemanticDraft, list[dict[str, object]], list[str]]:
+    """Require a model-supplied name in each explicit two-choice heading.
+
+    The heading only gives clause boundaries. Names must come from the model
+    and match the literal clause; missing names go to the same bounded repair.
+    """
+    anchors = SourceAnchorIndex(source)
+    activities = list(draft.activities)
+    issues, hints = [], []
+    clauses = explicit_binary_choice_clauses(source)
+    independent_labels = explicit_optional_labels(source) + explicit_visit_labels(source)
+    for left, right, day in clauses:
+        fragment, _ = _markdown_visible(source[left:right])
+        matched = []
+        for i, item in enumerate(activities):
+            name = item.place_name
+            if not name or item.day_index != day or item.role not in {ActivityRole.PLANNED, ActivityRole.OPTIONAL, ActivityRole.REFERENCE}:
+                continue
+            if atomic_place_rejection_reason(name) is not None or re.search(
+                r"人少|人多|更出名|交通方便|风景好|名气大|人流少", name,
+            ) or not re.match(
+                re.escape(name) + r"(?=$|[\s（(。；;！？!?.]|人少|人多|更出名|名气|风景|交通|适合|推荐|人流)", fragment.strip(),
+            ):
+                continue
+            try:
+                current_start, current_end = anchors.locate(item.source_quote, item.occurrence)
+                local_start, local_end = SourceAnchorIndex(source[left:right]).locate(name)
+            except ValueError:
+                continue
+            # An explicit later planned visit can settle a heading's choice;
+            # it must not be silently reclassified from an unrelated clause.
+            if item.role == ActivityRole.PLANNED and not left <= current_start < current_end <= right:
+                continue
+            if item.role == ActivityRole.OPTIONAL and not left <= current_start < current_end <= right and (
+                any(getattr(item, field) is not None for field in ("start_time", "end_time", "visit_duration_minutes"))
+                or any(current_start <= begin < finish <= current_end for begin, finish in independent_labels)
+            ):
+                continue
+            matched.append((i, name, left + local_start, left + local_end))
+        if len({name for _, name, _, _ in matched}) != 1:
+            issues.append({"field": "activities.binary_choice", "category": "MISSING_EXPLICIT_OPTIONAL_PLACE"})
+            hints.append("二选一原文片段（保留本日的逐字地点名为OPTIONAL）：" + source[left:right])
+            continue
+        # A later optional visit is a separate occurrence even when a title
+        # offers the same place. Prefer the candidates already in this clause.
+        in_heading = [entry for entry in matched if left <= anchors.locate(
+            activities[entry[0]].source_quote, activities[entry[0]].occurrence,
+        )[0] < right]
+        if in_heading:
+            matched = in_heading
+        for i, name, start, _end in matched:
+            occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(name) + r")", anchors.visible)
+                                 if anchors.indices[match.start()] < start)
+            activities[i] = activities[i].model_copy(update={"source_quote": name, "occurrence": occurrence, "role": ActivityRole.OPTIONAL})
+    if not issues:
+        for day in {day for _, _, day in clauses}:
+            indices = [i for i, item in enumerate(activities) if item.day_index == day and item.role == ActivityRole.OPTIONAL]
+            try:
+                ordered = sorted((activities[i] for i in indices), key=lambda item: anchors.locate(item.source_quote, item.occurrence)[0])
+            except ValueError:
+                continue
+            # Display unselected options in their source order. Planned slots
+            # and every activity's day/role stay unchanged.
+            for i, item in zip(indices, ordered, strict=True):
+                activities[i] = item
+    return draft.model_copy(update={"activities": activities}), issues, hints
 
 
 def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) -> bool:
@@ -127,10 +642,20 @@ def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) 
     bracket = re.match(r"^[（(]([^（）()\n]{1,24})[）)]", tail)
     if bracket:
         label = bracket[1]
+        if re.match(r"^[A-Za-z\u4e00-\u9fff·]{2,16}\s*\d{1,3}\s*(?:楼|层)(?:[，,]|$)", label):
+            return True
+        cleaned = normalized_place_label("场馆" + bracket[0])
+        if cleaned == "场馆":
+            return False
+        cleaned_bracket = re.fullmatch(r"场馆[（(](.+)[）)]", cleaned)
+        if cleaned_bracket:
+            label = cleaned_bracket[1]
     else:
         label = re.split(r"[\s，,。；;：:、→/／（）()]|出来|出发|离开|之后|以后|随后|然后|接着|再去|再到|前往|参观|游览|集合|进入|游玩|打卡|入住|用餐|步行|返回|吃饭|喝咖啡", tail, maxsplit=1)[0]
-    if re.match(r"^(?:的|里面|内有|外面|附近|旁边|是|有|包含|可以|需要|还|并|与|和|以及|到|去)", label):
+    if re.match(r"^(?:的|里面|内有|外面|附近|旁边|是|有|包含|可以|需要|还|并|与|和|以及|到|去|逛|看|吃|买|喝|租|乘|坐)", label):
         return False
+    if re.match(r"^(?:摩天轮|露台|滨江步道|周边)", label):
+        return True
     # A following action ("北门见", "分店吃饭") does not make an attached
     # qualifier disappear. Bracketed prose, however, must be a label in full.
     match = re.fullmatch if bracket else re.match
@@ -165,6 +690,8 @@ def _validation_issues(exc: ValueError) -> list[dict[str, object]]:
 def _explicit_markdown_place_groups(source: str) -> tuple[tuple[str, ...], ...]:
     """Find short, explicitly grouped Markdown labels without parsing prose."""
 
+    if re.search(r"只(?:选|去|到|参观|游览)|仅(?:选|去)|取消|更正|改到|改为|改成", source):
+        return ()
     groups: list[tuple[str, ...]] = []
     for match in re.finditer(r"(?:\*\*|__)(?P<body>[^\r\n]{3,80}?)(?:\*\*|__)", source):
         body = match.group("body").strip()
@@ -190,7 +717,7 @@ def _explicit_plain_place_groups(source: str, atomic_places: set[str]) -> tuple[
     # every place from the obsolete list to reappear in the final draft.
     if re.search(r"取消|更正|改到|改为|改成|恢复", source):
         return ()
-    suffix = r"(?:博物院|博物馆|公园|景区|广场|古镇|步行街|寺|庙|湖|街)"
+    suffix = r"(?:博物院|博物馆|公园|景区|广场|古镇|步行街|书院|教堂|商圈|寺|庙|湖|街|桥)"
     atom = rf"[\u4e00-\u9fffA-Za-z0-9]{{1,18}}{suffix}"
 
     def strip_supported_prefix(value: str) -> str:
@@ -199,10 +726,10 @@ def _explicit_plain_place_groups(source: str, atomic_places: set[str]) -> tuple[
             r"^(?:第\s*(?:\d{1,3}|[一二两三四五六七八九十]{1,3})\s*天|"
             r"(?:Day|D)\s*\d{1,3}|\d{1,2}月\d{1,2}日)\s*[:：]?\s*", "", first, flags=re.I,
         )
-        return re.sub(r"^(?:(?:先|再|计划|准备|打算)\s*)?(?:去|到|前往|参观|游览)\s*", "", first)
+        return re.sub(r"^(?:(?:先|再|计划|准备|打算)\s*)?(?:走到|步行到|去|到|前往|参观|游览|逛)\s*", "", first)
 
     groups = []
-    for match in re.finditer(rf"(?P<body>{atom}(?:\s*[、+→]\s*{atom}){{1,7}})(?=[。；;！\n]|$)", source):
+    for match in re.finditer(rf"(?P<body>{atom}(?:\s*[、+→]\s*{atom}){{1,7}})(?=[。；;！\n（(，,]|$)", source):
         before = re.split(r"[。；;！\n]", source[:match.start()])[-1]
         if re.search(r"介绍|说明|海拔|例如|比如|推荐|不去|取消|参考|附近|位于", before):
             continue
@@ -217,7 +744,20 @@ def _explicit_plain_place_groups(source: str, atomic_places: set[str]) -> tuple[
         # A source-bound atom surrounded by unrecognised text is a narrative
         # phrase, not an additional POI the model must emit. Skip this group
         # instead of growing an open-ended action-prefix dictionary.
-        if any(name != part and name in part for part in parts for name in atomic_places):
+        area_caption = re.search(
+            r"(?:^|[，,：:；;\n①②③④⑤⑥⑦⑧⑨⑩])[ \t]*"
+            r"(?P<area>[A-Za-z\u4e00-\u9fff][A-Za-z0-9\u4e00-\u9fff·]{1,18})[，,][ \t]*$",
+            before,
+        )
+        caption_name = area_caption["area"] if (
+            area_caption and area_caption["area"] in atomic_places
+            and match["body"].startswith("逛")
+            and not re.search(r"去年|前年|曾经|原计划|说[：:]|写[：:]|引用|引文|转述|资料|示例", before)
+            and not re.search(r"(?:公园|馆|院|寺|宫|塔|店|湖|桥)$", area_caption["area"])
+        ) else None
+        if any(name != part and name in part and not (
+            name == caption_name and part.startswith(name)
+        ) for part in parts for name in atomic_places):
             continue
         if all(atomic_place_rejection_reason(part) is None for part in parts):
             groups.append(parts)
@@ -228,6 +768,11 @@ def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActiv
                     start: int, end: int, place_spans: list[tuple[int, int]]) -> tuple[str | None, str | None, bool]:
     if not item.city:
         return None, None, False
+    if not item.city_evidence or not item.city_evidence.strip():
+        # A model's ungrounded per-card city is not contradictory source
+        # evidence. Drop it; the pipeline still checks any single-city soft
+        # destination independently and refuses unassigned mixed-city trips.
+        return None, None, True
     city = item.city.strip().removesuffix("市")
     evidence = item.city_evidence or ""
     visible, _ = _markdown_visible(evidence)
@@ -332,12 +877,12 @@ def _local_timing_evidence(source: str, anchors: SourceAnchorIndex, item: Semant
         if (other_start, other_end) == (start, end) or other_end <= left or other_start >= right:
             continue
         if other_end <= start:
-            separators = [position for position in range(other_end, start) if source[position] in "，,。；;\n"]
+            separators = [position for position in range(other_end, start) if source[position] in "，,。；;\n→+、/／"]
             if not separators:
                 return ""
             left = max(left, separators[-1] + 1)
         elif other_start >= end:
-            separators = [position for position in range(end, other_start) if source[position] in "，,。；;\n"]
+            separators = [position for position in range(end, other_start) if source[position] in "，,。；;\n→+、/／"]
             if not separators:
                 return ""
             right = min(right, separators[0])
@@ -419,23 +964,46 @@ def _unambiguous_literal_place_day(source: str, place: str | None) -> int | None
 
 
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
+    draft = _expand_source_bound_lists(source, draft)
+    draft = _retain_literal_subvenue_labels(source, draft)
+    draft, binary_issues, binary_hints = _anchor_binary_choice_mentions(source, draft)
+    draft = _align_named_day_occurrences(source, draft)
+    draft = _align_choice_label_occurrences(source, draft)
+    draft = _retain_choice_area_context(source, draft)
     anchors = SourceAnchorIndex(source)
+    choices = choice_scopes(source)
+    optional_labels = explicit_optional_labels(source)
+    visit_labels = explicit_visit_labels(source)
     explicit_days = _explicit_day_count(anchors.visible)
-    issues: list[dict[str, object]] = []
+    issues: list[dict[str, object]] = binary_issues
+    repair_hints: list[str] = binary_hints
     located: list[tuple[int, int]] = []
     proposed_atomic = {
-        item.place_name.strip()
+        normalized_place_label(item.place_name.strip())
         for item in draft.activities
         if item.place_name and item.place_name.strip()
-        and not re.search(r"\+|、|，|,|/|／", item.place_name)
+        and len(_top_level_place_parts(item.place_name)) == 1
     }
     groups = _explicit_markdown_place_groups(source) + _explicit_plain_place_groups(anchors.visible, proposed_atomic)
     for group_index, group in enumerate(groups):
         if not set(group).issubset(proposed_atomic):
+            repair_hints.extend(name for name in group if name not in proposed_atomic)
             issues.append({
                 "field": f"activities.parallel_group[{group_index}]",
                 "category": "MISSING_EXPLICIT_PARALLEL_PLACE",
             })
+    # A clearly labelled replacement block is still part of the user's text.
+    # Require its emphasized place labels, without promoting them to visits.
+    for scope_index, (left, right, _day) in enumerate(choices):
+        for match in re.finditer(r"\*\*([^*\r\n]{2,80})\*\*", source[left:right]):
+            parts = _top_level_place_parts(match[1])
+            names = [normalized_place_label(part) for part in parts]
+            if all(atomic_place_rejection_reason(name) is None and re.search(
+                r"(?:博物院|博物馆|公园|宫|园|馆|街|寺|教堂|胡同|书院|滨江|中心|城)$", name,
+            ) for name in names) and not set(names).issubset(proposed_atomic):
+                repair_hints.extend(name for name in names if name not in proposed_atomic)
+                issues.append({"field": f"activities.choice_scope[{scope_index}]",
+                               "category": "MISSING_EXPLICIT_OPTIONAL_PLACE"})
     for index, quote in enumerate(draft.unprocessed_quotes):
         try:
             anchors.locate(quote)
@@ -452,10 +1020,11 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             located.append((0, 0))
         else:
             place = item.place_name.strip() if item.place_name else None
-            if place and place not in source[start:end]:
+            relative_span = _literal_place_span(source[start:end], place)
+            if place and relative_span is None:
                 issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_NOT_IN_SOURCE_QUOTE"})
             elif place and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
-                place_end = start + source[start:end].index(place) + len(place)
+                place_end = start + relative_span[1]
                 if _omits_attached_place_qualifier(anchors, place_end):
                     issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_QUALIFIER_OMITTED"})
             # A planned sightseeing/location item containing an explicit list
@@ -465,21 +1034,22 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             # manufactures a POI from prose.
             visible_quote, _ = _markdown_visible(item.source_quote)
             atomic_siblings = {
-                (sibling.place_name or "").strip()
+                normalized_place_label((sibling.place_name or "").strip())
                 for sibling in draft.activities
                 if sibling.source_quote == item.source_quote
                 and sibling.occurrence == item.occurrence
                 and sibling.day_index == item.day_index
                 and sibling.role == item.role
                 and (sibling.place_name or "").strip()
-                and not re.search(r"\+|、|，|,|/|／", sibling.place_name or "")
+                and len(_top_level_place_parts(sibling.place_name or "")) == 1
             }
             if (
                 item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}
                 and item.category in {"景点", "地点", "交通节点", "住宿"}
-                and re.search(r"\S\s*(?:\+|、|，|,|/|／)\s*\S", visible_quote)
-                and (not place or re.search(r"\+|、|，|,|/|／", place))
+                and len(_top_level_place_parts(visible_quote)) > 1
+                and (not place or len(_top_level_place_parts(normalized_place_label(place))) > 1)
                 and len(atomic_siblings) < 2
+                and not (not place and item.category == "住宿" and _is_unnamed_check_in(item.source_quote))
             ):
                 issues.append({
                     "field": f"activities[{index}].place_name",
@@ -497,12 +1067,28 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                 issues.append({"field": f"activities[{index}].time_evidence", "category": (
                     "TIME_EVIDENCE_NOT_IN_SOURCE" if has_timing else "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"
                 )})
+    for labels, category in [(optional_labels, "MISSING_EXPLICIT_OPTIONAL_PLACE"), (visit_labels, "MISSING_EXPLICIT_VISIT_PLACE")]:
+        for label_index, (left, right) in enumerate(labels):
+            name = normalized_place_label(source[left:right])
+            matched = [item for item, (start, end) in zip(draft.activities, located, strict=True)
+                       if item.place_name and normalized_place_label(item.place_name) == name and start <= left < right <= end]
+            if not matched:
+                issues.append({"field": f"activities.explicit_labels[{label_index}]", "category": category})
+                literal = source[left:right]
+                occurrence = 1 + sum(1 for match in re.finditer(r"(?=" + re.escape(literal) + r")", anchors.visible)
+                                     if anchors.indices[match.start()] < left)
+                # Repeated names need the specific occurrence, including a
+                # shorter name that earlier occurs inside a longer place.
+                # These private hints are never included in failure metadata.
+                repair_hints.append(json.dumps({"source_quote": literal, "occurrence": occurrence}, ensure_ascii=False))
+            elif labels is visit_labels and explicit_days > 1 and any(item.day_index is None for item in matched):
+                issues.append({"field": "activities.explicit_labels", "category": "MISSING_EXPLICIT_DAY"})
     if issues:
-        raise SourceAnchorValidationError(issues)
+        raise SourceAnchorValidationError(issues, repair_hints)
     place_spans = [
-        (start + source[start:end].index(item.place_name), start + source[start:end].index(item.place_name) + len(item.place_name))
+        (start + relative[0], start + relative[1])
         for item, (start, end) in zip(draft.activities, located, strict=True)
-        if item.place_name and item.place_name in source[start:end]
+        if (relative := _literal_place_span(source[start:end], item.place_name)) is not None
     ]
     mentions: list[ProposedMention] = []
     seen: set[tuple[int, int, ActivityRole, int | None]] = set()
@@ -512,15 +1098,36 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     for item, (start, end) in zip(draft.activities, located, strict=True):
         place = item.place_name.strip() if item.place_name else None
         if place is not None:
-            relative = source[start:end].index(place)
-            start += relative
-            end = start + len(place)
+            relative_start, relative_end = _literal_place_span(source[start:end], place)
+            end = start + relative_end
+            start += relative_start
+            place = normalized_place_label(place)
             if atomic_place_rejection_reason(place) is not None:
                 # Keep the intended arrangement pending without presenting a
                 # description/URL as a real place or sending it to POI search.
                 place = None
                 unprocessed += 1
+        if place and item.category == "餐饮" and re.search(r"(?:步行街|胡同|路|街|巷|街区|滨江|商圈|周边)$", place):
+            item = item.model_copy(update={"category": "地点"})
+        if item.category == "餐饮" and draft.destination.strip().removesuffix("市") == "北京" and place in {"大栅栏", "前门大栅栏"}:
+            # Reviewed area labels without a generic street suffix. This only
+            # corrects the draft category; a POI still needs live confirmation.
+            # https://www.beijing.gov.cn/ywdt/zwzt/gjxxfxcs/gjf/xftyq/tyts/202404/t20240410_3615091.html
+            item = item.model_copy(update={"category": "地点"})
         day = item.day_index
+        if (start, end) in visit_labels and item.role in {ActivityRole.OPTIONAL, ActivityRole.REFERENCE}:
+            item = item.model_copy(update={"role": ActivityRole.PLANNED})
+        if (start, end) in optional_labels and item.role in {ActivityRole.PLANNED, ActivityRole.REFERENCE}:
+            item = item.model_copy(update={"role": ActivityRole.OPTIONAL})
+        # Explicit unselected branches constrain the model's proposed role.
+        # Source ranges never select a default branch or move cancelled visits.
+        for left, right, scope_day in choices:
+            if left <= start and end <= right and item.role in {
+                ActivityRole.PLANNED, ActivityRole.OPTIONAL,
+            }:
+                item = item.model_copy(update={"role": ActivityRole.OPTIONAL})
+                day = scope_day if scope_day is not None else day
+                break
         if item.role == ActivityRole.PLANNED and day is None:
             day = 1
             unprocessed += 1
@@ -543,6 +1150,11 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             _local_timing_evidence(source, anchors, item, draft, located, start, end),
         )
         city, city_evidence, city_removed = _validated_city(source, anchors, item, start, end, place_spans)
+        if city_removed and item.city and item.city.strip().removesuffix("市") == draft.destination.strip().removesuffix("市"):
+            # Discard an invalid repetition of the document's soft city guess.
+            # Independent source/city checks in _model_activity_cities still
+            # reject mixed-city ambiguity and city names embedded in POIs.
+            city_evidence = None
         unprocessed += int(timing_removed) + int(city_removed)
         group = day or 0
         sequence = sequences.get(group, 0)
@@ -566,10 +1178,13 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                          max((mention.day_index or 0 for mention in mentions), default=0), 1)
     if len(draft.day_labels) > supported_days or supported_days > 14:
         unprocessed += 1
+    explicit_destination = draft.destination in source_destination_cities(source) or any(
+        mention.city_hint == draft.destination and mention.city_evidence for mention in mentions
+    )
     return InferenceProposal(
         source_hash=hashlib.sha256(source.encode()).hexdigest(),
         destination_name=draft.destination,
-        destination_basis=(DestinationBasis.EXPLICIT if draft.destination in source
+        destination_basis=(DestinationBasis.EXPLICIT if explicit_destination
                            else DestinationBasis.SOFT_ASSUMPTION),
         day_labels=labels, day_count=min(supported_days, 14), unprocessed_count=unprocessed,
         mentions=mentions, binding={"semantic_policy": SEMANTIC_POLICY},
@@ -579,7 +1194,7 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
 class ExperienceQwenProvider:
     def __init__(
         self, *, api_key: str, base_url: str, model: str,
-        deadline_seconds: float = 30, max_output_tokens: int = 4096,
+        deadline_seconds: float = 60, max_output_tokens: int = 4096,
         input_cny_per_million: float | None = None,
         output_cny_per_million: float | None = None,
         client: Any | None = None,
@@ -629,7 +1244,7 @@ class ExperienceQwenProvider:
                     call_started = time.perf_counter()
                     try:
                         response = await self.client.chat.completions.create(
-                            model=self.model, messages=messages, temperature=0.1,
+                            model=self.model, messages=messages, temperature=SEMANTIC_TEMPERATURE,
                             max_tokens=self.max_output_tokens,
                             response_format={"type": "json_object"},
                             extra_body={"enable_thinking": False},
@@ -645,7 +1260,7 @@ class ExperienceQwenProvider:
                     try:
                         if getattr(response.choices[0], "finish_reason", None) == "length":
                             raise ValueError("OUTPUT_TRUNCATED")
-                        draft = SemanticDraft.model_validate_json(content)
+                        draft = _expand_source_bound_lists(source_text, SemanticDraft.model_validate_json(content))
                         proposal = proposal_from_draft(source_text, draft)
                     except (ValueError, ValidationError) as exc:
                         failure = "INVALID_STRUCTURED_OUTPUT" if isinstance(exc, ValidationError) else str(exc)
@@ -698,12 +1313,22 @@ class ExperienceQwenProvider:
                                     "按原文保留完整限定名称，不能把后面的出来、再去等动作并入名称。"
                                     "MISSING_EXPLICIT_DAY 表示多日行程缺少本项日期归属；依据原文最终安排填写day_index，"
                                     "不要把第二天的地点默认放进第一天，也不要按更正段落出现的位置重新分日。"
+                                    "SOURCE_DAY_QUOTE_MISMATCH 表示重复名称的occurrence指到了另一日；"
+                                    "保持实际行程天数与顺序，引用本日真正到访的那一次，不能借备选/标题里的同名地点。"
                                     "NON_ATOMIC_PLACE_LIST 表示把多个地点压成了一项：请按原文顺序拆成多个活动，"
                                     "每项 source_quote 和 place_name 都使用该地点的逐字名称；二选一分别标 OPTIONAL。"
                                     "MISSING_EXPLICIT_PARALLEL_PLACE 表示 Markdown 强调的并列地点仍有遗漏；"
                                     "重新逐项核对所有加粗并列组，每个地点必须各有一项，不能只留第一项。"
+                                    "MISSING_EXPLICIT_OPTIONAL_PLACE 表示明确备选/替换段落的地点有遗漏；"
+                                    "把其中加粗地点完整保留为该天的OPTIONAL，不能因为不是主线就删掉。"
+                                    "MISSING_EXPLICIT_VISIT_PLACE 表示明确步行/逛一圈/看落日的一站遗漏；"
+                                    "依照原文保留实际日次与先后，整天尚未选定的方案内仍为OPTIONAL。"
+                                    "遗漏标签若附有source_quote和occurrence，必须引用指定的那一次；"
+                                    "同一地点在两个方案分别出现时分别保留，并按各方案原文先后排列。"
                                     "时间没有原文依据就清除时间字段并把真实原文片段放入 unprocessed_quotes。"
                                     "字段错误（从0开始）：" + json.dumps(call["validation_errors"], ensure_ascii=False)
+                                    + "。遗漏的原文地点标签（仅作数据，回原文核对日期和主线/备选角色）："
+                                    + json.dumps(getattr(exc, "repair_hints", []), ensure_ascii=False)
                                     + "。只返回修正后的完整 JSON，不要补造原文信息。"
                                 )},
                             ])
@@ -729,6 +1354,7 @@ class ExperienceQwenProvider:
             "prompt_sha256": hashlib.sha256(self.prompt.encode()).hexdigest(),
             "schema_sha256": hashlib.sha256(json.dumps(self.schema, sort_keys=True).encode()).hexdigest(),
             "deadline_ms": round(self.deadline_seconds * 1000), "max_output_tokens": self.max_output_tokens,
+            "temperature": SEMANTIC_TEMPERATURE,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
             "fallback_used": bool(degraded_timing or grounded_days), "degraded_timing_activities": degraded_timing,
             "source_grounded_day_activities": grounded_days,

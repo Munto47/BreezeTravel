@@ -187,7 +187,7 @@ class Settings(BaseSettings):
     qwen_api_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
     qwen_model_catalog_url: str = "https://dashscope.aliyuncs.com/api/v1/models"
     trip_understanding_qwen_model: str = ""
-    trip_understanding_qwen_deadline_seconds: float = 30.0
+    trip_understanding_qwen_deadline_seconds: float = 60.0
     trip_understanding_qwen_max_output_tokens: int = 4096
     trip_understanding_qwen_input_cny_per_million: float | None = None
     trip_understanding_qwen_output_cny_per_million: float | None = None

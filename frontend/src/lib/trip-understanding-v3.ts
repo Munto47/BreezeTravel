@@ -471,7 +471,11 @@ export async function createDemoTripUnderstanding(
     },
     body: JSON.stringify({ mode: 'DEMO' }),
   })
-  if (!response.ok) throw new Error('DEMO_CREATE_FAILED')
+  if (!response.ok) {
+    if ([502, 503, 504].includes(response.status))
+      throw new Error('CREATE_SERVICE_UNAVAILABLE')
+    throw new Error('DEMO_CREATE_FAILED')
+  }
   return response.json() as Promise<TripUnderstandingAcceptedView>
 }
 
@@ -494,6 +498,8 @@ export async function createFullTripUnderstanding(
   if (!response.ok) {
     if (response.status === 401) throw new Error('LOGIN_REQUIRED')
     if (response.status === 429) throw new Error('ACTIVE_LIMIT_REACHED')
+    if ([502, 503, 504].includes(response.status))
+      throw new Error('CREATE_SERVICE_UNAVAILABLE')
     throw new Error('FULL_CREATE_FAILED')
   }
   return response.json() as Promise<TripUnderstandingAcceptedView>

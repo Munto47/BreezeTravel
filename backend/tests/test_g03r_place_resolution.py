@@ -515,7 +515,7 @@ async def test_lexicon_hit_does_not_hide_provider_failure(monkeypatch: pytest.Mo
 
 
 @pytest.mark.asyncio
-async def test_complete_whitelisted_venue_suffix_is_an_equivalent_lowest_tier(
+async def test_person_name_without_a_reviewed_alias_does_not_identify_a_memorial(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _use_lexicon(monkeypatch)
@@ -528,9 +528,10 @@ async def test_complete_whitelisted_venue_suffix_is_an_equivalent_lowest_tier(
             category_hint="景点",
         )
 
-    assert outcome.place is not None
-    assert outcome.place.canonical_place_id == "poi-1"
-    assert outcome.receipt["selection_tier"] == "VENUE_SUFFIX_EQUIVALENT"
+    # A person/place stem alone is not a venue identity. The same historical
+    # suffix rule incorrectly confirmed a street area as an unrelated museum.
+    assert outcome.place is None
+    assert outcome.receipt["status"] == "NO_UNIQUE_MATCH"
 
 
 @pytest.mark.asyncio

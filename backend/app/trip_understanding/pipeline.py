@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable, Sequence
 from typing import Protocol
 from uuid import uuid4
 from app.trip_understanding.timing import timing_values
+from app.trip_understanding.place_labels import normalized_place_label
 
 from app.trip_understanding.errors import (
     InferenceProviderUnavailableError,
@@ -255,6 +256,57 @@ def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...
     return source_cities or (destination_name,)
 
 
+def _reviewed_places_support_soft_city(source_text: str, proposal: InferenceProposal, destination: str) -> bool:
+    """Two independent reviewed names can support a query lane, never a POI."""
+    from app.trip_understanding._three_city_place_lexicon import (
+        get_three_city_place_lexicon,
+        normalize_place_name,
+    )
+    from app.trip_understanding.landmark_hints import HINTS
+
+    if proposal.destination_basis != DestinationBasis.SOFT_ASSUMPTION:
+        return False
+    lexicon = get_three_city_place_lexicon()
+    if not lexicon.available:
+        # Without the full dictionary, cross-city name ambiguity is unknown.
+        return False
+    planned = [
+        item
+        for item in proposal.mentions
+        if is_atomic_planned_place(item)
+        and item.category_hint not in {"餐饮", "住宿"}
+        and source_text[item.span_start:item.span_end] == item.raw_text
+    ]
+    if any(item.city_hint and item.city_hint != destination for item in planned):
+        return False
+    names = {
+        normalize_place_name(item.atomic_place_name)
+        for item in planned
+        if item.city_evidence is None or item.city_hint == destination
+    }
+    matches: dict[str, dict[tuple[str, str], bool]] = {name: {} for name in names}
+    reviewed = [
+        (entry.city, entry.canonical_name, entry.aliases, entry.category in {"attraction", "transport"})
+        for entry in lexicon.entries
+    ] + [(hint.city, hint.name, hint.aliases, hint.typecode.startswith(("08", "11", "14", "15", "19"))) for hint in HINTS]
+    for city, canonical, aliases, eligible in reviewed:
+        identity = (city, normalize_place_name(canonical))
+        for label in (canonical, *aliases):
+            normalized = normalize_place_name(label)
+            if normalized in matches:
+                matches[normalized][identity] = matches[normalized].get(identity, False) or eligible
+    supports = set()
+    for identities in matches.values():
+        if len(identities) != 1:
+            continue
+        identity, eligible = next(iter(identities.items()))
+        if identity[0] != destination:
+            return False
+        if eligible:
+            supports.add(identity)
+    return len(supports) >= 2
+
+
 def _model_activity_cities(source_text: str, proposal: InferenceProposal, mention) -> tuple[str, ...]:
     """Use an activity's validated city; never search all cities and pick one."""
     if mention.city_hint:
@@ -269,14 +321,28 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
         any(item.span_start <= match.start() < item.span_end for item in proposal.mentions)
         for match in destination_mentions
     ):
-        return ("目的地待确认",)
+        if not _reviewed_places_support_soft_city(source_text, proposal, destination):
+            return ("目的地待确认",)
     # Older/single-city model responses remain compatible. Explicitly mixed
     # cities outside POI names require each activity to carry its own evidence.
     for city in DOMESTIC_CITY_NAMES:
         if city == destination:
             continue
         for match in re.finditer(re.escape(city), source_text):
-            if not any(item.span_start <= match.start() < item.span_end for item in proposal.mentions):
+            # Travel descriptions often mention an internal street that is
+            # not a separate visit, e.g. 苏州街 or 乌鲁木齐中路. Such city
+            # prefixes do not establish a second destination.
+            road_suffix = re.match(
+                r"(?:[东南西北中]路|路(?:步行街)?|街)(?=$|[\s，,。；;：:、/／→+）)*]|逛|散步|吃饭)",
+                source_text[match.end():],
+            )
+            # A delimited lake name (e.g. 昆明湖 or 昆明湖游船) is also
+            # not a city visit. Keep concatenations such as 昆明湖州 ambiguous.
+            lake_suffix = re.match(
+                r"湖(?:游船)?(?=$|[\s，,。；;：:、/／→+（）()*！？!?])",
+                source_text[match.end():],
+            )
+            if not (road_suffix or lake_suffix) and not any(item.span_start <= match.start() < item.span_end for item in proposal.mentions):
                 return ("目的地待确认",)
     return (destination,)
 
@@ -494,6 +560,12 @@ def atomic_place_rejection_reason(value: str) -> str | None:
         return "URL"
     if candidate in GENERIC_PLACE_NAMES or candidate in BARE_FACILITY_NAMES:
         return "GENERIC_OR_FACILITY"
+    if re.fullmatch(r"(?:索道|缆车|滑道)(?:上|下|上下|上山|下山)", candidate):
+        return "TRANSPORT_ACTION"
+    if re.match(r"^\d+(?:\.\d+)?元(?:轮渡|渡轮|公交|地铁|船票|门票)", candidate):
+        return "FARE_DESCRIPTION"
+    if re.match(r"^(?:不用|不必|不要|无需|一定要)", candidate) or re.search(r"(?:散步|拍照|登塔|打卡|游玩).*(?:很好|即可|就行|足够|就好)$", candidate):
+        return "DESCRIPTION"
     if candidate.endswith(("入口", "出口")):
         return "ENTRANCE_OR_EXIT"
     if ACTION_SUFFIX_RE.search(candidate):
@@ -594,7 +666,7 @@ def is_atomic_planned_place(mention) -> bool:
     if atomic_place_rejection_reason(candidate) is not None:
         return False
     raw_candidate = re.sub(r"\r?\n[ \t]*", "", (mention.raw_text or "").strip())
-    if candidate != raw_candidate:
+    if candidate != normalized_place_label(raw_candidate):
         return False
     return True
 

@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "place-accuracy-v1",
+    "id": "owner-seven-text-reproduction",
     "work_kind": "PRODUCT",
     "outcome": "加强原文地点名词到卡片的数量、日归属、顺序与完整身份对应，避免遗漏、多解、误合并及错城错类；不确定时保守待确认",
-    "status": "COMPLETED",
-    "verification": "Final live parsing 24/24; 440 identity/semantic tests and 47 API/PostgreSQL/compatibility tests passed; 11 browser cases; final two live journeys passed with self-created data deleted; 50-query strict matches 24 to 32, 13 safe refusals, 2 unresolved hotels and 3 separately reviewed name variants retained. Local delivery, no push/deployment. See PLACE_PARSING_STABILITY_DELIVERY_20260906.md"
+    "status": "IN_PROGRESS",
+    "verification": "5472927 baseline. Owner-authorized seven original texts kept in ignored local artifacts for this reproduction. Submission dependency failure reproduced and local services restored; independent semantic expectations and live runs in progress."
   },
   "packages": [],
-  "next_planned_slice": "本轮本地交付已完成；继续按所有者解析稳定性优先级处理新的实际复现，不自动扩大推荐或上线范围"
+  "next_planned_slice": "七份原文逐项复现、修复、同案例回归及本地交付；不扩大推荐或上线范围"
 }

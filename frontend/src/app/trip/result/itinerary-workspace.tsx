@@ -71,6 +71,7 @@ type ItineraryWorkspaceProps = {
   onRender: () => void
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
+  onAlternatives?: (dayIndex: number, trigger: HTMLButtonElement) => void
 }
 
 
@@ -85,6 +86,7 @@ export default function ItineraryWorkspace({
   mapView,
   onCommand,
   onAdd,
+  onAlternatives,
 }: ItineraryWorkspaceProps) {
   const reduceMotion = useReducedMotion()
   const [localDays, setLocalDays] = useState(days)
@@ -439,9 +441,18 @@ export default function ItineraryWorkspace({
                           {day.label}
                         </h2>
                       </div>
-                      <span className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-semibold text-slate-600 md:mt-4 md:inline-block">
+                      <div className="flex flex-wrap items-center justify-end gap-2 md:mt-4 md:justify-start">
+                      <span className="rounded-full bg-white/75 px-3 py-1.5 text-xs font-semibold text-slate-600">
                         {day.activities.length} 个地点
                       </span>
+                      {onAlternatives && !!day.alternatives?.length && <button
+                        type="button" className="min-h-11 whitespace-nowrap rounded-full bg-white/80 px-3 text-xs font-semibold text-sky-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+                        data-testid={`day-alternatives-${dayIndex}`}
+                        aria-label={`${day.label}的备选地点`}
+                        aria-controls="journey-suggestions"
+                        onClick={event => onAlternatives(dayIndex, event.currentTarget)}
+                      >备选 · {day.alternatives.length}</button>}
+                      </div>
                     </div>
 
                   </div>

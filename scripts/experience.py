@@ -109,7 +109,7 @@ def configure() -> dict[str, str]:
         "AUTO_MIGRATE": "false", "REQUIRE_SCHEMA_CHECK": "true",
         "CHECKPOINT_BOOTSTRAP_ON_START": "false", "LEGACY_IMPORT_DIAGNOSTICS_ENABLED": "false",
         "LANGCHAIN_TRACING_V2": "false", "LANGSMITH_TRACING": "false",
-        "TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS": "30",
+        "TRIP_UNDERSTANDING_QWEN_DEADLINE_SECONDS": "60",
         "TRIP_UNDERSTANDING_QWEN_MAX_OUTPUT_TOKENS": "4096",
         "JWT_SECRET_KEY": secrets.token_urlsafe(36),
         "TRIP_UNDERSTANDING_COOKIE_SIGNING_KEY": secrets.token_urlsafe(36),
@@ -367,6 +367,34 @@ def postgres_running(state: dict) -> bool:
         creationflags=HIDDEN,
     )
     return result.returncode == 0
+
+
+def runtime_status(state: dict) -> dict[str, bool | str]:
+    processes = state.get("processes", {})
+    status: dict[str, bool | str] = {
+        "api": running(processes.get("api")),
+        "web": running(processes.get("web")),
+        "web_mode": state.get("web_mode", "unknown"),
+        "yjs": running(processes.get("yjs")),
+        "postgres": postgres_running(state),
+        "redis": running(processes.get("redis")),
+    }
+    api_ready = False
+    if status["api"]:
+        try:
+            with urlopen(f"http://127.0.0.1:{API_PORT}/health", timeout=2) as response:
+                api_ready = response.status == 200
+        except Exception:
+            # Readiness failures may carry private connection details. Never
+            # read the response body or include exception text in status output.
+            pass
+    status["api_ready"] = api_ready
+    status["ready"] = (
+        all(status[name] for name in ("api", "web", "yjs", "postgres", "redis"))
+        and all(port_ready(port) for port in (API_PORT, WEB_PORT, YJS_PORT, PG_PORT, REDIS_PORT))
+        and api_ready
+    )
+    return status
 
 
 def owned_runtime_is_active(state: dict) -> bool:
@@ -680,7 +708,7 @@ def main() -> None:
         asyncio.run(migrate(configure()))
     else:
         state = load_state()
-        print(json.dumps({"api": running(state["processes"].get("api")), "web": running(state["processes"].get("web")), "web_mode": state.get("web_mode", "unknown"), "yjs": running(state["processes"].get("yjs")), "postgres": postgres_running(state), "redis": running(state["processes"].get("redis"))}))
+        print(json.dumps(runtime_status(state)))
 
 
 if __name__ == "__main__":

@@ -38,6 +38,8 @@ HINTS = (
                  "https://swj.beijing.gov.cn/swdt/ztzl/hczzl/mtjj/201912/t20191219_1330573.html"),
     LandmarkHint("上海", "武康路", (), "徐汇区", "190301", "地名地址信息;交通地名;道路名",
                  "https://arabic.shanghai.gov.cn/cmsres/fb/fb4c67ebf9604322a8b3f6f74d7e1760/eec310a1555eb5a02a121cee2922800d.pdf"),
+    LandmarkHint("上海", "豫园", (), "黄浦区", "110202", None,
+                 "https://www.shanghai.gov.cn/citywalk/20260625/3a8ac74e088f4d468d9c3434b0b43d94.html"),
     LandmarkHint("上海", "东方明珠广播电视塔", ("东方明珠", "东方明珠电视塔"), "浦东新区", "110202", None,
                  "https://www.meet-in-shanghai.net/tc/news/shanghai-municipal-administration-of-culture-and-tourism-will-launch-the-five-hearts-plan-to-revitalize-the-cultural-tourism-market-and-many-scenic-spots-will-reopen-part-i-200655/"),
 )

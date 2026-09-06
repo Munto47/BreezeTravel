@@ -16,6 +16,7 @@ type Props = {
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onRetry: () => void; onPreview: (item: PublicTripCheckItem) => void
   onLocate: (item: PublicTripCheckItem) => void; onStay: (token: string) => void
+  alternativesRequest?: {dayIndex: number; trigger: HTMLButtonElement} | null
 }
 
 export default function JourneySuggestions(props: Props) {
@@ -31,15 +32,46 @@ export default function JourneySuggestions(props: Props) {
   const generation = useRef(0)
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLElement>(null)
+  const alternativesSection = useRef<HTMLDetailsElement>(null)
+  const returnFocus = useRef<HTMLElement | null>(null)
+  const pendingAlternativesFocus = useRef(false)
   const currentDayIndex = Math.min(dayIndex, Math.max(0, result.days.length - 1))
   const day = result.days[currentDayIndex]
   const anchors = day?.activities.filter(card => card.status === 'READY' && card.category !== '餐饮') || []
   const anchor = anchors[Math.min(anchorIndex, Math.max(0, anchors.length - 1))]
   const stale = Boolean(dining && dining.etag !== etag)
   const busy = disabled || writing
-  const alternatives = (day?.alternatives || []).filter(item => !day.activities.some(card => card.name === item.name && card.category === item.category))
+  const alternatives = day?.alternatives || []
   const stay = props.stay || result.stay
   const items = props.checks?.items || []
+
+  function closePanel() {
+    setOpen(false)
+    pendingAlternativesFocus.current = false
+    if (returnFocus.current?.isConnected) {
+      returnFocus.current.focus({preventScroll: true})
+      return
+    }
+    const heading = props.alternativesRequest && document.querySelector<HTMLElement>(`[data-day-heading="${props.alternativesRequest.dayIndex + 1}"]`)
+    ;(heading || trigger.current)?.focus({preventScroll: true})
+  }
+
+  useEffect(() => {
+    const request = props.alternativesRequest
+    if (!request) return
+    returnFocus.current = request.trigger
+    pendingAlternativesFocus.current = true
+    setDayIndex(request.dayIndex); setAnchorIndex(0); setDining(null); setError(''); setOpen(true)
+  }, [props.alternativesRequest])
+  useEffect(() => {
+    if (!open || !pendingAlternativesFocus.current || !props.alternativesRequest || currentDayIndex !== props.alternativesRequest.dayIndex) return
+    const section = alternativesSection.current
+    if (!section) return
+    pendingAlternativesFocus.current = false
+    section.open = true
+    section.scrollIntoView({block: 'nearest'})
+    section.querySelector('summary')?.focus({preventScroll: true})
+  }, [open, props.alternativesRequest, currentDayIndex])
 
   useEffect(() => {
     generation.current += 1
@@ -48,7 +80,7 @@ export default function JourneySuggestions(props: Props) {
   useEffect(() => {
     if (!open) return
     const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {setOpen(false); trigger.current?.focus()}
+      if (event.key === 'Escape') closePanel()
     }
     const outside = (event: PointerEvent) => {
       if (!panel.current?.contains(event.target as Node) && !trigger.current?.contains(event.target as Node)) setOpen(false)
@@ -56,7 +88,7 @@ export default function JourneySuggestions(props: Props) {
     document.addEventListener('keydown', close)
     document.addEventListener('pointerdown', outside)
     return () => {document.removeEventListener('keydown', close); document.removeEventListener('pointerdown', outside)}
-  }, [open])
+  }, [open, props.alternativesRequest])
   useEffect(() => () => {generation.current += 1}, [])
 
   async function findDining() {
@@ -87,9 +119,9 @@ export default function JourneySuggestions(props: Props) {
   const action = 'min-h-11 rounded-xl px-3 text-sm font-medium text-sky-800 hover:bg-sky-50 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600'
   return <div className="relative">
     <button ref={trigger} type="button" className={action} aria-expanded={open} aria-controls="journey-suggestions"
-      onClick={() => setOpen(value => !value)} data-testid="journey-suggestions-toggle"><Sparkles className="mr-1 inline h-4 w-4" aria-hidden="true"/>检查与建议</button>
+      onClick={() => {returnFocus.current = trigger.current; pendingAlternativesFocus.current = false; setOpen(value => !value)}} data-testid="journey-suggestions-toggle"><Sparkles className="mr-1 inline h-4 w-4" aria-hidden="true"/>检查与建议</button>
     {open && <aside ref={panel} id="journey-suggestions" aria-label="检查与建议" className="fixed right-3 top-24 z-50 max-h-[calc(100dvh-7rem)] w-[min(25rem,calc(100vw-1.5rem))] overflow-y-auto rounded-3xl border border-sky-100 bg-white p-4 shadow-xl">
-      <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={() => {setOpen(false); trigger.current?.focus()}}><X className="h-4 w-4"/></button></div>
+      <div className="flex items-center justify-between"><strong>检查与建议</strong><button type="button" className={action} aria-label="关闭建议" onClick={closePanel}><X className="h-4 w-4"/></button></div>
       <details open className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">行程检查</summary>
         <div className="grid gap-3" aria-live="polite">
           {items.map(item => {
@@ -115,7 +147,7 @@ export default function JourneySuggestions(props: Props) {
           <button type="button" className={action} disabled={busy || searching} onClick={() => void findDining()}>{searching ? '正在查找…' : '找附近餐饮'}</button></> : <p className="py-2 text-sm text-slate-500">先确认当天的一个地点。</p>}
         {dining && <><p className="py-2 text-sm text-slate-500">{stale ? '行程有调整，请重新查询。' : dining.view.message}</p>{!stale && dining.view.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><button className={action} disabled={busy} onClick={() => void apply({command_type:'DINING_INSERT', after_activity_token:dining.anchor, candidate_token:item.candidate_token})}>加入行程</button></article>)}</>}
       </details>
-      {!!alternatives.length && <details className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>{alternatives.map((item, index) => <div key={index} className="flex items-center justify-between gap-2 py-1 text-sm"><span>{item.name}{item.city ? ` · ${item.city}` : ''}</span><button className={action} disabled={busy} onClick={() => void apply({command_type:'ACTIVITY_INSERT', day_index:currentDayIndex+1, position:day.activities.length, name:item.name, category:item.category, city:item.city})}>加入待确认</button></div>)}</details>}
+      {!!alternatives.length && <details ref={alternativesSection} className="border-b border-slate-100 py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">备选地点 · {alternatives.length}</summary>{alternatives.map((item, index) => <div key={index} className="flex items-center justify-between gap-2 py-1 text-sm"><span>{item.name}{item.city ? ` · ${item.city}` : ''}</span><button className={action} disabled={busy} onClick={() => void apply({command_type:'ACTIVITY_INSERT', day_index:currentDayIndex+1, position:day.activities.length, name:item.name, category:item.category, city:item.city})}>加入待确认</button></div>)}</details>}
       <details className="py-2"><summary className="cursor-pointer py-2 text-sm font-semibold">住宿</summary><p className="py-2 text-sm text-slate-500">{stay.message}</p>{stay.candidates.map(item => <article key={item.candidate_token} className="my-2 rounded-2xl bg-slate-50 p-3"><h3 className="text-sm font-semibold">{item.name}</h3><p className="mt-1 text-xs text-slate-500">{item.area_or_address}</p><p className="mt-1 text-xs text-slate-600">{item.commute_summary}</p><p className="mt-1 text-xs text-slate-500">{item.reason}</p><button className={action} disabled={busy || item.selected || stay.status === 'NEEDS_UPDATE'} onClick={() => props.onStay(item.candidate_token)}>{item.selected ? '已选择' : '选择这家住宿'}</button></article>)}</details>
       {error && <p role="status" className="mt-2 text-sm text-slate-600">{error}</p>}
     </aside>}

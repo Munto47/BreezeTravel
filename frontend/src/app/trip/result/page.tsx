@@ -64,6 +64,7 @@ export default function TripResultPage() {
   const [privacyError, setPrivacyError] = useState('')
   const [share, setShare] = useState('')
   const [sharing, setSharing] = useState(false)
+  const [alternativesRequest, setAlternativesRequest] = useState<{dayIndex: number; trigger: HTMLButtonElement} | null>(null)
   const returnPosition = useRef<{
     scroll: number
     element: HTMLElement | null
@@ -204,6 +205,7 @@ export default function TripResultPage() {
     setCandidate(null)
     setEditorDirty(false)
     setDiscard(false)
+    setAlternativesRequest(null)
     dayScroll.current.clear()
   }, [trip.resource])
   useEffect(() => {
@@ -830,6 +832,7 @@ export default function TripResultPage() {
                   onPreview={openPreview}
                   onLocate={locateFinding}
                   onStay={token => void trip.selectStay(token)}
+                  alternativesRequest={alternativesRequest}
                 />
                 <details className="e-more">
                   <summary aria-label="更多行程操作">
@@ -944,6 +947,7 @@ export default function TripResultPage() {
                         : trip.checks?.message || trip.checksError || '待检查'
                     }
                     onCommand={trip.workspaceCommand}
+                    onAlternatives={(targetDayIndex, trigger) => setAlternativesRequest({dayIndex: targetDayIndex - 1, trigger})}
                     onAdd={(targetDayIndex) =>
                       openContext({
                         kind: 'place',

@@ -216,10 +216,13 @@ export default function HomePage() {
         `/trip/result#trip=${encodeURIComponent(accepted.public_resource_id)}`,
       )
     } catch (failure) {
+      const failureCode = failure instanceof Error ? failure.message : ''
       setError(
-        failure instanceof Error && failure.message === 'ACTIVE_LIMIT_REACHED'
+        failureCode === 'ACTIVE_LIMIT_REACHED'
           ? '当前体验次数已用完，或已有行程正在整理。可以继续已有行程，稍后再来。'
-          : '暂时没有收到整理结果，文字仍在这里。重试会确认同一次请求。',
+          : failureCode === 'CREATE_SERVICE_UNAVAILABLE'
+            ? '整理服务暂时不可用，文字仍在这里。请稍后重试，重试会确认同一次请求。'
+            : '暂时没有收到整理结果，文字仍在这里。重试会确认同一次请求。',
       )
       submitted.current = false
       setBusy(false)

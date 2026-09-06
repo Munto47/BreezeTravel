@@ -220,7 +220,7 @@ async def run(args, cases: list[dict]) -> int:
         report["source_unchanged"] = _fingerprint(backend) == source_fingerprint
         save()
     print(json.dumps({"summary": report["summary"]}, ensure_ascii=False), flush=True)
-    return int(report["summary"]["errors"] > 0 or not report["source_unchanged"])
+    return int(report["summary"]["errors"] > 0 or report["summary"]["exact"] != len(cases) or not report["source_unchanged"])
 
 
 def main() -> int:

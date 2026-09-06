@@ -11,7 +11,9 @@ import re
 _NUMBER = r"(?:\d+(?:\.\d+)?|[零〇一二两三四五六七八九十百]+)"
 _PERIOD = r"凌晨|清晨|早上|上午|中午|午后|下午|傍晚|晚上|夜间"
 _CLOCK = re.compile(
-    rf"(?P<period>{_PERIOD})?\s*(?<![\d.])"
+    # A day/weekday label is not the hour in the clock that follows its colon.
+    # Keep Chinese visit prose (e.g. 已预约09:00) and clocks at offset zero valid.
+    rf"(?P<period>{_PERIOD})?\s*(?<![A-Za-z\d_.])(?<!周)(?<!星期)(?<!礼拜)"
     rf"(?P<hour>\d{{1,2}}|[零〇一二两三四五六七八九十]+)"
     rf"(?:(?:[:：])(?P<minute>\d{{2}})|点(?P<suffix>半|一刻|三刻|{_NUMBER}分?)?)"
 )
@@ -23,7 +25,7 @@ _VISIT = re.compile(r"游览|参观|停留|游玩|逛|休息|用餐|就餐|吃�
 _TRANSPORT = re.compile(r"步行|乘车|坐车|公交|地铁|打车|车程|交通|路上|赶路|行驶|到达")
 _COMMITMENT = re.compile(r"已(?:经)?预约|预约成功|已(?:经)?订好|必须准时|不可(?:移动|调整)|已锁定|不能改")
 _NEGATION = re.compile(r"(?:没有|并未|尚未|无需|不必|不用|未|不|取消|无需再|如果|一旦|准备|计划|预计|若).{0,6}$")
-_APPROXIMATE = re.compile(r"(?:大概|大约|差不多|预计|约)\s*$")
+_APPROXIMATE = re.compile(r"(?:大概|大约|差不多|预计|(?<!预)约)\s*$")
 _NEGATED_VALUE = re.compile(r"(?:不是|并非|不再|不要|取消|无需|不必|不用|没有|并未|不(?:去|到|停留|游览|参观))[^，,。；;\n]{0,10}$")
 
 

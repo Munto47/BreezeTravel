@@ -16,6 +16,7 @@ from app.constraints.amap_types import (
 from app.schemas.place import PlaceCategory
 from app.trip_understanding._three_city_place_lexicon import (
     LexiconMatchTier,
+    PlaceLexiconLookup,
     get_three_city_place_lexicon,
     normalize_city_name,
     normalize_place_name,
@@ -320,6 +321,14 @@ def _place_venue_kind(value: str) -> str | None:
     return venue_kind(campus["base"]) if campus else None
 
 
+def _explicit_venue_suffix_equivalent(left: str, right: str) -> bool:
+    # A shared stem is not evidence that an unspecified area is a museum.
+    # Only names that already state the same venue kind can use this tier;
+    # exact reviewed aliases remain eligible through the earlier alias tier.
+    left_kind = venue_kind(left)
+    return left_kind is not None and left_kind == venue_kind(right) and venue_suffix_equivalent(left, right)
+
+
 def _name_match_tier(
     raw: dict[str, Any],
     *,
@@ -362,7 +371,7 @@ def _name_match_tier(
     expected_values = canonical_values | safe_alias_values
     provider_values = primary_values | provider_alias_values
     if any(
-        venue_suffix_equivalent(provider_value, expected_value)
+        _explicit_venue_suffix_equivalent(provider_value, expected_value)
         for provider_value in provider_values
         for expected_value in expected_values
     ):
@@ -959,6 +968,16 @@ class AmapPlaceResolver:
 
         lexicon = get_three_city_place_lexicon()
         lookup = lexicon.lookup(city=normalized_city, name=atomic) if lexicon.available else None
+        if lookup is not None and lookup.tier is LexiconMatchTier.VENUE_SUFFIX_EQUIVALENT:
+            # The query lexicon also offers stem-only suggestions. They cannot
+            # supply a missing venue identity before provider confirmation.
+            lookup = PlaceLexiconLookup(
+                tier=lookup.tier,
+                matches=tuple(entry for entry in lookup.matches if any(
+                    _explicit_venue_suffix_equivalent(atomic, name)
+                    for name in (entry.canonical_name, *entry.aliases)
+                )),
+            )
         lexicon_binding: dict[str, object] = {
             "lexicon_status": "UNAVAILABLE" if not lexicon.available else "MISS",
             "lexicon_match_tier": LexiconMatchTier.NONE.value,

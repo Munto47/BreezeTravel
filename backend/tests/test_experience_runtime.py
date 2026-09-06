@@ -352,7 +352,7 @@ async def test_live_text_uses_direct_model_provider_without_rule_fallback():
     pipeline = build_configured_full_pipeline(cfg)
     try:
         assert isinstance(pipeline.inference_provider, ExperienceQwenProvider)
-        assert pipeline.inference_provider.deadline_seconds == 30
+        assert pipeline.inference_provider.deadline_seconds == 60
         assert pipeline.inference_provider.max_output_tokens == 4096
     finally:
         await pipeline.aclose()
@@ -675,6 +675,99 @@ def test_postgres_status_uses_owned_data_directory_not_a_shared_port(launcher, m
         lambda *_args, **_kwargs: SimpleNamespace(returncode=1),
     )
     assert launcher.postgres_running(state) is False
+
+
+@pytest.fixture
+def healthy_launcher_status(launcher, monkeypatch):
+    from contextlib import contextmanager
+
+    state = {"processes": {name: {"name": name} for name in ("api", "web", "yjs", "redis")},
+             "web_mode": "production"}
+    probes = []
+    monkeypatch.setattr(launcher, "running", lambda record: record is not None)
+    monkeypatch.setattr(launcher, "postgres_running", lambda _state: True)
+    monkeypatch.setattr(launcher, "port_ready", lambda _port: True)
+
+    @contextmanager
+    def healthy_response(url, *, timeout):
+        probes.append((url, timeout))
+        yield SimpleNamespace(status=200, read=lambda: pytest.fail("status must not read health response bodies"))
+
+    monkeypatch.setattr(launcher, "urlopen", healthy_response)
+    return state, probes
+
+
+def test_status_preserves_process_fields_and_reports_actual_api_and_runtime_readiness(
+    launcher, healthy_launcher_status, monkeypatch, capsys,
+):
+    state, probes = healthy_launcher_status
+    monkeypatch.setattr(launcher, "load_state", lambda: state)
+    monkeypatch.setattr(launcher.sys, "argv", ["experience.py", "status"])
+    launcher.main()
+    assert json.loads(capsys.readouterr().out) == {
+        "api": True, "web": True, "web_mode": "production", "yjs": True,
+        "postgres": True, "redis": True, "api_ready": True, "ready": True,
+    }
+    assert probes == [(f"http://127.0.0.1:{launcher.API_PORT}/health", 2)]
+
+
+@pytest.mark.parametrize("dependency", ["postgres", "redis"])
+def test_alive_applications_with_a_dead_dependency_are_not_ready(
+    launcher, healthy_launcher_status, monkeypatch, dependency,
+):
+    state, _probes = healthy_launcher_status
+    if dependency == "postgres":
+        monkeypatch.setattr(launcher, "postgres_running", lambda _state: False)
+    else:
+        state["processes"].pop("redis")
+    failed_port = launcher.PG_PORT if dependency == "postgres" else launcher.REDIS_PORT
+    monkeypatch.setattr(launcher, "port_ready", lambda port: port != failed_port)
+
+    def unavailable(*_args, **_kwargs):
+        raise OSError("private-dependency-connection-details")
+
+    monkeypatch.setattr(launcher, "urlopen", unavailable)
+    status = launcher.runtime_status(state)
+    assert status["api"] and status["web"] and status["yjs"]
+    assert status[dependency] is False
+    assert status["api_ready"] is False and status["ready"] is False
+
+
+@pytest.mark.parametrize("port_name", ["PG_PORT", "REDIS_PORT", "WEB_PORT"])
+def test_live_process_records_and_successful_api_probe_do_not_hide_a_closed_required_port(
+    launcher, healthy_launcher_status, monkeypatch, port_name,
+):
+    state, _probes = healthy_launcher_status
+    monkeypatch.setattr(launcher, "port_ready", lambda port: port != getattr(launcher, port_name))
+    status = launcher.runtime_status(state)
+    assert all(status[name] for name in ("api", "web", "yjs", "postgres", "redis"))
+    assert status["api_ready"] is True
+    assert status["ready"] is False
+
+
+@pytest.mark.parametrize("failure", ["http_503", "timeout"])
+def test_status_health_failure_is_not_ready_and_never_prints_private_details(
+    launcher, healthy_launcher_status, monkeypatch, capsys, failure,
+):
+    from contextlib import contextmanager
+
+    state, _probes = healthy_launcher_status
+
+    @contextmanager
+    def failed_response(*_args, **_kwargs):
+        if failure == "timeout":
+            raise TimeoutError("private-health-failure-details")
+        yield SimpleNamespace(status=503, read=lambda: pytest.fail("private-health-body must not be read"))
+
+    monkeypatch.setattr(launcher, "urlopen", failed_response)
+    monkeypatch.setattr(launcher, "load_state", lambda: state)
+    monkeypatch.setattr(launcher.sys, "argv", ["experience.py", "status"])
+    launcher.main()
+    output = capsys.readouterr()
+    status = json.loads(output.out)
+    assert all(status[name] for name in ("api", "web", "yjs", "postgres", "redis"))
+    assert status["api_ready"] is False and status["ready"] is False
+    assert "private" not in output.out + output.err
 
 
 def test_failed_postgres_stop_never_reports_success(launcher, monkeypatch, capsys):
