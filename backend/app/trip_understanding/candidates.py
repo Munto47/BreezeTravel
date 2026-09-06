@@ -15,10 +15,11 @@ from app.config import get_settings
 from app.constraints.amap_types import classify_amap_type_signals
 from app.schemas.place import PlaceCategory
 from app.trip_understanding.amap_place import (
-    AmapPlaceResolver, _admin_matches, _coordinates, _expected_category, _CATEGORY_LABELS,
+    AmapPlaceResolver, _admin_matches, _coordinates, _expected_category, _CATEGORY_LABELS, _name_match_tier,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
 from app.trip_understanding.models import StrictModel
+from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 
 _CITY_BOUNDS = {"北京": (115.4, 117.6, 39.4, 41.1), "上海": (120.8, 122.3, 30.6, 31.9), "杭州": (118.3, 120.8, 29.1, 30.8)}
 
@@ -93,15 +94,16 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         return None
     if not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", query.strip()):
         return []
+    expected = _expected_category(category_hint)
+    hint = landmark_hint(city, query.strip()) if expected in {None, PlaceCategory.ATTRACTION} else None
     provider = AmapPlaceResolver(api_key=settings.amap_api_key)
     try:
-        rows, _receipt = await provider._query_provider(city=city, query_name=query.strip(),
+        rows, _receipt = await provider._query_provider(city=city, query_name=hint.name if hint else query.strip(),
             original_atomic=query.strip(), category_basis="USER_SEARCH", typecodes=[], lexicon_binding={})
     except PlaceProviderUnavailableError:
         return None
     finally:
         await provider.aclose()
-    expected = _expected_category(category_hint)
     places: dict[str, CandidatePlace] = {}
     for row in rows:
         name = str(row.get("name") or "").strip()
@@ -111,9 +113,15 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
         if not _admin_matches(row, expected_city=city, expected_district=None):
             continue
         signals = classify_amap_type_signals(str(row.get("typecode") or ""), str(row.get("type") or ""))
-        if not signals.complete or signals.conflict or signals.category == PlaceCategory.UNKNOWN:
+        category = signals.category
+        if signals.conflict:
             continue
-        if expected is not None and signals.category != expected:
+        if not signals.complete or category == PlaceCategory.UNKNOWN:
+            if expected in {None, PlaceCategory.ATTRACTION} and verified_technical_landmark(row, city=city, name=query):
+                category = PlaceCategory.ATTRACTION
+            else:
+                continue
+        if expected is not None and category != expected:
             continue
         coordinates = _coordinates(row.get("location"))
         if not coordinates or not (73 <= coordinates[0] <= 136 and 18 <= coordinates[1] <= 54):
@@ -123,7 +131,12 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
             continue
         address = row.get("address")
         places[poi_id] = CandidatePlace(canonical_place_id=f"amap:{poi_id}", city=city,
-            name=name, category=_CATEGORY_LABELS[signals.category],
+            name=name, category=_CATEGORY_LABELS[category],
             area_or_address=str(address)[:120] if isinstance(address, str) and address else str(row.get("adname") or city),
             position=GCJ02Position(longitude=coordinates[0], latitude=coordinates[1]))
-    return list(places.values())[:6]
+    # Rank before truncation; generic keyword search still offers related POIs.
+    canonical = hint.name if hint else query.strip()
+    aliases = hint.aliases if hint else ()
+    tiers = {"CANONICAL_EXACT": 0, "SAFE_ALIAS_EXACT": 1, "VENUE_SUFFIX_EQUIVALENT": 2}
+    return sorted(places.values(), key=lambda place: tiers.get(_name_match_tier(
+        {"name": place.name}, canonical_name=canonical, safe_aliases=aliases, city=city), 3))[:6]

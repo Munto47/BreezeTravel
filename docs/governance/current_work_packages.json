@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "first-server-release-verification",
+    "id": "place-matching-roi",
     "work_kind": "PRODUCT",
-    "outcome": "真实完整旅程验证、备份旧服务器版本、首次上传并验证回滚",
+    "outcome": "常见主地点准确匹配、减少重复查询、手动候选优先主地点",
     "status": "COMPLETED",
-    "verification": "PUBLIC_VERIFIED: 2 live flows; backups preserved and read back; actual rollback drill NOT_RUN"
+    "verification": "245 targeted tests passed; live sample 17/18; 20 calls; final real browser 2/2 passed; local only"
   },
   "packages": [],
-  "next_planned_slice": "所有者体验 https://www.breezetravel.cn/；按实际 P0/P1 反馈继续，协同驾车与追问质量保留后续，不自动宣称 R1/R2 或 G07"
+  "next_planned_slice": "本地实测交付；餐饮建议一项、住宿建议一项列为后续，不自动上线"
 }

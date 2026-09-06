@@ -24,6 +24,7 @@ from app.trip_understanding._three_city_place_lexicon import (
     venue_suffix_equivalent,
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
+from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
 from app.trip_understanding.pipeline import canonical_sha256
 
@@ -313,6 +314,10 @@ def _name_match_tier(
     if canonical_values & primary_values:
         return "CANONICAL_EXACT"
 
+    # An alias on an entrance, activity or child POI is not the parent identity.
+    if any(marker in primary for marker in ("入口", "出口", "检票", "售票", "停车", "打卡", "走廊", "冰上运动", "广场")) or re.search(r"[-—]", primary):
+        return None
+
     provider_alias_values = {
         value
         for alias in _provider_aliases(raw)
@@ -364,6 +369,11 @@ def _product_semantic_technical_category_is_compatible(
 ) -> bool:
     typecode = str(receipt.get("typecode") or "").strip()
     normalized = _normalized_name(atomic)
+    label = str(receipt.get("type") or "")
+    if typecode.startswith("0801") and (typecode != "080101" or label != "体育休闲服务;运动场馆;综合体育馆"):
+        return False
+    if typecode.startswith("1903") and label != "地名地址信息;交通地名;道路名":
+        return False
     return any(
         expected_category == category
         and typecode.startswith(prefixes)
@@ -469,7 +479,10 @@ def _evaluate_candidates(
 ) -> _CandidateDecision:
     name_matches: list[tuple[dict[str, Any], str]] = []
     alias_match_ids: set[str] = set()
+    hint = landmark_hint(city, canonical_name)
     for item in pois:
+        if hint and not hint.matches(str(item.get("name") or "")):
+            continue
         tier = _name_match_tier(
             item,
             canonical_name=canonical_name,
@@ -541,10 +554,14 @@ def _evaluate_candidates(
         if signals.conflict:
             category_conflict_ids.add(provider_id)
             continue
-        if signals.complete:
+        if expected_category == PlaceCategory.ATTRACTION and verified_technical_landmark(item, city=city, name=canonical_name):
+            category = PlaceCategory.ATTRACTION
+            compatibility_basis = "REVIEWED_LANDMARK_EXACT_TECHNICAL_TYPE"
+        elif signals.complete:
             category = signals.category
         elif (
-            expected_category is not None
+            hint is None
+            and expected_category is not None
             and typecode
             and type_label
             and _product_semantic_technical_category_is_compatible(
@@ -941,6 +958,14 @@ class AmapPlaceResolver:
                 "lexicon_district_constraint": expected_district is not None,
             }
 
+        hint = landmark_hint(normalized_city, atomic)
+        if hint is not None and (lookup is None or not lookup.matches):
+            query_name = hint.name
+            safe_aliases = hint.aliases
+            expected_district = hint.district
+            lexicon_category = PlaceCategory.ATTRACTION
+            lexicon_binding["landmark_hint"] = "reviewed-landmarks-v1"
+
         expected_category = _expected_category(category_hint)
         category_basis = "EXPLICIT_SEMANTIC_HINT"
         if expected_category is None:
@@ -974,6 +999,8 @@ class AmapPlaceResolver:
         # the shared category list is part of older suggestion query contracts.
         if expected_category == PlaceCategory.ATTRACTION:
             typecodes = [*_G01_ATTRACTION_ADDITIONAL_TYPECODES, *typecodes]
+            if hint is not None:
+                typecodes = [hint.typecode]
 
         pois, primary_base = await self._query_provider(
             city=city,
