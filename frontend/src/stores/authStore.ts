@@ -12,7 +12,7 @@ interface AuthStore {
   token: string | null
   isHydrated: boolean
   login: (token: string, user: AuthUser) => void
-  logout: () => void
+  logout: (navigate?: boolean) => void
   updateUser: (partial: Partial<AuthUser>) => void
   hydrate: () => void
 }
@@ -53,10 +53,10 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ token, user })
   },
 
-  logout: () => {
+  logout: (navigate = true) => {
     clearBrowserAuth()
     set({ token: null, user: null })
-    window.location.assign('/login')
+    if (navigate) window.location.assign('/login')
   },
 
   updateUser: (partial) => {

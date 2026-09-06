@@ -49,6 +49,7 @@ from app.trip_understanding.map_render import (
 )
 from app.trip_understanding.map_worker import MapRenderWorker
 from app.trip_understanding.models import (
+    safe_poi_photo_url,
     ActivityRole,
     ActivityTextEditCommand,
     CreateFullRequest,
@@ -103,6 +104,7 @@ PUBLIC_RESULT_ALLOWED_KEYS = {
     "activity_token",
     "activities",
     "area_or_address",
+    "photo_url",
     "area_summary",
     "assumptions",
     "available_actions",
@@ -257,7 +259,21 @@ def _dangerous_name(name: str) -> bool:
     )
 
 
+def _public_photos_are_safe(payload: object) -> bool:
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "photo_url" and value is not None and safe_poi_photo_url(value) != value:
+                return False
+            if not _public_photos_are_safe(value):
+                return False
+    elif isinstance(payload, list):
+        return all(_public_photos_are_safe(item) for item in payload)
+    return True
+
+
 def _public_payload_is_redacted(payload: object) -> bool:
+    if not _public_photos_are_safe(payload):
+        return False
     keys = {key.casefold() for key in _walk_keys(payload)}
     if not keys.issubset(PUBLIC_RESULT_ALLOWED_KEYS):
         return False

@@ -142,6 +142,7 @@ def apply_public_command(
         card.name = confirmed_place.name
         card.category = confirmed_place.category
         card.area_or_address = confirmed_place.area_or_address
+        card.photo_url = None
         card.status = "READY"
         card.knowledge_suggestions = []
         changed.add(result.days[day_index].label)
@@ -177,6 +178,7 @@ def apply_public_command(
         if command.name is not None:
             card.name = command.name
             card.area_or_address = "地点待确认"
+            card.photo_url = None
             card.status = "NEEDS_CONFIRMATION"
             card.knowledge_suggestions = []
         if command.time_hint is not None:
@@ -191,6 +193,7 @@ def apply_public_command(
         card.name = command.replacement.name
         card.category = command.replacement.category
         card.area_or_address = command.replacement.area_or_address
+        card.photo_url = None
         card.status = "NEEDS_CONFIRMATION"
         card.knowledge_suggestions = []
         changed.add(result.days[day_index].label)
@@ -204,6 +207,7 @@ def apply_public_command(
                 for card in day.activities:
                     card.status = "NEEDS_CONFIRMATION"
                     card.area_or_address = "地点待确认"
+                    card.photo_url = None
                     card.knowledge_suggestions = []
         changed.update(day.label for day in result.days)
 

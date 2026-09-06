@@ -173,7 +173,7 @@ async function renderItinerary(
         context.moveTo(x + cardWidth - 8, cardY + 64)
         context.quadraticCurveTo(
           x + cardWidth - 8 + connectorWidth / 2,
-          cardY + 38,
+          cardY + 104,
           x + cardWidth - 8 + connectorWidth,
           cardY + 64,
         )
@@ -275,7 +275,7 @@ export default function ItineraryPngExport({
         className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#0c789d]/20 bg-white px-4 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50"
       >
         <ImageIcon className="h-4 w-4" aria-hidden="true" />
-        {busy ? '正在生成…' : '导出完整 PNG'}
+        {busy ? '正在生成…' : '导出图片'}
       </button>
       {error && <p className="mt-2 text-sm text-amber-800" role="alert">{error}</p>}
       {previewUrl && (
@@ -292,7 +292,7 @@ export default function ItineraryPngExport({
             </div>
             <button type="button" aria-label="关闭图片预览" onClick={() => setPreviewUrl('')} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d]"><X className="h-5 w-5" aria-hidden="true" /></button>
           </div>
-          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">包含全部日期、视口外卡片、交通摘要和待确认状态；未包含地图底图。</p>
+          <p id="png-preview-description" className="mt-2 text-sm text-slate-600">完整行程 · 不含地图</p>
           <div className="mt-4 max-h-[55vh] overflow-auto rounded-2xl border border-slate-200 bg-slate-50 p-2">
             {/* Blob URL is created locally from structured result data. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}

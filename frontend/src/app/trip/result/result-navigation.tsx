@@ -33,9 +33,6 @@ export default function ResultNavigation({
         aria-label="结果主视图"
       >
         <nav className="flex h-full flex-col gap-2 p-2.5">
-          <p className="mb-1 h-8 overflow-hidden whitespace-nowrap px-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#0c789d] opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-within:opacity-100">
-            查看结果
-          </p>
           {ITEMS.map(({ id, desktopLabel, panelId, Icon }) => {
             const current = id === activeView
             return (
@@ -58,9 +55,6 @@ export default function ResultNavigation({
               </button>
             )
           })}
-          <p className="mt-auto overflow-hidden whitespace-nowrap px-2 pb-2 text-xs leading-5 text-slate-500 opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100 group-focus-within:opacity-100">
-            切换不会丢失<br />已加载的内容
-          </p>
         </nav>
       </aside>
 

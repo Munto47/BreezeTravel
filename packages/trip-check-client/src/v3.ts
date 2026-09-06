@@ -129,6 +129,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  photo_url?: string | null
   start_time?: string | null
   end_time?: string | null
   visit_duration_minutes?: number | null

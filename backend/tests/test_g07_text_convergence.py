@@ -23,6 +23,7 @@ from evals.g07_text_convergence_v1.runner import (
     FROZEN_SCHEMA_SHA256,
     SCHEMA_PATH,
     _empty_observation,
+    _public_payload_is_redacted,
     _has_duration_field,
     _run_pipeline_case,
     _score_case,
@@ -737,3 +738,18 @@ def test_scorer_rejects_unlisted_degradation_code() -> None:
 
     assert result["status"] == "DANGEROUS_FAIL"
     assert "UNAUTHORIZED_DEGRADATION" in result["failure_codes"]
+
+@pytest.mark.parametrize("photo_url", [None, "https://store.is.autonavi.com/showpic/test.jpg"])
+def test_public_photo_contract_accepts_only_sanitized_photo_url(photo_url: str | None) -> None:
+    assert _public_payload_is_redacted({"days": [{"activities": [{"photo_url": photo_url}]}]})
+
+
+@pytest.mark.parametrize("payload", [
+    {"photo_url": "https://evil.example/photo.jpg"},
+    {"photo_url": "https://store.is.autonavi.com/showpic/test.jpg?key=secret"},
+    {"photo_url": "http://store.is.autonavi.com/showpic/test.jpg"},
+    {"photo_url": "https://store.is.autonavi.com/showpic/test.jpg", "provider": "private"},
+    {"photo_url": None, "unexpected_field": "private"},
+])
+def test_public_photo_contract_does_not_expand_private_field_or_url_boundary(payload: dict) -> None:
+    assert not _public_payload_is_redacted(payload)

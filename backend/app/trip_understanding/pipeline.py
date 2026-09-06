@@ -950,6 +950,7 @@ class PublicResultProjector:
                             )
                         ),
                         area_or_address=place.area_or_address if place else "地点待确认",
+                        photo_url=place.photo_url if place else None,
                         time_hint=mention.time_hint,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",

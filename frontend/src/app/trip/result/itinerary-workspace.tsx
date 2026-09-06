@@ -2,32 +2,25 @@
 
 import {
   type DragEvent,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
-  ArrowDown,
   ArrowLeftRight,
   ArrowRight,
-  ArrowUp,
   BedDouble,
   BusFront,
   CalendarDays,
-  Check,
   ChevronRight,
-  Circle,
   Clock3,
-  Compass,
   ExternalLink,
   Footprints,
   GripVertical,
+  List,
   MapPin,
-  MoveHorizontal,
   Pencil,
   Plus,
   Replace,
@@ -59,13 +52,7 @@ type DialogState =
   | { kind: 'DETAIL'; item: CardLocation }
   | { kind: 'MOVE'; item: CardLocation }
   | { kind: 'DELETE'; item: CardLocation }
-  | {
-      kind: 'DRAG_PREVIEW'
-      item: CardLocation
-      targetDayIndex: number
-      targetPosition: number
-      before: DayView[]
-    }
+
 
 type DraggedCard = CardLocation
 
@@ -79,6 +66,7 @@ export type WorkspaceCommandResult =
   | { status: 'RECONCILING' }
 
 type ItineraryWorkspaceProps = {
+  toolbar?: ReactNode
   days: UserFacingTripResult['days']
   disabled: boolean
   routesPending: boolean
@@ -91,14 +79,6 @@ type ItineraryWorkspaceProps = {
 }
 
 
-const MAP_LABELS: Record<UserFacingTripResult['map']['status'], string> = {
-  PREPARING: '路线准备中',
-  AVAILABLE: '路线已准备',
-  NEEDS_UPDATE: '需要手动更新',
-  LIMITED: '部分路线可用',
-  UNAVAILABLE: '暂时不可用',
-}
-
 const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestions']>[number]['type'], string> = {
   TYPICAL_DURATION: '游览时长',
   SUITABLE_TIME: '适合时段',
@@ -109,10 +89,10 @@ const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestio
 
 export default function ItineraryWorkspace({
   days,
+  toolbar,
   disabled,
   routesPending,
   mapView,
-  checkStatus,
   onCommand,
   onAdd,
   onEdit,
@@ -121,6 +101,8 @@ export default function ItineraryWorkspace({
   const reduceMotion = useReducedMotion()
   const [localDays, setLocalDays] = useState(days)
   const [dragged, setDragged] = useState<DraggedCard | null>(null)
+  const touchTarget = useRef<DropTarget | 'TRASH' | null>(null)
+  const [touchPoint, setTouchPoint] = useState<{x:number;y:number} | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [moveDay, setMoveDay] = useState(1)
@@ -133,24 +115,35 @@ export default function ItineraryWorkspace({
   const dragCompletedRef = useRef(false)
   const laneScrollers = useRef(new Map<number, HTMLDivElement>())
   const synchronizingScroll = useRef(false)
+  const dragGeometry = useRef(new Map<number, number[]>())
+  const pointerDropTarget = useRef<DropTarget | null>(null)
+  const captureDropGeometry = () => {
+    pointerDropTarget.current = null
+    dragGeometry.current.clear()
+    laneScrollers.current.forEach((lane, dayIndex) => {
+      const left = lane.getBoundingClientRect().left
+      dragGeometry.current.set(dayIndex, Array.from(lane.querySelectorAll('[data-testid="activity-card"]')).map(card => {
+        const box = card.getBoundingClientRect()
+        return box.left - left + lane.scrollLeft + box.width / 2
+      }))
+    })
+  }
+  const targetAt = (x: number, y: number): DropTarget | null => {
+    for (const [dayIndex, centers] of dragGeometry.current) {
+      const lane = laneScrollers.current.get(dayIndex)
+      if (!lane) continue
+      const box = lane.getBoundingClientRect()
+      if(x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
+        return {dayIndex,position:centers.filter(center => center < x-box.left+lane.scrollLeft).length}
+      }
+    }
+    return null
+  }
   const locked = disabled || operationPending
-  const previewingMove = dialog?.kind === 'DRAG_PREVIEW'
 
   useEffect(() => {
     setLocalDays(days)
   }, [days])
-
-  const totalPlaces = useMemo(
-    () => localDays.reduce((total, day) => total + day.activities.length, 0),
-    [localDays],
-  )
-  const pendingPlaces = useMemo(
-    () => localDays.reduce(
-      (total, day) => total + day.activities.filter((activity) => activity.status === 'NEEDS_CONFIRMATION').length,
-      0,
-    ),
-    [localDays],
-  )
 
   const rememberTrigger = (element: HTMLElement) => {
     lastTriggerRef.current = element
@@ -168,7 +161,6 @@ export default function ItineraryWorkspace({
   }
 
   const closeDialog = (restoreFocus = true) => {
-    if (dialog?.kind === 'DRAG_PREVIEW') setLocalDays(dialog.before)
     setDialog(null)
     if (restoreFocus) {
       window.setTimeout(() => lastTriggerRef.current?.focus(), 0)
@@ -296,7 +288,7 @@ export default function ItineraryWorkspace({
         restoreOperationFocus(
           `${item.card.name} 的删除未能确认，已读取服务端最新行程。`,
           item.dayIndex,
-          `删除 ${item.card.name}`,
+          `拖动 ${item.card.name}`,
         )
       } else {
         finishOperation(`${item.card.name} 的删除已提交，正在确认服务端保存结果。`, item.dayIndex)
@@ -313,6 +305,9 @@ export default function ItineraryWorkspace({
   const handleDrop = async (targetDayIndex: number, rawPosition: number) => {
     if (!dragged || locked) return
     dragCompletedRef.current = true
+    const actualTarget = pointerDropTarget.current
+    if (actualTarget) { targetDayIndex = actualTarget.dayIndex; rawPosition = actualTarget.position }
+    pointerDropTarget.current = null
     const targetPosition = normalizeDropPosition(dragged, targetDayIndex, rawPosition)
     setDragged(null)
     setDropTarget(null)
@@ -322,58 +317,7 @@ export default function ItineraryWorkspace({
     }
     const preview = moveCard(localDays, dragged, targetDayIndex, targetPosition)
     if (!preview) return
-    const before = localDays
-    setLocalDays(preview)
-    setDialog({
-      kind: 'DRAG_PREVIEW',
-      item: dragged,
-      targetDayIndex,
-      targetPosition,
-      before,
-    })
-    setAnnouncement(
-      `${dragged.card.name} 的移动预览已显示；确认前不会保存。`,
-    )
-  }
-
-  const confirmDragPreview = async () => {
-    if (dialog?.kind !== 'DRAG_PREVIEW' || operationLockRef.current) return
-    operationLockRef.current = true
-    setOperationPending(true)
-    const preview = dialog
-    setAnnouncement(`正在保存 ${preview.item.card.name} 的新位置…`)
-    try {
-      const outcome = await onCommand({
-        command_type: 'ACTIVITY_MOVE',
-        activity_token: preview.item.card.activity_token,
-        target_day_index: preview.targetDayIndex,
-        target_position: preview.targetPosition,
-      })
-      if ('days' in outcome && outcome.days) setLocalDays(outcome.days)
-      if (outcome.status === 'APPLIED') {
-        finishOperation(
-          `${preview.item.card.name} 已移动。路线需要手动更新。`,
-          preview.targetDayIndex,
-        )
-      } else if (outcome.status === 'SYNCED') {
-        setLocalDays(outcome.days || preview.before)
-        finishOperation(
-          `${preview.item.card.name} 的移动未能确认，已读取最新行程。`,
-          preview.targetDayIndex,
-        )
-      } else {
-        finishOperation(
-          `${preview.item.card.name} 的移动已提交，正在确认服务端保存结果。`,
-          preview.targetDayIndex,
-        )
-      }
-    } catch {
-      setLocalDays(preview.before)
-      finishOperation(`${preview.item.card.name} 尚未保存，已恢复原顺序。`, preview.item.dayIndex)
-    } finally {
-      operationLockRef.current = false
-      setOperationPending(false)
-    }
+    await applyMove(dragged, targetDayIndex, targetPosition, `${dragged.card.name} 已移动。路线需要更新。`)
   }
 
   const confirmMove = async () => {
@@ -399,37 +343,16 @@ export default function ItineraryWorkspace({
     <div
       data-testid="itinerary-workspace"
       data-reduced-motion={reduceMotion ? 'true' : 'false'}
-      className="mt-8 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_17rem]"
+      className="soft-workspace mt-2"
     >
       <div className="min-w-0">
-        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-emerald-900/10 bg-white/80 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
-              <MoveHorizontal className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-slate-800">拖动手柄调整游览顺序</p>
-              <p className="text-xs leading-5 text-slate-500">也可用卡片下方的移动按钮；保存后路线只会标记为需要更新。</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex rounded-xl border border-sky-900/10 bg-white p-1" aria-label="行程显示方式">
-              <button type="button" aria-pressed={layoutMode === 'CHAIN'} onClick={() => setLayoutMode('CHAIN')} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${layoutMode === 'CHAIN' ? 'bg-sky-100 text-[#0c789d]' : 'text-slate-600'}`}>横链</button>
-              <button type="button" aria-pressed={layoutMode === 'LIST'} onClick={() => setLayoutMode('LIST')} className={`min-h-11 rounded-lg px-3 text-sm font-semibold ${layoutMode === 'LIST' ? 'bg-sky-100 text-[#0c789d]' : 'text-slate-600'}`}>无障碍列表</button>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const firstDay = localDays[0]
-                if (firstDay) onAdd(1, firstDay.activities.length)
-              }}
-              disabled={locked || localDays.length === 0}
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white shadow-sm transition motion-reduce:transition-none hover:bg-[#096582] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              新增地点
-            </button>
-          </div>
+        <div className="mb-4 flex items-center justify-end gap-2">
+          <button type="button" className="e-button" aria-label={layoutMode === 'CHAIN' ? '切换为列表' : '切换为横链'}
+            title={layoutMode === 'CHAIN' ? '列表' : '横链'} aria-pressed={layoutMode === 'LIST'}
+            onClick={() => setLayoutMode(layoutMode === 'CHAIN' ? 'LIST' : 'CHAIN')}>
+            <List aria-hidden="true" />
+          </button>
+          {toolbar}
         </div>
 
         <div data-testid="trip-days" className="space-y-4" aria-label="按天排列的游览顺序">
@@ -465,16 +388,11 @@ export default function ItineraryWorkspace({
                         {day.activities.length} 个地点
                       </span>
                     </div>
-                    <p className="mt-3 text-sm font-medium text-slate-600">{dayTheme(day)}</p>
-                    <p className="mt-2 hidden text-xs leading-5 text-slate-500 md:block">当天即使没有地点也会保留，方便继续补充。</p>
+
                   </div>
 
                   <div className="min-w-0 px-4 py-4 sm:px-5">
-                    <div className="flex items-center justify-between gap-4 px-1 text-[11px] text-slate-600">
-                      <span className="inline-flex items-center gap-1.5"><Circle className="h-3 w-3 fill-emerald-600 text-emerald-600" aria-hidden="true" />起点</span>
-                      <span className="text-center">游览顺序 · 不代表实时路线</span>
-                      <span className="inline-flex items-center gap-1.5">终点<Circle className="h-3 w-3 fill-emerald-600 text-emerald-600" aria-hidden="true" /></span>
-                    </div>
+
 
                     {layoutMode === 'LIST' ? (
                       <ol className="mt-3 grid gap-3" aria-label={`${day.label} 地点列表`}>
@@ -497,13 +415,22 @@ export default function ItineraryWorkspace({
                       </ol>
                     ) : (
                     <div className="relative mt-2">
-                      <div className="pointer-events-none absolute left-3 right-3 top-3 h-px bg-gradient-to-r from-emerald-600/70 via-emerald-600/25 to-emerald-600/70" />
                       <div
                         ref={(node) => {
                           if (node) laneScrollers.current.set(dayIndex, node)
                           else laneScrollers.current.delete(dayIndex)
                         }}
                         onScroll={(event) => synchronizeLaneScroll(dayIndex, event.currentTarget.scrollLeft)}
+                        onDragOver={(event) => {
+                          if (!dragged || (!event.clientX && !event.clientY)) return
+                          event.preventDefault()
+                          const target = targetAt(event.clientX,event.clientY)
+                          pointerDropTarget.current = target
+                          setDropTarget(target)
+                          const box = event.currentTarget.getBoundingClientRect()
+                          if(event.clientX > box.right-35) event.currentTarget.scrollLeft += 12
+                          if(event.clientX < box.left+35) event.currentTarget.scrollLeft -= 12
+                        }}
                         className="relative flex min-h-[15.5rem] snap-x items-start overflow-x-auto pb-2 pt-5 [scrollbar-width:thin]"
                       >
                         {day.activities.map((activity, position) => {
@@ -522,20 +449,85 @@ export default function ItineraryWorkspace({
                                 layout
                                 data-testid="activity-card"
                                 data-activity-name={activity.name}
-                                className="w-[13.5rem] snap-start overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.6)]"
+                                data-drop-day={dayIndex}
+                                data-drop-position={position}
+                                onDragOver={(event) => {
+                                  if (!dragged) return
+                                  event.preventDefault()
+                                  const box = event.currentTarget.getBoundingClientRect()
+                                  setDropTarget({ dayIndex, position: position + (event.clientX > box.left + box.width / 2 ? 1 : 0) })
+                                }}
+                                onDrop={(event) => { event.preventDefault(); if (dropTarget) void handleDrop(dropTarget.dayIndex, dropTarget.position) }}
+                                style={{ opacity: dragged?.card.activity_token === activity.activity_token ? 0.35 : 1 }}
+                                className="soft-activity-card w-[13.5rem] snap-start overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.6)]"
                                 transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 36 }}
                               >
                                 <div className={`relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}>
                                   <CategoryArtwork category={activity.category} />
-                                  <span className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-emerald-700 px-2 text-xs font-bold text-white shadow-sm">
+                                  <PlacePhoto card={activity} />
+                                  <span style={{ backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length] }} className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-emerald-700 px-2 text-xs font-bold text-white shadow-sm">
                                     {position + 1}
                                   </span>
                                   <button
                                     type="button"
                                     draggable={!locked}
                                     data-testid={`drag-handle-${dayIndex}-${position}`}
+                                    onPointerDown={(event) => {
+                                      if (event.pointerType === 'mouse' || locked) return
+                                      event.preventDefault()
+                                      // Native HTML drag takes over touch and cancels pointer capture.
+                                      event.currentTarget.draggable = false
+                                      rememberTrigger(event.currentTarget)
+                                      event.currentTarget.setPointerCapture(event.pointerId)
+                                      touchTarget.current = null
+                                      captureDropGeometry()
+                                      setDragged(item)
+                                      setTouchPoint({x:event.clientX,y:event.clientY})
+                                    }}
+                                    onPointerMove={(event) => {
+                                      if (event.pointerType === 'mouse' || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      setTouchPoint({x:event.clientX,y:event.clientY})
+                                      const element = document.elementFromPoint(event.clientX,event.clientY)
+                                      if (element?.closest('[data-trash]')) {
+                                        touchTarget.current = 'TRASH'
+                                        setDropTarget(null)
+                                        return
+                                      }
+                                      const slot = element?.closest<HTMLElement>('[data-drop-day]')
+                                      if (slot) {
+                                        const box = slot.getBoundingClientRect()
+                                        const offset = slot.matches('article') && event.clientX > box.left + box.width/2 ? 1 : 0
+                                        const target = {dayIndex:Number(slot.dataset.dropDay),position:Number(slot.dataset.dropPosition)+offset}
+                                        touchTarget.current = target
+                                        setDropTarget(target)
+                                        const scroller = laneScrollers.current.get(target.dayIndex)
+                                        if (scroller) {
+                                          const lane = scroller.getBoundingClientRect()
+                                          if(event.clientX > lane.right-40) scroller.scrollLeft += 20
+                                          if(event.clientX < lane.left+40) scroller.scrollLeft -= 20
+                                        }
+                                      } else {
+                                        touchTarget.current = null
+                                        setDropTarget(null)
+                                      }
+                                      if(event.clientY > window.innerHeight-80) window.scrollBy(0,18)
+                                      if(event.clientY < 100) window.scrollBy(0,-18)
+                                    }}
+                                    onPointerUp={(event) => {
+                                      if (event.pointerType === 'mouse' || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      event.currentTarget.releasePointerCapture(event.pointerId)
+                                      event.currentTarget.draggable = !locked
+                                      const target = touchTarget.current
+                                      setTouchPoint(null)
+                                      if(target === 'TRASH') { setDragged(null); setDropTarget(null); void applyDelete(item) }
+                                      else if(target) void handleDrop(target.dayIndex,target.position)
+                                      else { setDragged(null); setDropTarget(null) }
+                                      touchTarget.current = null
+                                    }}
+                                    onPointerCancel={(event) => { event.currentTarget.draggable = !locked; setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null }}
                                     onDragStart={(event) => {
                                       rememberTrigger(event.currentTarget)
+                                      captureDropGeometry()
                                       event.dataTransfer.effectAllowed = 'move'
                                       event.dataTransfer.setData('text/plain', activity.name)
                                       dragCompletedRef.current = false
@@ -552,13 +544,17 @@ export default function ItineraryWorkspace({
                                       setDropTarget(null)
                                     }}
                                     onKeyDown={(event) => {
+                                      if (event.key === 'Delete' || event.key === 'Backspace') {
+                                        event.preventDefault()
+                                        openDelete(item, event.currentTarget)
+                                      }
                                       if (event.key === 'Enter' || event.key === ' ') {
                                         event.preventDefault()
                                         openMove(item, event.currentTarget)
                                       }
                                     }}
                                     disabled={locked}
-                                    className="absolute right-2 top-2 hidden min-h-12 min-w-12 cursor-grab items-center justify-center rounded-xl bg-white/90 text-slate-600 shadow-sm backdrop-blur transition motion-reduce:transition-none hover:bg-white hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-wait disabled:opacity-50 md:inline-flex"
+                                    className="absolute right-2 top-2 inline-flex min-h-12 min-w-12 touch-none cursor-grab items-center justify-center rounded-xl bg-white/90 text-slate-600 shadow-sm backdrop-blur transition motion-reduce:transition-none hover:bg-white hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-wait disabled:opacity-50"
                                     aria-label={`拖动 ${activity.name}`}
                                   >
                                     <GripVertical className="h-5 w-5" aria-hidden="true" />
@@ -597,36 +593,7 @@ export default function ItineraryWorkspace({
                                   <span className="sr-only">，查看详情</span>
                                 </button>
 
-                                <div className="grid grid-cols-4 border-t border-slate-100 bg-[#fcfbf8] p-1.5">
-                                  <CardAction
-                                    label={`上移 ${activity.name}`}
-                                    disabled={locked || position === 0}
-                                    onClick={() => void applyMove(item, dayIndex, position - 1, `${activity.name} 已上移一站。路线需要手动更新。`)}
-                                  >
-                                    <ArrowUp className="h-4 w-4" aria-hidden="true" />
-                                  </CardAction>
-                                  <CardAction
-                                    label={`下移 ${activity.name}`}
-                                    disabled={locked || position === day.activities.length - 1}
-                                    onClick={() => void applyMove(item, dayIndex, position + 1, `${activity.name} 已下移一站。路线需要手动更新。`)}
-                                  >
-                                    <ArrowDown className="h-4 w-4" aria-hidden="true" />
-                                  </CardAction>
-                                  <CardAction
-                                    label={`移动 ${activity.name} 到其他天或位置`}
-                                    disabled={locked}
-                                    onClick={(event) => openMove(item, event.currentTarget)}
-                                  >
-                                    <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
-                                  </CardAction>
-                                  <CardAction
-                                    label={`删除 ${activity.name}`}
-                                    disabled={locked}
-                                    onClick={(event) => openDelete(item, event.currentTarget)}
-                                  >
-                                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                  </CardAction>
-                                </div>
+
                               </motion.article>
                               {position < day.activities.length - 1 && (
                                 <TransportConnectorView
@@ -636,7 +603,6 @@ export default function ItineraryWorkspace({
                                     day.activities[position + 1],
                                     mapView,
                                     operationPending ||
-                                      dialog?.kind === 'DRAG_PREVIEW' ||
                                       routesPending,
                                   )}
                                 />
@@ -661,13 +627,13 @@ export default function ItineraryWorkspace({
                           aria-label={`新增地点到 ${day.label}`}
                           disabled={locked}
                           onClick={() => onAdd(dayIndex, day.activities.length)}
-                          className="flex min-h-[13rem] w-[10rem] shrink-0 snap-start flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-900/20 bg-emerald-50/30 px-4 text-center text-sm text-emerald-800 transition motion-reduce:transition-none hover:border-emerald-600 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
+                          className="soft-add-card flex min-h-[13rem] w-[4rem] shrink-0 snap-start flex-col items-center justify-center rounded-2xl border border-dashed border-emerald-900/20 bg-emerald-50/30 px-4 text-center text-sm text-emerald-800 transition motion-reduce:transition-none hover:border-emerald-600 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50"
                         >
                           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-sm">
                             <Plus className="h-5 w-5" aria-hidden="true" />
                           </span>
-                          <span className="mt-3 font-semibold">添加地点</span>
-                          <span className="mt-1 text-xs text-slate-500">{day.activities.length === 0 ? '从这里开始安排' : '添加到当天末尾'}</span>
+                          <span className="sr-only">添加地点</span>
+
                         </button>
                       </div>
                     </div>
@@ -680,89 +646,26 @@ export default function ItineraryWorkspace({
         </div>
       </div>
 
-      <aside className="space-y-4 xl:sticky xl:top-24" aria-label="行程概览">
-        <div className="overflow-hidden rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.5)]">
-          <div className="relative overflow-hidden bg-gradient-to-br from-[#f7f4e9] via-emerald-50 to-[#eef5ed] px-5 py-5">
-            <Compass className="absolute -bottom-5 -right-3 h-24 w-24 text-emerald-800/10" aria-hidden="true" />
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">行程概览</p>
-            <h2 className="mt-2 text-lg font-semibold text-slate-800">每天都能继续调整</h2>
-          </div>
-          <dl className="grid grid-cols-3 border-y border-slate-100 px-3 py-5 text-center">
-            <OverviewNumber value={localDays.length} label="共天数" />
-            <OverviewNumber value={totalPlaces} label="地点总数" />
-            <OverviewNumber value={pendingPlaces} label="待确认" />
-          </dl>
-          <div className="space-y-3 px-5 py-5 text-sm">
-            <OverviewStatus icon={<ArrowRight className="h-4 w-4" />} label="地图状态" value={previewingMove ? '确认后需要更新' : operationPending ? '需要手动更新' : MAP_LABELS[mapView.status]} />
-            <OverviewStatus icon={<Sparkles className="h-4 w-4" />} label="检查状态" value={checkStatus} />
-            <OverviewStatus icon={<Check className="h-4 w-4" />} label="保存状态" value={previewingMove ? '预览未保存' : locked ? '正在保存' : '已保存'} />
-          </div>
+
+      {dragged && touchPoint && <div className="soft-touch-ghost" style={{left:touchPoint.x,top:touchPoint.y}} aria-hidden="true">{dragged.card.name}</div>}
+      {dragged && (
+        <div data-testid="drag-trash" className="soft-drag-trash" data-trash="true"
+          onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }}
+          onDrop={(event) => {
+            event.preventDefault()
+            dragCompletedRef.current = true
+            const item = dragged
+            setDragged(null); setDropTarget(null)
+            void applyDelete(item)
+          }}>
+          <Trash2 aria-hidden="true" /> 松开删除
         </div>
-        <div className="rounded-2xl border border-emerald-900/10 bg-emerald-50/65 p-4 text-xs leading-5 text-emerald-900">
-          <p className="font-semibold">调整后会发生什么？</p>
-          <p className="mt-1 text-emerald-950">{previewingMove ? '当前只是本地预览；确认后才保存一次，取消不会写入。' : '卡片顺序会自动保存；现有路线不会自动重算，需在地图区域手动更新。'}</p>
-          <p className="mt-2 text-emerald-950" role="status">{mapView.message}</p>
-        </div>
-      </aside>
+      )}
+
 
       <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="itinerary-live-status">{announcement}</p>
 
       <AnimatePresence>
-        {dialog?.kind === 'DRAG_PREVIEW' && (
-          <AccessibleDialog
-            key="drag-preview"
-            titleId="drag-preview-title"
-            descriptionId="drag-preview-description"
-            onClose={() => closeDialog()}
-            returnFocusRef={lastTriggerRef}
-            dismissDisabled={operationPending}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-sky-700">移动影响预览</p>
-                <h2
-                  id="drag-preview-title"
-                  className="mt-1 text-xl font-semibold text-slate-900"
-                >
-                  把“{dialog.item.card.name}”移到{' '}
-                  {localDays[dialog.targetDayIndex - 1]?.label} 第{' '}
-                  {dialog.targetPosition + 1} 站？
-                </h2>
-              </div>
-              <DialogCloseButton
-                onClick={() => closeDialog()}
-                label="取消移动预览"
-              />
-            </div>
-            <p
-              id="drag-preview-description"
-              className="mt-4 rounded-2xl bg-sky-50 p-4 text-sm leading-6 text-slate-700"
-            >
-              画布已临时显示新顺序。确认后只发送一次移动请求，并把现有路线标记为需要更新；取消不会写入。
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                data-dialog-initial-focus
-                type="button"
-                disabled={operationPending}
-                onClick={() => closeDialog()}
-                className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700 disabled:opacity-50"
-              >
-                取消，不保存
-              </button>
-              <button
-                data-testid="confirm-drag-move"
-                type="button"
-                disabled={operationPending}
-                onClick={() => void confirmDragPreview()}
-                className="min-h-12 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:opacity-50"
-              >
-                {operationPending ? '正在保存…' : '确认移动'}
-              </button>
-            </div>
-          </AccessibleDialog>
-        )}
-
         {dialog?.kind === 'DETAIL' && (
           <AccessibleDialog key="activity-detail" titleId="activity-detail-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef}>
             <div className="flex items-start justify-between gap-4">
@@ -832,7 +735,7 @@ export default function ItineraryWorkspace({
                 </DialogAction>
               )}
             </div>
-            <p className="mt-4 text-xs leading-5 text-slate-500">卡片调整会自动保存，路线需要时再手动更新。</p>
+
           </AccessibleDialog>
         )}
 
@@ -953,13 +856,6 @@ function moveSlots(days: DayView[], item: CardLocation, targetDayIndex: number):
 }
 
 
-function dayTheme(day: DayView): string {
-  if (day.activities.length === 0) return '留白待安排'
-  const categories = Array.from(new Set(day.activities.map((activity) => activity.category))).slice(0, 2)
-  return `${categories.join('与')}之旅`
-}
-
-
 function safeExternalUrl(value: string): string | null {
   try {
     const parsed = new URL(value)
@@ -983,15 +879,14 @@ function TransportConnectorView({ connector }: { connector: TransportConnector }
     <div
       data-testid="transport-connector"
       data-connector-status={connector.status}
-      className="mx-1 mt-[5.25rem] flex w-[7.25rem] shrink-0 flex-col items-center text-center"
+      className="soft-connector mx-1 mt-[4.25rem] flex w-[7.25rem] shrink-0 flex-col items-center text-center"
       aria-label={label}
     >
-      <div className={`flex w-full items-center ${available ? 'text-emerald-700' : 'text-slate-400'}`} aria-hidden="true">
-        <span className="h-px flex-1 bg-current opacity-40" />
-        <span className="mx-1.5 flex h-8 w-8 items-center justify-center rounded-full border border-current bg-white">
-          <Icon className="h-4 w-4" />
-        </span>
-        <span className="h-px flex-1 bg-current opacity-40" />
+      <div className="relative h-16 w-full text-slate-400" aria-hidden="true">
+        <svg viewBox="0 0 116 64" className="absolute inset-0 h-full w-full" fill="none">
+          <path data-testid="sagging-chain" d="M 0 4 C 26 4 22 54 58 54 C 94 54 90 4 116 4" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+        <span className="absolute left-1/2 top-9 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-white shadow-sm"><Icon className="h-4 w-4" /></span>
       </div>
       <span className={`mt-1 rounded-full px-2 py-1 text-[10px] font-semibold ${available ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
         {label}
@@ -1040,7 +935,10 @@ function DropSlot({
   return (
     <div
       data-testid={`drop-slot-${dayIndex}-${rawPosition}`}
-      className={`mx-1 flex h-[13rem] w-4 shrink-0 items-center justify-center rounded-full transition-colors motion-reduce:transition-none ${active ? 'bg-emerald-100' : 'bg-transparent'}`}
+      data-drop-day={dayIndex}
+      data-drop-position={rawPosition}
+      style={{ width: dragging && active ? 216 : 16 }}
+      className={`soft-drop-slot mx-1 flex h-[13rem] shrink-0 items-center justify-center rounded-3xl transition-all motion-reduce:transition-none ${active ? 'bg-sky-100/70 ring-2 ring-inset ring-sky-300' : 'bg-transparent'}`}
       onDragEnter={(event) => {
         event.preventDefault()
         onDragEnter()
@@ -1055,56 +953,7 @@ function DropSlot({
       }}
       aria-hidden="true"
     >
-      <span className={`h-full w-1 rounded-full transition motion-reduce:transition-none ${dragging ? (active ? 'bg-emerald-600' : 'bg-emerald-200') : 'bg-emerald-900/10'}`} />
-    </div>
-  )
-}
-
-
-function CardAction({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string
-  disabled: boolean
-  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void
-  children: ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-xl text-slate-500 transition motion-reduce:transition-none hover:bg-white hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-30"
-      aria-label={label}
-      title={label}
-    >
-      {children}
-    </button>
-  )
-}
-
-
-function OverviewNumber({ value, label }: { value: number; label: string }) {
-  return (
-    <div>
-      <dt className="text-[11px] text-slate-500">{label}</dt>
-      <dd className="mb-1 text-2xl font-semibold text-emerald-800">{value}</dd>
-    </div>
-  )
-}
-
-
-function OverviewStatus({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700" aria-hidden="true">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs text-slate-600">{label}</span>
-        <span className="block truncate font-medium text-slate-700">{value}</span>
-      </span>
+      <span className={`h-full w-1 rounded-full transition motion-reduce:transition-none ${dragging ? (active ? 'bg-emerald-600' : 'bg-emerald-200') : 'bg-transparent'}`} />
     </div>
   )
 }
@@ -1124,5 +973,17 @@ function DialogAction({ onClick, icon, children }: { onClick: () => void; icon: 
     <button type="button" onClick={onClick} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 text-sm font-medium text-slate-700 transition motion-reduce:transition-none hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
       <span aria-hidden="true">{icon}</span>{children}
     </button>
+  )
+}
+
+function PlacePhoto({card}: {card: ActivityCardView}) {
+  const [failed, setFailed] = useState(false)
+  useEffect(() => setFailed(false), [card.photo_url])
+  if (card.status !== 'READY' || !card.photo_url || failed) return null
+  return (
+    // Photo belongs to the resolved POI; never search for a replacement in the browser.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={card.photo_url} alt="" loading="lazy" referrerPolicy="no-referrer"
+      onError={() => setFailed(true)} className="absolute inset-0 h-full w-full object-cover" />
   )
 }

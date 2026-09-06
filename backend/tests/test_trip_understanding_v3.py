@@ -647,6 +647,7 @@ async def test_multi_city_partial_outage_preserves_successful_place_facts_intern
             "city": "北京",
             "place": {
                 "canonical_place_id": "provider-beijing-west-station",
+                "photo_url": None,
                 "name": "北京西站",
                 "category": "交通节点",
                 "area_or_address": "北京市丰台区莲花池东路118号",
@@ -1283,6 +1284,8 @@ def test_source_cipher_is_randomized_and_bound_to_source_identity() -> None:
 async def test_all_card_commands_create_stale_map_projection_without_provider_side_effects() -> None:
     current = (await build_full_text_pipeline().run(FULL_BEIJING_TEXT)).public_result
     first_token = current.days[0].activities[0].activity_token
+    photo_url = "https://store.is.autonavi.com/showpic/palace.jpg"
+    current.days[0].activities[0].photo_url = photo_url
 
     inserted = apply_public_command(
         current,
@@ -1314,6 +1317,7 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             target_position=1,
         ),
     )
+    assert moved.result.days[2].activities[1].photo_url == photo_url
     assert moved.changed_days == ["Day 1", "Day 3"]
     assert [item.name for item in moved.result.days[2].activities] == [
         "颐和园",
@@ -1329,6 +1333,7 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             name="故宫入口待确认",
         ),
     )
+    assert edited.result.days[0].activities[0].photo_url is None
     assert edited.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
     assert edited.result.days[0].activities[0].area_or_address == "地点待确认"
 
@@ -1346,6 +1351,8 @@ async def test_all_card_commands_create_stale_map_projection_without_provider_si
             }
         ),
     )
+    assert replaced.result.days[0].activities[0].photo_url is None
+    assert current.days[0].activities[0].photo_url == photo_url
     assert replaced.result.days[0].activities[0].name == "北海公园"
     assert replaced.result.days[0].activities[0].status == "NEEDS_CONFIRMATION"
 

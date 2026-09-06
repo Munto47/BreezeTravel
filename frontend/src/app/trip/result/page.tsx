@@ -29,6 +29,7 @@ import PlaceEditor from './place-editor'
 import ContextPanel, { type ContextMode } from './context-panel'
 import ChangePreviewPanel from './change-preview-panel'
 import ChecksWorkspace from './checks-workspace'
+import GenerationStages from './generation-stages'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
@@ -179,21 +180,13 @@ export default function TripResultPage() {
           ? '上次修改未保存'
           : accountSaved
             ? '已保存到账号'
-            : '草稿已保留'
+            : '已整理'
   const progressTitle =
     trip.phase === 'CHECKING_PLACES'
       ? '正在核对地点'
       : trip.phase === 'CARDS_AVAILABLE'
         ? '行程骨架已经整理好'
         : '正在读懂这份攻略'
-  const progressPercent =
-    trip.progress.places_total > 0
-      ? Math.round(
-          (trip.progress.places_checked / trip.progress.places_total) * 100,
-        )
-      : trip.phase === 'RECEIVED'
-        ? 12
-        : 34
   const contextOpen = context.kind !== 'timeline'
 
   useEffect(() => {
@@ -269,7 +262,7 @@ export default function TripResultPage() {
               `[data-day-add="${closingDayIndex}"]`,
             ) || returnPosition.current.element
           : returnPosition.current.element
-      if (preferred?.isConnected) preferred.focus({ preventScroll: true })
+      if (preferred?.isConnected && preferred.getClientRects().length) preferred.focus({ preventScroll: true })
       else
         document
           .querySelector<HTMLElement>(`[data-day-heading="${closingDayIndex}"]`)
@@ -323,7 +316,7 @@ export default function TripResultPage() {
       window.location.pathname + window.location.hash,
     )
     if (claim) sessionStorage.setItem('bt_claim_after_login', 'true')
-    if (claim && user && trip.unavailable === 'LOGIN') logout()
+    if (claim && user && trip.unavailable === 'LOGIN') logout(false)
     if (user && !claim) {
       logout()
       return
@@ -548,34 +541,20 @@ export default function TripResultPage() {
           <section className="e-progress-workspace" aria-busy={trip.loading}>
             <div className="e-progress-heading">
               <div>
-                <p className="e-eyebrow">临时预览 · 只读</p>
-                <h1>{progressTitle}</h1>
-                <p role="status">{trip.message}</p>
+                <h1 className="sr-only">{progressTitle}</h1>
               </div>
               <div className="e-progress-actions">
-                <span>{Math.max(0, Math.min(100, progressPercent))}%</span>
                 <button
                   type="button"
                   className="e-button"
                   disabled={trip.cancelling}
                   onClick={() => void trip.stopUnderstanding()}
                 >
-                  {trip.cancelling ? '正在停止…' : '停止整理并编辑'}
+                  {trip.cancelling ? '正在停止…' : '停止整理'}
                 </button>
               </div>
             </div>
-            <div
-              className="e-progress-track"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.max(0, Math.min(100, progressPercent))}
-            >
-              <span style={{ width: `${progressPercent}%` }} />
-            </div>
-            <p className="e-progress-note">
-              地点仍在核对，临时卡片不能修改；停止后会全部标为“待确认”，再由你决定保留或替换。
-            </p>
+<GenerationStages phase={trip.phase} progress={trip.progress} />
             <div className="e-progress-days">
               {trip.progressSnapshot.days.map((day) => (
                 <section className="e-progress-day" key={day.label}>
@@ -588,7 +567,7 @@ export default function TripResultPage() {
                       <div className="e-progress-card-wrap" key={card.activity_token}>
                         {index > 0 && (
                           <span className="e-progress-connector" aria-hidden="true">
-                            继续
+
                           </span>
                         )}
                         <article className="e-progress-card" role="listitem">
@@ -605,7 +584,7 @@ export default function TripResultPage() {
           </section>
         ) : (
           <section className="e-loading">
-            <h1>
+            <h1 className={trip.loading ? 'sr-only' : undefined}>
               {trip.loading
                 ? progressTitle
                 : trip.unavailable === 'GONE'
@@ -616,7 +595,7 @@ export default function TripResultPage() {
                       ? '整理已经停止'
                       : '行程暂时还没打开'}
             </h1>
-            <p role="status">{trip.message}</p>
+            {!trip.loading && <p role="status">{trip.message}</p>}
             {trip.unavailable === 'LOGIN' ? (
               <button
                 type="button"
@@ -641,7 +620,7 @@ export default function TripResultPage() {
               </button>
             ) : trip.loading ? (
               <>
-                <div className="e-progress" aria-hidden="true" />
+                <GenerationStages phase={trip.phase} progress={trip.progress} />
                 <button
                   type="button"
                   className="e-button"
@@ -744,8 +723,8 @@ export default function TripResultPage() {
             </div>
             <div className="e-save-area">
               <p className="e-save-status" role="status">
-                {persistence}
-                {expiry && <span>保留至 {expiry}</span>}
+                <span title={expiry ? `保留至 ${expiry}` : undefined}>{persistence}</span>
+
               </p>
               <div className="e-actions">
                 <button
@@ -824,18 +803,11 @@ export default function TripResultPage() {
           </section>
           {trip.isDemo && (
             <div className="e-demo-note">
-              示例行程 · 安排与路线为固定回放；地图底图联网加载。
+              示例回放 ·
               <Link href="/">换成自己的攻略</Link>
             </div>
           )}
           <div className="e-page-message">
-            {result.status !== 'READY' && (
-              <p className="e-message" role="status">
-                {result.status === 'BASIC_ONLY'
-                  ? '已整理基础行程，部分地点与路线尚未核对。'
-                  : '部分内容仍需要确认，已有安排可以继续查看和修改。'}
-              </p>
-            )}
             {trip.notice && (
               <div
                 className="e-message"
@@ -871,19 +843,8 @@ export default function TripResultPage() {
                   aria-label="行程横链"
                   className="mx-auto max-w-[1600px] px-4 pb-28 pt-5 lg:px-8 lg:pb-12 lg:pl-24"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-900/10 bg-white/75 p-4 backdrop-blur">
-                    <div>
-                      <p className="text-xs font-semibold tracking-[0.14em] text-[#0c789d]">横链行程画布</p>
-                      <p className="mt-1 text-sm text-slate-600">一天一行，共享浏览节奏；卡片调整后路线只会标记为需要更新。</p>
-                    </div>
-                    <ItineraryPngExport
-                      result={result}
-                      mapView={displayMap}
-                      etag={trip.etag}
-                      disabled={disabled || dirty}
-                    />
-                  </div>
                   <ItineraryWorkspace
+                    toolbar={<ItineraryPngExport result={result} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     disabled={disabled || dirty}
                     routesPending={hideOldRoutes}
@@ -918,7 +879,7 @@ export default function TripResultPage() {
                   mapView={displayMap}
                   stay={displayStay}
                   dayIndex={safeDayIndex}
-                  selected={selectedCard?.activity_token || null}
+                  selected={selected}
                   routeMode={routeMode}
                   disabled={disabled || dirty}
                   onDayChange={changeDay}
@@ -1636,12 +1597,6 @@ export default function TripResultPage() {
           </div>
           )}
           <footer className="e-footer">
-            <p>
-              {accountSaved
-                ? '账号行程从创建或领取起保留 30 天。'
-                : '匿名草稿从创建起保留 24 小时，保存到账号后保留 30 天。'}
-              刷新不会延长期限。
-            </p>
             <Link href="/about#privacy">数据与隐私</Link>
           </footer>
         </>

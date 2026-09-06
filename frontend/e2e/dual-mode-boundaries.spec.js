@@ -163,7 +163,7 @@ test('ordinary login returns to the text trip home', async ({ page }) => {
   await page.getByRole('button', { name: '登录并继续' }).click()
 
   await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByRole('heading', { name: '把攻略，整理成走得明白的行程' })).toBeVisible()
+  await expect(page.getByTestId('trip-source-text')).toBeVisible()
 })
 
 test('result never reads or renders source mapping while privacy deletion stays usable', async ({ page }) => {

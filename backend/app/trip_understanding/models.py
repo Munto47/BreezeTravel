@@ -71,12 +71,39 @@ class CompiledActivity(StrictModel):
     eligible_for_place_search: bool
 
 
+def safe_poi_photo_url(value: object) -> str | None:
+    """Only POI image CDNs, no credentials, query secrets or arbitrary origins."""
+    if not isinstance(value, str) or not value or len(value) > 1000:
+        return None
+    if any(ord(char) < 33 for char in value) or "\\" in value:
+        return None
+    try:
+        parsed = urlparse(value)
+        if (
+            parsed.scheme not in {"http", "https"}
+            or parsed.hostname not in {"store.is.autonavi.com", "aos-cdn-image.amap.com", "aos-comment.amap.com", "vdata.amap.com"}
+            or parsed.username is not None or parsed.password is not None
+            or parsed.port is not None or parsed.query or parsed.fragment
+            or not parsed.path.startswith("/") or parsed.path == "/"
+        ):
+            return None
+        return parsed._replace(scheme="https").geturl()
+    except ValueError:
+        return None
+
+
 class ResolvedPlace(StrictModel):
     canonical_place_id: str
     name: str
     category: str
     area_or_address: str
     provider_binding: dict[str, object]
+    photo_url: str | None = None
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def valid_photo(cls, value: object) -> str | None:
+        return safe_poi_photo_url(value)
 
 
 class PlaceResolutionOutcome(StrictModel):
@@ -151,6 +178,13 @@ class KnowledgeSuggestionView(StrictModel):
 
 
 class ActivityCardView(ActivityTiming):
+    photo_url: str | None = None
+
+    @field_validator("photo_url", mode="before")
+    @classmethod
+    def valid_photo(cls, value: object) -> str | None:
+        return safe_poi_photo_url(value)
+
     activity_token: str = Field(min_length=20, max_length=80)
     name: str
     category: str

@@ -154,6 +154,17 @@
             "title": "Name",
             "type": "string"
           },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
           "start_time": {
             "anyOf": [
               {

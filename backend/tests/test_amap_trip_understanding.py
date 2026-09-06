@@ -505,3 +505,30 @@ async def test_full_worker_profile_injects_live_qwen_and_amap_only_when_enabled(
     finally:
         await live.aclose()
         await fixture.aclose()
+
+@pytest.mark.asyncio
+async def test_photo_is_taken_only_from_selected_valid_poi_without_extra_request():
+    observed = []
+    correct = _poi(photos=[{"url": "javascript:alert(1)"}, {"url": "http://store.is.autonavi.com/showpic/palace.jpg"}])
+    wrong_city = _poi(provider_id="wrong-city", city="上海市", photos=[{"url": "https://store.is.autonavi.com/showpic/wrong.jpg"}])
+    async with _client({"status": "1", "pois": [wrong_city, correct]}, observed) as client:
+        outcome = await AmapPlaceResolver(api_key="test-only", client=client).resolve(
+            city="北京", atomic_place_name="故宫博物院", category_hint="景点")
+    assert outcome.place is not None
+    assert outcome.place.photo_url == "https://store.is.autonavi.com/showpic/palace.jpg"
+    assert len(observed) == 1
+    assert observed[0].url.params["show_fields"] == "business,photos"
+    assert "photo" not in str(outcome.receipt).lower()
+
+
+@pytest.mark.parametrize("value", [
+    "https://localhost/pic", "https://127.0.0.1/pic",
+    "https://store.is.autonavi.com.evil.test/pic",
+    "https://user:secret@store.is.autonavi.com/pic",
+    "https://store.is.autonavi.com/pic?key=secret",
+    "https://store.is.autonavi.com:443/pic",
+    "data:image/png;base64,secret", "javascript:alert(1)", "", None,
+])
+def test_photo_projection_rejects_untrusted_or_secret_urls(value):
+    from app.trip_understanding.models import safe_poi_photo_url
+    assert safe_poi_photo_url(value) is None

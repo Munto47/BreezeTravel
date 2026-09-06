@@ -55,27 +55,34 @@ export default function MapStayWorkspace({
     [],
   )
   const currentStay = stay || result.stay
-  const mapMessage = mapView?.message || result.map.message
   const mapUnavailable = (mapView?.status || result.map.status) === 'UNAVAILABLE'
   const stayUnavailable = currentStay.status === 'UNAVAILABLE'
   const canRender = mapView?.available_actions.includes('RENDER_MAP') ?? false
   const dayColor = DAY_COLORS[dayIndex % DAY_COLORS.length]
   const currentRoutes = mapView && ['AVAILABLE', 'LIMITED'].includes(mapView.status)
-    ? mapView.days.find((day) => day.label === currentDay?.label)?.routes || []
+    ? mapView.days.flatMap((day) => {
+        const index = result.days.findIndex((item) => item.label === day.label)
+        return index < 0 ? [] : day.routes.map((route) => ({...route, color:DAY_COLORS[index % DAY_COLORS.length]}))
+      })
     : []
+
+  const selectCard = (token: string) => {
+    const index = result.days.findIndex(day => day.activities.some(card => card.activity_token === token))
+    if (index >= 0 && index !== dayIndex) onDayChange(index)
+    onSelect(token)
+  }
 
   useEffect(() => {
     setDirectoryOpen(window.matchMedia('(min-width: 1024px)').matches)
   }, [])
 
   return (
-    <section data-testid="map-theater" id="map-stay-view" aria-label="地图与住宿" className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-28 pt-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:px-8 lg:pb-10 lg:pl-24">
+    <section data-testid="map-theater" id="map-stay-view" aria-label="地图与住宿" className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-28 pt-6 lg:px-8 lg:pb-10 lg:pl-24">
       <div className="min-w-0 space-y-4">
         <header className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-sky-900/10 bg-white/80 p-4 backdrop-blur">
           <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-[#0c789d]">地图与住宿</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-900">当天路线一眼看清</h2>
-            <p className="mt-1 text-sm text-slate-600">{mapMessage}</p>
+<h2 className="text-lg font-semibold text-slate-800">全程地图</h2>
+            <span className="text-xs text-slate-500">{({PREPARING:'路线准备中', AVAILABLE:'路线已准备', NEEDS_UPDATE:'路线需要更新', LIMITED:'部分路线可用', UNAVAILABLE:'路线暂不可用'})[mapView?.status || result.map.status]}</span>
           </div>
           {canRender && (
             <button
@@ -96,13 +103,6 @@ export default function MapStayWorkspace({
             data-testid="enhancement-read-recovery"
             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-900/10 bg-sky-50/80 p-4 text-sm text-slate-700"
           >
-            <p>
-              {mapUnavailable && stayUnavailable
-                ? '路线和住宿暂时未读取完整，行程卡片仍可继续使用。'
-                : mapUnavailable
-                  ? '路线暂时未读取完整，行程卡片仍可继续使用。'
-                  : '住宿建议暂时未读取完整，不影响查看行程和路线。'}
-            </p>
             <button
               data-testid="retry-enhancements"
               type="button"
@@ -115,21 +115,21 @@ export default function MapStayWorkspace({
                 ? '重新读取路线与住宿'
                 : mapUnavailable
                   ? '重新读取路线'
-                  : '重新读取住宿'}
+                  : '重试住宿'}
             </button>
           </div>
         )}
 
-        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="选择地图日期">
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="日期颜色与预演选择">
           {result.days.map((day, index) => (
             <button
               key={`${day.label}-${index}`}
               type="button"
               aria-pressed={index === dayIndex}
               onClick={() => onDayChange(index)}
-              className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${index === dayIndex ? 'bg-[#0c789d] text-white' : 'border border-sky-900/10 bg-white/80 text-slate-700'}`}
+              className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${index === dayIndex ? 'bg-white text-slate-900 ring-1 ring-sky-200' : 'border border-sky-900/10 bg-white/80 text-slate-700'}`}
             >
-              {day.label}
+<span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}
             </button>
           ))}
         </div>
@@ -152,25 +152,26 @@ export default function MapStayWorkspace({
             hidden={!directoryOpen}
             className="absolute bottom-4 left-4 top-[4.25rem] z-10 w-[min(14rem,calc(100%-2rem))] overflow-y-auto rounded-2xl border border-white/70 bg-white/90 p-2 shadow-lg backdrop-blur"
           >
-            <p className="px-2 py-2 text-xs font-semibold tracking-[0.12em] text-slate-500">当天地点</p>
-            {currentDay?.activities.map((card, index) => (
+            <p className="px-2 py-2 text-xs font-semibold tracking-[0.12em] text-slate-500">全部地点</p>
+            {result.days.flatMap((listedDay, listedDayIndex) => listedDay.activities.map((card, index) => (
               <button
                 key={card.activity_token}
-                data-day-index={dayIndex}
+                data-day-index={listedDayIndex}
                 type="button"
-                onClick={() => onSelect(card.activity_token)}
+                onClick={() => { onDayChange(listedDayIndex); onSelect(card.activity_token) }}
                 className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-2 text-left text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${selected === card.activity_token ? 'bg-sky-100 text-sky-950' : 'hover:bg-slate-50'}`}
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: dayColor }}>{index + 1}</span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ backgroundColor: DAY_COLORS[listedDayIndex % DAY_COLORS.length] }}>{index + 1}</span>
                 <span className="truncate">{card.name}</span>
               </button>
-            ))}
+            )))}
           </div>
           <RouteMap
             view={mapView}
             day={currentDay}
+            days={result.days}
             selected={selected}
-            onSelect={onSelect}
+            onSelect={selectCard}
             mode={routeMode}
             visible={active}
             focusSelected
@@ -180,7 +181,7 @@ export default function MapStayWorkspace({
         </div>
 
         {!!currentRoutes.length && (
-          <div className="grid gap-2" aria-label="当天路线文字摘要">
+          <details open={mapUnavailable || undefined} className="grid gap-2" aria-label="路线文字摘要"><summary className="min-h-11 cursor-pointer text-sm text-slate-600">路线摘要</summary>
             {currentRoutes.map((route, index) => {
               const selectedMode = routeMode === 'recommended' ? route.selected_mode : routeMode
               const selectedRoute = selectedMode ? route[selectedMode] : null
@@ -195,12 +196,11 @@ export default function MapStayWorkspace({
                   <div className="flex items-center gap-3">
                     {geometryCount >= 2 && (
                       <svg width="38" height="14" viewBox="0 0 38 14" aria-hidden="true" className="shrink-0">
-                        <path data-testid="map-route-line" d="M2 11 Q19 1 36 11" fill="none" stroke={dayColor} strokeWidth="3" strokeLinecap="round" />
+                        <path data-testid="map-route-line" d="M2 11 Q19 1 36 11" fill="none" stroke={route.color} strokeWidth="3" strokeLinecap="round" />
                       </svg>
                     )}
                     <strong className="text-slate-900">{route.from_name} → {route.to_name}</strong>
                   </div>
-                  <p className="mt-1">{route.message}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {selectedMode && selectedRoute?.status === 'AVAILABLE'
                       ? `${selectedMode === 'walking' ? '步行' : '公交'}${selectedRoute.duration_minutes == null ? '' : ` ${selectedRoute.duration_minutes} 分钟`}`
@@ -209,7 +209,7 @@ export default function MapStayWorkspace({
                 </article>
               )
             })}
-          </div>
+          </details>
         )}
 
         <div className="flex flex-wrap gap-2" aria-label="路线方式">
@@ -229,20 +229,20 @@ export default function MapStayWorkspace({
 
         <RoutePlayback active={active} view={mapView} day={currentDay} mode={routeMode} onPosition={updateSimulationPosition} />
 
-        <section className="rounded-[1.75rem] border border-sky-900/10 bg-white/85 p-4 shadow-sm" aria-label={`${currentDay?.label || ''} 横链`}>
+        <section className="rounded-[1.75rem] border border-sky-900/10 bg-white/85 p-4 shadow-sm" aria-label="全部日期横链">
           <div className="flex snap-x gap-3 overflow-x-auto pb-2">
-            {currentDay?.activities.map((card, index) => (
+            {result.days.flatMap((stripDay, stripDayIndex) => stripDay.activities.map((card, index) => (
               <button
                 key={card.activity_token}
                 type="button"
-                onClick={() => onSelect(card.activity_token)}
+                onClick={() => selectCard(card.activity_token)}
                 className={`min-h-28 w-[min(72vw,13rem)] shrink-0 snap-start rounded-2xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${selected === card.activity_token ? 'border-[#0c789d] bg-sky-50' : 'border-slate-200 bg-white'}`}
               >
-                <span className="text-xs text-slate-500">{index + 1} · {card.time_hint || '时间待定'}</span>
+                <span className="text-xs" style={{color:DAY_COLORS[stripDayIndex % DAY_COLORS.length]}}>{stripDay.label} · {index + 1}</span>
                 <strong className="mt-2 block text-sm text-slate-900">{card.name}</strong>
                 <span className="mt-2 block text-xs text-[#0c789d]">{card.status === 'READY' ? '已确认' : '待确认'}</span>
               </button>
-            ))}
+            )))}
           </div>
           {currentDay?.activities.find((card) => card.activity_token === selected) && (
             <button
@@ -257,9 +257,8 @@ export default function MapStayWorkspace({
       </div>
 
       <aside data-testid="stay-panel" className="space-y-4 lg:sticky lg:top-24" aria-label="住宿建议">
-        <section className="rounded-[1.75rem] border border-sky-900/10 bg-white/90 p-5 shadow-sm">
-          <p className="text-xs font-semibold tracking-[0.12em] text-[#0c789d]">住宿建议</p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-900">住在哪里更顺路</h2>
+        <details open={currentStay.candidates.length > 0 || undefined} className="rounded-[1.75rem] bg-white/90 p-5">
+          <summary className="min-h-11 cursor-pointer text-sm font-semibold text-[#0c789d]">住宿</summary>
           <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}
           <div className="mt-4 space-y-3">
@@ -280,7 +279,7 @@ export default function MapStayWorkspace({
               </article>
             ))}
           </div>
-        </section>
+        </details>
       </aside>
     </section>
   )

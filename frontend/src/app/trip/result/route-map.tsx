@@ -9,6 +9,8 @@ import type {
   UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 
+import { DAY_COLORS } from './result-presentation'
+
 type MapInstance = {
   destroy(): void
   add(overlays: unknown[]): void
@@ -81,6 +83,7 @@ function validPosition(
 export default function RouteMap({
   view,
   day,
+  days,
   selected,
   onSelect,
   mode,
@@ -92,6 +95,7 @@ export default function RouteMap({
 }: {
   view: MapRenderView | null
   day: UserFacingTripResult['days'][number] | undefined
+  days?: UserFacingTripResult['days']
   selected: string | null
   onSelect: (token: string) => void
   mode: 'recommended' | 'walking' | 'transit'
@@ -108,24 +112,27 @@ export default function RouteMap({
   const selectionCallback = useRef(onSelect)
   const currentOverlays = useRef<unknown[]>([])
   const fittedDay = useRef<string | null>(null)
+  const [activated, setActivated] = useState(visible)
+  useEffect(() => { if (visible) setActivated(true) }, [visible])
   const [ready, setReady] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
   const [error, setError] = useState('')
   const [attempt, setAttempt] = useState(0)
   selectionCallback.current = onSelect
+  const visibleDays = useMemo(() => days || (day ? [day] : []), [days, day])
   const points = useMemo(
     () =>
       (view?.points || []).filter(
         (point) =>
-          day?.activities.some(
+          visibleDays.some((visibleDay) => visibleDay.activities.some(
             (activity) => activity.activity_token === point.activity_token,
-          ) && validPosition(point.position),
+          )) && validPosition(point.position),
       ),
-    [view?.points, day],
+    [view?.points, visibleDays],
   )
 
   useEffect(() => {
-    if (!container.current) return
+    if (!container.current || !activated) return
     let cancelled = false
     let mapTimeout: ReturnType<typeof setTimeout> | undefined
     setError('')
@@ -150,17 +157,13 @@ export default function RouteMap({
         })
         mapTimeout = setTimeout(() => {
           if (!cancelled)
-            setError('地图底图暂时没有加载完成。行程与路线摘要仍可查看。')
+            setError('地图暂不可用')
         }, 15000)
         setReady(true)
       })
       .catch(() => {
         if (!cancelled)
-          setError(
-            process.env.NEXT_PUBLIC_AMAP_KEY
-              ? '地图底图暂时无法加载。行程与已核对的路线摘要仍可查看。'
-              : '当前环境尚未启用地图底图，行程仍可查看和修改。',
-          )
+          setError('地图暂不可用')
       })
     return () => {
       cancelled = true
@@ -169,10 +172,10 @@ export default function RouteMap({
       map.current = null
       sdk.current = null
     }
-  }, [attempt])
+  }, [attempt, activated])
 
   useEffect(() => {
-    if (!ready || !map.current || !sdk.current) return
+    if (!visible || !ready || !map.current || !sdk.current) return
     const instance = map.current
     const api = sdk.current
     const overlays: unknown[] = []
@@ -182,12 +185,14 @@ export default function RouteMap({
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'e-map-marker'
+      const dayOffset = visibleDays.findIndex((item) => item.activities.some((card) => card.activity_token === point.activity_token))
+      const pointDay = visibleDays[dayOffset]
       const index =
-        day?.activities.findIndex(
+        pointDay?.activities.findIndex(
           (activity) => activity.activity_token === point.activity_token,
         ) ?? 0
       button.textContent = String(index + 1)
-      button.style.backgroundColor = dayColor
+      button.style.backgroundColor = days ? DAY_COLORS[dayOffset % DAY_COLORS.length] : dayColor
       button.setAttribute('aria-label', `查看${point.name}`)
       button.onclick = () => selectionCallback.current(point.activity_token)
       markers.current.set(point.activity_token, button)
@@ -201,9 +206,8 @@ export default function RouteMap({
       )
     })
     if (view?.status === 'AVAILABLE' || view?.status === 'LIMITED') {
-      const routes =
-        view.days.find((routeDay) => routeDay.label === day?.label)?.routes ||
-        []
+      visibleDays.forEach((routeDay, dayOffset) => {
+      const routes = view.days.find((item) => item.label === routeDay.label)?.routes || []
       routes.forEach((route) => {
         const routeMode = mode === 'recommended' ? route.selected_mode : mode
         if (!routeMode) return
@@ -224,7 +228,7 @@ export default function RouteMap({
               point.longitude,
               point.latitude,
             ]),
-            strokeColor: dayColor,
+            strokeColor: days ? DAY_COLORS[dayOffset % DAY_COLORS.length] : dayColor,
             strokeOpacity: 0.8,
             strokeWeight: 5,
             strokeStyle: routeMode === 'walking' ? 'dashed' : 'solid',
@@ -234,19 +238,21 @@ export default function RouteMap({
           }),
         )
       })
+      })
     }
     instance.add(overlays)
     currentOverlays.current = overlays
-    if (overlays.length && fittedDay.current !== day?.label) {
+    const fitKey = points.map((point) => `${point.activity_token}:${point.position?.longitude},${point.position?.latitude}`).join('|')
+    if (points.length && fittedDay.current !== fitKey) {
       instance.setFitView(overlays, false, [70, 70, 70, 70], 15)
-      fittedDay.current = day?.label || null
+      fittedDay.current = fitKey
     }
     return () => {
       instance.remove(overlays)
       currentOverlays.current = []
       markers.current.clear()
     }
-  }, [ready, points, day, view, mode, dayColor])
+  }, [visible, ready, points, visibleDays, days, view, mode, dayColor])
 
   useEffect(() => {
     markers.current.forEach((button, token) => {
@@ -341,7 +347,7 @@ export default function RouteMap({
           </button>
           <button
             type="button"
-            aria-label="查看当天所有地点"
+            aria-label="查看所有地点"
             onClick={() => {
               if (currentOverlays.current.length)
                 map.current?.setFitView(
@@ -368,7 +374,7 @@ export default function RouteMap({
             {error ||
               (!tilesReady
                 ? '正在打开地图…'
-                : '这一天还没有可显示的地点坐标。选择待确认地点，搜索并确认后即可定位。')}
+                : '暂无已确认地点')}
           </p>
           {error && process.env.NEXT_PUBLIC_AMAP_KEY && (
             <button

@@ -58,7 +58,9 @@ export default function AccessibleDialog({
       window.requestAnimationFrame(() => {
         const active = document.activeElement
         if (active instanceof HTMLElement && active.closest('[role="dialog"]')) return
-        if (target?.isConnected) target.focus()
+        // A parent may already have restored focus to a remounted day or card.
+        if (active instanceof HTMLElement && active !== document.body && active.getClientRects().length) return
+        if (target?.isConnected && target.getClientRects().length) target.focus()
       })
     }
   }, [returnFocusRef])

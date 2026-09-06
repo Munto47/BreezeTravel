@@ -253,12 +253,8 @@ export default function HomePage() {
         </nav>
       </header>
       <section className="e-home e-home-direct">
-        <div className="e-home-intro">
-          <h1>把攻略，整理成走得明白的行程</h1>
-          <p>粘贴已有攻略，查看每天安排、对应地图和需要调整的地方。</p>
-        </div>
         <form onSubmit={start} className="e-input-panel">
-          <label className="e-input-label" htmlFor="trip-source">
+          <label className="sr-only" htmlFor="trip-source">
             你的攻略或行程
           </label>
           <textarea
@@ -273,15 +269,14 @@ export default function HomePage() {
               setDemo(false)
               setError('')
             }}
-            placeholder="例如：北京两天。第一天上午10点到故宫，停留两小时，再去景山公园。第二天去天坛，前门作为备选。"
-            aria-describedby="input-scope input-mode"
+            placeholder="粘贴你的攻略，开始一段旅程…"
             aria-invalid={Boolean(error)}
           />
           <div className="e-input-footer">
             <span className="e-small e-muted">
               {source.length
                 ? `${source.length.toLocaleString()} / 50,000`
-                : '无需先填城市、日期或人数'}
+                : ''}
             </span>
             <button
               type="submit"
@@ -299,11 +294,6 @@ export default function HomePage() {
             </p>
           )}
         </form>
-        <p id="input-mode" className="e-small e-muted">
-          {demo
-            ? '固定示例已填入。点击整理将打开回放；修改文字后会按真实攻略整理。'
-            : '你的文字将用于整理行程与核对地点。'}
-        </p>
         <div className="e-entry-secondary">
           <button
             type="button"
@@ -316,9 +306,9 @@ export default function HomePage() {
                 : fillDemo()
             }
           >
-            填入北京示例
+            北京示例
           </button>
-          <span className="e-small e-muted">固定回放，可先查看内容</span>
+          {demo && <span className="e-small e-muted">示例回放</span>}
         </div>
         {replaceSample && (
           <div
@@ -359,12 +349,6 @@ export default function HomePage() {
           <div className="e-resume-entry">
             <div>
               <strong>{resume.title}</strong>
-              <p className="e-small e-muted">
-                当前会话可恢复
-                {resume.updated
-                  ? ` · 最近编辑 ${new Date(resume.updated).toLocaleString('zh-CN')}`
-                  : ''}
-              </p>
             </div>
             <Link
               className="e-button"
@@ -375,15 +359,8 @@ export default function HomePage() {
             </Link>
           </div>
         )}
-        <p id="input-scope" className="e-small e-muted">
-          北京、上海、杭州支持深入核对；其他国内城市先整理安排。
-        </p>
-        <p className="e-small e-muted">
-          无需登录即可开始。匿名行程保留24小时，保存到账号后默认保留30天，可随时删除。
-        </p>
       </section>
       <footer className="e-home-footer">
-        <span>让每天的安排更清楚</span>
         <Link href="/about#privacy">隐私与数据</Link>
       </footer>
     </main>

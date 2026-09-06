@@ -24,7 +24,7 @@ from app.trip_understanding._three_city_place_lexicon import (
     venue_suffix_equivalent,
 )
 from app.trip_understanding.errors import PlaceProviderUnavailableError
-from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace
+from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
 from app.trip_understanding.pipeline import canonical_sha256
 
 
@@ -743,7 +743,7 @@ class AmapPlaceResolver:
             "page_size": 25,
             "page_num": 1,
             "output": "json",
-            "show_fields": "business",
+            "show_fields": "business,photos",
             "types": typecodes,
         }
         params: dict[str, object] = {
@@ -754,7 +754,7 @@ class AmapPlaceResolver:
             "page_size": 25,
             "page_num": 1,
             "output": "json",
-            "show_fields": "business",
+            "show_fields": "business,photos",
         }
         if typecodes:
             params["types"] = "|".join(typecodes)
@@ -856,12 +856,17 @@ class AmapPlaceResolver:
             "typecode": str(raw.get("typecode") or "NOT_EXPOSED_BY_PROVIDER"),
             "coordinates": {"longitude": longitude, "latitude": latitude},
         }
+        raw_photos = raw.get("photos")
+        photos = raw_photos if isinstance(raw_photos, list) else [raw_photos] if isinstance(raw_photos, dict) else []
+        photo_url = next((url for photo in photos if isinstance(photo, dict)
+                          if (url := safe_poi_photo_url(photo.get("url")))), None)
         place = ResolvedPlace(
             canonical_place_id=str(raw["id"]),
             name=str(raw["name"]),
             category=_CATEGORY_LABELS[candidate.category],
             area_or_address=address.strip(),
             provider_binding=provider_binding,
+            photo_url=photo_url,
         )
         return PlaceResolutionOutcome(place=place, receipt=provider_binding)
 

@@ -87,7 +87,6 @@ export default function RoutePlayback({
     }),
     [segments, stations],
   )
-  const hasVerifiedPlayback = stationSegments.some((item) => item !== null)
   const playbackKey = `${view?.status || 'EMPTY'}:${stationSegments.map((item) => item?.key || '-').join('|')}`
   const [stationIndex, setStationIndex] = useState(0)
   const [pointIndex, setPointIndex] = useState(0)
@@ -169,7 +168,7 @@ export default function RoutePlayback({
     return (
       <section data-testid="route-playback" className="rounded-2xl border border-sky-900/10 bg-white/90 p-4" aria-label="路线预演">
         <p className="text-xs font-semibold tracking-[0.12em] text-[#0c789d]">计划路线模拟</p>
-        <p className="mt-2 text-sm leading-6 text-slate-600">当天还没有可预演的地点。</p>
+        <p className="mt-2 text-sm leading-6 text-slate-600">暂无地点</p>
       </section>
     )
   }
@@ -220,14 +219,10 @@ export default function RoutePlayback({
       </div>
       {!segment && stationIndex < stations.length - 1 && (
         <p className="mt-3 rounded-xl bg-sky-50 p-3 text-sm text-slate-600">
-          当前路段没有可用的真实路线几何，因此地图动画不可用；仍可用上一站、下一站逐站查看。
+          地图动画不可用
         </p>
       )}
-      <p className="mt-3 text-xs leading-5 text-slate-500">
-        {hasVerifiedPlayback
-          ? '这是已核对计划路线的视觉预演，不代表实时位置；默认暂停，播放不会重新请求路线。'
-          : '这里只按行程卡片逐站预览；路线尚未核对，地图动画不可用。'}
-      </p>
+
     </section>
   )
 }

@@ -50,6 +50,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  photo_url?: string | null
   activity_token: string
   name: string
   category: string

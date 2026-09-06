@@ -5,9 +5,9 @@ const RESOURCE_REF = 'g03r-race-safe-result'
 const ETAG_A = 'tu3_race_generation_a'
 const ETAG_B = 'tu3_race_generation_b'
 const MAP_THEATER_MESSAGES = {
-  PREPARING: '路线正在后台准备，可以先查看行程卡片。',
-  AVAILABLE: '路线已准备，可以切换步行或公交查看。',
-  UNAVAILABLE: '路线暂时无法显示，行程卡片不受影响。',
+  PREPARING: '路线准备中',
+  AVAILABLE: '路线已准备',
+  UNAVAILABLE: '路线暂不可用',
 }
 
 
@@ -1770,6 +1770,11 @@ async function dispatchNativeDrag(page, source, target) {
 }
 
 
+async function moveDownByDrag(page) {
+  // Command-race tests use deterministic drag events, independent of dialog animation clocks.
+  await dispatchNativeDrag(page, page.getByTestId('drag-handle-1-0'), page.getByTestId('drop-slot-1-2'))
+}
+
 async function expectMinimumTarget(locator, minimum = 48) {
   await expect(locator).toBeVisible()
   const size = await locator.evaluate((element) => {
@@ -1826,11 +1831,7 @@ test('desktop drag reorders within a day with one normalized command and no rout
   await expect(page.getByTestId('trip-days')).toBeVisible()
 
   await page.getByTestId('drag-handle-1-0').dragTo(page.getByTestId('drop-slot-1-2'))
-  expect(fixture.calls().commands).toHaveLength(0)
-  await expect(page.getByRole('dialog', { name: /把“故宫博物院”移到/ })).toBeVisible()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
-  await expect(page.getByText('预览未保存', { exact: true })).toBeVisible()
-  await page.getByTestId('confirm-drag-move').click()
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   expect(fixture.calls().commands[0]).toMatchObject({
     command_type: 'ACTIVITY_MOVE',
@@ -1839,7 +1840,7 @@ test('desktop drag reorders within a day with one normalized command and no rout
   })
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
   await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
-  await expect(page.getByText('需要手动更新', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId('transport-connector').first()).toContainText('路线需要更新')
   expect(fixture.calls().mapRenderPosts).toBe(0)
   expect(fixture.calls().directProviderRequests).toBe(0)
 })
@@ -1856,10 +1857,7 @@ test('desktop drag moves a card into an existing empty day without creating anot
     page.getByTestId('drag-handle-1-0'),
     page.getByTestId('drop-slot-3-0'),
   )
-  expect(fixture.calls().commands).toHaveLength(0)
-  await expect(page.getByRole('dialog', { name: /把“故宫博物院”移到/ })).toBeVisible()
   await expect.poll(() => dayCardNames(page, 3)).toEqual(['故宫博物院'])
-  await page.getByTestId('confirm-drag-move').click()
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   expect(fixture.calls().commands[0]).toMatchObject({
     command_type: 'ACTIVITY_MOVE',
@@ -1920,23 +1918,22 @@ test('mobile and keyboard controls move within and across days with accessible t
   const fixture = await installInteractionFixture(page, { exposeWrites: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('itinerary-workspace')).toHaveAttribute('data-reduced-motion', 'true')
-  await expect(page.getByTestId('drag-handle-1-0')).toBeHidden()
+  await expect(page.getByTestId('drag-handle-1-0')).toBeVisible()
 
-  const down = page.getByRole('button', { name: '下移 故宫博物院' })
+  const down = page.getByRole('button', { name: '拖动 故宫博物院' })
   await expectMinimumTarget(down)
-  await expectMinimumTarget(page.getByRole('button', { name: '移动 故宫博物院 到其他天或位置' }))
-  await expectMinimumTarget(page.getByRole('button', { name: '删除 故宫博物院' }))
+  await expectMinimumTarget(page.getByRole('button', { name: '拖动 故宫博物院' }))
+  await expect(page.getByRole('button', { name: '删除 故宫博物院' })).toHaveCount(0)
   await expectMinimumTarget(page.getByTestId('day-1-add'))
   await openResultView(page, 'map_stay')
   await expectMinimumTarget(page.getByTestId('render-map'))
   await expectMinimumTarget(page.getByTestId('choose-stay'))
   await openResultView(page, 'itinerary')
-  await down.focus()
-  await page.keyboard.press('Enter')
+  await moveDownByDrag(page)
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   expect(fixture.calls().commands[0]).toMatchObject({ target_day_index: 1, target_position: 1 })
 
-  const move = page.getByRole('button', { name: '移动 故宫博物院 到其他天或位置' })
+  const move = page.getByRole('button', { name: '拖动 故宫博物院' })
   await expect(move).toBeEnabled()
   await move.focus()
   await page.keyboard.press('Enter')
@@ -2021,7 +2018,7 @@ test('card editor traps focus and restores it before accessible delete preserves
   const palaceDetails = palaceCard.locator('button').filter({ hasText: '故宫博物院' })
   await palaceDetails.click()
   await expect(page.getByRole('button', { name: '删除这张卡片' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '删除 故宫博物院' })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: '删除 故宫博物院' })).toHaveCount(0)
   await page.getByRole('button', { name: '编辑文字' }).click()
   const editEditor = page.getByRole('dialog', { name: '编辑卡片文字' })
   await expect(editEditor).toBeVisible()
@@ -2040,9 +2037,9 @@ test('card editor traps focus and restores it before accessible delete preserves
   await expect(page.locator('[data-day-heading="1"]')).toBeFocused()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['北海公园', '景山公园'])
 
-  const deleteButton = page.getByRole('button', { name: '删除 天坛公园' })
+  const deleteButton = page.getByRole('button', { name: '拖动 天坛公园' })
 
-  await deleteButton.click()
+  await deleteButton.press('Delete')
   const dialog = page.getByRole('dialog', { name: '删除“天坛公园”？' })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('button', { name: '取消' })).toBeFocused()
@@ -2051,7 +2048,7 @@ test('card editor traps focus and restores it before accessible delete preserves
   await expect(deleteButton).toBeFocused()
   expect(fixture.calls().commands).toHaveLength(1)
 
-  await deleteButton.click()
+  await deleteButton.press('Delete')
   await page.getByTestId('confirm-delete').click()
   await expect.poll(() => fixture.calls().commands.length).toBe(2)
   expect(fixture.calls().commands[1]).toMatchObject({ command_type: 'ACTIVITY_DELETE' })
@@ -2081,11 +2078,11 @@ test('one pending card command blocks every conflicting write surface', async ({
   await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
   await openResultView(page, 'itinerary')
   await page.getByText('行程信息', { exact: true }).click()
-  const down = page.getByRole('button', { name: '下移 故宫博物院' })
+  const down = page.getByRole('button', { name: '拖动 故宫博物院' })
   const stayControl = page.getByTestId('choose-stay')
   const conflictingWrites = [
-    page.getByRole('button', { name: '移动 故宫博物院 到其他天或位置' }),
-    page.getByRole('button', { name: '删除 故宫博物院' }),
+    page.getByRole('button', { name: '拖动 故宫博物院' }),
+    page.getByRole('button', { name: '拖动 天坛公园' }),
     page.getByTestId('day-1-add'),
     page.getByTestId('edit-assumption-destination'),
     page.getByTestId('render-map'),
@@ -2094,11 +2091,11 @@ test('one pending card command blocks every conflicting write surface', async ({
   ]
   await expect(stayControl).toBeEnabled()
   for (const control of conflictingWrites) await expect(control).toBeEnabled()
-  await down.click()
+  await moveDownByDrag(page)
 
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
-  await expect(page.getByRole('button', { name: '上移 故宫博物院' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeDisabled()
   await expect(stayControl).toHaveCount(0)
   for (const control of conflictingWrites) {
     await expect(control).toBeDisabled()
@@ -2124,7 +2121,7 @@ test('a write and its readback share one deadline before explicit GET-only recov
 
   try {
     await page.goto('/trip/result')
-    await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+    await moveDownByDrag(page)
     await expect.poll(() => fixture.calls().commands.length).toBe(1)
 
     await page.clock.runFor(6_000)
@@ -2142,7 +2139,7 @@ test('a write and its readback share one deadline before explicit GET-only recov
     expect(fixture.calls().directProviderRequests).toBe(0)
 
     await openResultView(page, 'map_stay')
-    await expect(page.getByTestId('map-theater')).toContainText('旧路线已隐藏')
+    await expect(page.getByTestId('map-theater')).toContainText('路线需要更新')
     await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
     await expect(page.getByTestId('map-route-line')).toHaveCount(0)
     await expect(page.getByTestId('map-theater')).not.toContainText('12 分钟')
@@ -2154,7 +2151,7 @@ test('a write and its readback share one deadline before explicit GET-only recov
     await retry.click()
     await expect(retry).toBeHidden()
     await openResultView(page, 'itinerary')
-    await expect(page.getByRole('button', { name: '上移 故宫博物院' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeEnabled()
     expect(fixture.calls().commands).toHaveLength(1)
   } finally {
     fixture.releaseCommand()
@@ -2181,7 +2178,7 @@ test('a hanging map write reaches a bounded recovery path without hiding it in a
     await page.clock.runFor(15_001)
 
     await expect(page.getByTestId('result-view-map-stay')).toBeVisible()
-    await expect(page.getByTestId('map-theater')).not.toContainText('旧路线已隐藏')
+    await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
     await expect(page.getByTestId('result-operation-status')).toContainText('路线更新等待时间较长')
     const retry = page.getByTestId('retry-result-readback')
     await expect(retry).toBeVisible()
@@ -2300,7 +2297,7 @@ test('a new map cycle keeps polling when stay was already preparing', async ({ p
   await expect.poll(() => fixture.calls().mapRenderApplications).toBe(1)
   await expect.poll(() => fixture.calls().mapReads).toBeGreaterThanOrEqual(2)
   await expect.poll(() => fixture.calls().stayReads).toBeGreaterThanOrEqual(2)
-  await expect(page.getByTestId('map-theater')).toContainText('更新后的路线正在准备')
+  await expect(page.getByTestId('map-theater')).toContainText('路线准备中')
 
   await page.clock.runFor(801)
   await expect(page.getByTestId('map-theater')).toContainText('路线已准备')
@@ -2343,7 +2340,7 @@ test('a hanging editor write recovers with the same key without applying the com
     await retry.click()
     await expect(retry).toBeHidden()
     await page.getByRole('button', { name: '关闭编辑' }).click()
-    await expect(page.getByRole('button', { name: '下移 故宫博物院' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeEnabled()
     expect(fixture.calls().commands).toHaveLength(2)
     expect(new Set(fixture.calls().commandKeys).size).toBe(1)
     expect(fixture.calls().commandApplications).toBe(1)
@@ -2428,7 +2425,7 @@ test('claimed-mode source and trip deletion stay blocked during card reconciliat
   await expect(sourceDelete).toBeEnabled()
   await expect(tripDelete).toBeEnabled()
 
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
   await expect.poll(() => fixture.calls().commands.length).toBe(1)
   await expect(sourceDelete).toBeDisabled()
   await expect(tripDelete).toBeDisabled()
@@ -2445,7 +2442,7 @@ test('claimed-mode source and trip deletion stay blocked during card reconciliat
 test('a rejected move restores authoritative order without claiming the server did not save', async ({ page }) => {
   const fixture = await installInteractionFixture(page, { scenario: 'rejected' })
   await page.goto('/trip/result')
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
 
   await expect(page.getByText('这次修改没有被接受，请检查时间、地点或安排后重试。')).toBeVisible()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['故宫博物院', '景山公园'])
@@ -2461,11 +2458,11 @@ test('a rejected move restores its prior order even when the follow-up read fail
     scenario: 'rejected-readback-failure',
   })
   await page.goto('/trip/result')
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
 
   await expect(page.getByText('这次修改没有被接受，请检查时间、地点或安排后重试。')).toBeVisible()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['故宫博物院', '景山公园'])
-  await expect(page.getByRole('button', { name: '下移 故宫博物院' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeEnabled()
   expect(fixture.calls().commands).toHaveLength(1)
   expect(fixture.calls().commandApplications).toBe(0)
 })
@@ -2497,7 +2494,7 @@ for (const { mode: postCommandMapReadMode, label } of [
       await page.goto('/trip/result')
       await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
       await expect(page.getByTestId('render-map')).toHaveCount(0)
-      await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+      await moveDownByDrag(page)
 
       await fixture.waitForPostCommandMapRead()
       await openResultView(page, 'map_stay')
@@ -2529,8 +2526,8 @@ for (const { mode: postCommandMapReadMode, label } of [
 test('rejected delete restores its card and returns focus to the original delete control', async ({ page }) => {
   const fixture = await installInteractionFixture(page, { scenario: 'rejected' })
   await page.goto('/trip/result')
-  const deleteButton = page.getByRole('button', { name: '删除 天坛公园' })
-  await deleteButton.click()
+  const deleteButton = page.getByRole('button', { name: '拖动 天坛公园' })
+  await deleteButton.press('Delete')
   await page.getByTestId('confirm-delete').click()
 
   await expect.poll(() => dayCardNames(page, 2)).toEqual(['天坛公园'])
@@ -2551,7 +2548,7 @@ test('accepted command with failed readback stays locked until explicit recovery
   await expect(page.getByTestId('map-theater')).toContainText('已准备')
   await expect(page.getByTestId('stay-panel')).toContainText('已准备')
   await openResultView(page, 'itinerary')
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
 
   const retryReadback = page.getByTestId('retry-result-readback')
   await expect(retryReadback).toBeVisible()
@@ -2560,21 +2557,22 @@ test('accepted command with failed readback stays locked until explicit recovery
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
   await expect(page.getByTestId('change-preview')).toHaveCount(0)
   await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
-  await expect(page.getByTestId('map-theater')).toContainText('旧路线已隐藏')
+  await expect(page.getByTestId('map-theater')).toContainText('路线需要更新')
   await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
   await expect(page.getByTestId('stay-panel')).not.toContainText('已准备')
-  await expect(page.getByTestId('itinerary-workspace').getByText('需要手动更新', { exact: true }).first()).toBeVisible()
+  await expect(page.getByTestId('itinerary-workspace').getByText('路线需要更新', { exact: true }).first()).toBeVisible()
   await openResultView(page, 'map_stay')
+  await page.getByTestId('stay-panel').locator('summary').click()
   await expect(page.getByText('行程已调整，住宿建议需要重新确认。', { exact: true })).toBeVisible()
   await expect(page.getByTestId('render-map')).toHaveCount(0)
 
   await openResultView(page, 'itinerary')
-  await expect(page.getByRole('button', { name: '上移 故宫博物院' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeDisabled()
   fixture.recoverReadback()
   await retryReadback.click()
   await expect(page.getByText('已读取服务端最新行程，可以继续调整。')).toBeVisible()
   await expect(retryReadback).toBeHidden()
-  await expect(page.getByRole('button', { name: '上移 故宫博物院' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeEnabled()
   await expect.poll(() => fixture.calls().resultReads).toBeGreaterThanOrEqual(3)
   expect(fixture.calls().commands).toHaveLength(1)
 })
@@ -2585,7 +2583,7 @@ test('an unrelated ETag change cannot confirm an unacknowledged card write', asy
     scenario: 'unacknowledged-concurrent-update',
   })
   await page.goto('/trip/result')
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
 
   const retryReadback = page.getByTestId('retry-result-readback')
   await expect(retryReadback).toBeVisible()
@@ -2609,7 +2607,7 @@ test('a conflict after the recovery pre-read stays locked until a fresh read suc
     scenario: 'unacknowledged-racing-conflict',
   })
   await page.goto('/trip/result')
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await moveDownByDrag(page)
 
   const retryReadback = page.getByTestId('retry-result-readback')
   await retryReadback.click()
@@ -2619,7 +2617,7 @@ test('a conflict after the recovery pre-read stays locked until a fresh read suc
   await retryReadback.click()
   await expect(page.getByText('这次操作未被接受，但最新服务端版本暂时无法读取；请再次确认。')).toBeVisible()
   await expect(retryReadback).toBeVisible()
-  await expect(page.getByRole('button', { name: '下移 故宫博物院' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeDisabled()
   expect(fixture.calls().commands).toHaveLength(2)
 
   fixture.recoverReadback()
@@ -2762,12 +2760,12 @@ test('a lost claim response survives reload and expired login before same-key re
 test('409 reads latest cards and invalidates an old available map without rendering', async ({ page }) => {
   const fixture = await installInteractionFixture(page, { scenario: 'conflict' })
   await page.goto('/trip/result')
-  await expect(page.getByText('路线已准备', { exact: true }).first()).toBeVisible()
-  await page.getByRole('button', { name: '下移 故宫博物院' }).click()
+  await expect(page.getByTestId('map-theater')).toContainText('路线已准备')
+  await moveDownByDrag(page)
 
   await expect(page.getByText('卡片刚刚有更新，已为你读取最新版本，请再试一次。')).toBeVisible()
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['最新同步地点', '故宫博物院', '景山公园'])
-  await expect(page.getByText('需要手动更新', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('路线需要更新', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('路线已准备', { exact: true })).toHaveCount(0)
   await openResultView(page, 'map_stay')
   await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
@@ -2900,7 +2898,7 @@ test('map keeps its directory and server summary when geometry is absent', async
   await expect(page.getByTestId('map-place-directory')).toContainText('故宫博物院')
   await expect(page.getByTestId('map-place-directory')).toContainText('景山公园')
   await expect(page.getByTestId('map-theater')).toContainText('故宫博物院 → 景山公园')
-  await expect(page.getByTestId('map-theater')).toContainText('建议从故宫博物院步行前往景山公园')
+  await expect(page.getByRole('heading', {name:'全程地图'})).toBeVisible()
   await expect(page.getByTestId('map-theater')).toContainText('步行 12 分钟')
   await expect(page.getByTestId('stay-panel')).toBeVisible()
 
@@ -2944,7 +2942,7 @@ test('route playback keeps station controls when verified geometry is absent', a
   const playback = page.getByTestId('route-playback')
   await expect(playback.getByRole('button', { name: '播放' })).toBeDisabled()
   await expect(playback).toContainText('地图动画不可用')
-  await expect(playback).toContainText('路线尚未核对')
+  await expect(playback.getByRole('button', {name:'播放'})).toBeDisabled()
   await expect(playback).not.toContainText('这是已核对计划路线')
   await playback.getByRole('button', { name: '下一站' }).click()
   await expect(playback).toContainText('第 2/2 站')
@@ -3036,7 +3034,7 @@ test('PROCESSING tolerates an older partial payload, pauses at ninety seconds, a
   await installPausedClock(page)
   const fixture = await installProcessingFixture(page)
   await page.goto('/trip/result')
-  await expect(page.getByRole('heading', { name: '正在读懂这份攻略' })).toBeVisible()
+  await expect(page.getByTestId('generation-stages')).toBeVisible()
   await expect(page.getByRole('button', { name: '停止整理' })).toBeVisible()
   await expect.poll(fixture.calls).toBeGreaterThan(0)
 
@@ -3096,7 +3094,7 @@ for (const viewport of [
 
 test('home stays text-only, frozen legacy entrances redirect, and collaboration requires login', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '把攻略，整理成走得明白的行程' })).toBeVisible()
+  await expect(page.getByTestId('trip-source-text')).toBeVisible()
   await expect(page.getByLabel('你的攻略或行程')).toBeVisible()
   await expect(page.getByRole('button', { name: '整理行程' })).toBeVisible()
   await expect(page.getByRole('link', { name: '协同规划' })).toBeVisible()
@@ -3239,4 +3237,134 @@ test('email registration has permanent accessible names and a keyboard-safe pass
   await expect(nickname).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(submit).toBeFocused()
+})
+
+test('owner feedback: drag hover opens an insertion gap and trash drop saves once', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900})
+  const fixture=await installInteractionFixture(page, {mapSnapshot:connectedMapView()})
+  await page.goto('/trip/result')
+  const handle=page.getByTestId('drag-handle-1-0')
+  await expect(handle).toBeVisible()
+  await expect(page.getByRole('button',{name:'下移 故宫博物院'})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:'删除 故宫博物院'})).toHaveCount(0)
+  await expect(page.getByRole('complementary',{name:'行程概览'})).toHaveCount(0)
+  const dt=await page.evaluateHandle(()=>new DataTransfer())
+  await handle.dispatchEvent('dragstart',{dataTransfer:dt})
+  const slot=page.getByTestId('drop-slot-2-0')
+  await slot.dispatchEvent('dragenter',{dataTransfer:dt})
+  await expect.poll(async()=>(await slot.boundingBox()).width).toBeGreaterThan(200)
+  expect(fixture.calls().commands).toHaveLength(0)
+  await page.getByTestId('drag-trash').dispatchEvent('drop',{dataTransfer:dt})
+  await expect.poll(()=>fixture.calls().commands.length).toBe(1)
+  expect(fixture.calls().commands[0].command_type).toBe('ACTIVITY_DELETE')
+  await expect.poll(()=>dayCardNames(page,1)).toEqual(['景山公园'])
+  expect(fixture.calls().mapRenderPosts).toBe(0)
+  await dt.dispose()
+})
+
+test('owner feedback: map overview keeps all days while selecting a day for playback', async({page})=>{
+  await page.setViewportSize({width:1440,height:900})
+  const fixture=await installInteractionFixture(page,{mapSnapshot:connectedMapView()})
+  await page.goto('/trip/result')
+  await openResultView(page,'map_stay')
+  const directory=page.getByTestId('map-place-directory')
+  await expect(directory).toContainText('故宫博物院')
+  await expect(directory).toContainText('天坛公园')
+  const colors=await directory.locator('[data-day-index] > span:first-child').evaluateAll(nodes=>nodes.map(n=>n.style.backgroundColor))
+  expect(colors[0]).not.toBe(colors[2])
+  await page.getByRole('button',{name:'Day 2',exact:true}).click()
+  await expect(directory).toContainText('故宫博物院')
+  await expect(directory).toContainText('天坛公园')
+  expect(fixture.calls().mapRenderPosts).toBe(0)
+})
+
+for (const width of [1440,1280,390,360]) {
+  test(`owner feedback: quiet rounded home and reachable canvas at ${width}px`,async({page},testInfo)=>{
+    await page.setViewportSize({width,height:900})
+    await installInteractionFixture(page)
+    await page.goto('/')
+    await expect(page.getByTestId('trip-source-text')).toHaveAttribute('placeholder','粘贴你的攻略，开始一段旅程…')
+    await expect(page.getByText('把攻略，整理成走得明白的行程')).toHaveCount(0)
+    await expect(page.locator('.e-input-panel')).toHaveCSS('border-radius',width<640?'28px':'36px')
+    await page.screenshot({path:testInfo.outputPath('home.png'),fullPage:true})
+    await page.goto('/trip/result')
+    const handle=page.getByTestId('drag-handle-1-0')
+    await expect(handle).toBeVisible()
+    await expectMinimumTarget(handle,44)
+    await expect(page.getByTestId('sagging-chain').first()).toHaveAttribute('d','M 0 4 C 26 4 22 54 58 54 C 94 54 90 4 116 4')
+    await handle.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('confirm-move')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(handle).toBeFocused()
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+    await page.screenshot({path:testInfo.outputPath('canvas.png'),fullPage:true})
+  })
+}
+
+test('owner feedback: real touch drag moves across days and touch cancellation writes nothing',async({browser})=>{
+  const context=await browser.newContext({baseURL:'http://127.0.0.1:3117',viewport:{width:390,height:1100},hasTouch:true,isMobile:true})
+  try{
+    const page=await context.newPage()
+    const fixture=await installInteractionFixture(page)
+    await page.goto('/trip/result')
+    const handle=page.getByTestId('drag-handle-1-0')
+    await expect(handle).toBeVisible()
+    const source=await handle.boundingBox()
+    const target=await page.getByTestId('drop-slot-2-0').boundingBox()
+    await expect(handle).toHaveCSS('touch-action','none')
+    const client=await context.newCDPSession(page)
+    await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:source.x+24,y:source.y+24}]})
+    await expect(page.getByTestId('drag-trash')).toBeVisible()
+    await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:target.x+8,y:target.y+35}]})
+    await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})
+    await expect.poll(()=>fixture.calls().commands.length).toBe(1)
+    expect(fixture.calls().commands[0]).toMatchObject({command_type:'ACTIVITY_MOVE',target_day_index:2,target_position:0})
+    await expect.poll(()=>dayCardNames(page,2)).toEqual(['故宫博物院','天坛公园'])
+    const next=await page.getByTestId('drag-handle-1-0').boundingBox()
+    await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:next.x+24,y:next.y+24}]})
+    await client.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]})
+    await expect(page.getByTestId('drag-trash')).toHaveCount(0)
+    expect(fixture.calls().commands.length).toBe(1)
+    expect(fixture.calls().mapRenderPosts).toBe(0)
+  }finally{await context.close()}
+})
+
+test('owner feedback: map SDK receives all-day markers and real geometry only after visible',async({page})=>{
+  await page.addInitScript(()=>{
+    window.__mapLayers=[]
+    window.__mapWidth=0
+    window.__mapCenters=[]
+    window.AMap={
+      Map:class{
+        constructor(container){window.__mapWidth=container.clientWidth}
+        on(name,callback){if(name==='complete')queueMicrotask(callback)}
+        add(items){window.__mapLayers.push(...items)}
+        remove(items){window.__mapLayers=window.__mapLayers.filter(item=>!items.includes(item))}
+        destroy(){} setCenter(point){window.__mapCenters.push(point)} setFitView(){} resize(){}
+      },
+      Marker:class{constructor(options){this.kind='marker';this.options=options}},
+      Polyline:class{constructor(options){this.kind='line';this.options=options}},
+    }
+  })
+  const snapshot=connectedMapView()
+  snapshot.points=[
+    {activity_token:'interaction-token-a',name:'故宫博物院',position:{longitude:116.397,latitude:39.918,coordinate_system:'GCJ02'}},
+    {activity_token:'interaction-token-b',name:'景山公园',position:{longitude:116.397,latitude:39.925,coordinate_system:'GCJ02'}},
+    {activity_token:'interaction-token-c',name:'天坛公园',position:{longitude:116.410,latitude:39.882,coordinate_system:'GCJ02'}},
+  ]
+  await installInteractionFixture(page,{mapSnapshot:snapshot})
+  await page.goto('/trip/result')
+  await expect(page.getByTestId('trip-days')).toBeVisible()
+  expect(await page.evaluate(()=>window.__mapWidth)).toBe(0)
+  await openResultView(page,'map_stay')
+  await expect.poll(()=>page.evaluate(()=>window.__mapWidth)).toBeGreaterThan(300)
+  await expect.poll(()=>page.evaluate(()=>window.__mapLayers.filter(x=>x.kind==='marker').length)).toBe(3)
+  expect(await page.evaluate(()=>window.__mapCenters)).toEqual([])
+  const colors=await page.evaluate(()=>window.__mapLayers.filter(x=>x.kind==='marker').map(x=>x.options.content.style.backgroundColor))
+  expect(colors[0]).not.toBe(colors[2])
+  const paths=await page.evaluate(()=>window.__mapLayers.filter(x=>x.kind==='line').map(x=>x.options.path))
+  expect(paths).toEqual([[[116.39,39.92],[116.40,39.93]]])
+  await page.getByRole('button',{name:'Day 2',exact:true}).click()
+  expect(await page.evaluate(()=>window.__mapLayers.filter(x=>x.kind==='marker').length)).toBe(3)
 })

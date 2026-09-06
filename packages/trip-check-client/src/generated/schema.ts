@@ -756,6 +756,8 @@ export interface components {
             locked: boolean;
             /** Name */
             name: string;
+            /** Photo Url */
+            photo_url?: string | null;
             /** Start Time */
             start_time?: string | null;
             /**
