@@ -5,9 +5,9 @@
     "id": "owner-seven-text-reproduction",
     "work_kind": "PRODUCT",
     "outcome": "加强原文地点名词到卡片的数量、日归属、顺序与完整身份对应，避免遗漏、多解、误合并及错城错类；不确定时保守待确认",
-    "status": "IN_PROGRESS",
-    "verification": "5472927 baseline. Owner-authorized seven original texts kept in ignored local artifacts for this reproduction. Submission dependency failure reproduced and local services restored; independent semantic expectations and live runs in progress."
+    "status": "COMPLETED",
+    "verification": "Runtime checkpoint 18138d0. Final same-runtime after-r24 and after-r25 independently passed all seven owner guides for place names, days, roles and order: 82 named main stops plus 46 alternatives per run; 49 confirmed and 33 named pending. Timing remained partial in r25 cases 2 and 7. 1204 semantic/identity, 141 database/API, 12 browser checks passed; final fixed synthetic live model set 24/24. Original texts stay ignored for this reproduction. Local delivery only; no push or deployment."
   },
   "packages": [],
-  "next_planned_slice": "七份原文逐项复现、修复、同案例回归及本地交付；不扩大推荐或上线范围"
+  "next_planned_slice": "本轮地点解析样例验收已完成；后续优先时间原文对齐和待确认地点覆盖，不自动扩大推荐或上线范围"
 }
