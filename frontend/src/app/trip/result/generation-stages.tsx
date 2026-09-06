@@ -1,7 +1,15 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Check, LoaderCircle, Circle, MapPin, Sparkles, Navigation } from 'lucide-react'
 import type { TripUnderstandingProgressMetrics } from '@/lib/trip-understanding-v3'
+
+const TIPS = [
+  ['先排顺序，再慢慢完善', '不用填几点出发。先确定想去的地方，之后可以随时调整先后。'],
+  ['看见“待确认”也没关系', '同名地点可能不止一个，展开卡片核对地址，再选你想去的那个。'],
+  ['把想去的地方放在一起', '卡片可以拖到其他日期；松手前的空位就是它的新位置。'],
+  ['路线由你决定何时更新', '改完行程后点击“更新步行路线”，就能查看新的路段与耗时。'],
+]
 
 /** Only authoritative progress advances a step; animation never fabricates progress. */
 export default function GenerationStages({ phase, progress, complete = false }: {
@@ -9,6 +17,13 @@ export default function GenerationStages({ phase, progress, complete = false }: 
   progress: TripUnderstandingProgressMetrics
   complete?: boolean
 }) {
+  const [tip, setTip] = useState(0)
+  const [reading, setReading] = useState(false)
+  useEffect(() => {
+    if (reading || complete || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const timer=window.setInterval(()=>setTip(index=>(index+1)%TIPS.length),9000)
+    return ()=>window.clearInterval(timer)
+  }, [reading, complete])
   const current = complete ? 4 : phase === 'RECEIVED' ? 1 : phase === 'CARDS_AVAILABLE' ? 2
     : progress.places_total > 0 && progress.places_checked >= progress.places_total ? 3 : 2
   const labels = ['收到攻略', '整理每天安排', '核对地点', '生成完毕']
@@ -36,6 +51,10 @@ export default function GenerationStages({ phase, progress, complete = false }: 
         </li>
       })}
     </ol>
+    <aside className="generation-reading" data-testid="generation-reading" aria-label="旅途小提示" onMouseEnter={()=>setReading(true)} onMouseLeave={event=>setReading(event.currentTarget.contains(document.activeElement))} onFocus={()=>setReading(true)} onBlur={(event)=>{if(!event.currentTarget.contains(event.relatedTarget))setReading(event.currentTarget.matches(':hover'))}}>
+      <div key={tip} className="generation-reading-copy"><small>旅途小提示</small><h2>{TIPS[tip][0]}</h2><p>{TIPS[tip][1]}</p></div>
+      <div className="generation-tip-pages" aria-label="选择提示">{TIPS.map((item,index)=><button key={item[0]} type="button" aria-label={`提示 ${index+1}：${item[0]}`} aria-pressed={tip===index} onClick={()=>setTip(index)}><span /></button>)}</div>
+    </aside>
     </div>
   )
 }

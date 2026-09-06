@@ -1119,6 +1119,11 @@ function applyCommandToResult(view, command) {
         card.time_hint = command.time_hint
       }
     }
+  } else if (command.command_type === 'PLACE_CONFIRM') {
+    for(const day of view.days) {
+      const card=day.activities.find(item=>item.activity_token===command.activity_token)
+      if(card)Object.assign(card,{name:'故宫博物院',status:'READY',area_or_address:'北京市东城区景山前街4号'})
+    }
   } else if (command.command_type === 'PLACE_REPLACE') {
     for (const day of view.days) {
       const card = day.activities.find((item) => item.activity_token === command.activity_token)
@@ -1153,10 +1158,12 @@ async function installInteractionFixture(page, {
   postCommandMapReadMode = 'normal',
   rolloverPreparing = false,
   longDay = false,
+  pendingFirst = false,
 } = {}) {
   let revision = 0
   let etag = 'tu3_interaction_0'
   const view = interactionResult()
+  if(pendingFirst) view.days[0].activities[0].status='PLACE_PENDING'
   if(longDay) view.days[0].activities = Array.from({length:13},(_,i)=>({...activity('long-card-'+i,'景点'+(i+1)),status:i===8?'PLACE_PENDING':'READY'}))
   if (exposeWrites) {
     view.map = {
@@ -2973,7 +2980,7 @@ test('PNG export renders the complete structured chain and downloads locally', a
   const drawn = await page.evaluate(() => window.__pngDrawnText)
   expect(drawn).toContain('故宫博物院')
   expect(drawn).toContain('景山公园')
-  expect(drawn).toContain('步行约 12 分钟')
+  expect(drawn).toContain('步行约 12 分钟 · 900 米')
   expect(drawn.some((text) => text.includes('未包含'))).toBe(true)
 
   const downloadPromise = page.waitForEvent('download')
@@ -3547,4 +3554,121 @@ test('serpentine: complete PNG keeps reverse rows, offscreen places and honest r
  await (await download).saveAs(testInfo.outputPath('complete-serpentine.png'))
  expect(fixture.calls().mapRenderPosts).toBe(0)
  expect(fixture.calls().directProviderRequests).toBe(0)
+})
+
+for(const width of [1440,1280,390,360]) test(`outside: paired rows route above and below at ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900})
+ await page.emulateMedia({reducedMotion:'reduce'})
+ await installInteractionFixture(page,{longDay:true})
+ await page.goto('/trip/result')
+ const lane=page.getByTestId('day-lane-1'),canvas=lane.locator('.serpentine-canvas')
+ const columns=Number(await canvas.getAttribute('data-columns'))
+ const cards=await lane.getByTestId('activity-card').evaluateAll(nodes=>nodes.map(n=>{const b=n.getBoundingClientRect();return{top:b.top,bottom:b.bottom}}))
+ const upper=await lane.locator('.serpentine-route-label').nth(0).boundingBox()
+ const lower=await lane.locator('.serpentine-route-label').nth(columns).boundingBox()
+ const turn=await lane.locator('.serpentine-route-label').nth(columns-1).boundingBox()
+ expect(upper.y+upper.height).toBeLessThan(cards[0].top)
+ expect(lower.y).toBeGreaterThan(cards[columns].bottom)
+ expect(turn.y).toBeGreaterThan(cards[columns-1].bottom)
+ expect(turn.y+turn.height).toBeLessThan(cards[columns].top)
+ expect(await canvas.evaluate(n=>n.scrollWidth<=n.clientWidth)).toBe(true)
+ await page.screenshot({path:testInfo.outputPath('outside.png'),fullPage:true})
+})
+
+for(const width of [1440,390,360]) test(`outside: pending place uses a nearby nonmodal dropdown at ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900})
+ const fixture=await installInteractionFixture(page,{pendingFirst:true})
+ let searches=0
+ await page.route('**/place-candidates',async route=>{
+  searches++
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'AVAILABLE',candidates:[{candidate_token:'candidate-fixture',name:'故宫博物院',category:'景点',area_or_address:'北京市东城区景山前街4号',position:{longitude:116.397,latitude:39.918,coordinate_system:'GCJ02'}}]})})
+ })
+ await page.goto('/trip/result')
+ const card=page.getByTestId('activity-card').first()
+ const trigger=card.getByRole('button').filter({hasText:'故宫博物院'})
+ await trigger.click()
+ const dropdown=page.getByTestId('pending-place-dropdown')
+ await expect(dropdown).toBeVisible()
+ await expect(page.getByRole('dialog')).toHaveCount(0)
+ expect(searches).toBe(0)
+ await expect(dropdown.getByRole('textbox')).toBeFocused()
+ const box=await dropdown.boundingBox(),cardBox=await card.boundingBox()
+ expect(Math.abs(box.y-cardBox.y-cardBox.height)).toBeLessThan(15)
+ expect(box.x).toBeGreaterThanOrEqual(0)
+ expect(box.x+box.width).toBeLessThanOrEqual(width)
+ await dropdown.getByRole('button',{name:'搜索',exact:true}).click()
+ await dropdown.getByRole('button',{name:/故宫博物院.*北京市/}).click()
+ expect(fixture.calls().commands).toHaveLength(0)
+ await page.screenshot({path:testInfo.outputPath('dropdown.png'),fullPage:true})
+ await dropdown.getByRole('button',{name:'使用这个地点'}).click()
+ await expect(dropdown).toHaveCount(0)
+ expect(fixture.calls().commands).toHaveLength(1)
+ expect(fixture.calls().commands[0]).toMatchObject({command_type:'PLACE_CONFIRM',candidate_token:'candidate-fixture'})
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+ await expect(page.getByTestId('update-card-routes')).toBeEnabled()
+})
+
+test('outside: walking is the default, with real distance; stale routes only update on click',async({page})=>{
+ const map=connectedMapView()
+ map.days[0].routes[0].selected_mode='transit'
+ const fixture=await installInteractionFixture(page,{mapSnapshot:map})
+ await page.goto('/trip/result')
+ await expect(page.getByTestId('transport-connector').first()).toContainText('步行 · 12 分钟 · 900 米')
+ await page.getByRole('heading',{name:'故宫博物院'}).click()
+ await page.getByRole('button',{name:'编辑文字'}).click()
+ await page.getByTestId('card-editor-name').fill('故宫（北京）')
+ await page.getByTestId('save-card-editor').click()
+ await expect(page.getByTestId('transport-connector').first()).not.toContainText('12 分钟')
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+ await page.getByTestId('update-card-routes').click()
+ await expect.poll(()=>fixture.calls().mapRenderPosts).toBe(1)
+})
+
+test('outside: generation offers readable tips with slower motion and manual paging',async({page},testInfo)=>{
+ await installPausedClock(page)
+ await installProcessingFixture(page)
+ await page.goto('/trip/result')
+ const tips=page.getByTestId('generation-reading')
+ await expect(tips).toContainText('先排顺序')
+ await expect(page.locator('.soft-stage-dot .animate-spin')).toHaveCSS('animation-duration','3.5s')
+ await page.clock.runFor(5000)
+ await expect(tips).toContainText('先排顺序')
+ await tips.getByRole('button',{name:/提示 2/}).click()
+ await expect(tips).toContainText('同名地点')
+ await page.clock.runFor(12000)
+ await expect(tips).toContainText('同名地点')
+ await page.screenshot({path:testInfo.outputPath('readable-generation.png'),fullPage:true,animations:'disabled'})
+ await page.emulateMedia({reducedMotion:'reduce'})
+ await expect(page.locator('.soft-stage-dot .animate-spin')).toHaveCSS('animation-name','none')
+})
+
+test('outside: failed place search stays local, Escape restores focus and writes nothing',async({page})=>{
+ const fixture=await installInteractionFixture(page,{pendingFirst:true})
+ await page.route('**/place-candidates',route=>route.fulfill({status:503,body:'{}'}))
+ await page.goto('/trip/result')
+ const trigger=page.getByTestId('activity-card').first().getByRole('button').filter({hasText:'故宫博物院'})
+ await trigger.click()
+ const dropdown=page.getByTestId('pending-place-dropdown')
+ await dropdown.getByRole('button',{name:'搜索',exact:true}).click()
+ await expect(dropdown.getByRole('status')).toContainText('请重试')
+ await expect(dropdown.getByRole('button',{name:'使用这个地点'})).toHaveCount(0)
+ await page.keyboard.press('Escape')
+ await expect(dropdown).toHaveCount(0)
+ await expect(trigger).toBeFocused()
+ expect(fixture.calls().commands).toHaveLength(0)
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+})
+
+test('outside: drag keeps its preview but no blue insertion rail',async({page})=>{
+ const fixture=await installInteractionFixture(page)
+ await page.goto('/trip/result')
+ const dt=await page.evaluateHandle(()=>new DataTransfer())
+ await page.getByTestId('drag-handle-1-0').dispatchEvent('dragstart',{dataTransfer:dt})
+ await page.getByTestId('drop-slot-2-0').dispatchEvent('dragenter',{dataTransfer:dt})
+ await expect(page.getByTestId('drop-preview')).toBeVisible()
+ await expect(page.getByTestId('drop-slot-2-0')).toHaveCSS('background-color','rgba(0, 0, 0, 0)')
+ await expect(page.getByTestId('drop-slot-2-0')).toHaveCSS('box-shadow','none')
+ await page.keyboard.press('Escape')
+ expect(fixture.calls().commands).toHaveLength(0)
+ await dt.dispose()
 })

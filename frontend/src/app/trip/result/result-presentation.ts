@@ -18,7 +18,7 @@ export const DAY_ACCENTS = [
 ] as const
 
 export type TransportConnector =
-  | { status: 'AVAILABLE'; mode: 'walking' | 'transit'; durationMinutes: number }
+  | { status: 'AVAILABLE'; mode: 'walking' | 'transit'; durationMinutes: number; distanceMeters: number | null }
   | { status: 'NEEDS_UPDATE' | 'PENDING' }
 
 type DayView = UserFacingTripResult['days'][number]
@@ -62,13 +62,14 @@ export function transportConnectorFor(
   const candidates = routes.length ? routes : fallbackRoutes
   if (candidates.length !== 1) return { status: 'PENDING' }
   const route = candidates[0]
-  const mode = route.selected_mode
+  const mode = route.walking.status === 'AVAILABLE' && isPositiveDuration(route.walking.duration_minutes)
+    ? 'walking' : route.selected_mode
   if (mode !== 'walking' && mode !== 'transit') return { status: 'PENDING' }
   const selected = route[mode]
   if (selected.status !== 'AVAILABLE' || !isPositiveDuration(selected.duration_minutes)) {
     return { status: 'PENDING' }
   }
-  return { status: 'AVAILABLE', mode, durationMinutes: selected.duration_minutes }
+  return { status: 'AVAILABLE', mode, durationMinutes: selected.duration_minutes, distanceMeters: typeof selected.distance_meters === 'number' && Number.isFinite(selected.distance_meters) && selected.distance_meters >= 0 ? selected.distance_meters : null }
 }
 
 
@@ -120,4 +121,9 @@ export function topPublicChecks(view: PublicTripChecksView | null) {
   return (view?.items || [])
     .filter((item) => PUBLIC_CHECK_LABELS.has(item.label))
     .slice(0, 3)
+}
+
+export function distanceLabel(meters: number | null) {
+  if(meters === null) return ''
+  return meters < 1000 ? `${Math.round(meters)} 米` : `${(meters/1000).toFixed(1)} 公里`
 }

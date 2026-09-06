@@ -36,8 +36,9 @@ import {
   type UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
+import PendingPlaceDropdown from './pending-place-dropdown'
 import AccessibleDialog from './accessible-dialog'
-import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor } from './result-presentation'
+import { DAY_ACCENTS, DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 
 
 type DayView = UserFacingTripResult['days'][number]
@@ -72,6 +73,8 @@ type ItineraryWorkspaceProps = {
   routesPending: boolean
   mapView: MapRenderView
   checkStatus: string
+  resource: string
+  onRender: () => void
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
   onEdit: (item: CardLocation) => void
@@ -90,6 +93,8 @@ const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestio
 export default function ItineraryWorkspace({
   days,
   toolbar,
+  resource,
+  onRender,
   disabled,
   routesPending,
   mapView,
@@ -105,6 +110,7 @@ export default function ItineraryWorkspace({
   const pointerPosition = useRef<{x:number;y:number} | null>(null)
   const [touchPoint, setTouchPoint] = useState<{x:number;y:number} | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  const [pendingPlace, setPendingPlace] = useState<CardLocation | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
   const [moveDay, setMoveDay] = useState(1)
   const [movePosition, setMovePosition] = useState(0)
@@ -144,7 +150,7 @@ export default function ItineraryWorkspace({
       const dayBox = lane.closest('[data-day-index]')?.getBoundingClientRect() || box
       if (x < dayBox.left || x > dayBox.right || y < dayBox.top || y > dayBox.bottom) continue
       const count = localDays[dayIndex-1].activities.length
-      const row = Math.max(0, Math.min(Math.floor((y-box.top-16)/layout.step), Math.floor(count/layout.columns)))
+      const row = layout.rowAt(y-box.top,count)
       const first = row*layout.columns, last = Math.min(count, first+layout.columns)
       const reverse = row%2 === 1
       let position=first
@@ -204,8 +210,18 @@ export default function ItineraryWorkspace({
 
   const openDetails = (item: CardLocation, element: HTMLElement) => {
     rememberTrigger(element)
+    if(item.card.status !== 'READY') { setPendingPlace(current=>current?.card.activity_token===item.card.activity_token?null:item); return }
     setDialog({ kind: 'DETAIL', item })
   }
+
+  const closePendingPlace = () => {
+    setPendingPlace(null)
+    requestAnimationFrame(()=>{
+      if(lastTriggerRef.current?.isConnected)lastTriggerRef.current.focus({preventScroll:true})
+      else document.querySelector<HTMLElement>(`[data-day-heading="${pendingPlace?.dayIndex||1}"]`)?.focus({preventScroll:true})
+    })
+  }
+  useEffect(()=>{if(pendingPlace && !days.some(day=>day.activities.some(card=>card.activity_token===pendingPlace.card.activity_token)))setPendingPlace(null)},[days,pendingPlace])
 
   const openMove = (item: CardLocation, element?: HTMLElement) => {
     if (element) rememberTrigger(element)
@@ -381,12 +397,13 @@ export default function ItineraryWorkspace({
       className="soft-workspace serpentine-workspace mt-2"
     >
       <div className="min-w-0">
-        <div className="mb-4 flex items-center justify-end gap-2">
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
           <button type="button" className="e-button" aria-label={layoutMode === 'CHAIN' ? '切换为列表' : '切换为横链'}
             title={layoutMode === 'CHAIN' ? '列表' : '横链'} aria-pressed={layoutMode === 'LIST'}
             onClick={() => setLayoutMode(layoutMode === 'CHAIN' ? 'LIST' : 'CHAIN')}>
             <List aria-hidden="true" />
           </button>
+          {mapView.status === 'NEEDS_UPDATE' && mapView.available_actions.includes('RENDER_MAP') && <button type="button" className="e-button" data-testid="update-card-routes" disabled={disabled} onClick={onRender}>更新步行路线</button>}
           {toolbar}
         </div>
 
@@ -411,7 +428,8 @@ export default function ItineraryWorkspace({
                 key={`${day.label}-${dayIndex}`}
                 data-testid={`day-lane-${dayIndex}`}
                 data-day-index={dayOffset}
-                className="overflow-hidden rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)]"
+                style={{position:'relative',zIndex:pendingPlace?.dayIndex===dayIndex?30:undefined}}
+                className="overflow-visible rounded-[1.75rem] border border-emerald-950/10 bg-white shadow-[0_18px_45px_-32px_rgba(15,23,42,0.45)]"
                 aria-labelledby={`day-heading-${dayIndex}`}
               >
                 <div className="grid min-w-0 md:grid-cols-[9.5rem_minmax(0,1fr)]">
@@ -453,6 +471,7 @@ export default function ItineraryWorkspace({
                                 <span className="text-xs text-slate-500">{activity.status === 'READY' ? '已确认' : '待确认'}</span>
                               </button>
                               <button type="button" disabled={locked} onClick={(event) => openMove(item, event.currentTarget)} className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50">移动</button>
+                              {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
                           )
                         })}
@@ -486,7 +505,7 @@ export default function ItineraryWorkspace({
                         {day.activities.map((activity, position) => {
                           const item = { card: activity, dayIndex, position }
                           return (
-                            <motion.div key={activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
+                            <motion.div key={activity.activity_token} className="serpentine-cell" initial={false} data-reverse={layout.point(previewPosition(position)).reverse} style={{...placeStyle(position),zIndex:pendingPlace?.card.activity_token===activity.activity_token?40:undefined,visibility:position === sourceIndex ? 'hidden' : 'visible'}} animate={{x:layout.point(previewPosition(position)).x-layout.point(position).x,y:layout.point(previewPosition(position)).y-layout.point(position).y}} transition={reduceMotion ? {duration:0} : {type:"spring",stiffness:390,damping:32}}>
                               <DropSlot
                                 dayIndex={dayIndex}
                                 rawPosition={position}
@@ -634,6 +653,7 @@ export default function ItineraryWorkspace({
 
 
                               </motion.article>
+                              {pendingPlace?.card.activity_token===activity.activity_token && <div style={{position:'absolute',top:layout.cardHeight+8,...(layout.point(position).x+290>layout.width?{right:0}:{left:0})}}><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </motion.div>
                           )
                         })}
@@ -902,11 +922,11 @@ function SerpentineConnectors({day,layout,mapView,pending}: {day:DayView;layout:
       const connector=transportConnectorFor(day,card,day.activities[index+1],mapView,pending)
       const available=connector.status==='AVAILABLE'
       const Icon=available ? connector.mode==='walking' ? Footprints : BusFront : ArrowRight
-      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : '路线待确认'
+      const label=available ? `${connector.mode==='walking'?'步行':'公交'} · ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}` : connector.status==='NEEDS_UPDATE' ? '路线需要更新' : '路线待确认'
       return <div key={index} data-testid="transport-connector" data-connector-status={connector.status} data-turn={edge.turn} aria-label={label}>
         <svg className="serpentine-edge" width={layout.width} height={layout.height} aria-hidden="true">
           <path data-testid="order-arc" d={edge.path} fill="none" stroke="currentColor" strokeWidth="1.4"/>
-          <path d={`M ${layout.point(index+1).x+layout.cardWidth/2-3} ${layout.point(index+1).y-7} l 3 5 l 3 -5`} fill="none" stroke="currentColor" strokeWidth="1.4"/>
+          <path d={`M ${edge.arrowX-3} ${edge.arrowY-edge.arrowDirection*7} l 3 ${edge.arrowDirection*5} l 3 ${-edge.arrowDirection*5}`} fill="none" stroke="currentColor" strokeWidth="1.4"/>
         </svg>
         <span className={`serpentine-route-label ${available?'is-available':''}`} style={{left:edge.x,top:edge.y}}><Icon aria-hidden="true"/>{label}</span>
       </div>
@@ -959,7 +979,7 @@ function DropSlot({
       data-drop-day={dayIndex}
       data-drop-position={rawPosition}
       style={{ width: dragging && active ? 216 : 16 }}
-      className={`soft-drop-slot mx-1 flex h-[13rem] shrink-0 items-center justify-center rounded-3xl transition-all motion-reduce:transition-none ${active ? 'bg-sky-100/70 ring-2 ring-inset ring-sky-300' : 'bg-transparent'}`}
+      className={`soft-drop-slot mx-1 flex h-[13rem] shrink-0 items-center justify-center rounded-3xl transition-all motion-reduce:transition-none bg-transparent`}
       onDragEnter={(event) => {
         event.preventDefault()
         onDragEnter()

@@ -6,42 +6,19 @@ import { Download, Image as ImageIcon, X } from 'lucide-react'
 import type { MapRenderView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
 import AccessibleDialog from './accessible-dialog'
 import { serpentineLayout, serpentineEdge } from './serpentine-layout'
-import { DAY_COLORS } from './result-presentation'
+import { DAY_COLORS, transportConnectorFor, distanceLabel } from './result-presentation'
 
 function routeSummary(
   mapView: MapRenderView | null,
   day: UserFacingTripResult['days'][number],
   fromIndex: number,
 ) {
-  if (mapView?.status === 'NEEDS_UPDATE') return '路线需要更新'
-  if (!mapView || !['AVAILABLE', 'LIMITED'].includes(mapView.status)) return '交通待确认'
-  const from = day.activities[fromIndex]
-  const to = day.activities[fromIndex + 1]
-  if (!from || !to) return '交通待确认'
-  const routes = mapView.days.find((item) => item.label === day.label)?.routes || []
-  const tokenMatches = routes.filter(
-    (candidate) =>
-      candidate.from_activity_token === from.activity_token &&
-      candidate.to_activity_token === to.activity_token,
-  )
-  let route = tokenMatches.length === 1 ? tokenMatches[0] : undefined
-  if (!route) {
-    const fromUnique = day.activities.filter((item) => item.name === from.name).length === 1
-    const toUnique = day.activities.filter((item) => item.name === to.name).length === 1
-    const nameMatches = routes.filter(
-      (candidate) =>
-        !candidate.from_activity_token &&
-        !candidate.to_activity_token &&
-        candidate.from_name === from.name &&
-        candidate.to_name === to.name,
-    )
-    if (fromUnique && toUnique && nameMatches.length === 1) route = nameMatches[0]
-  }
-  if (!route?.selected_mode) return '交通待确认'
-  const selected = route[route.selected_mode]
-  if (selected.status !== 'AVAILABLE' || selected.duration_minutes == null)
-    return '交通暂不可用'
-  return `${route.selected_mode === 'walking' ? '步行' : '公交'}约 ${selected.duration_minutes} 分钟`
+  if (!mapView) return '交通待确认'
+  const connector=transportConnectorFor(day,day.activities[fromIndex],day.activities[fromIndex+1],mapView)
+  if(connector.status==='NEEDS_UPDATE')return '路线需要更新'
+  if(connector.status!=='AVAILABLE')return '交通待确认'
+  return `${connector.mode==='walking'?'步行':'公交'}约 ${connector.durationMinutes} 分钟${connector.distanceMeters===null?'':` · ${distanceLabel(connector.distanceMeters)}`}`
+
 }
 
 function fitText(
@@ -133,9 +110,8 @@ async function renderItinerary(
       context.strokeStyle='#7995ad'
       context.lineWidth=1.5
       context.stroke(new Path2D(edge.path))
-      const target=layout.point(index+1)
-      const tx=target.x+layout.cardWidth/2
-      context.beginPath(); context.moveTo(tx-3,target.y-7);context.lineTo(tx,target.y-2);context.lineTo(tx+3,target.y-7);context.stroke()
+      const tx=edge.arrowX
+      context.beginPath(); context.moveTo(tx-3,edge.arrowY-edge.arrowDirection*7);context.lineTo(tx,edge.arrowY-edge.arrowDirection*2);context.lineTo(tx+3,edge.arrowY-edge.arrowDirection*7);context.stroke()
       context.font='400 11px "Microsoft YaHei", sans-serif'
       const label=routeSummary(mapView,day,index)
       const labelWidth=context.measureText(label).width+14

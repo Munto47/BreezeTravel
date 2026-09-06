@@ -909,6 +909,8 @@ export default function TripResultPage() {
                   className="mx-auto max-w-[1600px] px-4 pb-28 pt-5 lg:px-8 lg:pb-12 lg:pl-24"
                 >
                   <ItineraryWorkspace
+                    resource={trip.resource}
+                    onRender={() => void trip.renderMap()}
                     toolbar={<ItineraryPngExport result={result} mapView={displayMap} etag={trip.etag} disabled={disabled || dirty} />}
                     days={result.days}
                     disabled={disabled || dirty}

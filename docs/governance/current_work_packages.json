@@ -2,9 +2,9 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "serpentine-relative-order",
+    "id": "outside-route-inline-confirmation",
     "work_kind": "PRODUCT",
-    "outcome": "紧凑回环卡片、顶部交通弧线、相对顺序与跨行跨日拖动",
+    "outcome": "外侧回环、就近地点确认、步行信息与舒缓可读生成提示",
     "status": "COMPLETED"
   },
   "packages": [],
