@@ -693,7 +693,7 @@ for (const hangingKind of ['map', 'stay']) {
       await openResultView(page, 'map_stay')
       await expectEnhancementRecovery(page)
       if (hangingKind === 'map') {
-        await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
+        await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','UNAVAILABLE')
         await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
       } else {
         await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
@@ -723,7 +723,7 @@ test('an enhancement round slower than 800ms stays single-flight before the next
 
     fixture.releaseAll()
     await fixture.waitForIdle()
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.PREPARING)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','PREPARING')
     await expect(page.getByTestId('stay-panel')).toContainText('住宿仍在准备 1')
     await page.clock.runFor(799)
     expect(fixture.calls().reads).toEqual({ map: 1, stay: 1 })
@@ -748,16 +748,16 @@ test('continuous PREPARING responses stop after eight bounded rounds and release
 
   try {
     await fixture.waitForReads(1, 1)
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.PREPARING)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','PREPARING')
     for (let call = 2; call <= 7; call += 1) {
       await page.clock.runFor(800)
       await fixture.waitForReads(call, call)
-      await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.PREPARING)
+      await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','PREPARING')
     }
     await page.clock.runFor(800)
     await fixture.waitForReads(8, 8)
 
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','UNAVAILABLE')
     await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
     await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
     await openResultView(page, 'map_stay')
@@ -793,9 +793,8 @@ for (const pendingKind of ['map', 'stay']) {
       for (let call = 1; call <= 3; call += 1) {
         await page.clock.runFor(2_000)
         fixture.releaseRead(pendingKind, call)
-        await expect(page.getByTestId(pendingPanel)).toContainText(
-          pendingKind === 'map' ? preparingMessage : `${preparingMessage} ${call}`,
-        )
+        if(pendingKind === 'map')await expect(page.getByTestId(pendingPanel)).toHaveAttribute('data-map-status','PREPARING')
+        else await expect(page.getByTestId(pendingPanel)).toContainText(`${preparingMessage} ${call}`)
         if (terminalKind === 'map') await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
       else await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
         await page.clock.runFor(800)
@@ -820,7 +819,8 @@ for (const pendingKind of ['map', 'stay']) {
 
       if (terminalKind === 'map') await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
       else await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
-      await expect(page.getByTestId(pendingPanel)).toContainText(fallbackMessage)
+      if(pendingKind === 'map')await expect(page.getByTestId(pendingPanel)).toHaveAttribute('data-map-status','UNAVAILABLE')
+      else await expect(page.getByTestId(pendingPanel)).toContainText(fallbackMessage)
       await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
       await openResultView(page, 'map_stay')
       await expectEnhancementRecovery(page)
@@ -2075,6 +2075,7 @@ test('one pending card command blocks every conflicting write surface', async ({
   await page.goto('/trip/result')
   await fixture.waitForMaterializeStart()
   await openResultView(page, 'map_stay')
+  await expect(page.getByTestId('render-map')).toBeEnabled()
   await openStayTools(page)
   await page.getByTestId('choose-stay').click()
   await expect.poll(() => fixture.calls().writes.stay).toBe(1)
@@ -2092,7 +2093,6 @@ test('one pending card command blocks every conflicting write surface', async ({
     page.getByRole('button', { name: '拖动 天坛公园' }),
     page.getByTestId('day-1-add'),
     page.getByTestId('edit-assumption-destination'),
-    page.getByTestId('render-map'),
     page.getByRole('button', { name: '保存到账号' }),
     page.getByTestId('delete-entire-trip'),
   ]
@@ -2108,6 +2108,9 @@ test('one pending card command blocks every conflicting write surface', async ({
     await expect(control).toBeDisabled()
     await control.evaluate((element) => element.click())
   }
+  await openResultView(page, 'map_stay')
+  await expect(page.getByTestId('render-map')).toBeDisabled()
+  await page.getByTestId('render-map').evaluate((element) => element.click())
   expect(fixture.calls().commands).toHaveLength(1)
   expect(fixture.calls().writes).toEqual({ map: 0, stay: 1, adopt: 0, claim: 0, source: 0, trip: 0 })
 
@@ -2146,7 +2149,7 @@ test('a write and its readback share one deadline before explicit GET-only recov
     expect(fixture.calls().directProviderRequests).toBe(0)
 
     await openResultView(page, 'map_stay')
-    await expect(page.getByTestId('map-theater')).toContainText('路线需要更新')
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','NEEDS_UPDATE')
     await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
     await expect(page.getByTestId('map-route-line')).toHaveCount(0)
     await expect(page.getByTestId('map-theater')).not.toContainText('12 分钟')
@@ -2193,7 +2196,7 @@ test('a hanging map write reaches a bounded recovery path without hiding it in a
     await expect(renderMap).toBeDisabled()
     await retry.click()
     await expect(retry).toBeHidden()
-    await expect(page.getByText('已确认路线更新请求；同一任务不会被重复计算。')).toBeVisible()
+    await expect(page.getByTestId('result-operation-status')).toHaveCount(0)
     expect(fixture.calls().writes.map).toBe(2)
     expect(fixture.calls().mapRenderPosts).toBe(2)
     expect(fixture.calls().mapRenderApplications).toBe(1)
@@ -2234,7 +2237,7 @@ for (const initialMapStatus of ['LIMITED', 'UNAVAILABLE']) {
 
       await retry.click()
       await expect(retry).toBeHidden()
-      await expect(page.getByText('已确认路线更新请求；同一任务不会被重复计算。')).toBeVisible()
+      await expect(page.getByTestId('result-operation-status')).toHaveCount(0)
       expect(fixture.calls().writes.map).toBe(2)
       expect(fixture.calls().mapRenderPosts).toBe(2)
       expect(fixture.calls().mapRenderApplications).toBe(1)
@@ -2305,7 +2308,7 @@ test('a new map cycle keeps polling when stay was already preparing', async ({ p
   await expect.poll(() => fixture.calls().mapRenderApplications).toBe(1)
   await expect.poll(() => fixture.calls().mapReads).toBeGreaterThanOrEqual(2)
   await expect.poll(() => fixture.calls().stayReads).toBeGreaterThanOrEqual(2)
-  await expect(page.getByTestId('map-theater')).toContainText('准备中')
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','PREPARING')
 
   await page.clock.runFor(801)
   await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
@@ -2560,7 +2563,7 @@ test('accepted command with failed readback stays locked until explicit recovery
   await expect.poll(() => dayCardNames(page, 1)).toEqual(['景山公园', '故宫博物院'])
   await expect(page.getByTestId('change-preview')).toHaveCount(0)
   await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
-  await expect(page.getByTestId('map-theater')).toContainText('路线需要更新')
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','NEEDS_UPDATE')
   await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
   await expect(page.getByTestId('stay-panel')).not.toContainText('已准备')
   await expect(page.getByTestId('itinerary-workspace').getByText('路线需要更新', { exact: true }).first()).toBeVisible()
@@ -2784,7 +2787,7 @@ test('public result DOM contains no provider URL or internal implementation voca
   await page.goto('/trip/result')
   await expect(page.getByTestId('trip-days')).toBeVisible()
   await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
-  await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','UNAVAILABLE')
   await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
   expect(fixture.calls().mapReads).toBe(1)
   expect(fixture.calls().stayReads).toBe(1)
@@ -3715,4 +3718,59 @@ for(const width of [1440,1280,390,360]) test(`simple place: ready card and map e
 test('simple place: home explains the text action only inside the input',async({page})=>{
  await page.goto('/')
  await expect(page.getByPlaceholder('粘贴行程，帮你整理地点、核对路线，生成清晰的行程卡片。')).toBeVisible()
+})
+for(const width of [1440,1280,390,360]) test(`compact map: successful edit leaves one toolbar and map near heading at ${width}`,async({page},testInfo)=>{
+ await page.setViewportSize({width,height:900})
+ const fixture=await installInteractionFixture(page,{mode:'CLAIMED',withUser:true})
+ await page.goto('/trip/result')
+ await page.getByTestId('activity-card').first().getByRole('heading').click()
+ const editor=await chooseInlinePlace(page,'北海公园')
+ const row=editor.locator('.pending-place-row[data-selected="true"]')
+ const option=await row.locator('.pending-place-option').boundingBox()
+ const confirm=await row.getByRole('button',{name:'使用这个地点'}).boundingBox()
+ expect(confirm.x).toBeGreaterThan(option.x+option.width-1)
+ expect(Math.abs((confirm.y+confirm.height/2)-(option.y+option.height/2))).toBeLessThan(3)
+ await row.getByRole('button',{name:'使用这个地点'}).click()
+ await expect(editor).toHaveCount(0)
+ await expect(page.getByText('修改已保留，路线需要更新时请主动更新。')).toHaveCount(0)
+ await openResultView(page,'map_stay')
+ await expect(page.getByTestId('result-action-bar').getByTestId('render-map')).toBeVisible()
+ await expect(page.getByTestId('result-action-bar')).toContainText('路线需要更新')
+ await page.getByLabel('更多行程操作').click()
+ await expect(page.getByTestId('delete-entire-trip')).toBeVisible()
+ await page.getByLabel('更多行程操作').click()
+ await expect(page.locator('.fluid-map-stage').getByTestId('render-map')).toHaveCount(0)
+ const head=await page.locator('.e-trip-head').boundingBox()
+ const stage=await page.locator('.fluid-map-stage').boundingBox()
+ expect(stage.y-head.y-head.height).toBeLessThanOrEqual(10)
+ expect(stage.y+stage.height).toBeLessThanOrEqual(900)
+ expect(fixture.calls().commands).toHaveLength(1)
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+ await page.screenshot({path:testInfo.outputPath('compact-map.png'),fullPage:true})
+})
+test('inline confirmation: select another candidate is read-only, repeat selection commits once',async({page})=>{
+ const fixture=await installInteractionFixture(page,{holdCommand:true})
+ await page.route('**/place-candidates',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({status:'AVAILABLE',candidates:Array.from({length:6},(_,i)=>({candidate_token:'fixture-place:'+encodeURIComponent('地点'+i),name:'地点'+i,category:'景点',area_or_address:'北京市东城区'}))})}))
+ try {
+ await page.goto('/trip/result')
+ await page.getByTestId('activity-card').first().getByRole('heading').click()
+ const editor=page.getByTestId('pending-place-dropdown')
+ await editor.getByRole('button',{name:'搜索',exact:true}).click()
+ const options=editor.locator('.pending-place-option')
+ await options.nth(0).click()
+ await options.nth(1).click()
+ expect(fixture.calls().commands).toHaveLength(0)
+ const selected=editor.locator('.pending-place-row[data-selected="true"]')
+ await expect(selected).toContainText('地点1')
+ await options.nth(1).dblclick()
+ await expect.poll(()=>fixture.calls().commands.length).toBe(1)
+ await expect(options.nth(1)).toBeDisabled()
+ await expect(selected.getByRole('button',{name:'使用这个地点'})).toBeDisabled()
+ expect(fixture.calls().commands[0].candidate_token).toBe('fixture-place:'+encodeURIComponent('地点1'))
+ fixture.releaseCommand()
+ await fixture.waitForCommandCompletion()
+ await expect(editor).toHaveCount(0)
+ expect(fixture.calls().commandApplications).toBe(1)
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+ } finally {fixture.releaseCommand()}
 })

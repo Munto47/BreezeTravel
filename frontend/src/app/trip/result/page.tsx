@@ -786,12 +786,17 @@ export default function TripResultPage() {
                 </details>
               </div>
             </div>
-            <div className="e-save-area">
+            <div className="e-save-area" data-testid="result-action-bar">
               <p className="e-save-status" role="status">
                 <span title={expiry ? `保留至 ${expiry}` : undefined}>{persistence}</span>
 
               </p>
               <div className="e-actions">
+                {activeView === 'MAP_STAY' && !contextOpen && displayMap && <>
+                  {displayMap.status !== 'AVAILABLE' && <span className="e-toolbar-map-status" role="status">{({PREPARING:'准备中',NEEDS_UPDATE:'路线需要更新',LIMITED:'部分路线可用',UNAVAILABLE:'路线暂不可用',AVAILABLE:''})[displayMap.status]}</span>}
+                  {displayMap.available_actions.includes('RENDER_MAP') && <button data-testid="render-map" type="button" className="e-button" disabled={disabled || dirty || displayMap.status === 'PREPARING'} onClick={()=>void trip.renderMap()}><RefreshCw aria-hidden="true"/>更新路线</button>}
+                  {displayMap.status === 'UNAVAILABLE' && <button data-testid="retry-enhancements" type="button" className="e-button" disabled={disabled || dirty} onClick={()=>void trip.retryMap()}>重试路线</button>}
+                </>}
                 <button
                   type="button"
                   className="e-button e-button-quiet"
@@ -946,7 +951,6 @@ export default function TripResultPage() {
                   onDayChange={(index) => { setDayIndex(index); setSelected(null) }}
                   onSelect={setSelected}
                   onRouteMode={setRouteMode}
-                  onRender={() => void trip.renderMap()}
                   onRetryMap={() => void trip.retryMap()}
                   onSelectStay={(token) => void trip.selectStay(token)}
                   resource={trip.resource}

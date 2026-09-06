@@ -49,12 +49,12 @@ export default function PendingPlaceDropdown({card,resource,disabled,onCommand,o
     } catch { if(request.current===controller)setMessage('查询暂不可用，请重试。') }
     finally {clearTimeout(timeout);if(request.current===controller)setSearching(false)}
   }
-  async function confirm() {
-    if(!selected||locked||saveLock.current)return
+  async function confirm(candidate:PlaceCandidateView) {
+    if(locked||saveLock.current)return
     saveLock.current=true
     setSaving(true);setMessage('')
     try {
-      const outcome=await onCommand({command_type:'PLACE_CONFIRM',activity_token:card.activity_token,candidate_token:selected.candidate_token})
+      const outcome=await onCommand({command_type:'PLACE_CONFIRM',activity_token:card.activity_token,candidate_token:candidate.candidate_token})
       if(outcome.status==='APPLIED')close.current()
       else setMessage(outcome.status==='SYNCED'?'行程已变化，请重新核对地点。':'正在确认保存结果，请稍候。')
     } catch {setMessage('未能确认保存，请稍后重试。')}
@@ -66,8 +66,16 @@ export default function PendingPlaceDropdown({card,resource,disabled,onCommand,o
       <input aria-label="搜索地点名称" value={query} maxLength={200} placeholder="地点名称或地址" disabled={locked} onChange={event=>{request.current?.abort();request.current=null;setSearching(false);setQuery(event.target.value);setItems([]);setSelected(null);setMessage('')}} />
       <button type="submit" disabled={locked||searching||!query.trim()}>{searching?'查询中…':'搜索'}</button>
     </form>
-    <div className="pending-place-options">{items.map(item=><button key={item.candidate_token} type="button" disabled={locked} aria-pressed={selected?.candidate_token===item.candidate_token} onClick={()=>setSelected(item)}><strong>{item.name}</strong><small>{item.area_or_address||'地址暂缺'} · {item.category}</small></button>)}</div>
-    {selected&&<button type="button" className="pending-place-confirm" disabled={locked} onClick={()=>void confirm()}>{saving?'保存中…':'使用这个地点'}</button>}
+    <div className="pending-place-options">{items.map(item=>{
+      const chosen=selected?.candidate_token===item.candidate_token
+      return <div key={item.candidate_token} className="pending-place-row" data-selected={chosen}>
+        <button className="pending-place-option" type="button" disabled={locked} aria-pressed={chosen}
+          onClick={()=>{if(chosen)void confirm(item);else setSelected(item)}}>
+          <strong>{item.name}</strong><small>{item.area_or_address||'地址暂缺'} · {item.category}</small>
+        </button>
+        {chosen&&<button type="button" className="pending-place-confirm" aria-label="使用这个地点" disabled={locked} onClick={()=>void confirm(item)}>{saving?'保存中…':'确认'}</button>}
+      </div>
+    })}</div>
     {message&&<p role="status">{message}</p>}
   </div>
 }

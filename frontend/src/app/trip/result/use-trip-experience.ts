@@ -1353,18 +1353,10 @@ export function useTripExperience() {
           setPreview(null)
           previewBasis.current = null
         }
-        setNotice(
-          expectedTag && expectedTag !== latest.etag
-            ? '这份行程也有其他更新，已显示最新内容。'
-            : operation.type === 'map'
-              ? '正在准备更新后的路线。'
-              : operation.type === 'claim'
-                ? '已保存到账号，保留 30 天。'
-                : operation.type === 'command' &&
-                    operation.command.command_type === 'UNDO'
-                  ? '已撤销上次调整，路线状态已重新判断。'
-                  : '修改已保留，路线需要更新时请主动更新。',
-        )
+        setNotice(expectedTag && expectedTag !== latest.etag
+          ? '这份行程也有其他更新，已显示最新内容。'
+          : '')
+
         if (!['AVAILABLE', 'LIMITED'].includes(latest.body.map.status)) {
           setMap({
             status: latest.body.map.status,
@@ -1614,7 +1606,7 @@ export function useTripExperience() {
         const latestMap = await readMapAndStay()
         sessionStorage.removeItem(PENDING_KEY)
         setPending(null)
-        setNotice('已确认路线更新请求；同一任务不会被重复计算。')
+        setNotice('')
         if (latestMap?.status !== 'PREPARING') void prepareChecks('map')
         return true
       }

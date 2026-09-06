@@ -2,9 +2,9 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "single-place-editor",
+    "id": "compact-map-inline-confirm",
     "work_kind": "PRODUCT",
-    "outcome": "短导航与统一就地地点搜索确认",
+    "outcome": "地图上移、操作合栏、候选同行确认与二次点击",
     "status": "COMPLETED"
   },
   "packages": [],

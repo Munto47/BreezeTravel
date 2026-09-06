@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { List, RefreshCw } from 'lucide-react'
+import { List } from 'lucide-react'
 
 import type {
   MapRenderView,
@@ -28,7 +28,6 @@ export default function MapStayWorkspace({
   onDayChange,
   onSelect,
   onRouteMode,
-  onRender,
   onRetryMap,
   onSelectStay,
   resource,
@@ -45,7 +44,6 @@ export default function MapStayWorkspace({
   onDayChange: (index: number) => void
   onSelect: (token: string) => void
   onRouteMode: (mode: 'recommended' | 'walking' | 'transit') => void
-  onRender: () => void
   onRetryMap: () => void
   onSelectStay: (token: string) => void
   resource: string
@@ -63,7 +61,6 @@ export default function MapStayWorkspace({
   const currentStay = stay || result.stay
   const mapUnavailable = (mapView?.status || result.map.status) === 'UNAVAILABLE'
   const stayUnavailable = currentStay.status === 'UNAVAILABLE'
-  const canRender = mapView?.available_actions.includes('RENDER_MAP') ?? false
   const dayColor = DAY_COLORS[dayIndex % DAY_COLORS.length]
   const currentRoutes = mapView && ['AVAILABLE', 'LIMITED'].includes(mapView.status)
     ? mapView.days.flatMap((day) => {
@@ -129,11 +126,6 @@ export default function MapStayWorkspace({
             dayColor={dayColor}
           />
 
-        <div className="fluid-map-actions">
-          {mapView?.status !== 'AVAILABLE' && <span className="fluid-map-status" role="status">{({PREPARING:'准备中', NEEDS_UPDATE:'路线需要更新', LIMITED:'部分路线可用', UNAVAILABLE:'路线暂不可用', AVAILABLE:''})[mapView?.status || result.map.status]}</span>}
-          {canRender && <button data-testid="render-map" type="button" className="e-button" disabled={disabled || mapView?.status === 'PREPARING'} onClick={onRender}><RefreshCw aria-hidden="true" />手动更新路线</button>}
-          {mapUnavailable && <button data-testid="retry-enhancements" type="button" className="e-button" disabled={disabled} onClick={onRetryMap}>重试路线</button>}
-        </div>
         {selected && currentDay?.activities.some(card => card.activity_token === selected) && <div className="fluid-map-place-edit"><button type="button" className="e-button" aria-expanded={editing} onClick={()=>setEditing(value=>!value)}>地点</button>{editing&&<PendingPlaceDropdown key={selected} card={currentDay.activities.find(card=>card.activity_token===selected)!} resource={resource} disabled={disabled} onCommand={onCommand} onClose={()=>{setEditing(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.fluid-map-place-edit > button')?.focus({preventScroll:true}))}}/>}</div>}
       </div>
       <div className="fluid-map-bottom">

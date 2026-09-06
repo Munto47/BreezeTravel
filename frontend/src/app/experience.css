@@ -2073,3 +2073,21 @@
 .serpentine-connections [data-turn="true"] .serpentine-route-label { width:108px; max-width:108px; white-space:normal; line-height:1.2; padding:3px 5px; justify-content:center; text-align:center; }
 .fluid-map-place-edit {position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:25;}
 .fluid-map-place-edit > .pending-place-dropdown {position:absolute;bottom:54px;left:50%;transform:translateX(-50%);max-height:calc(100dvh - 310px);overflow:auto;}
+/* Keep the selected candidate and its confirmation in the same scroll row. */
+.pending-place-row {display:flex;align-items:center;gap:6px;margin-top:6px;border-radius:12px;background:#f4f9fb;}
+.pending-place-row[data-selected="true"] {background:#e0f3fb;outline:1px solid #65aac2;outline-offset:-1px;}
+.pending-place-options .pending-place-option {flex:1;min-width:0;width:auto;margin:0;background:transparent;outline:none;overflow-wrap:anywhere;}
+.pending-place-options .pending-place-confirm {flex:0 0 auto;width:auto;min-width:48px;min-height:44px;margin:0 6px 0 0;padding:6px 9px;text-align:center;background:#0c789d;color:#fff;}
+.experience.e-map-mode .e-trip-head {min-height:64px;padding-top:4px;padding-bottom:4px;width:100%;}
+.experience.e-map-mode .e-save-area {max-width:none;gap:10px;flex-wrap:nowrap;}
+.experience.e-map-mode .e-save-area > .e-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.experience.e-map-mode .e-save-status {width:auto;}
+.e-toolbar-map-status {font-size:12px;color:#617a89;white-space:nowrap;}
+@media(max-width:1023px) {
+ .experience.e-map-mode .e-trip-head {gap:4px;}
+  .experience.e-map-mode .e-save-area {overflow:visible;}
+  .experience.e-map-mode .e-save-area > .e-actions {flex-wrap:wrap;}
+ .experience.e-map-mode .e-save-area .e-button {white-space:nowrap;padding:8px 10px;}
+ .experience.e-map-mode .e-save-status {display:none;}
+}
+.experience.e-map-mode .e-save-area .e-button { min-height:48px; }
