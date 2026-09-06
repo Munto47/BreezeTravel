@@ -146,7 +146,9 @@ async def test_bundled_parallel_place_list_triggers_one_grounded_repair():
     bundled = {
         "destination": "北京",
         "activities": [
-            activity("什刹海", "什刹海", category="景点"),
+            # A broad quote cannot lend the first member's role to siblings;
+            # exercise model repair rather than exact-list local recovery.
+            activity("北京：傍晚去**什刹海 + 后海**", "什刹海", category="景点"),
             activity("鸟巢", "鸟巢", category="景点"),
         ],
     }
@@ -167,7 +169,10 @@ async def test_bundled_parallel_place_list_triggers_one_grounded_repair():
     assert len(client.calls) == 2
     repair = client.calls[1]["messages"][-1]["content"]
     assert "MISSING_EXPLICIT_PARALLEL_PLACE" in repair
-    assert "什刹海" not in repair and "鸟巢" not in repair
+    assert {item["source_quote"] for item in json.loads(repair.split("\n", 1)[1])["literal_nouns"]} == {"什刹海", "鸟巢", "水立方"}
+    # Literal hints belong only to the same authorized request, never logs.
+    assert "什刹海" not in json.dumps(result.binding, ensure_ascii=False)
+    assert "鸟巢" not in json.dumps(result.binding, ensure_ascii=False)
 
 
 def test_food_list_without_atomic_restaurant_is_allowed_to_stay_unprocessed():

@@ -48,6 +48,10 @@ GENERIC_ACTIVITY_RE = re.compile(
     r"(?:自由|自行)活动|"
     r"(?:在)?(?:酒店|宾馆|民宿|住处)?休息|"
     r"(?:随便)?看看?风景|"
+    # Matched only as whole phrases; a longer venue name keeps its identity.
+    r"(?:早点|早些|提前)?出发|"
+    r"(?:步行|徒步)(?:半(?:天|小时)|全天|"
+    r"(?:[一二两三四五六七八九十百]+|\d+(?:\.\d+)?)(?:分钟|小时|天))|"
     r"用餐|就餐|吃饭"
     r")"
 )
