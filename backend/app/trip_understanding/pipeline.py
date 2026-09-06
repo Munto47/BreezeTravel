@@ -281,6 +281,82 @@ def _model_activity_cities(source_text: str, proposal: InferenceProposal, mentio
     return (destination,)
 
 
+def _explicit_activity_district_codes(source_text: str, mention, city: str) -> frozenset[str | None]:
+    """Read only a direct place modifier or this activity's city heading.
+
+    Reuse the live resolver's existing administrative vocabulary. Do not scan
+    the itinerary for a district: another stop, another day or a location in a
+    descriptive sentence is not this place's identity constraint.
+    """
+    # The resolver imports pipeline helpers, so access its shared vocabulary
+    # only when a completed resolution is checked, after module initialization.
+    from app.trip_understanding.amap_place import _DISTRICT_ADCODES
+
+    city = city.strip().removesuffix("市")
+    names: dict[str, str | None] = {}
+    for district_city, districts in _DISTRICT_ADCODES.items():
+        for name, code in districts.items():
+            for suffix in ("新区", "区", "县", "市"):
+                names[name + suffix] = code if district_city == city else None
+    district = "(?:" + "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True)) + ")"
+    city_label = re.escape(city) + r"市?" if city else r"(?!)"
+    day_label = r"(?:(?:Day|D)\s*\d{1,2}|第[一二三四五六七八九十\d]{1,3}天)"
+    header = re.compile(rf"\s*(?:{day_label}\s*[:：—-]?\s*)?(?:{city_label}\s*)?(?P<district>{district})\s*[:：]?\s*", re.I)
+    codes: set[str | None] = set()
+    boundary = max(source_text.rfind(mark, 0, mention.span_start) for mark in ("\n", "。", "！", "？", "；", ";")) + 1
+    prefix = source_text[max(boundary, mention.span_start - 96):mention.span_start]
+    direct = re.search(rf"(?P<district>{district})(?:的)?\s*$", prefix)
+    if direct:
+        codes.add(names[direct["district"]])
+
+    # A short Day/city heading may scope multiple places. Evidence is already
+    # source/city-validated by the semantic adapter; only a heading is usable,
+    # never an entire paragraph containing additional district references.
+    for value in (prefix, mention.city_evidence if mention.city_hint == city else None):
+        if not value:
+            continue
+        value = re.sub(r"[，,：:]\s*(?:去|到|参观|游览)?\s*$", "", value.strip(" #*_`"))
+        matched = header.fullmatch(value)
+        if matched:
+            codes.add(names[matched["district"]])
+
+    tail = source_text[mention.span_end:mention.span_end + 72]
+    # A parenthetical district or "位于…区" directly describes this place.
+    # "…，位于浦东新区的另一站" modifies the next noun and is not borrowed.
+    after = re.match(rf"\s*(?:[，,]\s*)?(?:位于|在|地址[：:])\s*(?:{city_label}\s*)?(?P<district>{district})(?=$|[\s，,。；;）)])", tail)
+    if after:
+        codes.add(names[after["district"]])
+    parenthesis = re.match(r"\s*[（(]([^（）()\n]{1,36})[）)]", tail)
+    if parenthesis:
+        label = re.sub(r"^(?:位于|在|地址[：:])\s*", "", parenthesis[1])
+        matched = header.fullmatch(label)
+        if matched:
+            codes.add(names[matched["district"]])
+    return frozenset(codes)
+
+
+def _guard_source_district(source_text: str, mention, outcome: PlaceResolutionOutcome) -> PlaceResolutionOutcome:
+    if outcome.place is None:
+        return outcome
+    city = str(outcome.receipt.get("requested_city") or mention.city_hint or "")
+    expected = _explicit_activity_district_codes(source_text, mention, city)
+    if not expected:
+        return outcome
+    reported = (outcome.receipt.get("adcode"), outcome.place.provider_binding.get("adcode"))
+    actual = {value for value in reported if isinstance(value, str) and re.fullmatch(r"\d{6}", value)}
+    malformed = any(value is not None and (not isinstance(value, str) or not re.fullmatch(r"\d{6}", value)) for value in reported)
+    if None in expected or len(expected) != 1 or not actual or malformed:
+        failure = "SOURCE_DISTRICT_UNVERIFIED"
+    elif actual != expected:
+        failure = "SOURCE_DISTRICT_MISMATCH"
+    else:
+        return outcome
+    return outcome.model_copy(update={"place": None, "receipt": {
+        **outcome.receipt, "status": "NO_UNIQUE_MATCH", "failure_category": failure,
+        "source_district_constraint_count": len(expected),
+    }})
+
+
 def canonical_sha256(value: object) -> str:
     payload = json.dumps(
         value,
@@ -1636,6 +1712,10 @@ class TripUnderstandingPipeline:
                 continue
             assert task is not None
             outcome, provider_unavailable = task.result()
+            if model_meaning:
+                # A shared POI lookup can serve repeated names, but each visit
+                # must satisfy its own source context before becoming READY.
+                outcome = _guard_source_district(source_text, item.mention, outcome)
             unavailable_count += int(provider_unavailable)
             receipt = dict(outcome.receipt)
             if not is_owner:

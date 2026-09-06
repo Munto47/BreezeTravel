@@ -15,18 +15,18 @@ from app.config import get_settings
 from app.constraints.amap_types import classify_amap_type_signals
 from app.schemas.place import PlaceCategory
 from app.trip_understanding.amap_place import (
-    AmapPlaceResolver, _admin_matches, _coordinates, _expected_category, _CATEGORY_LABELS, _name_match_tier,
+    AmapPlaceResolver, _admin_matches, _coordinates, _expected_category, _CATEGORY_LABELS, _name_match_tier, _CITY_BOUNDS,
 )
 from app.trip_understanding.errors import CommandTargetChangedError, PlaceProviderUnavailableError
 from app.trip_understanding.models import StrictModel
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
-
-_CITY_BOUNDS = {"北京": (115.4, 117.6, 39.4, 41.1), "上海": (120.8, 122.3, 30.6, 31.9), "杭州": (118.3, 120.8, 29.1, 30.8)}
+from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
 class CandidateSearchRequest(StrictModel):
     activity_token: str = Field(min_length=20, max_length=80)
     query: str = Field(min_length=1, max_length=40)
+    city: Literal["北京", "上海", "杭州"] | None = None
 
 
 class GCJ02Position(StrictModel):
@@ -108,7 +108,7 @@ async def search_candidates(*, city: str, query: str, category_hint: str | None)
     for row in rows:
         name = str(row.get("name") or "").strip()
         poi_id = str(row.get("id") or "").strip()
-        if not poi_id or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
+        if not poi_id or atomic_place_rejection_reason("".join(name.split())) or not re.fullmatch(r"[A-Za-z0-9\u4e00-\u9fff·（）()—_ -]{1,40}", name):
             continue
         if not _admin_matches(row, expected_city=city, expected_district=None):
             continue

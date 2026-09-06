@@ -7,8 +7,9 @@ from app.trip_understanding import candidates
 
 
 def poi(name, code="110200", label="风景名胜;风景名胜;风景名胜", *, city="北京", district="朝阳区", adcode="110105", **extra):
+    location = {"北京": "116.396,39.99", "上海": "121.48,31.23", "杭州": "120.17,30.25"}[city]
     return dict(id=name, name=name, typecode=code, type=label, cityname=city+"市", pname=city+"市",
-                adname=district, adcode=adcode, location="116.396,39.99", address=district, **extra)
+                adname=district, adcode=adcode, location=location, address=district, **extra)
 
 
 @pytest.mark.asyncio
@@ -111,7 +112,7 @@ async def test_manual_parent_ranked_before_six_candidate_limit(monkeypatch):
     from types import SimpleNamespace
     monkeypatch.setattr(candidates,"get_settings",lambda:SimpleNamespace(amap_api_key="test-only",trip_understanding_provider_mode="live"))
     async def query(self,**kw):
-        return [poi(f"鸟巢广场{n}") for n in range(7)]+[poi("国家体育场","080101","体育休闲服务;运动场馆;综合体育馆")],{}
+        return [poi(f"鸟巢{direction}广场") for direction in ("东", "西", "南", "北", "东北", "东南", "西北")]+[poi("国家体育场","080101","体育休闲服务;运动场馆;综合体育馆")],{}
     monkeypatch.setattr(AmapPlaceResolver,"_query_provider",query)
     rows=await candidates.search_candidates(city="北京",query="鸟巢",category_hint="景点")
     assert rows[0].name=="国家体育场" and len(rows)==6

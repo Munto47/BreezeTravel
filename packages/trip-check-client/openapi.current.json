@@ -849,6 +849,22 @@
             "title": "Activity Token",
             "type": "string"
           },
+          "city": {
+            "anyOf": [
+              {
+                "enum": [
+                  "北京",
+                  "上海",
+                  "杭州"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
           "query": {
             "maxLength": 40,
             "minLength": 1,

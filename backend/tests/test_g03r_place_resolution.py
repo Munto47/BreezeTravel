@@ -72,7 +72,7 @@ def _poi(
     return {
         "id": provider_id,
         "name": name,
-        "location": "116.397026,39.918058",
+        "location": {"北京": "116.397026,39.918058", "上海": "121.48,31.23", "杭州": "120.17,30.25"}[city],
         "type": type_label,
         "typecode": typecode,
         "pname": province,

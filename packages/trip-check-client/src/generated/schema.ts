@@ -1022,6 +1022,8 @@ export interface components {
         CandidateSearchRequest: {
             /** Activity Token */
             activity_token: string;
+            /** City */
+            city?: ("北京" | "上海" | "杭州") | null;
             /** Query */
             query: string;
         };

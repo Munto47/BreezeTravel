@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "itinerary-quality-foundation",
+    "id": "place-accuracy-v1",
     "work_kind": "PRODUCT",
-    "outcome": "复杂文字保真、真实通勤与未知边界、餐住建议和可操作查验",
+    "outcome": "加强原文地点名词到卡片的数量、日归属、顺序与完整身份对应，避免遗漏、多解、误合并及错城错类；不确定时保守待确认",
     "status": "COMPLETED",
-    "verification": "509 distinct backend tests; 12 UI cases; 24 synthetic live semantic cases; 3 separately verified real-service journeys; local production build. See ITINERARY_QUALITY_DELIVERY_20260906.md."
+    "verification": "Final live parsing 24/24; 440 identity/semantic tests and 47 API/PostgreSQL/compatibility tests passed; 11 browser cases; final two live journeys passed with self-created data deleted; 50-query strict matches 24 to 32, 13 safe refusals, 2 unresolved hotels and 3 separately reviewed name variants retained. Local delivery, no push/deployment. See PLACE_PARSING_STABILITY_DELIVERY_20260906.md"
   },
   "packages": [],
-  "next_planned_slice": "本轮本地交付完成，按所有者实际体验反馈继续；不自动上线。"
+  "next_planned_slice": "本轮本地交付已完成；继续按所有者解析稳定性优先级处理新的实际复现，不自动扩大推荐或上线范围"
 }

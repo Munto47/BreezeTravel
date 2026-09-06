@@ -26,7 +26,7 @@ from app.trip_understanding._three_city_place_lexicon import (
 from app.trip_understanding.errors import PlaceProviderUnavailableError
 from app.trip_understanding.landmark_hints import landmark_hint, verified_technical_landmark
 from app.trip_understanding.models import PlaceResolutionOutcome, ResolvedPlace, safe_poi_photo_url
-from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.pipeline import atomic_place_rejection_reason, canonical_sha256
 
 
 AMAP_POI_V2_ENDPOINT = "https://restapi.amap.com/v5/place/text"
@@ -50,6 +50,7 @@ _CITY_ADMIN_RULES = {
     "上海": {"province": "上海", "adcode_prefix": "31", "municipality": True},
     "杭州": {"province": "浙江", "adcode_prefix": "3301", "municipality": False},
 }
+_CITY_BOUNDS = {"北京": (115.4, 117.6, 39.4, 41.1), "上海": (120.8, 122.3, 30.6, 31.9), "杭州": (118.3, 120.8, 29.1, 30.8)}
 _DISTRICT_ADCODES = {
     "北京": {
         "东城": "110101",
@@ -282,7 +283,9 @@ def _provider_aliases(raw: dict[str, Any]) -> list[str]:
 
 def _comparison_values(value: str, *, city: str, provider_name: bool) -> set[str]:
     cleaned = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip() if provider_name else value.strip()
-    normalized = _normalized_name(cleaned)
+    # Retain the qualifier's text: 东馆 and (东馆) identify the same campus.
+    # Removing the qualifier itself would turn a specific branch into its parent.
+    normalized = re.sub(r"[()·]", "", _normalized_name(cleaned))
     if not normalized:
         return set()
     values = {normalized}
@@ -290,6 +293,31 @@ def _comparison_values(value: str, *, city: str, provider_name: bool) -> set[str
         if normalized.startswith(prefix) and len(normalized) > len(prefix):
             values.add(normalized[len(prefix) :])
     return values
+
+
+def _identity_qualified(value: str) -> bool:
+    value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value)
+    return bool(
+        re.search(r"[()（）—·-]", value)
+        or any(marker in value for marker in ("入口", "出口", "检票", "售票", "停车", "打卡", "走廊", "冰上运动", "地铁站", "公交站", "分馆", "馆区", "校区", "院区", "分店", "大堂", "寄存"))
+        or re.search(r"(?:东|西|南|北|新|旧|老|总)馆|(?:东|西|南|北)门|.+店$", value)
+        or re.search(r"(?:博物馆|博物院|美术馆|科技馆|酒店|饭店|公园|景区).+(?:馆|楼|厅|门|店|中心|区|堂)$",
+                     re.sub(r"(?:风景区|景区)$", "", value))
+    )
+
+
+def _place_venue_kind(value: str) -> str | None:
+    """A campus qualifier keeps its museum/library identity, even in brackets."""
+    direct = venue_kind(value)
+    if direct is not None:
+        return direct
+    value = _PROVIDER_STATUS_SUFFIX_RE.sub("", value).strip()
+    campus = re.fullmatch(
+        r"(?P<base>.+(?:博物院|博物馆|美术馆|科技馆|纪念馆|图书馆|展览馆|艺术馆))"
+        r"[（(·— -]?[A-Za-z0-9\u4e00-\u9fff·]{0,16}(?:馆区|院区|校区|分馆|馆)[）)]?",
+        value,
+    )
+    return venue_kind(campus["base"]) if campus else None
 
 
 def _name_match_tier(
@@ -300,7 +328,7 @@ def _name_match_tier(
     city: str,
 ) -> str | None:
     primary = raw.get("name")
-    if not isinstance(primary, str) or not primary.strip():
+    if not isinstance(primary, str) or atomic_place_rejection_reason("".join(primary.split())):
         return None
     if venue_suffix_conflicts(canonical_name, _PROVIDER_STATUS_SUFFIX_RE.sub("", primary).strip()):
         return None
@@ -313,9 +341,12 @@ def _name_match_tier(
     primary_values = _comparison_values(primary, city=city, provider_name=True)
     if canonical_values & primary_values:
         return "CANONICAL_EXACT"
+    if safe_alias_values & primary_values:
+        return "SAFE_ALIAS_EXACT"
 
-    # An alias on an entrance, activity or child POI is not the parent identity.
-    if any(marker in primary for marker in ("入口", "出口", "检票", "售票", "停车", "打卡", "走廊", "冰上运动", "广场")) or re.search(r"[-—]", primary):
+    # Untrusted provider aliases cannot erase a campus, branch or child POI.
+    # Source-backed explicit aliases above still need full city/type validation.
+    if _identity_qualified(primary) or _identity_qualified(canonical_name) or "广场" in primary:
         return None
 
     provider_alias_values = {
@@ -516,10 +547,13 @@ def _evaluate_candidates(
         # library (or a stadium from a gymnasium). Cross-check every explicit
         # venue kind carried by the provider name, aliases and type labels
         # before accepting an otherwise exact lexical match.
-        expected_venue_kind = venue_kind(atomic) or venue_kind(canonical_name)
-        provider_name_parts = [
-            part.strip()
-            for value in [*_string_values(item.get("name")), *_provider_aliases(item)]
+        expected_venue_kind = _place_venue_kind(atomic) or _place_venue_kind(canonical_name)
+        provider_name_kinds = [_place_venue_kind(value) for value in _string_values(item.get("name"))]
+        # An alias such as 上海科技馆分馆 describes affiliation, not this
+        # natural-history museum's category. Bare explicit kinds still conflict.
+        provider_name_kinds += [
+            venue_kind(part.strip())
+            for value in _provider_aliases(item)
             for part in re.split(r"[|;/；]", value)
             if part.strip()
         ]
@@ -530,8 +564,8 @@ def _evaluate_candidates(
             if part.strip()
         ]
         name_identity_conflict = expected_venue_kind is not None and any(
-            (candidate_kind := venue_kind(value)) is not None and candidate_kind != expected_venue_kind
-            for value in provider_name_parts
+            candidate_kind is not None and candidate_kind != expected_venue_kind
+            for candidate_kind in provider_name_kinds
         )
         strict_type_identity_conflict = (
             expected_venue_kind in _STRICT_PROVIDER_TYPE_VENUE_KINDS
@@ -541,7 +575,7 @@ def _evaluate_candidates(
                 for value in provider_type_parts
             )
         )
-        if name_identity_conflict or strict_type_identity_conflict:
+        if name_identity_conflict or (strict_type_identity_conflict and not verified_technical_landmark(item, city=city, name=canonical_name)):
             category_conflict_ids.add(provider_id)
             continue
 
@@ -582,6 +616,9 @@ def _evaluate_candidates(
 
         coordinates = _coordinates(item.get("location"))
         if coordinates is None:
+            continue
+        west, east, south, north = _CITY_BOUNDS[_normalized_city(city)]
+        if not (west <= coordinates[0] <= east and south <= coordinates[1] <= north):
             continue
         by_tier[tier].setdefault(
             provider_id,
@@ -899,6 +936,7 @@ class AmapPlaceResolver:
         if (
             not atomic
             or len(atomic) > 40
+            or atomic_place_rejection_reason("".join(atomic.split())) is not None
             or any(marker in atomic.casefold() for marker in _FORBIDDEN_MARKERS)
             or any(marker in atomic for marker in _SENTENCE_MARKERS)
         ):
@@ -959,7 +997,7 @@ class AmapPlaceResolver:
             }
 
         hint = landmark_hint(normalized_city, atomic)
-        if hint is not None and (lookup is None or not lookup.matches):
+        if hint is not None and (lookup is None or not lookup.matches or hint.matches(query_name)):
             query_name = hint.name
             safe_aliases = hint.aliases
             expected_district = hint.district

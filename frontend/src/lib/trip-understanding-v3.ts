@@ -752,6 +752,7 @@ export async function queryTripPlaceCandidates(
   activityToken: string,
   query: string,
   signal?: AbortSignal,
+  city?: '北京' | '上海' | '杭州',
 ): Promise<PlaceCandidatesView> {
   const response = await fetch(
     `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
@@ -763,7 +764,7 @@ export async function queryTripPlaceCandidates(
         'Content-Type': 'application/json',
         ...authorizationHeaders(),
       },
-      body: JSON.stringify({ activity_token: activityToken, query }),
+      body: JSON.stringify({ activity_token: activityToken, query, ...(city ? { city } : {}) }),
     },
   )
   if (!response.ok) throw new Error('PLACE_SEARCH_UNAVAILABLE')

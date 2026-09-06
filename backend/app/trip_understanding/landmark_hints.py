@@ -26,6 +26,10 @@ class LandmarkHint:
 
 
 HINTS = (
+    LandmarkHint("北京", "中国美术馆", (), "东城区", "140100", "科教文化服务;博物馆;博物馆",
+                 "https://www.namoc.org/zgmsg/cgfw/cgfw.shtml"),
+    LandmarkHint("北京", "故宫博物院-神武门", ("故宫北门", "故宫博物院北门", "神武门"), "东城区", "110202", None,
+                 "https://www.dpm.org.cn/explore/building/236456.html"),
     LandmarkHint("北京", "国家体育场", ("鸟巢", "国家体育场(鸟巢)"), "朝阳区", "080101", "体育休闲服务;运动场馆;综合体育馆",
                  "https://www.n-s.cn/aboutindex.html"),
     LandmarkHint("北京", "国家游泳中心", ("水立方", "国家游泳中心(水立方)"), "朝阳区", "080101", "体育休闲服务;运动场馆;综合体育馆",

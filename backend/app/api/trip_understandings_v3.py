@@ -383,7 +383,7 @@ async def find_place_candidates(
     card = next((card for day in stored.result.days for card in day.activities if card.activity_token == body.activity_token), None)
     if card is None:
         raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
-    city = card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
+    city = body.city or card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
     places = await search(city=city, query=body.query, category_hint=card.category)
     response.headers["Cache-Control"] = "no-store"
     if places is None:

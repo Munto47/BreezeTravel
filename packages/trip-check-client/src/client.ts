@@ -182,12 +182,13 @@ export class TripCheckClient {
     publicResourceId: string,
     activityToken: string,
     query: string,
+    city?: '北京' | '上海' | '杭州',
   ): Promise<PlaceCandidatesView> {
     return (
       await this.json<PlaceCandidatesView>(
         'POST',
         `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/place-candidates`,
-        { activity_token: activityToken, query },
+        { activity_token: activityToken, query, ...(city ? { city } : {}) },
       )
     ).data
   }

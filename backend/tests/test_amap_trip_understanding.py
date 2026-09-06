@@ -33,7 +33,7 @@ def _poi(
     return {
         "id": provider_id,
         "name": name,
-        "location": "116.397026,39.918058",
+        "location": {"北京": "116.397026,39.918058", "上海": "121.48,31.23", "杭州": "120.17,30.25"}[city_key],
         "type": "风景名胜;风景名胜相关;旅游景点",
         "typecode": typecode,
         "pname": province,
@@ -135,6 +135,7 @@ async def test_amap_exact_city_category_match_is_adopted_with_redacted_receipt()
         "140200",
         "140400",
         "140500",
+        "140600",
     ]
     assert "key=test-only" in str(request.url)
     assert "test-only" not in str(outcome.receipt)
@@ -384,6 +385,7 @@ async def test_amap_safe_alias_excludes_a_different_venue_candidate() -> None:
         "140200",
         "140400",
         "140500",
+        "140600",
     ]
     assert len(observed) == 1
 

@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import time
+from bisect import bisect_left
 from pathlib import Path
 from typing import Any, Literal
 
@@ -111,6 +112,35 @@ class SourceAnchorIndex:
 
 def _source_occurrence(source: str, quote: str, occurrence: int) -> int:
     return SourceAnchorIndex(source).locate(quote, occurrence)[0]
+
+
+def _omits_attached_place_qualifier(anchors: SourceAnchorIndex, place_end: int) -> bool:
+    """Protect literal entrance/branch labels, without absorbing later actions.
+
+    The shortest quote may end *inside* a qualified name. Check the original
+    visible text after that endpoint too, including paired Markdown decoration.
+    This only requests a semantic repair; it never invents or expands a POI.
+    """
+    tail = anchors.visible[bisect_left(anchors.indices, place_end):][:48]
+    # Spaces/separators describe a new phrase, not an attached name component.
+    # Parenthesized branch names are still literal parts of the same label.
+    bracket = re.match(r"^[（(]([^（）()\n]{1,24})[）)]", tail)
+    if bracket:
+        label = bracket[1]
+    else:
+        label = re.split(r"[\s，,。；;：:、→/／（）()]|出来|出发|离开|之后|以后|随后|然后|接着|再去|再到|前往|参观|游览|集合|进入|游玩|打卡|入住|用餐|步行|返回|吃饭|喝咖啡", tail, maxsplit=1)[0]
+    if re.match(r"^(?:的|里面|内有|外面|附近|旁边|是|有|包含|可以|需要|还|并|与|和|以及|到|去)", label):
+        return False
+    # A following action ("北门见", "分店吃饭") does not make an attached
+    # qualifier disappear. Bracketed prose, however, must be a label in full.
+    match = re.fullmatch if bracket else re.match
+    return bool(match(
+        r"(?:[东南西北]{1,2}(?:门|馆|院|区)|[总主新老本]馆|"
+        r"[一二三四五六七八九十\d]+号(?:门|馆)|"
+        r"[A-Za-z0-9\u4e00-\u9fff·]{0,12}(?:分馆|分院|分店|校区|馆区|院区)|"
+        r"[A-Za-z0-9\u4e00-\u9fff·]{1,12}(?:馆|店))",
+        label,
+    ))
 
 
 def _validation_issues(exc: ValueError) -> list[dict[str, object]]:
@@ -339,8 +369,58 @@ def _explicit_day_count(source: str) -> int:
     return max(counts, default=0)
 
 
+def _unambiguous_literal_place_day(source: str, place: str | None) -> int | None:
+    """Last-resort grounding for a missing field, never a change to a supplied day.
+
+    Every literal occurrence must have the same preceding explicit day label.
+    Moved/repeated places, references in other days and unscoped labels refuse
+    this recovery. Calendar dates and unnamed activities stay with semantics.
+    """
+    if not place:
+        return None
+    # Literal occurrences cannot establish the final day after a pronoun-based
+    # move or a whole-schedule swap. Leave those decisions to semantic repair.
+    if re.search(r"对调|交换|顺延", source) or (
+        re.search(r"前者|后者|它|该站|该地点|上述|上面|这些|这两|那两|两者", source)
+        and re.search(r"移到|移至|改到|改为|改期|调整|推迟|提前", source)
+    ):
+        return None
+    uncertain_day = (
+        r"未定日期|日期未定|日期待定|哪一天|择日|其他天|另一天|某天|每天|改期|"
+        r"次日|翌日|明天|后天|昨天|前天|今天|今晚|次晚|后一天|前一天|"
+        r"第\s*[一二两三四五六七八九十\d]+\s*[晚日夜]|(?:周|星期)[一二三四五六日天]|"
+        r"\d{1,2}\s*月\s*\d{1,2}\s*[日号]|\d{1,4}\s*[-/.]\s*\d{1,2}"
+    )
+    days = []
+    for match in re.finditer(re.escape(place), source):
+        headings = list(re.finditer(r"第\s*(?:\d{1,2}|[一二两三四五六七八九十]{1,3})\s*天|(?<![A-Za-z0-9])(?:Day|D)\s*\d{1,2}(?![A-Za-z0-9])", source[:match.start()], re.I))
+        if not headings:
+            return None
+        heading = headings[-1]
+        # A day token inside a URL, order ID or ordinary sentence is not a
+        # heading. Recovery only accepts a short, explicit clause introduction.
+        intro = re.split(r"[\n。；;，,：:！？!?|→]", source[:heading.start()])[-1].strip(" #*_`\t")
+        if not re.fullmatch(r"(?:(?:最终|最后|原定|计划|更正后|更新后)\s*)?(?:(?:北京|上海|杭州)市?\s*)?", intro):
+            return None
+        # Do not extend a heading through an explicitly unscoped reference or
+        # into a date range that cannot bind one day to this particular noun.
+        gap = source[heading.end():match.start()]
+        if re.search(uncertain_day, gap):
+            return None
+        day = _explicit_day_count(heading[0])
+        if not 1 <= day <= 14:
+            return None
+        tail = re.split(r"[。；;，,\n]", source[match.end():], maxsplit=1)[0]
+        trailing_day = _explicit_day_count(tail)
+        if (trailing_day and trailing_day != day) or re.search(uncertain_day, tail):
+            return None
+        days.append(day)
+    return days[0] if days and len(set(days)) == 1 else None
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     anchors = SourceAnchorIndex(source)
+    explicit_days = _explicit_day_count(anchors.visible)
     issues: list[dict[str, object]] = []
     located: list[tuple[int, int]] = []
     proposed_atomic = {
@@ -362,6 +442,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         except ValueError:
             issues.append({"field": f"unprocessed_quotes[{index}]", "category": "SOURCE_QUOTE_NOT_FOUND"})
     for index, item in enumerate(draft.activities):
+        if item.role == ActivityRole.PLANNED and item.day_index is None and explicit_days > 1:
+            issues.append({"field": f"activities[{index}].day_index", "category": "MISSING_EXPLICIT_DAY"})
         try:
             start, end = anchors.locate(item.source_quote, item.occurrence)
             located.append((start, end))
@@ -372,6 +454,10 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             place = item.place_name.strip() if item.place_name else None
             if place and place not in source[start:end]:
                 issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_NOT_IN_SOURCE_QUOTE"})
+            elif place and item.role in {ActivityRole.PLANNED, ActivityRole.OPTIONAL}:
+                place_end = start + source[start:end].index(place) + len(place)
+                if _omits_attached_place_qualifier(anchors, place_end):
+                    issues.append({"field": f"activities[{index}].place_name", "category": "PLACE_QUALIFIER_OMITTED"})
             # A planned sightseeing/location item containing an explicit list
             # must be returned one atomic place per activity. Rejecting the
             # bundled draft asks the model's bounded repair pass to preserve
@@ -533,6 +619,8 @@ class ExperienceQwenProvider:
         ]
         failure = "INVALID_STRUCTURED_OUTPUT"
         proposal: InferenceProposal | None = None
+        degraded_timing = 0
+        grounded_days = 0
         try:
             async with asyncio.timeout(self.deadline_seconds):
                 for attempt in range(2):
@@ -563,6 +651,42 @@ class ExperienceQwenProvider:
                         failure = "INVALID_STRUCTURED_OUTPUT" if isinstance(exc, ValidationError) else str(exc)
                         call["outcome"] = failure
                         call["validation_errors"] = _validation_issues(exc)
+                        if attempt == 1 and isinstance(exc, SourceAnchorValidationError) and exc.issues and all(
+                            issue["category"] == "MISSING_EXPLICIT_DAY" for issue in exc.issues
+                        ):
+                            affected = {int(re.fullmatch(r"activities\[(\d+)\]\.day_index", issue["field"])[1])
+                                        for issue in exc.issues}
+                            assigned = {index: _unambiguous_literal_place_day(source_text, draft.activities[index].place_name)
+                                        for index in affected}
+                            if all(day is not None for day in assigned.values()):
+                                cleaned = draft.model_copy(update={"activities": [
+                                    item.model_copy(update={"day_index": assigned[index]}) if index in assigned else item
+                                    for index, item in enumerate(draft.activities)
+                                ]})
+                                proposal = proposal_from_draft(source_text, cleaned)
+                                grounded_days = len(affected)
+                                break
+                        if attempt == 1 and isinstance(exc, SourceAnchorValidationError) and exc.issues and all(
+                            issue["category"] in {"TIME_EVIDENCE_NOT_IN_SOURCE", "COMMITMENT_EVIDENCE_NOT_IN_SOURCE"}
+                            for issue in exc.issues
+                        ):
+                            # Do not lose correctly source-bound places because a
+                            # second model answer still invents timing/booking evidence.
+                            # Keep the failures recorded and return explicitly partial
+                            # cards with only those unsupported fields removed.
+                            affected = {int(re.fullmatch(r"activities\[(\d+)\]\.time_evidence", issue["field"])[1])
+                                        for issue in exc.issues}
+                            cleaned = draft.model_copy(update={"activities": [
+                                item.model_copy(update={"start_time": None, "end_time": None,
+                                    "visit_duration_minutes": None, "timing_source": "UNSPECIFIED",
+                                    "locked": False, "fixed_commitment": False, "time_evidence": None})
+                                if index in affected else item
+                                for index, item in enumerate(draft.activities)
+                            ]})
+                            proposal = proposal_from_draft(source_text, cleaned)
+                            degraded_timing = len(affected)
+                            proposal = proposal.model_copy(update={"unprocessed_count": proposal.unprocessed_count + degraded_timing})
+                            break
                         if attempt == 0:
                             messages.extend([
                                 {"role": "assistant", "content": content},
@@ -570,6 +694,10 @@ class ExperienceQwenProvider:
                                     "只修复以下字段，保留其他已正确整理的活动、顺序和角色，不要为绕过错误删除活动。"
                                     "source_quote 优先缩短为原文中该地点的逐字名称；occurrence 按去掉 Markdown 装饰后的可见片段计数。"
                                     "place_name 仍必须逐字出现在对应原文范围内，不得改写、补全或模糊猜测。"
+                                    "PLACE_QUALIFIER_OMITTED 表示截掉了紧邻地点的北门、东馆、分馆或分店等限定；"
+                                    "按原文保留完整限定名称，不能把后面的出来、再去等动作并入名称。"
+                                    "MISSING_EXPLICIT_DAY 表示多日行程缺少本项日期归属；依据原文最终安排填写day_index，"
+                                    "不要把第二天的地点默认放进第一天，也不要按更正段落出现的位置重新分日。"
                                     "NON_ATOMIC_PLACE_LIST 表示把多个地点压成了一项：请按原文顺序拆成多个活动，"
                                     "每项 source_quote 和 place_name 都使用该地点的逐字名称；二选一分别标 OPTIONAL。"
                                     "MISSING_EXPLICIT_PARALLEL_PLACE 表示 Markdown 强调的并列地点仍有遗漏；"
@@ -602,10 +730,12 @@ class ExperienceQwenProvider:
             "schema_sha256": hashlib.sha256(json.dumps(self.schema, sort_keys=True).encode()).hexdigest(),
             "deadline_ms": round(self.deadline_seconds * 1000), "max_output_tokens": self.max_output_tokens,
             "external_calls": len(calls), "repair_call_count": max(0, len(calls) - 1),
-            "fallback_used": False, "latency_ms": round((time.perf_counter() - started) * 1000, 2),
+            "fallback_used": bool(degraded_timing or grounded_days), "degraded_timing_activities": degraded_timing,
+            "source_grounded_day_activities": grounded_days,
+            "latency_ms": round((time.perf_counter() - started) * 1000, 2),
             "input_tokens": input_tokens, "output_tokens": output_tokens,
             "estimated_cost_cny": cost, "calls": calls,
-            "outcome": "SUCCESS" if proposal is not None else failure,
+            "outcome": ("PARTIAL_RESULT" if degraded_timing else "SUCCESS") if proposal is not None else failure,
         }
         if proposal is None:
             raise InferenceProviderUnavailableError(
