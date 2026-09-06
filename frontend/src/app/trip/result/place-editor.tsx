@@ -38,21 +38,11 @@ export default function PlaceEditor({
   onDirtyChange: (dirty: boolean) => void
   onPreviewCandidate: (candidate: PlaceCandidateView | null) => void
 }) {
-  const initial = useRef({
-    start: card?.start_time || '',
-    end: card?.end_time || '',
-    duration: card?.visit_duration_minutes?.toString() || '',
-    locked: Boolean(card?.locked || card?.fixed_commitment),
-  })
   const originalPosition =
     days[dayIndex]?.activities.findIndex(
       (item) => item.activity_token === card?.activity_token,
     ) ?? 0
   const [name, setName] = useState(card?.name || '')
-  const [start, setStart] = useState(initial.current.start)
-  const [end, setEnd] = useState(initial.current.end)
-  const [duration, setDuration] = useState(initial.current.duration)
-  const [locked, setLocked] = useState(initial.current.locked)
   const [query, setQuery] = useState(card?.name || '')
   const [candidates, setCandidates] = useState<PlaceCandidatesView | null>(null)
   const [candidate, setCandidate] = useState<PlaceCandidateView | null>(null)
@@ -64,11 +54,6 @@ export default function PlaceEditor({
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
   const searchController = useRef<AbortController | null>(null)
-  const timeDirty =
-    start !== initial.current.start ||
-    end !== initial.current.end ||
-    duration !== initial.current.duration ||
-    locked !== initial.current.locked
   const moveDirty =
     targetDay !== dayIndex || targetPosition !== originalPosition
   const nameDirty = Boolean(name.trim()) && name.trim() !== (card?.name || '')
@@ -80,7 +65,7 @@ export default function PlaceEditor({
       ? Boolean(name.trim())
       : editorMode === 'REPLACE'
         ? nameDirty
-        : nameDirty || timeDirty || moveDirty || Boolean(candidate)
+        : nameDirty || moveDirty || Boolean(candidate)
   useEffect(() => {
     onDirtyChange(dirty)
   }, [dirty, onDirtyChange])
@@ -132,20 +117,6 @@ export default function PlaceEditor({
       clearTimeout(timer)
       if (searchController.current === controller) setSearching(false)
     }
-  }
-  async function applyTime() {
-    if (!card || !timeDirty || busy) return
-    if (
-      await onCommand({
-        command_type: 'ACTIVITY_TIME_SET',
-        activity_token: card.activity_token,
-        start_time: start || null,
-        end_time: end || null,
-        visit_duration_minutes: duration === '' ? null : Number(duration),
-        locked,
-      })
-    )
-      onApplied()
   }
   if (cardWasReplaced)
     return (
@@ -377,11 +348,7 @@ export default function PlaceEditor({
                   if (ok) {
                     selectCandidate(null)
                     setCandidates(null)
-                    setMessage(
-                      timeDirty
-                        ? '地点已更新，下面的时间修改尚未应用。'
-                        : '地点已更新，需要时再更新路线。',
-                    )
+                    setMessage('地点已更新，需要时再更新路线。')
                   }
                 })
               }}
@@ -400,97 +367,6 @@ export default function PlaceEditor({
           </div>
         )}
       </section>
-      <form
-        className="e-form-section"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void applyTime()
-        }}
-      >
-        <h3>时间与停留</h3>
-        <div className="e-fields">
-          <label className="e-field">
-            开始时间
-            <input
-              aria-label="开始时间"
-              type="time"
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
-              disabled={busy || moveDirty}
-            />
-          </label>
-          <label className="e-field">
-            结束时间
-            <input
-              aria-label="结束时间"
-              type="time"
-              value={end}
-              onChange={(event) => setEnd(event.target.value)}
-              disabled={busy || moveDirty}
-            />
-          </label>
-        </div>
-        <label className="e-field">
-          预计停留（分钟）
-          <input
-            aria-label="预计停留分钟"
-            type="number"
-            min={0}
-            max={1440}
-            value={duration}
-            onChange={(event) => setDuration(event.target.value)}
-            disabled={busy || moveDirty}
-            placeholder="未安排"
-          />
-        </label>
-        {locked ? (
-          <div className="e-lock-state">
-            <p>
-              {card.fixed_commitment ? '已有预约或固定安排' : '时间已锁定'}
-              ，调整建议不能自动移动。
-            </p>
-            {!card.fixed_commitment && (
-              <button
-                type="button"
-                className="e-button e-button-quiet"
-                disabled={busy || moveDirty}
-                onClick={() => setLocked(false)}
-              >
-                解除时间锁定
-              </button>
-            )}
-          </div>
-        ) : (
-          <label className="e-field-check">
-            <input
-              type="checkbox"
-              checked={false}
-              disabled={busy || moveDirty}
-              onChange={() => setLocked(true)}
-            />
-            <span>锁定此时间（有预约或固定安排）</span>
-          </label>
-        )}
-        {!locked && initial.current.locked && !card.fixed_commitment && (
-          <p className="e-confirmation">应用修改后会解除时间锁定。</p>
-        )}
-        <div className="e-panel-actions">
-          <button
-            className="e-button e-button-primary"
-            type="submit"
-            disabled={busy || !timeDirty || Boolean(candidate) || moveDirty}
-          >
-            应用修改
-          </button>
-          <span className="e-small e-muted">
-            {candidate || moveDirty
-              ? '请先确认或取消地点／位置选择。'
-              : timeDirty
-                ? '尚未应用到行程'
-                : '时间安排没有改动'}
-          </span>
-        </div>
-      </form>
       {!!card.knowledge_suggestions?.length && (
         <details className="e-disclosure">
           <summary>有来源的出发前建议</summary>
@@ -512,9 +388,9 @@ export default function PlaceEditor({
       )}
       <details className="e-disclosure">
         <summary>移动或移除这个地点</summary>
-        {(timeDirty || candidate) && (
+        {(candidate) && (
           <p className="e-confirmation">
-            先应用时间修改或确认地点，再移动或移除，避免丢失编辑内容。
+            先确认或取消地点选择。
           </p>
         )}
         <div className="e-fields">
@@ -522,7 +398,7 @@ export default function PlaceEditor({
             移至日期
             <select
               value={targetDay}
-              disabled={busy || timeDirty || Boolean(candidate)}
+              disabled={busy || Boolean(candidate)}
               onChange={(event) => {
                 setTargetDay(Number(event.target.value))
                 setTargetPosition(0)
@@ -539,7 +415,7 @@ export default function PlaceEditor({
             位置
             <select
               value={targetPosition}
-              disabled={busy || timeDirty || Boolean(candidate)}
+              disabled={busy || Boolean(candidate)}
               onChange={(event) =>
                 setTargetPosition(Number(event.target.value))
               }
@@ -563,7 +439,7 @@ export default function PlaceEditor({
         <button
           className="e-button"
           type="button"
-          disabled={busy || timeDirty || Boolean(candidate) || !moveDirty}
+          disabled={busy || Boolean(candidate) || !moveDirty}
           onClick={() => {
             void onCommand({
               command_type: 'ACTIVITY_MOVE',
@@ -605,7 +481,7 @@ export default function PlaceEditor({
               <button
                 className="e-button e-danger-button"
                 type="button"
-                disabled={busy || timeDirty || Boolean(candidate)}
+                disabled={busy || Boolean(candidate)}
                 onClick={() => {
                   void onCommand({
                     command_type: 'ACTIVITY_DELETE',
@@ -623,7 +499,7 @@ export default function PlaceEditor({
           <button
             type="button"
             className="e-button e-button-quiet"
-            disabled={busy || timeDirty || Boolean(candidate)}
+            disabled={busy || Boolean(candidate)}
             onClick={() => setConfirmDelete(true)}
           >
             从行程中移除

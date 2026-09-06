@@ -2,9 +2,9 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "two-view-fluid-workspace",
+    "id": "serpentine-relative-order",
     "work_kind": "PRODUCT",
-    "outcome": "两视图、首屏居中地图、就地信息编辑、自由跨日拖动与真实阶段动效",
+    "outcome": "紧凑回环卡片、顶部交通弧线、相对顺序与跨行跨日拖动",
     "status": "COMPLETED"
   },
   "packages": [],

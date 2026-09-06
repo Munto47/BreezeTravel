@@ -35,7 +35,6 @@ import MapStayWorkspace from './map-stay-workspace'
 import ResultNavigation from './result-navigation'
 import { type ResultViewId } from './result-presentation'
 import {
-  activityTime,
   findingLabel,
   formatExpiry,
   needsRecheck,
@@ -237,6 +236,14 @@ export default function TripResultPage() {
         left.current?.scrollIntoView({ block: 'start', behavior: 'instant' }),
       )
   }
+  const pendingContextFocus = useRef<(() => void) | null>(null)
+  useEffect(() => {
+    if (context.kind !== 'timeline' || !pendingContextFocus.current) return
+    const restore = pendingContextFocus.current
+    pendingContextFocus.current = null
+    restore()
+  }, [context.kind])
+
   function closeContext(force = false) {
     if (!force && dirty) {
       setDiscard(true)
@@ -258,7 +265,8 @@ export default function TripResultPage() {
       router.push(destination)
       return
     }
-    requestAnimationFrame(() => {
+    // The canvas remounts when editing closes; restore only after its DOM commits.
+    pendingContextFocus.current = () => {
       const preferred = closingAssumption
         ? document.querySelector<HTMLElement>(`[data-testid="edit-assumption-${closingAssumption}"]`)
         : token
@@ -277,7 +285,7 @@ export default function TripResultPage() {
         top: returnPosition.current.scroll,
         behavior: 'instant',
       })
-    })
+    }
   }
   function changeDay(index: number) {
     if (context.kind !== 'timeline') return
@@ -577,7 +585,7 @@ export default function TripResultPage() {
                           </span>
                         )}
                         <article className="e-progress-card" role="listitem">
-                          <span>{card.time_hint || '时间待整理'}</span>
+                          <span>第 {index + 1} 站</span>
                           <strong>{card.name}</strong>
                           <small>待确认</small>
                         </article>
@@ -1062,10 +1070,7 @@ export default function TripResultPage() {
                               }
                               onClick={() => setSelected(card.activity_token)}
                             >
-                              <span className="e-stop-time">
-                                {activityTime(card)}
-                              </span>
-                              <span className="e-stop-content">
+                              <span className="e-stop-content" style={{gridColumn: '1 / -1'}}>
                                 <span className="e-stop-name">
                                   <span className="e-stop-number">
                                     {index + 1}
@@ -1080,13 +1085,10 @@ export default function TripResultPage() {
                                   )}
                                 </span>
                                 <span className="e-stop-sub">
-                                  {card.visit_duration_minutes != null
-                                    ? `停留 ${card.visit_duration_minutes} 分钟`
-                                    : '停留时间待定'}
                                   {card.area_or_address
-                                    ? ` · ${card.area_or_address}`
+                                    ? card.area_or_address
                                     : card.status !== 'READY'
-                                      ? ' · 地点待确认'
+                                      ? '地点待确认'
                                       : ''}
                                 </span>
                               </span>
@@ -1270,9 +1272,7 @@ export default function TripResultPage() {
                                 {items.map((item, index) => (
                                   <li key={index}>
                                     <strong>{item.name}</strong>
-                                    {item.time_hint && (
-                                      <span>{item.time_hint}</span>
-                                    )}
+
                                   </li>
                                 ))}
                               </ul>
@@ -1578,7 +1578,7 @@ export default function TripResultPage() {
                 <div className="e-map-detail">
                   <div>
                     <h3>{selectedCard.name}</h3>
-                    <p className="e-muted">{activityTime(selectedCard)}</p>
+
                   </div>
                   <button
                     className="e-text-button"

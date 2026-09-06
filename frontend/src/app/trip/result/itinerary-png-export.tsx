@@ -5,6 +5,7 @@ import { Download, Image as ImageIcon, X } from 'lucide-react'
 
 import type { MapRenderView, UserFacingTripResult } from '@/lib/trip-understanding-v3'
 import AccessibleDialog from './accessible-dialog'
+import { serpentineLayout, serpentineEdge } from './serpentine-layout'
 import { DAY_COLORS } from './result-presentation'
 
 function routeSummary(
@@ -60,19 +61,12 @@ async function renderItinerary(
   mapView: MapRenderView | null,
 ) {
   if ('fonts' in document) await document.fonts.ready
-  const cardsPerRow = 5
-  const cardWidth = 190
-  const connectorWidth = 54
-  const leftWidth = 174
+  const leftWidth = 140
   const padding = 36
   const width = 1440
-  const rowHeight = 154
-  const dayLayouts = result.days.map((day) => ({
-    rows: Math.max(1, Math.ceil(day.activities.length / cardsPerRow)),
-    height: 58 + Math.max(1, Math.ceil(day.activities.length / cardsPerRow)) * rowHeight,
-  }))
+  const dayLayouts = result.days.map(day => serpentineLayout(width-padding*2-leftWidth-16, day.activities.length))
   const headerHeight = 188
-  const height = headerHeight + dayLayouts.reduce((sum, layout) => sum + layout.height, 0) + 64
+  const height = headerHeight + dayLayouts.reduce((sum, layout) => sum + layout.height + 30, 0) + 64
   const canvas = document.createElement('canvas')
   canvas.width = width
   canvas.height = height
@@ -87,7 +81,7 @@ async function renderItinerary(
   context.fillRect(0, 0, width, height)
   context.fillStyle = '#0c789d'
   context.font = '700 17px "Microsoft YaHei", sans-serif'
-  context.fillText('行程查 · 完整横链', padding, 46)
+  context.fillText('行程查 · 完整行程', padding, 46)
   context.fillStyle = '#142f3a'
   context.font = '700 34px "Microsoft YaHei", sans-serif'
   const destination = result.assumptions.find((item) => item.key === 'destination')?.value || '我的行程'
@@ -112,7 +106,10 @@ async function renderItinerary(
   let dayY = headerHeight - 14
   result.days.forEach((day, dayIndex) => {
     const y = dayY
-    const dayHeight = dayLayouts[dayIndex].height
+    const layout = dayLayouts[dayIndex]
+    const dayHeight = layout.height + 30
+    const baseX = padding + leftWidth
+    const baseY = y + 8
     context.fillStyle = 'rgba(255,255,255,0.88)'
     context.beginPath()
     context.roundRect(padding, y, width - padding * 2, dayHeight - 16, 22)
@@ -129,16 +126,35 @@ async function renderItinerary(
     context.font = '400 12px "Microsoft YaHei", sans-serif'
     context.fillText(`${day.activities.length} 个地点`, padding + 28, y + 78)
 
+    day.activities.slice(0,-1).forEach((_, index) => {
+      const edge=serpentineEdge(layout,index)
+      context.save()
+      context.translate(baseX,baseY)
+      context.strokeStyle='#7995ad'
+      context.lineWidth=1.5
+      context.stroke(new Path2D(edge.path))
+      const target=layout.point(index+1)
+      const tx=target.x+layout.cardWidth/2
+      context.beginPath(); context.moveTo(tx-3,target.y-7);context.lineTo(tx,target.y-2);context.lineTo(tx+3,target.y-7);context.stroke()
+      context.font='400 11px "Microsoft YaHei", sans-serif'
+      const label=routeSummary(mapView,day,index)
+      const labelWidth=context.measureText(label).width+14
+      context.fillStyle='#eef8f5'
+      context.beginPath(); context.roundRect(edge.x-labelWidth/2,edge.y-12,labelWidth,24,12);context.fill()
+      context.fillStyle='#427c77'; context.textAlign='center'
+      context.fillText(label,edge.x,edge.y+4)
+      context.restore()
+    })
     day.activities.forEach((card, cardIndex) => {
-      const row = Math.floor(cardIndex / cardsPerRow)
-      const column = cardIndex % cardsPerRow
-      const x = padding + leftWidth + column * (cardWidth + connectorWidth)
-      const cardY = y + 20 + row * rowHeight
+      const point=layout.point(cardIndex)
+      const cardWidth=layout.cardWidth
+      const x=baseX+point.x
+      const cardY=baseY+point.y
       context.fillStyle = '#ffffff'
       context.strokeStyle = card.status === 'READY' ? `${color}55` : '#c38a3266'
       context.lineWidth = 2
       context.beginPath()
-      context.roundRect(x, cardY, cardWidth - 10, 132, 16)
+      context.roundRect(x, cardY, cardWidth, layout.cardHeight, 16)
       context.fill()
       context.stroke()
       context.fillStyle = color
@@ -152,7 +168,7 @@ async function renderItinerary(
       context.textAlign = 'left'
       context.fillStyle = '#647984'
       context.font = '400 11px "Microsoft YaHei", sans-serif'
-      context.fillText(fitText(context, card.time_hint || '时间待定', cardWidth - 55), x + 42, cardY + 27)
+      context.fillText(fitText(context, card.category, cardWidth - 55), x + 42, cardY + 27)
       context.fillStyle = '#172e38'
       context.font = '700 15px "Microsoft YaHei", sans-serif'
       context.fillText(fitText(context, card.name, cardWidth - 32), x + 16, cardY + 59)
@@ -163,34 +179,6 @@ async function renderItinerary(
       context.fillStyle = card.status === 'READY' ? '#0c789d' : '#855b19'
       context.font = '600 11px "Microsoft YaHei", sans-serif'
       context.fillText(card.status === 'READY' ? '已确认' : '待确认', x + 26, cardY + 95)
-      const hasNext = cardIndex < day.activities.length - 1
-      const nextInSameRow = hasNext && column < cardsPerRow - 1
-      if (nextInSameRow) {
-        const label = routeSummary(mapView, day, cardIndex)
-        context.strokeStyle = mapView?.status === 'NEEDS_UPDATE' ? '#a66b22' : `${color}88`
-        context.lineWidth = 2
-        context.beginPath()
-        context.moveTo(x + cardWidth - 8, cardY + 64)
-        context.quadraticCurveTo(
-          x + cardWidth - 8 + connectorWidth / 2,
-          cardY + 104,
-          x + cardWidth - 8 + connectorWidth,
-          cardY + 64,
-        )
-        context.stroke()
-        context.fillStyle = '#607984'
-        context.font = '400 9px "Microsoft YaHei", sans-serif'
-        context.textAlign = 'center'
-        context.fillText(fitText(context, label, connectorWidth + 20), x + cardWidth - 8 + connectorWidth / 2, cardY + 86)
-        context.textAlign = 'left'
-      } else if (hasNext) {
-        // When the horizontal chain wraps in the exported image, retain the
-        // transition summary inside the last card instead of silently losing it.
-        const label = `下一行：${routeSummary(mapView, day, cardIndex)}`
-        context.fillStyle = '#607984'
-        context.font = '400 9px "Microsoft YaHei", sans-serif'
-        context.fillText(fitText(context, label, cardWidth - 42), x + 16, cardY + 121)
-      }
     })
     dayY += dayHeight
   })

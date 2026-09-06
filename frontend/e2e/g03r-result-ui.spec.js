@@ -1152,10 +1152,12 @@ async function installInteractionFixture(page, {
   mapReadView = null,
   postCommandMapReadMode = 'normal',
   rolloverPreparing = false,
+  longDay = false,
 } = {}) {
   let revision = 0
   let etag = 'tu3_interaction_0'
   const view = interactionResult()
+  if(longDay) view.days[0].activities = Array.from({length:13},(_,i)=>({...activity('long-card-'+i,'景点'+(i+1)),status:i===8?'PLACE_PENDING':'READY'}))
   if (exposeWrites) {
     view.map = {
       status: 'NEEDS_UPDATE',
@@ -2319,14 +2321,14 @@ test('a hanging editor write recovers with the same key without applying the com
     await page.getByRole('heading', { name: '故宫博物院' }).click()
     await page.getByRole('button', { name: '编辑文字' }).click()
     const editor = page.getByRole('dialog', { name: '编辑卡片文字' })
-    await editor.getByLabel('开始时间').fill('09:00')
-    await editor.getByRole('button', { name: '应用修改' }).click()
+    await editor.getByTestId('card-editor-name').fill('故宫（北京）')
+    await editor.getByTestId('save-card-editor').click()
     await expect.poll(() => fixture.calls().commands.length).toBe(1)
 
     await page.clock.runFor(15_001)
 
     await expect(editor).toBeVisible()
-    await expect(editor.getByLabel('开始时间')).toBeDisabled()
+    await expect(editor.getByTestId('card-editor-name')).toBeDisabled()
     await expect(page.getByTestId('result-operation-status')).toContainText('调整保存等待时间较长')
     const retry = page.getByTestId('retry-result-readback')
     await expect(retry).toBeVisible()
@@ -2342,8 +2344,8 @@ test('a hanging editor write recovers with the same key without applying the com
     await fixture.waitForCommandCompletion()
     await retry.click()
     await expect(retry).toBeHidden()
-    await page.getByRole('button', { name: '关闭编辑' }).click()
-    await expect(page.getByRole('button', { name: '拖动 故宫博物院' })).toBeEnabled()
+    await editor.getByRole('button', { name: '关闭编辑' }).click()
+    await expect(page.getByRole('button', { name: '拖动 故宫（北京）' })).toBeEnabled()
     expect(fixture.calls().commands).toHaveLength(2)
     expect(new Set(fixture.calls().commandKeys).size).toBe(1)
     expect(fixture.calls().commandApplications).toBe(1)
@@ -2857,8 +2859,8 @@ test('strict adjacent connector drops old minutes and offers only manual renderi
     const palaceCard = page.getByTestId('activity-card').filter({ hasText: '故宫博物院' })
     await palaceCard.locator('button').filter({ hasText: '故宫博物院' }).click()
     await page.getByRole('button', { name: '编辑文字' }).click()
-    await page.getByLabel('开始时间').fill('13:00')
-    await page.getByRole('button', { name: '应用修改' }).click()
+    await page.getByTestId('card-editor-name').fill('故宫（北京）')
+    await page.getByTestId('save-card-editor').click()
 
     await expect.poll(() => fixture.calls().commands.length).toBe(1)
     await fixture.waitForPostCommandMapRead()
@@ -3248,7 +3250,8 @@ test('owner feedback: drag hover opens an insertion gap and trash drop saves onc
   await handle.dispatchEvent('dragstart',{dataTransfer:dt})
   const slot=page.getByTestId('drop-slot-2-0')
   await slot.dispatchEvent('dragenter',{dataTransfer:dt})
-  await expect.poll(async()=>(await slot.boundingBox()).width).toBeGreaterThan(200)
+  await expect(page.getByTestId('drop-preview')).toContainText('故宫博物院')
+  await expect.poll(async()=>(await page.getByTestId('drop-preview').boundingBox()).width).toBeGreaterThanOrEqual(128)
   expect(fixture.calls().commands).toHaveLength(0)
   await page.getByTestId('drag-trash').dispatchEvent('drop',{dataTransfer:dt})
   await expect.poll(()=>fixture.calls().commands.length).toBe(1)
@@ -3287,7 +3290,8 @@ for (const width of [1440,1280,390,360]) {
     const handle=page.getByTestId('drag-handle-1-0')
     await expect(handle).toBeVisible()
     await expectMinimumTarget(handle,44)
-    await expect(page.getByTestId('sagging-chain').first()).toHaveAttribute('d','M 0 4 C 26 4 22 54 58 54 C 94 54 90 4 116 4')
+    await expect(page.getByTestId('sagging-chain')).toHaveCount(0)
+    await expect(page.getByTestId('order-arc').first()).toBeVisible()
     await handle.focus()
     await page.keyboard.press('Enter')
     await expect(page.getByTestId('confirm-move')).toBeVisible()
@@ -3461,3 +3465,86 @@ async function expectEnhancementRecovery(page) {
  if(await page.getByTestId('retry-enhancements').count()) await expect(page.getByTestId('retry-enhancements')).toBeVisible()
  else { await openStayTools(page); await expect(page.getByTestId('retry-stay')).toBeVisible() }
 }
+
+for(const width of [1440,1280,390,360]) {
+ test(`serpentine: compact chronological rows turn without horizontal scrolling at ${width}`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:900})
+  await page.emulateMedia({reducedMotion:'reduce'})
+  const fixture=await installInteractionFixture(page,{longDay:true})
+  await page.goto('/trip/result')
+  const canvas=page.getByTestId('serpentine-canvas-1')
+  await expect(canvas).toBeVisible()
+  const columns=Number(await canvas.getAttribute('data-columns'))
+  expect(columns).toBeGreaterThanOrEqual(width<600?2:4)
+  const boxes=await page.getByTestId('day-lane-1').getByTestId('activity-card').evaluateAll(nodes=>nodes.map(n=>{const b=n.getBoundingClientRect();return {x:b.x,y:b.y,width:b.width,right:b.right,bottom:b.bottom}}))
+  expect(boxes).toHaveLength(13)
+  const canvasBounds=await canvas.boundingBox()
+  expect(boxes.every(b=>b.bottom<=canvasBounds.y+canvasBounds.height)).toBe(true)
+  const firstArc=await canvas.getByTestId('order-arc').first().getAttribute('d')
+  const [,arcX,arcY]=firstArc.split(' ')
+  expect(Math.abs(boxes[0].x+boxes[0].width/2-canvasBounds.x-Number(arcX))).toBeLessThan(2)
+  expect(Math.abs(boxes[0].y-canvasBounds.y-Number(arcY))).toBeLessThan(2)
+  expect(boxes[1].x).toBeGreaterThan(boxes[0].x)
+  expect(boxes[columns].y).toBeGreaterThan(boxes[0].y)
+  expect(boxes[columns+1].x).toBeLessThan(boxes[columns].x)
+  expect(boxes[columns*2+1].x).toBeGreaterThan(boxes[columns*2].x)
+  expect(boxes.every(b=>b.width<=185&&b.x>=0&&b.right<=width)).toBe(true)
+  const overflow=await canvas.evaluate(n=>n.scrollWidth-n.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(1)
+  await expect(page.getByTestId('day-lane-1').getByTestId('order-arc')).toHaveCount(12)
+  await expect(page.getByTestId('itinerary-workspace')).not.toContainText('时间待定')
+  await expect(page.getByTestId('itinerary-workspace')).not.toContainText('上午')
+  await page.screenshot({path:testInfo.outputPath('serpentine.png'),fullPage:true})
+  expect(fixture.calls().mapRenderPosts).toBe(0)
+ })
+}
+test('serpentine: reverse-row pointer insertion follows logical order and writes once',async({page},testInfo)=>{
+ await page.setViewportSize({width:1280,height:1000})
+ await page.emulateMedia({reducedMotion:'reduce'})
+ const fixture=await installInteractionFixture(page,{longDay:true})
+ await page.goto('/trip/result')
+ const canvas=page.getByTestId('serpentine-canvas-1')
+ const columns=Number(await canvas.getAttribute('data-columns'))
+ const source=await page.getByTestId('card-grab-1-0').boundingBox()
+ const target=await page.getByTestId(`card-grab-1-${columns+1}`).boundingBox()
+ await page.mouse.move(source.x+30,source.y+35);await page.mouse.down()
+ await page.mouse.move(target.x+target.width-15,target.y+35,{steps:12})
+ await expect(page.getByTestId('drop-preview')).toContainText('景点1')
+ expect(fixture.calls().commands).toHaveLength(0)
+ await page.screenshot({path:testInfo.outputPath('reverse-drag.png'),fullPage:true})
+ await page.mouse.up()
+ await expect.poll(()=>fixture.calls().commands.length).toBe(1)
+ expect(fixture.calls().commands[0]).toMatchObject({command_type:'ACTIVITY_MOVE',target_day_index:1,target_position:columns})
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+})
+
+test('serpentine: complete PNG keeps reverse rows, offscreen places and honest route states',async({page},testInfo)=>{
+ await page.setViewportSize({width:360,height:800})
+ await page.addInitScript(()=>{
+  window.__pngText=[]
+  const original=CanvasRenderingContext2D.prototype.fillText
+  CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...args){
+   window.__pngText.push({text:String(text),x,y})
+   return original.call(this,text,x,y,...args)
+  }
+ })
+ const fixture=await installInteractionFixture(page,{longDay:true,exposeWrites:true,mapSnapshot:{...connectedMapView(),status:'NEEDS_UPDATE'}})
+ await page.goto('/trip/result')
+ await page.getByTestId('export-itinerary-png').click()
+ await expect(page.getByTestId('png-preview')).toBeVisible()
+ const drawn=await page.evaluate(()=>window.__pngText)
+ const places=drawn.filter(t=>/^景点\d+$/.test(t.text))
+ expect(places).toHaveLength(13)
+ const row2=places.filter(t=>t.y===places[6].y)
+ expect(row2).toHaveLength(6)
+ expect(row2[1].x).toBeLessThan(row2[0].x)
+ expect(places[12].y).toBeGreaterThan(places[6].y)
+ expect(drawn.some(t=>t.text==='待确认')).toBe(true)
+ expect(drawn.filter(t=>t.text==='路线需要更新')).toHaveLength(12)
+ expect(drawn.some(t=>/上午|时间待定|停留/.test(t.text))).toBe(false)
+ const download=page.waitForEvent('download')
+ await page.getByTestId('download-itinerary-png').click()
+ await (await download).saveAs(testInfo.outputPath('complete-serpentine.png'))
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+ expect(fixture.calls().directProviderRequests).toBe(0)
+})
