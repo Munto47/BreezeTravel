@@ -248,7 +248,8 @@ export default function RouteMap({
       fittedDay.current = fitKey
     }
     return () => {
-      instance.remove(overlays)
+      // The map lifecycle effect may already have destroyed this SDK instance.
+      if (map.current === instance) instance.remove(overlays)
       currentOverlays.current = []
       markers.current.clear()
     }
@@ -289,7 +290,7 @@ export default function RouteMap({
     instance.add([marker])
     instance.setCenter([position.longitude, position.latitude])
     return () => {
-      instance.remove([marker])
+      if (map.current === instance) instance.remove([marker])
     }
   }, [previewCandidate, ready])
 
@@ -314,7 +315,7 @@ export default function RouteMap({
     })
     const instance = map.current
     instance.add([marker])
-    return () => instance.remove([marker])
+    return () => { if (map.current === instance) instance.remove([marker]) }
   }, [ready, simulationPosition])
 
   useEffect(() => {

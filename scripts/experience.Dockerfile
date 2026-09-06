@@ -5,7 +5,7 @@ RUN pip install --no-cache-dir \
     pydantic==2.9.2 pydantic-settings==2.5.2 \
     asyncpg==0.29.0 sqlalchemy[asyncio]==2.0.35 pgvector==0.3.5 \
     psycopg[binary]==3.3.4 langgraph-checkpoint-postgres==3.1.0 \
-    langchain-core==1.4.0 langgraph==1.2.2 \
+    langchain-core==1.4.0 langgraph==1.2.2 langchain-openai==1.2.2 \
     'PyJWT[crypto]==2.13.0' cryptography==46.0.7 \
     aiohttp==3.10.10 httpx==0.27.2 redis==5.1.1 \
     openai==2.38.0 numpy==2.3.5 scikit-learn==1.8.0 \

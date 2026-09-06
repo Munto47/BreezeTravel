@@ -3774,3 +3774,31 @@ test('inline confirmation: select another candidate is read-only, repeat selecti
  expect(fixture.calls().mapRenderPosts).toBe(0)
  } finally {fixture.releaseCommand()}
 })
+test('real SDK lifecycle: unmount never removes overlays from an already destroyed map',async({page})=>{
+ const failures=[]
+ page.on('pageerror',e=>failures.push(e.message))
+ await page.addInitScript(()=>{
+  window.__destroyedMaps=0
+  window.AMap={
+   Map:class{
+    destroyed=false
+    on(name,cb){if(name==='complete')queueMicrotask(cb)}
+    add(){} remove(){if(this.destroyed)throw new Error('overlay removal after map destruction')}
+    destroy(){this.destroyed=true;window.__destroyedMaps++}
+    setCenter(){} setFitView(){} resize(){}
+   },
+   Marker:class{},Polyline:class{},
+  }
+ })
+ await installInteractionFixture(page,{mapSnapshot:connectedMapView()})
+ await page.goto('/trip/result')
+ await openResultView(page,'map_stay')
+ await expect(page.getByTestId('route-map')).toBeVisible()
+ await page.getByLabel('更多行程操作').click()
+ await page.getByTestId('delete-trip-source').click()
+ await expect.poll(()=>page.evaluate(()=>window.__destroyedMaps)).toBeGreaterThan(0)
+ await expect(page.getByRole('button',{name:'确认永久删除',exact:true})).toBeVisible()
+ await page.keyboard.press('Escape')
+ await expect(page.getByTestId('route-map')).toBeVisible()
+ expect(failures).toEqual([])
+})

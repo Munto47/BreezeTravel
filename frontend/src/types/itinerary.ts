@@ -85,7 +85,7 @@ export function parseSavedItinerary(value: unknown): Itinerary | null {
     if (!day || !Array.isArray(day.slots) || day.slots.length > 100) return null
     const dayIndex = finiteNumber(day.dayIndex)
     const clusterId = finiteNumber(day.clusterId)
-    const date = day.date === undefined ? undefined : boundedString(day.date, 40)
+    const date = day.date == null ? undefined : boundedString(day.date, 40)
     if (dayIndex === null || clusterId === null || date === null) return null
     const slots: TimeSlot[] = []
     for (const candidateSlot of day.slots) {
@@ -210,7 +210,7 @@ export function parseItineraryFromAPI(raw: Record<string, unknown>): Itinerary {
 
     return {
       dayIndex: day.day_index as number,
-      date: day.date as string | undefined,
+      date: typeof day.date === 'string' ? day.date : undefined,
       clusterId: day.cluster_id as number,
       slots,
       weatherSummary: weather,

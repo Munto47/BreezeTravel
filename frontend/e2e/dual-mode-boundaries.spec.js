@@ -578,6 +578,113 @@ test('authoritative saved route gates transfer and retries with one idempotency 
   expect(itineraryWrites).toBe(0)
 })
 
+test('undated saved collaboration route reopens and transfers without automatic writes', async ({ page }) => {
+  await installAuth(page)
+  const secret = 'LOCAL-CACHE-MUST-NOT-RENDER'
+  await page.addInitScript(({ value }) => {
+    localStorage.setItem('itinerary_cache_ROOM42', JSON.stringify({ city: value }))
+  }, { value: secret })
+
+  const transferCalls = []
+  let transferAttempt = 0
+  let optimizeCalls = 0
+  let itineraryWrites = 0
+  await page.route(`${API_ORIGIN}/api/**`, async (route) => {
+    const request = route.request()
+    const url = new URL(request.url())
+    const { pathname } = url
+    if (pathname === '/api/room/ROOM42/state') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ thread_id: 'thread-42', trip_city: '杭州', trip_days: 1 }),
+      })
+      return
+    }
+    if (pathname === '/api/room/ROOM42/places') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+      return
+    }
+    if (pathname === '/api/room/ROOM42/itinerary' && request.method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ itinerary_data: { ...savedItinerary(), days: savedItinerary().days.map(day => ({ ...day, date: null })) } }),
+      })
+      return
+    }
+    if (pathname === '/api/room/ROOM42/itinerary' && request.method() === 'POST') {
+      itineraryWrites += 1
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      return
+    }
+    if (pathname === '/api/room/ROOM42/ws-token') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ token: 'short-lived-room-token', expires_in_seconds: 300 }),
+      })
+      return
+    }
+    if (pathname === '/api/weather') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ city: '杭州', days: [] }) })
+      return
+    }
+    if (pathname === '/api/optimize') {
+      optimizeCalls += 1
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' })
+      return
+    }
+    if (pathname === '/api/v3/trip-understandings/from-collaboration') {
+      transferAttempt += 1
+      transferCalls.push({
+        body: request.postDataJSON(),
+        key: request.headers()['idempotency-key'],
+      })
+      if (transferAttempt === 1) {
+        await route.abort('failed')
+        return
+      }
+      await route.fulfill({
+        status: 202,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          public_resource_id: 'imported-trip-42',
+          status: 'PROCESSING',
+          message: '已接收',
+          result_url: '/api/v3/trip-understandings/imported-trip-42/result',
+          events_url: '/api/v3/trip-understandings/imported-trip-42/events',
+        }),
+      })
+      return
+    }
+    await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' })
+  })
+
+  await page.goto('/room/ROOM42')
+  const transfer = page.getByRole('button', { name: '转入行程查' })
+  await expect(transfer).toBeVisible()
+  await expect(page.locator('body')).not.toContainText(secret)
+  expect(optimizeCalls).toBe(0)
+  expect(itineraryWrites).toBe(0)
+
+  await transfer.click()
+  await expect(page.getByText('暂时没有转入成功。再次尝试会安全地续用同一次请求。')).toBeVisible()
+  await expect(transfer).toBeEnabled()
+  await transfer.click()
+  await expect.poll(() => transferCalls.length).toBe(2)
+  await expect(page).toHaveURL(/\/trip\/result#trip=imported-trip-42$/)
+
+  expect(transferCalls.map((call) => call.body)).toEqual([
+    { room_id: 'ROOM42' },
+    { room_id: 'ROOM42' },
+  ])
+  expect(transferCalls[0].key).toBeTruthy()
+  expect(transferCalls[1].key).toBe(transferCalls[0].key)
+  expect(optimizeCalls).toBe(0)
+  expect(itineraryWrites).toBe(0)
+})
+
 test('a changed saved route requires a fresh transfer confirmation and idempotency key', async ({ page }) => {
   await installAuth(page)
   const original = savedItinerary()

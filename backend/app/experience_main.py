@@ -172,6 +172,11 @@ def create_app() -> FastAPI:
         ("GET", "/v3/me/travel-preferences"),
         ("PUT", "/v3/me/travel-preferences"),
         ("DELETE", "/v3/me/travel-preferences"),
+        ("POST", "/v3/trip-understandings/{public_resource_id}/shares"),
+        ("GET", "/v3/me/shares"),
+        ("DELETE", "/v3/me/shares/{share_ref}"),
+        ("POST", "/v3/shares/{share_ref}/exchange"),
+        ("GET", "/v3/shares/{share_ref}"),
     }), prefix="/api")
     application.include_router(_subset(auth.router, {
         ("POST", "/auth/email-register"),
@@ -214,9 +219,15 @@ def create_app() -> FastAPI:
                     )
                 },
             ) from None
+        public_itinerary = result.itinerary.model_dump(mode="json")
+        # Legacy optimization mixes provider values and distance heuristics.
+        # Without a per-leg receipt neither may be advertised as a verified route.
+        for day in public_itinerary["days"]:
+            for slot in day["slots"]:
+                slot["transport"] = None
         return ExperienceOptimizeResponse(
-            itinerary=result.itinerary,
-            backup_pool=result.backup_pool,
+            itinerary=public_itinerary,
+            backup_pool=[place.model_dump(mode="json") for place in result.backup_pool],
         )
 
     application.include_router(_subset(tasks.router, {( "POST", "/room/{room_id}/task/parse")}), prefix="/api")

@@ -23,6 +23,8 @@ SSE 事件格式（向后兼容）：
 
 import hashlib
 import hmac
+import logging
+import traceback
 import json
 import re
 import time
@@ -442,7 +444,11 @@ async def _event_stream(request: ChatRequest, trace_id: str, http_request: Reque
         else:
             _m.inc("agent_failure_count")
             yield f"data: {json.dumps({'event': 'error', 'data': {'message': '暂时无法完成，请稍后重试。'}}, ensure_ascii=False)}\n\n"
-    except Exception:
+    except Exception as exc:
+        # Diagnostics contain code locations only, never messages, prompts or credentials.
+        frames = traceback.extract_tb(exc.__traceback__)
+        logging.getLogger(__name__).warning("collaboration failed category=%s frames=%s",
+            type(exc).__name__, [(frame.name, frame.lineno) for frame in frames[-5:]])
         _m.inc("agent_failure_count")
         _m.inc("agent_degraded_count")
         _m.inc("tool_error_count")

@@ -66,12 +66,25 @@ def validate_runtime_ports() -> None:
 validate_runtime_ports()
 
 
+def existing_collaboration_config() -> dict[str, str]:
+    discovered = {}
+    for source in (ROOT.parent / "BreezeTravel" / ".env", ROOT / ".env"):
+        discovered.update({k: v for k, v in read_env(source).items() if v})
+    keys = ("DEEPSEEK_API_KEY", "DEEPSEEK_API_URL", "OPENAI_API_KEY", "OPENAI_API_URL",
+            "LLM_MODEL_ROUTER", "LLM_MODEL_SYNTHESIZER")
+    return {k: os.environ.get(k) or discovered[k] for k in keys if os.environ.get(k) or discovered.get(k)}
+
+
 def configure() -> dict[str, str]:
     LOCAL.mkdir(parents=True, exist_ok=True)
     validate_runtime_binding(load_state())
     if ENV_FILE.exists():
         values = read_env(ENV_FILE)
         changed = False
+        for key, value in existing_collaboration_config().items():
+            if not values.get(key):
+                values[key] = value
+                changed = True
         if not values.get("TRIP_UNDERSTANDING_QWEN_MODEL"):
             values["TRIP_UNDERSTANDING_QWEN_MODEL"] = selected_model()
             changed = True
@@ -121,6 +134,7 @@ def configure() -> dict[str, str]:
         values[key] = next((os.environ.get(name) or discovered.get(name) for name in names if os.environ.get(name) or discovered.get(name)), "")
     values["QWEN_API_URL"] = values["QWEN_API_URL"] or "https://dashscope.aliyuncs.com/compatible-mode/v1"
     values["TRIP_UNDERSTANDING_QWEN_MODEL"] = values["TRIP_UNDERSTANDING_QWEN_MODEL"] or selected_model()
+    values.update(existing_collaboration_config())
     write_env(values)
     return values
 
@@ -492,6 +506,13 @@ async def migrate(values: dict[str, str], *, dsn: str | None = None) -> None:
                 async with conn.transaction():
                     await conn.execute(path.read_text(encoding="utf-8"))
                     await conn.execute("INSERT INTO applied_migrations(filename) VALUES($1)", path.name)
+        # The graph connection does not create its own persistence tables.
+        # Initialize the existing checkpoint schema under the migration lock.
+        from langgraph.checkpoint.postgres import PostgresSaver
+        def setup_checkpoints():
+            with PostgresSaver.from_conn_string(dsn) as saver:
+                saver.setup()
+        await asyncio.to_thread(setup_checkpoints)
     finally:
         await conn.close()
 

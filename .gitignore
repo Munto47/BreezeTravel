@@ -115,3 +115,6 @@ backend/results/auditor_simulated/*
 !backend/results/auditor_simulated/m1_dev_proxy_gate.json
 # Local owner-feedback screenshots and provider observations
 frontend/test-results-live-soft/
+frontend/test-results-first-release/
+frontend/test-results-first-release-retry/
+frontend/test-results-first-release-*/

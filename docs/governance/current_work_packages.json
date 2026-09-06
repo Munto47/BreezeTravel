@@ -2,11 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "compact-map-inline-confirm",
+    "id": "first-server-release-verification",
     "work_kind": "PRODUCT",
-    "outcome": "地图上移、操作合栏、候选同行确认与二次点击",
-    "status": "COMPLETED"
+    "outcome": "真实完整旅程验证、备份旧服务器版本、首次上传并验证回滚",
+    "status": "COMPLETED",
+    "verification": "PUBLIC_VERIFIED: 2 live flows; backups preserved and read back; actual rollback drill NOT_RUN"
   },
   "packages": [],
-  "next_planned_slice": "所有者在 http://127.0.0.1:3118 体验本轮界面；后续按实际反馈修复，不自动宣称整体 R0/R1 或候选通过"
+  "next_planned_slice": "所有者体验 https://www.breezetravel.cn/；按实际 P0/P1 反馈继续，协同驾车与追问质量保留后续，不自动宣称 R1/R2 或 G07"
 }

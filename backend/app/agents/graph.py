@@ -155,6 +155,11 @@ async def init_persistent_graph():
                 ("app.schemas.place", "PlaceRAGMeta"),
                 ("app.schemas.place", "PlaceSource"),
                 ("app.schemas.place", "RetrievalExecutionMode"),
+                ("app.schemas.place", "EvidenceStatus"),
+                ("app.schemas.place", "ConstraintEvidence"),
+                ("app.schemas.place", "GeoEvidence"),
+                ("app.schemas.recommendation", "PlaceRecommendation"),
+                ("app.schemas.recommendation", "Alternative"),
             ]
         )
         _cm = AsyncPostgresSaver.from_conn_string(dsn, serde=serde)

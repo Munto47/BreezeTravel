@@ -13,6 +13,8 @@ from fastapi.testclient import TestClient
 from app import experience_main as runtime
 from app.api.places_persist import _sanitize_shared_place
 from app.config import Settings
+from app.schemas.itinerary import Itinerary
+from app.schemas.place import Place
 from app.trip_understanding.experience_inference import ExperienceQwenProvider
 from app.trip_understanding.worker import build_configured_full_pipeline
 from app.trip_understanding.worker import TripUnderstandingWorker
@@ -93,7 +95,14 @@ def test_experience_runtime_exposes_only_text_account_and_collaboration_routes()
     assert actual_room_routes == {
         item for item in expected_collaboration if item[1].startswith("/api/room")
     }
-    assert not any("/shares" in path or "/feedback" in path for path in routes)
+    assert {
+        ("POST", "/api/v3/trip-understandings/{public_resource_id}/shares"),
+        ("GET", "/api/v3/me/shares"),
+        ("DELETE", "/api/v3/me/shares/{share_ref}"),
+        ("POST", "/api/v3/shares/{share_ref}/exchange"),
+        ("GET", "/api/v3/shares/{share_ref}"),
+    } <= method_routes
+    assert not any("/feedback" in path for path in routes)
     assert not any(any(word in path for word in ("planner", "screenshot", "ocr", "test-login", "send-code", "wechat", "docs", "openapi")) for path in routes)
 
 
@@ -173,7 +182,7 @@ def test_experience_optimize_response_excludes_internal_receipts(client, monkeyp
                 "place": place,
                 "start_time": "09:00",
                 "end_time": "11:00",
-                "transport": None,
+                "transport": {"mode": "driving", "duration_mins": 18, "distance_km": 7.2},
                 "tips": [],
             }],
         }],
@@ -181,8 +190,8 @@ def test_experience_optimize_response_excludes_internal_receipts(client, monkeyp
 
     async def fake_optimize(_request, _current_user):
         return SimpleNamespace(
-            itinerary=itinerary,
-            backup_pool=[place],
+            itinerary=Itinerary.model_validate(itinerary),
+            backup_pool=[Place.model_validate(place)],
             planning_input_hash="private-planning-hash",
             workspace_id="private-workspace-id",
             itinerary_revision=9,
@@ -218,6 +227,7 @@ def test_experience_optimize_response_excludes_internal_receipts(client, monkeyp
         "retrieval_response_hash", "rag_meta", "constraint_evidence",
     })
     assert body["itinerary"]["days"][0]["slots"][0]["place"]["name"] == "西湖博物馆"
+    assert body["itinerary"]["days"][0]["slots"][0]["transport"] is None
 
     async def fake_internal_failure(_request, _current_user):
         raise HTTPException(
@@ -394,6 +404,46 @@ def launcher():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.mark.asyncio
+async def test_launcher_initializes_graph_tables_under_migration_lock(launcher, monkeypatch, tmp_path):
+    from contextlib import contextmanager
+    from langgraph.checkpoint.postgres import PostgresSaver
+    import asyncpg
+
+    schema = tmp_path / 'backend/app/db'
+    (schema / 'migrations').mkdir(parents=True)
+    (schema / 'init.sql').write_text('SELECT 1')
+    conn = AsyncMock()
+    conn.fetch.return_value = []
+    events = []
+    conn.execute.side_effect = lambda sql: events.append(sql)
+    conn.close.side_effect = lambda: events.append('closed')
+    monkeypatch.setattr(launcher, 'ROOT', tmp_path)
+    monkeypatch.setattr(asyncpg, 'connect', AsyncMock(return_value=conn))
+
+    @contextmanager
+    def saver(dsn):
+        assert dsn == 'postgresql://unit/test'
+        yield SimpleNamespace(setup=lambda: events.append('graph tables initialized'))
+
+    monkeypatch.setattr(PostgresSaver, 'from_conn_string', saver)
+    await launcher.migrate({}, dsn='postgresql+asyncpg://unit/test')
+    assert events[0] == 'SELECT pg_advisory_lock(31068006)'
+    assert events[-2:] == ['graph tables initialized', 'closed']
+
+
+def test_collaboration_configuration_discovers_only_existing_allowed_keys(launcher, monkeypatch, tmp_path):
+    root = tmp_path / 'current'
+    root.mkdir()
+    donor = tmp_path / 'BreezeTravel'
+    donor.mkdir()
+    (donor / '.env').write_text('DEEPSEEK_API_KEY=existing-unit-key\nJWT_SECRET_KEY=do-not-copy\n')
+    monkeypatch.setattr(launcher, 'ROOT', root)
+    for key in ('DEEPSEEK_API_KEY', 'DEEPSEEK_API_URL', 'OPENAI_API_KEY', 'OPENAI_API_URL', 'LLM_MODEL_ROUTER', 'LLM_MODEL_SYNTHESIZER'):
+        monkeypatch.delenv(key, raising=False)
+    assert launcher.existing_collaboration_config() == {'DEEPSEEK_API_KEY': 'existing-unit-key'}
 
 
 def test_runtime_ports_accept_valid_process_or_persisted_overrides(launcher, monkeypatch, tmp_path):
