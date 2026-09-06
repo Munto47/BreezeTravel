@@ -930,12 +930,6 @@ export default function TripResultPage() {
                         editorMode: 'ADD',
                       })
                     }
-                    onEdit={(item) =>
-                      editCard(item.card, item.dayIndex - 1, 'EDIT')
-                    }
-                    onReplace={(item) =>
-                      editCard(item.card, item.dayIndex - 1, 'REPLACE')
-                    }
                   />
                 </section>
               </div>
@@ -955,7 +949,8 @@ export default function TripResultPage() {
                   onRender={() => void trip.renderMap()}
                   onRetryMap={() => void trip.retryMap()}
                   onSelectStay={(token) => void trip.selectStay(token)}
-                  onEdit={(card) => editCard(card, safeDayIndex, 'EDIT')}
+                  resource={trip.resource}
+                  onCommand={trip.workspaceCommand}
                 />
               </div>
             </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowUpRight, List, RefreshCw } from 'lucide-react'
+import { List, RefreshCw } from 'lucide-react'
 
 import type {
   MapRenderView,
@@ -9,6 +9,8 @@ import type {
   UserFacingTripResult,
 } from '@/lib/trip-understanding-v3'
 import RouteMap from './route-map'
+import PendingPlaceDropdown from './pending-place-dropdown'
+import type { WorkspaceCommandResult } from './itinerary-workspace'
 import RoutePlayback from './route-playback'
 import { DAY_COLORS } from './result-presentation'
 
@@ -29,7 +31,8 @@ export default function MapStayWorkspace({
   onRender,
   onRetryMap,
   onSelectStay,
-  onEdit,
+  resource,
+  onCommand,
 }: {
   active: boolean
   result: UserFacingTripResult
@@ -45,8 +48,11 @@ export default function MapStayWorkspace({
   onRender: () => void
   onRetryMap: () => void
   onSelectStay: (token: string) => void
-  onEdit: (card: UserFacingTripResult['days'][number]['activities'][number]) => void
+  resource: string
+  onCommand: (command: import('@/lib/trip-understanding-v3').TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
 }) {
+  const [editing,setEditing]=useState(false)
+  useEffect(()=>setEditing(false),[selected,active])
   const currentDay = result.days[dayIndex]
   const [directoryOpen, setDirectoryOpen] = useState(false)
   const [simulationPosition, setSimulationPosition] = useState<GeometryPoint | null>(null)
@@ -128,7 +134,7 @@ export default function MapStayWorkspace({
           {canRender && <button data-testid="render-map" type="button" className="e-button" disabled={disabled || mapView?.status === 'PREPARING'} onClick={onRender}><RefreshCw aria-hidden="true" />手动更新路线</button>}
           {mapUnavailable && <button data-testid="retry-enhancements" type="button" className="e-button" disabled={disabled} onClick={onRetryMap}>重试路线</button>}
         </div>
-        {selected && currentDay?.activities.some(card => card.activity_token === selected) && <button type="button" className="e-button fluid-map-edit" onClick={() => onEdit(currentDay.activities.find(card => card.activity_token === selected)!)}>编辑地点 <ArrowUpRight aria-hidden="true" /></button>}
+        {selected && currentDay?.activities.some(card => card.activity_token === selected) && <div className="fluid-map-place-edit"><button type="button" className="e-button" aria-expanded={editing} onClick={()=>setEditing(value=>!value)}>地点</button>{editing&&<PendingPlaceDropdown key={selected} card={currentDay.activities.find(card=>card.activity_token===selected)!} resource={resource} disabled={disabled} onCommand={onCommand} onClose={()=>{setEditing(false);requestAnimationFrame(()=>document.querySelector<HTMLButtonElement>('.fluid-map-place-edit > button')?.focus({preventScroll:true}))}}/>}</div>}
       </div>
       <div className="fluid-map-bottom">
         <div className="fluid-day-legend" aria-label="日期颜色与预演选择">

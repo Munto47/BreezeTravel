@@ -28,10 +28,10 @@ export default function ResultNavigation({
     <>
       <aside
         data-testid="result-desktop-nav"
-        className="group fixed bottom-5 left-4 top-[5.75rem] z-30 hidden w-[4.25rem] overflow-hidden rounded-[1.4rem] border border-sky-950/10 bg-white/90 shadow-[0_24px_60px_-32px_rgba(12,120,157,0.55)] backdrop-blur-xl transition-[width] duration-200 motion-reduce:transition-none hover:w-[11.5rem] focus-within:w-[11.5rem] lg:block"
+        className="group fixed left-4 top-[5.75rem] z-30 hidden w-[4.25rem] overflow-hidden rounded-[1.4rem] border border-sky-950/10 bg-white/90 shadow-[0_24px_60px_-32px_rgba(12,120,157,0.55)] backdrop-blur-xl transition-[width] duration-200 motion-reduce:transition-none hover:w-[11.5rem] focus-within:w-[11.5rem] lg:block"
         aria-label="结果主视图"
       >
-        <nav className="flex h-full flex-col gap-2 p-2.5">
+        <nav className="flex flex-col gap-2 p-2.5">
           {ITEMS.map(({ id, desktopLabel, panelId, Icon }) => {
             const current = id === activeView
             return (

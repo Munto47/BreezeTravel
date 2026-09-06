@@ -10,19 +10,15 @@ import {
 } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import {
-  ArrowLeftRight,
   ArrowRight,
   BedDouble,
   BusFront,
   ChevronRight,
-  ExternalLink,
   Footprints,
   GripVertical,
   List,
   MapPin,
-  Pencil,
   Plus,
-  Replace,
   Sparkles,
   Trash2,
   UtensilsCrossed,
@@ -50,8 +46,6 @@ type CardLocation = {
 }
 
 type DialogState =
-  | { kind: 'DETAIL'; item: CardLocation }
-  | { kind: 'MOVE'; item: CardLocation }
   | { kind: 'DELETE'; item: CardLocation }
 
 
@@ -77,18 +71,9 @@ type ItineraryWorkspaceProps = {
   onRender: () => void
   onCommand: (command: TripUnderstandingCommand) => Promise<WorkspaceCommandResult>
   onAdd: (dayIndex: number, position: number) => void
-  onEdit: (item: CardLocation) => void
-  onReplace: (item: CardLocation) => void
 }
 
 
-const KNOWLEDGE_LABELS: Record<NonNullable<ActivityCardView['knowledge_suggestions']>[number]['type'], string> = {
-  TYPICAL_DURATION: '游览时长',
-  SUITABLE_TIME: '适合时段',
-  NIGHT_VIEW: '夜景建议',
-  SEASON: '季节提示',
-  RESERVATION_ADVICE: '预约建议',
-}
 
 export default function ItineraryWorkspace({
   days,
@@ -100,8 +85,6 @@ export default function ItineraryWorkspace({
   mapView,
   onCommand,
   onAdd,
-  onEdit,
-  onReplace,
 }: ItineraryWorkspaceProps) {
   const reduceMotion = useReducedMotion()
   const [localDays, setLocalDays] = useState(days)
@@ -112,11 +95,10 @@ export default function ItineraryWorkspace({
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [pendingPlace, setPendingPlace] = useState<CardLocation | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
-  const [moveDay, setMoveDay] = useState(1)
-  const [movePosition, setMovePosition] = useState(0)
+  const [keyboardMove, setKeyboardMove] = useState<{item:CardLocation;dayIndex:number;position:number}|null>(null)
   const [operationPending, setOperationPending] = useState(false)
   const [layoutMode, setLayoutMode] = useState<'CHAIN' | 'LIST'>('CHAIN')
-  const [announcement, setAnnouncement] = useState('行程卡片已加载，可以拖拽或使用移动按钮调整。')
+  const [announcement, setAnnouncement] = useState('行程卡片已加载，可以拖拽调整。键盘在把手按 Enter 提起，左右调顺序，上下换日期，再按 Enter 放下，Escape 取消。')
   const lastTriggerRef = useRef<HTMLElement | null>(null)
   const operationLockRef = useRef(false)
   const dragCompletedRef = useRef(false)
@@ -210,8 +192,7 @@ export default function ItineraryWorkspace({
 
   const openDetails = (item: CardLocation, element: HTMLElement) => {
     rememberTrigger(element)
-    if(item.card.status !== 'READY') { setPendingPlace(current=>current?.card.activity_token===item.card.activity_token?null:item); return }
-    setDialog({ kind: 'DETAIL', item })
+    setPendingPlace(current=>current?.card.activity_token===item.card.activity_token?null:item)
   }
 
   const closePendingPlace = () => {
@@ -224,13 +205,11 @@ export default function ItineraryWorkspace({
   useEffect(()=>{if(pendingPlace && !days.some(day=>day.activities.some(card=>card.activity_token===pendingPlace.card.activity_token)))setPendingPlace(null)},[days,pendingPlace])
 
   const openMove = (item: CardLocation, element?: HTMLElement) => {
-    if (element) rememberTrigger(element)
-    const anotherDay = localDays.findIndex((_, index) => index + 1 !== item.dayIndex)
-    const initialDay = anotherDay >= 0 ? anotherDay + 1 : item.dayIndex
-    const initialLength = localDays[initialDay - 1]?.activities.length ?? 0
-    setMoveDay(initialDay)
-    setMovePosition(initialDay === item.dayIndex ? Math.max(0, initialLength - 1) : initialLength)
-    setDialog({ kind: 'MOVE', item })
+    if(element)rememberTrigger(element)
+    setPendingPlace(null)
+    setKeyboardMove({item,dayIndex:item.dayIndex,position:item.position})
+    setDragged(item);setDropTarget({dayIndex:item.dayIndex,position:item.position})
+    setAnnouncement('已提起。左右调整顺序，上下切换日期，Enter 放下，Escape 取消。')
   }
 
   const openDelete = (item: CardLocation, element?: HTMLElement) => {
@@ -371,24 +350,35 @@ export default function ItineraryWorkspace({
     await applyMove(dragged, targetDayIndex, targetPosition, `${dragged.card.name} 已移动。路线需要更新。`)
   }
 
-  const confirmMove = async () => {
-    if (!dialog || dialog.kind !== 'MOVE') return
-    const targetDay = localDays[moveDay - 1]
-    if (!targetDay) return
-    await applyMove(
-      dialog.item,
-      moveDay,
-      movePosition,
-      `${dialog.item.card.name} 已移动并自动保存。路线需要手动更新。`,
-    )
-  }
+  useEffect(()=>{
+    if(!keyboardMove)return
+    const key=(event:KeyboardEvent)=>{
+      if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter',' ','Escape'].includes(event.key)||locked)return
+      event.preventDefault();event.stopPropagation()
+      const {item}=keyboardMove
+      if(event.key==='Escape'){
+        setKeyboardMove(null);setDragged(null);setDropTarget(null)
+        requestAnimationFrame(()=>lastTriggerRef.current?.focus({preventScroll:true}))
+        setAnnouncement('已取消，没有保存。');return
+      }
+      if(event.key==='Enter'||event.key===' '){
+        setKeyboardMove(null);setDragged(null);setDropTarget(null)
+        if(item.dayIndex===keyboardMove.dayIndex&&item.position===keyboardMove.position)requestAnimationFrame(()=>lastTriggerRef.current?.focus({preventScroll:true}))
+        void applyMove(item,keyboardMove.dayIndex,keyboardMove.position,'地点已移动。路线需要更新。')
+        return
+      }
+      let dayIndex=keyboardMove.dayIndex,position=keyboardMove.position
+      if(event.key==='ArrowUp'||event.key==='ArrowDown')dayIndex=Math.max(1,Math.min(localDays.length,dayIndex+(event.key==='ArrowDown'?1:-1)))
+      else position+=event.key==='ArrowRight'?1:-1
+      position=Math.max(0,Math.min(localDays[dayIndex-1].activities.length-(dayIndex===item.dayIndex?1:0),position))
+      setKeyboardMove({item,dayIndex,position})
+      setDropTarget({dayIndex,position:position+(dayIndex===item.dayIndex&&position>item.position?1:0)})
+      setAnnouncement(`${localDays[dayIndex-1].label}，第 ${position+1} 站。Enter 放下。`)
+    }
+    document.addEventListener('keydown',key,true)
+    return ()=>document.removeEventListener('keydown',key,true)
+  },[keyboardMove,locked,localDays])
 
-  const currentMoveSlots = dialog?.kind === 'MOVE'
-    ? moveSlots(localDays, dialog.item, moveDay)
-    : []
-  const moveIsNoop = dialog?.kind === 'MOVE'
-    && dialog.item.dayIndex === moveDay
-    && dialog.item.position === movePosition
 
   return (
     <div
@@ -470,7 +460,6 @@ export default function ItineraryWorkspace({
                                 <strong className="block text-sm text-slate-900">{activity.name}</strong>
                                 <span className="text-xs text-slate-500">{activity.status === 'READY' ? '已确认' : '待确认'}</span>
                               </button>
-                              <button type="button" disabled={locked} onClick={(event) => openMove(item, event.currentTarget)} className="min-h-11 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50">移动</button>
                               {pendingPlace?.card.activity_token===activity.activity_token && <div className="col-span-full"><PendingPlaceDropdown card={activity} resource={resource} disabled={locked} onCommand={onCommand} onClose={closePendingPlace}/></div>}
                             </li>
                           )
@@ -715,127 +704,6 @@ export default function ItineraryWorkspace({
       <p className="sr-only" aria-live="polite" aria-atomic="true" data-testid="itinerary-live-status">{announcement}</p>
 
       <AnimatePresence>
-        {dialog?.kind === 'DETAIL' && (
-          <AccessibleDialog key="activity-detail" titleId="activity-detail-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-emerald-700">{dialog.item.card.category}</p>
-                <h2 id="activity-detail-title" className="mt-1 text-2xl font-semibold text-slate-900">{dialog.item.card.name}</h2>
-              </div>
-              <DialogCloseButton onClick={() => closeDialog()} label="关闭地点详情" />
-            </div>
-            <div className="mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-              <p className="flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />{dialog.item.card.area_or_address}</p>
-              <p>第 {dialog.item.position + 1} 站 · {localDays[dialog.item.dayIndex-1]?.label}</p>
-            </div>
-            {(dialog.item.card.knowledge_suggestions?.length || 0) > 0 && (
-              <section className="mt-5" aria-labelledby="knowledge-suggestions-title" data-testid="knowledge-suggestions">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-sky-700" aria-hidden="true" />
-                  <h3 id="knowledge-suggestions-title" className="text-sm font-semibold text-slate-800">出行建议</h3>
-                </div>
-                <ul className="mt-3 space-y-3">
-                  {dialog.item.card.knowledge_suggestions?.map((suggestion) => {
-                    const sourceUrl = safeExternalUrl(suggestion.source_url)
-                    return (
-                    <li key={`${suggestion.type}-${suggestion.source_url}-${suggestion.text}`} className="rounded-2xl border border-sky-100 bg-sky-50/65 p-4">
-                      <p className="text-xs font-semibold text-sky-800">{KNOWLEDGE_LABELS[suggestion.type]}</p>
-                      <p className="mt-1 text-sm leading-6 text-slate-700">{suggestion.text}</p>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                        {sourceUrl ? (
-                          <a
-                            href={sourceUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex min-h-10 items-center gap-1 rounded-lg px-1 font-medium text-sky-800 underline decoration-sky-300 underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
-                          >
-                            {suggestion.source_name}
-                            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                          </a>
-                        ) : <span>{suggestion.source_name}</span>}
-                        <span>{suggestion.freshness}</span>
-                      </div>
-                    </li>
-                    )
-                  })}
-                </ul>
-              </section>
-            )}
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <DialogAction onClick={() => { closeDialog(false); onEdit(dialog.item) }} icon={<Pencil className="h-4 w-4" />}>编辑文字</DialogAction>
-              <DialogAction onClick={() => { closeDialog(false); onReplace(dialog.item) }} icon={<Replace className="h-4 w-4" />}>替换地点</DialogAction>
-              <DialogAction onClick={() => openMove(dialog.item)} icon={<ArrowLeftRight className="h-4 w-4" />}>移动位置</DialogAction>
-              {dialog.item.dayIndex < localDays.length && (
-                <DialogAction
-                  onClick={() => {
-                    const item = dialog.item
-                    const targetDay = localDays[item.dayIndex]
-                    closeDialog(false)
-                    void applyMove(
-                      item,
-                      item.dayIndex + 1,
-                      targetDay.activities.length,
-                      `${item.card.name} 已移到 ${targetDay.label}。路线需要手动更新。`,
-                    )
-                  }}
-                  icon={<ArrowRight className="h-4 w-4" />}
-                >
-                  移到后一天
-                </DialogAction>
-              )}
-            </div>
-
-          </AccessibleDialog>
-        )}
-
-        {dialog?.kind === 'MOVE' && (
-          <AccessibleDialog key="move-activity" titleId="move-activity-title" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef} dismissDisabled={locked}>
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-emerald-700">移动地点</p>
-                <h2 id="move-activity-title" className="mt-1 text-xl font-semibold">把“{dialog.item.card.name}”移到哪里？</h2>
-              </div>
-              <DialogCloseButton onClick={() => closeDialog()} label="关闭移动面板" />
-            </div>
-            <div className="mt-5 space-y-4">
-              <label className="block text-sm font-medium text-slate-700">
-                目标日期
-                <select
-                  data-testid="move-target-day"
-                  value={moveDay}
-                  onChange={(event) => {
-                    const nextDay = Number(event.target.value)
-                    const nextSlots = moveSlots(localDays, dialog.item, nextDay)
-                    setMoveDay(nextDay)
-                    setMovePosition(nextSlots[nextSlots.length - 1] ?? 0)
-                  }}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
-                >
-                  {localDays.map((day, index) => <option key={day.label} value={index + 1}>{day.label}</option>)}
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                目标位置
-                <select
-                  data-testid="move-target-position"
-                  value={movePosition}
-                  onChange={(event) => setMovePosition(Number(event.target.value))}
-                  className="mt-2 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
-                >
-                  {currentMoveSlots.map((position) => (
-                    <option key={position} value={position}>{position === currentMoveSlots[currentMoveSlots.length - 1] ? `末尾（第 ${position + 1} 站）` : `第 ${position + 1} 站`}</option>
-                  ))}
-                </select>
-              </label>
-              {moveIsNoop && <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">当前已在这个位置，请选择其他位置。</p>}
-            </div>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => closeDialog()} className="min-h-12 rounded-xl border border-slate-300 px-4 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">取消</button>
-              <button data-testid="confirm-move" type="button" disabled={locked || moveIsNoop} onClick={() => void confirmMove()} className="min-h-12 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-50">{locked ? '正在保存…' : '确认移动'}</button>
-            </div>
-          </AccessibleDialog>
-        )}
-
         {dialog?.kind === 'DELETE' && (
           <AccessibleDialog key="delete-activity" titleId="delete-activity-title" descriptionId="delete-activity-description" onClose={() => closeDialog()} returnFocusRef={lastTriggerRef} dismissDisabled={locked}>
             <div className="flex items-start justify-between gap-4">
@@ -894,24 +762,6 @@ function removeCard(days: DayView[], activityToken: string): DayView[] {
     ...day,
     activities: day.activities.filter((activity) => activity.activity_token !== activityToken),
   }))
-}
-
-
-function moveSlots(days: DayView[], item: CardLocation, targetDayIndex: number): number[] {
-  const target = days[targetDayIndex - 1]
-  if (!target) return []
-  const remainingCount = target.activities.length - (targetDayIndex === item.dayIndex ? 1 : 0)
-  return Array.from({ length: remainingCount + 1 }, (_, index) => index)
-}
-
-
-function safeExternalUrl(value: string): string | null {
-  try {
-    const parsed = new URL(value)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.toString() : null
-  } catch {
-    return null
-  }
 }
 
 
@@ -1008,14 +858,6 @@ function DialogCloseButton({ onClick, label }: { onClick: () => void; label: str
   )
 }
 
-
-function DialogAction({ onClick, icon, children }: { onClick: () => void; icon: ReactNode; children: ReactNode }) {
-  return (
-    <button type="button" onClick={onClick} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-slate-100 px-3 text-sm font-medium text-slate-700 transition motion-reduce:transition-none hover:bg-emerald-50 hover:text-emerald-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700">
-      <span aria-hidden="true">{icon}</span>{children}
-    </button>
-  )
-}
 
 function PlacePhoto({card}: {card: ActivityCardView}) {
   const [failed, setFailed] = useState(false)

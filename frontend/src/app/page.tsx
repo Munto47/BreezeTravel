@@ -269,7 +269,7 @@ export default function HomePage() {
               setDemo(false)
               setError('')
             }}
-            placeholder="粘贴你的攻略，开始一段旅程…"
+            placeholder="粘贴行程，帮你整理地点、核对路线，生成清晰的行程卡片。"
             aria-invalid={Boolean(error)}
           />
           <div className="e-input-footer">

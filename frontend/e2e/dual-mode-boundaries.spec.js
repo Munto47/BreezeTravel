@@ -278,9 +278,10 @@ test('result never reads or renders source mapping while privacy deletion stays 
   await expect(page.getByRole('heading', { name: '故宫博物院' })).toBeVisible()
   const card = page.getByTestId('activity-card').filter({ hasText: '故宫博物院' })
   await card.locator('button').filter({ hasText: '故宫博物院' }).click()
-  await page.getByRole('button', { name: '编辑文字' }).click()
+  await expect(page.getByTestId('pending-place-dropdown')).toBeVisible()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByText('查看原文中的地点名称')).toHaveCount(0)
-  await page.getByRole('button', { name: '关闭编辑' }).click()
+  await page.getByRole('button', { name: '收起地点确认' }).click()
 
   await page.getByLabel('更多行程操作').click()
   await expect(page.getByRole('button', { name: '查看导入文字' })).toHaveCount(0)

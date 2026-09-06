@@ -60,8 +60,8 @@ export default function PendingPlaceDropdown({card,resource,disabled,onCommand,o
     } catch {setMessage('未能确认保存，请稍后重试。')}
     finally {saveLock.current=false;setSaving(false)}
   }
-  return <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`确认 ${card.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
-    <div className="pending-place-head"><strong>确认地点</strong><button type="button" aria-label="收起地点确认" disabled={locked} onClick={onClose}>×</button></div>
+  return <div ref={root} className="pending-place-dropdown" data-testid="pending-place-dropdown" role="region" aria-label={`修改地点 ${card.name}`} onKeyDown={event=>{if(event.key==='Escape'&&!locked){event.stopPropagation();close.current()}}}>
+    <div className="pending-place-head"><strong>地点</strong><button type="button" aria-label="收起地点确认" disabled={locked} onClick={onClose}>×</button></div>
     <form onSubmit={event=>{event.preventDefault();void search()}}>
       <input aria-label="搜索地点名称" value={query} maxLength={200} placeholder="地点名称或地址" disabled={locked} onChange={event=>{request.current?.abort();request.current=null;setSearching(false);setQuery(event.target.value);setItems([]);setSelected(null);setMessage('')}} />
       <button type="submit" disabled={locked||searching||!query.trim()}>{searching?'查询中…':'搜索'}</button>
