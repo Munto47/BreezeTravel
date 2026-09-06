@@ -6,7 +6,7 @@ import {
 } from '@/lib/trip-understanding-v3'
 
 
-export type ResultViewId = 'ITINERARY' | 'MAP_STAY' | 'CHECKS'
+export type ResultViewId = 'ITINERARY' | 'MAP_STAY'
 
 export const DAY_COLORS = ['#047857', '#2563eb', '#7c3aed', '#d97706', '#0f766e', '#be185d'] as const
 

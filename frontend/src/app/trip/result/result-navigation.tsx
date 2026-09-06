@@ -1,6 +1,6 @@
 'use client'
 
-import { ClipboardCheck, MapPinned, Route } from 'lucide-react'
+import { MapPinned, Route } from 'lucide-react'
 
 import { type ResultViewId } from './result-presentation'
 
@@ -12,9 +12,8 @@ const ITEMS: Array<{
   panelId: string
   Icon: typeof Route
 }> = [
-  { id: 'ITINERARY', desktopLabel: '行程', mobileLabel: '行程', panelId: 'itinerary-view', Icon: Route },
-  { id: 'MAP_STAY', desktopLabel: '地图与住宿', mobileLabel: '地图住宿', panelId: 'map-stay-view', Icon: MapPinned },
-  { id: 'CHECKS', desktopLabel: '优先检查', mobileLabel: '优先检查', panelId: 'checks-view', Icon: ClipboardCheck },
+  { id: 'ITINERARY', desktopLabel: '卡片', mobileLabel: '卡片', panelId: 'itinerary-view', Icon: Route },
+  { id: 'MAP_STAY', desktopLabel: '地图', mobileLabel: '地图', panelId: 'map-stay-view', Icon: MapPinned },
 ]
 
 
@@ -60,7 +59,7 @@ export default function ResultNavigation({
 
       <nav
         data-testid="result-mobile-nav"
-        className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-3 rounded-2xl border border-sky-950/10 bg-white/[0.92] p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_20px_55px_-24px_rgba(12,120,157,0.55)] backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-2 rounded-2xl border border-sky-950/10 bg-white/[0.92] p-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom))] shadow-[0_20px_55px_-24px_rgba(12,120,157,0.55)] backdrop-blur-xl lg:hidden"
         aria-label="结果主视图"
       >
         {ITEMS.map(({ id, mobileLabel, panelId, Icon }) => {

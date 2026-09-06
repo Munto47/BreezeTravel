@@ -5,7 +5,7 @@ const RESOURCE_REF = 'g03r-race-safe-result'
 const ETAG_A = 'tu3_race_generation_a'
 const ETAG_B = 'tu3_race_generation_b'
 const MAP_THEATER_MESSAGES = {
-  PREPARING: '路线准备中',
+  PREPARING: '准备中',
   AVAILABLE: '路线已准备',
   UNAVAILABLE: '路线暂不可用',
 }
@@ -689,14 +689,14 @@ for (const hangingKind of ['map', 'stay']) {
       await page.clock.runFor(15_001)
       await fixture.waitForAborts(hangingKind === 'map' ? 1 : 0, hangingKind === 'stay' ? 1 : 0)
 
-      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
       await openResultView(page, 'map_stay')
-      await expect(page.getByTestId('enhancement-read-recovery')).toBeVisible()
+      await expectEnhancementRecovery(page)
       if (hangingKind === 'map') {
         await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
         await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
       } else {
-        await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
+        await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
         await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
       }
 
@@ -730,9 +730,9 @@ test('an enhancement round slower than 800ms stays single-flight before the next
 
     await page.clock.runFor(1)
     await fixture.waitForReads(2, 2)
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
     await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
     expect(fixture.calls().maxInFlight).toEqual({ map: 1, stay: 1 })
   } finally {
     fixture.releaseAll()
@@ -759,9 +759,9 @@ test('continuous PREPARING responses stop after eight bounded rounds and release
 
     await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
     await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
     await openResultView(page, 'map_stay')
-    await expect(page.getByTestId('enhancement-read-recovery')).toBeVisible()
+    await expectEnhancementRecovery(page)
     const stopped = fixture.calls()
     expect(stopped.reads).toEqual({ map: 8, stay: 8 })
     expect(stopped.maxInFlight).toEqual({ map: 1, stay: 1 })
@@ -796,7 +796,8 @@ for (const pendingKind of ['map', 'stay']) {
         await expect(page.getByTestId(pendingPanel)).toContainText(
           pendingKind === 'map' ? preparingMessage : `${preparingMessage} ${call}`,
         )
-        await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
+        if (terminalKind === 'map') await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
+      else await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
         await page.clock.runFor(800)
         const nextPendingReads = call + 1
         await fixture.waitForReads(
@@ -817,11 +818,12 @@ for (const pendingKind of ['map', 'stay']) {
       )
       fixture.releaseRead(pendingKind, 4)
 
-      await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
+      if (terminalKind === 'map') await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
+      else await expect(page.getByTestId(terminalPanel)).toContainText(terminalMessage)
       await expect(page.getByTestId(pendingPanel)).toContainText(fallbackMessage)
-      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
       await openResultView(page, 'map_stay')
-      await expect(page.getByTestId('retry-enhancements')).toBeVisible()
+      await expectEnhancementRecovery(page)
 
       const stopped = fixture.calls()
       expect(stopped.reads[pendingKind]).toBe(4)
@@ -846,7 +848,7 @@ test('manual enhancement recovery is GET-only, single-flight, and keeps complete
 
   try {
     await fixture.waitForReads(1, 1)
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
     await openResultView(page, 'map_stay')
     await expect(page.getByTestId('retry-enhancements')).toBeVisible()
     const beforeRecovery = fixture.calls()
@@ -857,10 +859,11 @@ test('manual enhancement recovery is GET-only, single-flight, and keeps complete
       button.click()
     })
     await fixture.waitForReads(2, 2)
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
     await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
-    await expect(page.getByTestId('enhancement-read-recovery')).toHaveCount(0)
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('retry-enhancements')).toHaveCount(0)
+    await expect(page.getByTestId('retry-stay')).toHaveCount(0)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
 
     const recovered = fixture.calls()
     expect(recovered.reads).toEqual({ map: 2, stay: 2 })
@@ -904,9 +907,9 @@ test('a generation change aborts old enhancement reads before the new session st
     await fixture.releaseOldRejections()
     await fixture.waitForOldRejectionsFinalized()
     await fixture.waitForReads(2, 2)
-    await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
+    await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
     await expect(page.getByTestId('stay-panel')).toContainText('新住宿状态已读取')
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
 
     const current = fixture.calls()
     expect(current.newGenerationStartedBeforeOldSettled).toBe(false)
@@ -942,11 +945,8 @@ test('a completed obsolete materialize drains before the current generation star
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem('bt_active_trip_etag'))).toBe(ETAG_B)
   expect(fixture.calls().materializeCalls).toBe(1)
   fixture.releaseCompatibleMaterialize()
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
-  await openResultView(page, 'checks')
-  await expect(page.getByTestId('trip-checks')).toContainText(
-    '先处理真正影响出行的事',
-  )
+  await expect.poll(() => fixture.calls().checksCalls).toBe(1)
+  await expect(page.getByTestId('result-view-checks')).toHaveCount(0)
   await flushTwoAnimationFrames(page)
 
   expect(fixture.calls()).toEqual({
@@ -980,7 +980,7 @@ test('a hanging obsolete materialize is aborted before the current generation st
   })
 
   await page.clock.runFor(15_001)
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
+  await expect.poll(() => fixture.calls().checksCalls).toBe(1)
 
   expect(fixture.calls()).toEqual({
     resultReads: 2,
@@ -997,7 +997,7 @@ test('409 reads back the latest result before preparing checks again', async ({ 
   const fixture = await installRaceFixture(page, 'conflict')
 
   await page.goto('/trip/result')
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
+  await expect.poll(() => fixture.calls().checksCalls).toBe(1)
 
   expect(fixture.calls()).toEqual({
     resultReads: 2,
@@ -1010,7 +1010,7 @@ test('409 reads back the latest result before preparing checks again', async ({ 
 })
 
 
-test('ordinary preparation failure is recoverable only after explicit retry', async ({ page }) => {
+test.skip('RETIRED_CHECKS_PAGE: ordinary preparation failure is recoverable only after explicit retry', async ({ page }) => {
   const fixture = await installRaceFixture(page, 'failure')
 
   await page.goto('/trip/result')
@@ -1021,7 +1021,7 @@ test('ordinary preparation failure is recoverable only after explicit retry', as
   expect(fixture.calls().checksCalls).toBe(0)
 
   await retry.click()
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3, { timeout: 5_000 })
+  await expect.poll(() => fixture.calls().checksCalls).toBe(1)
   expect(fixture.calls()).toEqual({
     resultReads: 1,
     materializeCalls: 2,
@@ -1787,13 +1787,13 @@ async function expectMinimumTarget(locator, minimum = 48) {
 
 
 for (const latePreviewOutcome of ['success', 'failure']) {
-  test(`closing a pending preview aborts its late ${latePreviewOutcome} without reopening or polluting state`, async ({ page }) => {
+  test.skip(`RETIRED_CHECKS_PAGE: closing a pending preview aborts its late ${latePreviewOutcome} without reopening or polluting state`, async ({ page }) => {
     await installPausedClock(page)
     const fixture = await installInteractionFixture(page, { latePreviewOutcome })
 
     try {
       await page.goto('/trip/result')
-      await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+      await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
       await openResultView(page, 'checks')
       await page.getByTestId('preview-change').first().click()
       await expect(page.getByRole('region', { name: '补充午餐时间' })).toBeVisible()
@@ -1927,6 +1927,7 @@ test('mobile and keyboard controls move within and across days with accessible t
   await expectMinimumTarget(page.getByTestId('day-1-add'))
   await openResultView(page, 'map_stay')
   await expectMinimumTarget(page.getByTestId('render-map'))
+  await openStayTools(page)
   await expectMinimumTarget(page.getByTestId('choose-stay'))
   await openResultView(page, 'itinerary')
   await moveDownByDrag(page)
@@ -1955,12 +1956,12 @@ test('mobile and keyboard controls move within and across days with accessible t
 })
 
 
-test('mobile suggestion preview keeps accessible targets and reduced motion', async ({ page }) => {
+test.skip('RETIRED_CHECKS_PAGE: mobile suggestion preview keeps accessible targets and reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.setViewportSize({ width: 390, height: 844 })
   await installInteractionFixture(page)
   await page.goto('/trip/result')
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
   await openResultView(page, 'checks')
   await expect(page.getByTestId('preview-change')).toHaveCount(3)
   await page.getByTestId('preview-change').first().click()
@@ -2069,13 +2070,14 @@ test('one pending card command blocks every conflicting write surface', async ({
   await page.goto('/trip/result')
   await fixture.waitForMaterializeStart()
   await openResultView(page, 'map_stay')
+  await openStayTools(page)
   await page.getByTestId('choose-stay').click()
   await expect.poll(() => fixture.calls().writes.stay).toBe(1)
   expect(await fixture.browserWriteRace()).toEqual({
     materializeInFlight: 0,
     writesBeforeMaterializeSettled: 0,
   })
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
   await openResultView(page, 'itinerary')
   await page.getByText('行程信息', { exact: true }).click()
   const down = page.getByRole('button', { name: '拖动 故宫博物院' })
@@ -2143,6 +2145,7 @@ test('a write and its readback share one deadline before explicit GET-only recov
     await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
     await expect(page.getByTestId('map-route-line')).toHaveCount(0)
     await expect(page.getByTestId('map-theater')).not.toContainText('12 分钟')
+    await openRouteTools(page)
     await expect(page.getByRole('button', { name: '播放' })).toBeDisabled()
     expect(fixture.calls().mapRenderPosts).toBe(0)
     expect(fixture.calls().directProviderRequests).toBe(0)
@@ -2297,10 +2300,10 @@ test('a new map cycle keeps polling when stay was already preparing', async ({ p
   await expect.poll(() => fixture.calls().mapRenderApplications).toBe(1)
   await expect.poll(() => fixture.calls().mapReads).toBeGreaterThanOrEqual(2)
   await expect.poll(() => fixture.calls().stayReads).toBeGreaterThanOrEqual(2)
-  await expect(page.getByTestId('map-theater')).toContainText('路线准备中')
+  await expect(page.getByTestId('map-theater')).toContainText('准备中')
 
   await page.clock.runFor(801)
-  await expect(page.getByTestId('map-theater')).toContainText('路线已准备')
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
   await expect(page.getByTestId('stay-panel')).toContainText('住宿建议已准备')
   expect(fixture.calls().mapReads).toBeGreaterThanOrEqual(3)
   expect(fixture.calls().stayReads).toBeGreaterThanOrEqual(3)
@@ -2350,13 +2353,13 @@ test('a hanging editor write recovers with the same key without applying the com
 })
 
 
-test('a hanging suggestion preview stops at its deadline and leaves a retryable check', async ({ page }) => {
+test.skip('RETIRED_CHECKS_PAGE: a hanging suggestion preview stops at its deadline and leaves a retryable check', async ({ page }) => {
   await installPausedClock(page)
   const fixture = await installInteractionFixture(page, { racePreview: true })
 
   try {
     await page.goto('/trip/result')
-    await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+    await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
     await openResultView(page, 'checks')
     await page.getByTestId('preview-change').first().click()
     await expect.poll(() => fixture.calls().previewPosts).toBe(1)
@@ -2492,7 +2495,7 @@ for (const { mode: postCommandMapReadMode, label } of [
 
     try {
       await page.goto('/trip/result')
-      await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.AVAILABLE)
+      await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
       await expect(page.getByTestId('render-map')).toHaveCount(0)
       await moveDownByDrag(page)
 
@@ -2509,7 +2512,7 @@ for (const { mode: postCommandMapReadMode, label } of [
       await expect(page.getByText('这次修改没有被接受，请检查时间、地点或安排后重试。')).toBeVisible()
       await expect.poll(() => dayCardNames(page, 1)).toEqual(['故宫博物院', '景山公园'])
       if (postCommandMapReadMode === 'failure') {
-        await expect(page.getByTestId('enhancement-read-recovery')).toBeVisible()
+        await expectEnhancementRecovery(page)
         await expect(page.getByTestId('map-route-summary')).toHaveCount(0)
         await expect(page.getByTestId('map-route-line')).toHaveCount(0)
         await expect(page.getByTestId('map-theater')).not.toContainText(/步行 \d+ 分钟/)
@@ -2540,12 +2543,9 @@ test('rejected delete restores its card and returns focus to the original delete
 test('accepted command with failed readback stays locked until explicit recovery', async ({ page }) => {
   const fixture = await installInteractionFixture(page, { scenario: 'readback-failure' })
   await page.goto('/trip/result')
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
-  await openResultView(page, 'checks')
-  await page.getByTestId('preview-change').first().click()
-  await expect(page.getByTestId('change-preview')).toBeVisible()
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
   await openResultView(page, 'map_stay')
-  await expect(page.getByTestId('map-theater')).toContainText('已准备')
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status','AVAILABLE')
   await expect(page.getByTestId('stay-panel')).toContainText('已准备')
   await openResultView(page, 'itinerary')
   await moveDownByDrag(page)
@@ -2760,7 +2760,7 @@ test('a lost claim response survives reload and expired login before same-key re
 test('409 reads latest cards and invalidates an old available map without rendering', async ({ page }) => {
   const fixture = await installInteractionFixture(page, { scenario: 'conflict' })
   await page.goto('/trip/result')
-  await expect(page.getByTestId('map-theater')).toContainText('路线已准备')
+  await expect(page.getByTestId('map-theater')).toHaveAttribute('data-map-status', 'AVAILABLE')
   await moveDownByDrag(page)
 
   await expect(page.getByText('卡片刚刚有更新，已为你读取最新版本，请再试一次。')).toBeVisible()
@@ -2780,7 +2780,7 @@ test('public result DOM contains no provider URL or internal implementation voca
   const fixture = await installInteractionFixture(page, { failInitialEnhancements: true })
   await page.goto('/trip/result')
   await expect(page.getByTestId('trip-days')).toBeVisible()
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
+  await expect(page.getByTestId('trip-check-item')).toHaveCount(0)
   await expect(page.getByTestId('map-theater')).toContainText(MAP_THEATER_MESSAGES.UNAVAILABLE)
   await expect(page.getByTestId('stay-panel')).toContainText('住宿建议暂时不可用')
   expect(fixture.calls().mapReads).toBe(1)
@@ -2795,12 +2795,12 @@ test('public result DOM contains no provider URL or internal implementation voca
   expect(publicDom).not.toMatch(/interaction-(?:token|r\d)|activity_token|public_resource_id|Provider|AMap|高德|revision|receipt|\bUID\b|\bhash\b/i)
   expect(publicDom).not.toMatch(/https:\/\/(?:restapi\.)?amap\.com|provider[_-]?(?:url|resource)/i)
   expect(fixture.calls().directProviderRequests).toBe(0)
-  await expect(page.getByText('可以更好', { exact: true }).first()).toHaveClass(/bg-amber-50/)
-  await expect(page.getByText('需要确认', { exact: true }).first()).toHaveClass(/bg-blue-50/)
+  await expect(page.getByTestId('activity-card').filter({hasText:'待确认'})).not.toHaveCount(0)
+  expect(publicDom).not.toMatch(/(?:text|bg|border)-red-/)
 })
 
 
-test('three-view shell defaults to itinerary and preserves loaded map and checks state', async ({ page }) => {
+test('two-view shell defaults to cards and preserves the loaded map state', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 720 })
   await installInteractionFixture(page, { mapSnapshot: connectedMapView() })
   await page.goto('/trip/result')
@@ -2828,17 +2828,12 @@ test('three-view shell defaults to itinerary and preserves loaded map and checks
   })
   expect(dayColors.line).toBe(dayColors.dot)
   expect(dayColors.itinerary).toBe(dayColors.dot)
+  await openRouteTools(page)
   await page.getByTestId('map-mode-transit').click()
   await expect(page.getByTestId('map-mode-transit')).toHaveAttribute('aria-pressed', 'true')
 
-  await openResultView(page, 'checks')
-  await expect(page.getByTestId('trip-check-item')).toHaveCount(3)
-  const labels = await page.getByTestId('trip-check-item').evaluateAll((items) => (
-    items.map((item) => item.querySelector('span')?.textContent || '')
-  ))
-  expect(page.getByTestId('trip-check-item')).toHaveCount(3)
-  expect(labels.every((label) => ['必须调整', '可以更好', '需要确认'].includes(label))).toBe(true)
-
+  await openResultView(page, 'itinerary')
+  await expect(page.getByTestId('result-view-checks')).toHaveCount(0)
   await openResultView(page, 'map_stay')
   await expect(page.getByTestId('map-mode-transit')).toHaveAttribute('aria-pressed', 'true')
   await openResultView(page, 'itinerary')
@@ -2898,7 +2893,7 @@ test('map keeps its directory and server summary when geometry is absent', async
   await expect(page.getByTestId('map-place-directory')).toContainText('故宫博物院')
   await expect(page.getByTestId('map-place-directory')).toContainText('景山公园')
   await expect(page.getByTestId('map-theater')).toContainText('故宫博物院 → 景山公园')
-  await expect(page.getByRole('heading', {name:'全程地图'})).toBeVisible()
+  await expect(page.getByTestId('route-map')).toBeVisible()
   await expect(page.getByTestId('map-theater')).toContainText('步行 12 分钟')
   await expect(page.getByTestId('stay-panel')).toBeVisible()
 
@@ -2916,6 +2911,7 @@ test('route playback is paused by default and never requests another route', asy
   await page.goto('/trip/result')
   await openResultView(page, 'map_stay')
 
+  await openRouteTools(page)
   const playback = page.getByTestId('route-playback')
   const play = playback.getByRole('button', { name: '播放' })
   await expect(playback).toContainText('计划路线模拟')
@@ -2939,6 +2935,7 @@ test('route playback keeps station controls when verified geometry is absent', a
   await page.goto('/trip/result')
   await openResultView(page, 'map_stay')
 
+  await openRouteTools(page)
   const playback = page.getByTestId('route-playback')
   await expect(playback.getByRole('button', { name: '播放' })).toBeDisabled()
   await expect(playback).toContainText('地图动画不可用')
@@ -2999,7 +2996,7 @@ test('assumption and privacy confirmations use one keyboard-safe dialog pattern'
   const assumptionTrigger = page.getByTestId('edit-assumption-destination')
   await assumptionTrigger.click()
   const assumptionDialog = page.getByRole('dialog', { name: '修改目的地' })
-  await expect(assumptionDialog).toHaveAttribute('aria-modal', 'true')
+  await expect(assumptionDialog).toHaveAttribute('data-testid', 'nearby-assumption-editor')
   await expect(assumptionDialog.getByTestId('assumption-editor-input')).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(assumptionTrigger).toBeFocused()
@@ -3069,13 +3066,12 @@ for (const viewport of [
     await page.getByTestId('day-1-add').click({ trial: true })
     await openResultView(page, 'map_stay')
     await page.getByTestId('map-directory-toggle').click({ trial: true })
-    await openResultView(page, 'checks')
-    await page.getByTestId('preview-change').first().click({ trial: true })
+    await expect(page.getByTestId('result-view-checks')).toHaveCount(0)
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(1)
 
     const mobile = viewport.width < 1024
-    const nav = page.getByTestId(`${mobile ? 'mobile' : 'desktop'}-nav-checks`)
+    const nav = page.getByTestId(`${mobile ? 'mobile' : 'desktop'}-nav-map_stay`)
     await expect(nav).toBeVisible()
     await expect(nav).toHaveAttribute('aria-current', 'page')
     const box = await nav.boundingBox()
@@ -3302,8 +3298,8 @@ for (const width of [1440,1280,390,360]) {
   })
 }
 
-test('owner feedback: real touch drag moves across days and touch cancellation writes nothing',async({browser})=>{
-  const context=await browser.newContext({baseURL:'http://127.0.0.1:3117',viewport:{width:390,height:1100},hasTouch:true,isMobile:true})
+test('owner feedback: real touch drag moves across days and touch cancellation writes nothing',async({browser,baseURL})=>{
+  const context=await browser.newContext({baseURL,viewport:{width:390,height:1100},hasTouch:true,isMobile:true})
   try{
     const page=await context.newPage()
     const fixture=await installInteractionFixture(page)
@@ -3368,3 +3364,100 @@ test('owner feedback: map SDK receives all-day markers and real geometry only af
   await page.getByRole('button',{name:'Day 2',exact:true}).click()
   expect(await page.evaluate(()=>window.__mapLayers.filter(x=>x.kind==='marker').length)).toBe(3)
 })
+
+for (const [width,height] of [[1440,900],[1280,720],[390,844],[360,800]]) {
+ test(`fluid: two views and the complete map fit the first screen at ${width}`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height})
+  await installInteractionFixture(page,{mapSnapshot:connectedMapView()})
+  await page.goto('/trip/result')
+  await expect(page.getByTestId('trip-days')).toBeVisible()
+  const nav=page.getByTestId(width>=1024?'result-desktop-nav':'result-mobile-nav')
+  await expect(nav.getByRole('button')).toHaveCount(2)
+  await expect(page.getByText('优先检查',{exact:true})).toHaveCount(0)
+  await openResultView(page,'map_stay')
+  await expect(page.getByText('全程地图',{exact:true})).toHaveCount(0)
+  await expect(page.getByText('重试住宿',{exact:true})).toHaveCount(0)
+  const box=await page.getByTestId('route-map').boundingBox()
+  const legend=await page.getByLabel('日期颜色与预演选择').boundingBox()
+  expect(box.height).toBeGreaterThan(220)
+  expect(box.y).toBeGreaterThanOrEqual(0)
+  expect(box.y+box.height).toBeLessThanOrEqual(height)
+  expect(legend.y).toBeGreaterThanOrEqual(box.y+box.height-1)
+  expect(legend.y+legend.height).toBeLessThanOrEqual(height-(width<1024?60:0))
+  const before=await page.evaluate(()=>scrollY)
+  await page.getByRole('button',{name:'Day 2',exact:true}).click()
+  expect(await page.evaluate(()=>scrollY)).toBe(before)
+  await page.screenshot({path:testInfo.outputPath('map-first-screen.png'),fullPage:true})
+ })
+}
+
+test('fluid: information edits stay beside their trigger and preserve canvas and scroll',async({page})=>{
+ await installInteractionFixture(page)
+ await page.goto('/trip/result')
+ await page.locator('.e-trip-information > summary').click()
+ const before=await page.getByTestId('edit-assumption-destination').boundingBox()
+ const scroll=await page.evaluate(()=>scrollY)
+ await page.getByTestId('edit-assumption-destination').click()
+ const editor=page.getByTestId('nearby-assumption-editor')
+ await expect(editor).toBeVisible()
+ await expect(page.getByTestId('assumption-editor-input')).toBeFocused()
+ await expect(page.getByTestId('itinerary-workspace')).toBeVisible()
+ expect(await page.evaluate(()=>scrollY)).toBe(scroll)
+ const after=await editor.boundingBox()
+ expect(Math.abs(after.y-before.y)).toBeLessThan(60)
+ await page.getByTestId('assumption-editor-input').fill('上海')
+ await page.keyboard.press('Escape')
+ await expect(editor.getByRole('alert')).toBeVisible()
+ await editor.getByRole('button',{name:'放弃修改'}).click()
+ await expect(page.getByTestId('edit-assumption-destination')).toBeFocused()
+})
+
+test('fluid: dragging the photo previews insertion, squeezes neighbors and saves once across dates',async({page},testInfo)=>{
+ await page.setViewportSize({width:1440,height:1000})
+ const fixture=await installInteractionFixture(page)
+ await page.goto('/trip/result')
+ const photo=page.getByTestId('card-grab-1-0')
+ await expect(photo).toBeVisible()
+ const source=await photo.boundingBox()
+ const next=page.getByTestId('day-lane-2').getByTestId('activity-card').first()
+ const before=await next.boundingBox()
+ await page.mouse.move(source.x+40,source.y+55)
+ await page.mouse.down()
+ await page.mouse.move(before.x+10,before.y+40,{steps:12})
+ await expect(page.getByTestId('drop-preview')).toContainText('故宫博物院')
+ await expect.poll(async()=> (await next.boundingBox()).x).toBeGreaterThan(before.x+140)
+ await expect(page.locator('.fluid-card-ghost')).toBeVisible()
+ expect(fixture.calls().commands).toHaveLength(0)
+ await page.screenshot({path:testInfo.outputPath('drag-preview.png'),fullPage:true})
+ await page.mouse.up()
+ await expect.poll(()=>fixture.calls().commands.length).toBe(1)
+ expect(fixture.calls().commands[0]).toMatchObject({command_type:'ACTIVITY_MOVE',target_day_index:2,target_position:0})
+ expect(fixture.calls().mapRenderPosts).toBe(0)
+})
+
+test('fluid: Escape while dragging cancels without saving',async({page})=>{
+ const fixture=await installInteractionFixture(page)
+ await page.goto('/trip/result')
+ const photo=page.getByTestId('card-grab-1-0')
+ await expect(photo).toBeVisible()
+ const box=await photo.boundingBox()
+ await page.mouse.move(box.x+30,box.y+40)
+ await page.mouse.down()
+ await page.mouse.move(box.x+90,box.y+70)
+ await page.keyboard.press('Escape')
+ await page.mouse.up()
+ await expect(page.locator('.fluid-card-ghost')).toHaveCount(0)
+ expect(fixture.calls().commands).toHaveLength(0)
+})
+async function openStayTools(page) {
+ const panel=page.getByTestId('stay-panel')
+ if(await panel.getAttribute('open')===null) await panel.locator(':scope > summary').click()
+}
+async function openRouteTools(page) {
+ const panel=page.locator('.fluid-map-popover').filter({has:page.getByTestId('map-route-tools')})
+ if(await panel.getAttribute('open')===null) await panel.locator(':scope > summary').click()
+}
+async function expectEnhancementRecovery(page) {
+ if(await page.getByTestId('retry-enhancements').count()) await expect(page.getByTestId('retry-enhancements')).toBeVisible()
+ else { await openStayTools(page); await expect(page.getByTestId('retry-stay')).toBeVisible() }
+}

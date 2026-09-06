@@ -2,9 +2,9 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "owner-feedback-soft-canvas",
+    "id": "two-view-fluid-workspace",
     "work_kind": "PRODUCT",
-    "outcome": "落实所有者界面反馈：极简圆润首页、真实阶段进度、拖拽横链、全日期地图与安全地点照片；保留恢复、隐私和手动算路底线",
+    "outcome": "两视图、首屏居中地图、就地信息编辑、自由跨日拖动与真实阶段动效",
     "status": "COMPLETED"
   },
   "packages": [],

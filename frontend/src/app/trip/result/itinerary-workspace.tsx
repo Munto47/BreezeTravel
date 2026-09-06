@@ -102,6 +102,7 @@ export default function ItineraryWorkspace({
   const [localDays, setLocalDays] = useState(days)
   const [dragged, setDragged] = useState<DraggedCard | null>(null)
   const touchTarget = useRef<DropTarget | 'TRASH' | null>(null)
+  const pointerPosition = useRef<{x:number;y:number} | null>(null)
   const [touchPoint, setTouchPoint] = useState<{x:number;y:number} | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const [dialog, setDialog] = useState<DialogState | null>(null)
@@ -133,12 +134,51 @@ export default function ItineraryWorkspace({
       const lane = laneScrollers.current.get(dayIndex)
       if (!lane) continue
       const box = lane.getBoundingClientRect()
-      if(x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) {
+      const dayBox = lane.closest('[data-day-index]')?.getBoundingClientRect() || box
+      if(x >= dayBox.left && x <= dayBox.right && y >= dayBox.top && y <= dayBox.bottom) {
         return {dayIndex,position:centers.filter(center => center < x-box.left+lane.scrollLeft).length}
       }
     }
     return null
   }
+  useEffect(() => {
+    if (!dragged) return
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null; pointerPosition.current=null
+    }
+    window.addEventListener('keydown',cancel)
+    return () => window.removeEventListener('keydown',cancel)
+  }, [dragged])
+
+  useEffect(() => {
+    if (!dragged || !touchPoint) return
+    let frame=0
+    const scroll = () => {
+      const touchPoint = pointerPosition.current
+      if (!touchPoint) return
+      const target=touchTarget.current
+      if(target && target !== 'TRASH') {
+        const lane=laneScrollers.current.get(target.dayIndex)
+        if(lane) {
+          const box=lane.getBoundingClientRect()
+          if(touchPoint.x>box.right-48) lane.scrollLeft+=12
+          else if(touchPoint.x<box.left+48) lane.scrollLeft-=12
+        }
+      }
+      if(touchPoint.y>window.innerHeight-90) window.scrollBy(0,10)
+      else if(touchPoint.y<90) window.scrollBy(0,-10)
+      if(!document.elementFromPoint(touchPoint.x,touchPoint.y)?.closest('[data-trash]')) {
+        const updated=targetAt(touchPoint.x,touchPoint.y)
+        touchTarget.current=updated
+        setDropTarget(current => current?.dayIndex===updated?.dayIndex && current?.position===updated?.position ? current : updated)
+      }
+      frame=requestAnimationFrame(scroll)
+    }
+    frame=requestAnimationFrame(scroll)
+    return () => cancelAnimationFrame(frame)
+  },[dragged,touchPoint])
+
   const locked = disabled || operationPending
 
   useEffect(() => {
@@ -442,6 +482,7 @@ export default function ItineraryWorkspace({
                                 rawPosition={position}
                                 active={dropTarget?.dayIndex === dayIndex && dropTarget.position === position}
                                 dragging={dragged !== null}
+                          previewCard={dragged?.card}
                                 onDragEnter={() => setDropTarget({ dayIndex, position })}
                                 onDrop={() => void handleDrop(dayIndex, position)}
                               />
@@ -458,11 +499,57 @@ export default function ItineraryWorkspace({
                                   setDropTarget({ dayIndex, position: position + (event.clientX > box.left + box.width / 2 ? 1 : 0) })
                                 }}
                                 onDrop={(event) => { event.preventDefault(); if (dropTarget) void handleDrop(dropTarget.dayIndex, dropTarget.position) }}
-                                style={{ opacity: dragged?.card.activity_token === activity.activity_token ? 0.35 : 1 }}
+                                style={{ opacity: dragged?.card.activity_token === activity.activity_token ? 0.2 : 1 }}
+                                animate={{ rotate: dragged && dropTarget?.dayIndex === dayIndex && position >= dropTarget.position ? 1.4 : 0, scale: dragged && dragged.card.activity_token !== activity.activity_token ? 0.985 : 1 }}
                                 className="soft-activity-card w-[13.5rem] snap-start overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_28px_-20px_rgba(15,23,42,0.6)]"
                                 transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 36 }}
                               >
-                                <div className={`relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}>
+                                <div data-testid={`card-grab-${dayIndex}-${position}`} className={`fluid-card-grab relative h-20 overflow-hidden bg-gradient-to-br ${accent[0]} ${accent[1]}`}
+                                    onPointerDown={(event) => {
+                                      if (locked || event.button !== 0) return
+                                      event.preventDefault()
+                                      // Native HTML drag takes over touch and cancels pointer capture.
+                                      event.currentTarget.draggable = false
+                                      rememberTrigger(event.currentTarget.querySelector<HTMLElement>('button') || event.currentTarget)
+                                      event.currentTarget.setPointerCapture(event.pointerId)
+                                      touchTarget.current = null
+                                      captureDropGeometry()
+                                      setDragged(item)
+                                      pointerPosition.current = {x:event.clientX,y:event.clientY}
+                                      setTouchPoint(pointerPosition.current)
+                                    }}
+                                    onPointerMove={(event) => {
+                                      if (!dragged || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      pointerPosition.current = {x:event.clientX,y:event.clientY}
+                                      setTouchPoint(pointerPosition.current)
+                                      const element = document.elementFromPoint(event.clientX,event.clientY)
+                                      if (element?.closest('[data-trash]')) {
+                                        touchTarget.current = 'TRASH'
+                                        setDropTarget(null)
+                                        return
+                                      }
+                                      const target = targetAt(event.clientX,event.clientY)
+                                      touchTarget.current = target
+                                      setDropTarget(target)
+                                      if(event.clientY > window.innerHeight-80) window.scrollBy(0,18)
+                                      if(event.clientY < 100) window.scrollBy(0,-18)
+                                    }}
+                                    onPointerUp={(event) => {
+                                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+                                      event.currentTarget.releasePointerCapture(event.pointerId)
+                                      event.currentTarget.draggable = false
+                                      pointerPosition.current = null
+                                      if (!dragged) return
+                                      const target = document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-trash]')
+                                        ? 'TRASH' : targetAt(event.clientX,event.clientY)
+                                      setTouchPoint(null)
+                                      if(target === 'TRASH') { setDragged(null); setDropTarget(null); void applyDelete(item) }
+                                      else if(target) void handleDrop(target.dayIndex,target.position)
+                                      else { setDragged(null); setDropTarget(null) }
+                                      touchTarget.current = null
+                                    }}
+                                    onPointerCancel={(event) => { event.currentTarget.draggable = false; setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null }}
+>
                                   <CategoryArtwork category={activity.category} />
                                   <PlacePhoto card={activity} />
                                   <span style={{ backgroundColor: DAY_COLORS[dayOffset % DAY_COLORS.length] }} className="absolute left-3 top-3 flex h-7 min-w-7 items-center justify-center rounded-full bg-emerald-700 px-2 text-xs font-bold text-white shadow-sm">
@@ -472,59 +559,6 @@ export default function ItineraryWorkspace({
                                     type="button"
                                     draggable={!locked}
                                     data-testid={`drag-handle-${dayIndex}-${position}`}
-                                    onPointerDown={(event) => {
-                                      if (event.pointerType === 'mouse' || locked) return
-                                      event.preventDefault()
-                                      // Native HTML drag takes over touch and cancels pointer capture.
-                                      event.currentTarget.draggable = false
-                                      rememberTrigger(event.currentTarget)
-                                      event.currentTarget.setPointerCapture(event.pointerId)
-                                      touchTarget.current = null
-                                      captureDropGeometry()
-                                      setDragged(item)
-                                      setTouchPoint({x:event.clientX,y:event.clientY})
-                                    }}
-                                    onPointerMove={(event) => {
-                                      if (event.pointerType === 'mouse' || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-                                      setTouchPoint({x:event.clientX,y:event.clientY})
-                                      const element = document.elementFromPoint(event.clientX,event.clientY)
-                                      if (element?.closest('[data-trash]')) {
-                                        touchTarget.current = 'TRASH'
-                                        setDropTarget(null)
-                                        return
-                                      }
-                                      const slot = element?.closest<HTMLElement>('[data-drop-day]')
-                                      if (slot) {
-                                        const box = slot.getBoundingClientRect()
-                                        const offset = slot.matches('article') && event.clientX > box.left + box.width/2 ? 1 : 0
-                                        const target = {dayIndex:Number(slot.dataset.dropDay),position:Number(slot.dataset.dropPosition)+offset}
-                                        touchTarget.current = target
-                                        setDropTarget(target)
-                                        const scroller = laneScrollers.current.get(target.dayIndex)
-                                        if (scroller) {
-                                          const lane = scroller.getBoundingClientRect()
-                                          if(event.clientX > lane.right-40) scroller.scrollLeft += 20
-                                          if(event.clientX < lane.left+40) scroller.scrollLeft -= 20
-                                        }
-                                      } else {
-                                        touchTarget.current = null
-                                        setDropTarget(null)
-                                      }
-                                      if(event.clientY > window.innerHeight-80) window.scrollBy(0,18)
-                                      if(event.clientY < 100) window.scrollBy(0,-18)
-                                    }}
-                                    onPointerUp={(event) => {
-                                      if (event.pointerType === 'mouse' || !event.currentTarget.hasPointerCapture(event.pointerId)) return
-                                      event.currentTarget.releasePointerCapture(event.pointerId)
-                                      event.currentTarget.draggable = !locked
-                                      const target = touchTarget.current
-                                      setTouchPoint(null)
-                                      if(target === 'TRASH') { setDragged(null); setDropTarget(null); void applyDelete(item) }
-                                      else if(target) void handleDrop(target.dayIndex,target.position)
-                                      else { setDragged(null); setDropTarget(null) }
-                                      touchTarget.current = null
-                                    }}
-                                    onPointerCancel={(event) => { event.currentTarget.draggable = !locked; setDragged(null); setDropTarget(null); setTouchPoint(null); touchTarget.current=null }}
                                     onDragStart={(event) => {
                                       rememberTrigger(event.currentTarget)
                                       captureDropGeometry()
@@ -616,6 +650,7 @@ export default function ItineraryWorkspace({
                           rawPosition={day.activities.length}
                           active={dropTarget?.dayIndex === dayIndex && dropTarget.position === day.activities.length}
                           dragging={dragged !== null}
+                          previewCard={dragged?.card}
                           onDragEnter={() => setDropTarget({ dayIndex, position: day.activities.length })}
                           onDrop={() => void handleDrop(dayIndex, day.activities.length)}
                         />
@@ -647,7 +682,7 @@ export default function ItineraryWorkspace({
       </div>
 
 
-      {dragged && touchPoint && <div className="soft-touch-ghost" style={{left:touchPoint.x,top:touchPoint.y}} aria-hidden="true">{dragged.card.name}</div>}
+      {dragged && touchPoint && <div className="soft-touch-ghost fluid-card-ghost" style={{left:touchPoint.x,top:touchPoint.y}} aria-hidden="true"><div className="fluid-drop-art"><PlacePhoto card={dragged.card} /><MapPin /></div><strong>{dragged.card.name}</strong></div>}
       {dragged && (
         <div data-testid="drag-trash" className="soft-drag-trash" data-trash="true"
           onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }}
@@ -922,6 +957,7 @@ function DropSlot({
   rawPosition,
   active,
   dragging,
+  previewCard,
   onDragEnter,
   onDrop,
 }: {
@@ -929,6 +965,7 @@ function DropSlot({
   rawPosition: number
   active: boolean
   dragging: boolean
+  previewCard?: ActivityCardView
   onDragEnter: () => void
   onDrop: () => void
 }) {
@@ -953,7 +990,7 @@ function DropSlot({
       }}
       aria-hidden="true"
     >
-      <span className={`h-full w-1 rounded-full transition motion-reduce:transition-none ${dragging ? (active ? 'bg-emerald-600' : 'bg-emerald-200') : 'bg-transparent'}`} />
+      {active && dragging && previewCard ? <div className="fluid-drop-preview" data-testid="drop-preview"><span className="fluid-drop-art"><PlacePhoto card={previewCard} /><MapPin aria-hidden="true" /></span><strong>{previewCard.name}</strong><span>放在这里</span></div> : <span className="sr-only">落点</span>}
     </div>
   )
 }

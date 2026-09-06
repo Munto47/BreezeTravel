@@ -28,7 +28,6 @@ import RouteMap from './route-map'
 import PlaceEditor from './place-editor'
 import ContextPanel, { type ContextMode } from './context-panel'
 import ChangePreviewPanel from './change-preview-panel'
-import ChecksWorkspace from './checks-workspace'
 import GenerationStages from './generation-stages'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
@@ -187,7 +186,7 @@ export default function TripResultPage() {
       : trip.phase === 'CARDS_AVAILABLE'
         ? '行程骨架已经整理好'
         : '正在读懂这份攻略'
-  const contextOpen = context.kind !== 'timeline'
+  const contextOpen = context.kind !== 'timeline' && context.kind !== 'assumption'
 
   useEffect(() => {
     hydrate()
@@ -217,6 +216,10 @@ export default function TripResultPage() {
     return () => window.removeEventListener('beforeunload', protect)
   }, [dirty])
 
+  useEffect(() => {
+    if (context.kind === 'assumption') document.querySelector<HTMLInputElement>('[data-testid="assumption-editor-input"]')?.focus({preventScroll:true})
+  }, [context.kind, assumption?.key])
+
   function openContext(next: ContextMode) {
     if (dirty || trip.busy) return
     if (context.kind === 'timeline')
@@ -229,7 +232,7 @@ export default function TripResultPage() {
       }
     setContext(next)
     setDiscard(false)
-    if (!narrow)
+    if (!narrow && next.kind !== 'assumption')
       requestAnimationFrame(() =>
         left.current?.scrollIntoView({ block: 'start', behavior: 'instant' }),
       )
@@ -239,6 +242,7 @@ export default function TripResultPage() {
       setDiscard(true)
       return
     }
+    const closingAssumption = context.kind === 'assumption' ? context.key : null
     const closingPlace = context.kind === 'place'
     const closingDayIndex =
       closingPlace ? context.dayIndex + 1 : safeDayIndex + 1
@@ -255,7 +259,9 @@ export default function TripResultPage() {
       return
     }
     requestAnimationFrame(() => {
-      const preferred = token
+      const preferred = closingAssumption
+        ? document.querySelector<HTMLElement>(`[data-testid="edit-assumption-${closingAssumption}"]`)
+        : token
         ? editorButtons.current.get(token)
         : closingPlace
           ? document.querySelector<HTMLElement>(
@@ -498,7 +504,7 @@ export default function TripResultPage() {
 
   return (
     <main
-      className="experience e-result-page"
+      className={`experience e-result-page ${activeView === 'MAP_STAY' && !contextOpen ? 'e-map-mode' : ''}`}
       onClickCapture={(event) => {
         if (!dirty || !(event.target instanceof Element)) return
         const anchor = event.target.closest(
@@ -696,7 +702,57 @@ export default function TripResultPage() {
                   >
                     行程信息
                   </summary>
-                  <div className="e-assumptions">
+                  <div className="e-assumptions" onKeyDown={(event) => { if (event.key === 'Escape' && assumption) { event.preventDefault(); closeContext() } }}>
+                    {assumption ? <div role="dialog" aria-label={`修改${assumption.label}`} data-testid="nearby-assumption-editor">
+                                        {assumption && (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        if (assumptionValue.trim() !== assumption.value)
+                          void trip
+                            .command({
+                              command_type: 'ASSUMPTION_SET',
+                              key: assumption.key,
+                              value: assumptionValue.trim(),
+                            })
+                            .then((ok) => {
+                              if (ok) closeContext(true)
+                            })
+                      }}
+                    >
+                      <label className="e-field">
+                        {assumption.label}
+                        <input
+                          data-testid="assumption-editor-input"
+                          data-initial-focus="true"
+                          value={assumptionValue}
+                          onChange={(event) =>
+                            setAssumptionValue(event.target.value)
+                          }
+                          required
+                          maxLength={100}
+                          disabled={disabled}
+                        />
+                      </label>
+
+                      <div className="e-panel-actions">
+                        <button type="button" className="e-button" disabled={disabled} onClick={() => closeContext()}>取消</button>
+                        <button
+                          className="e-button e-button-primary"
+                          disabled={
+                            disabled ||
+                            !assumptionValue.trim() ||
+                            assumptionValue.trim() === assumption.value
+                          }
+                        >
+                          应用修改
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                      {discard && <div role="alert" className="e-inline-confirm"><p>放弃未保存的修改？</p><button type="button" className="e-button" onClick={() => setDiscard(false)}>继续编辑</button><button type="button" className="e-button" onClick={() => closeContext(true)}>放弃修改</button></div>}
+                    </div> : <>
                     {result.assumptions.map((item) => (
                       <button
                         type="button"
@@ -717,6 +773,7 @@ export default function TripResultPage() {
                         <ArrowUpRight aria-hidden="true" />
                       </button>
                     ))}
+                    </>}
                   </div>
                 </details>
               </div>
@@ -882,25 +939,13 @@ export default function TripResultPage() {
                   selected={selected}
                   routeMode={routeMode}
                   disabled={disabled || dirty}
-                  onDayChange={changeDay}
+                  onDayChange={(index) => { setDayIndex(index); setSelected(null) }}
                   onSelect={setSelected}
                   onRouteMode={setRouteMode}
                   onRender={() => void trip.renderMap()}
                   onRetryMap={() => void trip.retryMap()}
                   onSelectStay={(token) => void trip.selectStay(token)}
                   onEdit={(card) => editCard(card, safeDayIndex, 'EDIT')}
-                />
-              </div>
-              <div data-testid="result-view-checks" hidden={activeView !== 'CHECKS'}>
-                <ChecksWorkspace
-                  checks={trip.checks}
-                  mapView={displayMap}
-                  checking={trip.checking}
-                  error={trip.checksError}
-                  disabled={disabled || dirty}
-                  onRetry={() => void trip.retryChecks()}
-                  onPreview={openPreview}
-                  onLocate={locateFinding}
                 />
               </div>
             </div>
@@ -1271,8 +1316,7 @@ export default function TripResultPage() {
                   modal={
                     context.kind === 'place' ||
                     context.kind === 'privacy' ||
-                    context.kind === 'share' ||
-                    context.kind === 'assumption'
+                    context.kind === 'share'
                   }
                   closeLabel={
                     context.kind === 'place'
@@ -1372,53 +1416,6 @@ export default function TripResultPage() {
                         ),
                       )}
                     </div>
-                  )}
-                  {assumption && (
-                    <form
-                      onSubmit={(event) => {
-                        event.preventDefault()
-                        if (assumptionValue.trim() !== assumption.value)
-                          void trip
-                            .command({
-                              command_type: 'ASSUMPTION_SET',
-                              key: assumption.key,
-                              value: assumptionValue.trim(),
-                            })
-                            .then((ok) => {
-                              if (ok) closeContext(true)
-                            })
-                      }}
-                    >
-                      <label className="e-field">
-                        {assumption.label}
-                        <input
-                          data-testid="assumption-editor-input"
-                          data-initial-focus="true"
-                          value={assumptionValue}
-                          onChange={(event) =>
-                            setAssumptionValue(event.target.value)
-                          }
-                          required
-                          maxLength={100}
-                          disabled={disabled}
-                        />
-                      </label>
-                      <p className="e-muted">
-                        未明确提供的信息可以在这里调整。
-                      </p>
-                      <div className="e-panel-actions">
-                        <button
-                          className="e-button e-button-primary"
-                          disabled={
-                            disabled ||
-                            !assumptionValue.trim() ||
-                            assumptionValue.trim() === assumption.value
-                          }
-                        >
-                          应用修改
-                        </button>
-                      </div>
-                    </form>
                   )}
                   {context.kind === 'privacy' && (
                     <div>

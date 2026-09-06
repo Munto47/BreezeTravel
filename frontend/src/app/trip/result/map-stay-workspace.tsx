@@ -77,65 +77,9 @@ export default function MapStayWorkspace({
   }, [])
 
   return (
-    <section data-testid="map-theater" id="map-stay-view" aria-label="地图与住宿" className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-28 pt-6 lg:px-8 lg:pb-10 lg:pl-24">
-      <div className="min-w-0 space-y-4">
-        <header className="flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-sky-900/10 bg-white/80 p-4 backdrop-blur">
-          <div>
-<h2 className="text-lg font-semibold text-slate-800">全程地图</h2>
-            <span className="text-xs text-slate-500">{({PREPARING:'路线准备中', AVAILABLE:'路线已准备', NEEDS_UPDATE:'路线需要更新', LIMITED:'部分路线可用', UNAVAILABLE:'路线暂不可用'})[mapView?.status || result.map.status]}</span>
-          </div>
-          {canRender && (
-            <button
-              data-testid="render-map"
-              type="button"
-              disabled={disabled || mapView?.status === 'PREPARING'}
-              onClick={onRender}
-              className="inline-flex min-h-12 items-center gap-2 rounded-xl bg-[#0c789d] px-4 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] focus-visible:ring-offset-2 disabled:opacity-50"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              {mapView?.status === 'PREPARING' ? '路线准备中' : '手动更新路线'}
-            </button>
-          )}
-        </header>
-
-        {(mapUnavailable || stayUnavailable) && (
-          <div
-            data-testid="enhancement-read-recovery"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-sky-900/10 bg-sky-50/80 p-4 text-sm text-slate-700"
-          >
-            <button
-              data-testid="retry-enhancements"
-              type="button"
-              disabled={disabled}
-              onClick={onRetryMap}
-              className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-[#0c789d]/20 bg-white px-3 font-semibold text-[#0c789d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] disabled:opacity-50"
-            >
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-              {mapUnavailable && stayUnavailable
-                ? '重新读取路线与住宿'
-                : mapUnavailable
-                  ? '重新读取路线'
-                  : '重试住宿'}
-            </button>
-          </div>
-        )}
-
-        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="日期颜色与预演选择">
-          {result.days.map((day, index) => (
-            <button
-              key={`${day.label}-${index}`}
-              type="button"
-              aria-pressed={index === dayIndex}
-              onClick={() => onDayChange(index)}
-              className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${index === dayIndex ? 'bg-white text-slate-900 ring-1 ring-sky-200' : 'border border-sky-900/10 bg-white/80 text-slate-700'}`}
-            >
-<span className="mr-2 inline-block h-2.5 w-2.5 rounded-full" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative overflow-hidden rounded-[1.75rem] border border-sky-900/10 bg-white shadow-[0_24px_65px_-38px_rgba(12,120,157,0.55)]">
-          <button
+    <section data-testid="map-theater" data-map-status={mapView?.status || result.map.status} id="map-stay-view" aria-label="地图" className="fluid-map-workspace">
+      <div className="fluid-map-stage">
+                  <button
             data-testid="map-directory-toggle"
             type="button"
             aria-expanded={directoryOpen}
@@ -178,9 +122,21 @@ export default function MapStayWorkspace({
             simulationPosition={simulationPosition}
             dayColor={dayColor}
           />
-        </div>
 
-        {!!currentRoutes.length && (
+        <div className="fluid-map-actions">
+          {mapView?.status !== 'AVAILABLE' && <span className="fluid-map-status" role="status">{({PREPARING:'准备中', NEEDS_UPDATE:'路线需要更新', LIMITED:'部分路线可用', UNAVAILABLE:'路线暂不可用', AVAILABLE:''})[mapView?.status || result.map.status]}</span>}
+          {canRender && <button data-testid="render-map" type="button" className="e-button" disabled={disabled || mapView?.status === 'PREPARING'} onClick={onRender}><RefreshCw aria-hidden="true" />手动更新路线</button>}
+          {mapUnavailable && <button data-testid="retry-enhancements" type="button" className="e-button" disabled={disabled} onClick={onRetryMap}>重试路线</button>}
+        </div>
+        {selected && currentDay?.activities.some(card => card.activity_token === selected) && <button type="button" className="e-button fluid-map-edit" onClick={() => onEdit(currentDay.activities.find(card => card.activity_token === selected)!)}>编辑地点 <ArrowUpRight aria-hidden="true" /></button>}
+      </div>
+      <div className="fluid-map-bottom">
+        <div className="fluid-day-legend" aria-label="日期颜色与预演选择">
+          {result.days.map((day,index) => <button key={day.label} type="button" className="e-button e-button-quiet" aria-pressed={index === dayIndex} onClick={() => onDayChange(index)}><span className="fluid-day-dot" style={{backgroundColor:DAY_COLORS[index % DAY_COLORS.length]}} />{day.label}</button>)}
+        </div>
+        <div className="fluid-map-tools">
+          <details className="fluid-map-popover"><summary>路线</summary><div className="fluid-map-popover-content" data-testid="map-route-tools">
+                    {!!currentRoutes.length && (
           <details open={mapUnavailable || undefined} className="grid gap-2" aria-label="路线文字摘要"><summary className="min-h-11 cursor-pointer text-sm text-slate-600">路线摘要</summary>
             {currentRoutes.map((route, index) => {
               const selectedMode = routeMode === 'recommended' ? route.selected_mode : routeMode
@@ -212,7 +168,8 @@ export default function MapStayWorkspace({
           </details>
         )}
 
-        <div className="flex flex-wrap gap-2" aria-label="路线方式">
+
+                    <div className="flex flex-wrap gap-2" aria-label="路线方式">
           {(['recommended', 'walking', 'transit'] as const).map((mode) => (
             <button
               data-testid={`map-mode-${mode}`}
@@ -229,37 +186,11 @@ export default function MapStayWorkspace({
 
         <RoutePlayback active={active} view={mapView} day={currentDay} mode={routeMode} onPosition={updateSimulationPosition} />
 
-        <section className="rounded-[1.75rem] border border-sky-900/10 bg-white/85 p-4 shadow-sm" aria-label="全部日期横链">
-          <div className="flex snap-x gap-3 overflow-x-auto pb-2">
-            {result.days.flatMap((stripDay, stripDayIndex) => stripDay.activities.map((card, index) => (
-              <button
-                key={card.activity_token}
-                type="button"
-                onClick={() => selectCard(card.activity_token)}
-                className={`min-h-28 w-[min(72vw,13rem)] shrink-0 snap-start rounded-2xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0c789d] ${selected === card.activity_token ? 'border-[#0c789d] bg-sky-50' : 'border-slate-200 bg-white'}`}
-              >
-                <span className="text-xs" style={{color:DAY_COLORS[stripDayIndex % DAY_COLORS.length]}}>{stripDay.label} · {index + 1}</span>
-                <strong className="mt-2 block text-sm text-slate-900">{card.name}</strong>
-                <span className="mt-2 block text-xs text-[#0c789d]">{card.status === 'READY' ? '已确认' : '待确认'}</span>
-              </button>
-            )))}
-          </div>
-          {currentDay?.activities.find((card) => card.activity_token === selected) && (
-            <button
-              type="button"
-              className="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-[#0c789d]"
-              onClick={() => onEdit(currentDay.activities.find((card) => card.activity_token === selected)!)}
-            >
-              地点详情与编辑 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </button>
-          )}
-        </section>
-      </div>
 
-      <aside data-testid="stay-panel" className="space-y-4 lg:sticky lg:top-24" aria-label="住宿建议">
-        <details open={currentStay.candidates.length > 0 || undefined} className="rounded-[1.75rem] bg-white/90 p-5">
-          <summary className="min-h-11 cursor-pointer text-sm font-semibold text-[#0c789d]">住宿</summary>
-          <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
+          </div></details>
+          <details className="fluid-map-popover" data-testid="stay-panel"><summary>住宿</summary><div className="fluid-map-popover-content" aria-label="住宿建议">
+            {stayUnavailable && <button data-testid="retry-stay" type="button" className="e-button" disabled={disabled} onClick={onRetryMap}>重试</button>}
+                      <p className="mt-2 text-sm leading-6 text-slate-600">{currentStay.message}</p>
           {currentStay.area_summary && <p className="mt-2 rounded-xl bg-sky-50 p-3 text-sm text-slate-700">{currentStay.area_summary}</p>}
           <div className="mt-4 space-y-3">
             {currentStay.candidates.map((candidate) => (
@@ -279,8 +210,10 @@ export default function MapStayWorkspace({
               </article>
             ))}
           </div>
-        </details>
-      </aside>
+
+          </div></details>
+        </div>
+      </div>
     </section>
   )
 }
