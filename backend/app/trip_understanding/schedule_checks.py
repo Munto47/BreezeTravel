@@ -1,4 +1,6 @@
 """Schedule checks consume recorded times and fresh route evidence only."""
+from datetime import datetime, timezone
+
 from app.audit.models import AuditDependency, AuditFinding, AuditSeverity, AuditStatus, EvidenceFreshness
 from app.trip_understanding.pipeline import canonical_sha256
 from app.trip_understanding.timing import clock_minutes, shift_clock
@@ -12,21 +14,45 @@ def stop_end(stop):
     return None
 
 
-def route_minutes(fact):
-    duration = (fact.value or {}).get("selected_duration_minutes") if fact else None
-    if fact is None or fact.freshness_status != EvidenceFreshness.FRESH or type(duration) is not int or duration <= 0:
+def route_minutes(fact, now=None):
+    """A mode flag alone is never sufficient evidence of a usable duration."""
+    value = getattr(fact, "value", None)
+    if not isinstance(value, dict):
+        return None
+    duration = value.get("selected_duration_minutes")
+    mode = value.get("selected_mode")
+    observed_at = now or datetime.now(timezone.utc)
+    valid_from, valid_until = getattr(fact, "valid_from", None), getattr(fact, "valid_until", None)
+    if (
+        fact.freshness_status != EvidenceFreshness.FRESH
+        or not isinstance(mode, str) or mode not in {"walking", "transit"}
+        or value.get(mode) != "AVAILABLE"
+        or type(duration) is not int
+        or duration <= 0
+        or (valid_from is not None and (not isinstance(valid_from, datetime) or valid_from.tzinfo is None or valid_from > observed_at))
+        or not isinstance(valid_until, datetime) or valid_until.tzinfo is None or valid_until <= observed_at
+    ):
         return None
     return duration
 
 
-def propagate_delay(stops, start_index, routes, sources, inconsistent):
+def route_facts_by_edge(snapshot):
+    facts = {}
+    for fact in snapshot.facts:
+        if fact.fact_type == "ROUTE_MODE_SET":
+            # A second competing fact must not silently replace the first one.
+            facts[fact.subject_id] = None if fact.subject_id in facts else fact
+    return facts
+
+
+def propagate_delay(stops, start_index, routes, sources, inconsistent, now=None):
     """Preserve visits; consume each real gap before delaying the following stop."""
     changes, evidence = [], []
     previous_end = stop_end(stops[start_index])
     for index in range(start_index + 1, len(stops)):
         left, current = stops[index - 1], stops[index]
         fact = routes.get(f"{left.stop_id}->{current.stop_id}")
-        duration = route_minutes(fact)
+        duration = route_minutes(fact, now)
         if previous_end is None or duration is None:
             return [], evidence, "ROUTE_OR_DURATION_UNKNOWN"
         evidence.append(fact.fact_id)
@@ -55,13 +81,15 @@ def propagate_delay(stops, start_index, routes, sources, inconsistent):
 
 class ScheduleFeasibilityRule:
     rule_id = "experience.schedule_feasibility"
-    rule_version = "1.1.0"
+    rule_version = "1.2.0"
     dependencies = (AuditDependency.TIME_WINDOW, AuditDependency.ROUTE_EDGE, AuditDependency.EVIDENCE_FRESHNESS)
 
     def evaluate(self, context):
-        routes = {fact.subject_id: fact for fact in context.evidence_snapshot.facts if fact.fact_type == "ROUTE_MODE_SET"}
+        routes = route_facts_by_edge(context.evidence_snapshot)
         sources = context.revision.change_summary.get("timing_sources", {})
         findings = []
+        missing_days, missing_stops = [], []
+        now = getattr(context, "now", None)
         for day in context.revision.days:
             incomplete = []
             inconsistent = []
@@ -78,12 +106,23 @@ class ScheduleFeasibilityRule:
                     continue
                 subject = f"{left.stop_id}->{right.stop_id}"
                 fact = routes.get(subject)
-                duration = route_minutes(fact)
+                duration = route_minutes(fact, now)
                 reliable = duration is not None
                 if reliable and end + duration <= start:
                     continue
+                if not reliable and end > start:
+                    findings.append(AuditFinding(
+                        finding_id="finding_" + canonical_sha256(f"{context.revision.workspace_id}:{context.revision.revision}:{context.evidence_snapshot.snapshot_id}:{subject}:overlap")[:24],
+                        rule_id=self.rule_id, rule_version=self.rule_version,
+                        status=AuditStatus.VIOLATED, severity=AuditSeverity.HIGH,
+                        reason_code="SCHEDULE_TIME_OVERLAP",
+                        message=f"{left.raw_name}尚未结束，{right.raw_name}就已开始，两处活动的明确时间重叠。交通信息不足，暂不自动顺延。",
+                        affected_days=[day.day_index], affected_stop_ids=[left.stop_id, right.stop_id],
+                        repairable=False,
+                    ))
+                    continue
                 shift = max(0, end + duration - start) if reliable else 0
-                changes, evidence, blocked = propagate_delay(day.stops, index, routes, sources, inconsistent) if reliable else ([], [], "ROUTE_UNKNOWN")
+                changes, evidence, blocked = propagate_delay(day.stops, index, routes, sources, inconsistent, now) if reliable else ([], [], "ROUTE_UNKNOWN")
                 message = "行程时间需要补充路线后确认。"
                 if reliable:
                     earliest = end + duration
@@ -108,7 +147,10 @@ class ScheduleFeasibilityRule:
                         "shift_changes": changes, "propagation_blocked": blocked},
                     repairable=bool(changes and blocked is None),
                 ))
-            for reason, stop_ids in [("SCHEDULE_TIMES_MISSING", incomplete), ("SCHEDULE_TIMES_INCONSISTENT", inconsistent)]:
+            if incomplete:
+                missing_days.append(day.day_index)
+                missing_stops.extend(incomplete)
+            for reason, stop_ids in [("SCHEDULE_TIMES_INCONSISTENT", inconsistent)]:
                 if stop_ids:
                     findings.append(AuditFinding(
                         finding_id="finding_" + canonical_sha256(f"{context.revision.workspace_id}:{context.revision.revision}:{context.evidence_snapshot.snapshot_id}:{day.day_index}:{reason}")[:24],
@@ -116,4 +158,12 @@ class ScheduleFeasibilityRule:
                         severity=AuditSeverity.MEDIUM, reason_code=reason,
                         message="请补充或确认活动时间后，再判断当天是否来得及。",
                         affected_days=[day.day_index], affected_stop_ids=list(dict.fromkeys(stop_ids)), repairable=False))
+        if missing_stops:
+            findings.append(AuditFinding(
+                finding_id="finding_" + canonical_sha256(f"{context.revision.workspace_id}:{context.revision.revision}:{context.evidence_snapshot.snapshot_id}:missing-times")[:24],
+                rule_id=self.rule_id, rule_version=self.rule_version, status=AuditStatus.UNKNOWN,
+                severity=AuditSeverity.INFO, reason_code="SCHEDULE_TIMES_MISSING",
+                message="目前按地点先后顺序整理，未提供的活动时间和停留时长尚未核对。",
+                affected_days=missing_days, affected_stop_ids=list(dict.fromkeys(missing_stops)), repairable=False,
+            ))
         return findings

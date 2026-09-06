@@ -12,7 +12,7 @@ from uuid import uuid4
 from app.config import get_settings
 from app.db.connection import get_pool
 from app.trip_understanding.failures import safe_failure_binding
-from app.trip_understanding.candidates import verify_candidate
+from app.trip_understanding.dining import verify_command_candidate
 from app.trip_understanding.anonymous import AnonymousDailyLimitError, anonymous_day_start
 from app.trip_understanding.commands import apply_public_command
 from app.trip_understanding.demo import DEMO_SOURCE_SHA256, DEMO_SOURCE_TEXT
@@ -58,6 +58,7 @@ from app.trip_understanding.memory_share import (
 from app.trip_understanding.models import (
     ActivityTextEditCommand,
     PlaceConfirmCommand,
+    DiningInsertCommand,
     UndoCommand,
     ClaimOutcome,
     ClaimedTripView,
@@ -2508,8 +2509,9 @@ class PostgresTripUnderstandingRepository(
                 resource.understanding_id,
                 int(row["revision"]),
             )
+            stay = await self._project_stay_view(conn, resource.understanding_id, int(row["revision"]))
         return StoredResult(
-            result=result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": row["updated_at"], "is_demo": row["is_demo"]}),
+            result=result.model_copy(update={"map": readiness, "stay": stay, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": row["updated_at"], "is_demo": row["is_demo"]}),
             opaque_etag=row["opaque_etag"],
         )
 
@@ -2611,8 +2613,8 @@ class PostgresTripUnderstandingRepository(
                     raise CommandTargetChangedError("previous cards are unavailable")
                 undo_result = UserFacingTripResult.model_validate(_json_value(previous["public_json"]))
                 current = previous
-            confirmed_place = verify_candidate(command.candidate_token, public_resource_id=resource.public_resource_id,
-                activity_token=command.activity_token, expected_etag=expected_etag, now=now) if isinstance(command, PlaceConfirmCommand) else None
+            confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
+                expected_etag=expected_etag, now=now)
             mutation = apply_public_command(current_result, command, undo_result=undo_result, confirmed_place=confirmed_place)
             public_payload = mutation.result.model_dump(mode="json")
             public_hash = canonical_sha256(public_payload)
@@ -2702,7 +2704,9 @@ class PostgresTripUnderstandingRepository(
                             "external_calls": 0,
                         }
                     )
-                    is_confirmed = confirmed_place is not None and old_token == command.activity_token
+                    is_confirmed = confirmed_place is not None and (
+                        isinstance(command, PlaceConfirmCommand) and old_token == command.activity_token
+                        or isinstance(command, DiningInsertCommand) and card.activity_token == mutation.inserted_token)
                     if is_confirmed:
                         resolver_receipt = confirmed_place.receipt()
                     await conn.execute(
@@ -5619,8 +5623,9 @@ class InMemoryTripUnderstandingRepository(
             resource.understanding_id,
             int(aggregate["current_revision"]),
         )
+        stay = self._memory_stay_view(resource.understanding_id, int(aggregate["current_revision"]))
         return stored.model_copy(
-            update={"result": stored.result.model_copy(update={"map": readiness, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": aggregate["updated_at"], "is_demo": aggregate.get("is_demo", False)})}
+            update={"result": stored.result.model_copy(update={"map": readiness, "stay": stay, "ownership": resource.ownership, "expires_at": resource.expires_at, "updated_at": aggregate["updated_at"], "is_demo": aggregate.get("is_demo", False)})}
         )
 
     async def apply_command(
@@ -5657,8 +5662,8 @@ class InMemoryTripUnderstandingRepository(
             source_revision -= 1
             undo_result = next((value.result for key, value in self.results.items()
                 if self.result_owners.get(key) == resource.understanding_id and self.result_revisions.get(key) == source_revision), None)
-        confirmed_place = verify_candidate(command.candidate_token, public_resource_id=resource.public_resource_id,
-            activity_token=command.activity_token, expected_etag=expected_etag, now=now) if isinstance(command, PlaceConfirmCommand) else None
+        confirmed_place = verify_command_candidate(command, public_resource_id=resource.public_resource_id,
+            expected_etag=expected_etag, now=now)
         mutation = apply_public_command(stored.result, command, undo_result=undo_result, confirmed_place=confirmed_place)
         result_id = str(uuid4())
         opaque_etag = f"tu3_{secrets.token_urlsafe(32)}"
@@ -5681,6 +5686,9 @@ class InMemoryTripUnderstandingRepository(
         )
         previous_bindings = previous_input.get("bindings") or self._memory_g03_bindings(undo_result or stored.result)
         bindings = {new: dict(previous_bindings.get(old) or {}) for old, new in mutation.token_map.items()}
+        if isinstance(command, DiningInsertCommand) and confirmed_place is not None:
+            bindings[mutation.inserted_token] = {"canonical_place_id": confirmed_place.canonical_place_id,
+                "resolution_status": "AUTO_MATCHED", "resolver_receipt": confirmed_place.receipt()}
         if command.command_type == "ASSUMPTION_SET" and command.key == "destination":
             bindings = {token: {"canonical_place_id": None, "resolution_status": "NEEDS_CONFIRMATION", "resolver_receipt": {}} for token in bindings}
         for old, new in mutation.token_map.items():

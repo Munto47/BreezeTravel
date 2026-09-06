@@ -2,12 +2,12 @@
   "schema_version": "experience-work-packages-v1",
   "active_goal_id": "TC-DUAL-MODE-HORIZONTAL-R0",
   "active_slice": {
-    "id": "place-matching-roi",
+    "id": "itinerary-quality-foundation",
     "work_kind": "PRODUCT",
-    "outcome": "常见主地点准确匹配、减少重复查询、手动候选优先主地点",
+    "outcome": "复杂文字保真、真实通勤与未知边界、餐住建议和可操作查验",
     "status": "COMPLETED",
-    "verification": "245 targeted tests passed; live sample 17/18; 20 calls; final real browser 2/2 passed; local only"
+    "verification": "509 distinct backend tests; 12 UI cases; 24 synthetic live semantic cases; 3 separately verified real-service journeys; local production build. See ITINERARY_QUALITY_DELIVERY_20260906.md."
   },
   "packages": [],
-  "next_planned_slice": "本地实测交付；餐饮建议一项、住宿建议一项列为后续，不自动上线"
+  "next_planned_slice": "本轮本地交付完成，按所有者实际体验反馈继续；不自动上线。"
 }

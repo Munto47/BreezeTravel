@@ -22,7 +22,8 @@ from app.trip_understanding.models import (
     ActivityRole, ActivityTiming, DestinationBasis, InferenceProposal,
     ProposedMention, StrictModel,
 )
-from app.trip_understanding.pipeline import atomic_place_rejection_reason
+from app.trip_understanding.pipeline import DOMESTIC_CITY_NAMES, atomic_place_rejection_reason
+from app.trip_understanding.timing_evidence import validated_timing
 
 
 PROMPT_PATH = Path(__file__).with_name("experience_inference_prompt.md")
@@ -40,6 +41,8 @@ class SemanticActivity(ActivityTiming):
     day_index: int | None = Field(default=None, ge=1, le=14)
     category: Literal["景点", "餐饮", "住宿", "交通节点", "地点"] = "地点"
     time_evidence: str | None = Field(default=None, max_length=500)
+    city: str | None = Field(default=None, max_length=40)
+    city_evidence: str | None = Field(default=None, max_length=500)
 
 
 class SemanticDraft(StrictModel):
@@ -149,6 +152,193 @@ def _explicit_markdown_place_groups(source: str) -> tuple[tuple[str, ...], ...]:
     return tuple(groups)
 
 
+def _explicit_plain_place_groups(source: str, atomic_places: set[str]) -> tuple[tuple[str, ...], ...]:
+    """Check short literal place lists, not descriptions or arbitrary prose."""
+    # A lexical list cannot determine which historical plan survives an edit.
+    # The semantic draft may legitimately omit cancelled places altogether.
+    # Leave amended narratives to role/source validation instead of requiring
+    # every place from the obsolete list to reappear in the final draft.
+    if re.search(r"取消|更正|改到|改为|改成|恢复", source):
+        return ()
+    suffix = r"(?:博物院|博物馆|公园|景区|广场|古镇|步行街|寺|庙|湖|街)"
+    atom = rf"[\u4e00-\u9fffA-Za-z0-9]{{1,18}}{suffix}"
+
+    def strip_supported_prefix(value: str) -> str:
+        first = re.sub(r"^(?:原计划|原安排|最初计划)\s*", "", value.strip())
+        first = re.sub(
+            r"^(?:第\s*(?:\d{1,3}|[一二两三四五六七八九十]{1,3})\s*天|"
+            r"(?:Day|D)\s*\d{1,3}|\d{1,2}月\d{1,2}日)\s*[:：]?\s*", "", first, flags=re.I,
+        )
+        return re.sub(r"^(?:(?:先|再|计划|准备|打算)\s*)?(?:去|到|前往|参观|游览)\s*", "", first)
+
+    groups = []
+    for match in re.finditer(rf"(?P<body>{atom}(?:\s*[、+→]\s*{atom}){{1,7}})(?=[。；;！\n]|$)", source):
+        before = re.split(r"[。；;！\n]", source[:match.start()])[-1]
+        if re.search(r"介绍|说明|海拔|例如|比如|推荐|不去|取消|参考|附近|位于", before):
+            continue
+        # Do not recover a list by starting inside an arbitrary narrative.
+        # Only a clause boundary or an already supported explicit prefix is
+        # reliable enough for this supplementary completeness check.
+        lead = re.split(r"[，,：:]", before)[-1]
+        if strip_supported_prefix(lead).strip():
+            continue
+        parts = tuple(re.split(r"\s*[、+→]\s*", match["body"]))
+        parts = (strip_supported_prefix(parts[0]), *parts[1:])
+        # A source-bound atom surrounded by unrecognised text is a narrative
+        # phrase, not an additional POI the model must emit. Skip this group
+        # instead of growing an open-ended action-prefix dictionary.
+        if any(name != part and name in part for part in parts for name in atomic_places):
+            continue
+        if all(atomic_place_rejection_reason(part) is None for part in parts):
+            groups.append(parts)
+    return tuple(groups)
+
+
+def _validated_city(source: str, anchors: SourceAnchorIndex, item: SemanticActivity,
+                    start: int, end: int, place_spans: list[tuple[int, int]]) -> tuple[str | None, str | None, bool]:
+    if not item.city:
+        return None, None, False
+    city = item.city.strip().removesuffix("市")
+    evidence = item.city_evidence or ""
+    visible, _ = _markdown_visible(evidence)
+    if not re.fullmatch(r"[\u4e00-\u9fff]{2,10}", city) or city not in visible:
+        return None, evidence, True
+    # A locality mentioned inside a POI (e.g. 广州北京路) is not city evidence.
+    if city not in DOMESTIC_CITY_NAMES and f"{city}市" not in visible:
+        return None, evidence, True
+    occurrences = []
+    for occurrence in range(1, 161):
+        try:
+            occurrences.append(anchors.locate(evidence, occurrence))
+        except ValueError:
+            break
+    def city_offsets(name: str, left: int, right: int) -> list[int]:
+        return [left + match.start() for match in re.finditer(re.escape(name), source[left:right])
+                if not any(begin <= left + match.start() < finish for begin, finish in place_spans)
+                and not re.match(r"(?:路|街|大学|博物馆|饭店|酒店)", source[left + match.end():])]
+
+    for left, right in occurrences:
+        other_cities = [name for name in DOMESTIC_CITY_NAMES if name != city and city_offsets(name, left, right)]
+        if other_cities:
+            continue
+        if not city_offsets(city, left, right):
+            continue
+        if left <= start and end <= right:
+            return city, evidence, False
+        if right <= start and start - right <= 1500:
+            gap = source[right:start]
+            if re.search(r"第[^。\n]{1,5}天|(?:Day|D)\s*\d+|\d{1,2}月\d{1,2}日", gap, re.I):
+                continue
+            if any(name != city and city_offsets(name, right, start) for name in DOMESTIC_CITY_NAMES):
+                continue
+            # Only an isolated city heading or explicit day/destination framing
+            # may lend its city to later activities.
+            line_left = source.rfind("\n", 0, left) + 1
+            line_right = source.find("\n", right)
+            line = source[line_left:line_right if line_right >= 0 else len(source)].strip()
+            if line.strip(" ：:") == evidence.strip(" ：:") or re.search(
+                r"(?:第[^。\n]{1,5}天|(?:Day|D)\s*\d+|目的地|城市)", visible, re.I,
+            ):
+                return city, evidence, False
+    return None, evidence, True
+
+
+def _table_timing_evidence(source: str, start: int, left: int, right: int) -> str | None:
+    """Bind timing to this row's labelled columns, never another row's values."""
+    row_left = source.rfind("\n", 0, start) + 1
+    row_right = source.find("\n", start)
+    row = source[row_left:row_right if row_right >= 0 else len(source)]
+    if "|" not in row or row.strip(" |\r\t") != source[left:right].strip(" |\r\t"):
+        return None
+
+    def cells(line: str) -> list[str]:
+        return [_markdown_visible(cell.strip())[0] for cell in line.strip().strip("|").split("|")]
+
+    values = cells(row)
+    labels = {
+        "时间": "时间", "时刻": "时间", "到达时间": "时间", "到访时间": "时间", "开始时间": "时间",
+        "结束时间": "结束", "离开时间": "离开",
+        "停留": "停留", "停留时间": "停留", "停留时长": "停留",
+        "游览时长": "游览", "参观时长": "参观", "游玩时长": "游玩",
+    }
+    for line in reversed(source[:row_left].splitlines()):
+        if "|" not in line:
+            break
+        header = cells(line)
+        if len(header) != len(values):
+            break
+        if not any(cell in {"地点", "到访地点", "景点", "活动", "活动地点"} for cell in header):
+            continue
+        # Transport columns cannot contribute even when their cell contains a
+        # visit word. Column semantics take precedence over free text patterns.
+        return "；".join(f"{labels[label]}：{value}" for label, value in zip(header, values, strict=True) if label in labels)
+    return None
+
+
+def _local_timing_evidence(source: str, anchors: SourceAnchorIndex, item: SemanticActivity,
+                           draft: SemanticDraft, located: list[tuple[int, int]],
+                           start: int, end: int) -> str:
+    if not item.time_evidence:
+        return ""
+    evidence_span = None
+    for occurrence in range(1, 161):
+        try:
+            left, right = anchors.locate(item.time_evidence, occurrence)
+        except ValueError:
+            break
+        if left <= start and end <= right:
+            evidence_span = (left, right)
+            break
+    if evidence_span is None:
+        return ""
+    left = max(evidence_span[0], max(source.rfind(mark, 0, start) for mark in ("。", "；", ";", "\n")) + 1)
+    stops = [source.find(mark, end) for mark in ("。", "；", ";", "\n")]
+    right = min(evidence_span[1], min((position for position in stops if position >= 0), default=len(source)))
+    for other, (quote_start, quote_end) in zip(draft.activities, located, strict=True):
+        if not other.place_name or other.place_name not in source[quote_start:quote_end]:
+            continue
+        other_start = quote_start + source[quote_start:quote_end].index(other.place_name)
+        other_end = other_start + len(other.place_name)
+        if (other_start, other_end) == (start, end) or other_end <= left or other_start >= right:
+            continue
+        if other_end <= start:
+            separators = [position for position in range(other_end, start) if source[position] in "，,。；;\n"]
+            if not separators:
+                return ""
+            left = max(left, separators[-1] + 1)
+        elif other_start >= end:
+            separators = [position for position in range(end, other_start) if source[position] in "，,。；;\n"]
+            if not separators:
+                return ""
+            right = min(right, separators[0])
+    table_evidence = _table_timing_evidence(source, start, left, right)
+    return table_evidence if table_evidence is not None else _markdown_visible(source[left:right])[0]
+
+
+def _explicit_day_count(source: str) -> int:
+    number = r"(?:\d{1,3}|[一二两三四五六七八九十]{1,3})"
+    patterns = (
+        rf"第\s*({number})\s*天",
+        r"(?:Day|D)\s*(\d{1,3})(?!\d)",
+        rf"({number})\s*(?:日|天)(?:游|行程|旅行|攻略)",
+        rf"(?:^|[。\n])\s*(?:{'|'.join(DOMESTIC_CITY_NAMES)})\s*({number})\s*(?:日|天)(?=[，,。；;\s]|$)",
+    )
+    digits = {char: value for value, char in enumerate("零一二三四五六七八九")}
+    digits["两"] = 2
+    counts = []
+    for pattern in patterns:
+        for match in re.finditer(pattern, source, re.I):
+            raw = match.group(1)
+            if raw.isdigit():
+                counts.append(int(raw))
+            elif "十" in raw and raw.count("十") == 1:
+                left, right = raw.split("十")
+                counts.append(digits.get(left, 1) * 10 + digits.get(right, 0))
+            elif raw in digits:
+                counts.append(digits[raw])
+    return max(counts, default=0)
+
+
 def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
     anchors = SourceAnchorIndex(source)
     issues: list[dict[str, object]] = []
@@ -159,7 +349,8 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         if item.place_name and item.place_name.strip()
         and not re.search(r"\+|、|，|,|/|／", item.place_name)
     }
-    for group_index, group in enumerate(_explicit_markdown_place_groups(source)):
+    groups = _explicit_markdown_place_groups(source) + _explicit_plain_place_groups(anchors.visible, proposed_atomic)
+    for group_index, group in enumerate(groups):
         if not set(group).issubset(proposed_atomic):
             issues.append({
                 "field": f"activities.parallel_group[{group_index}]",
@@ -222,10 +413,16 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
                 )})
     if issues:
         raise SourceAnchorValidationError(issues)
+    place_spans = [
+        (start + source[start:end].index(item.place_name), start + source[start:end].index(item.place_name) + len(item.place_name))
+        for item, (start, end) in zip(draft.activities, located, strict=True)
+        if item.place_name and item.place_name in source[start:end]
+    ]
     mentions: list[ProposedMention] = []
     seen: set[tuple[int, int, ActivityRole, int | None]] = set()
     sequences: dict[int, int] = {}
     unprocessed = len(draft.unprocessed_quotes)
+    seen_places: set[tuple[str, int | None]] = set()
     for item, (start, end) in zip(draft.activities, located, strict=True):
         place = item.place_name.strip() if item.place_name else None
         if place is not None:
@@ -241,18 +438,26 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
         if item.role == ActivityRole.PLANNED and day is None:
             day = 1
             unprocessed += 1
+        if place and item.role == ActivityRole.PLANNED and (place, day) in seen_places:
+            line_start = max(source.rfind(mark, 0, start) for mark in ("\n", "。", "；", ";")) + 1
+            prefix = source[line_start:start]
+            if re.match(r"\s*(?:[-•●]\s*)?(?:说明|介绍|海拔高度|海拔表)\s*[:：]", prefix):
+                # A labelled descriptive repeat is retained internally as a
+                # reference; actual repeat visits elsewhere remain untouched.
+                item = item.model_copy(update={"role": ActivityRole.REFERENCE})
+                unprocessed += 1
         signature = (start, end, item.role, day)
         if signature in seen:
             continue
         seen.add(signature)
-        timing = item.model_dump(include=set(ActivityTiming.model_fields))
-        has_timing = any(timing.get(key) is not None for key in (
-            "start_time", "end_time", "visit_duration_minutes",
-        ))
-        if has_timing:
-            timing["timing_source"] = "TEXT"
-        else:
-            timing["timing_source"] = "UNSPECIFIED"
+        if place and item.role == ActivityRole.PLANNED:
+            seen_places.add((place, day))
+        timing, timing_removed = validated_timing(
+            item.model_dump(include=set(ActivityTiming.model_fields)),
+            _local_timing_evidence(source, anchors, item, draft, located, start, end),
+        )
+        city, city_evidence, city_removed = _validated_city(source, anchors, item, start, end, place_spans)
+        unprocessed += int(timing_removed) + int(city_removed)
         group = day or 0
         sequence = sequences.get(group, 0)
         sequences[group] = sequence + 1
@@ -263,20 +468,24 @@ def proposal_from_draft(source: str, draft: SemanticDraft) -> InferenceProposal:
             raw_text=source[start:end], span_start=start, span_end=end,
             role=item.role, day_index=day, sequence_index=sequence,
             atomic_place_name=place, category_hint=item.category,
-            time_hint=hint, **timing,
+            time_hint=hint, city_hint=city, city_evidence=city_evidence, **timing,
         ))
     labels: dict[int, str] = {}
     for index, label in enumerate(draft.day_labels, 1):
-        if label and label in source and re.fullmatch(r"[\d年月日号./\-一二三四五六七八九十星期周\s]+", label):
+        if label and label in source and label.strip() not in labels.values() and re.fullmatch(r"[\d年月日号./\-一二三四五六七八九十星期周\s]+", label):
             labels[index] = label.strip()
         elif label:
             unprocessed += 1
+    supported_days = max(_explicit_day_count(anchors.visible), max(labels, default=0),
+                         max((mention.day_index or 0 for mention in mentions), default=0), 1)
+    if len(draft.day_labels) > supported_days or supported_days > 14:
+        unprocessed += 1
     return InferenceProposal(
         source_hash=hashlib.sha256(source.encode()).hexdigest(),
         destination_name=draft.destination,
         destination_basis=(DestinationBasis.EXPLICIT if draft.destination in source
                            else DestinationBasis.SOFT_ASSUMPTION),
-        day_labels=labels, unprocessed_count=unprocessed,
+        day_labels=labels, day_count=min(supported_days, 14), unprocessed_count=unprocessed,
         mentions=mentions, binding={"semantic_policy": SEMANTIC_POLICY},
     )
 

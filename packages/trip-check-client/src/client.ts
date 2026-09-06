@@ -13,6 +13,7 @@ import type {
   PublicChangePreview,
   PublicTripChecksView,
   PlaceCandidatesView,
+  DiningCandidatesView,
   StaySelectionAppliedView,
   StaySuggestionView,
   TripUnderstandingAcceptedView,
@@ -189,6 +190,17 @@ export class TripCheckClient {
         { activity_token: activityToken, query },
       )
     ).data
+  }
+
+  async queryTripDiningCandidates(
+    publicResourceId: string,
+    activityToken: string,
+  ): Promise<TransportResponse<DiningCandidatesView>> {
+    return this.json<DiningCandidatesView>(
+      'POST',
+      `/api/v3/trip-understandings/${encodeURIComponent(publicResourceId)}/dining-candidates`,
+      { activity_token: activityToken },
+    )
   }
 
   async requestTripUnderstandingMap(

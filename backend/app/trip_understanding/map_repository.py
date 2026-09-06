@@ -124,7 +124,7 @@ def _plan_for_result(
                     name=card.name,
                     canonical_place_id=canonical_place_id,
                     resolution_status=resolution_status,
-                    city=city,
+                    city=str(resolver_receipt.get("city") or card.city or city or "") or None,
                     longitude=longitude,
                     latitude=latitude,
                 )
@@ -189,6 +189,9 @@ def plan_with_stay_anchor(
     latitude: float,
     overnight_days: list[int],
 ) -> MapRenderPlan:
+    cities = {stop.city.strip().removesuffix("市") for stop in plan.stops if stop.city}
+    if len(cities) != 1 or selected_city.strip().removesuffix("市") not in cities:
+        return plan
     by_day: dict[int, list[MapStop]] = defaultdict(list)
     for stop in sorted(plan.stops, key=lambda item: (item.day_index, item.sequence_index)):
         by_day[stop.day_index].append(stop)
@@ -290,6 +293,10 @@ def _edge_message(selected_mode: str | None, walking: Any | None, transit: Any |
 
 
 class MapRenderRepository(Protocol):
+    async def get_current_place_plan(
+        self, resource: PublicResourceRecord,
+    ) -> tuple[MapRenderPlan, str]: ...
+
     async def get_map_view(
         self,
         resource: PublicResourceRecord,
@@ -343,6 +350,17 @@ class MapRenderRepository(Protocol):
 
 
 class PostgresMapRenderRepositoryMixin:
+    async def get_current_place_plan(self, resource: PublicResourceRecord) -> tuple[MapRenderPlan, str]:
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""SELECT u.current_revision, r.opaque_etag
+                FROM trip_understandings u JOIN trip_understanding_results r ON r.result_id=u.current_result_id
+                WHERE u.understanding_id=$1 AND u.public_resource_id=$2 AND u.state <> 'DELETED'""",
+                resource.understanding_id, resource.public_resource_id)
+            if row is None:
+                raise ResourceNotReadyError("trip cards are not available")
+            return await self._read_map_plan(conn, resource.understanding_id, int(row["current_revision"])), row["opaque_etag"]
+
     def _get_geometry_cache(self):
         cache = getattr(self, "_geometry_cache", None)
         if cache is None:
@@ -1141,6 +1159,15 @@ class PostgresMapRenderRepositoryMixin:
 
 
 class InMemoryMapRenderRepositoryMixin:
+    async def get_current_place_plan(self, resource: PublicResourceRecord) -> tuple[MapRenderPlan, str]:
+        aggregate = self.resources.get(resource.public_resource_id)
+        if not aggregate or aggregate["understanding_id"] != resource.understanding_id or aggregate["state"] == "DELETED":
+            raise ResourceNotReadyError("trip cards are not available")
+        stored = self.results.get(aggregate["current_result_id"] or "")
+        if stored is None:
+            raise ResourceNotReadyError("trip cards are not available")
+        return self._memory_plan(resource.understanding_id, int(aggregate["current_revision"])), stored.opaque_etag
+
     def _init_map_store(self) -> None:
         self.map_jobs: dict[str, dict[str, Any]] = {}
         self.map_jobs_by_logical_key: dict[str, str] = {}

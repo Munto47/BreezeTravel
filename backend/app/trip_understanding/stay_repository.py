@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 from uuid import uuid4
 
@@ -35,7 +35,11 @@ from app.trip_understanding.stay import (
     StayRecommendationJobRecord,
     StayRecommendationOutput,
     StayRecommendationPlan,
+    StayCommuteAssessment,
+    assess_stay_commute,
+    load_stay_commute_assessment,
     stay_plan_from_map,
+    stay_plan_spans_cities,
 )
 
 
@@ -47,14 +51,20 @@ def _sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _candidate_view(row: Any, *, selected: bool = False) -> StayCandidateView:
-    missing = int(row["missing_leg_count"])
-    maximum = int(row["max_single_leg_minutes"])
-    transfers = int(row["transfer_count"])
+def _multicity_stay_view() -> StaySuggestionView:
+    return StaySuggestionView(status="LIMITED", message="跨城行程请按过夜城市分别选择住宿")
+
+
+def _candidate_view(row: Any, *, selected: bool = False, assessment: StayCommuteAssessment | None = None) -> StayCandidateView:
+    # Never reuse the historical maximum: older rows mixed missing-leg score
+    # penalties into this number. Only recorded route legs can recover minutes.
+    missing = assessment.missing_leg_count if assessment else max(1, int(row["missing_leg_count"]))
+    maximum = assessment.maximum_minutes if assessment else None
+    transfers = assessment.transfer_count if assessment else 0
     base_reason = (
         "已作为所有过夜日的住宿"
         if selected
-        else f"综合全程往返和换乘后排在前列，共 {transfers} 次换乘"
+        else (f"综合已核对的往返和换乘后排在前列，共 {transfers} 次换乘" if not missing else "地点可作为住宿候选，部分通勤路线仍需确认")
     )
     route_limit = f"；有 {missing} 段路线暂时无法完整比较" if missing else ""
     return StayCandidateView(
@@ -63,7 +73,10 @@ def _candidate_view(row: Any, *, selected: bool = False) -> StayCandidateView:
         brand=row["brand"],
         category="住宿",
         area_or_address=row["area_or_address"],
-        commute_summary=f"全程首末站通勤中，最久一程约 {maximum} 分钟",
+        commute_summary=(
+            "住宿往返路线尚未得到有效核对" if maximum is None
+            else f"{'已核对的路段中' if missing else '全程首末站通勤中'}，最久一程约 {maximum} 分钟"
+        ),
         max_single_leg_minutes=maximum,
         transfer_count=transfers,
         reason=f"{base_reason}{route_limit}",
@@ -223,9 +236,11 @@ class PostgresStayRecommendationRepositoryMixin:
             """,
             snapshot["snapshot_id"],
         )
-        candidates = [_candidate_view(row) for row in rows]
+        assessments = [await load_stay_commute_assessment(conn, row["candidate_id"],
+            now=datetime.now(timezone.utc), expected_missing=int(row["missing_leg_count"])) for row in rows]
+        candidates = [_candidate_view(row, assessment=assessment) for row, assessment in zip(rows, assessments)]
         scopes = _json(snapshot["searched_scopes_json"])
-        if snapshot["status"] == "READY":
+        if snapshot["status"] == "READY" and assessments and all(item.complete for item in assessments):
             return StaySuggestionView(
                 status="AVAILABLE",
                 message="已按全程首末站通勤准备住宿候选",
@@ -261,7 +276,8 @@ class PostgresStayRecommendationRepositoryMixin:
             status="AVAILABLE",
             message=f"整程住宿已选择：{selection['selected_name']}",
             area_summary=selection["selected_address"],
-            candidates=[_candidate_view(candidate, selected=True)],
+            candidates=[_candidate_view(candidate, selected=True, assessment=await load_stay_commute_assessment(
+                conn, candidate["candidate_id"], now=datetime.now(timezone.utc), expected_missing=int(candidate["missing_leg_count"])))],
         )
 
     async def _project_stay_view(
@@ -270,6 +286,12 @@ class PostgresStayRecommendationRepositoryMixin:
         understanding_id: str,
         revision: int,
     ) -> StaySuggestionView:
+        try:
+            map_plan = await self._read_map_plan(conn, understanding_id, revision)
+        except ResourceNotReadyError:
+            map_plan = None
+        if map_plan is not None and stay_plan_spans_cities(map_plan):
+            return _multicity_stay_view()
         current_ref = await conn.fetchrow(
             """
             SELECT * FROM trip_plan_revision_refs
@@ -664,6 +686,8 @@ class PostgresStayRecommendationRepositoryMixin:
         if source is None:
             return
         base_plan = await self._read_map_plan(conn, understanding_id, target_revision)
+        if stay_plan_spans_cities(base_plan):
+            return
         selected_plan = plan_with_stay_anchor(
             base_plan,
             selected_place_id=source["selected_place_id"],
@@ -736,6 +760,9 @@ class PostgresStayRecommendationRepositoryMixin:
                 raise ResourceGoneError("trip resource is no longer available")
             if aggregate["public_resource_id"] != resource.public_resource_id:
                 raise ResourceAccessDeniedError("trip resource binding changed")
+            source_plan = await self._read_map_plan(conn, resource.understanding_id, int(aggregate["current_revision"]))
+            if stay_plan_spans_cities(source_plan):
+                raise ResourceNotReadyError("a single stay cannot be applied across cities")
             claimed = await conn.fetchval(
                 """
                 INSERT INTO trip_understanding_idempotency_records (
@@ -805,12 +832,12 @@ class PostgresStayRecommendationRepositoryMixin:
             )
             if source_ref is None or candidate is None or candidate["plan_ref_id"] != source_ref["plan_ref_id"]:
                 raise ResourceNotReadyError("stay candidate is no longer current")
-            source_plan = await self._read_map_plan(conn, resource.understanding_id, parent_revision)
             stay_plan = stay_plan_from_map(source_plan)
             if stay_plan is None:
                 raise ResourceNotReadyError("stay plan is no longer available")
             current_result = UserFacingTripResult.model_validate(_json(current["public_json"]))
-            selected_view = _candidate_view(candidate, selected=True)
+            selected_view = _candidate_view(candidate, selected=True, assessment=await load_stay_commute_assessment(
+                conn, candidate["candidate_id"], now=now, expected_missing=int(candidate["missing_leg_count"])))
             next_result = current_result.model_copy(
                 update={
                     "stay": StaySuggestionView(
@@ -1050,16 +1077,29 @@ class InMemoryStayRecommendationRepositoryMixin:
             "transfer_count": scored.transfer_count,
             "missing_leg_count": scored.missing_leg_count,
         }
-        return _candidate_view(row, selected=selected)
+        assessment = assess_stay_commute(scored.legs, now=datetime.now(timezone.utc), expected_missing=scored.missing_leg_count)
+        return _candidate_view(row, selected=selected, assessment=assessment)
 
     def _memory_stay_view(self, understanding_id: str, revision: int) -> StaySuggestionView:
+        try:
+            map_plan = self._memory_plan(understanding_id, revision)
+        except ResourceNotReadyError:
+            map_plan = None
+        if map_plan is not None and stay_plan_spans_cities(map_plan):
+            return _multicity_stay_view()
         selection = self.stay_selections.get((understanding_id, revision))
         if selection is not None:
+            scored = selection.get("scored")
+            selected_view = (self._memory_stay_candidate_view(
+                {"tokens": {scored.candidate.canonical_place_id: selection["view"].candidate_token}}, scored, selected=True)
+                if scored is not None else selection["view"].model_copy(update={
+                    "max_single_leg_minutes": None, "transfer_count": 0,
+                    "commute_summary": "住宿往返路线尚未得到有效核对", "reason": "住宿选择已保留，通勤路线仍需确认"}))
             return StaySuggestionView(
                 status="AVAILABLE",
                 message=f"整程住宿已选择：{selection['view'].name}",
                 area_summary=selection["view"].area_or_address,
-                candidates=[selection["view"]],
+                candidates=[selected_view],
             )
         matching = [
             item
@@ -1074,7 +1114,9 @@ class InMemoryStayRecommendationRepositoryMixin:
             output = item["output"]
             if output is not None:
                 views = [self._memory_stay_candidate_view(item, scored) for scored in output.candidates[:3]]
-                if output.status == "READY":
+                complete = all(assess_stay_commute(scored.legs, now=datetime.now(timezone.utc),
+                    expected_missing=scored.missing_leg_count).complete for scored in output.candidates[:3])
+                if output.status == "READY" and views and complete:
                     return StaySuggestionView(
                         status="AVAILABLE",
                         message="已按全程首末站通勤准备住宿候选",
@@ -1184,6 +1226,8 @@ class InMemoryStayRecommendationRepositoryMixin:
         item = self.stay_jobs.get(job.stay_job_id)
         if item is None or item["plan"].plan_ref != job.plan_ref:
             raise ResourceNotFoundError("stay recommendation plan does not exist")
+        if stay_plan_spans_cities(self._memory_plan(job.understanding_id, job.plan_ref.revision)):
+            raise ResourceNotReadyError("a single stay cannot be applied across cities")
         return item["plan"]
 
     async def complete_stay_job(
@@ -1262,7 +1306,7 @@ class InMemoryStayRecommendationRepositoryMixin:
         target_revision: int,
     ) -> None:
         source = self.stay_selections.get((understanding_id, source_revision))
-        if source is not None:
+        if source is not None and not stay_plan_spans_cities(self._memory_plan(understanding_id, target_revision)):
             self.stay_selections[(understanding_id, target_revision)] = dict(source)
 
     async def select_stay(
@@ -1276,6 +1320,11 @@ class InMemoryStayRecommendationRepositoryMixin:
         now: datetime,
     ) -> StaySelectionOutcome:
         del now
+        public_id = self.resources_by_understanding[resource.understanding_id]
+        aggregate = self.resources[public_id]
+        revision = int(aggregate["current_revision"])
+        if stay_plan_spans_cities(self._memory_plan(resource.understanding_id, revision)):
+            raise ResourceNotReadyError("a single stay cannot be applied across cities")
         scope = f"understanding:{resource.understanding_id}:stay-selection"
         key = (scope, _sha256_text(idempotency_key))
         existing = self.stay_selection_idempotency.get(key)
@@ -1283,14 +1332,11 @@ class InMemoryStayRecommendationRepositoryMixin:
             if existing[0] != request_hash:
                 raise IdempotencyConflictError("stay selection idempotency key was reused")
             return existing[1].model_copy(update={"replayed": True})
-        public_id = self.resources_by_understanding[resource.understanding_id]
-        aggregate = self.resources[public_id]
         stored = self.results.get(aggregate["current_result_id"] or "")
         if stored is None:
             raise ResourceNotReadyError("trip cards are not ready for stay selection")
         if not hmac.compare_digest(stored.opaque_etag, expected_etag):
             raise RevisionConflictError("stay selection precondition does not match current result")
-        revision = int(aggregate["current_revision"])
         job = next(
             (
                 item
@@ -1339,6 +1385,7 @@ class InMemoryStayRecommendationRepositoryMixin:
         )
         self.stay_selections[(resource.understanding_id, target_revision)] = {
             "view": selected_view,
+            "scored": scored,
             "overnight_days": job["plan"].overnight_days,
             "selected_place_id": scored.candidate.canonical_place_id,
             "selected_name": scored.candidate.name,

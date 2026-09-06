@@ -9,6 +9,7 @@ from app.trip_understanding.models import (
     ActivityCardView,
     ActivityDeleteCommand,
     ActivityInsertCommand,
+    DiningInsertCommand,
     ActivityMoveCommand,
     ActivityTextEditCommand,
     ActivityTimeSetCommand,
@@ -24,6 +25,7 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.timing import ActivityTiming, TIMING_FIELDS, clock_minutes, shift_clock, timing_values
+from app.trip_understanding.pipeline import atomic_place_rejection_reason
 
 
 @dataclass(frozen=True)
@@ -142,16 +144,32 @@ def apply_public_command(
         card.name = confirmed_place.name
         card.category = confirmed_place.category
         card.area_or_address = confirmed_place.area_or_address
+        card.city = confirmed_place.city
         card.photo_url = None
         card.status = "READY"
         card.knowledge_suggestions = []
         changed.add(result.days[day_index].label)
+    elif isinstance(command, DiningInsertCommand):
+        if confirmed_place is None or confirmed_place.category != "餐饮" or atomic_place_rejection_reason(confirmed_place.name):
+            raise CommandTargetChangedError("a verified dining selection is required")
+        day_index, position, anchor = _find_card(result.days, command.after_activity_token)
+        if anchor.status != "READY" or (anchor.city and anchor.city != confirmed_place.city):
+            raise CommandTargetChangedError("dining anchor needs confirmation")
+        day = result.days[day_index]
+        if any(card.name == confirmed_place.name and card.area_or_address == confirmed_place.area_or_address for card in day.activities):
+            raise CommandTargetChangedError("dining place is already in this day")
+        inserted_card = ActivityCardView(activity_token=token_factory(), name=confirmed_place.name,
+            category="餐饮", area_or_address=confirmed_place.area_or_address, city=confirmed_place.city,
+            status="READY", available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"])
+        day.activities.insert(position + 1, inserted_card)
+        changed.add(day.label)
     elif isinstance(command, ActivityInsertCommand):
         _ensure_day(result.days, command.day_index)
         day = result.days[command.day_index - 1]
         inserted_card = ActivityCardView(
             activity_token=token_factory(),
             name=command.name,
+            city=command.city,
             category=command.category,
             area_or_address=command.area_or_address,
             time_hint=command.time_hint,
@@ -208,6 +226,7 @@ def apply_public_command(
                     card.status = "NEEDS_CONFIRMATION"
                     card.area_or_address = "地点待确认"
                     card.photo_url = None
+                    card.city = None
                     card.knowledge_suggestions = []
         changed.update(day.label for day in result.days)
 

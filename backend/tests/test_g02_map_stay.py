@@ -366,12 +366,13 @@ def test_g02_public_map_stay_selection_and_stale_journey() -> None:
         asyncio.run(TripUnderstandingWorker(repository).run_once("g02-understanding"))
         initial = client.get(f"/api/v3/trip-understandings/{resource_id}/result")
         assert initial.status_code == 200
-        assert initial.json()["stay"]["status"] == "UNAVAILABLE"
+        assert initial.json()["stay"]["status"] == "PREPARING"
         preparing_stay = client.get(
             f"/api/v3/trip-understandings/{resource_id}/stay-suggestions"
         )
         assert preparing_stay.status_code == 200
         assert preparing_stay.json()["status"] == "PREPARING"
+        assert initial.json()["stay"] == preparing_stay.json()
         initial_etag = initial.headers["etag"]
 
         worker = MapRenderWorker(repository)

@@ -101,6 +101,7 @@ FORBIDDEN_PUBLIC_KEYS = {
     "stage",
 }
 PUBLIC_RESULT_ALLOWED_KEYS = {
+    "city", "alternatives",
     "activity_token",
     "activities",
     "area_or_address",

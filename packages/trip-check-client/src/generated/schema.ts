@@ -461,6 +461,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v3/trip-understandings/{public_resource_id}/dining-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Find Dining Candidates */
+        post: operations["find_dining_candidates_api_v3_trip_understandings__public_resource_id__dining_candidates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v3/trip-understandings/{public_resource_id}/events": {
         parameters: {
             query?: never;
@@ -730,6 +747,15 @@ export interface components {
             /** Next Cursor */
             next_cursor?: string | null;
         };
+        /** ActivityAlternativeView */
+        ActivityAlternativeView: {
+            /** Category */
+            category: string;
+            /** City */
+            city?: string | null;
+            /** Name */
+            name: string;
+        };
         /** ActivityCardView */
         ActivityCardView: {
             /** Activity Token */
@@ -740,6 +766,8 @@ export interface components {
             available_actions: ("VIEW_DETAILS" | "REPLACE" | "DELETE" | "MOVE")[];
             /** Category */
             category: string;
+            /** City */
+            city?: string | null;
             /** End Time */
             end_time?: string | null;
             /**
@@ -798,6 +826,8 @@ export interface components {
              * @default 地点
              */
             category: string;
+            /** City */
+            city?: string | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1082,6 +1112,49 @@ export interface components {
              * @default false
              */
             training_eval_enabled: boolean;
+        };
+        /** DiningCandidateView */
+        DiningCandidateView: {
+            /** Area Or Address */
+            area_or_address: string;
+            /** Candidate Token */
+            candidate_token: string;
+            /** Category */
+            category: string;
+            /** Name */
+            name: string;
+            position: components["schemas"]["GCJ02Position"];
+            /** Reason */
+            reason: string;
+        };
+        /** DiningCandidatesView */
+        DiningCandidatesView: {
+            /** Candidates */
+            candidates?: components["schemas"]["DiningCandidateView"][];
+            /** Message */
+            message: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AVAILABLE" | "EMPTY" | "UNAVAILABLE" | "NEEDS_CONFIRMATION";
+        };
+        /** DiningInsertCommand */
+        DiningInsertCommand: {
+            /** After Activity Token */
+            after_activity_token: string;
+            /** Candidate Token */
+            candidate_token: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            command_type: "DINING_INSERT";
+        };
+        /** DiningSearchRequest */
+        DiningSearchRequest: {
+            /** Activity Token */
+            activity_token: string;
         };
         /** EmailLoginRequest */
         EmailLoginRequest: {
@@ -1570,7 +1643,7 @@ export interface components {
             /** Commute Summary */
             commute_summary: string;
             /** Max Single Leg Minutes */
-            max_single_leg_minutes: number;
+            max_single_leg_minutes?: number | null;
             /** Name */
             name: string;
             /** Reason */
@@ -1685,6 +1758,8 @@ export interface components {
         TripDayView: {
             /** Activities */
             activities: components["schemas"]["ActivityCardView"][];
+            /** Alternatives */
+            alternatives?: components["schemas"]["ActivityAlternativeView"][];
             /** Label */
             label: string;
         };
@@ -2779,7 +2854,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["PlaceConfirmCommand"] | components["schemas"]["ActivityTimeSetCommand"] | components["schemas"]["ActivityTimesShiftCommand"] | components["schemas"]["ActivityTimesApplyCommand"] | components["schemas"]["UndoCommand"] | components["schemas"]["AssumptionSetCommand"];
+                "application/json": components["schemas"]["ActivityInsertCommand"] | components["schemas"]["DiningInsertCommand"] | components["schemas"]["ActivityDeleteCommand"] | components["schemas"]["ActivityMoveCommand"] | components["schemas"]["ActivityTextEditCommand"] | components["schemas"]["PlaceReplaceCommand"] | components["schemas"]["PlaceConfirmCommand"] | components["schemas"]["ActivityTimeSetCommand"] | components["schemas"]["ActivityTimesShiftCommand"] | components["schemas"]["ActivityTimesApplyCommand"] | components["schemas"]["UndoCommand"] | components["schemas"]["AssumptionSetCommand"];
             };
         };
         responses: {
@@ -2790,6 +2865,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CommandAppliedView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_dining_candidates_api_v3_trip_understandings__public_resource_id__dining_candidates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string;
+            };
+            path: {
+                public_resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiningSearchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiningCandidatesView"];
                 };
             };
             /** @description Validation Error */

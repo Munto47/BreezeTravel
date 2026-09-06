@@ -1,5 +1,11 @@
 export type DemoCreateRequest = { mode: 'DEMO' }
 
+export interface DiningCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
+  message: string
+  candidates: Array<PlaceCandidatesView['candidates'][number] & { reason: string }>
+}
+
 export interface PlaceCandidatesView {
   status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE'
   candidates: Array<{
@@ -47,6 +53,7 @@ export interface TripUnderstandingCancelView {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -71,6 +78,7 @@ export type TripUnderstandingCommand =
     }
   | {
       command_type: 'ACTIVITY_INSERT'
+      city?: string | null
       day_index: number
       position: number
       name: string
@@ -129,6 +137,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  city?: string | null
   photo_url?: string | null
   start_time?: string | null
   end_time?: string | null
@@ -149,6 +158,7 @@ export interface ActivityCardView {
 export interface TripDayView {
   label: string
   activities: ActivityCardView[]
+  alternatives?: Array<{ name: string; category: string; city?: string | null }>
 }
 
 export interface UserFacingTripResult {
@@ -187,7 +197,7 @@ export interface UserFacingTripResult {
       category: string
       area_or_address: string
       commute_summary: string
-      max_single_leg_minutes: number
+      max_single_leg_minutes: number | null
       transfer_count: number
       reason: string
       available_actions: Array<'CHOOSE_STAY'>

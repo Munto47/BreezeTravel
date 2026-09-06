@@ -24,8 +24,9 @@ def context_for(windows, routes, *, locked=(), suggested=()):
         locked=index in locked, fixed_commitment=False)
         for index, (start, end, duration) in enumerate(windows)]
     facts = [SimpleNamespace(fact_id=f"route-{index}", fact_type="ROUTE_MODE_SET",
-        subject_id=f"stop-{index}->stop-{index+1}", value={"selected_duration_minutes": duration},
-        freshness_status=EvidenceFreshness.FRESH, valid_until=None) for index, duration in enumerate(routes) if duration is not None]
+        subject_id=f"stop-{index}->stop-{index+1}", value={"selected_duration_minutes": duration,
+            "selected_mode": "walking", "walking": "AVAILABLE", "transit": "AVAILABLE"},
+        freshness_status=EvidenceFreshness.FRESH, valid_until=datetime.now(timezone.utc) + timedelta(hours=1)) for index, duration in enumerate(routes) if duration is not None]
     return SimpleNamespace(revision=SimpleNamespace(workspace_id="test", revision=1,
         change_summary={"timing_sources": {f"stop-{index}": "SUGGESTED" for index in suggested}},
         days=[SimpleNamespace(day_index=0, stops=stops)]),

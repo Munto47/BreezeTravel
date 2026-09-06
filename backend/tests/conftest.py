@@ -11,6 +11,7 @@ import pytest
 os.environ["RUNTIME_PROFILE"] = "test"
 os.environ["DEMO_MODE"] = "true"
 os.environ["AMAP_MOCK"] = "true"
+os.environ["TRIP_UNDERSTANDING_PROVIDER_MODE"] = "fixture"
 os.environ["REQUIRE_SCHEMA_CHECK"] = "false"
 os.environ["FT_ROUTER_ENABLED"] = "false"
 os.environ["PLACE_META_LOOKUP_ENABLED"] = "false"

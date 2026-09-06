@@ -152,11 +152,15 @@ class MapRenderWorker:
             await asyncio.gather(operation_task, heartbeat_task, return_exceptions=True)
 
     async def run_once(self, worker_id: str, *, now: datetime | None = None) -> bool:
+        # Windows monotonic() can advance in coarse ticks; short provider calls
+        # still need an accurate elapsed clock for freshness and lease checks.
+        operation_started = time.perf_counter()
         observed_at = now or datetime.now(timezone.utc)
-        monotonic_started = time.monotonic()
 
         def operation_now() -> datetime:
-            return observed_at + timedelta(seconds=time.monotonic() - monotonic_started)
+            if now is None:
+                return datetime.now(timezone.utc)
+            return observed_at + timedelta(seconds=time.perf_counter() - operation_started)
 
         job = await self.repository.claim_next_map(
             worker_id=worker_id,
@@ -218,7 +222,7 @@ class MapRenderWorker:
                 )
                 return await engine.recommend(
                     plan,
-                    observed_at=operation_now(),
+                    observed_at=operation_now() if now is not None else None,
                 )
 
             output = await self._run_stay_with_heartbeat(

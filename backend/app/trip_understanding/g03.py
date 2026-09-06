@@ -39,8 +39,8 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
-from app.trip_understanding.schedule_checks import ScheduleFeasibilityRule
-from app.trip_understanding.timing import ActivityTiming, shift_clock, timing_values
+from app.trip_understanding.schedule_checks import ScheduleFeasibilityRule, route_facts_by_edge, route_minutes
+from app.trip_understanding.timing import ActivityTiming, clock_minutes, shift_clock, timing_values
 
 
 G03_EVIDENCE_POLICY_VERSION = "g03-evidence-v1"
@@ -296,7 +296,7 @@ class PlaceReadinessRule:
 
 class MealBreakRule:
     rule_id = "g03.meal_break"
-    rule_version = "1.0.0"
+    rule_version = "1.1.0"
     dependencies = (AuditDependency.DAY_ORDER,)
 
     def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
@@ -304,7 +304,16 @@ class MealBreakRule:
         for day in context.revision.days:
             if len(day.stops) < 2:
                 continue
-            has_meal = any(stop.category in {"meal_break", "dining"} for stop in day.stops)
+            # A breakfast or coffee does not cover a later full day of visits.
+            known_ends = [clock_minutes(stop.end_time) for stop in day.stops]
+            if all(value is not None and value <= 11 * 60 + 30 for value in known_ends):
+                continue
+            has_meal = any(
+                stop.category in {"meal_break", "dining"}
+                and not re.search(r"早餐|早饭|早點|早点|咖啡|下午茶|奶茶", stop.raw_name or "")
+                and (stop.start_time is None or clock_minutes(stop.start_time) >= 11 * 60)
+                for stop in day.stops
+            )
             if not has_meal:
                 findings.append(
                     AuditFinding(
@@ -346,29 +355,19 @@ def _facts(snapshot: EvidenceSnapshot, fact_type: str) -> dict[str, Any]:
 
 class RouteAvailabilityRule:
     rule_id = "g03.route_availability"
-    rule_version = "1.0.0"
+    rule_version = "1.1.0"
     dependencies = (AuditDependency.ROUTE_EDGE, AuditDependency.EVIDENCE_FRESHNESS)
 
     def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
-        route_facts = _facts(context.evidence_snapshot, "ROUTE_MODE_SET")
+        route_facts = route_facts_by_edge(context.evidence_snapshot)
         findings: list[AuditFinding] = []
         for day in context.revision.days:
-            for index, left in enumerate(day.stops[:-1]):
-                right = day.stops[index + 1]
-                if left.category == "meal_break" or right.category == "meal_break":
-                    continue
+            stops = [stop for stop in day.stops if stop.category != "meal_break"]
+            for left, right in zip(stops, stops[1:]):
                 subject = f"{left.stop_id}->{right.stop_id}"
                 fact = route_facts.get(subject)
-                value = dict(fact.value or {}) if fact else {}
-                both_unavailable = (
-                    not fact
-                    or fact.freshness_status != EvidenceFreshness.FRESH
-                    or (
-                        value.get("walking") != "AVAILABLE"
-                        and value.get("transit") != "AVAILABLE"
-                    )
-                )
-                if both_unavailable:
+                duration = route_minutes(fact, getattr(context, "now", None))
+                if duration is None:
                     findings.append(
                         AuditFinding(
                             finding_id=_finding_id(
@@ -388,8 +387,7 @@ class RouteAvailabilityRule:
                         )
                     )
                     continue
-                duration = value.get("selected_duration_minutes")
-                if isinstance(duration, int) and duration >= 90:
+                if duration >= 90:
                     findings.append(
                         AuditFinding(
                             finding_id=_finding_id(
@@ -422,7 +420,7 @@ class RouteAvailabilityRule:
 
 class CalendarEvidenceRule:
     rule_id = "g03.calendar_evidence"
-    rule_version = "1.0.0"
+    rule_version = "1.1.0"
     dependencies = (AuditDependency.TIME_WINDOW, AuditDependency.EVIDENCE_FRESHNESS)
 
     def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
@@ -432,54 +430,63 @@ class CalendarEvidenceRule:
                     finding_id=_finding_id(context, self.rule_id, "day-index"),
                     rule_id=self.rule_id,
                     rule_version=self.rule_version,
-                    status=AuditStatus.SATISFIED,
+                    status=AuditStatus.UNKNOWN,
                     severity=AuditSeverity.INFO,
                     reason_code="DAY_INDEX_HAS_NO_DATE_HARD_CONCLUSION",
                     message="未使用真实日期，不生成天气或日期闭馆硬结论",
                 )
             ]
+        # This runtime has no authoritative opening/booking adapter. A fresh
+        # untyped payload is not proof that the place is open on the trip date.
         opening = _facts(context.evidence_snapshot, "OPENING_HOURS")
         findings: list[AuditFinding] = []
         for day in context.revision.days:
+            stops = [stop for stop in day.stops if stop.category != "meal_break"]
+            if stops:
+                findings.append(AuditFinding(
+                    finding_id=_finding_id(context, self.rule_id, str(day.day_index)),
+                    rule_id=self.rule_id, rule_version=self.rule_version,
+                    status=AuditStatus.UNKNOWN, severity=AuditSeverity.LOW,
+                    reason_code="OPENING_CONFIRMATION_REQUIRED",
+                    message="这一天的开放和预约安排尚未获得可靠核对。",
+                    affected_days=[day.day_index], affected_stop_ids=[stop.stop_id for stop in stops],
+                    evidence_fact_ids=[opening[stop.place_id].fact_id for stop in stops if stop.place_id in opening],
+                    repairable=False, confirmation_action="出发前确认开放和预约安排",
+                ))
+        return findings
+
+
+class RepeatVisitRule:
+    rule_id = "experience.repeat_visit"
+    rule_version = "1.0.0"
+    dependencies = (AuditDependency.DAY_ORDER,)
+
+    def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
+        findings = []
+        for day in context.revision.days:
+            by_place: dict[str, list[ItineraryStop]] = {}
             for stop in day.stops:
-                if stop.category == "meal_break":
+                if stop.resolution_status != ResolutionStatus.AUTO_MATCHED or stop.category in {"hotel", "meal_break", "dining"}:
                     continue
-                fact = opening.get(stop.place_id)
-                if fact is None or fact.freshness_status != EvidenceFreshness.FRESH:
-                    findings.append(
-                        AuditFinding(
-                            finding_id=_finding_id(
-                                context, self.rule_id, stop.stop_id
-                            ),
-                            rule_id=self.rule_id,
-                            rule_version=self.rule_version,
-                            status=AuditStatus.UNKNOWN,
-                            severity=AuditSeverity.MEDIUM,
-                            reason_code="OPENING_CONFIRMATION_REQUIRED",
-                            message=f"{stop.raw_name}在该日期的开放安排还需确认",
-                            affected_days=[day.day_index],
-                            affected_stop_ids=[stop.stop_id],
-                            evidence_fact_ids=[fact.fact_id] if fact else [],
-                            repairable=False,
-                            confirmation_action="出发前确认开放和预约安排",
-                        )
-                    )
-        return findings or [
-            AuditFinding(
-                finding_id=_finding_id(context, self.rule_id, "satisfied"),
-                rule_id=self.rule_id,
-                rule_version=self.rule_version,
-                status=AuditStatus.SATISFIED,
-                severity=AuditSeverity.INFO,
-                reason_code="DATE_FACTS_AVAILABLE",
-                message="日期相关事实可用",
-            )
-        ]
+                by_place.setdefault(stop.place_id, []).append(stop)
+            for place_id, stops in by_place.items():
+                if len(stops) < 2:
+                    continue
+                findings.append(AuditFinding(
+                    finding_id=_finding_id(context, self.rule_id, f"{day.day_index}:{place_id}"),
+                    rule_id=self.rule_id, rule_version=self.rule_version,
+                    status=AuditStatus.VIOLATED, severity=AuditSeverity.LOW,
+                    reason_code="REPEATED_VISIT_REVIEW",
+                    message=f"当天安排了多次到访{stops[0].raw_name}；若是有意再次到访可以保留，否则可合并安排，减少往返。",
+                    affected_days=[day.day_index], affected_stop_ids=[stop.stop_id for stop in stops],
+                    repairable=False,
+                ))
+        return findings
 
 
 class StayCommuteRule:
     rule_id = "g03.stay_commute"
-    rule_version = "1.0.0"
+    rule_version = "1.1.0"
     dependencies = (AuditDependency.HOTEL, AuditDependency.ROUTE_EDGE)
 
     def evaluate(self, context: AuditRuleContext) -> list[AuditFinding]:
@@ -492,7 +499,21 @@ class StayCommuteRule:
         for fact in facts:
             value = dict(fact.value or {})
             maximum = value.get("max_single_leg_minutes")
-            if isinstance(maximum, int) and maximum > 75:
+            now = getattr(context, "now", None) or datetime.now(timezone.utc)
+            if (
+                fact.freshness_status != EvidenceFreshness.FRESH
+                or value.get("complete") is not True
+                or type(maximum) is not int or maximum <= 0
+                or (fact.valid_until is not None and fact.valid_until <= now)
+            ):
+                findings.append(AuditFinding(
+                    finding_id=_finding_id(context, self.rule_id, fact.subject_id),
+                    rule_id=self.rule_id, rule_version=self.rule_version,
+                    status=AuditStatus.UNKNOWN, severity=AuditSeverity.LOW,
+                    reason_code="STAY_COMMUTE_UNKNOWN", message="住宿往返有部分路线尚未核对。",
+                    evidence_fact_ids=[fact.fact_id], repairable=False,
+                ))
+            elif maximum > 75:
                 findings.append(
                     AuditFinding(
                         finding_id=_finding_id(
@@ -562,6 +583,7 @@ def run_g03_audit(
             MealBreakRule(),
             RouteAvailabilityRule(),
             ScheduleFeasibilityRule(),
+            RepeatVisitRule(),
             CalendarEvidenceRule(),
             StayCommuteRule(),
             ProviderFailureRule(),
@@ -601,8 +623,9 @@ def _friendly(finding: AuditFinding) -> tuple[str, str]:
     day = finding.affected_days[0] + 1 if finding.affected_days else None
     mapping = {
         "SCHEDULE_CONFLICT": ("这段时间来不及", finding.message),
+        "SCHEDULE_TIME_OVERLAP": ("两处活动的时间重叠", finding.message),
         "SCHEDULE_ROUTE_UNKNOWN": ("确认两站之间的时间", "路线时间尚不完整，暂时不能判断下一站是否来得及。"),
-        "SCHEDULE_TIMES_MISSING": ("补充活动时间", "有些活动还没有开始时间或停留时长，暂时不能判断当天是否来得及。"),
+        "SCHEDULE_TIMES_MISSING": ("活动时间尚未核对", "目前按地点先后顺序整理，未提供的活动时间和停留时长尚未核对。"),
         "SCHEDULE_TIMES_INCONSISTENT": ("确认活动时长", "开始、结束时间与停留时长不一致，请调整后重新检查。"),
         "PLACE_CONFIRMATION_REQUIRED": (
             "确认地点",
@@ -628,6 +651,8 @@ def _friendly(finding: AuditFinding) -> tuple[str, str]:
             "留意住宿通勤",
             "当前住宿有一段已核对的通勤时间较长。",
         ),
+        "STAY_COMMUTE_UNKNOWN": ("住宿往返尚未核对完整", "部分住宿往返路线暂缺，不能据此判断全程通勤是否合适。"),
+        "REPEATED_VISIT_REVIEW": ("留意当天重复到访", finding.message),
         "PROVIDER_RESULT_UNAVAILABLE": (
             "稍后再确认",
             "有一部分信息暂时没有得到可靠结果。",
@@ -656,12 +681,25 @@ def check_route_basis(finding: AuditFinding, snapshot: EvidenceSnapshot, *, rout
              and fact.fact_type in {"ROUTE_MODE_SET", "STAY_COMMUTE"}]
     depends = bool(facts) or finding.reason_code in {
         "SCHEDULE_CONFLICT", "SCHEDULE_ROUTE_UNKNOWN", "ROUTE_CONFIRMATION_REQUIRED",
-        "ROUTE_TOO_LONG", "STAY_COMMUTE_LONG",
+        "ROUTE_TOO_LONG", "STAY_COMMUTE_LONG", "STAY_COMMUTE_UNKNOWN",
     } or "ROUTE" in str(finding.input_values.get("category", ""))
     observed_at = now or datetime.now(timezone.utc)
+
+    def usable(fact):
+        if fact.fact_type == "ROUTE_MODE_SET":
+            return route_minutes(fact, observed_at) is not None
+        value = fact.value if isinstance(fact.value, dict) else {}
+        valid_until, valid_from = fact.valid_until, getattr(fact, "valid_from", None)
+        return (
+            value.get("complete") is True
+            and type(value.get("max_single_leg_minutes")) is int and value["max_single_leg_minutes"] > 0
+            and isinstance(valid_until, datetime) and valid_until.tzinfo is not None and valid_until > observed_at
+            and (valid_from is None or (isinstance(valid_from, datetime) and valid_from.tzinfo is not None and valid_from <= observed_at))
+        )
+
     current = not depends or (routes_current and bool(facts) and all(
         fact.freshness_status == EvidenceFreshness.FRESH
-        and (fact.valid_until is None or fact.valid_until > observed_at) for fact in facts))
+        and usable(fact) for fact in facts))
     if finding.reason_code == "SCHEDULE_CONFLICT" and "shift_changes" not in finding.input_values:
         # Historical uniform-shift reports remain readable, but need a new check
         # before they can propose or adopt a plan under the current semantics.
@@ -709,7 +747,9 @@ def public_checks(
         ),
         key=sort_key,
     )
-    selected = unresolved[:3]
+    scope_reasons = {"SCHEDULE_TIMES_MISSING", "DAY_INDEX_HAS_NO_DATE_HARD_CONCLUSION"}
+    scope_findings = [finding for finding in unresolved if finding.reason_code in scope_reasons]
+    selected = [finding for finding in unresolved if finding.reason_code not in scope_reasons][:3]
     items: list[PublicTripCheckItem] = []
     for finding in selected:
         token = check_tokens.get(finding.finding_id)
@@ -745,12 +785,21 @@ def public_checks(
         )
         for finding in unresolved
     )
+    scope_message = ""
+    if scope_findings:
+        missing_time = any(item.reason_code == "SCHEDULE_TIMES_MISSING" for item in scope_findings)
+        missing_date = any(item.reason_code == "DAY_INDEX_HAS_NO_DATE_HARD_CONCLUSION" for item in scope_findings)
+        limitations = []
+        if missing_time:
+            limitations.append("未提供的活动时间和停留时长")
+        if missing_date:
+            limitations.append("具体日期的开放、预约及天气")
+        scope_message = "；".join(limitations) + "尚未核对。"
     return PublicTripChecksView(
         status="STILL_NEEDS_CONFIRMATION" if needs_confirmation else "READY",
         message=(
-            "还有内容需要确认，已先列出最值得处理的三项"
-            if unresolved
-            else "当前没有需要优先处理的问题"
+            ("已列出当前最值得处理的安排。" if selected else "当前没有其他需要优先处理的问题。") + scope_message
+            if scope_message else ("还有内容需要确认，已先列出最值得处理的三项" if unresolved else "当前没有需要优先处理的问题")
         ),
         items=items,
         remaining_must_adjust=max(total_must - visible_must, 0),
@@ -773,16 +822,15 @@ def command_for_finding(finding: AuditFinding, result: UserFacingTripResult | No
     if finding.reason_code != "MEAL_BREAK_MISSING" or not finding.affected_days:
         raise ValueError("this check does not have a safe automatic preview")
     day_index = finding.affected_days[0] + 1
+    cards = result.days[day_index - 1].activities if result and day_index <= len(result.days) else []
+    position = max(1, len(cards) // 2) if cards else 1
     return ActivityInsertCommand(
         command_type="ACTIVITY_INSERT",
         day_index=day_index,
-        position=1,
-        name="午餐时间",
+        position=position,
+        name="用餐休息",
         category="用餐安排",
         area_or_address="当天活动附近再选择",
-        time_hint="12:30",
-        start_time="12:30",
-        visit_duration_minutes=45,
         timing_source="SUGGESTED",
     )
 
@@ -815,8 +863,8 @@ def preview_for_finding(
     return PublicChangePreview(
         change_token=change_token,
         title="加入用餐休息",
-        summary=f"在 {label} 的前两处活动之间预留午餐时间。",
+        summary=f"在 {label} 的活动之间补一段用餐休息，时间与餐厅由你按当天安排选择。",
         affected_days=[label],
         before=["当天没有明确用餐停留"],
-        after=["12:30 预留午餐时间，具体餐厅仍可稍后选择"],
+        after=["加入用餐休息；不指定时刻或停留时长，具体餐厅仍可稍后选择"],
     )

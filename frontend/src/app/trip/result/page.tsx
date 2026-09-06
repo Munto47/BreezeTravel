@@ -32,6 +32,7 @@ import GenerationStages from './generation-stages'
 import ItineraryPngExport from './itinerary-png-export'
 import ItineraryWorkspace from './itinerary-workspace'
 import MapStayWorkspace from './map-stay-workspace'
+import JourneySuggestions from './journey-suggestions'
 import ResultNavigation from './result-navigation'
 import { type ResultViewId } from './result-presentation'
 import {
@@ -814,6 +815,22 @@ export default function TripResultPage() {
                 >
                   {accountSaved ? '已保存到账号' : '保存到账号'}
                 </button>
+                <JourneySuggestions
+                  resource={trip.resource}
+                  etag={trip.etag}
+                  result={result}
+                  disabled={disabled || dirty}
+                  checks={trip.checks}
+                  checking={trip.checking}
+                  checksError={trip.checksError || ''}
+                  map={displayMap}
+                  stay={displayStay}
+                  onCommand={trip.workspaceCommand}
+                  onRetry={() => void trip.retryChecks()}
+                  onPreview={openPreview}
+                  onLocate={locateFinding}
+                  onStay={token => void trip.selectStay(token)}
+                />
                 <details className="e-more">
                   <summary aria-label="更多行程操作">
                     <MoreHorizontal aria-hidden="true" />

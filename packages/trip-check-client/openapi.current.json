@@ -90,6 +90,40 @@
         "title": "AccountTripListView",
         "type": "object"
       },
+      "ActivityAlternativeView": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
+          },
+          "name": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "category"
+        ],
+        "title": "ActivityAlternativeView",
+        "type": "object"
+      },
       "ActivityCardView": {
         "additionalProperties": false,
         "properties": {
@@ -119,6 +153,17 @@
           "category": {
             "title": "Category",
             "type": "string"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
           },
           "end_time": {
             "anyOf": [
@@ -270,6 +315,18 @@
             "minLength": 1,
             "title": "Category",
             "type": "string"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "City"
           },
           "command_type": {
             "const": "ACTIVITY_INSERT",
@@ -981,6 +1038,122 @@
           }
         },
         "title": "DataConsentView",
+        "type": "object"
+      },
+      "DiningCandidateView": {
+        "additionalProperties": false,
+        "properties": {
+          "area_or_address": {
+            "title": "Area Or Address",
+            "type": "string"
+          },
+          "candidate_token": {
+            "title": "Candidate Token",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "position": {
+            "$ref": "#/components/schemas/GCJ02Position"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_token",
+          "name",
+          "category",
+          "area_or_address",
+          "position",
+          "reason"
+        ],
+        "title": "DiningCandidateView",
+        "type": "object"
+      },
+      "DiningCandidatesView": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/DiningCandidateView"
+            },
+            "maxItems": 3,
+            "title": "Candidates",
+            "type": "array"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AVAILABLE",
+              "EMPTY",
+              "UNAVAILABLE",
+              "NEEDS_CONFIRMATION"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "DiningCandidatesView",
+        "type": "object"
+      },
+      "DiningInsertCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "after_activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "After Activity Token",
+            "type": "string"
+          },
+          "candidate_token": {
+            "maxLength": 6000,
+            "minLength": 40,
+            "title": "Candidate Token",
+            "type": "string"
+          },
+          "command_type": {
+            "const": "DINING_INSERT",
+            "title": "Command Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command_type",
+          "after_activity_token",
+          "candidate_token"
+        ],
+        "title": "DiningInsertCommand",
+        "type": "object"
+      },
+      "DiningSearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_token": {
+            "maxLength": 80,
+            "minLength": 20,
+            "title": "Activity Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "activity_token"
+        ],
+        "title": "DiningSearchRequest",
         "type": "object"
       },
       "EmailLoginRequest": {
@@ -2339,9 +2512,16 @@
             "type": "string"
           },
           "max_single_leg_minutes": {
-            "minimum": 0.0,
-            "title": "Max Single Leg Minutes",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Single Leg Minutes"
           },
           "name": {
             "title": "Name",
@@ -2369,7 +2549,6 @@
           "category",
           "area_or_address",
           "commute_summary",
-          "max_single_leg_minutes",
           "transfer_count",
           "reason",
           "available_actions"
@@ -2643,6 +2822,13 @@
               "$ref": "#/components/schemas/ActivityCardView"
             },
             "title": "Activities",
+            "type": "array"
+          },
+          "alternatives": {
+            "items": {
+              "$ref": "#/components/schemas/ActivityAlternativeView"
+            },
+            "title": "Alternatives",
             "type": "array"
           },
           "label": {
@@ -4581,6 +4767,7 @@
                     "ACTIVITY_TIMES_SHIFT": "#/components/schemas/ActivityTimesShiftCommand",
                     "ACTIVITY_TIME_SET": "#/components/schemas/ActivityTimeSetCommand",
                     "ASSUMPTION_SET": "#/components/schemas/AssumptionSetCommand",
+                    "DINING_INSERT": "#/components/schemas/DiningInsertCommand",
                     "PLACE_CONFIRM": "#/components/schemas/PlaceConfirmCommand",
                     "PLACE_REPLACE": "#/components/schemas/PlaceReplaceCommand",
                     "UNDO": "#/components/schemas/UndoCommand"
@@ -4590,6 +4777,9 @@
                 "oneOf": [
                   {
                     "$ref": "#/components/schemas/ActivityInsertCommand"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DiningInsertCommand"
                   },
                   {
                     "$ref": "#/components/schemas/ActivityDeleteCommand"
@@ -4651,6 +4841,68 @@
           }
         },
         "summary": "Apply Trip Understanding Command",
+        "tags": [
+          "trip-understandings-v3"
+        ]
+      }
+    },
+    "/api/v3/trip-understandings/{public_resource_id}/dining-candidates": {
+      "post": {
+        "operationId": "find_dining_candidates_api_v3_trip_understandings__public_resource_id__dining_candidates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "public_resource_id",
+            "required": true,
+            "schema": {
+              "title": "Public Resource Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "default": "",
+              "title": "Authorization",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiningSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiningCandidatesView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Find Dining Candidates",
         "tags": [
           "trip-understandings-v3"
         ]

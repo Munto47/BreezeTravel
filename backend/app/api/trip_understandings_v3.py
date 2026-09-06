@@ -13,6 +13,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.config import get_settings
 from app.trip_understanding.anonymous import AnonymousDailyLimitError
 from app.trip_understanding.candidates import CandidateSearchRequest, CandidateSearchView, issue_candidate, search_candidates
+from app.trip_understanding.dining import (
+    DiningSearchRequest, DiningCandidatesView, DiningCandidateView, dining_binding, search_dining, valid_anchor,
+)
 from app.trip_understanding.capability import capability_hash, mint_capability
 from app.trip_understanding.errors import (
     CapabilityExpiredError,
@@ -102,6 +105,12 @@ RepositoryDep = Annotated[
 
 def get_place_candidate_search():
     return search_candidates
+
+
+def get_dining_candidate_search():
+    return search_dining
+
+
 OptionalUserDep = Annotated[str | None, Depends(get_optional_user)]
 CurrentUserDep = Annotated[str, Depends(get_current_user)]
 RecentUserDep = Annotated[str, Depends(get_recent_user)]
@@ -374,7 +383,7 @@ async def find_place_candidates(
     card = next((card for day in stored.result.days for card in day.activities if card.activity_token == body.activity_token), None)
     if card is None:
         raise HTTPException(status_code=409, detail={"code": "ACTIVITY_CHANGED", "message": "卡片已调整，请刷新后重试"})
-    city = next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
+    city = card.city or next((item.value.removeprefix("暂按 ") for item in stored.result.assumptions if item.key == "destination"), "")
     places = await search(city=city, query=body.query, category_hint=card.category)
     response.headers["Cache-Control"] = "no-store"
     if places is None:
@@ -383,6 +392,36 @@ async def find_place_candidates(
     candidates = [issue_candidate(place, public_resource_id=public_resource_id,
         activity_token=body.activity_token, expected_etag=stored.opaque_etag, now=now) for place in places]
     return CandidateSearchView(status="AVAILABLE" if candidates else "EMPTY", candidates=candidates)
+
+
+@router.post("/{public_resource_id}/dining-candidates", response_model=DiningCandidatesView)
+async def find_dining_candidates(
+    public_resource_id: str, body: DiningSearchRequest, request: Request,
+    response: Response, repository: RepositoryDep, current_user: OptionalUserDep,
+    search=Depends(get_dining_candidate_search),
+):
+    resource = await _authorize(public_resource_id,
+        cookie_value=request.cookies.get(get_settings().trip_understanding_cookie_name),
+        user_id=current_user, repository=repository)
+    response.headers["Cache-Control"] = "no-store"
+    try:
+        plan, etag = await repository.get_current_place_plan(resource)
+    except ResourceNotReadyError:
+        raise HTTPException(status_code=409, detail={"code": "NOT_READY", "message": "行程还在整理中"}) from None
+    response.headers["ETag"] = f'"{etag}"'
+    anchor = next((stop for stop in plan.stops if stop.activity_token == body.activity_token), None)
+    if not valid_anchor(anchor):
+        return DiningCandidatesView(status="NEEDS_CONFIRMATION", message="先确认一个地点，再查找附近餐饮。")
+    excluded = {stop.canonical_place_id for stop in plan.stops if stop.day_index == anchor.day_index and stop.canonical_place_id}
+    places = await search(anchor=anchor, excluded_ids=excluded)
+    if places is None:
+        return DiningCandidatesView(status="UNAVAILABLE", message="附近餐饮暂时无法查询，可以稍后重试。")
+    now = datetime.now(timezone.utc)
+    candidates = [DiningCandidateView(**issue_candidate(place, public_resource_id=public_resource_id,
+        activity_token=dining_binding(body.activity_token), expected_etag=etag, now=now).model_dump(),
+        reason=f"在{anchor.name}附近；营业情况请到店前确认。") for place in places[:3]]
+    return DiningCandidatesView(status="AVAILABLE" if candidates else "EMPTY",
+        message="附近餐饮" if candidates else "暂未找到合适的附近餐饮，可换一站再看看。", candidates=candidates)
 
 
 @router.get(

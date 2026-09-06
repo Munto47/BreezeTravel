@@ -53,6 +53,7 @@ from app.trip_understanding.models import (
     UserFacingTripResult,
 )
 from app.trip_understanding.pipeline import canonical_sha256
+from app.trip_understanding.stay import assess_stay_commute, load_stay_commute_assessment, stay_plan_spans_cities
 
 
 _COMMAND_ADAPTER = TypeAdapter(TripUnderstandingCommand)
@@ -359,12 +360,14 @@ class PostgresG03RepositoryMixin:
             raise IdempotencyConflictError("itinerary plan binding changed")
         return stored["plan_ref_id"]
 
-    @staticmethod
     async def _stay_anchor(
+        self,
         conn: Any,
         understanding_id: str,
         understanding_revision: int,
     ) -> dict[str, Any]:
+        if stay_plan_spans_cities(await self._read_map_plan(conn, understanding_id, understanding_revision)):
+            return {}
         row = await conn.fetchrow(
             """
             SELECT s.selected_name, s.selected_brand, s.selected_address,
@@ -562,7 +565,7 @@ class PostgresG03RepositoryMixin:
             )
         stay = await conn.fetchrow(
             """
-            SELECT c.max_single_leg_minutes, c.transfer_count,
+            SELECT c.candidate_id, c.missing_leg_count,
                    c.provider_binding_json, s.selected_name
             FROM trip_stay_selections s
             JOIN trip_plan_revision_refs p ON p.plan_ref_id = s.target_plan_ref_id
@@ -573,8 +576,10 @@ class PostgresG03RepositoryMixin:
             understanding_id,
             understanding_revision,
         )
-        if stay is not None:
+        if stay is not None and not stay_plan_spans_cities(await self._read_map_plan(conn, understanding_id, understanding_revision)):
             binding = dict(_json(stay["provider_binding_json"]) or {})
+            commute = await load_stay_commute_assessment(conn, stay["candidate_id"], now=now,
+                expected_missing=int(stay["missing_leg_count"]))
             facts.append(
                 EvidenceFact(
                     fact_id=str(uuid4()),
@@ -584,14 +589,17 @@ class PostgresG03RepositoryMixin:
                     fact_type="STAY_COMMUTE",
                     value={
                         "name": stay["selected_name"],
-                        "max_single_leg_minutes": stay["max_single_leg_minutes"],
-                        "transfer_count": stay["transfer_count"],
+                        "max_single_leg_minutes": commute.maximum_minutes,
+                        "transfer_count": commute.transfer_count,
+                        "complete": commute.complete,
+                        "missing_leg_count": commute.missing_leg_count,
                     },
                     provider="route",
-                    observed_at=now,
+                    observed_at=commute.observed_at or now,
+                    valid_until=commute.valid_until,
                     response_hash=canonical_sha256(binding),
-                    confidence=1.0,
-                    freshness_status=EvidenceFreshness.FRESH,
+                    confidence=1.0 if commute.complete else 0.0,
+                    freshness_status=EvidenceFreshness.FRESH if commute.complete else EvidenceFreshness.UNAVAILABLE,
                 )
             )
             receipt_values.append(binding)
@@ -1890,8 +1898,11 @@ class InMemoryG03RepositoryMixin:
         selection = self.stay_selections.get(
             (understanding_id, understanding_revision)
         )
-        if selection is not None:
+        if selection is not None and not stay_plan_spans_cities(self._memory_plan(understanding_id, understanding_revision)):
             view = selection["view"]
+            scored = selection.get("scored")
+            commute = assess_stay_commute(scored.legs if scored else [], now=now,
+                expected_missing=scored.missing_leg_count if scored else 1)
             facts.append(
                 EvidenceFact(
                     fact_id=str(uuid4()),
@@ -1900,14 +1911,17 @@ class InMemoryG03RepositoryMixin:
                     subject_id=itinerary.workspace_id,
                     fact_type="STAY_COMMUTE",
                     value={
-                        "max_single_leg_minutes": view.max_single_leg_minutes,
-                        "transfer_count": view.transfer_count,
+                        "max_single_leg_minutes": commute.maximum_minutes,
+                        "transfer_count": commute.transfer_count,
+                        "complete": commute.complete,
+                        "missing_leg_count": commute.missing_leg_count,
                     },
                     provider="route",
-                    observed_at=now,
+                    observed_at=commute.observed_at or now,
+                    valid_until=commute.valid_until,
                     response_hash=canonical_sha256(view.model_dump(mode="json")),
-                    confidence=1.0,
-                    freshness_status=EvidenceFreshness.FRESH,
+                    confidence=1.0 if commute.complete else 0.0,
+                    freshness_status=EvidenceFreshness.FRESH if commute.complete else EvidenceFreshness.UNAVAILABLE,
                 )
             )
         return EvidenceSnapshot(

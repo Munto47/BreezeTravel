@@ -50,6 +50,7 @@ export interface KnowledgeSuggestionView {
 }
 
 export interface ActivityCardView {
+  city?: string | null
   photo_url?: string | null
   activity_token: string
   name: string
@@ -126,7 +127,7 @@ export interface StayCandidateView {
   category: string
   area_or_address: string
   commute_summary: string
-  max_single_leg_minutes: number
+  max_single_leg_minutes: number | null
   transfer_count: number
   reason: string
   available_actions: Array<'CHOOSE_STAY'>
@@ -150,7 +151,7 @@ export interface UserFacingTripResult {
   is_demo?: boolean
   status: 'READY' | 'PARTIAL_RESULT' | 'BASIC_ONLY' | 'LIMITED'
   assumptions: AssumptionChipView[]
-  days: Array<{ label: string; activities: ActivityCardView[] }>
+  days: Array<{ label: string; activities: ActivityCardView[]; alternatives?: Array<{name: string; category: string; city?: string | null}> }>
   map: {
     status:
       | 'PREPARING'
@@ -173,6 +174,7 @@ export interface UserFacingTripResult {
 }
 
 export type TripUnderstandingCommand =
+  | { command_type: 'DINING_INSERT'; after_activity_token: string; candidate_token: string }
   | {
       command_type: 'ACTIVITY_TIMES_APPLY'
       changes: Array<{
@@ -197,6 +199,7 @@ export type TripUnderstandingCommand =
     }
   | {
       command_type: 'ACTIVITY_INSERT'
+      city?: string | null
       day_index: number
       position: number
       name: string
@@ -765,6 +768,22 @@ export async function queryTripPlaceCandidates(
   )
   if (!response.ok) throw new Error('PLACE_SEARCH_UNAVAILABLE')
   return response.json() as Promise<PlaceCandidatesView>
+}
+
+export interface DiningCandidatesView {
+  status: 'AVAILABLE' | 'EMPTY' | 'UNAVAILABLE' | 'NEEDS_CONFIRMATION'
+  message: string
+  candidates: Array<PlaceCandidateView & { reason: string }>
+}
+
+export async function queryTripDiningCandidates(resource: string, activity: string, signal?: AbortSignal): Promise<{body: DiningCandidatesView; etag: string}> {
+  const response = await fetch(`/api/v3/trip-understandings/${encodeURIComponent(resource)}/dining-candidates`, {
+    method: 'POST', credentials: 'include', signal,
+    headers: {'Content-Type': 'application/json', ...authorizationHeaders()},
+    body: JSON.stringify({activity_token: activity}),
+  })
+  if (!response.ok) throw new Error('DINING_SEARCH_UNAVAILABLE')
+  return {body: await response.json(), etag: response.headers.get('ETag') || ''}
 }
 
 export async function requestTripUnderstandingMap(

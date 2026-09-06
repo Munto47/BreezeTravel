@@ -17,6 +17,7 @@ from app.trip_understanding.errors import (
 )
 from app.trip_understanding.models import (
     ActivityCardView,
+    ActivityAlternativeView,
     ActivityRole,
     AssumptionChipView,
     CompiledActivity,
@@ -252,6 +253,32 @@ def resolution_cities(source_text: str, destination_name: str) -> tuple[str, ...
         return (destination_name,)
     source_cities = _ordered_deep_cities(source_text)
     return source_cities or (destination_name,)
+
+
+def _model_activity_cities(source_text: str, proposal: InferenceProposal, mention) -> tuple[str, ...]:
+    """Use an activity's validated city; never search all cities and pick one."""
+    if mention.city_hint:
+        return (mention.city_hint,)
+    if mention.city_evidence is not None:
+        return ("目的地待确认",)
+    destination = proposal.destination_name.strip().removesuffix("市")
+    if destination not in DOMESTIC_CITY_NAMES:
+        return ("目的地待确认",)
+    destination_mentions = list(re.finditer(re.escape(destination), source_text))
+    if destination_mentions and all(
+        any(item.span_start <= match.start() < item.span_end for item in proposal.mentions)
+        for match in destination_mentions
+    ):
+        return ("目的地待确认",)
+    # Older/single-city model responses remain compatible. Explicitly mixed
+    # cities outside POI names require each activity to carry its own evidence.
+    for city in DOMESTIC_CITY_NAMES:
+        if city == destination:
+            continue
+        for match in re.finditer(re.escape(city), source_text):
+            if not any(item.span_start <= match.start() < item.span_end for item in proposal.mentions):
+                return ("目的地待确认",)
+    return (destination,)
 
 
 def canonical_sha256(value: object) -> str:
@@ -894,22 +921,45 @@ class EvidenceCompiler:
         }
 
 
+def _public_activity_city(activity: ResolvedActivity) -> str | None:
+    mention = activity.compiled.mention
+    candidates = [mention.city_hint]
+    if activity.place is not None:
+        candidates = [activity.place.provider_binding.get("city"),
+                      activity.resolver_receipt.get("selected_city"),
+                      activity.resolver_receipt.get("requested_city"), *candidates]
+    for candidate in candidates:
+        if isinstance(candidate, str):
+            city = candidate.strip().removesuffix("市")
+            if re.fullmatch(r"[\u4e00-\u9fff]{2,10}", city) and city != "目的地待确认":
+                return city
+    return None
+
+
 class PublicResultProjector:
     def project(
         self,
         destination_name: str,
         destination_basis: DestinationBasis,
         activities: list[ResolvedActivity],
+        *,
+        day_labels: dict[int, str] | None = None,
+        day_count: int = 0,
+        include_alternatives: bool = False,
     ) -> UserFacingTripResult:
         planned = [
             activity
             for activity in activities
             if activity.compiled.mention.role == ActivityRole.PLANNED
         ]
-        day_count = max(
+        activity_day_count = max(
             (activity.compiled.mention.day_index or 1 for activity in planned),
             default=1,
         )
+        alternatives = [activity.compiled.mention for activity in activities
+                        if include_alternatives and activity.compiled.mention.role == ActivityRole.OPTIONAL]
+        day_count = min(14, max(day_count, activity_day_count, max(day_labels or {}, default=0),
+                               max((mention.day_index or 1 for mention in alternatives), default=1)))
         day_views: list[TripDayView] = []
         for day_index in range(1, day_count + 1):
             cards = []
@@ -951,13 +1001,27 @@ class PublicResultProjector:
                         ),
                         area_or_address=place.area_or_address if place else "地点待确认",
                         photo_url=place.photo_url if place else None,
+                        city=_public_activity_city(item),
                         time_hint=mention.time_hint,
                         **timing_values(mention),
                         status="READY" if place else "NEEDS_CONFIRMATION",
                         available_actions=["VIEW_DETAILS", "REPLACE", "DELETE", "MOVE"],
                     )
                 )
-            day_views.append(TripDayView(label=f"Day {day_index}", activities=cards))
+            choices = []
+            seen_choices: set[tuple[str, str | None]] = set()
+            for mention in alternatives:
+                name = mention.atomic_place_name
+                if ((mention.day_index or 1) != day_index or not name
+                    or atomic_place_rejection_reason(name) is not None):
+                    continue
+                identity = (name, mention.city_hint)
+                if identity in seen_choices:
+                    continue
+                seen_choices.add(identity)
+                choices.append(ActivityAlternativeView(name=name, category=mention.category_hint or "地点", city=mention.city_hint))
+            day_views.append(TripDayView(label=(day_labels or {}).get(day_index, f"Day {day_index}"),
+                                        activities=cards, alternatives=choices))
         resolved_count = sum(item.place is not None for item in planned)
         if planned and resolved_count == len(planned):
             result_status = "READY"
@@ -1099,6 +1163,8 @@ class TripUnderstandingPipeline:
                 ),
                 False,
             )
+        if outcome.place is not None:
+            outcome = outcome.model_copy(update={"receipt": {**outcome.receipt, "requested_city": city}})
         return outcome, False
 
     async def _resolve_place_across_cities(
@@ -1235,6 +1301,8 @@ class TripUnderstandingPipeline:
             )
         search_cities = ((proposal.destination_name.removesuffix("市"),) if model_meaning
                          else resolution_cities(source_text, proposal.destination_name))
+        projection_options = ({"day_labels": proposal.day_labels, "day_count": proposal.day_count,
+                               "include_alternatives": True} if model_meaning else {})
         compiled, claims, compiler_receipt = self.compiler.compile(source_text, proposal)
         confirmation_activity_ids: set[str] = set()
         cancellation_pending_activity_ids: set[str] = set()
@@ -1332,6 +1400,7 @@ class TripUnderstandingPipeline:
             proposal.destination_name,
             proposal.destination_basis,
             draft_activities,
+            **projection_options,
         )
         if proposal.day_labels:
             draft_days = [
@@ -1409,8 +1478,10 @@ class TripUnderstandingPipeline:
                 resolution_slots.append(("BUDGET_LIMITED", None, False, ""))
                 continue
             attempted_count += 1
+            item_cities = (_model_activity_cities(source_text, proposal, item.mention)
+                           if model_meaning else search_cities)
             resolution_key = (
-                tuple(city.strip().casefold() for city in search_cities),
+                tuple(city.strip().casefold() for city in item_cities),
                 (item.mention.atomic_place_name or "").strip().casefold(),
                 (item.mention.category_hint or "").strip().casefold(),
             )
@@ -1420,7 +1491,7 @@ class TripUnderstandingPipeline:
                 task = asyncio.create_task(
                     self._resolve_place_across_cities(
                         item,
-                        cities=search_cities,
+                        cities=item_cities,
                         semaphore=semaphore,
                     )
                 )
@@ -1590,6 +1661,7 @@ class TripUnderstandingPipeline:
             proposal.destination_name,
             proposal.destination_basis,
             resolved,
+            **projection_options,
         )
         if proposal.day_labels:
             days = [day.model_copy(update={"label": proposal.day_labels.get(index, day.label)})

@@ -45,6 +45,8 @@ class ProposedMention(ActivityTiming):
     atomic_place_name: str | None = None
     category_hint: str | None = None
     time_hint: str | None = None
+    city_hint: str | None = None
+    city_evidence: str | None = None
 
     @model_validator(mode="after")
     def valid_span(self) -> "ProposedMention":
@@ -61,6 +63,7 @@ class InferenceProposal(StrictModel):
     mentions: list[ProposedMention]
     binding: dict[str, object]
     day_labels: dict[int, str] = Field(default_factory=dict)
+    day_count: int = Field(default=0, ge=0, le=14)
     unprocessed_count: int = Field(default=0, ge=0)
 
 
@@ -179,6 +182,7 @@ class KnowledgeSuggestionView(StrictModel):
 
 class ActivityCardView(ActivityTiming):
     photo_url: str | None = None
+    city: str | None = None
 
     @field_validator("photo_url", mode="before")
     @classmethod
@@ -198,9 +202,16 @@ class ActivityCardView(ActivityTiming):
     )
 
 
+class ActivityAlternativeView(StrictModel):
+    name: str = Field(min_length=1, max_length=40)
+    category: str = Field(min_length=1, max_length=40)
+    city: str | None = None
+
+
 class TripDayView(StrictModel):
     label: str
     activities: list[ActivityCardView]
+    alternatives: list[ActivityAlternativeView] = Field(default_factory=list)
 
 
 class MapReadinessView(StrictModel):
@@ -210,13 +221,13 @@ class MapReadinessView(StrictModel):
 
 
 class StayCandidateView(StrictModel):
+    max_single_leg_minutes: int | None = Field(default=None, ge=0)
     candidate_token: str = Field(min_length=20, max_length=100)
     name: str
     brand: str
     category: str
     area_or_address: str
     commute_summary: str
-    max_single_leg_minutes: int = Field(ge=0)
     transfer_count: int = Field(ge=0)
     reason: str
     available_actions: list[Literal["CHOOSE_STAY"]]
@@ -554,6 +565,7 @@ class CreateOutcome(StrictModel):
 
 
 class ActivityInsertCommand(ActivityTiming):
+    city: str | None = Field(default=None, max_length=40)
     command_type: Literal["ACTIVITY_INSERT"]
     day_index: int = Field(ge=1, le=14)
     position: int = Field(ge=0, le=80)
@@ -638,8 +650,15 @@ class UndoCommand(StrictModel):
     command_type: Literal["UNDO"]
 
 
+class DiningInsertCommand(StrictModel):
+    command_type: Literal["DINING_INSERT"]
+    after_activity_token: str = Field(min_length=20, max_length=80)
+    candidate_token: str = Field(min_length=40, max_length=6000)
+
+
 TripUnderstandingCommand = Annotated[
     ActivityInsertCommand
+    | DiningInsertCommand
     | ActivityDeleteCommand
     | ActivityMoveCommand
     | ActivityTextEditCommand

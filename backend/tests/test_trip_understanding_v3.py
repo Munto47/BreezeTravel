@@ -663,6 +663,7 @@ async def test_multi_city_partial_outage_preserves_successful_place_facts_intern
                 "status": "AUTO_MATCHED",
                 "provider": "multi-city-test",
                 "city": "北京",
+                "requested_city": "北京",
                 "request_sha256": "a" * 64,
                 "response_sha256": "b" * 64,
                 "external_calls": 1,
